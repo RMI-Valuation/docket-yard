@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&amp;family=Source+Sans+3:wght@400;500;600&amp;display=swap">
+  <style>
+    body { margin: 0; background: #ebe7df; }
+    .page { font-family: "Source Sans 3", "Segoe UI", Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.45; color: var(--ink); background: var(--paper); font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+    .serif { font-family: "Newsreader", Georgia, "Times New Roman", serif; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .nav a { color: var(--ink); font-weight: 500; }
+    h2 { font-family: "Source Sans 3", sans-serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 12px 0; }
+    .stat { display: flex; flex-direction: column; gap: 2px; }
+    .stat .n { font-family: "Newsreader", Georgia, serif; font-size: 44px; line-height: 1; font-weight: 500; letter-spacing: -0.02em; }
+    .stat .l { font-size: 13px; color: var(--muted); }
+    .dk { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .row { display: grid; grid-template-columns: 96px 120px minmax(0, 1fr); gap: 16px; padding: 12px 0; border-top: 1px solid var(--hair); align-items: start; }
+    .row-muted { color: var(--muted); font-size: 14px; }
+    .summary { font-family: "Newsreader", Georgia, serif; font-size: 15px; line-height: 1.5; }
+    .moved { display: grid; grid-template-columns: 120px minmax(0, 1fr) 72px 96px; gap: 16px; padding: 10px 0; border-top: 1px solid var(--hair); align-items: baseline; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 4px; font-size: 14px; font-weight: 600; border: 1px solid var(--ink); color: var(--ink); }
+    .btn-primary { background: var(--ink); color: var(--paper); }
+    .search { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 16px; border: 1px solid var(--ink); border-radius: 4px; font-size: 17px; color: var(--muted); background: var(--paper); }
+  </style>
+</helmet>
+
+<div class="page" style="--paper: {{t.paper}}; --ink: {{t.ink}}; --muted: {{t.muted}}; --hair: {{t.hair}}; --tint: {{t.tint}}; --accent: {{accent}}; width: 1440px; min-height: 1900px; margin: 0 auto; box-sizing: border-box;">
+
+  <!-- masthead (same as the sheet) -->
+  <div style="display: flex; align-items: center; justify-content: space-between; height: 64px; padding: 0 56px; border-bottom: 1px solid var(--hair);">
+    <div style="display: flex; align-items: baseline; gap: 28px;">
+      <div class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em;">Docket Yard</div>
+      <div class="nav" style="display: flex; gap: 22px; font-size: 14px;">
+        <a href="#">Dockets</a><a href="#">Decisions</a><a href="#">Parties</a><a href="#">Coverage</a><a href="#">Methodology</a>
+      </div>
+    </div>
+    <a href="#" style="font-size: 14px; color: var(--ink); font-weight: 500;">Sign in</a>
+  </div>
+
+  <!-- lead: what this is, and the lookup -->
+  <div style="padding: 48px 56px 0 56px; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 56px; align-items: end;">
+    <div>
+      <h1 class="serif" style="margin: 0; font-size: 40px; line-height: 1.1; font-weight: 500; letter-spacing: -0.02em; max-width: 760px;">The public record of the Surface Transportation Board, one docket sheet at a time.</h1>
+      <p style="margin: 14px 0 0 0; max-width: 680px; font-size: 16px; color: var(--muted);">Every filing and decision before the Board, organised into proceedings you can follow, with an alert when something moves. Every entry links to the Board’s own PDF.</p>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <span>Docket number — e.g. FD 36873, AB 497</span>
+      </div>
+      <div style="font-size: 13px; color: var(--muted);">Or find a proceeding by <a href="#">party</a> or <a href="#">decision</a>.</div>
+    </div>
+  </div>
+
+  <!-- this week -->
+  <div style="padding: 44px 56px 0 56px;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; border-bottom: 2px solid var(--ink); padding-bottom: 10px;">
+      <div class="serif" style="font-size: 26px; font-weight: 500;">This week at the Board</div>
+      <div style="font-size: 13px; color: var(--muted);">18–25 August 2026 · record checked 25 Aug 2026, 14:35 UTC</div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px; padding: 24px 0 8px 0;">
+      <div class="stat"><span class="n">9</span><span class="l">decisions served</span></div>
+      <div class="stat"><span class="n">36</span><span class="l">filings, in 10 proceedings</span></div>
+      <div class="stat"><span class="n">26</span><span class="l">of them in the UP–NS control case</span></div>
+      <div class="stat"><span class="n">1</span><span class="l">new abandonment exemption with trail-use conditions</span></div>
+    </div>
+  </div>
+
+  <div style="padding: 32px 56px 0 56px; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 56px;">
+    <!-- decisions served -->
+    <div>
+      <h2>Decisions served</h2>
+      <div class="row"><span class="row-muted">21 Aug 2026</span><span class="dk"><a href="#">FD 36873</a></span><div><div class="summary">Ordered that replies to any motion or other pleading filed after Decision No. 30, on any matter not delegated to the Administrative Law Judge, will be due within five calendar days of filing. <span class="row-muted">(abridged)</span></div><div class="row-muted">Chief Counsel · Union Pacific — Control — Norfolk Southern</div></div></div>
+      <div class="row"><span class="row-muted">21 Aug 2026</span><span class="dk"><a href="#">EP 789</a></span><div><div class="summary">Corrected a decision served and published in the Federal Register on August 18, 2026.</div><div class="row-muted">Chief Counsel · corrected decision</div></div></div>
+      <div class="row"><span class="row-muted">19 Aug 2026</span><span class="dk"><a href="#">FD 36873</a></span><div><div class="summary">Granted Applicants’ motion to compel CPKC to make reciprocal productions of data within 30 days and granted in part and denied in part CPKC’s motion to compel.</div><div class="row-muted">Administrative Law Judge · Union Pacific — Control — Norfolk Southern</div></div></div>
+      <div class="row"><span class="row-muted">19 Aug 2026</span><span class="dk"><a href="#">FD 36844</a></span><div><div class="summary">Denied a request by Union Pacific Railroad Company to bifurcate a dispute regarding the scope of facilities encompassed by the Board’s previous grant of terminal trackage rights. <span class="row-muted">(abridged)</span></div><div class="row-muted">Entire Board</div></div></div>
+      <div class="row"><span class="row-muted">18 Aug 2026</span><span class="dk"><a href="#">FD 36873</a></span><div><div class="summary">Removed both proceedings from abeyance, adopted a procedural schedule, directed Applicants to resubmit certain workpapers with unfiltered data, ruled on a pending procedural request, and advised that the Board will address other outstanding motions at a future date.</div><div class="row-muted">Entire Board · also entered in Sub-No. 1</div></div></div>
+      <div class="row"><span class="row-muted">18 Aug 2026</span><span class="dk"><a href="#">EP 789</a></span><div><div class="summary">Revised regulations to clarify certain existing delegations of authority and create certain new delegations for the Board’s Chief Counsel and Chief of Passenger Rail. <span class="row-muted">(abridged)</span></div><div class="row-muted">Entire Board · rulemaking</div></div></div>
+      <div class="row"><span class="row-muted">18 Aug 2026</span><span class="dk"><a href="#">AB 497 (Sub-No. 8X)</a></span><div><div class="summary">Modified a notice of exemption to impose trail use conditions and determined that abandonment of a line will have no significant effect on the quality of the human environment. <span class="row-muted">(abridged)</span></div><div class="row-muted">Chief Counsel · Minnesota Northern Railroad — abandonment exemption — Norman and Polk Counties, Minn.</div></div></div>
+      <div class="row"><span class="row-muted">18 Aug 2026</span><span class="dk"><a href="#">EP 670 (Sub-No. 2)</a></span><div><div class="summary">Provided notice of vacancies on the Rail Energy Transportation Advisory Committee and solicited nominations.</div><div class="row-muted">Chief Counsel</div></div></div>
+      <div style="border-top: 1px solid var(--hair); padding: 14px 0;"><a href="#" style="font-weight: 500;">All decisions, newest first</a></div>
+    </div>
+
+    <!-- rail -->
+    <div style="display: flex; flex-direction: column; gap: 32px;">
+      <div style="border: 1px solid var(--hair); border-radius: 4px; padding: 18px;">
+        <h2>Follow a proceeding</h2>
+        <p style="margin: 0; font-size: 14px; line-height: 1.5;">An email when anything is filed or decided in a docket you choose. No tracking, no open receipts, one-click unsubscribe. An account is only an email address.</p>
+        <a href="#" class="btn btn-primary" style="margin-top: 14px;">Set up an alert</a>
+      </div>
+      <div>
+        <h2>What this is</h2>
+        <p style="margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted);">Docket Yard is an independent public record, operated by RMI Valuation, LLC. It is not affiliated with the Surface Transportation Board; every entry links to the Board’s own document. <a href="#">How it is built</a> · <a href="#">What is covered</a> · <a href="#">Corrections</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- proceedings that moved -->
+  <div style="padding: 40px 56px 0 56px;">
+    <h2>Proceedings that moved this week</h2>
+    <div class="moved" style="border-top: 0; padding-top: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600;"><span>Docket</span><span>Proceeding</span><span style="text-align: right;">Filings</span><span style="text-align: right;">Last activity</span></div>
+    <div class="moved"><span class="dk"><a href="#">FD 36873</a></span><span>Union Pacific Corporation and Union Pacific Railroad Company — Control — Norfolk Southern Corporation and Norfolk Southern Railway Company</span><span style="text-align: right;">26</span><span style="text-align: right;" class="row-muted">25 Aug</span></div>
+    <div class="moved"><span class="dk"><a href="#">AB 497 (Sub-No. 8X)</a></span><span>Minnesota Northern Railroad, Inc. — Abandonment Exemption — in Norman and Polk Counties, Minn.</span><span style="text-align: right;">1</span><span style="text-align: right;" class="row-muted">24 Aug</span></div>
+    <div class="moved"><span class="dk"><a href="#">FD 32760 (Sub-No. 46)</a></span><span>BNSF Railway Company — Terminal Trackage Rights — Kansas City Southern Railway Company and Union Pacific Railroad Company</span><span style="text-align: right;">1</span><span style="text-align: right;" class="row-muted">24 Aug</span></div>
+    <div class="moved"><span class="dk"><a href="#">FD 32760 (Sub-No. 52)</a></span><span>BNSF Railway Company — Petition for Review — UP/SP Merger Conditions</span><span style="text-align: right;">1</span><span style="text-align: right;" class="row-muted">21 Aug</span></div>
+    <div class="moved"><span class="dk"><a href="#">NOR 42185</a></span><span>Weskan Grain LLC v. Kansas &amp; Oklahoma Railroad, LLC</span><span style="text-align: right;">1</span><span style="text-align: right;" class="row-muted">21 Aug</span></div>
+    <div class="moved"><span class="dk"><a href="#">FD 36948</a></span><span>Henry Posner, III — Control Exemption — Morristown &amp; Erie Railway, Inc.</span><span style="text-align: right;">2</span><span style="text-align: right;" class="row-muted">20 Aug</span></div>
+    <div class="moved"><span class="dk"><a href="#">FD 36932</a></span><span>Channel Pacific Railroad — Operation Exemption — in West Sacramento, Yolo County, Cal.</span><span style="text-align: right;">1</span><span style="text-align: right;" class="row-muted">20 Aug</span></div>
+    <div class="moved"><span class="dk"><a href="#">NOR 42187</a></span><span>VFRC, LLC v. Portland &amp; Western Railroad, Inc. and Genesee &amp; Wyoming, Inc.</span><span style="text-align: right;">1</span><span style="text-align: right;" class="row-muted">19 Aug</span></div>
+    <div class="moved"><span class="dk"><a href="#">EP 670 (Sub-No. 2)</a></span><span>Notice of Rail Energy Transportation Advisory Committee Vacancies</span><span style="text-align: right;">1</span><span style="text-align: right;" class="row-muted">18 Aug</span></div>
+    <div class="moved"><span class="dk"><a href="#">MCF 21154</a></span><span>First Student, Inc. — Acquisition of Control — Autumn Transportation Inc. and Ambassador Wheelchair Services, Inc.</span><span style="text-align: right;">1</span><span style="text-align: right;" class="row-muted">18 Aug</span></div>
+    <p style="margin: 14px 0 0 0; font-size: 13px; color: var(--muted);">Titles are the Board’s captions, re-set from capitals. Counts are filings observed in the record between 18 and 25 August 2026.</p>
+  </div>
+
+  <!-- footer -->
+  <div style="margin-top: 56px; padding: 24px 56px 40px 56px; border-top: 1px solid var(--hair); display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--muted);">
+    <div style="display: flex; gap: 20px;"><a href="#" style="color: var(--muted);">Methodology</a><a href="#" style="color: var(--muted);">Coverage</a><a href="#" style="color: var(--muted);">Corrections</a><a href="#" style="color: var(--muted);">Privacy</a><a href="#" style="color: var(--muted);">Bulk data</a></div>
+    <div>Docket Yard is operated by RMI Valuation, LLC and is not affiliated with the Surface Transportation Board.</div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light","section":"Theme"},"accent":{"editor":"color","default":"#8a3b2a","options":["#8a3b2a","#1f4d3a","#2b3f6b","#5a4a2f"],"section":"Theme"},"$preview":{"width":1440,"height":1900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = (this.props.theme ?? "light") === "dark";
+    const t = dark
+      ? { paper: "#1a1917", ink: "#ece8e0", muted: "#9d978d", hair: "#33312d", tint: "#232120" }
+      : { paper: "#faf8f4", ink: "#1f1d1a", muted: "#6b665e", hair: "#dcd7cd", tint: "#f2eee6" };
+    return { t, accent: this.props.accent ?? "#8a3b2a" };
+  }
+}
+</script>
+</body>
+</html>

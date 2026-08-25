@@ -1,0 +1,9 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 1900, "title": "Home — desktop" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 1520, "y": 0, "w": 380, "text": "The second surface (docs/interface.md § Surfaces beyond the sheet): the agency-wide 'what is moving' view. Content is real — every decision served 18–25 Aug 2026 and every proceeding with a filing that week, from the store. The tracker's tiles and record-to-date idiom live here, not on the sheet.\n\nDeliberately absent until their extraction exists: next-deadline countdown, stance bars, press releases / Federal Register." }
+  ],
+  "launch": { "view": "canvas" }
+}
