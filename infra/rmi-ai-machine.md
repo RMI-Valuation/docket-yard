@@ -117,6 +117,20 @@ sudo chown $USER:$USER /data
 `/data` holds model weights, work batches, and blob caches. Like the repo's `data/`, treat
 it as rebuildable.
 
+**Also grow the root filesystem.** The installer's default LVM layout gives `/` only 100 GB
+and leaves the rest of the system disk unassigned (found on the live install: `lsblk` shows
+a 100G `ubuntu-lv` on a 1.8T disk). Ollama keeps model weights under `/usr/share/ollama` on
+root, so this fills fast. Online, no reboot:
+
+```sh
+sudo lvextend -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
+sudo resize2fs /dev/ubuntu-vg/ubuntu-lv
+df -h /                                 # ~1.8T
+```
+
+Disk enumeration is not fixed on this board (the data disk came up as `nvme0n1`, the system
+disk as `nvme1n1`), which is why fstab mounts `/data` by label, never by device name.
+
 ## 7. NVIDIA driver + Docker
 
 ```sh
