@@ -6,12 +6,11 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Decide: turn off the GitHub wiki (recommended: yes — ungoverned second doc surface)
+- CONTRIBUTING.md: pre-build status, contributions by prior discussion, CLA required
+- Issue labels: `schema`, `ingest`, `docs`, `infra`, `data-correction`
 
 ## Next
 
-- CONTRIBUTING.md: pre-build status, contributions by prior discussion, CLA required
-- Issue labels: `schema`, `ingest`, `docs`, `infra`, `data-correction`
 - M1 design: ingest module layout + `.claude/agents/stb-ingest-specialist.md` when coding starts
 - Dockerfile + release-triggered image build in CI (with M2, when there is something to run)
 
