@@ -19,7 +19,7 @@ load-bearing is drag.
 
 | # | Document | Purpose | Status |
 | --- | --- | --- | --- |
-| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0010 all accepted |
+| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0010 accepted; 0011 proposed |
 | 02 | [`document-ir.md`](document-ir.md) | What the PDF→JSON layer captures | stub |
 | 03 | [`methodology.md`](methodology.md) | Extraction rules; doubles as the published methodology page | stub |
 | 04 | [`licensing.md`](licensing.md) | Code, data and trademark terms | drafted |
