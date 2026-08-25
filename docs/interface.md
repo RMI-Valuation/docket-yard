@@ -13,11 +13,16 @@ one click from the primary source. Consumer-web instincts (whitespace, heroes, m
 tables) are wrong here. The bar: CourtListener's functional credibility with the design
 attention neither government nor nonprofit sites invest in.
 
-## Deliberately not a government look
+## Deliberately not a government look — or a government voice
 
 No USWDS, no .gov aesthetics. "Unaffiliated with the STB" is a legal posture, and a federal
 look-and-feel undermines it. The identity reads as *serious independent reference* —
 financial-data and law-review sensibilities, built on typography and restraint.
+
+The same rule governs copy. Never "the public record of the Board" — that reads as the
+Board's own site. Always *a* record of proceedings *before* the Board, and the lead of every
+top-level page says in its own words that Docket Yard is independent and not affiliated,
+not only the footer. (Caught on the home-page mockup, 2026-08-25.)
 
 ## Trust signals are the features
 
