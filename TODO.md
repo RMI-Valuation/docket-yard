@@ -6,11 +6,11 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Nothing queued — pull from Next
+- Cameron: review the home page mockup (design canvas) — the second surface
+- **Decisions now due** (see the end-of-session note): hosting / deployment-topology ADR,
+  the permanent-URL scheme, and the first web dependencies
 
 ## Next
-
-- Home page ("what is moving") design — the second surface, per `docs/interface.md`
 
 - What `total` counts on the filings table (rows vs records): still unmeasured after 36
   agency-wide filings showed one attachment row each; multi-row filings are rarer than the
