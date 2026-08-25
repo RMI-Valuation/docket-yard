@@ -77,6 +77,14 @@ docketyard $DY status                # expect ~30,200 dockets (a little more: pa
                                      # minted for sub-dockets whose parent never prints)
 ```
 
+**Watching it.** The walk prints a line per page and a status line per prefix in its tmux
+session (`tmux attach -t walk`; `Ctrl-B D` detaches without stopping it). From a second
+shell, `watch -n 30 docketyard $DY status` follows the counts — SQLite is in WAL mode, so
+reading while the walk writes is safe. `captures_quarantined` should sit at exactly 6 (the
+census-empty prefixes); anything higher means a slice was refused and the log says why. The
+`walk_slice` table is the durable per-prefix record a rerun resumes from. There is no
+off-box heartbeat by design — that belongs to the cloud side (`architecture.md`).
+
 What each prefix's status means:
 
 - **done** — paged to the end AND the rows reconcile with the endpoint's reported total.
