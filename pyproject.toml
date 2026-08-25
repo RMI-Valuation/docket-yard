@@ -4,7 +4,9 @@ version = "0.0.0"
 description = "A public record of proceedings before the Surface Transportation Board"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-only" }
-dependencies = []
+# The web tier earns its dependencies (decided 2026-08-25): server-rendered HTML, an ASGI
+# server, templates. No frontend framework. Everything else stays standard library.
+dependencies = ["fastapi>=0.115", "jinja2>=3.1", "uvicorn>=0.30"]
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest", "pre-commit"]

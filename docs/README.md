@@ -16,7 +16,7 @@ Documentation that isn't load-bearing is drag.
 
 | # | Document | Purpose | Status |
 | --- | --- | --- | --- |
-| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0011 all accepted |
+| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0011 accepted; 0012 (hosting) and 0013 (URLs) proposed |
 | 02 | [`document-ir.md`](document-ir.md) | What the PDF→JSON layer captures | stub |
 | 03 | [`methodology.md`](methodology.md) | Extraction rules; doubles as the published methodology page | stub |
 | 04 | [`licensing.md`](licensing.md) | Code, data and trademark terms | drafted |

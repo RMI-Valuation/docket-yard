@@ -6,9 +6,9 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Cameron: review the home page mockup (design canvas) — the second surface
-- **Decisions now due** (see the end-of-session note): hosting / deployment-topology ADR,
-  the permanent-URL scheme, and the first web dependencies
+- Cameron: review ADR 0012 (deployment topology) and ADR 0013 (permanent URLs)
+- M3 build: FastAPI app rendering the sheet projection and the home view at the ADR 0013
+  addresses; templates from the mockups; tests against the projection
 
 ## Next
 
