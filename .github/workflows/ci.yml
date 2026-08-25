@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks scans the full history
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          # the floor pinned in pyproject.toml, so the floor stays honest
+          python-version: "3.11"
+      - run: python -m pip install -e .[dev]
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest
+      - name: gitleaks (full history)
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz | tar xz gitleaks
+          ./gitleaks git --no-banner --redact .

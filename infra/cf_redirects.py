@@ -58,7 +58,7 @@ REDIRECT_DOMAINS = [
 ]
 
 API = "https://api.cloudflare.com/client/v4"
-BLACKHOLE_V6 = "100::"          # RFC 6666 discard prefix
+BLACKHOLE_V6 = "100::"  # RFC 6666 discard prefix
 DRY = "--dry-run" in sys.argv
 
 
@@ -72,16 +72,21 @@ def token():
 def call(method, path, body=None):
     url = API + path
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={
-        "Authorization": "Bearer " + token(),
-        "Content-Type": "application/json",
-    })
+    req = urllib.request.Request(
+        url,
+        data=data,
+        method=method,
+        headers={
+            "Authorization": "Bearer " + token(),
+            "Content-Type": "application/json",
+        },
+    )
     try:
         with urllib.request.urlopen(req, timeout=45) as r:
             return json.loads(r.read().decode())
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:600]
-        raise SystemExit(f"\n  API {method} {path} failed ({e.code}):\n  {detail}\n")
+        raise SystemExit(f"\n  API {method} {path} failed ({e.code}):\n  {detail}\n") from None
 
 
 def zone_id(name):
@@ -95,10 +100,15 @@ def zone_id(name):
 def upsert_record(zid, zone, rtype, name, content):
     """Create or update one proxied DNS record."""
     q = urllib.parse.urlencode({"type": rtype, "name": name})
-    existing = (call("GET", f"/zones/{zid}/dns_records?{q}").get("result") or [])
-    body = {"type": rtype, "name": name, "content": content,
-            "proxied": True, "ttl": 1,
-            "comment": "Docket Yard redirect target (no origin)"}
+    existing = call("GET", f"/zones/{zid}/dns_records?{q}").get("result") or []
+    body = {
+        "type": rtype,
+        "name": name,
+        "content": content,
+        "proxied": True,
+        "ttl": 1,
+        "comment": "Docket Yard redirect target (no origin)",
+    }
     if existing:
         cur = existing[0]
         if cur.get("content") == content and cur.get("proxied") is True:
@@ -121,24 +131,28 @@ def set_redirect(zid, zone, target_host, match="true"):
     redirect to itself — that would be an infinite loop.
     """
     expr = f'concat("https://{target_host}", http.request.uri.path)'
-    rules = [{
-        "action": "redirect",
-        "action_parameters": {
-            "from_value": {
-                "target_url": {"expression": expr},
-                "status_code": 301,
-                "preserve_query_string": True,
-            }
-        },
-        "expression": match,
-        "description": f"301 {zone} -> {target_host} (path preserved)",
-        "enabled": True,
-    }]
+    rules = [
+        {
+            "action": "redirect",
+            "action_parameters": {
+                "from_value": {
+                    "target_url": {"expression": expr},
+                    "status_code": 301,
+                    "preserve_query_string": True,
+                }
+            },
+            "expression": match,
+            "description": f"301 {zone} -> {target_host} (path preserved)",
+            "enabled": True,
+        }
+    ]
     print(f"    rule  301 -> https://{target_host}/<path>")
     if not DRY:
-        call("PUT",
-             f"/zones/{zid}/rulesets/phases/http_request_dynamic_redirect/entrypoint",
-             {"rules": rules})
+        call(
+            "PUT",
+            f"/zones/{zid}/rulesets/phases/http_request_dynamic_redirect/entrypoint",
+            {"rules": rules},
+        )
 
 
 def always_https(zid):
@@ -159,6 +173,7 @@ def configure(zone, target_host, include_apex=True):
 
 def verify():
     import ssl
+
     ctx = ssl.create_default_context()
     hosts = []
     for d in REDIRECT_DOMAINS:
@@ -174,8 +189,7 @@ def verify():
             def redirect_request(self, *a, **k):
                 return None
 
-        op = urllib.request.build_opener(NoRedirect,
-                                         urllib.request.HTTPSHandler(context=ctx))
+        op = urllib.request.build_opener(NoRedirect, urllib.request.HTTPSHandler(context=ctx))
         try:
             op.open(req, timeout=20)
             print(f"  {h:34} NO REDIRECT (200)")
@@ -195,8 +209,10 @@ def main():
     if "--verify" in sys.argv:
         verify()
         return
-    print(("DRY RUN — nothing will change\n" if DRY else "Applying changes\n") +
-          f"Canonical: https://{CANONICAL}")
+    print(
+        ("DRY RUN — nothing will change\n" if DRY else "Applying changes\n")
+        + f"Canonical: https://{CANONICAL}"
+    )
     for zone in REDIRECT_DOMAINS:
         configure(zone, CANONICAL)
     # canonical zone: only www -> apex. Leave the apex record alone; it will
@@ -204,8 +220,7 @@ def main():
     print(f"\n  {CANONICAL}  (www -> apex only)")
     zid = zone_id(CANONICAL)
     upsert_record(zid, CANONICAL, "CNAME", "www." + CANONICAL, CANONICAL)
-    set_redirect(zid, CANONICAL, CANONICAL,
-                 match=f'http.host eq "www.{CANONICAL}"')
+    set_redirect(zid, CANONICAL, CANONICAL, match=f'http.host eq "www.{CANONICAL}"')
     always_https(zid)
     print("\nDone." + ("" if DRY else "  Now run:  python3 cf_redirects.py --verify"))
 
