@@ -11,11 +11,8 @@
 
 ## The document set
 
-Eleven documents. Five close doors that are expensive to reopen, three exist because the site
-is public, three exist because future-you will be debugging at eleven at night.
-
-The test for each: **name the specific mistake it prevents.** Documentation that isn't
-load-bearing is drag.
+Twelve documents, and one test for each: **name the specific mistake it prevents.**
+Documentation that isn't load-bearing is drag.
 
 | # | Document | Purpose | Status |
 | --- | --- | --- | --- |
@@ -30,6 +27,7 @@ load-bearing is drag.
 | 09 | [`alerts.md`](alerts.md) | Delivery promise and silent-failure detection | stub |
 | 10 | [`architecture.md`](architecture.md) | What runs where, storage layers, the rebuildable-store property | drafted |
 | 11 | [`interface.md`](interface.md) | Design direction: trust-and-density, not-gov, HTML-first, the sheet is the product | drafted |
+| 12 | [`ingest-design.md`](ingest-design.md) | M1 module layout and the rules ingest code is built around | drafted |
 
 ## Order
 

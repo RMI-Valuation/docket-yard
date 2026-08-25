@@ -6,8 +6,10 @@ agency regulating freight rail. Docket sheets, alerts, and eventually a citator 
 Operated by RMI Valuation, LLC. Unaffiliated with the STB. Every record links to the agency's
 own PDF.
 
-**Status: pre-build.** Domains registered and redirecting, repository scaffolded, design
-documented. No pipeline code exists yet, and the schema is not settled.
+**Status: design settled, build beginning.** Domains registered and redirecting, repository
+public on GitHub, schema validated on paper against the five queries, ADRs 0001-0011 all
+accepted. No pipeline code exists yet; M1 (docket registry) is next per `ROADMAP.md` and
+`docs/ingest-design.md`.
 
 ## Read these before proposing implementation work
 
