@@ -6,7 +6,8 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Cameron: convert RMI-AI-MACHINE per `infra/rmi-ai-machine.md`
+- RMI-AI-MACHINE: confirm the guide's "done when" — `docker run --rm --gpus all ubuntu
+  nvidia-smi`, `/data` mounted, and the pull-the-plug power-restore test
 
 ## Next
 
@@ -25,7 +26,8 @@ by pre-commit: when it fires, prune.
   has no persistent volumes and no cron; SQLite-on-instance is the likely fit. Needs a
   deployment-topology ADR when hosting stops being deferred
 - Local-LLM vs API benchmark on a hand-labelled extraction sample — before any backfill pass
-  commits to local output (12GB VRAM ⇒ 14B dense / ~30B MoE class)
+  commits to local output (12GB VRAM ⇒ 14B dense / ~30B MoE class). Qwen3 thinks by default
+  on Ollama — disable thinking per request for extraction, or it pays for a monologue per row
 - OCR pipeline for pre-2000 archive (GPU layout-OCR fits ADR 0003's IR) — backfill era
 - Deploy credentials via GitHub OIDC role assumption, never long-lived AWS keys in secrets
 - CLA-assistant Action gating outside PRs — when outside interest is real
