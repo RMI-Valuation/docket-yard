@@ -16,7 +16,7 @@ documented. No pipeline code exists yet, and the schema is not settled.
 | `docs/README.md` | Index of the whole document set, with status per document |
 | `docs/validation-queries.md` | **The five queries the schema must answer.** All five answered on paper 2026-08-25. |
 | `docs/schema-draft.md` | The paper schema the queries were validated against; revision history included |
-| `docs/adr/` | **0001-0010 Accepted** (0002-0008 and 0010 carry Validation sections); 0011 Proposed |
+| `docs/adr/` | **0001-0011 all Accepted** (0002-0008, 0010, 0011 carry Validation sections) |
 | `docs/stb-data-source.md` | Endpoint mechanics, its silent-failure traps, and every measurement taken |
 | `docs/capability-map.md` | The 28 capabilities. A menu, not a roadmap. |
 | `docs/research/comparable-platforms.md` | What CourtListener, FERC and others solved; what failed and why |

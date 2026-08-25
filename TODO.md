@@ -6,7 +6,6 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Cameron: review ADR 0011 (reading is anonymous; accounts are an email address)
 - CONTRIBUTING.md: pre-build status, contributions by prior discussion, CLA required
 - Issue labels: `schema`, `ingest`, `docs`, `infra`, `data-correction`
 

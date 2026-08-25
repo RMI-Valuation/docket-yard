@@ -1,7 +1,8 @@
 # ADR 0011 — Reading is anonymous; accounts are an email address
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-25
+- **Accepted:** 2026-08-25
 
 ## Context
 
@@ -59,7 +60,13 @@ fresh consent) is possible and honest. The direction this record forbids is retr
 collecting first and minimising later is impossible — data collected under one promise
 cannot be un-collected, and a privacy posture, once broken, does not recover.
 
----
+## Validation (2026-08-25)
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-[`../validation-queries.md`](../validation-queries.md).*
+Checked against [`../validation-queries.md`](../validation-queries.md). The one query that
+touches accounts is query 5 — the service-list membership alert — and this decision leaves
+its join path untouched: the `subscription` row in
+[`../schema-draft.md`](../schema-draft.md) already stores exactly what the alert join needs
+(subscriber ref, predicate, status) and nothing this decision forbids. Anonymous reading
+constrains no query, because no validation query joins through a reader. The decision adds
+requirements the sketches did not yet carry — confirmed-opt-in state on subscriptions and
+hashed sign-in tokens — which are additions to the paper model, not migrations.
