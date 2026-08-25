@@ -95,6 +95,19 @@ Also accepted: **0001** (record architecture decisions) and **0009** (name and d
 - Internal planning never moves to GitHub Issues — Issues are reserved for outside intake
   (bug reports, data corrections).
 
+### Review before commit (no PRs for internal work, so this replaces them)
+
+- **Docs-only or trivial changes:** commit after hooks pass; no model review required.
+- **Any substantive code change:** run `/code-review` on the diff before committing
+  (low/medium for small diffs, high for anything structural) and triage the findings
+  in-session. Deferred findings go to `TODO.md`, never silently dropped.
+- **Schema-touching changes:** schema-critic reviews before commit, always.
+- **Ingest/parser/network code:** the stb-ingest-specialist agent reviews for the endpoint
+  traps and invariants (create it at M1 if it does not exist yet); `/security-review` on
+  anything handling external input before it first ships.
+- **Milestone-scale work:** do it on a branch and open a PR — that tier gets
+  `/code-review ultra` and any PR bots (CodeRabbit OSS tier) before merging to `main`.
+
 ## Conventions
 
 - Python 3.11+, standard library preferred; add a dependency only when it earns its place.
