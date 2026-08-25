@@ -1,5 +1,10 @@
 # Infrastructure
 
+## `rmi-ai-machine.md`
+
+Step-by-step conversion of the batch-enrichment box from Windows to headless Ubuntu Server,
+written for a first Linux install. See [`rmi-ai-machine.md`](rmi-ai-machine.md).
+
 ## `cf_redirects.py`
 
 Configures Cloudflare so every non-canonical domain 301s to `https://docketyard.org`, preserving
