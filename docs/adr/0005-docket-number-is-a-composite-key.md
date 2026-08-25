@@ -1,7 +1,8 @@
 # ADR 0005 — Docket number is a composite key
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-25
+- **Accepted:** 2026-08-25
 
 ## Context
 
@@ -27,7 +28,15 @@ uses, including historical forms.
 Expensive. Reparsing and re-linking the entire corpus, and any permalink built on the opaque
 form breaks.
 
----
+## Validation (2026-08-25)
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-[`../validation-queries.md`](../validation-queries.md).*
+Checked against [`../validation-queries.md`](../validation-queries.md) via
+[`../schema-draft.md`](../schema-draft.md). Queries 1 and 3 exercised parent/child traversal;
+the decision survived with two guards the review caught:
+
+- **The uniqueness constraint must be `NULLS NOT DISTINCT`** (or use non-null sentinels).
+  Under default SQL semantics, nullable sub-sequence and suffix columns make the composite
+  UNIQUE enforce nothing for the majority of dockets — a retried ingest run would silently
+  mint duplicate docket rows and split every referencing table across them.
+- **Keep the raw docket string beside the parsed parts.** Historical forms may not decompose
+  into exactly four parts; with the raw kept, a parse revision is a re-run, not a loss.

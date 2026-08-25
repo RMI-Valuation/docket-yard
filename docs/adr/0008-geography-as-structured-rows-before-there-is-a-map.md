@@ -1,7 +1,8 @@
 # ADR 0008 — Geography as structured rows before there is a map
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-25
+- **Accepted:** 2026-08-25
 
 ## Context
 
@@ -26,7 +27,13 @@ time.
 Expensive. Re-reading every document to extract what could have been captured on the first
 pass.
 
----
+## Validation (2026-08-25)
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-[`../validation-queries.md`](../validation-queries.md).*
+Checked against [`../validation-queries.md`](../validation-queries.md) via
+[`../schema-draft.md`](../schema-draft.md). Query 1 is expressible from day one on this
+decision's rows — geometry intersection or milepost-range overlap, with answer quality scaling
+as extraction coverage grows rather than requiring a re-read of the corpus. One correction
+from the review: **resolved geometry is itself a derived assertion** and carries the full
+provenance block in its own table, rather than sitting in the place registry as a
+silently-updated column. Milepost ranges need structured fields (line reference, from, to)
+beside the raw string, since range overlap cannot be computed from prose.

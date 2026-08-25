@@ -1,7 +1,8 @@
 # ADR 0003 — Extraction captures layout, not just text
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-25
+- **Accepted:** 2026-08-25
 
 ## Context
 
@@ -27,7 +28,11 @@ more complex than plain text. Headings and captions become detectable without a 
 The most expensive on the list. Re-running OCR over the full archive, plus re-deriving
 everything downstream.
 
----
+## Validation (2026-08-25)
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-[`../validation-queries.md`](../validation-queries.md).*
+Checked against [`../validation-queries.md`](../validation-queries.md) via
+[`../schema-draft.md`](../schema-draft.md). No query's join path stresses the IR directly, but
+two of them depend on it existing: query 2's per-edge provenance and ADR 0007's
+`source_location` both resolve to page/block/bbox, which only exist if captured at extraction
+time. The queries also confirmed nothing forces the IR's cost early — it adds tables, not
+constraints, and the wedge can ship reading only the text field.

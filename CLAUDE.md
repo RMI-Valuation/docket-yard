@@ -14,8 +14,9 @@ documented. No pipeline code exists yet, and the schema is not settled.
 | File | Why |
 |---|---|
 | `docs/README.md` | Index of the whole document set, with status per document |
-| `docs/validation-queries.md` | **The five queries the schema must answer.** Unanswered. This is the current work. |
-| `docs/adr/` | 0001 and 0009 accepted; **0002-0008 are Proposed, not accepted** |
+| `docs/validation-queries.md` | **The five queries the schema must answer.** All five answered on paper 2026-08-25. |
+| `docs/schema-draft.md` | The paper schema the queries were validated against; revision history included |
+| `docs/adr/` | **0001-0009 all Accepted.** Each of 0002-0008 carries a Validation section |
 | `docs/stb-data-source.md` | Endpoint mechanics, its silent-failure traps, and every measurement taken |
 | `docs/capability-map.md` | The 28 capabilities. A menu, not a roadmap. |
 | `docs/research/comparable-platforms.md` | What CourtListener, FERC and others solved; what failed and why |
@@ -54,7 +55,8 @@ resets Chromium connections. curl and urllib work. Never plan a browser-based sc
 
 ## Design decisions
 
-Reasoning lives in `docs/adr/`. The six one-way doors, all currently **Proposed**:
+Reasoning lives in `docs/adr/`. The one-way doors, **all Accepted 2026-08-25** after paper
+validation against the five queries (see each record's Validation section):
 
 - **0002** content-hash document identity
 - **0003** extraction captures layout, not just text
@@ -67,7 +69,7 @@ Reasoning lives in `docs/adr/`. The six one-way doors, all currently **Proposed*
 **Do not accept an ADR without first checking it against `docs/validation-queries.md`.** ADRs
 are append-only: superseding one means a new record, never editing the old.
 
-Accepted: **0001** (record architecture decisions) and **0009** (name and domain topology).
+Also accepted: **0001** (record architecture decisions) and **0009** (name and domain topology).
 
 ## Rules that are not negotiable
 

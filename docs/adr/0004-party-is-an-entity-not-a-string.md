@@ -1,7 +1,8 @@
 # ADR 0004 — Party is an entity, not a string
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-25
+- **Accepted:** 2026-08-25
 
 ## Context
 
@@ -28,7 +29,17 @@ must make a splitting judgement, and resolution is never finished.
 Expensive. Retrofitting means reprocessing every filing and rebuilding every relationship
 derived from a party string.
 
----
+## Validation (2026-08-25)
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-[`../validation-queries.md`](../validation-queries.md).*
+Checked against [`../validation-queries.md`](../validation-queries.md) via
+[`../schema-draft.md`](../schema-draft.md). Query 1 broke the first draft and taught the
+decision its operating rules:
+
+- **"Resolution can improve forever" is only true if resolution never mutates.** Party links
+  are nullable-until-resolved with the raw string always kept, uniformly across every table
+  that references a party; a merge discovered later is a `same_as` edge that queries traverse,
+  never an `UPDATE` across provenance-bearing rows.
+- **Succession edges need a declared direction, stored as data in the relationship
+  vocabulary.** The first draft mixed orientations and its own flagship query silently
+  traversed half the graph backwards.
+- Party facts anchor to **filings**, not to document bytes — see ADR 0002's validation note.

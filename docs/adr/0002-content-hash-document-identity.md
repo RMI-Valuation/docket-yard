@@ -1,7 +1,8 @@
 # ADR 0002 — Content-hash document identity
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-25
+- **Accepted:** 2026-08-25
 
 ## Context
 
@@ -26,7 +27,13 @@ docket and filing numbers, so every lookup path needs a mapping.
 Expensive. Identity propagates into every derived table, every stored assertion, and every
 permalink. Re-keying afterwards touches everything.
 
----
+## Validation (2026-08-25)
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-[`../validation-queries.md`](../validation-queries.md).*
+Checked against [`../validation-queries.md`](../validation-queries.md) via the paper schema in
+[`../schema-draft.md`](../schema-draft.md). The decision survived, and query 2 sharpened its
+boundary: **the hash identifies bytes, and only bytes.** Filings and decisions are different
+things and need their own identity — a filing can have zero attachments (measured), and
+byte-identical boilerplate recurs across proceedings, so hanging party or docket facts on the
+hash loses or cross-contaminates them. Work-level identity for a decision across errata comes
+from a decision record plus a typed supersedes chain on document sources; a citator keyed on
+single hashes returns half its edges the day an erratum lands.
