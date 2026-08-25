@@ -15,7 +15,11 @@
     a { color: var(--accent); text-decoration: none; }
     a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
     .rule { border: 0; border-top: 1px solid var(--hair); margin: 0; }
-    .entry { display: grid; grid-template-columns: 96px 112px minmax(0, 1fr) 40px; gap: 16px; align-items: start; padding: 12px 0; border-top: 1px solid var(--hair); }
+    .entry { display: grid; grid-template-columns: 96px 112px minmax(0, 1fr) 40px; gap: 16px; align-items: start; padding: var(--row-pad) 0; border-top: 1px solid var(--hair); }
+    /* per-viewer preferences, browser-stored, never an account or a paper trail (ADR 0011):
+       density (row padding + how much of a decision summary shows) and record IDs */
+    .id { display: var(--ids); font-family: "Source Sans 3", sans-serif; font-weight: 500; font-size: 13px; color: var(--muted); margin-right: 10px; font-variant-numeric: tabular-nums; }
+    .summary { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--summary-lines); overflow: hidden; }
     .entry-date { color: var(--muted); font-size: 14px; }
     .kind { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted); padding-top: 2px; }
     .kind-decision { color: var(--accent); }
@@ -43,7 +47,7 @@
   </style>
 </helmet>
 
-<div class="sheet" style="--paper: {{t.paper}}; --ink: {{t.ink}}; --muted: {{t.muted}}; --hair: {{t.hair}}; --tint: {{t.tint}}; --accent: {{accent}}; width: 1440px; min-height: 2200px; margin: 0 auto; box-sizing: border-box;">
+<div class="sheet" style="--paper: {{t.paper}}; --ink: {{t.ink}}; --muted: {{t.muted}}; --hair: {{t.hair}}; --tint: {{t.tint}}; --accent: {{accent}}; --row-pad: {{d.pad}}; --summary-lines: {{d.lines}}; --ids: {{d.ids}}; width: 1440px; min-height: 2200px; margin: 0 auto; box-sizing: border-box;">
 
   <!-- masthead -->
   <div class="no-print" style="display: flex; align-items: center; justify-content: space-between; height: 64px; padding: 0 56px; border-bottom: 1px solid var(--hair);">
@@ -73,6 +77,7 @@
       <h1 class="serif" style="margin: 0; font-size: 56px; line-height: 1; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;">FD&#8239;36873</h1>
       <p class="serif" style="margin: 18px 0 0 0; max-width: 860px; font-size: 22px; line-height: 1.3; font-weight: 400; letter-spacing: 0.01em;">Union Pacific Corporation and Union Pacific Railroad Company — Control — Norfolk Southern Corporation and Norfolk Southern Railway Company</p>
       <p style="margin: 10px 0 0 0; font-size: 13px; color: var(--muted);">Caption from the Board’s record, re-set from capitals. <a href="#">Sub-No. 1</a> — control of the Peoria and Pekin Union Railway Company — is docketed separately and is included below.</p>
+      <p class="serif" style="margin: 16px 0 0 0; font-size: 17px; font-style: italic; color: var(--muted);">Sixty-six filings since 1 August 2026 and thirty-six decisions in the proceeding; last checked 25 August 2026 at 14:35 UTC.</p>
 
       <div class="no-print" style="display: flex; align-items: center; gap: 10px; margin-top: 28px;">
         <a href="#" class="btn btn-primary">
@@ -89,14 +94,9 @@
     </div>
 
     <div class="rail" style="padding-top: 8px;">
-      <h3>This record</h3>
-      <div style="display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 16px; font-size: 14px;">
-        <span style="color: var(--muted);">Filings</span><span>66 <span style="color: var(--muted);">since 1 Aug 2026</span></span>
-        <span style="color: var(--muted);">Decisions</span><span>36 <span style="color: var(--muted);">in the proceeding</span></span>
-        <span style="color: var(--muted);">Last checked</span><span>25 Aug 2026, 14:35 UTC</span>
-        <span style="color: var(--muted);">Source</span><span><a href="#">STB record search</a></span>
-      </div>
-      <p style="margin-top: 14px; font-size: 13px; color: var(--muted); line-height: 1.5;">Every entry links to the Board’s own PDF. Dates are quoted from the record, never computed. <a href="#">How this sheet is built</a></p>
+      <h3>About this record</h3>
+      <p style="font-size: 14px; line-height: 1.5;">Every entry links to the Board’s own PDF. Dates are quoted from the record, never computed. Source: <a href="#">STB record search</a>.</p>
+      <p style="margin-top: 10px; font-size: 13px; color: var(--muted); line-height: 1.5;"><a href="#">How this sheet is built</a> · <a href="#">What is and isn’t covered</a></p>
     </div>
   </div>
 
@@ -107,49 +107,52 @@
         <div style="display: flex; gap: 8px;">
           <span class="chip chip-on">All entries</span><span class="chip">Decisions</span><span class="chip">Filings</span><span class="chip">Comments</span><span class="chip">Discovery</span>
         </div>
-        <div style="font-size: 13px; color: var(--muted);">Newest first · <a href="#">oldest first</a></div>
+        <div style="display: flex; align-items: center; gap: 18px; font-size: 13px; color: var(--muted);">
+          <span>Newest first · <a href="#">oldest first</a></span>
+          <span style="display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-weight: 500;">Display<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></span>
+        </div>
       </div>
 
       <div class="entry">
         <div class="entry-date">25 Aug 2026</div>
         <div class="kind">Motion</div>
-        <div><div class="entry-title">Motion / Petition / Request</div><div class="entry-for">Natural Resources Defense Council</div></div>
+        <div><div class="entry-title"><span class="id">311981</span>Motion / Petition / Request</div><div class="entry-for">Natural Resources Defense Council</div></div>
         <a href="#" class="pdf" title="Filing 311981 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">24 Aug 2026</div>
         <div class="kind">Reply</div>
-        <div><div class="entry-title">Reply</div><div class="entry-for">Union Pacific Corporation and Union Pacific Railroad Company</div></div>
+        <div><div class="entry-title"><span class="id">311977</span>Reply</div><div class="entry-for">Union Pacific Corporation and Union Pacific Railroad Company</div></div>
         <a href="#" class="pdf" title="Filing 311977 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">24 Aug 2026</div>
         <div class="kind">Notice</div>
-        <div><div class="entry-title">Notice of Intent to Participate (without comment)</div><div class="entry-for">Grand Trunk Corporation, on behalf of itself and its U.S. rail operating subsidiaries</div></div>
+        <div><div class="entry-title"><span class="id">311978</span>Notice of Intent to Participate (without comment)</div><div class="entry-for">Grand Trunk Corporation, on behalf of itself and its U.S. rail operating subsidiaries</div></div>
         <a href="#" class="pdf" title="Filing 311978 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">24 Aug 2026</div>
         <div class="kind">Notice</div>
-        <div><div class="entry-title">Notice of Intent to Participate (without comment)</div><div class="entry-for">Archer Daniels Midland Company</div></div>
+        <div><div class="entry-title"><span class="id">311976</span>Notice of Intent to Participate (without comment)</div><div class="entry-for">Archer Daniels Midland Company</div></div>
         <a href="#" class="pdf" title="Filing 311976 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">24 Aug 2026</div>
         <div class="kind">Notice</div>
-        <div><div class="entry-title">Notice of Intent to Participate (without comment)</div><div class="entry-for">Pennsylvania Anthracite Council</div></div>
+        <div><div class="entry-title"><span class="id">311969</span>Notice of Intent to Participate (without comment)</div><div class="entry-for">Pennsylvania Anthracite Council</div></div>
         <a href="#" class="pdf" title="Filing 311969 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">24 Aug 2026</div>
         <div class="kind">Board</div>
-        <div><div class="entry-title">Miscellaneous</div><div class="entry-for">Surface Transportation Board</div></div>
+        <div><div class="entry-title"><span class="id">311972</span>Miscellaneous</div><div class="entry-for">Surface Transportation Board</div></div>
         <a href="#" class="pdf" title="Filing 311972 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">21 Aug 2026</div>
         <div class="kind">Report</div>
-        <div><div class="entry-title">Status Report</div><div class="entry-for">Norfolk Southern Corporation and Norfolk Southern Railway Company; Union Pacific Corporation and Union Pacific Railroad Company</div></div>
+        <div><div class="entry-title"><span class="id">311968</span>Status Report</div><div class="entry-for">Norfolk Southern Corporation and Norfolk Southern Railway Company; Union Pacific Corporation and Union Pacific Railroad Company</div></div>
         <a href="#" class="pdf" title="Filing 311968 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
 
@@ -157,7 +160,7 @@
         <div class="entry-date">21 Aug 2026</div>
         <div class="kind kind-decision">Decision</div>
         <div>
-          <div class="entry-title">Chief Counsel, Office of Chief Counsel</div>
+          <div class="entry-title"><span class="id">53210</span>Chief Counsel, Office of Chief Counsel</div>
           <div class="summary">Ordered that replies to any motion or other pleading filed with the Board after Decision No. 30 on any matter that has not been delegated to the Administrative Law Judge will be due within five calendar days of filing, unless otherwise specified in the procedural schedule or Board order.</div>
         </div>
         <a href="#" class="pdf" title="Decision 53210 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
@@ -167,7 +170,7 @@
         <div class="entry-date">19 Aug 2026</div>
         <div class="kind kind-decision">Decision</div>
         <div>
-          <div class="entry-title">Administrative Law Judge</div>
+          <div class="entry-title"><span class="id">53207</span>Administrative Law Judge</div>
           <div class="summary">Granted Applicants’ motion to compel CPKC to make reciprocal productions of data within 30 days and granted in part and denied in part CPKC’s motion to compel.</div>
         </div>
         <a href="#" class="pdf" title="Decision 53207 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
@@ -176,19 +179,19 @@
       <div class="entry">
         <div class="entry-date">19 Aug 2026</div>
         <div class="kind">Comments</div>
-        <div><div class="entry-title">Comments</div><div class="entry-for">BMWED, BRS, SMART-MD, IAM District 19, TCU, BLET</div></div>
+        <div><div class="entry-title"><span class="id">311950</span>Comments</div><div class="entry-for">BMWED, BRS, SMART-MD, IAM District 19, TCU, BLET</div></div>
         <a href="#" class="pdf" title="Filing 311950 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">19 Aug 2026</div>
         <div class="kind">Discovery</div>
-        <div><div class="entry-title">Discovery</div><div class="entry-for">Canadian Pacific Railway Company d/b/a CPKC; BNSF Railway Company; CSX Transportation, Inc.</div></div>
+        <div><div class="entry-title"><span class="id">311949</span>Discovery</div><div class="entry-for">Canadian Pacific Railway Company d/b/a CPKC; BNSF Railway Company; CSX Transportation, Inc.</div></div>
         <a href="#" class="pdf" title="Filing 311949 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">19 Aug 2026</div>
         <div class="kind">Letter</div>
-        <div><div class="entry-title">Letter</div><div class="entry-for">Norfolk Southern Corporation and Norfolk Southern Railway Company; Union Pacific Corporation and Union Pacific Railroad Company</div></div>
+        <div><div class="entry-title"><span class="id">311951</span>Letter</div><div class="entry-for">Norfolk Southern Corporation and Norfolk Southern Railway Company; Union Pacific Corporation and Union Pacific Railroad Company</div></div>
         <a href="#" class="pdf" title="Filing 311951 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
 
@@ -196,7 +199,7 @@
         <div class="entry-date">18 Aug 2026</div>
         <div class="kind kind-decision">Decision</div>
         <div>
-          <div class="entry-title">Entire Board · also entered in Sub-No. 1</div>
+          <div class="entry-title"><span class="id">53195</span>Entire Board · also entered in Sub-No. 1</div>
           <div class="summary">Removed both proceedings from abeyance, adopted a procedural schedule, directed Applicants to resubmit certain workpapers with unfiltered data, ruled on a pending procedural request, and advised that the Board will address other outstanding motions at a future date.</div>
         </div>
         <a href="#" class="pdf" title="Decision 53195 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
@@ -205,31 +208,31 @@
       <div class="entry">
         <div class="entry-date">18 Aug 2026</div>
         <div class="kind">Comments</div>
-        <div><div class="entry-title">Comments</div><div class="entry-for">Gateway and Southeast Los Angeles County cities</div></div>
+        <div><div class="entry-title"><span class="id">311945</span>Comments</div><div class="entry-for">Gateway and Southeast Los Angeles County cities</div></div>
         <a href="#" class="pdf" title="Filing 311945 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">18 Aug 2026</div>
         <div class="kind">Notice</div>
-        <div><div class="entry-title">Notice of Intent to Participate (without comment)</div><div class="entry-for">American Public Transportation Association</div></div>
+        <div><div class="entry-title"><span class="id">311946</span>Notice of Intent to Participate (without comment)</div><div class="entry-for">American Public Transportation Association</div></div>
         <a href="#" class="pdf" title="Filing 311946 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">17 Aug 2026</div>
         <div class="kind">Letter</div>
-        <div><div class="entry-title">Letter</div><div class="entry-for">CSX Transportation, Inc.; BNSF Railway Company; Canadian Pacific Railway Company d/b/a CPKC</div></div>
+        <div><div class="entry-title"><span class="id">311941</span>Letter</div><div class="entry-for">CSX Transportation, Inc.; BNSF Railway Company; Canadian Pacific Railway Company d/b/a CPKC</div></div>
         <a href="#" class="pdf" title="Filing 311941 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">17 Aug 2026</div>
         <div class="kind">Supplement</div>
-        <div><div class="entry-title">Modify / Supplement Prior Filing or the Record</div><div class="entry-for">City of San Jose</div></div>
+        <div><div class="entry-title"><span class="id">311940</span>Modify / Supplement Prior Filing or the Record</div><div class="entry-for">City of San Jose</div></div>
         <a href="#" class="pdf" title="Filing 311940 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <div class="entry">
         <div class="entry-date">17 Aug 2026</div>
         <div class="kind">Comments</div>
-        <div><div class="entry-title">Comments</div><div class="entry-for">Silica Services, LLC</div></div>
+        <div><div class="entry-title"><span class="id">311939</span>Comments</div><div class="entry-for">Silica Services, LLC</div></div>
         <a href="#" class="pdf" title="Filing 311939 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
       </div>
       <hr class="rule">
@@ -267,14 +270,20 @@
   </div>
 </div>
 </x-dc>
-<script data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light","section":"Theme"},"accent":{"editor":"color","default":"#8a3b2a","options":["#8a3b2a","#1f4d3a","#2b3f6b","#5a4a2f"],"section":"Theme"},"$preview":{"width":1440,"height":2200}}'>
+<script data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light","section":"Theme"},"accent":{"editor":"color","default":"#8a3b2a","options":["#8a3b2a","#1f4d3a","#2b3f6b","#5a4a2f"],"section":"Theme"},"density":{"editor":"enum","options":["comfortable","compact"],"default":"comfortable","section":"Display"},"showIds":{"editor":"boolean","default":false,"section":"Display"},"$preview":{"width":1440,"height":2200}}'>
 class Component extends DCLogic {
   renderVals() {
     const dark = (this.props.theme ?? "light") === "dark";
     const t = dark
       ? { paper: "#1a1917", ink: "#ece8e0", muted: "#9d978d", hair: "#33312d", tint: "#232120" }
       : { paper: "#faf8f4", ink: "#1f1d1a", muted: "#6b665e", hair: "#dcd7cd", tint: "#f2eee6" };
-    return { t, accent: this.props.accent ?? "#8a3b2a" };
+    const compact = (this.props.density ?? "comfortable") === "compact";
+    const d = {
+      pad: compact ? "6px" : "12px",
+      lines: compact ? "1" : "12",
+      ids: this.props.showIds ? "inline" : "none",
+    };
+    return { t, d, accent: this.props.accent ?? "#8a3b2a" };
   }
 }
 </script>

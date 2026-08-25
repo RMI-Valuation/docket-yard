@@ -43,6 +43,16 @@ financial-data and law-review sensibilities, built on typography and restraint.
   stdlib-preferred ethos applied to the frontend. Tabular numerals so date and docket
   columns align. Dark mode via tokens. Mobile is real: reporters read on phones.
 
+## One design, with preferences — not skins
+
+Decided 2026-08-25 after the docket-sheet mockup. Alternate visual systems (a dense
+"ledger", an editorial "broadsheet") were explored and retired: every trust feature would
+have to be built and kept right per skin, and a reference site should be recognisable as
+itself in a brief or a news story. What people wanted from those alternates ships as
+**per-viewer preferences on the one design**: density (comfortable/compact — row padding and
+how much of a decision summary shows), record IDs on/off (practitioners cite by filing ID),
+and light/dark. Preferences live in the browser, never in an account (ADR 0011).
+
 ## Where the craft goes
 
 **The docket sheet is the product.** Caption and parties, the chronological entry table, the

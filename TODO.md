@@ -7,7 +7,6 @@ by pre-commit: when it fires, prune.
 ## Now
 
 - Cameron: run the registry walk on rmi-ai-machine per `docs/runbook.md` § Ingest
-- Docket-sheet page mockup (design canvas) — the sheet IS the product
 
 ## Next
 

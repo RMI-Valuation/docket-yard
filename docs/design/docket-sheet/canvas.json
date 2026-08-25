@@ -1,13 +1,17 @@
 {
+  "pages": [
+    { "id": "page-1", "name": "Docket sheet" },
+    { "id": "page-2", "name": "Explorations" }
+  ],
   "artboards": [
-    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 2200, "title": "Docket sheet — desktop" },
-    { "file": "Mobile.dc.html", "x": 1540, "y": 0, "w": 390, "h": 1900, "title": "Docket sheet — phone" },
-    { "file": "Ledger.dc.html", "x": 0, "y": 2360, "w": 880, "h": 620, "title": "Option — Ledger" },
-    { "file": "Broadsheet.dc.html", "x": 980, "y": 2360, "w": 880, "h": 620, "title": "Option — Broadsheet" }
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 2200, "title": "Docket sheet — desktop", "page": "page-1" },
+    { "file": "Mobile.dc.html", "x": 1540, "y": 0, "w": 390, "h": 1900, "title": "Docket sheet — phone", "page": "page-1" },
+    { "file": "Ledger.dc.html", "x": 0, "y": 0, "w": 880, "h": 620, "title": "Option — Ledger (retired)", "page": "page-2" },
+    { "file": "Broadsheet.dc.html", "x": 980, "y": 0, "w": 880, "h": 620, "title": "Option — Broadsheet (retired)", "page": "page-2" }
   ],
   "annotations": [
-    { "id": "brief", "x": 1540, "y": 2020, "w": 390, "text": "The sheet is the product (docs/interface.md). Content is real: FD 36873's August 2026 record from the store. Decisions are tinted rows with the Board's own summary, sentence-cased; filings show type and the 'filed for' cell as printed. Dates quoted, never computed." },
-    { "id": "options", "x": 1900, "y": 2360, "w": 300, "text": "Two low-fi alternates for the typographic register only — Main is the leading candidate (serif captions + tabular sans data). Pick one, or mix: e.g. Main's structure with Ledger's density." }
+    { "id": "brief", "x": 1540, "y": 2020, "w": 390, "page": "page-1", "text": "The sheet is the product (docs/interface.md). Content is real: FD 36873's August 2026 record from the store. Decisions are tinted rows with the Board's own summary, sentence-cased; filings show type and the 'filed for' cell as printed. Dates quoted, never computed.\n\nDisplay preferences (the tweak chips above the desktop board): density comfortable/compact, record IDs on/off, light/dark. In the product these are per-viewer, browser-stored — never an account or a paper trail." },
+    { "id": "retired", "x": 1900, "y": 0, "w": 320, "page": "page-2", "text": "Retired 2026-08-25 after the direction was chosen. Harvested into the main sheet: Ledger's density and record-ID column became display preferences; Broadsheet's sentence-style record summary moved into the caption." }
   ],
-  "launch": { "view": "canvas" }
+  "launch": { "view": "canvas", "page": "page-1" }
 }
