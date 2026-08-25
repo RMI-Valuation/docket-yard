@@ -1,4 +1,4 @@
-# Docket Yard — working context
+# Docket Yard - working context
 
 A public record of proceedings before the **Surface Transportation Board** (STB), the federal
 agency regulating freight rail. Docket sheets, alerts, and eventually a citator and a map.
@@ -6,72 +6,95 @@ agency regulating freight rail. Docket sheets, alerts, and eventually a citator 
 Operated by RMI Valuation, LLC. Unaffiliated with the STB. Every record links to the agency's
 own PDF.
 
-**Status: pre-build.** Domains registered, design being settled, no pipeline code yet.
-Read `docs/README.md` before proposing implementation work.
+**Status: pre-build.** Domains registered and redirecting, repository scaffolded, design
+documented. No pipeline code exists yet, and the schema is not settled.
 
----
+## Read these before proposing implementation work
 
-## Constraints that are already known — do not rediscover these
+| File | Why |
+|---|---|
+| `docs/README.md` | Index of the whole document set, with status per document |
+| `docs/validation-queries.md` | **The five queries the schema must answer.** Unanswered. This is the current work. |
+| `docs/adr/` | 0001 and 0009 accepted; **0002-0008 are Proposed, not accepted** |
+| `docs/stb-data-source.md` | Endpoint mechanics, its silent-failure traps, and every measurement taken |
+| `docs/capability-map.md` | The 28 capabilities. A menu, not a roadmap. |
+| `docs/research/comparable-platforms.md` | What CourtListener, FERC and others solved; what failed and why |
 
-**STB has no API.** Its record search is a JavaScript front end over a WordPress AJAX endpoint.
-The working route is a direct POST to `https://www.stb.gov/wp-admin/admin-ajax.php` with:
+## Scope
 
-- `_ajax_nonce` — rotates; re-scrape from `/proceedings-actions/search-stb-records/` each run
-- `action` — `stb_hook_table_decisions` | `stb_hook_table_filings` |
-  `stb_hook_table_environmental_comments` | `stb_hook_table_dockets`
-- `page`, `per-page`, `sort_by`, `sort_order`
-- criteria as `search-criteria[i][name]` / `search-criteria[i][value]`
+**Version one is a wedge:** agency-wide docket sheets plus alerting, forward-only. No historical
+backfill, no citator, no map. Those are real and they are later. Resist scope creep - including
+your own enthusiasm for the capability map.
 
-Plain `docketNum_two=36873` as a POST field is **silently ignored** — criteria must go through
-`search-criteria`. A working reference implementation exists in the sibling project
-`../up-ns-merger-tracker/tracker/stb_client.py`. **Do not modify that project.**
+## Constraints already established - do not rediscover
 
-**The 10,000 in every result table is a display cap, not a total.** You cannot page past it, so
-walking the archive requires date-slicing — a year at a time for decisions, a month at a time
-for filings.
+**STB has no API.** The route is a direct POST to a WordPress AJAX endpoint. Full mechanics in
+`docs/stb-data-source.md`. Two traps worth repeating here because they fail silently:
 
-**Volume.** ~194 filings and ~53 decisions per month agency-wide; roughly 700 decisions/year
-averaged over 30 years. The full record is on the order of 75,000–125,000 documents. This is
-not a big-data problem.
+- Search criteria **must** go through `search-criteria[i][name]/[value]`. Passing
+  `docketNum_two=36873` as a plain POST field is ignored and returns a full unfiltered result
+  set with a 200. Ingest code must positively assert the filter applied.
+- Filings filter on `filingStartDate`/`filingEndDate`, **not** `officialFilingStartDate`,
+  despite the column being labelled "Official Filing Date". The wrong pair returns zero rows
+  with no error.
 
-**OCR burden is concentrated in the old archive.** Only about 1% of 2025–26 PDFs are image-only.
-Sequence backfill waves from recent years first.
+**The 10,000 in every result table is a display cap, not a count.** Walking the archive requires
+date-slicing. Backfill waves are forced by the API.
 
-**Headless browsers cannot reach the internet from a sandboxed container** — the egress proxy
+**Volume is modest** - roughly 250 documents a month agency-wide, 75,000-125,000 for the whole
+record. This is not a big-data problem. Do not over-engineer for scale.
+
+**A working reference implementation** of the endpoint client exists in the sibling project
+`../up-ns-merger-tracker/tracker/stb_client.py`. **Do not modify that project.** Read it if
+useful, but write ingest code fresh against this project's schema rather than copying - the
+sibling is docket-scoped and has no entity model.
+
+**Headless browsers cannot reach the internet from a sandboxed container** - the egress proxy
 resets Chromium connections. curl and urllib work. Never plan a browser-based scrape.
 
----
+## Design decisions
 
-## Decisions already made
+Reasoning lives in `docs/adr/`. The six one-way doors, all currently **Proposed**:
 
-Full reasoning lives in `docs/adr/`. Summary:
+- **0002** content-hash document identity
+- **0003** extraction captures layout, not just text
+- **0004** party is an entity, not a string (91 of 605 "Filed For" cells are *lists* of parties)
+- **0005** docket number is a composite key with parent/child
+- **0006** event grain over current state
+- **0007** provenance on every derived assertion
+- **0008** geography as structured rows before there is a map
 
-- **Scope v1 to a wedge:** agency-wide docket sheets + alerting, forward-only. No backfill, no
-  citator, no map. Resist scope creep from enthusiasm.
-- **Design the schema for the full product; implement only the wedge.** Adding attributes later
-  is cheap; changing identity, grain, or provenance is not.
-- **Six one-way doors** (ADRs 0002–0008): content-hash document identity; extraction captures
-  layout not just text; party is an entity not a string; docket number is a composite key with
-  parent/child; event grain over current state; provenance on every derived assertion.
+**Do not accept an ADR without first checking it against `docs/validation-queries.md`.** ADRs
+are append-only: superseding one means a new record, never editing the old.
+
+Accepted: **0001** (record architecture decisions) and **0009** (name and domain topology).
+
+## Rules that are not negotiable
+
 - **Never infer a party's position.** It comes from the document's own words. A procedural
   filing takes no position regardless of who filed it. Dates are quoted, never computed from
   context.
-- **Do not build** a citation-network visualisation, a comment-submission system, or anything
+- **Every derived assertion carries provenance** - source document, location, method, method
+  version, timestamp, confidence.
+- **Published pages are generated from the same source as the internal specs.** Methodology,
+  coverage, and corrections must not be allowed to drift from what the code actually does.
+- **Do not build** a citation-network visualisation (CourtListener deprecated theirs for lack of
+  traction - build the graph, not the picture), a comment-submission system, or anything
   duplicating STB's own Open Data Portal.
 
 ## Conventions
 
 - Python 3.11+, standard library preferred; add a dependency only when it earns its place.
 - `ruff` for lint and format, 100-column lines.
-- ADRs are **append-only**. Superseding a decision means a new record, never editing an old one.
-- Published pages (methodology, coverage, corrections) are generated from the same source as
-  the internal specs. They must not be allowed to drift.
+- UTF-8, LF endings everywhere - pinned in `.gitattributes` and `.vscode/settings.json`.
 - `data/` is disposable and gitignored. Anything there must be reproducible from the pipeline.
-- Never commit secrets. `CF_API_TOKEN` and friends come from the environment.
+- Never commit secrets. Tokens come from the environment, are short-lived, and are revoked
+  after use. See `docs/runbook.md`.
 
-## What to ask about rather than assume
+## Ask rather than assume
 
-- Anything that would change the schema's grain or identity model.
+- Anything that changes the schema's grain, identity model, or provenance.
 - Anything that publishes a derived claim without provenance attached.
-- Anything that commits the project to a public promise — an alert guarantee, a coverage claim,
+- Anything committing the project to a public promise - an alert guarantee, a coverage claim,
   a correction policy.
+- Anything that would make a decision recorded in an accepted ADR obsolete.

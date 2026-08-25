@@ -19,7 +19,7 @@ people miss — Cloudflare renamed it from "Dynamic Redirect", though the API ph
 ### Domains
 
 | Domain | Role |
-|---|---|
+| --- | --- |
 | `docketyard.org` | **Canonical.** Everything else points here. |
 | `docketyard.com`, `docketyard.net` | Defensive |
 | `docketcommons.org`, `docketcommons.com` | Umbrella name, held |

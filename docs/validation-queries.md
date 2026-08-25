@@ -24,7 +24,7 @@ likely to expose a schema that treats parties as strings.
 > What has narrowed, distinguished, or superseded this decision?
 
 Exercises: typed citation edges (not just "cites"), provenance on each edge, confidence.
-A citation graph that cannot distinguish *followed* from *overruled* is a list, not a citator.
+A citation graph that cannot distinguish _followed_ from _overruled_ is a list, not a citator.
 
 **Can the schema express it?** _(unanswered)_
 

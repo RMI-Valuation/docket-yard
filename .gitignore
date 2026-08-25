@@ -1,4 +1,4 @@
-# data + derived artifacts — never committed, always reproducible
+# data + derived artifacts - never committed, always reproducible
 /data/*
 !/data/.gitkeep
 *.sqlite
@@ -25,6 +25,7 @@ venv/
 # editors / os
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea/
 .DS_Store
 Thumbs.db
