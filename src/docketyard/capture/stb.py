@@ -30,6 +30,24 @@ DISPLAY_CAP = 10_000
 # per-page is clamped server-side (measured 2026-08-25): a page shorter than this is the last
 PAGE_CLAMP = 50
 
+# The stable sort per table. The default order is NOT repeatable (measured), so every
+# multi-page walk pins one of these. Dockets ascend so a walk is resumable by inspection;
+# filings/decisions descend so forward polling sees the newest first.
+TABLE_SORT = {
+    DOCKETS: ("docketNum", "asc"),
+    FILINGS: ("officialFilingDate", "desc"),
+    DECISIONS: ("serviceDate", "desc"),
+}
+
+# The 34 prefixes the search form offers (census 2026-08-25; none reaches the display cap).
+DOCKET_PREFIXES = (
+    "AB AM ARB ASC CNO CU DOP DSO EP EPM FD FSA IS ISM MC MCC MCF MXC NOM NOR PTO RER RR"
+    " S5A S5M SAI SDM SO STA SUB SUS WB WC WCC"
+).split()
+# The census found these empty. A no-results envelope on any OTHER prefix is the trap (wrong
+# criteria, expired nonce, renamed sort key), never a benign empty slice.
+EXPECTED_EMPTY_PREFIXES = frozenset("ARB ASC DSO RER S5A SUS".split())
+
 # Attributes are matched per-tag and independently, so attribute order, spacing, and
 # unrelated attributes between them cannot break the scrape.
 _STB_TAG_RE = re.compile(r"<[^>]*data-stb-action=[^>]*>")
@@ -124,6 +142,11 @@ class StbClient:
     def get(self, url: str) -> tuple[int, bytes]:
         """Rate-limited GET with the same retry/backoff — used for document fetches."""
         return self._request(url)
+
+    def refresh_nonces(self) -> dict[str, str]:
+        """Re-scrape mid-run — the nonce rotates on a clock a long walk can straddle."""
+        self._nonces = {}
+        return self.get_nonces()
 
     def get_nonces(self) -> dict[str, str]:
         if not self._nonces:

@@ -36,10 +36,10 @@ def save(con, data_dir, body, *, asserted=True, mode="forward"):
 
 
 def test_migrations_apply_once(con):
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 3
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"capture", "docket", "event", "document", "filing", "decision_record"} <= tables
-    assert db.migrate(con) == 2  # re-running changes nothing
+    assert {"capture", "docket", "event", "document", "filing", "walk_slice"} <= tables
+    assert db.migrate(con) == 3  # re-running changes nothing
 
 
 def test_versionless_tables_are_refused():
@@ -166,12 +166,15 @@ def test_view_and_ledger_agree_on_latest(con, tmp_path):
 
 
 def test_status_counts(con, tmp_path):
-    save(con, tmp_path, b"quarantined bytes", asserted=False)
+    bad = save(con, tmp_path, b"quarantined bytes", asserted=False)
+    records.set_verdict(con, bad, filter_asserted=False, row_count=0, reported_total=0)
+    save(con, tmp_path, b"saved then crashed before any verdict", asserted=False)
     cid = save(con, tmp_path, make_body([("FD_5_0", "T")], total=1))
     records.set_verdict(con, cid, filter_asserted=True, row_count=1, reported_total=10_000)
     s = projections.status(con)
-    assert s["captures"] == 2
-    assert s["captures_quarantined"] == 1
+    assert s["captures"] == 3
+    assert s["captures_quarantined"] == 1  # judged and failed
+    assert s["captures_unjudged"] == 1  # never judged: not a criteria failure
     assert s["captures_capped"] == 1
     assert s["captures_unprocessed"] == 1
     assert projections.pending_capture_ids(con) == [cid]

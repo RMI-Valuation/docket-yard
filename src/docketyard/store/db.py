@@ -15,6 +15,7 @@ from sqlite3 import connect as _connect
 MIGRATIONS: list[tuple[int, str]] = [
     (1, "schema.sql"),
     (2, "0002_filings_decisions.sql"),
+    (3, "0003_walk_slices.sql"),
 ]
 
 

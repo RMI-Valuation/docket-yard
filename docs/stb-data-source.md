@@ -50,6 +50,25 @@ also appears **without** the `_0` (`FD_36873` and `FD_36339_0` are both parent s
 observed live) — and suffix case varies (`X` and `x` both appear). Normalise for identity, keep
 the raw.
 
+**The default row order is not repeatable** (measured 2026-08-25): two unsorted requests for
+page 1 of the dockets table returned different rows. Multi-page walks MUST pin a sort. The
+dockets table's sortable keys are in the search-page markup as `data-stb-sort`:
+`docketNum` and `docketTitle.keyword` (the `.keyword` suffix is Elasticsearch idiom — and the
+10,000 cap is ES's `max_result_window`, which is why no sort lifts it). An unknown `sort_by`
+value returns the "There are no dockets available" envelope, not an error. **`sort_by=docketNum`
+is repeatable and pages without overlap** (measured: page 1 twice identical, page 1 ∩ page 2
+empty) — the walk order. `sort_by=officialFilingDate` (filings) and `sort_by=serviceDate`
+(decisions) both return rows (measured in the same session); their page stability is assumed
+from the dockets result, not separately measured.
+
+**Docket census by prefix** (2026-08-25, `docketNum_one` filter, `total` per prefix): AB 6054,
+AM 3, ARB 0, ASC 0, CNO 1, CU 16, DOP 4, DSO 0, EP 429, EPM 146, FD 8646, FSA 14, IS 267,
+ISM 1944, MC 97, MCC 724, MCF 6006, MXC 13, NOM 1446, NOR 3431, PTO 6, RER 0, RR 5, S5A 0,
+S5M 190, SAI 11, SDM 570, SO 22, STA 7, SUB 18, SUS 0, WB 106, WC 1, WCC 5 — **about 30,200
+dockets, and no prefix reaches the 10,000 cap**, so prefix slicing alone walks the whole
+registry in ~640 requests. Id forms seen: `S5M_1_0_A` and `SUB_300_0_L` (suffix on a parent),
+`CU_349` (bare parent), `WC_1548_1_C` (suffix on a sub); prefixes can contain digits.
+
 **`per-page` is clamped to 50 server-side** (measured 2026-08-25): a request for
 `per-page=100` returns 50 rows per page, and page 2 continues from row 51 (66 rows arrived as
 50 + 16), so the server pages by its own clamp, not the requested size. Whether `total` counts

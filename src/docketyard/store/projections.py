@@ -34,8 +34,13 @@ def status(con: Connection) -> dict:
     return {
         "captures": q("SELECT COUNT(*) FROM capture").fetchone()[0],
         "captures_unprocessed": len(pending_capture_ids(con)),
+        # quarantined = judged and failed; unjudged = saved but never verdicted (a crash in
+        # the parse window), which is not a criteria failure and should not read as one
         "captures_quarantined": q(
-            "SELECT COUNT(*) FROM capture WHERE filter_asserted = 0"
+            "SELECT COUNT(*) FROM capture WHERE filter_asserted = 0 AND row_count IS NOT NULL"
+        ).fetchone()[0],
+        "captures_unjudged": q(
+            "SELECT COUNT(*) FROM capture WHERE filter_asserted = 0 AND row_count IS NULL"
         ).fetchone()[0],
         "captures_capped": q(
             "SELECT COUNT(*) FROM capture WHERE reported_total >= ?", (DISPLAY_CAP,)

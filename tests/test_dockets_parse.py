@@ -47,6 +47,14 @@ def test_parse_rejects_garbage():
         assert dockets.parse_docket_id(bad) is None
 
 
+def test_parse_forms_seen_in_the_census():
+    # digit-bearing prefixes, suffix on a parent, bare parent, suffix on a sub
+    assert dockets.parse_docket_id("S5M_1_0_A") == dockets.ParsedDocket("S5M", 1, None, "A")
+    assert dockets.parse_docket_id("SUB_300_0_L") == dockets.ParsedDocket("SUB", 300, None, "L")
+    assert dockets.parse_docket_id("CU_349") == dockets.ParsedDocket("CU", 349, None, None)
+    assert dockets.parse_docket_id("WC_1548_1_C") == dockets.ParsedDocket("WC", 1548, 1, "C")
+
+
 # --- response decoding ---------------------------------------------------------------
 
 

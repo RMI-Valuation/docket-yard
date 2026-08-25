@@ -28,8 +28,9 @@ from docketyard.store.db import load_json
 SOURCE_SYSTEM = "stb-ajax"
 
 # The sub part is optional AND `0` when present means the parent: FD_36873 and FD_36339_0
-# are both parent-docket spellings (both observed live, 2026-08-25).
-_DOCKET_ID_RE = re.compile(r"^([A-Za-z]+)_(\d+)(?:_(\d+))?(?:_([A-Za-z0-9]+))?$")
+# are both parent-docket spellings (both observed live, 2026-08-25). Prefixes can contain
+# digits (S5M, S5A — census 2026-08-25) but always start with a letter.
+_DOCKET_ID_RE = re.compile(r"^([A-Za-z][A-Za-z0-9]*)_(\d+)(?:_(\d+))?(?:_([A-Za-z0-9]+))?$")
 
 
 @dataclass(frozen=True)
