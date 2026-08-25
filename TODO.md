@@ -6,8 +6,7 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- RMI-AI-MACHINE: confirm the guide's "done when" — `docker run --rm --gpus all ubuntu
-  nvidia-smi`, `/data` mounted, and the pull-the-plug power-restore test
+- Nothing queued — pull from Next
 
 ## Next
 
