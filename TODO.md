@@ -12,8 +12,9 @@ by pre-commit: when it fires, prune.
 
 - Home page ("what is moving") design — the second surface, per `docs/interface.md`
 
-- Measure what `total` counts on the filings table (rows vs records) — the page loop stops
-  on the first short page regardless, but the cap warning assumes rows
+- What `total` counts on the filings table (rows vs records): still unmeasured after 36
+  agency-wide filings showed one attachment row each; multi-row filings are rarer than the
+  design session assumed. The stop rule does not depend on it; revisit when one appears
 - M3: docket sheet projection + server-rendered pages at permanent URLs (needs the hosting
   decision to stop being deferred; the projection can be built first)
 - Dockerfile + release-triggered image build in CI (with M2, when there is something to run)
