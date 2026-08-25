@@ -10,15 +10,14 @@ def docket_count(con: Connection) -> int:
     return con.execute("SELECT COUNT(*) FROM docket").fetchone()[0]
 
 
-def pending_capture_ids(con: Connection) -> list[int]:
+def pending_capture_ids(con: Connection, table_action: str | None = None) -> list[int]:
     """The one definition of 'pending': asserted and not yet consumed by ingest."""
-    return [
-        row[0]
-        for row in con.execute(
-            "SELECT capture_id FROM capture"
-            " WHERE processed_at IS NULL AND filter_asserted = 1 ORDER BY capture_id"
-        )
-    ]
+    sql = "SELECT capture_id FROM capture WHERE processed_at IS NULL AND filter_asserted = 1"
+    params: tuple = ()
+    if table_action is not None:
+        sql += " AND table_action = ?"
+        params = (table_action,)
+    return [row[0] for row in con.execute(sql + " ORDER BY capture_id", params)]
 
 
 def docket_titles(con: Connection, limit: int = 20) -> list[tuple[str, str | None]]:
@@ -42,5 +41,12 @@ def status(con: Connection) -> dict:
             "SELECT COUNT(*) FROM capture WHERE reported_total >= ?", (DISPLAY_CAP,)
         ).fetchone()[0],
         "dockets": docket_count(con),
+        "filings": q("SELECT COUNT(*) FROM filing").fetchone()[0],
+        "decisions": q("SELECT COUNT(*) FROM decision_record").fetchone()[0],
+        "documents": q("SELECT COUNT(*) FROM document").fetchone()[0],
+        "attachments_unfetched": q(
+            "SELECT (SELECT COUNT(*) FROM filing_attachment WHERE document_sha256 IS NULL)"
+            " + (SELECT COUNT(*) FROM decision_attachment WHERE document_sha256 IS NULL)"
+        ).fetchone()[0],
         "events": q("SELECT COUNT(*) FROM event").fetchone()[0],
     }

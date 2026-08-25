@@ -41,6 +41,7 @@ def save_capture(
     *,
     source_system: str,
     endpoint: str,
+    table_action: str,
     request_params: list[tuple[str, str]],
     body: bytes,
     http_status: int,
@@ -51,16 +52,43 @@ def save_capture(
     cur = con.execute(
         """
         INSERT INTO capture
-            (source_system, endpoint, request_params, response_sha256, http_status,
-             filter_asserted, ingest_mode, captured_at)
-        VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+            (source_system, endpoint, table_action, request_params, response_sha256,
+             http_status, filter_asserted, ingest_mode, captured_at)
+        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
         """,
-        (source_system, endpoint, dump_json(request_params), sha256, http_status,
-         ingest_mode, utcnow()),
+        (source_system, endpoint, table_action, dump_json(request_params), sha256,
+         http_status, ingest_mode, utcnow()),
     )  # fmt: skip
     con.commit()
     assert cur.lastrowid is not None
     return cur.lastrowid
+
+
+def open_pending(
+    con: Connection, data_dir: str | Path, capture_id: int, expected_action: str
+) -> bytes | None:
+    """The one definition of 'consumable': asserted, unprocessed, and of the expected table.
+    Returns the raw body, or None if already processed. Raises on quarantine or on a
+    capture of a different table — the wrong parser must never stamp processed_at."""
+    row = con.execute(
+        "SELECT filter_asserted, processed_at, response_sha256, table_action FROM capture"
+        " WHERE capture_id = ?",
+        (capture_id,),
+    ).fetchone()
+    if row is None:
+        raise KeyError(f"no capture {capture_id}")
+    if not row[0]:
+        raise ValueError(f"capture {capture_id} is quarantined (filter not asserted)")
+    if row[3] != expected_action:
+        raise ValueError(f"capture {capture_id} is {row[3]!r}, not {expected_action!r}")
+    if row[1] is not None:
+        return None
+    return load_blob(data_dir, row[2])
+
+
+def mark_processed(con: Connection, capture_id: int) -> None:
+    con.execute("UPDATE capture SET processed_at = ? WHERE capture_id = ?", (utcnow(), capture_id))
+    con.commit()
 
 
 def set_verdict(

@@ -27,6 +27,8 @@ DECISIONS = "stb_hook_table_decisions"
 # 10,000 in `total` is a display cap, not a count (docs/stb-data-source.md). The single
 # definition — ingest imports it rather than re-declaring the number.
 DISPLAY_CAP = 10_000
+# per-page is clamped server-side (measured 2026-08-25): a page shorter than this is the last
+PAGE_CLAMP = 50
 
 # Attributes are matched per-tag and independently, so attribute order, spacing, and
 # unrelated attributes between them cannot break the scrape.
@@ -118,6 +120,10 @@ class StbClient:
                 time.sleep(self.min_interval * (2**attempt))
                 continue
         raise RuntimeError(f"STB endpoint failed after retries: {last_error}") from last_error
+
+    def get(self, url: str) -> tuple[int, bytes]:
+        """Rate-limited GET with the same retry/backoff — used for document fetches."""
+        return self._request(url)
 
     def get_nonces(self) -> dict[str, str]:
         if not self._nonces:

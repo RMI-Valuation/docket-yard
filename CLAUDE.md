@@ -7,9 +7,10 @@ Operated by RMI Valuation, LLC. Unaffiliated with the STB. Every record links to
 own PDF.
 
 **Status: building.** Repository public on GitHub, schema validated on paper, ADRs 0001-0011
-all accepted. M1 (docket-registry capture + ingest) is built, reviewed, and verified against
-the live endpoint; scheduled forward operation awaits hosting. M2 (filings/decisions ingest)
-is next per `ROADMAP.md`.
+all accepted. M1 (docket registry) and M2 (filings/decisions ingest, document fetching with
+errata detection) are built, reviewed, and verified against the live endpoint; scheduled
+forward operation awaits hosting. M3 (docket sheets + permanent URLs) is next per
+`ROADMAP.md`.
 
 ## Read these before proposing implementation work
 
@@ -38,8 +39,9 @@ your own enthusiasm for the capability map.
   `docketNum_two=36873` as a plain POST field is ignored and returns a full unfiltered result
   set with a 200. Ingest code must positively assert the filter applied.
 - Filings filter on `filingStartDate`/`filingEndDate`, **not** `officialFilingStartDate`,
-  despite the column being labelled "Official Filing Date". The wrong pair returns zero rows
-  with no error.
+  despite the column being labelled "Official Filing Date". The wrong pair returns a
+  `success: false` "There are no filings available" envelope — the same one a page past the
+  end returns, so it cannot be trusted as "empty" on a first page.
 
 **The 10,000 in every result table is a display cap, not a count.** Walking the archive requires
 date-slicing. Backfill waves are forced by the API.

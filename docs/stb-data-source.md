@@ -48,7 +48,13 @@ are not filtered this way.
 `AB_55_785_X`, `AB_32_98_x`. `_0` in the sub position means the parent docket — but the parent
 also appears **without** the `_0` (`FD_36873` and `FD_36339_0` are both parent spellings, both
 observed live) — and suffix case varies (`X` and `x` both appear). Normalise for identity, keep
-the raw. Visible columns:
+the raw.
+
+**`per-page` is clamped to 50 server-side** (measured 2026-08-25): a request for
+`per-page=100` returns 50 rows per page, and page 2 continues from row 51 (66 rows arrived as
+50 + 16), so the server pages by its own clamp, not the requested size. Whether `total` counts
+rows or records on the multi-row-per-filing tables is unmeasured; the safe stop condition is
+"the first short page", never `seen >= total`. Visible columns:
 Docket Number, Docket Title, Service List (a generate control, not data). The unfiltered
 dockets table reports `total: 10000` — the display cap — so the full registry walk requires
 slicing by `docketNum_one` (prefix), and capped prefixes need further slicing by sequence.
@@ -63,7 +69,11 @@ slicing by `docketNum_one` (prefix), and capped prefixes need further slicing by
 
 Note the inconsistency: filings filter on `filingStartDate`/`filingEndDate`, **not**
 `officialFilingStartDate`, despite the column being labelled "Official Filing Date". Using the
-wrong pair returns zero rows with no error.
+wrong pair returns `{"success": false, "data": {"error": "<p>There are no filings available at
+this time.</p>"}}` — and (measured 2026-08-25) **that is the identical envelope a page past the
+end of a result set returns.** On a first page it is indistinguishable from a genuinely empty
+slice, so ingest treats it as the trap; only after a page that passed the filter assertion
+does it mean end-of-results.
 
 ## The 10,000 cap
 

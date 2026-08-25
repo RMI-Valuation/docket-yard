@@ -12,9 +12,11 @@ by pre-commit: when it fires, prune.
 
 - Registry walk: capture all dockets by prefix slices (`--mode backfill`; capped prefixes
   need sequence sub-slicing); measure a working sort for multi-page stability first
-- M2: filings + decisions ingest — documents hashed into blobs, errata detection, filing
-  entity per the revised schema draft
+- Measure what `total` counts on the filings table (rows vs records) — the page loop stops
+  on the first short page regardless, but the cap warning assumes rows
 - Docket-sheet page mockup (design canvas) before any M3 frontend code — the sheet IS the product
+- M3: docket sheet projection + server-rendered pages at permanent URLs (needs the hosting
+  decision to stop being deferred; the projection can be built first)
 - Dockerfile + release-triggered image build in CI (with M2, when there is something to run)
 
 ## Parked

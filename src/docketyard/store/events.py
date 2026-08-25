@@ -21,18 +21,20 @@ def append(
     source_key: str,
     docket_id: int | None = None,
     occurred_at: str | None = None,
+    document_sha256: str | None = None,
 ) -> int | None:
     """Append one event; returns its id, or None if this capture already recorded it."""
     cur = con.execute(
         """
         INSERT OR IGNORE INTO event
-            (event_type, docket_id, occurred_at, recorded_at, capture_id, source_key,
-             payload, payload_version)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (event_type, docket_id, document_sha256, occurred_at, recorded_at, capture_id,
+             source_key, payload, payload_version)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             event_type,
             docket_id,
+            document_sha256,
             occurred_at,
             utcnow(),
             capture_id,
@@ -44,13 +46,20 @@ def append(
     return cur.lastrowid if cur.rowcount else None
 
 
-def latest_payload(con: Connection, event_type: str, docket_id: int) -> dict | None:
+def _latest(con: Connection, event_type: str, column: str, value) -> dict | None:
     row = con.execute(
-        """
-        SELECT payload FROM event
-         WHERE docket_id = ? AND event_type = ?
-         ORDER BY event_id DESC LIMIT 1
-        """,
-        (docket_id, event_type),
+        f"SELECT payload FROM event WHERE {column} = ? AND event_type = ?"
+        " ORDER BY event_id DESC LIMIT 1",
+        (value, event_type),
     ).fetchone()
     return load_json(row[0]) if row else None
+
+
+def latest_payload(con: Connection, event_type: str, docket_id: int) -> dict | None:
+    return _latest(con, event_type, "docket_id", docket_id)
+
+
+def latest_payload_by_key(con: Connection, event_type: str, source_key: str) -> dict | None:
+    """Latest observation for a record identified by source_key (filings and decisions:
+    many records share one docket, so docket_id alone cannot key change-detection)."""
+    return _latest(con, event_type, "source_key", source_key)

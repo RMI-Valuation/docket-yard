@@ -90,6 +90,19 @@ def test_non_json_body_raises():
         dockets.parse_response(b"<html>WAF interstitial</html>")
 
 
+def test_no_results_envelope_is_recognised_but_still_raises_on_parse():
+    # the wrong date pair and a past-the-end page return this identical envelope
+    body = (
+        b'{"success":false,"data":{"error":"<p>There are no filings available at this'
+        b' time.<\\/p>\\n"}}'
+    )
+    assert dockets.is_no_results_envelope(body) is True
+    assert dockets.is_no_results_envelope(b"0") is False
+    assert dockets.is_no_results_envelope(make_body([], total=0)) is False
+    with pytest.raises(ValueError):
+        dockets.parse_response(body)  # never silently an empty page
+
+
 # --- the positive filter assertion ---------------------------------------------------
 
 

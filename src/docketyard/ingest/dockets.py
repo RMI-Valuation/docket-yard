@@ -1,5 +1,10 @@
 """Dockets-table rows → the docket registry + docket_observed / docket_inferred events.
 
+Also home to the docket-identity helpers every other ingester needs: parsing the
+data-stb-id, the canonical spelling used for event keys, registry upsert with provenance for
+anything minted outside the dockets table, and the shared front half of the positive filter
+assertion.
+
 The traps this module answers (docs/stb-data-source.md):
 - the positive filter assertion: a capture is asserted only when every sent criterion is
   positively verified against the returned rows — an unverifiable criterion, a dropped-row
@@ -9,26 +14,22 @@ The traps this module answers (docs/stb-data-source.md):
   identity, raw kept always.
 """
 
-import html
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from sqlite3 import Connection, IntegrityError
 
-from docketyard.capture.records import load_blob
-from docketyard.capture.stb import DISPLAY_CAP
+from docketyard.capture import records
+from docketyard.capture.stb import DISPLAY_CAP, DOCKETS
+from docketyard.ingest.markup import CELL_RE, ROW_RE, STB_ID_RE, clean
 from docketyard.store import events
-from docketyard.store.db import load_json, utcnow
+from docketyard.store.db import load_json
 
 SOURCE_SYSTEM = "stb-ajax"
 
-_ROW_RE = re.compile(r"<tr\b[^>]*>(.*?)</tr>", re.S)
-_CELL_RE = re.compile(r"<td\b[^>]*>(.*?)</td>", re.S)
-_STB_ID_RE = re.compile(r'data-stb-id="([^"]+)"')
 # The sub part is optional AND `0` when present means the parent: FD_36873 and FD_36339_0
 # are both parent-docket spellings (both observed live, 2026-08-25).
 _DOCKET_ID_RE = re.compile(r"^([A-Za-z]+)_(\d+)(?:_(\d+))?(?:_([A-Za-z0-9]+))?$")
-_TAG_RE = re.compile(r"<[^>]+>")
-_WS_RE = re.compile(r"\s+")
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,11 @@ class ParsedDocket:
         if self.sub_sequence is None and self.suffix is None:
             return None
         return ParsedDocket(self.prefix, self.sequence, None, None)
+
+    def canonical(self) -> str:
+        """One spelling per identity — the event source_key form."""
+        suffix = f"_{self.suffix}" if self.suffix else ""
+        return f"{self.prefix}_{self.sequence}_{self.sub_sequence or 0}{suffix}"
 
 
 @dataclass(frozen=True)
@@ -70,26 +76,22 @@ def parse_docket_id(raw: str) -> ParsedDocket | None:
     )
 
 
-def _clean(fragment: str) -> str:
-    return _WS_RE.sub(" ", html.unescape(_TAG_RE.sub(" ", fragment))).strip()
-
-
 def _parse_rows(rows_html: str) -> tuple[list[DocketRow], int]:
     out, skipped = [], 0
-    for tr in _ROW_RE.findall(rows_html):
-        stb_id = _STB_ID_RE.search(tr)
-        cells = _CELL_RE.findall(tr)
+    for tr in ROW_RE.findall(rows_html):
+        stb_id = STB_ID_RE.search(tr)
+        cells = CELL_RE.findall(tr)
         # the printed docket-number cell must corroborate the id, so a column reorder
         # cannot silently store the wrong cell as a title
-        if not stb_id or len(cells) < 3 or _clean(cells[1]) != stb_id.group(1):
+        if not stb_id or len(cells) < 3 or clean(cells[1]) != stb_id.group(1):
             skipped += 1
             continue
-        out.append(DocketRow(stb_id=stb_id.group(1), title=_clean(cells[2])))
+        out.append(DocketRow(stb_id=stb_id.group(1), title=clean(cells[2])))
     return out, skipped
 
 
-def parse_response(body: bytes) -> ParsedResponse:
-    """Decode one AJAX response body. Raises ValueError for anything abnormal —
+def parse_envelope(body: bytes) -> dict:
+    """Decode the AJAX JSON envelope. Raises ValueError for anything abnormal —
     including WordPress's bare `0` body for an expired nonce, which is valid JSON."""
     try:
         payload = load_json(body.decode("utf-8", "replace"))
@@ -97,49 +99,100 @@ def parse_response(body: bytes) -> ParsedResponse:
         raise ValueError(f"response is not JSON: {body[:120]!r}") from e
     if not isinstance(payload, dict) or not payload.get("success"):
         raise ValueError(f"endpoint reported failure: {body[:120]!r}")
-    data = payload.get("data") or {}
+    return payload.get("data") or {}
+
+
+_NO_RESULTS_RE = re.compile(r"There are no \w+ available")
+
+
+def is_no_results_envelope(body: bytes) -> bool:
+    """The endpoint's `{"success": false, "data": {"error": "There are no X available"}}`.
+    Measured 2026-08-25: a page past the last one AND the wrong date-field pair return
+    this identical envelope — so on a first page it is the trap and must quarantine; only
+    after a page that passed the assertion does it mean end-of-results."""
+    try:
+        payload = load_json(body.decode("utf-8", "replace"))
+    except ValueError:
+        return False
+    if not isinstance(payload, dict) or payload.get("success"):
+        return False
+    data = payload.get("data")
+    error = data.get("error") if isinstance(data, dict) else None
+    return bool(error and _NO_RESULTS_RE.search(str(error)))
+
+
+def parse_response(body: bytes) -> ParsedResponse:
+    data = parse_envelope(body)
     rows, skipped = _parse_rows(data.get("rows", ""))
     return ParsedResponse(rows=rows, total=int(data.get("total") or 0), skipped=skipped)
 
 
-_VERIFIABLE_CRITERIA = {"docketNum_one", "docketNum_two"}
+# --- the positive filter assertion, shared halves ------------------------------------
+
+DOCKET_CRITERIA = {"docketNum_one", "docketNum_two"}
 
 
-def assert_filter(criteria: list[tuple[str, str]], parsed: ParsedResponse) -> bool:
-    """Positively assert the response is what the request asked for.
+def assert_preamble(
+    criteria: list[tuple[str, str]],
+    *,
+    have_rows: bool,
+    total: int,
+    skipped: int,
+    verifiable: set[str],
+) -> bool | None:
+    """The front half of every table's assertion. Returns a verdict when it can be
+    settled without per-row checks; None means "go on to the per-row checks".
 
-    Quarantines (returns False) on: dropped rows (markup drift), a non-empty reported
-    total with nothing parsed, any criterion this function cannot verify, zero rows
-    against non-empty criteria (the endpoint answers a mis-named criterion with zero
-    rows and no error), and any row not matching the criteria (a mis-formatted
-    criterion returns the full unfiltered set with a 200).
+    Quarantines on: dropped rows (markup drift), a non-empty reported total with nothing
+    parsed, any criterion this table cannot verify, and zero rows against non-empty
+    criteria (a mis-named criterion returns zero rows with no error).
     """
-    if parsed.skipped:
+    if skipped:
         return False
-    if parsed.total > 0 and not parsed.rows:
+    if total > 0 and not have_rows:
         return False
     if not criteria:
         return True
-    if any(name not in _VERIFIABLE_CRITERIA for name, _ in criteria):
+    if any(name not in verifiable for name, _ in criteria):
         return False
-    if not parsed.rows:
+    if not have_rows:
         return False
-    checks = dict(criteria)
+    return None
+
+
+def docket_criteria_hold(checks: dict[str, str], identities: Iterable[ParsedDocket | None]) -> bool:
+    """Every row's docket matches the docketNum criteria (a mis-FORMATTED criterion
+    returns the full unfiltered set with a 200 — this is the check that catches it)."""
     want_prefix = checks["docketNum_one"].upper() if "docketNum_one" in checks else None
     want_sequence = int(checks["docketNum_two"]) if "docketNum_two" in checks else None
-    for row in parsed.rows:
-        row_id = parse_docket_id(row.stb_id)
-        if row_id is None:
+    for identity in identities:
+        if identity is None:
             return False
-        if want_prefix is not None and row_id.prefix != want_prefix:
+        if want_prefix is not None and identity.prefix != want_prefix:
             return False
-        if want_sequence is not None and row_id.sequence != want_sequence:
+        if want_sequence is not None and identity.sequence != want_sequence:
             return False
     return True
 
 
+def assert_filter(criteria: list[tuple[str, str]], parsed: ParsedResponse) -> bool:
+    verdict = assert_preamble(
+        criteria,
+        have_rows=bool(parsed.rows),
+        total=parsed.total,
+        skipped=parsed.skipped,
+        verifiable=DOCKET_CRITERIA,
+    )
+    if verdict is not None:
+        return verdict
+    return docket_criteria_hold(dict(criteria), (parse_docket_id(r.stb_id) for r in parsed.rows))
+
+
 def hit_display_cap(total: int) -> bool:
     return total >= DISPLAY_CAP
+
+
+# --- the registry --------------------------------------------------------------------
 
 
 def find_docket(con: Connection, identity: ParsedDocket) -> int | None:
@@ -163,7 +216,7 @@ def upsert_docket(con: Connection, identity: ParsedDocket, raw: str) -> int:
     parent = identity.parent()
     parent_id = None
     if parent is not None:
-        parent_id = upsert_docket(con, parent, f"{identity.prefix}_{identity.sequence}_0")
+        parent_id = upsert_docket(con, parent, parent.canonical())
     try:
         cur = con.execute(
             """
@@ -187,20 +240,65 @@ def upsert_docket(con: Connection, identity: ParsedDocket, raw: str) -> int:
     return cur.lastrowid
 
 
+def register_docket(
+    con: Connection,
+    identity: ParsedDocket,
+    raw: str,
+    capture_id: int,
+    *,
+    printed_in_dockets_table: bool,
+    inferred_from: str,
+) -> tuple[int, int]:
+    """Find or create the docket and its parent, with provenance for anything minted
+    outside the dockets table: a minted parent is always `docket_inferred`; the docket
+    itself is too when it was seen only on a filing/decision row. A synthesised parent
+    spelling is corrected on first direct observation. Returns (docket_id, minted)."""
+    parent = identity.parent()
+    parent_new = parent is not None and find_docket(con, parent) is None
+    self_new = find_docket(con, identity) is None
+    docket_id = upsert_docket(con, identity, raw)
+    if printed_in_dockets_table:
+        con.execute(
+            "UPDATE docket SET raw_docket = ? WHERE docket_id = ? AND raw_docket <> ?",
+            (raw, docket_id, raw),
+        )
+    minted = 0
+    if parent_new:
+        assert parent is not None
+        parent_id = find_docket(con, parent)
+        assert parent_id is not None
+        minted += 1
+        events.append(
+            con,
+            event_type="docket_inferred",
+            capture_id=capture_id,
+            docket_id=parent_id,
+            payload={"inferred_from": inferred_from},
+            source_key=f"inferred:{parent.canonical()}",
+        )
+    if self_new:
+        minted += 1
+        if not printed_in_dockets_table:
+            events.append(
+                con,
+                event_type="docket_inferred",
+                capture_id=capture_id,
+                docket_id=docket_id,
+                payload={"inferred_from": inferred_from},
+                source_key=f"inferred:{identity.canonical()}",
+            )
+    return docket_id, minted
+
+
+# --- ingest --------------------------------------------------------------------------
+
+
 def ingest_capture(con: Connection, data_dir, capture_id: int) -> dict:
-    """Consume one asserted capture into the registry and the ledger. Idempotent; a
-    capture already processed is skipped outright."""
-    row = con.execute(
-        "SELECT filter_asserted, processed_at, response_sha256 FROM capture WHERE capture_id = ?",
-        (capture_id,),
-    ).fetchone()
-    if row is None:
-        raise KeyError(f"no capture {capture_id}")
-    if not row[0]:
-        raise ValueError(f"capture {capture_id} is quarantined (filter not asserted)")
-    if row[1] is not None:
+    """Consume one asserted dockets capture. Idempotent; already-processed is skipped."""
+    body = records.open_pending(con, data_dir, capture_id, DOCKETS)
+    if body is None:
         return {"already_processed": True}
-    parsed = parse_response(load_blob(data_dir, row[2]))
+    parsed = parse_response(body)
     stats = {
         "rows": len(parsed.rows),
         "markup_skipped": parsed.skipped,
@@ -214,31 +312,15 @@ def ingest_capture(con: Connection, data_dir, capture_id: int) -> dict:
         if identity is None:
             stats["unparsed"] += 1
             continue
-        parent = identity.parent()
-        row_is_new = find_docket(con, identity) is None
-        parent_minted = row_is_new and parent is not None and find_docket(con, parent) is None
-        docket_id = upsert_docket(con, identity, docket_row.stb_id)
-        stats["new_dockets"] += int(row_is_new) + int(parent_minted)
-        # first direct observation corrects a synthesised parent spelling; afterwards
-        # raw_docket tracks the most recently printed form
-        con.execute(
-            "UPDATE docket SET raw_docket = ? WHERE docket_id = ? AND raw_docket <> ?",
-            (docket_row.stb_id, docket_id, docket_row.stb_id),
+        docket_id, minted = register_docket(
+            con,
+            identity,
+            docket_row.stb_id,
+            capture_id,
+            printed_in_dockets_table=True,
+            inferred_from=docket_row.stb_id,
         )
-        if parent_minted:
-            # a parent the source has not printed yet: recorded as inferred, with the
-            # capture that implied it as provenance (never as a fake observation)
-            assert parent is not None
-            parent_id = find_docket(con, parent)
-            assert parent_id is not None
-            events.append(
-                con,
-                event_type="docket_inferred",
-                capture_id=capture_id,
-                docket_id=parent_id,
-                payload={"inferred_from": docket_row.stb_id},
-                source_key=f"inferred:{identity.prefix}_{identity.sequence}",
-            )
+        stats["new_dockets"] += minted
         payload = {"title": docket_row.title}
         if events.latest_payload(con, "docket_observed", docket_id) != payload:
             appended = events.append(
@@ -247,12 +329,11 @@ def ingest_capture(con: Connection, data_dir, capture_id: int) -> dict:
                 capture_id=capture_id,
                 docket_id=docket_id,
                 payload=payload,
-                source_key=docket_row.stb_id,
+                source_key=identity.canonical(),
             )
             if appended is not None:
                 stats["events"] += 1
             else:
                 stats["suppressed"] += 1
-    con.execute("UPDATE capture SET processed_at = ? WHERE capture_id = ?", (utcnow(), capture_id))
-    con.commit()
+    records.mark_processed(con, capture_id)
     return stats

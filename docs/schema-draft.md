@@ -634,6 +634,22 @@ projection wrong. What changed, so the reasoning is not lost:
 | B6 | First backfill wave would alert every subscriber on thirty years of old filings | `capture.ingest_mode`; backfill never alerts |
 | C1–C6 | Wrong Q5 projection; undefined `polarity`; nullable `occurred_at` silently dropping rows; corrections needing captures; no unsubscribe/retry; zip members unanchored | All fixed above, each where it lives |
 
+## Revision notes as code met the paper (M1–M2, 2026-08-25)
+
+- **`decision_record` keys on the table's own decision id**, not `decision_number`. The
+  dockets/decisions tables print a system id (`53210`); "Decision No. 30" is printed inside
+  the document and arrives by extraction. `decision_number` stays as a nullable attribute so
+  query 3's lookup path exists; the identity is what the source can actually corroborate.
+- **`raw_docket` on a parent minted from a sub-docket** is synthesised (`FD_36873_0`) until
+  the parent is directly observed, at which point it is corrected; the minting is recorded
+  as a `docket_inferred` event carrying the implying record. Same for dockets first seen on
+  a filing or decision row.
+- **Filings/decisions record rows mirror the latest observation** (type, dates, filed-for
+  raw) and point at the event that last shaped them; history stays in the ledger.
+- **`filed_for_raw` is stored uncut** on the filing; the party split (ADR 0004) is the party
+  module's pass over that raw, and the captures hold the original markup should separators
+  ever matter.
+
 ## What this draft deliberately does not model
 
 Deadlines and procedural tracks (C4), outcome coding (M5), cross-agency joins (F6) beyond the

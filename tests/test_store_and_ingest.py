@@ -21,6 +21,7 @@ def save(con, data_dir, body, *, asserted=True, mode="forward"):
         data_dir,
         source_system="stb-ajax",
         endpoint="test",
+        table_action="stb_hook_table_dockets",
         request_params=[],
         body=body,
         http_status=200,
@@ -34,11 +35,11 @@ def save(con, data_dir, body, *, asserted=True, mode="forward"):
 # --- store ---------------------------------------------------------------------------
 
 
-def test_migration_applies_once(con):
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 1
+def test_migrations_apply_once(con):
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 2
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"capture", "docket", "event"} <= tables
-    assert db.migrate(con) == 1  # re-running changes nothing
+    assert {"capture", "docket", "event", "document", "filing", "decision_record"} <= tables
+    assert db.migrate(con) == 2  # re-running changes nothing
 
 
 def test_versionless_tables_are_refused():
