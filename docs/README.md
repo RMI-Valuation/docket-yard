@@ -11,8 +11,8 @@
 
 ## The document set
 
-Ten documents. Four close doors that are expensive to reopen, three exist because the site is
-public, three exist because future-you will be debugging at eleven at night.
+Eleven documents. Five close doors that are expensive to reopen, three exist because the site
+is public, three exist because future-you will be debugging at eleven at night.
 
 The test for each: **name the specific mistake it prevents.** Documentation that isn't
 load-bearing is drag.
@@ -29,6 +29,7 @@ load-bearing is drag.
 | 08 | [`runbook.md`](runbook.md) | Failure modes and their fixes | DNS and repo sections written |
 | 09 | [`alerts.md`](alerts.md) | Delivery promise and silent-failure detection | stub |
 | 10 | [`architecture.md`](architecture.md) | What runs where, storage layers, the rebuildable-store property | drafted |
+| 11 | [`interface.md`](interface.md) | Design direction: trust-and-density, not-gov, HTML-first, the sheet is the product | drafted |
 
 ## Order
 
