@@ -61,4 +61,26 @@ distinguishing filings from decisions from our own derived annotations. Every ot
 inherits its system.
 
 Process: mock the sheet visually (realistic content — FD 36873) and iterate to approval
-**before** any template is written. Queued in `TODO.md` against M3.
+**before** any template is written. Done 2026-08-25; working files in `design/docket-sheet/`.
+
+## Surfaces beyond the sheet
+
+Brief for what comes after M3, drawn from the project's ancestor — the single-docket UP–NS
+merger tracker (`../up-ns-merger-tracker/dashboard.html`, read-only). The tracker is what
+one docket looks like when a person builds a dashboard for it; Docket Yard makes that
+available for every docket without a person per docket. Its surfaces generalise as follows,
+each gated on the extraction it needs:
+
+| Surface | What it is | Gated on | Rule to honour |
+| --- | --- | --- | --- |
+| **Docket calendar** (rail on the sheet, plus a "next deadline" callout at the top) | Dated deadlines *as set by Board and ALJ decisions*, each with the decision that set it | Decision-text extraction | Dates quoted from the decision, never computed; per-item source link. This is the honest, narrow form of the deadline engine (C4). Reserve the slot; leave it empty until the extraction ships — no filler |
+| **Entry briefs** (expand a row) | Key points of a filing, and any deadlines it sets, as derived assertions | Extraction with ADR 0007 provenance | Labelled derived, with method, version, confidence, and a deep link to the passage (ADR 0003). Stronger than the tracker's because each claim can point at its page region |
+| **Home — "what is moving"** | The tracker's record-to-date tiles, monthly sparkline and stage badge, generalised agency-wide: most active proceedings this week, decisions served, activity per docket | M1–M2 data (exists) | The homepage is a dashboard; the sheet is not. Keep tiles off the sheet |
+| **Parties view** on the sheet | Who is on the record (entities, not strings) and, later, where they stand — the tracker's stance bar and party-type breakdown | Party module (ADR 0004); position extraction with provenance; a published methodology | Positions come from the document's own words; procedural filings take none (the tracker marks them n/a — keep that). An aggregate stance bar is a claim about what parties told a federal agency and ships only with its methodology page |
+| **Significance tiers** (filter) | high / medium / routine | Extraction | Editorial judgement: publish the method, present as a filter, never as the record's own weighting |
+| **Press releases + Federal Register** | The tracker joined these by hand for one docket | Capability F6 — the cross-agency join (the FR carries no docket key on 6,400+ STB documents) | Its own milestone, not a sheet feature |
+
+Two tracker habits to copy everywhere: an "Updated `<timestamp>`" stamp on every surface, and
+a per-item source link on every derived card. One tracker choice not copied: the single-file
+data-embedded build — server-rendered pages get the same cacheability from the agency moving
+only ~250 times a month.
