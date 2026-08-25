@@ -1,0 +1,282 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&amp;family=Source+Sans+3:wght@400;500;600&amp;display=swap">
+  <style>
+    body { margin: 0; background: #ebe7df; }
+    .sheet { font-family: "Source Sans 3", "Segoe UI", Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.45; color: var(--ink); background: var(--paper); font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+    .serif { font-family: "Newsreader", Georgia, "Times New Roman", serif; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+    .rule { border: 0; border-top: 1px solid var(--hair); margin: 0; }
+    .entry { display: grid; grid-template-columns: 96px 112px minmax(0, 1fr) 40px; gap: 16px; align-items: start; padding: 12px 0; border-top: 1px solid var(--hair); }
+    .entry-date { color: var(--muted); font-size: 14px; }
+    .kind { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted); padding-top: 2px; }
+    .kind-decision { color: var(--accent); }
+    .entry-decision { background: var(--tint); margin: 0 -16px; padding-left: 16px; padding-right: 16px; border-top: 1px solid var(--hair); }
+    .entry-title { font-weight: 500; }
+    .entry-for { color: var(--muted); }
+    .summary { font-family: "Newsreader", Georgia, serif; font-size: 15px; line-height: 1.5; color: var(--ink); margin-top: 2px; }
+    .pdf { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--hair); border-radius: 4px; color: var(--muted); }
+    .pdf:hover { color: var(--accent); border-color: var(--accent); text-decoration: none; }
+    .chip { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--ink); background: transparent; }
+    .chip-on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 4px; font-size: 14px; font-weight: 600; border: 1px solid var(--ink); color: var(--ink); background: transparent; }
+    .btn-primary { background: var(--ink); color: var(--paper); }
+    .rail h3 { font-family: "Source Sans 3", sans-serif; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 10px 0; }
+    .rail p { margin: 0; }
+    .nav a { color: var(--ink); font-weight: 500; }
+    .cite { font-family: "Newsreader", Georgia, serif; font-style: italic; font-size: 15px; }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .sheet { font-size: 12pt; }
+      .entry { break-inside: avoid; }
+      a { color: #000; }
+    }
+  </style>
+</helmet>
+
+<div class="sheet" style="--paper: {{t.paper}}; --ink: {{t.ink}}; --muted: {{t.muted}}; --hair: {{t.hair}}; --tint: {{t.tint}}; --accent: {{accent}}; width: 1440px; min-height: 2200px; margin: 0 auto; box-sizing: border-box;">
+
+  <!-- masthead -->
+  <div class="no-print" style="display: flex; align-items: center; justify-content: space-between; height: 64px; padding: 0 56px; border-bottom: 1px solid var(--hair);">
+    <div style="display: flex; align-items: baseline; gap: 28px;">
+      <div class="serif" style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em;">Docket Yard</div>
+      <div class="nav" style="display: flex; gap: 22px; font-size: 14px;">
+        <a href="#">Dockets</a><a href="#">Decisions</a><a href="#">Parties</a><a href="#">Coverage</a><a href="#">Methodology</a>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 8px; width: 320px; height: 36px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 4px; color: var(--muted); font-size: 14px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <span>Docket number, party, or decision</span>
+      </div>
+      <a href="#" style="font-size: 14px; color: var(--ink); font-weight: 500;">Sign in</a>
+    </div>
+  </div>
+
+  <!-- caption -->
+  <div style="padding: 40px 56px 0 56px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 56px;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+        <div style="font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);">Finance Docket</div>
+        <div class="chip" style="height: 24px; font-size: 12px;">Active</div>
+        <div style="font-size: 13px; color: var(--muted);">Before the Surface Transportation Board</div>
+      </div>
+      <h1 class="serif" style="margin: 0; font-size: 56px; line-height: 1; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;">FD&#8239;36873</h1>
+      <p class="serif" style="margin: 18px 0 0 0; max-width: 860px; font-size: 22px; line-height: 1.3; font-weight: 400; letter-spacing: 0.01em;">Union Pacific Corporation and Union Pacific Railroad Company — Control — Norfolk Southern Corporation and Norfolk Southern Railway Company</p>
+      <p style="margin: 10px 0 0 0; font-size: 13px; color: var(--muted);">Caption as printed by the Board’s record; the record prints it in capitals. <a href="#">Sub-No. 1</a> — control of the Peoria and Pekin Union Railway Company — is docketed separately and is included below.</p>
+
+      <div class="no-print" style="display: flex; align-items: center; gap: 10px; margin-top: 28px;">
+        <a href="#" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"></path><path d="M4 7l8 6 8-6"></path></svg>
+          Subscribe to this docket
+        </a>
+        <a href="#" class="btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-3"></path><path d="M14 4h6v6"></path><path d="M20 4l-9 9"></path></svg>
+          Cite
+        </a>
+        <a href="#" class="btn">Print</a>
+        <a href="#" style="margin-left: 8px; font-size: 14px;">View on stb.gov</a>
+      </div>
+    </div>
+
+    <div class="rail" style="padding-top: 8px;">
+      <h3>This record</h3>
+      <div style="display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 16px; font-size: 14px;">
+        <span style="color: var(--muted);">Filings</span><span>66 <span style="color: var(--muted);">since 1 Aug 2026</span></span>
+        <span style="color: var(--muted);">Decisions</span><span>36</span>
+        <span style="color: var(--muted);">Last checked</span><span>25 Aug 2026, 14:35 UTC</span>
+        <span style="color: var(--muted);">Source</span><span><a href="#">STB record search</a></span>
+      </div>
+      <p style="margin-top: 14px; font-size: 13px; color: var(--muted); line-height: 1.5;">Every entry links to the Board’s own PDF. Dates are quoted from the record, never computed. <a href="#">How this sheet is built</a></p>
+    </div>
+  </div>
+
+  <!-- entries -->
+  <div style="padding: 36px 56px 0 56px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 56px;">
+    <div>
+      <div class="no-print" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+        <div style="display: flex; gap: 8px;">
+          <span class="chip chip-on">All entries</span><span class="chip">Decisions</span><span class="chip">Filings</span><span class="chip">Comments</span><span class="chip">Discovery</span>
+        </div>
+        <div style="font-size: 13px; color: var(--muted);">Newest first · <a href="#">oldest first</a></div>
+      </div>
+
+      <div class="entry entry-decision">
+        <div class="entry-date">21 Aug 2026</div>
+        <div class="kind kind-decision">Decision</div>
+        <div>
+          <div class="entry-title">Chief Counsel, Office of Chief Counsel</div>
+          <div class="summary">Ordered that replies to any motion or other pleading filed with the Board after Decision No. 30 on any matter that has not been delegated to the Administrative Law Judge will be due within five calendar days of filing, unless otherwise specified in the procedural schedule or Board order.</div>
+        </div>
+        <a href="#" class="pdf" title="Decision 53210 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+
+      <div class="entry">
+        <div class="entry-date">25 Aug 2026</div>
+        <div class="kind">Motion</div>
+        <div><div class="entry-title">Motion / Petition / Request</div><div class="entry-for">Natural Resources Defense Council</div></div>
+        <a href="#" class="pdf" title="Filing 311981 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">24 Aug 2026</div>
+        <div class="kind">Reply</div>
+        <div><div class="entry-title">Reply</div><div class="entry-for">Union Pacific Corporation and Union Pacific Railroad Company</div></div>
+        <a href="#" class="pdf" title="Filing 311977 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">24 Aug 2026</div>
+        <div class="kind">Notice</div>
+        <div><div class="entry-title">Notice of Intent to Participate (without comment)</div><div class="entry-for">Grand Trunk Corporation, on behalf of itself and its U.S. rail operating subsidiaries</div></div>
+        <a href="#" class="pdf" title="Filing 311978 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">24 Aug 2026</div>
+        <div class="kind">Notice</div>
+        <div><div class="entry-title">Notice of Intent to Participate (without comment)</div><div class="entry-for">Archer Daniels Midland Company</div></div>
+        <a href="#" class="pdf" title="Filing 311976 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">24 Aug 2026</div>
+        <div class="kind">Notice</div>
+        <div><div class="entry-title">Notice of Intent to Participate (without comment)</div><div class="entry-for">Pennsylvania Anthracite Council</div></div>
+        <a href="#" class="pdf" title="Filing 311969 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">24 Aug 2026</div>
+        <div class="kind">Board</div>
+        <div><div class="entry-title">Miscellaneous</div><div class="entry-for">Surface Transportation Board</div></div>
+        <a href="#" class="pdf" title="Filing 311972 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">21 Aug 2026</div>
+        <div class="kind">Report</div>
+        <div><div class="entry-title">Status Report</div><div class="entry-for">Norfolk Southern Corporation and Norfolk Southern Railway Company; Union Pacific Corporation and Union Pacific Railroad Company</div></div>
+        <a href="#" class="pdf" title="Filing 311968 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+
+      <div class="entry entry-decision">
+        <div class="entry-date">19 Aug 2026</div>
+        <div class="kind kind-decision">Decision</div>
+        <div>
+          <div class="entry-title">Administrative Law Judge</div>
+          <div class="summary">Granted Applicants’ motion to compel CPKC to make reciprocal productions of data within 30 days and granted in part and denied in part CPKC’s motion to compel.</div>
+        </div>
+        <a href="#" class="pdf" title="Decision 53207 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+
+      <div class="entry">
+        <div class="entry-date">19 Aug 2026</div>
+        <div class="kind">Comments</div>
+        <div><div class="entry-title">Comments</div><div class="entry-for">BMWED, BRS, SMART-MD, IAM District 19, TCU, BLET</div></div>
+        <a href="#" class="pdf" title="Filing 311950 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">19 Aug 2026</div>
+        <div class="kind">Discovery</div>
+        <div><div class="entry-title">Discovery</div><div class="entry-for">Canadian Pacific Railway Company d/b/a CPKC; BNSF Railway Company; CSX Transportation, Inc.</div></div>
+        <a href="#" class="pdf" title="Filing 311949 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">19 Aug 2026</div>
+        <div class="kind">Letter</div>
+        <div><div class="entry-title">Letter</div><div class="entry-for">Norfolk Southern Corporation and Norfolk Southern Railway Company; Union Pacific Corporation and Union Pacific Railroad Company</div></div>
+        <a href="#" class="pdf" title="Filing 311951 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+
+      <div class="entry entry-decision">
+        <div class="entry-date">18 Aug 2026</div>
+        <div class="kind kind-decision">Decision</div>
+        <div>
+          <div class="entry-title">Entire Board · also entered in Sub-No. 1</div>
+          <div class="summary">Removed both proceedings from abeyance, adopted a procedural schedule, directed Applicants to resubmit certain workpapers with unfiltered data, ruled on a pending procedural request, and advised that the Board will address other outstanding motions at a future date.</div>
+        </div>
+        <a href="#" class="pdf" title="Decision 53195 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+
+      <div class="entry">
+        <div class="entry-date">18 Aug 2026</div>
+        <div class="kind">Comments</div>
+        <div><div class="entry-title">Comments</div><div class="entry-for">Gateway and Southeast Los Angeles County cities</div></div>
+        <a href="#" class="pdf" title="Filing 311945 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">18 Aug 2026</div>
+        <div class="kind">Notice</div>
+        <div><div class="entry-title">Notice of Intent to Participate (without comment)</div><div class="entry-for">American Public Transportation Association</div></div>
+        <a href="#" class="pdf" title="Filing 311946 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">17 Aug 2026</div>
+        <div class="kind">Letter</div>
+        <div><div class="entry-title">Letter</div><div class="entry-for">CSX Transportation, Inc.; BNSF Railway Company; Canadian Pacific Railway Company d/b/a CPKC</div></div>
+        <a href="#" class="pdf" title="Filing 311941 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">17 Aug 2026</div>
+        <div class="kind">Supplement</div>
+        <div><div class="entry-title">Modify / Supplement Prior Filing or the Record</div><div class="entry-for">City of San Jose</div></div>
+        <a href="#" class="pdf" title="Filing 311940 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <div class="entry">
+        <div class="entry-date">17 Aug 2026</div>
+        <div class="kind">Comments</div>
+        <div><div class="entry-title">Comments</div><div class="entry-for">Silica Services, LLC</div></div>
+        <a href="#" class="pdf" title="Filing 311939 (PDF)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>
+      </div>
+      <hr class="rule">
+      <div class="no-print" style="display: flex; justify-content: center; padding: 20px 0;"><a href="#" class="btn">Show earlier entries</a></div>
+    </div>
+
+    <!-- right rail -->
+    <div class="rail" style="display: flex; flex-direction: column; gap: 32px;">
+      <div>
+        <h3>Related proceedings</h3>
+        <p><a href="#" style="font-weight: 500;">FD 36873 (Sub-No. 1)</a></p>
+        <p style="font-size: 13px; color: var(--muted); margin-top: 4px;">Control — Peoria and Pekin Union Railway Company</p>
+      </div>
+      <div>
+        <h3>Cite this docket</h3>
+        <p class="cite">STB Finance Docket No. 36873</p>
+        <p style="font-size: 13px; color: var(--muted); margin-top: 6px;">Permanent address<br><span style="color: var(--ink); font-variant-numeric: tabular-nums;">docketyard.org/d/FD-36873</span></p>
+      </div>
+      <div class="no-print" style="border: 1px solid var(--hair); border-radius: 4px; padding: 16px;">
+        <h3>Alerts</h3>
+        <p style="font-size: 14px; line-height: 1.5;">An email when anything is filed or decided in this proceeding. No tracking pixels, no open receipts, one-click unsubscribe. An account is only an email address.</p>
+        <a href="#" class="btn btn-primary" style="margin-top: 12px; height: 36px;">Subscribe</a>
+      </div>
+      <div>
+        <h3>Corrections</h3>
+        <p style="font-size: 14px; line-height: 1.5; color: var(--muted);">Something wrong on this sheet? Every entry carries its source; <a href="#">report a correction</a> and it propagates everywhere the entry appears.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- footer -->
+  <div style="margin-top: 48px; padding: 24px 56px 40px 56px; border-top: 1px solid var(--hair); display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--muted);">
+    <div style="display: flex; gap: 20px;"><a href="#" style="color: var(--muted);">Methodology</a><a href="#" style="color: var(--muted);">Coverage</a><a href="#" style="color: var(--muted);">Corrections</a><a href="#" style="color: var(--muted);">Privacy</a><a href="#" style="color: var(--muted);">Bulk data</a></div>
+    <div>Docket Yard is operated by RMI Valuation, LLC and is not affiliated with the Surface Transportation Board.</div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light","section":"Theme"},"accent":{"editor":"color","default":"#8a3b2a","options":["#8a3b2a","#1f4d3a","#2b3f6b","#5a4a2f"],"section":"Theme"},"$preview":{"width":1440,"height":2200}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = (this.props.theme ?? "light") === "dark";
+    const t = dark
+      ? { paper: "#1a1917", ink: "#ece8e0", muted: "#9d978d", hair: "#33312d", tint: "#232120" }
+      : { paper: "#faf8f4", ink: "#1f1d1a", muted: "#6b665e", hair: "#dcd7cd", tint: "#f2eee6" };
+    return { t, accent: this.props.accent ?? "#8a3b2a" };
+  }
+}
+</script>
+</body>
+</html>
