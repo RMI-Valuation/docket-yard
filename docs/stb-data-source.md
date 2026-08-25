@@ -37,6 +37,22 @@ a positive assertion that the filter was actually applied, not just that the cal
 `https://www.stb.gov/proceedings-actions/search-stb-records/`, where each results table carries
 `data-stb-action="stb_hook_table_*"` and `data-stb-nonce="<hex>"`.
 
+**The endpoint rejects non-browser User-Agents** (measured 2026-08-25): a POST with UA
+`DocketYard/0.0 (+https://docketyard.org)` returns **403 Forbidden**; the same request with
+`Mozilla/5.0 (compatible; DocketYard/0.0; +https://docketyard.org)` succeeds. A `Mozilla/5.0`
+prefix satisfies the WAF while keeping the client honestly identified. GETs of the search page
+are not filtered this way.
+
+**The dockets table decomposes docket identity for you** (measured 2026-08-25): each row's
+`data-stb-id` carries `PREFIX_SEQUENCE_SUB[_SUFFIX]` — `EP_749_0`, `FD_36339_0`,
+`AB_55_785_X`, `AB_32_98_x`. `_0` in the sub position means the parent docket — but the parent
+also appears **without** the `_0` (`FD_36873` and `FD_36339_0` are both parent spellings, both
+observed live) — and suffix case varies (`X` and `x` both appear). Normalise for identity, keep
+the raw. Visible columns:
+Docket Number, Docket Title, Service List (a generate control, not data). The unfiltered
+dockets table reports `total: 10000` — the display cap — so the full registry walk requires
+slicing by `docketNum_one` (prefix), and capped prefixes need further slicing by sequence.
+
 **Available criteria field names** (from the search form): `docketNum_one` through
 `docketNum_four`, `docketTitle`, `decisionNumber`, `decisionType`, `decidingBody`,
 `decisionSummary`, `serviceStartDate`, `serviceEndDate`, `filingName`, `filingType`, `filedFor`,

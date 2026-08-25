@@ -27,7 +27,7 @@ src/docketyard/
     projections.py  # current-state views derived from events, rebuildable
   ingest/
     dockets.py      # dockets-table rows -> docket registry + docket_observed events
-  cli.py            # entry points: capture | ingest | verify
+  cli.py            # entry points: capture | ingest | status
 ```
 
 Standard library throughout — `urllib` for HTTP, `sqlite3` for the store. A dependency
@@ -52,6 +52,10 @@ enters only when it earns its place, and M1 needs none.
 6. **The sibling is reference, not source.** `../up-ns-merger-tracker/tracker/stb_client.py`
    may be read for endpoint behaviour; no code is copied — it is docket-scoped and has no
    entity model.
+7. **Multi-page walks need a measured sort.** Pages are currently fetched with the default
+   ordering, which is unverified for stability; an unstably-ordered result set can silently
+   *omit* rows across page boundaries (dedup absorbs duplicates, not omissions). Before the
+   registry walk campaign, measure which `sort_by` the dockets table honours and pin it.
 
 ## Testing
 

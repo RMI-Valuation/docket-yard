@@ -1,0 +1,62 @@
+"""SQLite connection, the migration runner, and the one JSON codec.
+
+Migrations are monotonic (ADR 0010) and stamped via PRAGMA user_version *inside* each
+script's own transaction, so an interrupted migration rolls back whole. A script is applied
+once and never edited afterwards — schema change means a new numbered script.
+"""
+
+import json
+from datetime import UTC, datetime
+from importlib import resources
+from pathlib import Path
+from sqlite3 import Connection
+from sqlite3 import connect as _connect
+
+MIGRATIONS: list[tuple[int, str]] = [
+    (1, "schema.sql"),
+]
+
+
+def utcnow() -> str:
+    return datetime.now(UTC).isoformat(timespec="seconds")
+
+
+def dump_json(value) -> str:
+    """The single JSON encoder for persisted columns — stable text, comparable bytes."""
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
+def load_json(text: str):
+    return json.loads(text)
+
+
+def connect(path: str | Path) -> Connection:
+    if path != ":memory:":
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+    con = _connect(path)
+    con.execute("PRAGMA journal_mode = WAL")
+    con.execute("PRAGMA foreign_keys = ON")
+    migrate(con)
+    return con
+
+
+def migrate(con: Connection) -> int:
+    applied = con.execute("PRAGMA user_version").fetchone()[0]
+    if applied == 0:
+        tables = con.execute("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'")
+        if tables.fetchone()[0]:
+            raise RuntimeError(
+                "database has tables but no schema version — not a docketyard store, or a"
+                " partially written one. data/ is disposable: delete it and re-run."
+            )
+    for version, script in MIGRATIONS:
+        if version <= applied:
+            continue
+        sql = resources.files("docketyard.store").joinpath(script).read_text(encoding="utf-8")
+        con.executescript(sql)
+        stamped = con.execute("PRAGMA user_version").fetchone()[0]
+        if stamped != version:
+            raise RuntimeError(f"migration {script} did not stamp user_version {version}")
+        applied = version
+    con.commit()
+    return applied

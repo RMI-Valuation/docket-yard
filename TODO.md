@@ -7,11 +7,13 @@ by pre-commit: when it fires, prune.
 ## Now
 
 - Cameron: convert RMI-AI-MACHINE per `infra/rmi-ai-machine.md`
-- M1 implementation: capture client + docket registry ingest per `docs/ingest-design.md` —
-  first pipeline code, awaiting explicit go
 
 ## Next
 
+- Registry walk: capture all dockets by prefix slices (`--mode backfill`; capped prefixes
+  need sequence sub-slicing); measure a working sort for multi-page stability first
+- M2: filings + decisions ingest — documents hashed into blobs, errata detection, filing
+  entity per the revised schema draft
 - Docket-sheet page mockup (design canvas) before any M3 frontend code — the sheet IS the product
 - Dockerfile + release-triggered image build in CI (with M2, when there is something to run)
 

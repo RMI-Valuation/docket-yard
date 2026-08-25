@@ -1,0 +1,80 @@
+"""Capture persistence: the raw response is stored before anything parses it.
+
+The capture-first guarantee lives in the call protocol: `save_capture` writes the blob and
+a quarantined row (filter_asserted = 0) from nothing but the bytes; `set_verdict` upgrades
+the row only after parsing and assertion succeed. A parse failure therefore always leaves
+the raw evidence behind.
+
+Blobs are content-addressed on disk (sha256), mirroring ADR 0002: writing the same bytes
+twice is a no-op, and a capture row always points at bytes that exist.
+"""
+
+import hashlib
+from pathlib import Path
+from sqlite3 import Connection
+
+from docketyard.store.db import dump_json, utcnow
+
+
+def blob_path(data_dir: str | Path, sha256: str) -> Path:
+    return Path(data_dir) / "blobs" / sha256[:2] / sha256
+
+
+def save_blob(data_dir: str | Path, body: bytes) -> str:
+    sha256 = hashlib.sha256(body).hexdigest()
+    path = blob_path(data_dir, sha256)
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_bytes(body)
+        tmp.replace(path)
+    return sha256
+
+
+def load_blob(data_dir: str | Path, sha256: str) -> bytes:
+    return blob_path(data_dir, sha256).read_bytes()
+
+
+def save_capture(
+    con: Connection,
+    data_dir: str | Path,
+    *,
+    source_system: str,
+    endpoint: str,
+    request_params: list[tuple[str, str]],
+    body: bytes,
+    http_status: int,
+    ingest_mode: str,
+) -> int:
+    """Persist the raw response, quarantined. Nothing here parses the body."""
+    sha256 = save_blob(data_dir, body)
+    cur = con.execute(
+        """
+        INSERT INTO capture
+            (source_system, endpoint, request_params, response_sha256, http_status,
+             filter_asserted, ingest_mode, captured_at)
+        VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+        """,
+        (source_system, endpoint, dump_json(request_params), sha256, http_status,
+         ingest_mode, utcnow()),
+    )  # fmt: skip
+    con.commit()
+    assert cur.lastrowid is not None
+    return cur.lastrowid
+
+
+def set_verdict(
+    con: Connection,
+    capture_id: int,
+    *,
+    filter_asserted: bool,
+    row_count: int,
+    reported_total: int,
+) -> None:
+    """Record the parse/assertion outcome for a capture saved by `save_capture`."""
+    con.execute(
+        "UPDATE capture SET filter_asserted = ?, row_count = ?, reported_total = ?"
+        " WHERE capture_id = ?",
+        (int(filter_asserted), row_count, reported_total, capture_id),
+    )
+    con.commit()

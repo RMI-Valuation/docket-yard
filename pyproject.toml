@@ -9,9 +9,15 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["ruff", "pytest", "pre-commit"]
 
+[project.scripts]
+docketyard = "docketyard.cli:main"
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+"docketyard.store" = ["*.sql"]
 
 [tool.ruff]
 line-length = 100
@@ -24,3 +30,6 @@ select = ["E", "W", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# repo-local temp root: the user-wide pytest temp dir on this Windows box holds stale
+# junctions that break pytest's cleanup pass with Access Denied
+addopts = "--basetemp=.pytest_tmp"
