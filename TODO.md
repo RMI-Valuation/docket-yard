@@ -12,6 +12,7 @@ by pre-commit: when it fires, prune.
 ## Next
 
 - M1 design: ingest module layout + `.claude/agents/stb-ingest-specialist.md` when coding starts
+- Docket-sheet page mockup (design canvas) before any M3 frontend code — the sheet IS the product
 - Dockerfile + release-triggered image build in CI (with M2, when there is something to run)
 
 ## Parked
