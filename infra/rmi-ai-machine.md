@@ -122,9 +122,15 @@ it as rebuildable.
 ```sh
 # NVIDIA driver (headless server variant, auto-selected):
 sudo ubuntu-drivers install --gpgpu
+# --gpgpu installs the kernel driver only (nvidia-headless-NNN-server); nvidia-smi lives in
+# nvidia-utils, which it does NOT pull in. Install the matching version before rebooting:
+dpkg -l | grep nvidia-headless          # note the version, e.g. 580-server
+sudo apt install nvidia-utils-580-server   # use the version you just saw
 sudo reboot
 # after reconnecting:
 nvidia-smi                              # success = a table showing "NVIDIA GeForce RTX 4070"
+# "command not found" = nvidia-utils missing (step above); "couldn't communicate with the
+# NVIDIA driver" = module not loaded — check `lsmod | grep nvidia`, reboot again.
 
 # Docker Engine (Docker's official repo — Ubuntu's docker.io also works, this stays current):
 curl -fsSL https://get.docker.com | sh
