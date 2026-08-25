@@ -18,6 +18,7 @@ jobs:
           # the floor pinned in pyproject.toml, so the floor stays honest
           python-version: "3.11"
       - run: python -m pip install -e .[dev]
+      - run: python tools/check_plan_caps.py
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest

@@ -23,3 +23,11 @@ repos:
     rev: v8.30.0
     hooks:
       - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: plan-file-caps
+        name: TODO/ROADMAP line caps
+        entry: python tools/check_plan_caps.py
+        language: system
+        files: ^(TODO|ROADMAP)\.md$

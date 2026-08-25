@@ -16,7 +16,7 @@ documented. No pipeline code exists yet, and the schema is not settled.
 | `docs/README.md` | Index of the whole document set, with status per document |
 | `docs/validation-queries.md` | **The five queries the schema must answer.** All five answered on paper 2026-08-25. |
 | `docs/schema-draft.md` | The paper schema the queries were validated against; revision history included |
-| `docs/adr/` | **0001-0009 all Accepted.** Each of 0002-0008 carries a Validation section |
+| `docs/adr/` | **0001-0009 Accepted** (0002-0008 carry Validation sections); 0010 Proposed |
 | `docs/stb-data-source.md` | Endpoint mechanics, its silent-failure traps, and every measurement taken |
 | `docs/capability-map.md` | The 28 capabilities. A menu, not a roadmap. |
 | `docs/research/comparable-platforms.md` | What CourtListener, FERC and others solved; what failed and why |
@@ -83,6 +83,17 @@ Also accepted: **0001** (record architecture decisions) and **0009** (name and d
 - **Do not build** a citation-network visualisation (CourtListener deprecated theirs for lack of
   traction - build the graph, not the picture), a comment-submission system, or anything
   duplicating STB's own Open Data Portal.
+
+## Working rhythm
+
+- **Start every session by reading `TODO.md`; end it by updating `TODO.md`.**
+- Completed items are deleted, never checked off — git history is the archive.
+- `ROADMAP.md` is milestone-level only and covers the wedge; detail belongs in `docs/`, and
+  everything past the wedge belongs in the capability map, not the roadmap.
+- Both files have hard line caps enforced by pre-commit (`tools/check_plan_caps.py`). When a
+  cap fires, prune or graduate items; never raise the cap as a side effect.
+- Internal planning never moves to GitHub Issues — Issues are reserved for outside intake
+  (bug reports, data corrections).
 
 ## Conventions
 
