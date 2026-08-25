@@ -1,0 +1,21 @@
+[project]
+name = "docketyard"
+version = "0.0.0"
+description = "A public record of proceedings before the Surface Transportation Board"
+requires-python = ">=3.11"
+license = { text = "AGPL-3.0-only" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["ruff", "pytest"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
