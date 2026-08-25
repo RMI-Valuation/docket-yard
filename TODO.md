@@ -6,7 +6,6 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Cameron: review ADR 0010 (versioning and releases) — accept or push back
 - Decide: turn off the GitHub wiki (recommended: yes — ungoverned second doc surface)
 
 ## Next

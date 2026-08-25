@@ -1,7 +1,8 @@
 # ADR 0010 — Versioning and releases
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-25
+- **Accepted:** 2026-08-25
 
 ## Context
 
@@ -45,7 +46,10 @@ Moderate, rising with time. Retagging conventions is cheap while releases are fe
 release tags are referenced by image registries, runbooks, and coverage pages, changing
 schemes means a mapping table forever.
 
----
+## Validation (2026-08-25)
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-[`../validation-queries.md`](../validation-queries.md).*
+Checked against [`../validation-queries.md`](../validation-queries.md): the five queries do
+not exercise release or schema versioning directly. The one axis they do touch — extraction
+method versions — was validated under ADR 0007, whose supersession discipline this decision
+inherits unchanged. No query requires the axes to be unified, and query 2's
+"re-typing is a higher-method-version pass, not a re-ingest" depends on them staying separate.
