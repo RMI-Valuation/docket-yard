@@ -20,19 +20,21 @@
     .kind-decision { color: #8a3b2a; }
     .entry-decision { background: #f2eee6; margin: 0 -20px; padding-left: 20px; padding-right: 20px; }
     .summary { font-family: "Newsreader", Georgia, serif; font-size: 15px; line-height: 1.45; }
-    .chip { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border: 1px solid #dcd7cd; border-radius: 999px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+    .chip { display: inline-flex; align-items: center; height: 44px; padding: 0 14px; border: 1px solid #dcd7cd; border-radius: 999px; font-size: 14px; font-weight: 500; white-space: nowrap; }
+    .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; color: #1f1d1a; }
+    .pdf-link { display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 500; }
     .chip-on { background: #1f1d1a; color: #faf8f4; border-color: #1f1d1a; }
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 16px; border-radius: 4px; font-size: 15px; font-weight: 600; border: 1px solid #1f1d1a; color: #1f1d1a; }
     .btn-primary { background: #1f1d1a; color: #faf8f4; }
   </style>
 </helmet>
 
-<div class="sheet" style="width: 390px; min-height: 1400px; box-sizing: border-box;">
+<div class="sheet" style="width: 390px; min-height: 1900px; box-sizing: border-box;">
   <div style="display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 20px; border-bottom: 1px solid #dcd7cd;">
     <div class="serif" style="font-size: 20px; font-weight: 600;">Docket Yard</div>
-    <div style="display: flex; gap: 14px; color: #1f1d1a;">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+    <div style="display: flex; gap: 4px;">
+      <a href="#" class="icon-btn" title="Search"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg></a>
+      <a href="#" class="icon-btn" title="Menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></a>
     </div>
   </div>
 
@@ -44,7 +46,7 @@
       <a href="#" class="btn btn-primary">Subscribe to this docket</a>
       <div style="display: flex; gap: 8px;"><a href="#" class="btn" style="flex: 1;">Cite</a><a href="#" class="btn" style="flex: 1;">stb.gov</a></div>
     </div>
-    <div style="margin-top: 16px; font-size: 13px; color: #6b665e;">66 filings since 1 Aug 2026 · 36 decisions · checked 25 Aug 2026</div>
+    <div style="margin-top: 16px; font-size: 13px; color: #6b665e;">66 filings since 1 Aug 2026 · 36 decisions in the proceeding · checked 25 Aug 2026</div>
   </div>
 
   <div style="padding: 24px 20px 0 20px;">
@@ -52,11 +54,6 @@
       <span class="chip chip-on">All</span><span class="chip">Decisions</span><span class="chip">Filings</span><span class="chip">Comments</span>
     </div>
 
-    <div class="entry entry-decision">
-      <div class="meta"><span class="kind kind-decision">Decision · Chief Counsel</span><span>21 Aug 2026</span></div>
-      <div class="summary">Ordered that replies to any motion or other pleading filed after Decision No. 30 on any matter not delegated to the ALJ will be due within five calendar days of filing.</div>
-      <a href="#" style="font-size: 13px; font-weight: 500;">Decision PDF</a>
-    </div>
     <div class="entry">
       <div class="meta"><span class="kind">Motion</span><span>25 Aug 2026</span></div>
       <div style="font-weight: 500;">Motion / Petition / Request</div>
@@ -73,9 +70,14 @@
       <div style="color: #6b665e;">Archer Daniels Midland Company</div>
     </div>
     <div class="entry entry-decision">
+      <div class="meta"><span class="kind kind-decision">Decision · Chief Counsel</span><span>21 Aug 2026</span></div>
+      <div class="summary">Ordered that replies to any motion or other pleading filed with the Board after Decision No. 30 on any matter that has not been delegated to the Administrative Law Judge will be due within five calendar days of filing, unless otherwise specified in the procedural schedule or Board order.</div>
+      <a href="#" class="pdf-link">Decision PDF</a>
+    </div>
+    <div class="entry entry-decision">
       <div class="meta"><span class="kind kind-decision">Decision · ALJ</span><span>19 Aug 2026</span></div>
-      <div class="summary">Granted Applicants’ motion to compel CPKC to make reciprocal productions of data within 30 days; granted in part and denied in part CPKC’s motion to compel.</div>
-      <a href="#" style="font-size: 13px; font-weight: 500;">Decision PDF</a>
+      <div class="summary">Granted Applicants’ motion to compel CPKC to make reciprocal productions of data within 30 days and granted in part and denied in part CPKC’s motion to compel.</div>
+      <a href="#" class="pdf-link">Decision PDF</a>
     </div>
     <div class="entry">
       <div class="meta"><span class="kind">Comments</span><span>19 Aug 2026</span></div>
@@ -89,8 +91,8 @@
     </div>
     <div class="entry entry-decision">
       <div class="meta"><span class="kind kind-decision">Decision · Entire Board</span><span>18 Aug 2026</span></div>
-      <div class="summary">Removed both proceedings from abeyance, adopted a procedural schedule, and directed Applicants to resubmit certain workpapers with unfiltered data.</div>
-      <a href="#" style="font-size: 13px; font-weight: 500;">Decision PDF</a>
+      <div class="summary">Removed both proceedings from abeyance, adopted a procedural schedule, directed Applicants to resubmit certain workpapers with unfiltered data, ruled on a pending procedural request, and advised that the Board will address other outstanding motions at a future date.</div>
+      <a href="#" class="pdf-link">Decision PDF</a>
     </div>
     <div style="border-top: 1px solid #dcd7cd; padding: 16px 0;"><a href="#" class="btn" style="width: 100%; box-sizing: border-box;">Show earlier entries</a></div>
   </div>
