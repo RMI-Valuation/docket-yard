@@ -6,9 +6,11 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Cameron: run the registry walk on rmi-ai-machine per `docs/runbook.md` § Ingest
+- Nothing queued — pull from Next
 
 ## Next
+
+- Home page ("what is moving") design — the second surface, per `docs/interface.md`
 
 - Measure what `total` counts on the filings table (rows vs records) — the page loop stops
   on the first short page regardless, but the cap warning assumes rows

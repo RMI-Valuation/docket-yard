@@ -66,7 +66,10 @@ AM 3, ARB 0, ASC 0, CNO 1, CU 16, DOP 4, DSO 0, EP 429, EPM 146, FD 8646, FSA 14
 ISM 1944, MC 97, MCC 724, MCF 6006, MXC 13, NOM 1446, NOR 3431, PTO 6, RER 0, RR 5, S5A 0,
 S5M 190, SAI 11, SDM 570, SO 22, STA 7, SUB 18, SUS 0, WB 106, WC 1, WCC 5 — **about 30,200
 dockets, and no prefix reaches the 10,000 cap**, so prefix slicing alone walks the whole
-registry in ~640 requests. Id forms seen: `S5M_1_0_A` and `SUB_300_0_L` (suffix on a parent),
+registry in ~640 requests. **Walked in full 2026-08-25:** 627 requests, 32,604 docket rows in
+the registry — the census rows plus ~2,400 parents minted for sub-dockets whose parent never
+prints in the table (e.g. `AB_1_0`, implied by `AB_1_6`); exactly the six census-empty
+prefixes quarantined. Id forms seen: `S5M_1_0_A` and `SUB_300_0_L` (suffix on a parent),
 `CU_349` (bare parent), `WC_1548_1_C` (suffix on a sub); prefixes can contain digits.
 
 **`per-page` is clamped to 50 server-side** (measured 2026-08-25): a request for
