@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ site_name }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}An independent public record of proceedings before the Surface Transportation Board.{% endblock %}">
+  <link rel="stylesheet" href="/static/site.css">
+  <script>
+    // per-viewer display preferences, kept in this browser only (ADR 0011): never an account
+    try {
+      const p = JSON.parse(localStorage.getItem("dy.prefs") || "{}");
+      for (const k of ["theme", "density", "ids"]) if (p[k]) document.documentElement.dataset[k] = p[k];
+    } catch (e) {}
+  </script>
+</head>
+<body>
+<div class="sheet">
+  <header class="masthead no-print">
+    <div class="masthead-left">
+      <a class="wordmark serif" href="/">{{ site_name }}</a>
+      <nav class="nav">
+        <a href="/">This week</a>
+      </nav>
+    </div>
+    <form class="lookup" action="/d" method="get">
+      <input name="q" type="search" placeholder="Docket number, e.g. FD 36873" aria-label="Docket number">
+    </form>
+  </header>
+  <main>{% block main %}{% endblock %}</main>
+  <footer class="footer">
+    <div class="footer-links">
+      <span>Methodology, coverage, corrections and privacy pages are being written.</span>
+    </div>
+    <div>{{ site_name }} is operated by RMI Valuation, LLC and is not affiliated with the Surface Transportation Board.</div>
+  </footer>
+</div>
+</body>
+</html>

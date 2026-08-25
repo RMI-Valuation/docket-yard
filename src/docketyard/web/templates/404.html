@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Not found — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif docket-number">Not found</h1>
+  <p class="muted">{{ detail or 'There is no record at this address.' }} Addresses here are permanent — if this one used to work, please <a href="/">tell us</a> and we will fix it rather than let it stay broken.</p>
+  <form class="lookup" action="/d" method="get" style="margin-top: 20px;">
+    <input name="q" type="search" placeholder="Docket number, e.g. FD 36873" aria-label="Docket number">
+  </form>
+</section>
+{% endblock %}

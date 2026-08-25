@@ -7,10 +7,9 @@ Operated by RMI Valuation, LLC. Unaffiliated with the STB. Every record links to
 own PDF.
 
 **Status: building.** Repository public on GitHub, schema validated on paper, ADRs 0001-0011
-all accepted. M1 (docket registry) and M2 (filings/decisions ingest, document fetching with
-errata detection) are built, reviewed, and verified against the live endpoint; scheduled
-forward operation awaits hosting. M3 (docket sheets + permanent URLs) is next per
-`ROADMAP.md`.
+all accepted. M1 (docket registry — walked in full), M2 (filings/decisions ingest, document fetching
+with errata detection) and M3's web tier (sheet, home and record pages at the ADR 0013
+addresses; `docketyard serve`) are built and reviewed. Deployment awaits ADR 0012.
 
 ## Read these before proposing implementation work
 

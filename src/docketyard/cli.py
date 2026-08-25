@@ -97,6 +97,15 @@ def _walk_dockets(args: argparse.Namespace) -> int:
     )
 
 
+def _serve(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    from docketyard.web.app import create_app
+
+    uvicorn.run(create_app(args.db), host=args.host, port=args.port)
+    return 0
+
+
 def _status(args: argparse.Namespace) -> int:
     con = db.connect(args.db)
     for key, value in projections.status(con).items():
@@ -153,6 +162,11 @@ def main(argv: list[str] | None = None) -> int:
 
     st = sub.add_parser("status", help="counts for captures, records, documents, events")
     st.set_defaults(func=_status)
+
+    sv = sub.add_parser("serve", help="serve the site over the store (read-only)")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8000)
+    sv.set_defaults(func=_serve)
 
     args = parser.parse_args(argv)
     return args.func(args)

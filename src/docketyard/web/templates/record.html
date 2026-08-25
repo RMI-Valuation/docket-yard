@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% set identity = parse_docket_id(entry.docket_raw) %}
+{% block title %}{{ 'Decision' if entry.kind == 'decision' else 'Filing' }} {{ entry.record_id }} — {{ printed_docket(identity) }} — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <div class="caption-meta muted small"><a href="{{ docket_path(identity) }}">{{ printed_docket(identity) }}</a>{% if sheet.title %} · <span class="as-printed">{{ sheet.title }}</span>{% endif %}</div>
+  <h1 class="serif docket-number">{{ 'Decision' if entry.kind == 'decision' else 'Filing' }} {{ entry.record_id }}</h1>
+  <p class="muted">{{ entry.date_printed or entry.date or '' }}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}</p>
+  {% if entry.summary %}<p class="serif summary as-printed">{{ entry.summary }}</p>{% endif %}
+  {% if entry.filed_for_raw %}<p>Filed for: <span class="as-printed">{{ entry.filed_for_raw }}</span></p>{% endif %}
+  <p>
+    {% for a in entry.attachments %}<a class="btn" href="{{ a.url }}">{{ a.label or 'The Board’s file' }}</a> {% endfor %}
+  </p>
+  <p class="small muted">Permanent address <span class="mono">docketyard.org{{ decision_path(entry.record_id) if entry.kind == 'decision' else filing_path(entry.record_id) }}</span> · <a href="{{ docket_path(identity) }}">back to the docket sheet</a></p>
+</section>
+{% endblock %}

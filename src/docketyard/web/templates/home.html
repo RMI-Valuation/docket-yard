@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ site_name }} — this week at the Surface Transportation Board{% endblock %}
+{% block main %}
+<section class="lead">
+  <h1 class="serif">Every filing and decision before the Surface Transportation Board, in docket sheets you can follow.</h1>
+  <p class="muted">{{ site_name }} is an independent public record — not the Board, and not affiliated with it. One chronological sheet per proceeding, and every entry linking to the Board’s own document.</p>
+</section>
+
+<section class="week">
+  <div class="week-head">
+    <div class="serif week-title">This week at the Board</div>
+    <div class="muted small">{{ week.start }} to {{ week.end }}{% if week.checked %} · record checked {{ week.checked }}{% endif %}</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><span class="n serif">{{ week.distinct_decisions }}</span><span class="l">decisions served</span></div>
+    <div class="stat"><span class="n serif">{{ week.filings }}</span><span class="l">filings, in {{ week.moved | length }} proceedings</span></div>
+  </div>
+</section>
+
+<section class="two-col">
+  <div>
+    <h2>Decisions served</h2>
+    {% for d in week.decisions %}
+    <div class="row">
+      <span class="muted small">{{ d.service_date }}</span>
+      <span class="dk"><a href="{{ docket_path(parse_docket_id(d.docket_raw)) }}">{{ printed_docket(parse_docket_id(d.docket_raw)) }}</a></span>
+      <div>
+        {% if d.summary %}<div class="summary as-printed">{{ d.summary }}</div>{% endif %}
+        <div class="muted small">{{ d.deciding_body or '' }}{% if d.docket_title %} · {{ d.docket_title }}{% endif %}{% if d.also_in %} · also entered in {% for raw in d.also_in %}<a href="{{ docket_path(parse_docket_id(raw)) }}">{{ printed_docket(parse_docket_id(raw)) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %} · <a href="{{ decision_path(d.stb_decision_id) }}">decision {{ d.stb_decision_id }}</a></div>
+      </div>
+    </div>
+    {% else %}
+    <p class="muted">No decisions served in this window.</p>
+    {% endfor %}
+  </div>
+  <aside class="rail">
+    <h2>What this is</h2>
+    <p class="small muted">An independent record, operated by RMI Valuation, LLC, not affiliated with the Surface Transportation Board. Every entry links to the Board’s own document; dates are quoted from the record, never computed.</p>
+  </aside>
+</section>
+
+<section>
+  <h2>Proceedings that moved this week</h2>
+  <div class="moved head small muted"><span>Docket</span><span>Proceeding</span><span class="right">Filings</span><span class="right">Last activity</span></div>
+  {% for m in week.moved %}
+  <div class="moved">
+    <span class="dk"><a href="{{ docket_path(parse_docket_id(m.docket_raw)) }}">{{ printed_docket(parse_docket_id(m.docket_raw)) }}</a></span>
+    <span class="as-printed">{{ m.title or '(caption not yet observed)' }}</span>
+    <span class="right">{{ m.filings }}</span>
+    <span class="right muted">{{ m.last_activity }}</span>
+  </div>
+  {% else %}
+  <p class="muted">No filings in this window.</p>
+  {% endfor %}
+  <p class="small muted">Captions and summaries appear as the Board prints them. Counts are filings observed in the record between {{ week.start }} and {{ week.end }}; decisions are listed above and not counted here.</p>
+</section>
+{% endblock %}

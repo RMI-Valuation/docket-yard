@@ -31,6 +31,7 @@ class Entry:
     deciding_body: str | None  # decisions only
     summary: str | None  # decisions only; the Board's own words as printed
     attachments: list[Attachment] = field(default_factory=list)
+    also_in: list[str] = field(default_factory=list)  # other family dockets it was entered in
 
 
 @dataclass(frozen=True)
@@ -126,6 +127,9 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
                 attachments=_attachments(con, "decision_attachment", "decision_pk", pk),
             )
         )
+    # a record entered in the docket and its sub-docket is one record: fold to the copy
+    # nearest the parent (family order) and note where else it was entered
+    entries = _fold_family_duplicates(entries, [r for _, r, _ in family])
     # newest first; within a day, decisions before filings, then by record id descending —
     # a stable, explainable order, not a claim about the order things happened within a day
     entries.sort(
@@ -152,3 +156,18 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
 
 def _numeric(record_id: str) -> int:
     return int(record_id) if record_id.isdigit() else 0
+
+
+def _fold_family_duplicates(entries: list[Entry], family_order: list[str]) -> list[Entry]:
+    rank = {raw: i for i, raw in enumerate(family_order)}
+    by_key: dict[tuple[str, str], list[Entry]] = {}
+    for e in entries:
+        by_key.setdefault((e.kind, e.record_id), []).append(e)
+    folded = []
+    for copies in by_key.values():
+        copies.sort(key=lambda e: rank.get(e.docket_raw, len(rank)))
+        head = copies[0]
+        if len(copies) > 1:
+            head = Entry(**{**head.__dict__, "also_in": [c.docket_raw for c in copies[1:]]})
+        folded.append(head)
+    return folded

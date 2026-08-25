@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% set printed = printed_docket(identity) %}
+{% block title %}{{ printed }} — {{ site_name }}{% endblock %}
+{% block description %}{{ sheet.title or printed }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <div class="caption-meta muted small">{{ identity.prefix }} docket · before the Surface Transportation Board</div>
+  <h1 class="serif docket-number">{{ printed }}</h1>
+  {% if sheet.title %}<p class="serif caption-title as-printed">{{ sheet.title }}</p>{% else %}<p class="muted">This docket has not yet been observed directly in the Board’s dockets table; its entries below come from filings and decisions that name it.</p>{% endif %}
+  {% if sheet.sub_dockets %}
+  <p class="small muted">Sub-dockets, included below:
+    {% for did, raw, title in sheet.sub_dockets %}<a href="{{ docket_path(parse_docket_id(raw)) }}">{{ printed_docket(parse_docket_id(raw)) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+  </p>
+  {% endif %}
+  <p class="serif record-summary muted">{{ sheet.filings }} filings and {{ sheet.decisions }} decisions in the record{% if sheet.last_checked %}; last checked {{ sheet.last_checked }}{% endif %}.</p>
+  <div class="actions no-print">
+    <a class="btn" href="#cite">Cite</a>
+    <button class="btn" type="button" onclick="window.print()">Print</button>
+    <details class="display-menu">
+      <summary class="btn">Display</summary>
+      <div class="display-options">
+        <label><input type="checkbox" data-pref="density" value="compact"> Compact rows</label>
+        <label><input type="checkbox" data-pref="ids" value="on"> Show record IDs</label>
+        <label><input type="checkbox" data-pref="theme" value="dark"> Dark</label>
+      </div>
+    </details>
+  </div>
+</section>
+
+<section class="two-col">
+  <div>
+    {% for e in sheet.entries %}
+    <div class="entry{% if e.kind == 'decision' %} entry-decision{% endif %}">
+      <div class="entry-date muted">{{ e.date_printed or e.date or '' }}</div>
+      <div class="kind{% if e.kind == 'decision' %} kind-decision{% endif %}">{{ 'Decision' if e.kind == 'decision' else (e.type or 'Filing') }}</div>
+      <div>
+        <div class="entry-title"><span class="id">{{ e.record_id }}</span>
+          {% if e.kind == 'decision' %}{{ e.deciding_body or 'Decision' }}{% else %}{{ e.type or 'Filing' }}{% endif %}
+          {% if e.docket_raw != sheet.raw_docket %}<span class="muted small">· in {{ printed_docket(parse_docket_id(e.docket_raw)) }}</span>{% endif %}
+          {% if e.also_in %}<span class="muted small">· also entered in {% for raw in e.also_in %}{{ printed_docket(parse_docket_id(raw)) }}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+        </div>
+        {% if e.kind == 'decision' and e.summary %}<div class="summary as-printed">{{ e.summary }}</div>{% endif %}
+        {% if e.kind == 'filing' and e.filed_for_raw %}<div class="entry-for as-printed">{{ e.filed_for_raw }}</div>{% endif %}
+      </div>
+      <div class="entry-links">
+        {% for a in e.attachments %}<a class="pdf" href="{{ a.url }}" title="{{ a.label or 'Attachment' }} (the Board’s own file)">{{ a.label or 'file' }}</a>{% endfor %}
+        <a class="small" href="{{ decision_path(e.record_id) if e.kind == 'decision' else filing_path(e.record_id) }}">permalink</a>
+      </div>
+    </div>
+    {% else %}
+    <p class="muted">No filings or decisions observed yet for this docket.</p>
+    {% endfor %}
+  </div>
+  <aside class="rail">
+    <h2 id="cite">Cite this docket</h2>
+    <p class="cite serif">{{ cite_docket(identity) }}</p>
+    <p class="small muted">Permanent address<br><span class="mono">docketyard.org{{ docket_path(identity) }}</span></p>
+    <h2>About this record</h2>
+    <p class="small">Every entry links to the Board’s own file. Dates are quoted from the record, never computed. Captions and summaries appear as the Board prints them.</p>
+  </aside>
+</section>
+<script>
+  // preference controls: browser-stored only, never sent anywhere (ADR 0011)
+  (function () {
+    const root = document.documentElement, key = "dy.prefs";
+    const read = () => { try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch (e) { return {}; } };
+    document.querySelectorAll("[data-pref]").forEach((box) => {
+      const k = box.dataset.pref;
+      box.checked = root.dataset[k] === box.value;
+      box.addEventListener("change", () => {
+        const p = read();
+        if (box.checked) { p[k] = box.value; root.dataset[k] = box.value; } else { delete p[k]; delete root.dataset[k]; }
+        try { localStorage.setItem(key, JSON.stringify(p)); } catch (e) {}
+      });
+    });
+  })();
+</script>
+{% endblock %}
