@@ -19,6 +19,10 @@ by pre-commit: when it fires, prune.
 
 ## Next
 
+- Stats page (Cameron, 2026-08-26): what the record holds and what moves — filings and
+  decisions per month, documents held, registry by prefix, most active proceedings,
+  decisions by deciding body — all measured from the ledger; never anything about readers
+  or subscribers (ADR 0011). Worth building once wave 1's two years are in
 - `docketyard gap open/close` so a recorded outage has a `coverage_gap` row for the
   coverage page and the late-delivery marking to cite (today: nothing writes that table)
 - Key rotation pass for `DY_EMAIL_KEY` (decrypt under old, seal under new, all three
