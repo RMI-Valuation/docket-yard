@@ -200,7 +200,9 @@ def _serve(args: argparse.Namespace) -> int:
         sender=sender,
         feedback_topic=os.environ.get("DY_SES_FEEDBACK_TOPIC") or None,
     )
-    uvicorn.run(app, host=args.host, port=args.port)
+    # Caddy keeps the access log, filtered (ADR 0011); uvicorn's would write every request
+    # line, query string and all, to the container's stdout, and Docker keeps that on disk
+    uvicorn.run(app, host=args.host, port=args.port, access_log=False)
     return 0
 
 
