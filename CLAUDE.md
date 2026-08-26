@@ -6,10 +6,12 @@ agency regulating freight rail. Docket sheets, alerts, and eventually a citator 
 Operated by RMI Valuation, LLC. Unaffiliated with the STB. Every record links to the agency's
 own PDF.
 
-**Status: the wedge is live.** <https://docketyard.org> serves the sheets, alerts and the
-trust pages from one Lightsail instance (ADR 0012), polling forward every 30 minutes since
-2026-08-26; M1–M5 done, unannounced. What comes next is chosen from the capability map, not
-assumed. Production operations: `infra/deploy/README.md`.
+**Status: the wedge is live, and the first post-wedge milestone shipped.** <https://docketyard.org>
+serves the sheets, alerts, parties and the trust pages from one Lightsail instance (ADR
+0012), polling forward every 30 minutes since 2026-08-26; M1–M6 done, unannounced.
+Backfill wave 1 (2024-08 →) is running. What comes next is chosen from the capability map
+by the operator and recorded in `ROADMAP.md` § After the wedge — never assumed. Production
+operations: `infra/deploy/README.md`.
 
 ## Read these before proposing implementation work
 
@@ -25,9 +27,10 @@ assumed. Production operations: `infra/deploy/README.md`.
 
 ## Scope
 
-**Version one is a wedge:** agency-wide docket sheets plus alerting, forward-only. No historical
-backfill, no citator, no map. Those are real and they are later. Resist scope creep - including
-your own enthusiasm for the capability map.
+**Version one was a wedge:** agency-wide docket sheets plus alerting, forward-only. It shipped.
+Since then the operator has chosen, one at a time: backfill in dated waves (wave 1 running),
+the party module (done). The citator and the map remain later. Resist scope creep - including
+your own enthusiasm for the capability map; a new capability starts with a decision.
 
 ## Constraints already established - do not rediscover
 
