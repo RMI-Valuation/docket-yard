@@ -23,6 +23,8 @@ by pre-commit: when it fires, prune.
   wave lands, pulling from S3. Step 1 sample drawn 2026-08-26: Cameron fills
   `docs/research/benchmark/labels.csv` (guide in its README); step 2 runs once it is in
 - Whether/how to announce the wedge — the operator's call
+- Explainers draft (`docs/explainers.md`): Cameron reviews; [?] rows need one email to the
+  Board's records staff before publishing; then a page per prefix
 
 ## Next
 
@@ -39,11 +41,10 @@ by pre-commit: when it fires, prune.
   tables) — unwritten; ADR 0014 records it as the known gap
 - Credentials ADR follow-up: Lightsail has no instance profile, so production runs on a
   bucket-scoped IAM user's keys; decide EC2 t4g / Roles Anywhere / accept (ADR 0012 gap)
-- Errata detection is built but unscheduled: nothing in production re-fetches known
-  documents. Needs a last-checked column (schema change) so a refresh pass can walk the
-  corpus oldest-checked first under a per-pass limit
-- Poller bookkeeping for permanently-bad items (a capture whose ingest raises, a 404
-  attachment) — retried and re-logged every pass; an attempt counter is a schema change
+- Errata re-check is built but unscheduled: needs a last-checked column (schema change) so
+  a refresh pass walks the corpus oldest-checked first under a per-pass limit
+- Poller bookkeeping for permanently-bad items (ingest raises, 404 attachment): an attempt
+  counter is a schema change; today they are retried and re-logged every pass
 - What `total` counts on the filings table (rows vs records): unmeasured; the stop rule
   does not depend on it
 - ADR 0012 addendum recording the blob cache design (sync + prune) once wave 3 proves it
@@ -52,7 +53,6 @@ by pre-commit: when it fires, prune.
 
 - Benchmark step 2 notes: 12GB VRAM ⇒ 14B dense / ~30B MoE class; Qwen3 thinks by default
   on Ollama — disable thinking per request for extraction, or it pays for a monologue per row
-- OCR pipeline for pre-2000 archive (GPU layout-OCR fits ADR 0003's IR) — backfill era
 - A key held off the box (KMS) so the instance decrypts addresses only at send time — the
   forward step ADR 0014 leaves open
 - Stats review deferrals (2026-08-26): `home.py` and `stats.py` each carry a month walker and
