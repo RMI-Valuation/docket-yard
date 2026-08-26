@@ -21,6 +21,7 @@ positioning decision that were both settled deliberately.
 | A procedural filing takes no position regardless of who filed it | `CLAUDE.md` § Rules that are not negotiable |
 | Dates are quoted from the document, never computed from context | `CLAUDE.md`, same section |
 | The AJAX endpoint mechanics and their silent-failure traps | `docs/stb-data-source.md` |
+| A document on several rows, one per attachment, folded into one record | `ingest/observations.py` — folds across captures (the union of attachments); it keeps every attachment rather than preferring the PDF, which the sheet lists in full |
 
 These transferred in their durable form. Nothing further is owed to them.
 
@@ -38,9 +39,10 @@ decision made from document type alone, before any model is invoked. Read
 `../up-ns-merger-tracker/tracker/extract.py` and `AGENT_BRIEF.md` before designing the
 equivalent here; the tier boundaries are the part that took iteration.
 
-**Multi-attachment row folding.** `fetch_docket.merge_attachments()` folds STB rows that carry
-several attachments into one record and prefers the PDF among them. It cut null-URL records from
-18 to 7 in a 988-document docket. The same rows exist agency-wide; ingest will meet this.
+**Preferring the PDF among attachments.** `fetch_docket.merge_attachments()` cut null-URL
+records from 18 to 7 in a 988-document docket by choosing a primary link. Ingest here already
+folds the rows (above); what it does not do is pick a primary — a record page lists every
+attachment. Worth revisiting only if a "the document" link is ever needed per record.
 
 **The calendar as a shape.** The brief's calendar table — one row per dated obligation, each
 quoted from the decision that set it, with the decision identified — is the output shape `C4`
@@ -75,9 +77,10 @@ Two uses:
 1. **`docs/extraction-benchmark.md` step 1** is blocked awaiting a 60-decision labelled sample.
    Some of that labour is already done, on a docket rich in exactly the document types the
    benchmark needs to discriminate.
-2. **A regression fixture for the citator and `C4`.** `briefs/2026-08-25.md` carries 13 dated
-   obligations, each quoted and attributable to a numbered decision — enough to test a deadline
-   extractor against before the capability is chosen.
+2. **A regression fixture for the citator and `C4`.** `briefs/2026-08-25.md` carries a
+   calendar table of 8 dated obligations (11 distinct dated points across the brief's prose),
+   each quoted and attributable to a numbered decision — enough to test a deadline extractor
+   against before the capability is chosen. (Measured 2026-08-26; an earlier count said 13.)
 
 Caveat before either use: the tracker's text extraction is page-capped (40/12), so its briefs for
 long exhibits cover opening pages only, and a handful of filings are scanned images with no
@@ -85,5 +88,8 @@ extractable text. Labels derived from those documents are weaker evidence than t
 
 ---
 
-*Written 2026-08-26 when the tracker was tabled. Nothing here is chosen; it is what to read and
-what to refuse when a capability that touches this ground is chosen.*
+*Written 2026-08-26 when the tracker was tabled; figures verified against `data/records.json`
+the same day (33 + 904 + 51 = 988 records; 605 distinct "Filed For" cells). Nothing here is
+chosen; it is what to read and what to refuse when a capability that touches this ground is
+chosen. Pointed at from `docs/extraction-benchmark.md` (step 1), the capability map (C2, C4)
+and `TODO.md`.*
