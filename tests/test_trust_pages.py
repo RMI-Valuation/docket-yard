@@ -56,15 +56,17 @@ def test_stats_page_is_measured(tmp_path):
     assert s.filings == 2  # the same unit as coverage: by the Board's own identifier
     assert s.decisions == 1
     assert [m.month for m in s.months] == ["2026-08", "2026-09", "2026-10"]  # to today, no gaps
-    assert (s.months[0].filings, s.months[0].decisions, s.months[0].share) == (2, 1, 100.0)
+    assert (s.months[0].filings, s.months[0].decisions) == (2, 1)
     assert (s.busiest[0].docket.prefix, s.busiest[0].docket.sequence) == ("FD", 36873)
     assert s.busiest[0].filings == 2  # folded by family
     assert s.by_prefix[0][:2] == ("FD", 2)
     assert s.year == 2026
+    assert [(y.year, y.filings, y.decisions, y.partial) for y in s.years] == [(2026, 2, 1, True)]
     con.close()
     r = TestClient(create_app(path)).get("/stats")
     assert r.status_code == 200
     assert "2026-08" in r.text and "Nothing on this page is about who" in r.text
+    assert r.text.count("<svg") == 1 and "2 filings, 1 decisions" in r.text  # drawn from the data
     assert r.headers["cache-control"] == "public, max-age=1800"
 
 
@@ -78,10 +80,10 @@ def test_stats_page_survives_odd_dates(tmp_path):
     s = stats.stats(con, today=date(2026, 8, 26))
     assert [m.month for m in s.months] == ["2026-08"]
     assert s.filings == 2  # still counted in the headline; only the month table is bounded
-    # No dated filings at all: the bar's denominator must not be zero.
+    # No dated filings at all: the chart's denominator must not be zero.
     con.execute("UPDATE filing SET filed_date = NULL")
     con.commit()
     s = stats.stats(con, today=date(2026, 8, 26))
-    assert s.months and all(m.share == 0 for m in s.months)
+    assert s.months and all(m.filings == 0 for m in s.months)
     con.close()
     assert TestClient(create_app(path)).get("/stats").status_code == 200

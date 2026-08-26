@@ -12,7 +12,7 @@ page and the code cannot drift apart. Nothing typed appears on the page.
 | Documents held | Distinct content hashes, with total bytes | `document` |
 | Dockets in the registry | Every docket the registry walk or a later observation has seen | `docket` |
 | Parties on record | Every entity the party module has minted or seeded (ADR 0004) | `party` |
-| By month | Filings by *filed date*, decisions by *service date* — the Board's dates, never the date we observed the entry. Every month from the earliest dated record to the current month is shown, empty months included. | `filed_date`, `service_date` |
+| Over time | Filings by *filed date*, decisions by *service date* — the Board's dates, never the date we observed the entry. Drawn as two column charts (the last 24 months; every calendar year), server-rendered SVG with no script, from the same rows the month-by-month table shows; the current year is drawn lighter because it is unfinished. Every month from the earliest dated record to the current month is present, empty months included. | `filed_date`, `service_date` |
 | Most active proceedings | Filings dated in the current calendar year, folded into the docket family's root (ADR 0005), top ten | `filing`, `docket.parent_docket_id` |
 | Decisions by deciding body | As printed on the Board's entry; a blank cell is shown as blank, not guessed | `decision_record.deciding_body` |
 | Registry by prefix | Dockets and filings held per docket-type prefix | `docket.prefix` |

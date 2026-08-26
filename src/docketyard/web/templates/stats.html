@@ -13,23 +13,52 @@
   </div>
 </section>
 
+{% macro columns(rows, label_every, title) -%}
+{#- rows: (label, filings, decisions, muted). Drawn server-side from the same numbers as the table. -#}
+{% set n = rows | length %}{% set peak = (rows | map(attribute=1) | max) or 1 %}
+{% set w = 720 %}{% set h = 200 %}{% set top = 12 %}{% set base = h - 28 %}{% set slot = w / n %}
+<svg class="chart" viewBox="0 0 {{ w }} {{ h }}" role="img" aria-label="{{ title }}">
+  <title>{{ title }}</title>
+  <line class="axis" x1="0" y1="{{ base }}" x2="{{ w }}" y2="{{ base }}" />
+  <text class="tick" x="{{ w }}" y="{{ top - 2 }}" text-anchor="end">{{ peak | commas }}</text>
+  {%- for label, f, d, muted in rows %}
+  {%- set x = loop.index0 * slot %}{% set fh = ((base - top) * f / peak) %}{% set dh = ((base - top) * d / peak) %}
+  <g class="col{% if muted %} partial{% endif %}">
+    <title>{{ label }}: {{ f | commas }} filings, {{ d | commas }} decisions{% if muted %} (so far){% endif %}</title>
+    <rect class="f" x="{{ (x + slot * 0.15) | round(1) }}" y="{{ (base - fh) | round(1) }}" width="{{ (slot * 0.45) | round(1) }}" height="{{ fh | round(1) }}" />
+    <rect class="d" x="{{ (x + slot * 0.6) | round(1) }}" y="{{ (base - dh) | round(1) }}" width="{{ (slot * 0.25) | round(1) }}" height="{{ dh | round(1) }}" />
+    {%- if loop.index0 % label_every == 0 or n <= 12 %}
+    <text class="tick" x="{{ (x + slot / 2) | round(1) }}" y="{{ h - 8 }}" text-anchor="middle">{{ label }}</text>
+    {%- endif %}
+  </g>
+  {%- endfor %}
+</svg>
+{%- endmacro %}
+
 <section>
-  <h2>By month{% if s.months %} — {{ s.months[0].month }} to {{ s.months[-1].month }}{% endif %}</h2>
+  <h2>Over time</h2>
   {% if s.months %}
-  <p class="small muted">Filings as bars, decisions as the number beside each month. The table is the data; the bars are the same numbers drawn.</p>
-  <table class="months">
-    <thead><tr><th scope="col">Month</th><th scope="col" class="num">Filings</th><th scope="col"><span class="visually-hidden">Filings, drawn</span></th><th scope="col" class="num">Decisions</th></tr></thead>
-    <tbody>
-    {% for m in s.months | reverse %}
-    <tr>
-      <td class="mono">{{ m.month }}</td>
-      <td class="num">{{ m.filings | commas }}</td>
-      <td class="bar"><span class="fill" style="width: {{ m.share }}%"></span></td>
-      <td class="num">{{ m.decisions | commas }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <p class="small muted"><span class="key f">Filings</span> and <span class="key d">decisions</span>, by the Board’s own dates. The current year and month are drawn lighter because they are unfinished. Hover a bar for its numbers; the table beneath is the same data.</p>
+  {% set recent = s.months[-24:] %}
+  <h3>Last {{ recent | length }} months</h3>
+  {% set mrows = [] %}{% for m in recent %}{% set _ = mrows.append((m.month, m.filings, m.decisions, m.month == s.months[-1].month)) %}{% endfor %}
+  {{ columns(mrows, 3, 'Filings and decisions by month, ' ~ recent[0].month ~ ' to ' ~ recent[-1].month) }}
+  {% if s.years | length > 1 %}
+  <h3>By year</h3>
+  {% set yrows = [] %}{% for y in s.years %}{% set _ = yrows.append((y.year, y.filings, y.decisions, y.partial)) %}{% endfor %}
+  {{ columns(yrows, (2 if s.years | length > 15 else 1), 'Filings and decisions by year, ' ~ s.years[0].year ~ ' to ' ~ s.years[-1].year) }}
+  {% endif %}
+  <details class="numbers">
+    <summary>The numbers, month by month</summary>
+    <table class="months">
+      <thead><tr><th scope="col">Month</th><th scope="col" class="num">Filings</th><th scope="col" class="num">Decisions</th></tr></thead>
+      <tbody>
+      {% for m in s.months | reverse %}
+      <tr><td class="mono">{{ m.month }}</td><td class="num">{{ m.filings | commas }}</td><td class="num">{{ m.decisions | commas }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </details>
   {% else %}<p class="muted">No dated records yet.</p>{% endif %}
 </section>
 

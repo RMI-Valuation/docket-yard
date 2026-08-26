@@ -193,12 +193,18 @@ table.moved { width: 100%; border-collapse: collapse; }
 .party-chip[aria-pressed="true"] { background: var(--tint); border-color: var(--hair); }
 
 /* stats page */
-table.months { width: 100%; border-collapse: collapse; }
-.months th, .months td { padding: 6px 16px 6px 0; border-top: 1px solid var(--hair); text-align: left; }
+.chart { display: block; width: 100%; height: auto; margin: 8px 0 20px; font-family: inherit; }
+.chart .axis { stroke: var(--hair); stroke-width: 1; }
+.chart .tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .f { fill: var(--accent); }
+.chart .d { fill: var(--muted); opacity: 0.55; }
+.chart .partial .f, .chart .partial .d { opacity: 0.35; }
+.key::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: -1px; border-radius: 2px; }
+.key.f::before { background: var(--accent); }
+.key.d::before { background: var(--muted); opacity: 0.55; }
+details.numbers summary { cursor: pointer; color: var(--muted); font-size: 14px; margin: 4px 0 8px; }
+table.months { width: 100%; max-width: 420px; border-collapse: collapse; }
+.months th, .months td { padding: 4px 16px 4px 0; border-top: 1px solid var(--hair); text-align: left; }
 .months th { border-top: 0; padding-top: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted); }
 .months .num { text-align: right; white-space: nowrap; }
-.months td.bar { width: 40%; padding: 0 8px; }
 .months td:last-child, .months th:last-child { padding-right: 0; }
-.months .fill { display: block; height: 10px; background: var(--accent); opacity: 0.7; border-radius: 2px; min-width: 1px; }
-.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-@media (max-width: 600px) { .months td.bar { display: none; } }

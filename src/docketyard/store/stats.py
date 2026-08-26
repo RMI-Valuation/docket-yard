@@ -24,7 +24,14 @@ class Month:
     month: str  # YYYY-MM
     filings: int
     decisions: int
-    share: float  # filings as a percentage of the busiest month, for the bar
+
+
+@dataclass(frozen=True)
+class Year:
+    year: int
+    filings: int
+    decisions: int
+    partial: bool  # the current year, or one the backfill has not finished
 
 
 @dataclass(frozen=True)
@@ -43,6 +50,7 @@ class Stats:
     dockets: int
     parties: int
     months: list[Month]  # oldest first, every month from the earliest dated record to today
+    years: list[Year]  # the same numbers by calendar year
     by_prefix: list[tuple[str, int, int]]  # (prefix, dockets in registry, filings held)
     by_body: list[tuple[str | None, int]]  # deciding body as printed (None: blank), decisions
     busiest: list[Busiest]  # most filings this calendar year, folded by docket family
@@ -83,12 +91,18 @@ def stats(con: Connection, today: date | None = None) -> Stats:
     keys = sorted(k for k in per_month if _MONTH.match(k) and k <= this_month)
     months: list[Month] = []
     if keys:
-        peak = max(per_month[k][0] for k in keys) or 1
         for k in month_keys(keys[0], today):
             f, d = per_month.get(k, [0, 0])
-            months.append(Month(k, f, d, round(100 * f / peak, 1)))
+            months.append(Month(k, f, d))
 
     year = today.year
+    years: list[Year] = []
+    for m in months:
+        y = int(m.month[:4])
+        if not years or years[-1].year != y:
+            years.append(Year(y, 0, 0, y == year))
+        last = years[-1]
+        years[-1] = Year(y, last.filings + m.filings, last.decisions + m.decisions, last.partial)
     ranked = q(
         """
         SELECT root.docket_id, root.raw_docket, COUNT(DISTINCT f.stb_filing_id) AS n
@@ -120,6 +134,7 @@ def stats(con: Connection, today: date | None = None) -> Stats:
         dockets=one("SELECT COUNT(*) FROM docket"),
         parties=one("SELECT COUNT(*) FROM party"),
         months=months,
+        years=years,
         by_prefix=q(
             """
             SELECT d.prefix, COUNT(DISTINCT d.docket_id), COALESCE(fc.n, 0)
