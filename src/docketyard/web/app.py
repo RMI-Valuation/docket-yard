@@ -158,7 +158,7 @@ def create_app(
     async def lifespan(_app):
         traffic.start_timer(counter, traffic_path)
         yield
-        traffic.flush(counter, traffic_path, datetime.now(UTC), all_hours=True)
+        traffic.flush(counter, traffic_path, datetime.now(UTC))
 
     app = FastAPI(
         title=site_name, version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan
@@ -238,18 +238,30 @@ def create_app(
         caching is safe everywhere else (ADR 0011). HEAD is registered on every GET route
         (below), so nothing here rewrites the method."""
         started = time.monotonic()
-        response = await _hygiene(request, call_next)
-        # the count: kind of page, status class, size, speed, crawler or not — then the
-        # request is forgotten (docs/traffic.md; the sentence on /privacy)
-        counter.record(
-            _path(request),
-            response.status_code,
-            int(response.headers.get("content-length") or 0),
-            (time.monotonic() - started) * 1000,
-            request.headers.get("user-agent"),
-            datetime.now(UTC),
-        )
+        try:
+            response = await _hygiene(request, call_next)
+        except BaseException:  # an unhandled error is a 500 to the reader: count it as one
+            _count(request, 500, 0, started)
+            raise
+        size = 0 if request.method == "HEAD" else response.headers.get("content-length")
+        _count(request, response.status_code, size, started)
         return response
+
+    def _count(request: Request, status: int, size, started: float) -> None:
+        """The count: kind of page, status class, size, speed, crawler or not — then the
+        request is forgotten (docs/traffic.md; the sentence on /privacy). Counting must
+        never cost a page."""
+        try:
+            counter.record(
+                _path(request),
+                status,
+                int(size or 0),
+                (time.monotonic() - started) * 1000,
+                request.headers.get("user-agent"),
+                datetime.now(UTC),
+            )
+        except Exception as e:  # noqa: BLE001
+            print(f"traffic count failed ({type(e).__name__}: {e})")
 
     async def _hygiene(request: Request, call_next):
         path = _path(request)
