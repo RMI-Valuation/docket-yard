@@ -14,7 +14,7 @@ address (ADR 0011); those three handlers open a writable connection and nothing 
 
 import hashlib
 import sqlite3
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib import resources
 from pathlib import Path
@@ -28,11 +28,13 @@ from docketyard import __version__
 from docketyard.alerts import feedback, mail, subscriptions, vault, webhooks
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
-from docketyard.store import coverage, home, projections, sheet, stats
+from docketyard.store import coverage, dump, home, projections, sheet, stats
 from docketyard.store.db import MIGRATIONS, utcnow
 from docketyard.web import feeds, labels, urls
 
 _PKG = resources.files("docketyard.web")
+JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
+PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move once a poll
 # outside intake is GitHub Issues (CLAUDE.md); the form template carries the fields
 CORRECTIONS_URL = (
     "https://github.com/RMI-Valuation/docket-yard/issues/new?template=data-correction.yml"
@@ -134,8 +136,10 @@ def create_app(
     site_host: str = "docketyard.org",
     sender: mail.Sender | None = None,
     feedback_topic: str | None = None,  # the SNS topic ARN SES feedback must come from
+    public_dir: str | Path | None = None,  # where `docketyard dump` writes (M9)
 ) -> FastAPI:
     _check_store(db_path)
+    public_dir = Path(public_dir) if public_dir else Path(db_path).parent / "public"
     app = FastAPI(title=site_name, version=__version__, docs_url=None, redoc_url=None)
     templates = Jinja2Templates(directory=str(_PKG / "templates"))
     templates.env.filters["fmt_date"] = fmt_date
@@ -164,6 +168,10 @@ def create_app(
         confirm_ttl_hours=subscriptions.CONFIRM_TTL_HOURS,  # the privacy page quotes it
     )
     app.mount("/static", StaticFiles(directory=str(_PKG / "static")), name="static")
+    # the dump timer owns this directory; the web tier only reads it, and may start first
+    app.mount(
+        "/data/files", StaticFiles(directory=str(public_dir), check_dir=False), name="data-files"
+    )
 
     def render(request: Request, name: str, **context):
         return templates.TemplateResponse(request, name, context)
@@ -172,6 +180,20 @@ def create_app(
     def not_found(request: Request, exc: HTTPException):
         detail = exc.detail if isinstance(exc.detail, str) and exc.detail != "Not Found" else ""
         return templates.TemplateResponse(request, "404.html", {"detail": detail}, status_code=404)
+
+    def family_sheet(identity):
+        """The family a docket address belongs to (ADR 0005: a sheet folds its sub-dockets)
+        and its sheet, or 404 — one resolution for the page, the feed and the JSON."""
+        family = identity.parent() or identity
+        con = _connect(db_path)
+        try:
+            docket_id = find_docket(con, family)
+            s = sheet.docket_sheet(con, docket_id) if docket_id is not None else None
+        finally:
+            con.close()
+        if s is None:
+            raise HTTPException(404)
+        return family, s
 
     def sheet_response(request: Request, identity):
         canonical = urls.docket_path(identity)
@@ -284,7 +306,7 @@ def create_app(
         finally:
             con.close()
         response = render(request, "stats.html", s=s)
-        response.headers["Cache-Control"] = "public, max-age=1800"
+        response.headers.update(PUBLIC_CACHE)
         return response
 
     @app.get("/corrections")
@@ -328,7 +350,7 @@ def create_app(
         return Response(
             body,
             media_type="application/atom+xml; charset=utf-8",
-            headers={"Cache-Control": "public, max-age=1800"},
+            headers=PUBLIC_CACHE,
         )
 
     @app.get("/feed")
@@ -354,19 +376,104 @@ def create_app(
         identity = urls.parse_docket_path(ident)
         if identity is None:
             raise HTTPException(404)
-        family = identity.parent() or identity
+        family, s = family_sheet(identity)
         con = _connect(db_path)
         try:
-            docket_id = find_docket(con, family)
-            if docket_id is None:
-                raise HTTPException(404)
             return atom(
                 feeds.family_feed(
-                    con, docket_id, urls.printed_docket(family), urls.docket_path(family), site_host
+                    con,
+                    s.docket_id,
+                    urls.printed_docket(family),
+                    urls.docket_path(family),
+                    site_host,
                 )
             )
         finally:
             con.close()
+
+    # --- JSON: the same addresses, as data (M9). CC0; envelope names the source ----------
+
+    def as_json(body: dict) -> JSONResponse:
+        return JSONResponse(
+            {
+                "source": f"https://{site_host}/",
+                "licence": dump.LICENCE,
+                "licence_url": dump.LICENCE_URL,
+                "shape_version": JSON_SHAPE,
+                "held": {"enriched": dump.HELD_REASON},
+                "generated_at": utcnow(),
+                **body,
+            },
+            headers=PUBLIC_CACHE,
+        )
+
+    def docket_ref(s) -> dict:
+        ident = parse_docket_id(s.raw_docket)
+        return {
+            "raw_docket": s.raw_docket,
+            "printed": urls.printed_docket(ident) if ident else s.raw_docket,
+            "title": s.title,
+            "url": f"https://{site_host}{urls.docket_path(ident)}" if ident else None,
+        }
+
+    def entry_json(e) -> dict:
+        d = asdict(e)
+        d.pop("parties", None)  # the enriched layer is held (dump.HELD_REASON)
+        d["url"] = f"https://{site_host}{urls.record_path(e.kind, e.record_id)}"
+        return d
+
+    def sheet_json(request: Request, identity) -> Response:
+        canonical = urls.docket_path(identity) + ".json"
+        if _path(request) != canonical:  # any case resolves; one address is served
+            return RedirectResponse(canonical, status_code=301)
+        family, s = family_sheet(identity)
+        d = asdict(s)
+        d.pop("parties", None)  # the enriched layer is held (dump.HELD_REASON)
+        d.update(docket_ref(s))
+        d["sub_dockets"] = [
+            {"docket_id": i, "raw_docket": raw, "title": title} for i, raw, title in s.sub_dockets
+        ]
+        d["entries"] = [entry_json(e) for e in s.entries]
+        body = {"docket": d}
+        if identity != family:  # a sub-docket address answers with its family, and says so
+            body["requested"] = {
+                "raw_docket": identity.canonical(),
+                "printed": urls.printed_docket(identity),
+                "url": f"https://{site_host}{urls.docket_path(identity)}",
+            }
+        return as_json(body)
+
+    @app.get("/d/{ident}.json")
+    def docket_json(request: Request, ident: str):
+        identity = urls.parse_docket_path(ident)
+        if identity is None:
+            raise HTTPException(404)
+        return sheet_json(request, identity)
+
+    @app.get("/d/{ident}/sub/{sub}.json")
+    def sub_docket_json(request: Request, ident: str, sub: str):
+        identity = urls.parse_docket_path(ident, sub)
+        if identity is None:
+            raise HTTPException(404)
+        return sheet_json(request, identity)
+
+    def record_json(kind: str, stb_id: str) -> JSONResponse:
+        s, entry = _record_entry(db_path, kind, stb_id)
+        d = entry_json(entry)
+        d["docket"] = docket_ref(s)
+        return as_json({kind: d})
+
+    @app.get("/filing/{stb_id}.json")
+    def filing_json(stb_id: str):
+        return record_json("filing", stb_id)
+
+    @app.get("/decision/{stb_id}.json")
+    def decision_json(stb_id: str):
+        return record_json("decision", stb_id)
+
+    @app.get("/data")
+    def data_page(request: Request):
+        return render(request, "data.html", manifest=dump.read_manifest(public_dir))
 
     @app.get("/d")
     def lookup(request: Request, q: str = ""):
@@ -662,7 +769,8 @@ def create_app(
     return app
 
 
-def _record_page(request, db_path, render, kind: str, stb_id: str):
+def _record_entry(db_path, kind: str, stb_id: str):
+    """A record's family sheet and its entry, or 404 — one lookup for the page and JSON."""
     table, column = (
         ("decision_record", "stb_decision_id")
         if kind == "decision"
@@ -683,5 +791,12 @@ def _record_page(request, db_path, render, kind: str, stb_id: str):
     finally:
         con.close()
     assert s is not None
-    entry = next(e for e in s.entries if e.kind == kind and e.record_id == stb_id)
+    entry = next((e for e in s.entries if e.kind == kind and e.record_id == stb_id), None)
+    if entry is None:
+        raise HTTPException(404)
+    return s, entry
+
+
+def _record_page(request, db_path, render, kind: str, stb_id: str):
+    s, entry = _record_entry(db_path, kind, stb_id)
     return render(request, "record.html", sheet=s, entry=entry)

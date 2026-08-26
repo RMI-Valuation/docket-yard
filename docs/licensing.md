@@ -21,12 +21,16 @@ Metadata drawn from STB records: docket numbers, dates, parties as filed, docume
 links. These are federal works with no copyright, and the public-good case rests on giving
 them away without conditions.
 
-## Enriched layer — share-alike
+## Enriched layer — share-alike (terms under review; withheld from bulk data meanwhile)
 
 Entity resolution, the carrier registry with aliases and successors, the citation graph,
 classifications, extracted deadlines. This is the labour, it is the defensible asset, and it is
 what an acquirer would actually be buying. Share-alike terms keep it open while preventing
 enclosure.
+
+**2026-08-26:** the raw index is published under CC0 (`docs/data.md`); the enriched layer
+is held out of the snapshot and the JSON until the review below, so nothing irreversible
+precedes it. It remains readable on the site.
 
 ## Trademark
 

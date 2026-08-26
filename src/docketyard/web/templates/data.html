@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Data — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">The record as data</h1>
+  <p class="muted">Bulk access is a promise, not a feature. The raw index — every docket, filing, decision, date and document {{ site_name }} holds about the Board’s proceedings, with its provenance — is downloadable as one file, and every docket, filing and decision has a JSON twin at its own address. That index is dedicated to the public domain (<a href="https://creativecommons.org/publicdomain/zero/1.0/" rel="noopener">CC0 1.0</a>): use it for anything, no permission or attribution needed. The Board’s own file remains the authority for every record.</p>
+  <p class="muted">Held back for now: the <a href="/parties">party module</a> — who filed for whom, resolved to entities with their other names and successions. {{ manifest.held_reason if manifest else 'It is derived work whose licence awaits review; it is withheld until then, not dedicated by default.' }} It stays readable on every sheet.</p>
+</section>
+
+<section>
+  <h2>Bulk snapshot</h2>
+  {% if manifest %}
+  <p>One SQLite file, cut nightly. It is the live store minus every table that could name a reader — {% for t in manifest.omitted_tables %}<span class="mono">{{ t }}</span>{{ ', ' if not loop.last }}{% endfor %} — which never leave the machine, ciphertext included; the copy is built where it is not served and checked against an allowlist of public tables before it is offered. Numbers below are measured from the file itself.</p>
+  <table class="moved">
+    <thead><tr><th scope="col">File</th><th scope="col" class="num">Size</th><th scope="col">SHA-256</th></tr></thead>
+    <tbody>
+      <tr><td class="title"><a href="/data/files/{{ manifest.latest.name }}">{{ manifest.latest.name }}</a> <span class="muted small">built {{ manifest.built_at }}</span></td><td class="num">{{ '%.1f' | format(manifest.latest.bytes / 1e6) }} MB</td><td class="mono small">{{ manifest.latest.sha256[:16] }}…</td></tr>
+      {% for f in manifest.dated %}
+      <tr><td class="title"><a href="/data/files/{{ f.name }}">{{ f.name }}</a> <span class="muted small">archive</span></td><td class="num">{{ '%.1f' | format(f.bytes / 1e6) }} MB</td><td class="mono small">{{ f.sha256[:16] }}…</td></tr>
+      {% endfor %}
+      <tr><td class="title"><a href="/data/files/schema.sql">schema.sql</a> <span class="muted small">the snapshot’s own tables, as created (schema version {{ manifest.schema_version }})</span></td><td class="num"></td><td></td></tr>
+      <tr><td class="title"><a href="/data/files/index.json">index.json</a> <span class="muted small">this manifest, with full hashes</span></td><td class="num"></td><td></td></tr>
+      <tr><td class="title"><a href="/data/files/LICENSE.txt">LICENSE.txt</a> <span class="muted small">{{ manifest.licence }}</span></td><td class="num"></td><td></td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">Holds {{ manifest.counts.dockets | commas }} dockets, {{ manifest.counts.filings | commas }} filings, {{ manifest.counts.decisions | commas }} decisions and {{ manifest.counts.events | commas }} ledger events; withheld tables: {% for t in manifest.held_tables %}<span class="mono">{{ t }}</span>{{ ', ' if not loop.last }}{% endfor %}. The first snapshot of each month is kept as a dated archive. The Board’s PDF files themselves ({{ manifest.counts.documents | commas }} held, by content hash) are not in the snapshot; each record lists the Board’s own URL for its files.</p>
+  <p class="small muted">Open it with <span class="mono">sqlite3 docketyard-latest.sqlite</span> after <span class="mono">gunzip</span>. The event ledger (<span class="mono">event</span>, <span class="mono">capture</span>) is the source of truth; <span class="mono">filing</span>, <span class="mono">decision_record</span> and <span class="mono">docket</span> are projections of it. Every derived row names the capture it came from.</p>
+  {% else %}
+  <p class="muted">The first snapshot has not been cut yet. It is cut nightly; check back tomorrow.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>JSON</h2>
+  <p>Append <span class="mono">.json</span> to a docket, sub-docket, filing or decision address and the same record comes back as data — a sub-docket answers with its family and names what was asked — with the same permanent address and a <span class="mono">Cache-Control</span> of thirty minutes. Feeds are at <a href="/feed">/feed</a>. There are no keys, no accounts and no rate limits; please be reasonable, identify your client in its <span class="mono">User-Agent</span>, and prefer the snapshot for anything that walks the whole record.</p>
+  <table class="moved">
+    <thead><tr><th scope="col">Address</th><th scope="col">Returns</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">/d/FD-36873.json</td><td class="title">The docket family’s sheet: caption, sub-dockets, every filing and decision with the Board’s dates as printed, attachments with content hashes. (The Parties block is held with the enriched layer.)</td></tr>
+      <tr><td class="mono">/filing/&lt;id&gt;.json</td><td class="title">One filing, with its docket.</td></tr>
+      <tr><td class="mono">/decision/&lt;id&gt;.json</td><td class="title">One decision, with its docket.</td></tr>
+      <tr><td class="mono">/health</td><td class="title">The store’s freshness, as the heartbeat reads it.</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">Every response carries <span class="mono">source</span>, <span class="mono">licence</span> and <span class="mono">generated_at</span>. Field names follow the snapshot’s schema; a field the Board left blank is <span class="mono">null</span>, never guessed. Every response carries <span class="mono">shape_version</span>; it is raised, and announced here, when a field changes name or meaning.</p>
+</section>
+{% endblock %}

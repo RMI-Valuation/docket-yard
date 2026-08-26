@@ -12,6 +12,7 @@ pull-based: change `DY_TAG` in `.env`, pull, up. Nothing pushes to production.
 | `ingest` | same image | `docketyard poll --every 1800`: capture, ingest, fetch, repeat |
 | `litestream` | `litestream/litestream:0.3` | streams the store's WAL to S3 every 10 s |
 | `caddy` | `caddy:2-alpine` | TLS (Let's Encrypt), reverse proxy, access log without IPs |
+| host timer | `docketyard-dump.timer` | nightly 04:10 UTC: `docketyard dump` cuts the public snapshot into `data/public` (served at `/data/files/`) |
 | host timer | `docketyard-blobs.timer` | every 30 min: `aws s3 sync` of `data/blobs`, then `prune_blobs.py` deletes local blobs S3 holds (older than 30 days, or oldest-first below 20 GB free) — S3 is the store, the instance is a cache |
 
 One store, two processes: `ingest` writes, `web` reads through a `mode=ro` URI. SQLite WAL
@@ -44,6 +45,8 @@ is an instance and not the container service.
    sudo chown -R 1000:1000 /srv/docketyard/data     # the image's uid
    sudo cp /srv/docketyard/docketyard-blobs.* /etc/systemd/system/
    sudo systemctl enable --now docketyard-blobs.timer
+   sudo cp /srv/docketyard/docketyard-dump.* /etc/systemd/system/
+   sudo systemctl enable --now docketyard-dump.timer   # nightly public snapshot (M9)
    ```
 
 4. **Seed the store** from rmi-ai-machine — a copy, not a migration (ADR 0012). Stop any
