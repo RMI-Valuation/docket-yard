@@ -3,7 +3,7 @@
 {% block main %}
 <section class="caption">
   <h1 class="serif">Parties on record</h1>
-  <p class="muted">Who files, as the Board’s “Filed For” cells name them, resolved by rule (<a href="/methodology">how</a>). A reading aid, not an address: this view may change as resolution improves, and it is never a citation.</p>
+  <p class="muted">Who files, as the Board’s “Filed For” cells name them, resolved by rule (<a href="/methodology">how</a>). Each party has a permanent page; this search is how to find it.</p>
   <form class="search" action="/parties" method="get" role="search">
     <input name="name" type="search" value="{{ query }}" placeholder="Part of a name — e.g. Union Pacific, BNSF, Watco" aria-label="Party name">
   </form>
@@ -13,19 +13,19 @@
   {% if truncated %}<p class="muted small">More than {{ found | length }} parties match; showing the first {{ found | length }}. Narrow the name.</p>{% endif %}
   {% for p in found %}
   <div class="party">
-    <h2>{{ p.name }}{% if p.members > 1 %} <span class="muted small">· {{ p.members }} spellings held to be one entity</span>{% endif %}</h2>
+    <h2><a href="{{ party_path(p.party_id) }}">{{ p.name }}</a>{% if p.members > 1 %} <span class="muted small">· {{ p.members }} records held to be one entity</span>{% endif %}</h2>
     <p class="small muted">Also named as: {% for raw, kind, method, version in p.aliases %}<span class="as-printed">{{ raw }}</span> <span class="muted">({{ kind }}, {{ method }} {{ version }})</span>{% if not loop.last %}; {% endif %}{% endfor %}</p>
     {% if p.dockets %}
     <table class="moved">
-      <thead><tr><th scope="col">Docket</th><th scope="col" class="num">Filings</th></tr></thead>
+      <thead><tr><th scope="col">Docket</th><th scope="col">Caption</th><th scope="col" class="num">Filings</th><th scope="col" class="num">Last filing</th></tr></thead>
       <tbody>
-      {% for docket_id, raw, n in p.dockets %}
-      <tr><td class="dk"><a href="{{ docket_path(parse_docket_id(raw)) }}">{{ printed_docket(parse_docket_id(raw)) }}</a></td><td class="num">{{ n }}</td></tr>
+      {% for d in p.dockets %}
+      <tr><td class="dk"><a href="{{ docket_path(parse_docket_id(d.raw)) }}">{{ printed_docket(parse_docket_id(d.raw)) }}</a></td><td class="as-printed">{% if d.caption %}{{ d.caption }}{% else %}<span class="muted">Not yet observed in the Board’s dockets table</span>{% endif %}</td><td class="num">{{ d.filings }}</td><td class="num"><time datetime="{{ d.last_filed or '' }}">{{ d.last_filed | fmt_date }}</time></td></tr>
       {% endfor %}
       </tbody>
     </table>
     {% else %}<p class="muted">On record by name only; no filings resolved to it yet.</p>{% endif %}
-    <p class="small muted"><a href="/feed/party/{{ p.party_id }}">Atom feed of filings for {{ p.name }}</a></p>
+    <p class="small muted"><a href="{{ party_path(p.party_id) }}">Party page</a> · <a href="{{ party_feed_path(p.party_id) }}">Atom feed of filings for {{ p.name }}</a></p>
     <form class="follow inline" method="post" action="/subscribe">
       <input type="hidden" name="party" value="{{ p.party_id }}">
       <label class="small muted" for="follow-{{ p.party_id }}">Follow filings for {{ p.name }}</label>

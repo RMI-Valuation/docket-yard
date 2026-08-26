@@ -168,6 +168,8 @@ def create_app(
         cite_docket=urls.cite_docket,
         decision_path=urls.decision_path,
         filing_path=urls.filing_path,
+        party_path=urls.party_path,
+        party_feed_path=urls.party_feed_path,
         parse_docket_id=parse_docket_id,
         kind_label=labels.kind_label,
         filter_key=labels.filter_key,
@@ -182,6 +184,14 @@ def create_app(
     def render(request: Request, name: str, **context):
         context.setdefault("canonical", _path(request))
         return templates.TemplateResponse(request, name, context)
+
+    def atom(feed: feeds.Feed) -> Response:
+        body = feeds.render(feed, site_host, utcnow())
+        return Response(
+            body,
+            media_type="application/atom+xml; charset=utf-8",
+            headers=PUBLIC_CACHE,
+        )
 
     def stamp() -> str:
         """The store's version as one cheap number: the newest capture and event ids. Every
@@ -314,7 +324,9 @@ def create_app(
             con.close()
         return render(request, "home.html", week=w)
 
-    # --- parties: a facet of the record, reached by query, never an address --------------
+    # --- parties: /parties is the search; /p/<id> is the party's permanent address ----
+    # (ADR 0015): the id is never reused, every member of a same_as component resolves,
+    # and a member that is not the representative answers 301 to the representative.
 
     @app.get("/parties")
     def parties_page(request: Request, name: str = ""):
@@ -324,6 +336,51 @@ def create_app(
         finally:
             con.close()
         return render(request, "parties.html", query=name.strip(), found=found, truncated=truncated)
+
+    def party_id_of(text: str) -> int:
+        """An address is digits only; anything else is not a party address (404, not 422)."""
+        if not text.isdigit() or len(text) > 12:
+            raise HTTPException(404)
+        return int(text)
+
+    @app.get("/p/{party_id}")
+    def party_page(request: Request, party_id: str):
+        pid = party_id_of(party_id)
+        con = _connect(db_path)
+        try:
+            page = resolve.party_page(con, pid)
+        finally:
+            con.close()
+        if page is None:
+            raise HTTPException(404)
+        if page["party_id"] != pid:  # folded into a component: the representative's page
+            return RedirectResponse(urls.party_path(page["party_id"]), status_code=301)
+        return render(request, "party.html", p=page)
+
+    @app.get("/p/{party_id}/feed")
+    def party_feed(party_id: str):
+        pid = party_id_of(party_id)
+        con = _connect(db_path)
+        try:
+            if not con.execute("SELECT 1 FROM party WHERE party_id = ?", (pid,)).fetchone():
+                raise HTTPException(404)
+            rep = resolve.component_of(con, pid)
+            if rep != pid:
+                return RedirectResponse(urls.party_feed_path(rep), status_code=301)
+            return atom(feeds.party_feed(con, rep, site_host))
+        finally:
+            con.close()
+
+    @app.get("/p/{party_id}/{rest:path}")
+    def party_page_slug(party_id: str, rest: str):
+        """A pasted "pretty" link — /p/1234/union-pacific — still works: the address is
+        the id alone (ADR 0015 § 4)."""
+        return RedirectResponse(urls.party_path(party_id_of(party_id)), status_code=301)
+
+    @app.get("/feed/party/{party_id}")
+    def old_party_feed(party_id: str):
+        """The M8 path, kept as a 301 forever (ADR 0015)."""
+        return RedirectResponse(urls.party_feed_path(party_id_of(party_id)), status_code=301)
 
     # --- past weeks: fixed Monday–Sunday weeks at permanent addresses --------------------
 
@@ -429,29 +486,11 @@ def create_app(
 
     # --- feeds: the alert stream as a page; nothing is stored about the reader ---------
 
-    def atom(feed: feeds.Feed) -> Response:
-        body = feeds.render(feed, site_host, utcnow())
-        return Response(
-            body,
-            media_type="application/atom+xml; charset=utf-8",
-            headers=PUBLIC_CACHE,
-        )
-
     @app.get("/feed")
     def agency_feed():
         con = _connect(db_path)
         try:
             return atom(feeds.agency_feed(con, site_host))
-        finally:
-            con.close()
-
-    @app.get("/feed/party/{party_id}")
-    def party_feed(party_id: int):
-        con = _connect(db_path)
-        try:
-            if not con.execute("SELECT 1 FROM party WHERE party_id = ?", (party_id,)).fetchone():
-                raise HTTPException(404)
-            return atom(feeds.party_feed(con, party_id, site_host))
         finally:
             con.close()
 
