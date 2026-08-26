@@ -14,7 +14,7 @@ address (ADR 0011); those three handlers open a writable connection and nothing 
 
 import hashlib
 import sqlite3
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib import resources
 from pathlib import Path
@@ -28,7 +28,7 @@ from docketyard import __version__
 from docketyard.alerts import feedback, mail, subscriptions, vault, webhooks
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
-from docketyard.store import coverage, home, projections, sheet, stats
+from docketyard.store import coverage, dump, home, projections, sheet, stats
 from docketyard.store.db import MIGRATIONS, utcnow
 from docketyard.web import feeds, labels, urls
 
@@ -134,8 +134,11 @@ def create_app(
     site_host: str = "docketyard.org",
     sender: mail.Sender | None = None,
     feedback_topic: str | None = None,  # the SNS topic ARN SES feedback must come from
+    public_dir: str | Path | None = None,  # where `docketyard dump` writes (M9)
 ) -> FastAPI:
     _check_store(db_path)
+    public_dir = Path(public_dir) if public_dir else Path(db_path).parent / "public"
+    public_dir.mkdir(parents=True, exist_ok=True)
     app = FastAPI(title=site_name, version=__version__, docs_url=None, redoc_url=None)
     templates = Jinja2Templates(directory=str(_PKG / "templates"))
     templates.env.filters["fmt_date"] = fmt_date
@@ -164,6 +167,7 @@ def create_app(
         confirm_ttl_hours=subscriptions.CONFIRM_TTL_HOURS,  # the privacy page quotes it
     )
     app.mount("/static", StaticFiles(directory=str(_PKG / "static")), name="static")
+    app.mount("/data/files", StaticFiles(directory=str(public_dir)), name="data-files")
 
     def render(request: Request, name: str, **context):
         return templates.TemplateResponse(request, name, context)
@@ -367,6 +371,63 @@ def create_app(
             )
         finally:
             con.close()
+
+    # --- JSON: the same addresses, as data (M9). CC0; envelope names the source ----------
+
+    def as_json(body: dict) -> JSONResponse:
+        return JSONResponse(
+            {
+                "source": f"https://{site_host}/",
+                "licence": dump.LICENCE,
+                "licence_url": dump.LICENCE_URL,
+                "generated_at": utcnow(),
+                **body,
+            },
+            headers={"Cache-Control": "public, max-age=1800"},
+        )
+
+    def sheet_json(identity) -> JSONResponse:
+        family = identity.parent() or identity
+        con = _connect(db_path)
+        try:
+            docket_id = find_docket(con, family)
+            s = sheet.docket_sheet(con, docket_id) if docket_id is not None else None
+        finally:
+            con.close()
+        if s is None:
+            raise HTTPException(404)
+        d = asdict(s)
+        d["printed"] = urls.printed_docket(family)
+        d["url"] = f"https://{site_host}{urls.docket_path(family)}"
+        d["sub_dockets"] = [
+            {"docket_id": i, "raw_docket": raw, "title": title} for i, raw, title in s.sub_dockets
+        ]
+        for e in d["entries"]:
+            e["url"] = f"https://{site_host}" + (
+                urls.decision_path(e["record_id"])
+                if e["kind"] == "decision"
+                else urls.filing_path(e["record_id"])
+            )
+        return as_json({"docket": d})
+
+    @app.get("/d/{ident}.json")
+    def docket_json(ident: str):
+        identity = urls.parse_docket_path(ident)
+        if identity is None:
+            raise HTTPException(404)
+        return sheet_json(identity)
+
+    @app.get("/filing/{stb_id}.json")
+    def filing_json(stb_id: str):
+        return _record_json(db_path, site_host, as_json, "filing", stb_id)
+
+    @app.get("/decision/{stb_id}.json")
+    def decision_json(stb_id: str):
+        return _record_json(db_path, site_host, as_json, "decision", stb_id)
+
+    @app.get("/data")
+    def data_page(request: Request):
+        return render(request, "data.html", manifest=dump.read_manifest(public_dir))
 
     @app.get("/d")
     def lookup(request: Request, q: str = ""):
@@ -660,6 +721,41 @@ def create_app(
         return _record_page(request, db_path, render, "filing", stb_id)
 
     return app
+
+
+def _record_json(db_path, site_host: str, as_json, kind: str, stb_id: str):
+    table, column = (
+        ("decision_record", "stb_decision_id")
+        if kind == "decision"
+        else ("filing", "stb_filing_id")
+    )
+    con = _connect(db_path)
+    try:
+        row = con.execute(
+            f"SELECT r.docket_id FROM {table} r JOIN docket d ON d.docket_id = r.docket_id"
+            f" WHERE r.{column} = ?"
+            " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, '') LIMIT 1",
+            (stb_id,),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(404)
+        s = sheet.docket_sheet(con, row[0])
+    finally:
+        con.close()
+    assert s is not None
+    entry = next(e for e in s.entries if e.kind == kind and e.record_id == stb_id)
+    ident = parse_docket_id(s.raw_docket)
+    d = asdict(entry)
+    d["url"] = f"https://{site_host}" + (
+        urls.decision_path(stb_id) if kind == "decision" else urls.filing_path(stb_id)
+    )
+    d["docket"] = {
+        "raw_docket": s.raw_docket,
+        "printed": urls.printed_docket(ident) if ident else s.raw_docket,
+        "title": s.title,
+        "url": f"https://{site_host}{urls.docket_path(ident)}" if ident else None,
+    }
+    return as_json({kind: d})
 
 
 def _record_page(request, db_path, render, kind: str, stb_id: str):

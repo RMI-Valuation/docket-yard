@@ -1,0 +1,9 @@
+[Unit]
+Description=Docket Yard: cut the public snapshot (M9)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/docketyard
+ExecStart=/usr/bin/docker compose run --rm --no-deps web dump --out /data/public

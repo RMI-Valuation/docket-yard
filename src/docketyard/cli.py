@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 from datetime import date
+from pathlib import Path
 
 from docketyard.alerts import build, mail, vault
 from docketyard.capture import backfill, documents, poll, walk
@@ -195,6 +196,19 @@ def _suppress(args: argparse.Namespace) -> int:
     return 0
 
 
+def _dump(args: argparse.Namespace) -> int:
+    """Cut the nightly public snapshot (M9): the store minus every reader table."""
+    from docketyard.store import dump
+
+    out = Path(args.out) if args.out else Path(args.data_dir) / "public"
+    m = dump.dump(Path(args.db), out)
+    print(
+        f"{m.latest.name}: {m.latest.bytes:,} bytes, {m.counts['filings']:,} filings,"
+        f" {len(m.dated)} dated archive(s); schema v{m.schema_version}; {m.licence}"
+    )
+    return 0
+
+
 def _status(args: argparse.Namespace) -> int:
     con = db.connect(args.db)
     for key, value in projections.status(con).items():
@@ -285,6 +299,9 @@ def main(argv: list[str] | None = None) -> int:
         "new-key", help="print a fresh DY_EMAIL_KEY; keep it in .env and a password manager"
     ).set_defaults(func=_vault_new_key)
 
+    dp = sub.add_parser("dump", help="cut the public snapshot (data/public by default)")
+    dp.add_argument("--out", default=None)
+    dp.set_defaults(func=_dump)
     st = sub.add_parser("status", help="counts for captures, records, documents, events")
     st.set_defaults(func=_status)
 

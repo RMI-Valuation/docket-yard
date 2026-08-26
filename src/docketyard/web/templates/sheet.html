@@ -114,7 +114,7 @@
     <div>
       <h2 id="cite">Cite this docket</h2>
       <p class="cite serif">{{ cite_docket(identity) }}</p>
-      <p class="small muted">Permanent address<br><span class="mono">docketyard.org{{ docket_path(identity) }}</span></p>
+      <p class="small muted">Permanent address<br><span class="mono">docketyard.org{{ docket_path(identity) }}</span><br>As data: <a href="{{ docket_path(identity.parent() or identity) }}.json">JSON</a> · <a href="/data">bulk</a></p>
     </div>
     <div>
       <h2>About this record</h2>
