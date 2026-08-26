@@ -1,0 +1,58 @@
+name: Idea
+description: Something you tried to do here that did not work, or something that would have helped and does not exist.
+title: "Idea: "
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are public, and so is what is done about them. What is built next is chosen from the
+        [capability map](https://github.com/RMI-Valuation/docket-yard/blob/main/docs/capability-map.md)
+        one decision at a time; an idea is a reason, not a place in a queue. Nothing here asks who you are.
+        A mistake on a sheet is a [correction](https://docketyard.org/corrections), not an idea.
+  - type: textarea
+    id: trying
+    attributes:
+      label: What you were trying to do
+      description: The question you had, or the task in front of you
+    validations:
+      required: true
+  - type: textarea
+    id: helped
+    attributes:
+      label: What would have helped
+      description: What the site could have shown, done, or told you
+    validations:
+      required: true
+  - type: dropdown
+    id: capability
+    attributes:
+      label: Nearest capability on the menu
+      description: Optional — the capability-map entry this is closest to, if one fits
+      options:
+        - Not sure
+        - F1 The unified docket sheet
+        - F2 Permanent, guessable URLs
+        - F3 A carrier and party registry
+        - F4 Fielded search that respects sub-dockets
+        - F5 Free API, bulk dumps, coverage page
+        - F6 The cross-agency join
+        - C1 Alerting — docket, search and citation
+        - C2 An STB and ICC citator
+        - C3 Address-to-docket lookup
+        - C4 The deadline engine
+        - P2 Plain-language docket-type explainers
+        - Something else
+  - type: dropdown
+    id: role
+    attributes:
+      label: How you read the record
+      description: Optional, and only as a kind of reader — never a name or an organisation
+      options:
+        - Practitioner
+        - Railroad
+        - Shipper
+        - Public agency
+        - Reporter
+        - Researcher
+        - Other
