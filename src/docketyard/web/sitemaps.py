@@ -121,18 +121,28 @@ def section(con: Connection, site: str, name: str, page: int, stamp: str) -> str
     if name == "pages":
         entries = [(f"{base}{p}", None) for p in STATIC_PAGES[offset : offset + PAGE]]
     elif name == "dockets":
-        rows = con.execute(
-            """
-            SELECT d.raw_docket, MAX(c.captured_at)
-              FROM docket d
-              LEFT JOIN docket m ON m.docket_id = d.docket_id OR m.parent_docket_id = d.docket_id
-              LEFT JOIN event e ON e.docket_id = m.docket_id
-              LEFT JOIN capture c ON c.capture_id = e.capture_id
-             WHERE d.parent_docket_id IS NULL
-             GROUP BY d.docket_id ORDER BY d.prefix, d.sequence LIMIT ? OFFSET ?
-            """,
-            (PAGE, offset),
-        ).fetchall()
+        # the family fold as one grouped pass over events into a dict, then the parents in
+        # address order — never a self-join on parent_docket_id (unindexed: the OR form
+        # scanned docket × docket and hung; a joined subquery still scanned it per parent)
+        touched = dict(
+            con.execute(
+                """
+                SELECT COALESCE(x.parent_docket_id, x.docket_id), MAX(c.captured_at)
+                  FROM docket x
+                  JOIN event e ON e.docket_id = x.docket_id
+                  JOIN capture c ON c.capture_id = e.capture_id
+                 GROUP BY 1
+                """
+            )
+        )
+        rows = [
+            (raw, touched.get(docket_id))
+            for docket_id, raw in con.execute(
+                "SELECT docket_id, raw_docket FROM docket WHERE parent_docket_id IS NULL"
+                " ORDER BY prefix, sequence LIMIT ? OFFSET ?",
+                (PAGE, offset),
+            )
+        ]
         entries = []
         for raw, mod in rows:
             ident = parse_docket_id(raw)
