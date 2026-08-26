@@ -33,6 +33,9 @@
   <h2>Provenance</h2>
   <p>Every entry points at the capture it was observed in, and every capture at the raw response. Where a derived claim is ever published, it carries the source document, the location in it, the method and its version, when it was produced, and a confidence — and a later method does not overwrite an earlier claim; it supersedes it, and the earlier one stays on record.</p>
 
+  <h2 id="search">Search</h2>
+  <p>One box. A docket number in any spelling opens its sheet without a search. Anything else is matched, word by word, against three things: docket captions as the Board prints them (a sub-docket's caption finds its family); every name a party is on record under; and the Board's own printed decision summaries. Documents are not searched — no text is extracted from them yet. The index is rebuilt from the record after every poll; it holds no reader's query, and the server keeps none.</p>
+
   <h2 id="webhooks">Feeds and webhooks</h2>
   <p>Every alert channel renders the same record events — new or updated filings and decisions, and a file the Board replaced — observed by the forward poll. Entries added by a backfill wave never appear in any of them.</p>
   <ul>

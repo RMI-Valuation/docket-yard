@@ -28,6 +28,11 @@
 				request>client_ip delete
 				request>headers>User-Agent delete
 				request>headers>Cookie delete
+				# what a reader searched for is theirs: the query strings that carry it
+				request>uri query {
+					delete q
+					delete name
+				}
 			}
 		}
 	}

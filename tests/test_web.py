@@ -188,7 +188,8 @@ def test_sheet_at_its_permanent_address(client):
 def test_lookup_box_redirects_to_canonical(client):
     r = client.get("/d", params={"q": "FD 36873 (Sub-No. 1)"}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/d/FD-36873/sub/1"
-    assert client.get("/d", params={"q": "nonsense"}).status_code == 404
+    r = client.get("/d", params={"q": "nonsense"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/search?q=nonsense"
 
 
 def test_lower_case_redirects_to_canonical(client):

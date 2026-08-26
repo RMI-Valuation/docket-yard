@@ -20,7 +20,7 @@ from docketyard.capture import documents, walk
 from docketyard.capture.stb import DECISIONS, FILINGS
 from docketyard.ingest import observations
 from docketyard.parties import resolve
-from docketyard.store import projections
+from docketyard.store import projections, search
 
 WINDOW_DAYS = 7
 MIN_WINDOW_DAYS = 3  # below this a quiet weekend makes the page-1 envelope a false alarm
@@ -147,6 +147,11 @@ def forward_pass(
         except Exception as e:  # noqa: BLE001 — delivery must never cost the next capture
             con.rollback()
             summary["problems"].append(f"alerts failed ({type(e).__name__}: {e})")
+    try:
+        summary["search"] = search.rebuild(con)
+    except Exception as e:  # noqa: BLE001 — the index is a convenience; the record comes first
+        con.rollback()
+        summary["problems"].append(f"search rebuild failed ({type(e).__name__}: {e})")
     log(f"poll {start}..{end}: {summary}")
     return summary
 

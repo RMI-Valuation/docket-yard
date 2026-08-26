@@ -18,7 +18,7 @@ from docketyard.capture import documents, walk
 from docketyard.capture.stb import DECISIONS, FILINGS
 from docketyard.ingest import observations
 from docketyard.parties import resolve
-from docketyard.store import projections
+from docketyard.store import projections, search
 
 
 def forward_since(con: Connection) -> date | None:
@@ -77,5 +77,10 @@ def wave(
         limit=fetch_limit,
         ingest_mode="backfill",
     )
+    try:
+        summary["search"] = search.rebuild(con)
+    except Exception as e:  # noqa: BLE001
+        con.rollback()
+        summary["search"] = f"FAILED ({type(e).__name__}: {e})"
     log(f"wave {summary}")
     return summary

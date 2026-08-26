@@ -18,6 +18,7 @@ from dataclasses import asdict, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib import resources
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import Body, FastAPI, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
@@ -29,14 +30,14 @@ from docketyard import __version__
 from docketyard.alerts import feedback, mail, subscriptions, vault, webhooks
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
-from docketyard.store import coverage, dump, home, projections, sheet, stats
+from docketyard.store import coverage, dump, home, projections, search, sheet, stats
 from docketyard.store.db import MIGRATIONS, utcnow
 from docketyard.web import feeds, labels, sitemaps, urls
 
 _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
-NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health")  # tokens, consent, telemetry
+NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/suggest")  # tokens, consent
 MOUNTS = ("/static/", "/data/files/")  # StaticFiles: streams, validates and HEADs itself
 DISCOVERY_CACHE = 86400  # robots and sitemaps: a day
 PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move once a poll
@@ -627,11 +628,70 @@ def create_app(
 
     @app.get("/d")
     def lookup(request: Request, q: str = ""):
-        """The lookup box: whatever was typed, normalised to the one canonical address."""
+        """The old lookup box: whatever was typed, normalised to the one canonical address;
+        anything that is not a docket number is now a search."""
         identity = urls.lookup(q)
         if identity is None:
-            raise HTTPException(404, "not a docket number")
+            return RedirectResponse(f"/search?{urlencode({'q': q.strip()})}", status_code=303)
         return RedirectResponse(urls.docket_path(identity), status_code=303)
+
+    # --- search: a docket number is never a search; everything else is the index -------
+    # (docs/search.md). Nothing about the query is stored; Caddy drops it from the log.
+
+    def docket_fast_path(q: str):
+        """A docket number that the record holds answers with its sheet, not a result list."""
+        identity = urls.lookup(q)
+        if identity is None:
+            return None
+        family = identity.parent() or identity
+        con = _connect(db_path)
+        try:
+            found = find_docket(con, family) is not None
+        finally:
+            con.close()
+        return urls.docket_path(identity) if found else None
+
+    @app.get("/search")
+    def search_page(request: Request, q: str = ""):
+        q = q.strip()[: search.MAX_QUERY]
+        if not q:
+            return render(request, "search.html", query="", hits=[])
+        path = docket_fast_path(q)
+        if path:
+            return RedirectResponse(path, status_code=303)
+        con = _connect(db_path)
+        try:
+            hits = search.search(con, q)
+        finally:
+            con.close()
+        return render(request, "search.html", query=q, hits=hits)
+
+    @app.get("/suggest")
+    def suggest(q: str = ""):
+        """As-you-type: a few rows, the same fields, never cached, never stored."""
+        q = q.strip()[: search.MAX_QUERY]
+        if not q:
+            return JSONResponse({"hits": []}, headers={"Cache-Control": "no-store"})
+        identity = urls.lookup(q)
+        con = _connect(db_path)
+        try:
+            hits = [asdict(h) for h in search.search(con, q, limit=search.SUGGEST, prefix=True)]
+            if identity is not None:
+                family = identity.parent() or identity
+                if find_docket(con, family) is not None:
+                    printed = urls.printed_docket(identity)
+                    hits.insert(
+                        0,
+                        {
+                            "kind": "docket",
+                            "address": urls.docket_path(identity),
+                            "title": printed,
+                            "fact": "the docket sheet",
+                        },
+                    )
+        finally:
+            con.close()
+        return JSONResponse({"hits": hits[: search.SUGGEST]}, headers={"Cache-Control": "no-store"})
 
     @app.get("/d/{ident}")
     def docket_page(request: Request, ident: str):
