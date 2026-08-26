@@ -16,6 +16,13 @@
 </head>
 <body>
 <div class="sheet">
+  <div class="prefs no-print" role="group" aria-label="Display preferences">
+    <span class="prefs-label">Display</span>
+    <button class="chip chip-small" type="button" data-pref="density" data-value="compact">Compact</button>
+    <button class="chip chip-small" type="button" data-pref="ids" data-value="on">Record IDs</button>
+    <button class="chip chip-small" type="button" data-pref="theme" data-value="dark">Dark</button>
+    <span class="prefs-note">Kept in this browser only</span>
+  </div>
   <header class="masthead no-print">
     <div class="masthead-left">
       <a class="wordmark serif" href="/">{{ site_name }}</a>
@@ -35,5 +42,23 @@
     <div>{{ site_name }} is operated by RMI Valuation, LLC and is not affiliated with the Surface Transportation Board.</div>
   </footer>
 </div>
+<script>
+  // preference chips: browser-stored only, never sent anywhere (ADR 0011)
+  (function () {
+    const root = document.documentElement, key = "dy.prefs";
+    const read = () => { try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch (e) { return {}; } };
+    document.querySelectorAll("[data-pref]").forEach((chip) => {
+      const k = chip.dataset.pref, v = chip.dataset.value;
+      const sync = () => chip.classList.toggle("chip-on", root.dataset[k] === v);
+      sync();
+      chip.addEventListener("click", () => {
+        const p = read();
+        if (root.dataset[k] === v) { delete p[k]; delete root.dataset[k]; } else { p[k] = v; root.dataset[k] = v; }
+        try { localStorage.setItem(key, JSON.stringify(p)); } catch (e) {}
+        sync();
+      });
+    });
+  })();
+</script>
 </body>
 </html>

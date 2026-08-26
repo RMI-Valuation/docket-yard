@@ -220,7 +220,11 @@ def test_kind_labels_are_short_and_never_from_the_filer():
 def test_sheet_toolbar_filters_and_order(client):
     r = client.get("/d/FD-36873")
     assert 'data-filter="decision"' in r.text and 'data-filter="motion"' in r.text
-    assert 'data-pref="density"' in r.text  # visible toggles, no hidden menu
+    # the preference strip is site-wide and above the masthead, on every page
+    for page in (r.text, client.get("/").text):
+        assert page.index('class="prefs') < page.index('class="masthead')
+        assert 'data-pref="density"' in page
+    assert "25 Aug 2026" in r.text and 'title="As printed: 8/25/2026"' in r.text
     newest = client.get("/d/FD-36873").text
     oldest = client.get("/d/FD-36873?order=oldest").text
     assert newest.index("311981") < newest.index("311900")

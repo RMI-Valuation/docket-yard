@@ -5,7 +5,7 @@
 <section class="caption">
   <div class="caption-meta muted small"><a href="{{ docket_path(identity) }}">{{ printed_docket(identity) }}</a>{% if sheet.title %} · <span class="as-printed">{{ sheet.title }}</span>{% endif %}</div>
   <h1 class="serif docket-number">{{ 'Decision' if entry.kind == 'decision' else 'Filing' }} {{ entry.record_id }}</h1>
-  <p class="muted">{{ entry.date_printed or entry.date or '' }}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}</p>
+  <p class="muted" title="As printed: {{ entry.date_printed or '' }}">{{ entry.date | fmt_date }}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}</p>
   {% if entry.summary %}<p class="serif summary as-printed">{{ entry.summary }}</p>{% endif %}
   {% if entry.filed_for_raw %}<p>Filed for: <span class="as-printed">{{ entry.filed_for_raw }}</span></p>{% endif %}
   <p>

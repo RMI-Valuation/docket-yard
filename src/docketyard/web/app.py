@@ -12,6 +12,7 @@ that is ingest's job, in its own process.
 
 import sqlite3
 from dataclasses import replace
+from datetime import UTC, date, datetime
 from importlib import resources
 from pathlib import Path
 
@@ -54,6 +55,31 @@ def _check_store(db_path: str | Path) -> None:
         )
 
 
+def fmt_date(value: str | None) -> str:
+    """The same date the record printed, in the house form: 25 Aug 2026. A value that is
+    not an ISO date is shown untouched rather than guessed at."""
+    if not value:
+        return ""
+    try:
+        d = date.fromisoformat(value[:10])
+    except ValueError:
+        return value
+    return f"{d.day} {d.strftime('%b %Y')}"
+
+
+def fmt_when(value: str | None) -> str:
+    """A capture timestamp: 25 Aug 2026, 14:35 UTC."""
+    if not value:
+        return ""
+    try:
+        t = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+    if t.tzinfo is not None:
+        t = t.astimezone(UTC)
+    return f"{t.day} {t.strftime('%b %Y, %H:%M')} UTC"
+
+
 def _path(request: Request) -> str:
     """The request path relative to any mount prefix, for canonical-address checks."""
     root = request.scope.get("root_path", "")
@@ -65,6 +91,8 @@ def create_app(db_path: str | Path, *, site_name: str = "Docket Yard") -> FastAP
     _check_store(db_path)
     app = FastAPI(title=site_name, version=__version__, docs_url=None, redoc_url=None)
     templates = Jinja2Templates(directory=str(_PKG / "templates"))
+    templates.env.filters["fmt_date"] = fmt_date
+    templates.env.filters["fmt_when"] = fmt_when
     templates.env.globals.update(
         site_name=site_name,
         docket_path=urls.docket_path,

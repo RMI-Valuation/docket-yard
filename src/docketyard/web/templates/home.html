@@ -9,7 +9,7 @@
 <section class="week">
   <div class="week-head">
     <div class="serif week-title">This week at the Board</div>
-    <div class="muted small">{{ week.start }} to {{ week.end }}{% if week.checked %} · record checked {{ week.checked }}{% endif %}</div>
+    <div class="muted small">{{ week.start | fmt_date }} to {{ week.end | fmt_date }}{% if week.checked %} · record checked {{ week.checked | fmt_when }}{% endif %}</div>
   </div>
   <div class="stats">
     <div class="stat"><span class="n serif">{{ week.distinct_decisions }}</span><span class="l">decisions served</span></div>
@@ -22,7 +22,7 @@
     <h2>Decisions served</h2>
     {% for d in week.decisions %}
     <div class="row">
-      <span class="muted small">{{ d.service_date }}</span>
+      <span class="muted small">{{ d.service_date | fmt_date }}</span>
       <span class="dk"><a href="{{ docket_path(parse_docket_id(d.docket_raw)) }}">{{ printed_docket(parse_docket_id(d.docket_raw)) }}</a></span>
       <div>
         {% if d.summary %}<div class="summary as-printed">{{ d.summary }}</div>{% endif %}
@@ -47,11 +47,11 @@
     <span class="dk"><a href="{{ docket_path(parse_docket_id(m.docket_raw)) }}">{{ printed_docket(parse_docket_id(m.docket_raw)) }}</a></span>
     <span class="as-printed">{{ m.title or '(caption not yet observed)' }}</span>
     <span class="right">{{ m.filings }}</span>
-    <span class="right muted">{{ m.last_activity }}</span>
+    <span class="right muted">{{ m.last_activity | fmt_date }}</span>
   </div>
   {% else %}
   <p class="muted">No filings in this window.</p>
   {% endfor %}
-  <p class="small muted">Captions and summaries appear as the Board prints them. Counts are filings observed in the record between {{ week.start }} and {{ week.end }}; decisions are listed above and not counted here.</p>
+  <p class="small muted">Captions and summaries appear as the Board prints them. Counts are filings observed in the record between {{ week.start | fmt_date }} and {{ week.end | fmt_date }}; decisions are listed above and not counted here.</p>
 </section>
 {% endblock %}
