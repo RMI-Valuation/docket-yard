@@ -62,8 +62,11 @@ main { padding: 0 56px; }
 .actions { display: flex; align-items: center; gap: 10px; margin-top: 24px; }
 .btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 4px; font: inherit; font-size: 14px; font-weight: 600; border: 1px solid var(--ink); color: var(--ink); background: transparent; cursor: pointer; }
 
-.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
-.toolbar-right { display: flex; align-items: center; gap: 14px; color: var(--muted); }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.toolbar #filters { flex: 1 1 auto; }
+/* margin-left: auto keeps the order links on the right even when the chips wrap them onto
+   their own line */
+.toolbar-right { display: flex; align-items: center; gap: 14px; color: var(--muted); margin-left: auto; white-space: nowrap; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 999px; font: inherit; font-size: 13px; font-weight: 500; color: var(--ink); background: transparent; cursor: pointer; }
 .chip-on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
