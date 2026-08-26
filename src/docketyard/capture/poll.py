@@ -121,7 +121,12 @@ def forward_pass(
         summary["ingested"][action] = _ingest_pending(con, data_dir, action, summary["problems"])
     try:
         fetched = documents.fetch_attachments(
-            con, data_dir, client.get, limit=fetch_limit, ingest_mode="forward"
+            con,
+            data_dir,
+            client.get,
+            limit=fetch_limit,
+            ingest_mode="forward",
+            observed_in="forward",  # the watch's own files first; a wave fetches its own
         )
     except Exception as e:  # noqa: BLE001
         con.rollback()

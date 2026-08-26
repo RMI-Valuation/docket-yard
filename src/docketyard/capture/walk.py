@@ -14,6 +14,7 @@ reported total.
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import date, timedelta
 from sqlite3 import Connection
 
 from docketyard.capture import records
@@ -235,8 +236,26 @@ def walk(
             )
         except Exception as e:  # noqa: BLE001 — one slice must not strand the walk
             con.rollback()
-            result = SliceResult(quarantined=True)
-            log(f"   {s.key}: FAILED ({type(e).__name__}: {e})")
+            # a long walk straddles the nonce's rotation; a dead nonce is a 403, not the
+            # envelope, so the in-slice refresh never sees it. Refresh once and retry.
+            log(f"   {s.key}: FAILED ({type(e).__name__}: {e}); refreshing nonce, retrying")
+            try:
+                client.refresh_nonces()
+                result = capture_slice(
+                    con,
+                    client,
+                    action,
+                    s.criteria,
+                    data_dir=data_dir,
+                    pages=pages,
+                    mode="backfill",
+                    expected_empty=s.expected_empty,
+                    log=log,
+                )
+            except Exception as e2:  # noqa: BLE001
+                con.rollback()
+                result = SliceResult(quarantined=True)
+                log(f"   {s.key}: FAILED again ({type(e2).__name__}: {e2})")
         status = record_slice(con, key, action, s.criteria, result)
         summary[status] += 1
         note = ""
@@ -257,3 +276,41 @@ def docket_prefix_slices() -> list[Slice]:
 
 def walk_dockets(con: Connection, client, *, data_dir, redo: bool = False, log=print) -> dict:
     return walk(con, client, DOCKETS, docket_prefix_slices(), data_dir=data_dir, redo=redo, log=log)
+
+
+def month_slices(action: str, start: date, end: date) -> list[Slice]:
+    """One slice per calendar month, [start, end] inclusive, in the endpoint's own date
+    spelling. A month is far below the display cap for either table (~200 filings, ~100
+    decisions at the busiest), so no slice can be capped; the criteria pair is the one
+    that actually filters (stb-data-source.md), read from the table's spec."""
+    spec = observations.SPECS[action]
+    first, last = spec.date_criteria
+    slices = []
+    cursor = start.replace(day=1)
+    while cursor <= end:
+        nxt = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+        lo, hi = max(cursor, start), min(nxt - timedelta(days=1), end)
+        # the key carries the day range: a later wave with a wider range must not skip a
+        # month that was only partly walked
+        key = cursor.strftime("%Y-%m")
+        if lo != cursor or hi != nxt - timedelta(days=1):
+            key += f":{lo.isoformat()}..{hi.isoformat()}"
+        slices.append(
+            Slice(
+                key=key,
+                criteria=[(first, lo.strftime("%m/%d/%Y")), (last, hi.strftime("%m/%d/%Y"))],
+            )
+        )
+        cursor = nxt
+    return slices
+
+
+def walk_observations(
+    con: Connection, client, action: str, start: date, end: date, *, data_dir, redo=False, log=print
+) -> dict:
+    """Backfill one record table over a date range, oldest month first, resumably."""
+    if end < start:
+        raise ValueError(f"backfill range is empty: {start} .. {end}")
+    return walk(
+        con, client, action, month_slices(action, start, end), data_dir=data_dir, redo=redo, log=log
+    )

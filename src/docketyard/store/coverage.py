@@ -9,7 +9,7 @@ whatever has been walked so far.
 from dataclasses import dataclass
 from sqlite3 import Connection
 
-from docketyard.capture.stb import DECISIONS, EXPECTED_EMPTY_PREFIXES, FILINGS
+from docketyard.capture.stb import DECISIONS, DOCKETS, EXPECTED_EMPTY_PREFIXES, FILINGS
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,10 @@ class Coverage:
     attachments_unfetched: int
     earliest_filed: str | None  # among forward-observed filings
     earliest_served: str | None
+    backfill_from: str | None  # earliest filed/served date observed by a backfill wave
+    backfill_filings: int  # records first observed by a wave
+    backfill_decisions: int
+    backfill_incomplete: tuple[str, ...]  # month slices a wave has not finished
     empty_prefixes: tuple[str, ...]
     gaps: list[Gap]
 
@@ -43,6 +47,8 @@ def coverage(con: Connection) -> Coverage:
         dockets=one("SELECT COUNT(*) FROM docket"),
         registry_walked_at=one(
             "SELECT MAX(captured_at) FROM capture WHERE ingest_mode = 'backfill'"
+            " AND table_action = ?",
+            DOCKETS,
         ),
         forward_since=one(
             "SELECT MIN(captured_at) FROM capture WHERE ingest_mode = 'forward'"
@@ -72,6 +78,35 @@ def coverage(con: Connection) -> Coverage:
             "SELECT MIN(r.service_date) FROM decision_record r"
             " JOIN event e ON e.event_id = r.observed_in_event"
             " JOIN capture c ON c.capture_id = e.capture_id WHERE c.ingest_mode = 'forward'"
+        ),
+        backfill_from=one(
+            "SELECT MIN(d) FROM (SELECT f.filed_date AS d FROM filing f"
+            " JOIN event e ON e.event_id = f.observed_in_event"
+            " JOIN capture c ON c.capture_id = e.capture_id WHERE c.ingest_mode = 'backfill'"
+            " UNION ALL SELECT r.service_date FROM decision_record r"
+            " JOIN event e ON e.event_id = r.observed_in_event"
+            " JOIN capture c ON c.capture_id = e.capture_id WHERE c.ingest_mode = 'backfill')"
+        ),
+        backfill_filings=one(
+            "SELECT COUNT(*) FROM filing f JOIN event e ON e.event_id = f.observed_in_event"
+            " JOIN capture c ON c.capture_id = e.capture_id WHERE c.ingest_mode = 'backfill'"
+        ),
+        backfill_decisions=one(
+            "SELECT COUNT(*) FROM decision_record r"
+            " JOIN event e ON e.event_id = r.observed_in_event"
+            " JOIN capture c ON c.capture_id = e.capture_id WHERE c.ingest_mode = 'backfill'"
+        ),
+        backfill_incomplete=tuple(
+            sorted(
+                {
+                    r[0].split(":", 1)[1][:7]
+                    for r in q(
+                        "SELECT slice_key FROM walk_slice WHERE table_action IN (?, ?)"
+                        " AND status <> 'done'",
+                        (FILINGS, DECISIONS),
+                    )
+                }
+            )
         ),
         empty_prefixes=tuple(sorted(EXPECTED_EMPTY_PREFIXES)),
         gaps=[

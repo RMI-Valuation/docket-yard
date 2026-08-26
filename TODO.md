@@ -10,10 +10,10 @@ by pre-commit: when it fires, prune.
   on the encrypted store); then delete this line
 - Cameron: copy `DY_EMAIL_KEY` from `~/.docketyard-prod.env` into the password manager,
   then delete that file and `~/.docketyard-instance-key.json`
-- Cameron: confirm no other sender uses docketyard.org — DMARC is `p=quarantine`
-  (2026-08-26), so unaligned mail from the domain is quarantined
-- Decide what comes after the wedge (capability map, not assumed) and whether/how to
-  announce; both are the operator's calls
+- Backfill wave 1 (decided 2026-08-26): filings + decisions + documents from 2024-08-01 to
+  the day the watch began, run on the instance via `docker compose run --rm backfill`;
+  later waves (since 2020, since 1996) are separate decisions
+- Whether/how to announce the wedge — the operator's call
 
 ## Next
 

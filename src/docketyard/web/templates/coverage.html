@@ -14,7 +14,11 @@
 
   <h2>What is not here</h2>
   <ul>
+    {% if cov.backfill_from %}
+    <li><strong>History before {{ cov.backfill_from | fmt_date }}.</strong> Filings and decisions dated from {{ cov.backfill_from | fmt_date }} onward are being added in dated waves ({{ cov.backfill_filings | plural('filing') }} and {{ cov.backfill_decisions | plural('decision') }} so far{% if cov.backfill_incomplete %}; months not yet complete: {{ cov.backfill_incomplete | join(', ') }}{% endif %}); before that date a sheet is not the docket's complete history and does not claim to be. Entries added by a wave never trigger an alert.</li>
+    {% else %}
     <li><strong>History before the watch began.</strong> A docket's sheet shows what the Board has posted since {{ cov.forward_since | fmt_date }}, plus anything observed while building the registry. Older filings and decisions are real and will be added in dated waves; until then a sheet is not the docket's complete history and does not claim to be.</li>
+    {% endif %}
     <li><strong>Environmental comments and rail recordations</strong>, which the Board keeps in separate tables.</li>
     <li><strong>Document text.</strong> Files are kept and linked; nothing is yet extracted from inside them.</li>
     <li><strong>Anything the Board's search itself does not show.</strong> Its result tables display at most 10,000 rows per query and fail in ways that look like success; the pipeline asserts on every response that the filter it asked for was applied, and quarantines anything it cannot prove.</li>

@@ -331,17 +331,35 @@ class AttachmentRef:
 
 
 def attachments(
-    con: Connection, *, unfetched_only: bool, limit: int | None = None
+    con: Connection,
+    *,
+    unfetched_only: bool,
+    limit: int | None = None,
+    observed_in: str | None = None,
 ) -> list[AttachmentRef]:
-    """Attachment rows across both record tables, oldest first."""
+    """Attachment rows across both record tables, oldest first. `observed_in` restricts
+    to records whose latest observation came from captures of that ingest mode — the
+    poller fetches the watch's own files first; a backfill wave's backlog is the wave's."""
     out: list[AttachmentRef] = []
     for spec in SPECS.values():
-        where = " WHERE document_sha256 IS NULL" if unfetched_only else ""
+        conds = []
+        params: tuple = ()
+        if unfetched_only:
+            conds.append("a.document_sha256 IS NULL")
+        if observed_in:
+            conds.append(
+                f"a.{spec.record_pk} IN (SELECT r.{spec.record_pk} FROM {spec.record_table} r"
+                " JOIN event e ON e.event_id = r.observed_in_event"
+                " JOIN capture c ON c.capture_id = e.capture_id WHERE c.ingest_mode = ?)"
+            )
+            params = (observed_in,)
+        where = (" WHERE " + " AND ".join(conds)) if conds else ""
         out += [
             AttachmentRef(spec, r[0], r[1], r[2])
             for r in con.execute(
-                f"SELECT {spec.record_pk}, source_url, document_sha256"
-                f" FROM {spec.attachment_table}{where} ORDER BY 1"
+                f"SELECT a.{spec.record_pk}, a.source_url, a.document_sha256"
+                f" FROM {spec.attachment_table} a{where} ORDER BY 1",
+                params,
             )
         ]
     return out[:limit] if limit is not None else out

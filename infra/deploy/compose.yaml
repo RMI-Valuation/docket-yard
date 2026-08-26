@@ -58,6 +58,17 @@ services:
     read_only: true
     tmpfs: [/tmp]
 
+  backfill:
+    # a wave, run by hand and resumable:  docker compose run --rm backfill --start 2024-08-01
+    # writes the same store the poller keeps; stamped backfill, so it can never alert
+    image: ghcr.io/rmi-valuation/docket-yard:${DY_TAG}
+    entrypoint: ["docketyard", "--db", "/data/docketyard.sqlite", "--data-dir", "/data", "backfill"]
+    volumes:
+      - ./data:/data
+    profiles: [backfill]
+    read_only: true
+    tmpfs: [/tmp]
+
   litestream:
     # continuous replication of the SQLite store to S3: the backup and the prod-to-dev path
     image: litestream/litestream:0.3

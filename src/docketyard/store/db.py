@@ -37,7 +37,7 @@ def load_json(text: str):
 def connect(path: str | Path) -> Connection:
     if path != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-    con = _connect(path)
+    con = _connect(path, timeout=30)  # a wave and the poller share the store; wait, do not fail
     con.execute("PRAGMA journal_mode = WAL")
     con.execute("PRAGMA foreign_keys = ON")
     migrate(con)

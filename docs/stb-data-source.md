@@ -107,6 +107,12 @@ end of a result set returns.** On a first page it is indistinguishable from a ge
 slice, so ingest treats it as the trap; only after a page that passed the filter assertion
 does it mean end-of-results.
 
+**The date pair is inclusive at both ends** (measured 2026-08-26): `filingStartDate =
+filingEndDate = 08/25/2026` returned exactly the rows dated 08/25; `08/24..08/25` returned
+both days; `08/25..08/26` returned only 08/25 (nothing yet on the 26th). Month slices can
+therefore meet edge to edge — last day of one, first day of the next — with no gap and no
+double count.
+
 ## The 10,000 cap
 
 Every table reports `total: 10000` when the unfiltered result set is large. **This is a display

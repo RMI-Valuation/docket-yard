@@ -3,9 +3,10 @@
 import argparse
 import os
 import sys
+from datetime import date
 
 from docketyard.alerts import build, mail, vault
-from docketyard.capture import documents, poll, walk
+from docketyard.capture import backfill, documents, poll, walk
 from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS, PAGE_CLAMP, StbClient
 from docketyard.ingest import dockets, observations
 from docketyard.store import db, projections
@@ -97,6 +98,18 @@ def _walk_dockets(args: argparse.Namespace) -> int:
         if summary["partial"] or summary["capped"] or not (summary["done"] + summary["skipped"])
         else 0
     )
+
+
+def _backfill(args: argparse.Namespace) -> int:
+    con = db.connect(args.db)
+    client = StbClient(min_interval=args.interval)
+    start = date.fromisoformat(args.start)
+    end = date.fromisoformat(args.end) if args.end else None
+    summary = backfill.wave(con, client, args.data_dir, start, end, fetch_limit=args.fetch_limit)
+    bad = any(
+        summary[a]["partial"] or summary[a]["capped"] for a in (FILINGS, DECISIONS)
+    ) or summary["documents"].get("failed")
+    return 1 if bad else 0
 
 
 def _poll(args: argparse.Namespace) -> int:
@@ -207,6 +220,13 @@ def main(argv: list[str] | None = None) -> int:
     wd.add_argument("--interval", type=float, default=2.0)
     wd.add_argument("--redo", action="store_true", help="re-walk prefixes already done")
     wd.set_defaults(func=_walk_dockets)
+
+    bf = sub.add_parser("backfill", help="a wave: both record tables over a range, then files")
+    bf.add_argument("--start", required=True, help="first day, YYYY-MM-DD")
+    bf.add_argument("--end", help="last day, YYYY-MM-DD (default: the day the watch began)")
+    bf.add_argument("--interval", type=float, default=2.0)
+    bf.add_argument("--fetch-limit", type=int, help="documents per run (default: all)")
+    bf.set_defaults(func=_backfill)
 
     pl = sub.add_parser("poll", help="forward pass: capture, ingest and fetch the recent window")
     pl.add_argument(

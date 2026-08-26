@@ -84,10 +84,9 @@ custom MAIL FROM `mail.docketyard.org` with MX + SPF; DMARC `p=quarantine` repor
 `ses:SendRawEmail` only from `alerts@docketyard.org`. The SMTP password is derived from the
 IAM secret in `docketyard.alerts.mail.smtp_password`; a real login proved it.
 
-- **The account is in the SES sandbox until AWS approves production access** (requested
-  2026-08-26, case filed from the CLI, answer comes by email to the account). In the
-  sandbox: 200 messages a day, and recipients must be verified identities — so no real
-  subscriber can be mailed yet. Check: `aws sesv2 get-account --region us-east-2`.
+- **Production access was granted 2026-08-26** (requested the same day from the CLI). A
+  new region or account starts in the sandbox — 200 messages a day, verified recipients
+  only. Check: `aws sesv2 get-account --region us-east-2`.
 - **535 on login** — the password derivation drifted or the key was rotated. Re-derive;
   the derivation is pinned by `tests/test_mail.py` in shape only, so a real login is the
   test.
@@ -107,6 +106,38 @@ IAM secret in `docketyard.alerts.mail.smtp_password`; a real login proved it.
   `aws sesv2 list-suppressed-destinations --region us-east-2`; clear a legitimate address
   with `delete-suppressed-destination`. The first `hello@` test bounced before Cloudflare
   routing was live and suppressed the address for two later tests this way.
+
+## Backfill waves
+
+A wave adds history in dated slices (`docs/stb-data-source.md` § The 10,000 cap forces
+it). It runs **on the instance**, against the same store the poller keeps, stamped
+`backfill` so nothing it observes can alert; it is resumable from the store alone, so an
+interrupted wave is simply run again.
+
+```sh
+cd /srv/docketyard
+tmux new -s wave            # an SSH drop must not kill it
+docker compose run --rm backfill --start 2024-08-01 --interval 4   # to the day the watch began
+docker compose run --rm backfill --start 2024-08-01 --interval 4 --fetch-limit 500  # files in bites
+```
+
+Start on the 1st of a month: a slice of a few days at the start can be genuinely empty, and
+an empty first page is treated as the trap, so it would stay `partial` forever. Use
+`--interval 4` while the poller is up — two clients at 2 s each is twice the politeness
+budget the endpoint was measured under. The poller fetches the watch's own files first;
+the wave's backlog is the wave's.
+
+One slice per calendar month per table (~2 s a page); documents follow at ~1 s each. A
+two-year wave is ~100 table pages and a few thousand documents — an evening. The wave
+prints `== YYYY-MM` per slice and a `wave {...}` summary; `partial` slices are re-run by
+the next invocation, `capped` should never appear (a month is far below the cap). The
+coverage page's "History before …" line is measured from the store and updates itself.
+
+Interaction with the poller: both write the one WAL store; SQLite serialises them. A record
+the wave re-observes inside the poller's window is unchanged and makes no event; if the
+Board changed it in between, the wave's event carries a `backfill` capture and does not
+alert — the poller's next observation matches the new state and stays quiet too. Rare and
+accepted; the sheet is right either way.
 
 ## Ingest — STB endpoint
 

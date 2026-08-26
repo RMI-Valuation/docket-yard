@@ -52,12 +52,15 @@ def fetch_attachments(
     *,
     limit: int | None = None,
     refresh: bool = False,
+    observed_in: str | None = None,
     ingest_mode: str = "forward",
 ) -> dict:
     """Fetch attachment bytes into the store. `fetch` is injected (StbClient.get in
     production) so the pipeline is testable without the network."""
     by_url: dict[str, list[observations.AttachmentRef]] = {}
-    for ref in observations.attachments(con, unfetched_only=not refresh, limit=limit):
+    for ref in observations.attachments(
+        con, unfetched_only=not refresh, limit=limit, observed_in=observed_in
+    ):
         by_url.setdefault(ref.url, []).append(ref)
     stats = {"fetched": 0, "unchanged": 0, "new_documents": 0, "replaced": 0, "failed": 0}
     for url, owners in by_url.items():
