@@ -55,8 +55,9 @@ def fetch_attachments(
     observed_in: str | None = None,
     ingest_mode: str = "forward",
 ) -> dict:
-    """Fetch attachment bytes into the store. `fetch` is injected (StbClient.get in
-    production) so the pipeline is testable without the network."""
+    """Fetch attachments into the store. `fetch` is injected — in production a
+    `StbClient.download` bound to the data directory, which streams each file to disk;
+    a test's fetcher may return bytes — so the pipeline is testable without the network."""
     by_url: dict[str, list[observations.AttachmentRef]] = {}
     for ref in observations.attachments(
         con, unfetched_only=not refresh, limit=limit, observed_in=observed_in
@@ -71,6 +72,13 @@ def fetch_attachments(
             print(f"  FAILED {url} ({type(e).__name__}: {e})")
             stats["failed"] += 1
             continue
+        # what the document table needs, read before save_capture moves a streamed file
+        if isinstance(body, Path):
+            size = body.stat().st_size
+            with body.open("rb") as f:
+                head = f.read(16)
+        else:
+            size, head = len(body), body[:16]
         capture_id = records.save_capture(
             con,
             data_dir,
@@ -100,7 +108,7 @@ def fetch_attachments(
         stats["new_documents"] += con.execute(
             "INSERT OR IGNORE INTO document (document_sha256, size_bytes, media_type,"
             " first_seen_at) VALUES (?, ?, ?, ?)",
-            (sha256, len(body), media_type_for(url, body), now),
+            (sha256, size, media_type_for(url, head), now),
         ).rowcount
         for owner in owners:
             docket_id, record_id = _owner(con, owner)
