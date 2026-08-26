@@ -1,4 +1,7 @@
-"""Subscriptions: an email address watching one docket family (ADR 0011, migration 0005).
+"""Subscriptions: a recipient watching one docket family or one party (ADR 0011).
+
+A recipient is an email address or, since migration 0008, an HTTPS webhook URL; both are
+handled identically here — the column names say `email` and mean the recipient.
 
 Addresses are stored as an HMAC and a ciphertext under the vault key (alerts/vault.py);
 nothing here ever writes a readable address. Tokens are 256 random bits, handed out once
@@ -15,7 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from sqlite3 import Connection
 
-from docketyard.alerts import vault
+from docketyard.alerts import vault, webhooks
 
 CONFIRM_TTL_HOURS = 48  # the one number the mail and the expired page both quote
 CONFIRM_TTL = timedelta(hours=CONFIRM_TTL_HOURS)
@@ -30,6 +33,8 @@ class Subscription:
     cadence: str
     status: str
     party_id: int | None = None
+    channel: str = "email"  # email | webhook
+    secret: str | None = None  # webhook signing secret, opened for the caller that sends
 
 
 normalise_email = vault.normalise_email  # one definition; the vault hashes the same form
@@ -74,6 +79,7 @@ def subscribe(
     now: datetime | None = None,
     *,
     party_id: int | None = None,
+    channel: str = "email",
 ) -> str | None:
     """Create or refresh a pending subscription — to a docket family, or to a party — and
     return the confirmation token to mail; or None when nothing should be mailed: the
@@ -81,9 +87,11 @@ def subscribe(
     confirmation limit. The web tier responds the same way in every case."""
     if (docket_id is None) == (party_id is None):
         raise ValueError("a subscription names exactly one of a docket or a party")
+    if channel not in ("email", "webhook"):
+        raise ValueError("channel is email or webhook")
     v = vault.current()
-    email = normalise_email(email)
-    h = v.hash(email)
+    email = normalise_email(email) if channel == "email" else webhooks.normalise_url(email)
+    h = v.hash_recipient(channel, email)
     t = _now(now)
     if is_suppressed(con, h):
         return None
@@ -117,10 +125,21 @@ def subscribe(
             (cadence, expires, sid),
         )
     else:
+        secret_enc = None
+        if channel == "webhook":
+            # one secret per endpoint, whatever it follows: a daily digest across two
+            # subscriptions of one URL is signed with the secret its owner already holds
+            held = con.execute(
+                "SELECT secret_enc FROM subscription WHERE email_hash = ?"
+                " AND secret_enc IS NOT NULL LIMIT 1",
+                (h,),
+            ).fetchone()
+            secret_enc = held[0] if held else v.seal(new_token())
         sid = con.execute(
             "INSERT INTO subscription (email_hash, email_enc, docket_id, party_id, cadence,"
-            " status, created_at, expires_at) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)",
-            (h, v.seal(email), docket_id, party_id, cadence, _iso(t), expires),
+            " status, created_at, expires_at, channel, secret_enc)"
+            " VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)",
+            (h, v.seal(email), docket_id, party_id, cadence, _iso(t), expires, channel, secret_enc),
         ).lastrowid
     token = new_token()
     con.execute(
@@ -130,6 +149,17 @@ def subscribe(
     )
     con.commit()
     return token
+
+
+def for_confirm_token(con: Connection, token: str) -> Subscription | None:
+    """The pending subscription a fresh confirmation token names — so a webhook ping
+    can carry the secret. Never for a token that arrived from outside."""
+    row = con.execute(
+        "SELECT subscription_id FROM subscription_token WHERE token_sha256 = ?"
+        " AND purpose = 'confirm'",
+        (token_hash(token),),
+    ).fetchone()
+    return get(con, row[0]) if row else None
 
 
 def confirm(con: Connection, token: str, now: datetime | None = None) -> Subscription | None:
@@ -162,14 +192,19 @@ def confirm(con: Connection, token: str, now: datetime | None = None) -> Subscri
 
 def get(con: Connection, subscription_id: int) -> Subscription | None:
     row = con.execute(
-        "SELECT subscription_id, email_enc, docket_id, cadence, status, party_id"
-        " FROM subscription WHERE subscription_id = ?",
+        "SELECT subscription_id, email_enc, docket_id, cadence, status, party_id, channel,"
+        " secret_enc FROM subscription WHERE subscription_id = ?",
         (subscription_id,),
     ).fetchone()
     if row is None:
         return None
-    sid, enc, docket_id, cadence, status, party_id = row
-    return Subscription(sid, vault.current().open(enc), docket_id, cadence, status, party_id)
+    sid, enc, docket_id, cadence, status, party_id, channel, secret_enc = row
+    v = vault.current()
+    try:
+        secret = v.open(secret_enc) if secret_enc else None
+    except vault.VaultClosed:  # sealed under a key this box no longer holds: no secret,
+        secret = None  # so delivery fails this alert alone (a rotation gap, TODO)
+    return Subscription(sid, v.open(enc), docket_id, cadence, status, party_id, channel, secret)
 
 
 def unsubscribe_token(con: Connection, subscription_id: int, now: datetime | None = None) -> str:
@@ -220,15 +255,23 @@ def _forget_empty_alerts(con: Connection, email_hash: str) -> None:
     )
 
 
-def suppress(con: Connection, email: str, reason: str, now: datetime | None = None) -> None:
-    """Never mail this address again. The ciphertext is kept only so a key rotation can
-    re-derive the hash; the address is never read back."""
+def suppress(
+    con: Connection,
+    email: str,
+    reason: str,
+    now: datetime | None = None,
+    *,
+    channel: str = "email",
+) -> None:
+    """Never deliver to this recipient again — an address, or a webhook URL. The
+    ciphertext is kept only so a key rotation can re-derive the hash; the recipient is
+    never read back."""
     v = vault.current()
-    email = normalise_email(email)
+    email = normalise_email(email) if channel == "email" else webhooks.normalise_url(email)
     con.execute(
         "INSERT OR IGNORE INTO email_suppression (email_hash, email_enc, reason, created_at)"
         " VALUES (?, ?, ?, ?)",
-        (v.hash(email), v.seal(email), reason, _iso(_now(now))),
+        (v.hash_recipient(channel, email), v.seal(email), reason, _iso(_now(now))),
     )
     con.commit()
 

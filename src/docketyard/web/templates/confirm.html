@@ -3,7 +3,7 @@
 {% block main %}
 <section class="caption">
   <h1 class="serif">Confirm this subscription?</h1>
-  <p>Press the button and {{ site_name }} will email you when the Board posts to the docket you asked about. Nothing is sent until you do; if this was not you, close the page and the request expires on its own.</p>
+  {% if channel == 'webhook' %}<p>Press the button and {{ site_name }} will POST new filings and decisions{% if what %} for {{ what }}{% endif %} to {{ endpoint }}, signed with the secret the ping carried. Nothing is sent until you do; if this was not you, close the page and the request expires on its own.</p>{% else %}<p>Press the button and {{ site_name }} will email you when the Board posts{% if what %} to {{ what }}{% else %} to the docket you asked about{% endif %}. Nothing is sent until you do; if this was not you, close the page and the request expires on its own.</p>{% endif %}
   <form method="post" action="/s/confirm/{{ token }}">
     <button class="btn" type="submit">Confirm</button>
   </form>

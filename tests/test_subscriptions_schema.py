@@ -151,10 +151,12 @@ def test_rebuilding_subscription_keeps_its_dependants(tmp_path):
     _carry(con, _alert(con, "pending"), s, e)
     con.commit()
     con.close()
-    con = db.connect(path)  # migrates 6 -> 7
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 7
+    con = db.connect(path)  # migrates 6 -> 7 (the rebuild) and onward
+    assert con.execute("PRAGMA user_version").fetchone()[0] == db.MIGRATIONS[-1][0]
     assert con.execute("SELECT COUNT(*) FROM subscription_token").fetchone()[0] == 1
     assert con.execute("SELECT COUNT(*) FROM alert_event").fetchone()[0] == 1
     assert con.execute("PRAGMA foreign_keys").fetchone()[0] == 1  # enforcement is back on
+    cols = {r[1] for r in con.execute("PRAGMA table_info(subscription)")}
+    assert {"channel", "secret_enc"} <= cols  # 0008 landed on the rebuilt table
     con.execute("DELETE FROM subscription WHERE subscription_id = ?", (s,))
     assert con.execute("SELECT COUNT(*) FROM subscription_token").fetchone()[0] == 0  # cascades
