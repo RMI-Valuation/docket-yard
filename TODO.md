@@ -7,11 +7,9 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Webhook live test: webhook.site endpoint follows FD 36873; after its next forward entry
-  verify the signed delivery (token in session notes), then unsubscribe
-- Backfill queued in tmux on the instance (2026-08-26): `wave2` docs → `wave3` tables
-  (1996–2019) → `wave3docs` (150–250 GB through the 58 GB cache). Logs `/srv/docketyard/
-  wave*.log`. As each ends: check `partial` months and coverage; re-run extraction
+- Documents backfill (1996 → 2024-07, ~75k files) running in tmux `wave3docs` as 500-file
+  `fetch attachments` batches (the one-process wave was OOM-killed at 1.4 GB); log
+  `wave3docs.log`. When it ends: 41 `partial` months to re-walk; re-run extraction
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
 - RMI-AI-MACHINE: text layer done for wave 1 (`/data/docketyard/text`); re-run after each
@@ -51,10 +49,11 @@ by pre-commit: when it fires, prune.
 - Two schema-change chores: errata re-check needs a last-checked column (walk oldest-first,
   per-pass limit); permanently-bad poll items need an attempt counter (retried every pass)
 - ADR 0012 addendum recording the blob cache design (sync + prune) once wave 3 proves it
+- Cameron's idea (2026-08-26): switch cadence from the alert email; a signed-link manage
+  page per address (cadence is already per subscription; no login — ADR 0011). His decision
 
 ## Parked
 
 - Benchmark step 2: 12GB VRAM ⇒ 14B dense / ~30B MoE; disable Qwen3 thinking per request
 - A key held off the box (KMS), decrypting only at send time — ADR 0014's open forward step
-- Stats deferrals: share one month walker and family fold between `home.py`/`stats.py`;
-  index `filing(filed_date)` at the next migration
+- Stats deferrals: one month walker for `home.py`/`stats.py`; index `filing(filed_date)`
