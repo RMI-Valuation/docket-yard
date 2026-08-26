@@ -94,6 +94,12 @@ IAM secret in `docketyard.alerts.mail.smtp_password`; a real login proved it.
 - **554 Message rejected: Email address is not verified** — sandbox, see above.
 - **Bounces and complaints** are not yet fed back automatically (no SNS topic). Until then,
   watch the SES reputation dashboard and add offenders to `email_suppression` by hand.
+- **SES's own account-level suppression list swallows sends silently** (measured
+  2026-08-26): a hard bounce puts the address on it, and every later message to that
+  address is accepted with a 250 and never delivered — our `alert` row says `sent`. Check
+  `aws sesv2 list-suppressed-destinations --region us-east-2`; clear a legitimate address
+  with `delete-suppressed-destination`. The first `hello@` test bounced before Cloudflare
+  routing was live and suppressed the address for two later tests this way.
 
 ## Ingest — STB endpoint
 
