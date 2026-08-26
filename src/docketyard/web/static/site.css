@@ -56,13 +56,17 @@ main { padding: 0 56px; }
 .record-summary { margin: 14px 0 0 0; font-size: 17px; font-style: italic; }
 .actions { display: flex; align-items: center; gap: 10px; margin-top: 24px; }
 .btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 4px; font: inherit; font-size: 14px; font-weight: 600; border: 1px solid var(--ink); color: var(--ink); background: transparent; cursor: pointer; }
-.display-menu { position: relative; }
-.display-menu summary { list-style: none; }
-.display-options { position: absolute; z-index: 1; margin-top: 6px; padding: 12px 14px; background: var(--paper); border: 1px solid var(--hair); border-radius: 4px; display: flex; flex-direction: column; gap: 8px; white-space: nowrap; font-size: 14px; }
 
-.entry { display: grid; grid-template-columns: 96px 112px minmax(0, 1fr) 120px; gap: 16px; align-items: start; padding: var(--row-pad) 0; border-top: 1px solid var(--hair); }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.toolbar-right { display: flex; align-items: center; gap: 14px; color: var(--muted); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 999px; font: inherit; font-size: 13px; font-weight: 500; color: var(--ink); background: transparent; cursor: pointer; }
+.chip-on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.entry { display: grid; grid-template-columns: 96px 96px minmax(0, 1fr) 120px; gap: 16px; align-items: start; padding: var(--row-pad) 0; border-top: 1px solid var(--hair); }
+.entry-body { min-width: 0; overflow-wrap: anywhere; }
+.entry[hidden] { display: none; }
 .entry-date { font-size: 14px; }
-.kind { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted); padding-top: 2px; }
+.kind { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted); padding-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kind-decision { color: var(--accent); }
 .entry-decision { background: var(--tint); margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
 .entry-title { font-weight: 500; }

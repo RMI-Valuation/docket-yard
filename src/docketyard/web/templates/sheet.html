@@ -16,24 +16,34 @@
   <div class="actions no-print">
     <a class="btn" href="#cite">Cite</a>
     <button class="btn" type="button" onclick="window.print()">Print</button>
-    <details class="display-menu">
-      <summary class="btn">Display</summary>
-      <div class="display-options">
-        <label><input type="checkbox" data-pref="density" value="compact"> Compact rows</label>
-        <label><input type="checkbox" data-pref="ids" value="on"> Show record IDs</label>
-        <label><input type="checkbox" data-pref="theme" value="dark"> Dark</label>
-      </div>
-    </details>
   </div>
 </section>
 
 <section class="two-col">
   <div>
+    <div class="toolbar no-print">
+      <div class="chips" id="filters" role="group" aria-label="Show">
+        <button class="chip chip-on" type="button" data-filter="">All entries</button>
+        <button class="chip" type="button" data-filter="decision">Decisions</button>
+        <button class="chip" type="button" data-filter="filing">Filings</button>
+        {% for key, label in kinds %}<button class="chip" type="button" data-filter="{{ key }}">{{ label }}</button>{% endfor %}
+      </div>
+      <div class="toolbar-right small">
+        {% if order == 'oldest' %}<a href="?">Newest first</a> · <span>Oldest first</span>{% else %}<span>Newest first</span> · <a href="?order=oldest">Oldest first</a>{% endif %}
+        <span class="chips" role="group" aria-label="Display">
+          <button class="chip" type="button" data-pref="density" data-value="compact">Compact</button>
+          <button class="chip" type="button" data-pref="ids" data-value="on">IDs</button>
+          <button class="chip" type="button" data-pref="theme" data-value="dark">Dark</button>
+        </span>
+      </div>
+    </div>
+
+    <div id="entries">
     {% for e in sheet.entries %}
-    <div class="entry{% if e.kind == 'decision' %} entry-decision{% endif %}">
+    <div class="entry{% if e.kind == 'decision' %} entry-decision{% endif %}" data-kind="{{ e.kind }}" data-type="{{ filter_key(e.kind, e.type) }}">
       <div class="entry-date muted">{{ e.date_printed or e.date or '' }}</div>
-      <div class="kind{% if e.kind == 'decision' %} kind-decision{% endif %}">{{ 'Decision' if e.kind == 'decision' else (e.type or 'Filing') }}</div>
-      <div>
+      <div class="kind{% if e.kind == 'decision' %} kind-decision{% endif %}">{{ kind_label(e.kind, e.type) }}</div>
+      <div class="entry-body">
         <div class="entry-title"><span class="id">{{ e.record_id }}</span>
           {% if e.kind == 'decision' %}{{ e.deciding_body or 'Decision' }}{% else %}{{ e.type or 'Filing' }}{% endif %}
           {% if e.docket_raw != sheet.raw_docket %}<span class="muted small">· in {{ printed_docket(parse_docket_id(e.docket_raw)) }}</span>{% endif %}
@@ -50,6 +60,8 @@
     {% else %}
     <p class="muted">No filings or decisions observed yet for this docket.</p>
     {% endfor %}
+    </div>
+    <p class="muted small no-print" id="empty-note" hidden>Nothing of that kind in this docket.</p>
   </div>
   <aside class="rail">
     <h2 id="cite">Cite this docket</h2>
@@ -60,17 +72,35 @@
   </aside>
 </section>
 <script>
-  // preference controls: browser-stored only, never sent anywhere (ADR 0011)
   (function () {
+    // filters: client-side, nothing leaves the page
+    const entries = Array.from(document.querySelectorAll("#entries .entry"));
+    const note = document.getElementById("empty-note");
+    document.querySelectorAll("#filters .chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll("#filters .chip").forEach((c) => c.classList.toggle("chip-on", c === chip));
+        const f = chip.dataset.filter;
+        let shown = 0;
+        entries.forEach((e) => {
+          const on = !f || e.dataset.kind === f || e.dataset.type === f;
+          e.hidden = !on;
+          if (on) shown++;
+        });
+        note.hidden = shown > 0;
+      });
+    });
+    // display preferences: browser-stored only, never sent anywhere (ADR 0011)
     const root = document.documentElement, key = "dy.prefs";
     const read = () => { try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch (e) { return {}; } };
-    document.querySelectorAll("[data-pref]").forEach((box) => {
-      const k = box.dataset.pref;
-      box.checked = root.dataset[k] === box.value;
-      box.addEventListener("change", () => {
+    document.querySelectorAll("[data-pref]").forEach((chip) => {
+      const k = chip.dataset.pref, v = chip.dataset.value;
+      const sync = () => chip.classList.toggle("chip-on", root.dataset[k] === v);
+      sync();
+      chip.addEventListener("click", () => {
         const p = read();
-        if (box.checked) { p[k] = box.value; root.dataset[k] = box.value; } else { delete p[k]; delete root.dataset[k]; }
+        if (root.dataset[k] === v) { delete p[k]; delete root.dataset[k]; } else { p[k] = v; root.dataset[k] = v; }
         try { localStorage.setItem(key, JSON.stringify(p)); } catch (e) {}
+        sync();
       });
     });
   })();

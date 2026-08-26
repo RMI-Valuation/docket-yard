@@ -201,6 +201,32 @@ def test_record_page_headlines_the_parent(client):
     assert "UP/NS CONTROL" in r.text and "PEORIA SUB" not in r.text.split("<h1")[0]
 
 
+def test_kind_labels_are_short_and_never_from_the_filer():
+    from docketyard.web import labels
+
+    assert (
+        labels.kind_label("filing", "Notice Of Intent To Participate (Without Comment)") == "Notice"
+    )
+    assert labels.kind_label("filing", "Motion/Petition/Request") == "Motion"
+    assert (
+        labels.kind_label("filing", "Modify/Supplement Prior Filing Or The Record") == "Supplement"
+    )
+    assert labels.kind_label("filing", "Miscellaneous") == "Misc."
+    assert labels.kind_label("decision", None) == "Decision"
+    assert labels.kind_label("filing", None) == "Filing"
+    assert labels.filter_key("filing", "Miscellaneous") == "misc"
+
+
+def test_sheet_toolbar_filters_and_order(client):
+    r = client.get("/d/FD-36873")
+    assert 'data-filter="decision"' in r.text and 'data-filter="motion"' in r.text
+    assert 'data-pref="density"' in r.text  # visible toggles, no hidden menu
+    newest = client.get("/d/FD-36873").text
+    oldest = client.get("/d/FD-36873?order=oldest").text
+    assert newest.index("311981") < newest.index("311900")
+    assert oldest.index("311900") < oldest.index("311981")
+
+
 def test_record_pages_and_404s(client):
     assert client.get("/filing/311981").status_code == 200
     assert client.get("/filing/1").status_code == 404

@@ -11,6 +11,7 @@ that is ingest's job, in its own process.
 """
 
 import sqlite3
+from dataclasses import replace
 from importlib import resources
 from pathlib import Path
 
@@ -23,7 +24,7 @@ from docketyard import __version__
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.store import home, sheet
 from docketyard.store.db import MIGRATIONS
-from docketyard.web import urls
+from docketyard.web import labels, urls
 
 _PKG = resources.files("docketyard.web")
 
@@ -72,6 +73,8 @@ def create_app(db_path: str | Path, *, site_name: str = "Docket Yard") -> FastAP
         decision_path=urls.decision_path,
         filing_path=urls.filing_path,
         parse_docket_id=parse_docket_id,
+        kind_label=labels.kind_label,
+        filter_key=labels.filter_key,
     )
     app.mount("/static", StaticFiles(directory=str(_PKG / "static")), name="static")
 
@@ -95,7 +98,19 @@ def create_app(db_path: str | Path, *, site_name: str = "Docket Yard") -> FastAP
             con.close()
         if s is None:
             raise HTTPException(404)
-        return render(request, "sheet.html", sheet=s, identity=identity)
+        order = "oldest" if request.query_params.get("order") == "oldest" else "newest"
+        if order == "oldest":
+            s = replace(s, entries=list(reversed(s.entries)))
+        # the filter chips offered are the kinds this docket actually contains
+        kinds = sorted(
+            {
+                (labels.filter_key(e.kind, e.type), labels.kind_label(e.kind, e.type))
+                for e in s.entries
+                if e.kind == "filing"
+            },
+            key=lambda k: k[1],
+        )
+        return render(request, "sheet.html", sheet=s, identity=identity, order=order, kinds=kinds)
 
     @app.get("/")
     def home_page(request: Request):
