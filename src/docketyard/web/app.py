@@ -131,7 +131,8 @@ def _path(request: Request) -> str:
 
 def _connect_rw(db_path: str | Path) -> sqlite3.Connection:
     """The one writable path: subscriptions (ADR 0011). Everything else reads."""
-    con = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=rw", uri=True)
+    # a rebuild of the search index or a wave's commit may hold the write lock for seconds
+    con = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=rw", uri=True, timeout=30)
     con.execute("PRAGMA foreign_keys = ON")
     return con
 
@@ -201,16 +202,17 @@ def create_app(
         them — and it costs two primary-key lookups, not a render."""
         con = _connect(db_path)
         try:
-            c, e, r, k = con.execute(
+            c, e, r, k, s = con.execute(
                 "SELECT (SELECT MAX(capture_id) FROM capture), (SELECT MAX(event_id) FROM event),"
                 " (SELECT MAX(edge_id) FROM party_relationship),"
-                " (SELECT MAX(correction_id) FROM correction)"
+                " (SELECT MAX(correction_id) FROM correction),"
+                " (SELECT build FROM search_meta WHERE key = 'built')"
             ).fetchone()
         finally:
             con.close()
-        # an operator's join or unjoin (ADR 0015) moves addresses without a capture: the
-        # newest edge and the newest correction are part of the version
-        return f"{c or 0}.{e or 0}.{r or 0}.{k or 0}"
+        # an operator's join or unjoin (ADR 0015) moves addresses without a capture, and a
+        # search rebuild changes result pages: both are part of the version
+        return f"{c or 0}.{e or 0}.{r or 0}.{k or 0}.{s or 0}"
 
     @app.middleware("http")
     async def http_hygiene(request: Request, call_next):
@@ -638,59 +640,41 @@ def create_app(
     # --- search: a docket number is never a search; everything else is the index -------
     # (docs/search.md). Nothing about the query is stored; Caddy drops it from the log.
 
-    def docket_fast_path(q: str):
-        """A docket number that the record holds answers with its sheet, not a result list."""
-        identity = urls.lookup(q)
-        if identity is None:
-            return None
-        family = identity.parent() or identity
-        con = _connect(db_path)
-        try:
-            found = find_docket(con, family) is not None
-        finally:
-            con.close()
-        return urls.docket_path(identity) if found else None
-
     @app.get("/search")
     def search_page(request: Request, q: str = ""):
+        """A docket number the record holds is a 303 to its sheet; anything else is a result
+        page — never cached or indexed, because its address carries what was typed."""
         q = q.strip()[: search.MAX_QUERY]
         if not q:
             return render(request, "search.html", query="", hits=[])
-        path = docket_fast_path(q)
-        if path:
-            return RedirectResponse(path, status_code=303)
         con = _connect(db_path)
         try:
+            docket = search.held_docket(con, q)
+            if docket is not None:
+                return RedirectResponse(docket.path, status_code=303)
             hits = search.search(con, q)
         finally:
             con.close()
-        return render(request, "search.html", query=q, hits=hits)
+        response = render(request, "search.html", query=q, hits=hits)
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.get("/suggest")
     def suggest(q: str = ""):
-        """As-you-type: a few rows, the same fields, never cached, never stored."""
+        """As-you-type: a few rows, the same fields, never cached, never stored. A docket
+        number the record holds leads, once."""
         q = q.strip()[: search.MAX_QUERY]
-        if not q:
-            return JSONResponse({"hits": []}, headers={"Cache-Control": "no-store"})
-        identity = urls.lookup(q)
-        con = _connect(db_path)
-        try:
-            hits = [asdict(h) for h in search.search(con, q, limit=search.SUGGEST, prefix=True)]
-            if identity is not None:
-                family = identity.parent() or identity
-                if find_docket(con, family) is not None:
-                    printed = urls.printed_docket(identity)
-                    hits.insert(
-                        0,
-                        {
-                            "kind": "docket",
-                            "address": urls.docket_path(identity),
-                            "title": printed,
-                            "fact": "the docket sheet",
-                        },
-                    )
-        finally:
-            con.close()
+        hits: list[dict] = []
+        if q:
+            con = _connect(db_path)
+            try:
+                docket = search.held_docket(con, q)
+                found = search.search(con, q, limit=search.SUGGEST, prefix=True)
+            finally:
+                con.close()
+            if docket is not None:
+                hits.append(asdict(docket))
+            hits += [asdict(h) for h in found if docket is None or h.path != docket.path]
         return JSONResponse({"hits": hits[: search.SUGGEST]}, headers={"Cache-Control": "no-store"})
 
     @app.get("/d/{ident}")

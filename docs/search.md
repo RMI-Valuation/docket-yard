@@ -1,8 +1,9 @@
 # Unified search — design note
 
-> **Status: planning only, 2026-08-26.** The operator's third ask after party pages and the
-> contribute page; not started, and not to be started before both are done. The one schema
-> touch here (an FTS5 index, migration 0010) goes to the schema-critic before it is built.
+> **Status: built 2026-08-26** (migration 0010, `store/search.py`, `/search`, `/suggest`),
+> after the party pages and the contribute page. The schema-critic reviewed 0010 before
+> commit (its findings — the snapshot, decision duplicates, the sheet's counts, unparsed
+> families, AB-family sub-dockets, the join/unjoin window — are all folded in below).
 
 ## The ask
 
@@ -25,10 +26,11 @@ Not indexed: filings (a filing is reached through its docket; its "type" string 
 search target), document text (no extraction exists yet; the citator is a later decision),
 anything derived.
 
-**F4's rule**: a sub-docket never appears as a result on its own. `FD 36873 (Sub-No. 1)`
-resolves to the family sheet, which is where the sub-docket's entries are (ADR 0005). A
-search for a sub-docket's caption words returns the family, with the sub-docket named in
-the snippet.
+**F4's rule**: a sub-docket's entries live on the family sheet (ADR 0005), so a hit on a
+sub-docket resolves there. A sub-docket whose caption differs from its parent's is indexed
+as its own row at its own address (`/d/AB-55/sub/785X` → the family sheet with the
+sub-docket printed), so the thousand line abandonments under AB 55 are each findable;
+one whose caption repeats the parent's folds into the family row.
 
 ## Mechanics
 
@@ -38,22 +40,28 @@ the snippet.
 - **The index** is an FTS5 external-content table (`search_doc(kind, ref, address, title,
   body)`; FTS5 present in the production image, SQLite 3.46) rebuilt by ingest, not the web
   tier — the server stays a reader. Rebuild is a pass at the end of `poll` and after a wave:
-  captions and party names change rarely and the whole set is small (tens of MB at most), so
-  a full rebuild per pass is simpler than incremental maintenance and is measured, not
-  assumed, before choosing otherwise.
+  captions and party names change rarely and the whole set is small (55,000 rows on the
+  2026-08-26 store), so a full rebuild is simpler than incremental maintenance. It runs only
+  when a signature of the record's newest ids has moved (`search_meta`), derives every row
+  on reads first, and writes in one short transaction; the CLI's join/unjoin rebuild too.
+  Measured on the production copy: the first version took 227 s (correlated subqueries);
+  the one-pass version is what shipped.
 - **Tokenizer** `unicode61` with `remove_diacritics 2`; the docket-number spellings are
   written into the body as separate tokens so `36873` alone matches. Prefix queries on the
   last token for `/suggest`.
 - **Ranking**: `bm25` with the title column weighted above the body; ties broken by kind
-  (docket, party, decision) then by recency of activity for dockets. No popularity signal —
-  there is none, by design.
+  (docket, party, decision) then title. No recency and no popularity signal. A result row
+  shows kind, the title as printed, and one measured fact (the sheet's own counts for a
+  docket; distinct dockets and filings across the component for a party; docket and
+  service date for a decision) — no snippet.
 - **`/search?q=`**: an HTML page, at most 50 results, each row = kind, address, the caption
   or name as printed (`as-printed`), and a one-line measured fact (filings and last filing
   for a docket; dockets and filings for a party; docket and date for a decision). Works with
-  no script. `Cache-Control: public, max-age=300` like every reader page; no `q` in any log.
-  Caddy's console log writes the full URI, query included (the filter in `infra/deploy/
-  Caddyfile` deletes address and agent, not the query), so before this ships the filter
-  gains `request>uri query delete q` — and `name`, which `/parties` already carries today.
+  no script. A result page is `no-store` and `noindex` (its address carries what was
+  typed); the bare `/search` page is cached and in the sitemap like any page. No query in
+  any log: Caddy's filter now drops the whole query string from the logged URI, whatever
+  its parameter is called, and the Referer header (a same-origin click would carry the
+  search page's URL). `/privacy` says so.
 - **`/suggest?q=`**: JSON, at most 8 rows, the same fields, `no-store`. The masthead's script
   renders it as a listbox with proper ARIA; without the script the box is the `/search` form.
   A docket-number prefix answers the parsed identity first.
@@ -71,9 +79,9 @@ address never changes.
 
 ## Open
 
-- [ ] Confirm the three kinds; decisions in from the start or added when summaries are
-      measured to be useful (many are empty).
-- [ ] Whether the masthead box replaces the docket lookup or sits beside it (recommendation:
-      replaces it; the number fast path keeps the old behaviour exactly).
-- [ ] The `/parties?name=` query string is in Caddy's log today; the filter change above
-      is worth making before search, on its own.
+- [x] Three kinds from the start (23,706 decisions carry a printed summary).
+- [x] The masthead box replaces the docket lookup; `/d?q=` still resolves a number and
+      sends anything else to `/search`.
+- [x] Caddy's log filter (query string and Referer) shipped first, on its own.
+- [ ] Whether a party's "N filings in D dockets" is a derived claim that wants provenance,
+      or a count like the sheet's (treated as the latter, as `/p/<id>` already does).
