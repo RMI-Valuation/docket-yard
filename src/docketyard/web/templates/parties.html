@@ -15,16 +15,7 @@
   <div class="party">
     <h2><a href="{{ party_path(p.party_id) }}">{{ p.name }}</a>{% if p.members > 1 %} <span class="muted small">· {{ p.members }} records held to be one entity</span>{% endif %}</h2>
     <p class="small muted">Also named as: {% for raw, kind, method, version in p.aliases %}<span class="as-printed">{{ raw }}</span> <span class="muted">({{ kind }}, {{ method }} {{ version }})</span>{% if not loop.last %}; {% endif %}{% endfor %}</p>
-    {% if p.dockets %}
-    <table class="moved">
-      <thead><tr><th scope="col">Docket</th><th scope="col">Caption</th><th scope="col" class="num">Filings</th><th scope="col" class="num">Last filing</th></tr></thead>
-      <tbody>
-      {% for d in p.dockets %}
-      <tr><td class="dk"><a href="{{ docket_path(parse_docket_id(d.raw)) }}">{{ printed_docket(parse_docket_id(d.raw)) }}</a></td><td class="as-printed">{% if d.caption %}{{ d.caption }}{% else %}<span class="muted">Not yet observed in the Board’s dockets table</span>{% endif %}</td><td class="num">{{ d.filings }}</td><td class="num"><time datetime="{{ d.last_filed or '' }}">{{ d.last_filed | fmt_date }}</time></td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    {% else %}<p class="muted">On record by name only; no filings resolved to it yet.</p>{% endif %}
+    {% with dockets = p.dockets %}{% include "_party_dockets.html" %}{% endwith %}
     <p class="small muted"><a href="{{ party_path(p.party_id) }}">Party page</a> · <a href="{{ party_feed_path(p.party_id) }}">Atom feed of filings for {{ p.name }}</a></p>
     <form class="follow inline" method="post" action="/subscribe">
       <input type="hidden" name="party" value="{{ p.party_id }}">

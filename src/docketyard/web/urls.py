@@ -92,6 +92,15 @@ def party_path(party_id: int) -> str:
     return f"/p/{party_id}"
 
 
+def parse_party_id(text: str) -> int | None:
+    """ASCII digits only (str.isdigit admits superscripts and other scripts' digits, which
+    int() may reject or read as a second spelling of the same address); no sign, no
+    length beyond any id the store will hold."""
+    if not text or len(text) > 12 or not text.isascii() or not text.isdigit():
+        return None
+    return int(text)
+
+
 def party_feed_path(party_id: int) -> str:
     return f"{party_path(party_id)}/feed"
 

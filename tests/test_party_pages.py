@@ -54,6 +54,12 @@ def test_addresses_never_422_and_unknown_ids_are_404(tmp_path):
     assert client.get("/p/abc").status_code == 404
     assert client.get("/p/abc/feed").status_code == 404
     assert client.get("/p/999999/feed").status_code == 404
+    assert client.get("/p/\u00b2").status_code == 404  # superscript two: isdigit, not int
+    assert client.get("/p/\u0663").status_code == 404  # Arabic-Indic three: not a second spelling
+    r = client.get(f"/p/00{nrdc}", follow_redirects=False)  # one spelling of the address
+    assert r.status_code == 301 and r.headers["location"] == f"/p/{nrdc}"
+    r = client.get(f"/p/{nrdc}/feed/", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == f"/p/{nrdc}/feed"
     r = client.get(f"/p/{nrdc}/union-pacific-railroad", follow_redirects=False)
     assert r.status_code == 301 and r.headers["location"] == f"/p/{nrdc}"
     r = client.get(f"/feed/party/{nrdc}", follow_redirects=False)
@@ -71,6 +77,8 @@ def test_join_folds_the_id_and_unjoin_moves_only_the_redirect(tmp_path, capsys):
     def cli(*args):
         return main(["--db", str(path), "parties", *[str(a) for a in args]])
 
+    before_etag = TestClient(create_app(path)).get(f"/p/{lo}").headers["ETag"]
+
     # a join needs a note, and two parties that exist
     assert cli("join", lo, hi, "--note", " ") == 1
     assert cli("join", lo, 999999, "--note", "x") == 1
@@ -81,6 +89,9 @@ def test_join_folds_the_id_and_unjoin_moves_only_the_redirect(tmp_path, capsys):
     client = TestClient(create_app(path))
     r = client.get(f"/p/{hi}", follow_redirects=False)
     assert r.status_code == 301 and r.headers["location"] == f"/p/{lo}"
+    # the join moved the store's version: a validator from before it must not answer 304
+    assert r.headers.get("ETag") is None  # a 301 carries no validator
+    assert client.get(f"/p/{lo}").headers["ETag"] != before_etag
     r = client.get(f"/p/{hi}/feed", follow_redirects=False)
     assert r.status_code == 301 and r.headers["location"] == f"/p/{lo}/feed"
     page = client.get(f"/p/{lo}").text
@@ -108,6 +119,20 @@ def test_join_folds_the_id_and_unjoin_moves_only_the_redirect(tmp_path, capsys):
     # only the redirect target changes — both ids answer 200 again
     assert cli("unjoin", hi, lo, "--note", "wrong") == 0
     assert cli("unjoin", hi, lo, "--note", "wrong") == 1  # nothing live to retire
+    assert cli("unjoin", hi, 999999, "--note", "x") == 1  # no such party
+    # the seed's own pass never re-makes a retired join, and neither does a plain re-join
+    con = db.connect(path)
+    resolve.run(con, log=lambda _: 0)
+    assert (
+        con.execute(
+            "SELECT COUNT(*) FROM party_relationship WHERE rel_type = 'same_as'"
+            " AND from_party = ? AND to_party = ? AND superseded_by IS NULL",
+            (lo, hi),
+        ).fetchone()[0]
+        == 0
+    )
+    con.close()
+    assert cli("join", lo, hi, "--note", "again") == 1
     con = db.connect(path)
     assert (
         con.execute(
@@ -130,4 +155,32 @@ def test_a_party_is_never_deleted_so_an_id_is_never_reused(tmp_path):
     con = db.connect(path)
     with pytest.raises(sqlite3.IntegrityError, match="permanent"):
         con.execute("DELETE FROM party WHERE party_id = ?", (nrdc,))
+    with pytest.raises(sqlite3.IntegrityError, match="renumber"):
+        con.execute("UPDATE party SET party_id = 999 WHERE party_id = ?", (nrdc,))
+    con.close()
+
+
+def test_unjoin_reports_what_still_holds_a_component_together(tmp_path):
+    path, nrdc, ppu = _resolved_store(tmp_path)
+    con = db.connect(path)
+    third = con.execute(
+        "INSERT INTO party (founding_key, created_at) VALUES ('third', 't')"
+    ).lastrowid
+    resolve.join(con, nrdc, third, "a")
+    resolve.join(con, third, ppu, "b")
+    assert resolve.component_of(con, ppu) == min(nrdc, ppu, third)
+    with pytest.raises(ValueError, match="through other edges"):
+        resolve.unjoin(con, nrdc, ppu, "no direct edge")
+    # join() refuses a redundant edge; the seed can still assert one, so make it that way
+    assert resolve._join(con, nrdc, ppu, "t", {"note": "c"}) is not None
+    con.commit()
+    # a triangle splits one edge at a time: the retirement stands and the rest is named
+    edge, still = resolve.unjoin(con, nrdc, ppu, "wrong")
+    assert len(still) == 2 and resolve.component_of(con, ppu) == min(nrdc, ppu, third)
+    row = con.execute(
+        "SELECT method_version, source_location FROM correction WHERE target_id = ?", (edge,)
+    ).fetchone()
+    assert row[0] == resolve.JOIN_VERSION and "unjoin" in row[1]
+    _, still = resolve.unjoin(con, third, ppu, "wrong too")
+    assert still == [] and resolve.component_of(con, ppu) == ppu
     con.close()

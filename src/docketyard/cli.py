@@ -153,17 +153,23 @@ def _parties(args: argparse.Namespace) -> int:
     elif args.what in ("join", "unjoin"):
         try:
             if args.what == "join":
-                edge = resolve.join(con, args.a, args.b, args.note, cite=args.cite)
+                edge, still = resolve.join(con, args.a, args.b, args.note, cite=args.cite), []
             else:
-                edge = resolve.unjoin(con, args.a, args.b, args.note)
+                edge, still = resolve.unjoin(con, args.a, args.b, args.note)
         except ValueError as e:
             print(f"refused: {e}")
             return 1
-        rep = resolve.component_of(con, args.a)
         print(
-            f"{args.what}: edge {edge}; {args.a} now resolves to /p/{rep},"
-            f" {args.b} to /p/{resolve.component_of(con, args.b)}"
+            f"{args.what}: edge {edge}; {args.a} now resolves to"
+            f" /p/{resolve.component_of(con, args.a)}, {args.b} to"
+            f" /p/{resolve.component_of(con, args.b)}"
         )
+        if still:  # a triangle of joins splits one edge at a time
+            print(
+                "still one component through "
+                + ", ".join(f"{x}-{y}" for x, y in still)
+                + " — retire those too"
+            )
     else:
         print(resolve.run(con))
     return 0

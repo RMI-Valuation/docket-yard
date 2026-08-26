@@ -182,4 +182,6 @@ a better answer to the same query. ADR 0013 records the boundary so it is never 
 > permanent address, `/p/<id>`; ids are never reused or renumbered; a non-representative
 > member of a same_as component 301s to the representative. Everything else in this document
 > stands — the id is still a resolution artefact, which is exactly why the page shows the
-> joins and their provenance.
+> joins and their provenance. § "Party ids once subscribed to" is superseded too: **every**
+> party row is now permanent record, carried forward on a rebuild, never re-minted
+> (ADR 0015 addendum; migration 0009).

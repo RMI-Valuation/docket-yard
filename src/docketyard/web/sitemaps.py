@@ -33,9 +33,10 @@ _RECORDS = {
     "filings": ("filing", "stb_filing_id", urls.filing_path),
 }
 _memo: dict[tuple, str] = {}
+_parties_memo: dict[str, list[tuple[int, str | None]]] = {}  # stamp -> entries
 
 
-def _count(con: Connection, name: str) -> int:
+def _count(con: Connection, name: str, stamp: str) -> int:
     if name == "pages":
         return len(STATIC_PAGES)
     if name == "dockets":
@@ -43,15 +44,15 @@ def _count(con: Connection, name: str) -> int:
             0
         ]
     if name == "parties":
-        return len(_party_entries(con))
+        return len(_party_entries(con, stamp))
     table, col, _ = _RECORDS[name]
     return con.execute(f"SELECT COUNT(DISTINCT {col}) FROM {table}").fetchone()[0]
 
 
-def index(con: Connection, site: str) -> str:
+def index(con: Connection, site: str, stamp: str) -> str:
     items = []
     for s in SECTIONS:
-        pages = max(1, -(-_count(con, s) // PAGE))
+        pages = max(1, -(-_count(con, s, stamp) // PAGE))
         items += [
             f"  <sitemap><loc>https://{site}/sitemap-{s}-{n}.xml</loc></sitemap>\n"
             for n in range(1, pages + 1)
@@ -75,17 +76,22 @@ def _urlset(entries: list[tuple[str, str | None]]) -> str:
     )
 
 
-def _party_entries(con: Connection) -> list[tuple[int, str | None]]:
+def _party_entries(con: Connection, stamp: str) -> list[tuple[int, str | None]]:
     """(representative id, lastmod) for every same_as component, in id order. A thousand
-    parties today, a few thousand after the backfill: one pass, not one query per party."""
+    parties today, a few thousand after the backfill: one pass per store version — the
+    index and every page of the section read the same list — not one query per party."""
+    if stamp in _parties_memo:
+        return _parties_memo[stamp]
+    _parties_memo.clear()
     comps = resolve.Components(con)
     touched: dict[int, str] = {}
     for party_id, mod in con.execute(
         """
         SELECT l.party_id, MAX(c.captured_at)
           FROM filing_party_link l
-          JOIN filing_party_span s ON s.span_id = l.span_id
-          JOIN filing f ON f.filing_pk = s.filing_pk
+          JOIN filing_party_span s ON s.span_id = l.span_id AND s.superseded_by IS NULL
+               AND s.role = 'filed_for'
+          JOIN filing f ON f.filing_pk = s.filing_pk AND f.filed_for_raw = s.raw_text
           JOIN event e ON e.event_id = f.observed_in_event
           JOIN capture c ON c.capture_id = e.capture_id
          WHERE l.superseded_by IS NULL
@@ -95,7 +101,8 @@ def _party_entries(con: Connection) -> list[tuple[int, str | None]]:
         rep = comps.rep(party_id)
         touched[rep] = max(touched.get(rep) or "", mod)
     reps = sorted({comps.rep(r[0]) for r in con.execute("SELECT party_id FROM party")})
-    return [(rep, touched.get(rep)) for rep in reps]
+    _parties_memo[stamp] = [(rep, touched.get(rep)) for rep in reps]
+    return _parties_memo[stamp]
 
 
 def section(con: Connection, site: str, name: str, page: int, stamp: str) -> str | None:
@@ -133,7 +140,7 @@ def section(con: Connection, site: str, name: str, page: int, stamp: str) -> str
     elif name == "parties":
         entries = [
             (f"{base}{urls.party_path(rep)}", mod)
-            for rep, mod in _party_entries(con)[offset : offset + PAGE]
+            for rep, mod in _party_entries(con, stamp)[offset : offset + PAGE]
         ]
     else:
         table, col, path = _RECORDS[name]
