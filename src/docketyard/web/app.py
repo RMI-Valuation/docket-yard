@@ -14,6 +14,8 @@ address (ADR 0011); those three handlers open a writable connection and nothing 
 
 import hashlib
 import sqlite3
+import time
+from contextlib import asynccontextmanager
 from dataclasses import asdict, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib import resources
@@ -30,7 +32,7 @@ from docketyard import __version__
 from docketyard.alerts import feedback, mail, subscriptions, vault, webhooks
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
-from docketyard.store import coverage, dump, home, projections, search, sheet, stats
+from docketyard.store import coverage, dump, home, projections, search, sheet, stats, traffic
 from docketyard.store.db import MIGRATIONS, utcnow
 from docketyard.web import feeds, labels, sitemaps, urls
 
@@ -145,10 +147,23 @@ def create_app(
     sender: mail.Sender | None = None,
     feedback_topic: str | None = None,  # the SNS topic ARN SES feedback must come from
     public_dir: str | Path | None = None,  # where `docketyard dump` writes (M9)
+    traffic_path: str | Path | None = None,  # hourly counts, no identifier (docs/traffic.md)
 ) -> FastAPI:
     _check_store(db_path)
     public_dir = Path(public_dir) if public_dir else Path(db_path).parent / "public"
-    app = FastAPI(title=site_name, version=__version__, docs_url=None, redoc_url=None)
+    traffic_path = Path(traffic_path) if traffic_path else Path(db_path).parent / "traffic.sqlite"
+    counter = traffic.Counter()
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        traffic.start_timer(counter, traffic_path)
+        yield
+        traffic.flush(counter, traffic_path, datetime.now(UTC))
+
+    app = FastAPI(
+        title=site_name, version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan
+    )
+    app.state.traffic = counter  # tests read it; nothing else does
     templates = Jinja2Templates(directory=str(_PKG / "templates"))
     templates.env.filters["fmt_date"] = fmt_date
     templates.env.filters["fmt_when"] = fmt_when
@@ -222,6 +237,33 @@ def create_app(
         StaticFiles, which streams and validates them itself. No cookie is ever set, so
         caching is safe everywhere else (ADR 0011). HEAD is registered on every GET route
         (below), so nothing here rewrites the method."""
+        started = time.monotonic()
+        try:
+            response = await _hygiene(request, call_next)
+        except BaseException:  # an unhandled error is a 500 to the reader: count it as one
+            _count(request, 500, 0, started)
+            raise
+        size = 0 if request.method == "HEAD" else response.headers.get("content-length")
+        _count(request, response.status_code, size, started)
+        return response
+
+    def _count(request: Request, status: int, size, started: float) -> None:
+        """The count: kind of page, status class, size, speed, crawler or not — then the
+        request is forgotten (docs/traffic.md; the sentence on /privacy). Counting must
+        never cost a page."""
+        try:
+            counter.record(
+                _path(request),
+                status,
+                int(size or 0),
+                (time.monotonic() - started) * 1000,
+                request.headers.get("user-agent"),
+                datetime.now(UTC),
+            )
+        except Exception as e:  # noqa: BLE001
+            print(f"traffic count failed ({type(e).__name__}: {e})")
+
+    async def _hygiene(request: Request, call_next):
         path = _path(request)
         if request.method not in ("GET", "HEAD") or path.startswith(MOUNTS):
             return await call_next(request)

@@ -11,7 +11,7 @@ from docketyard.capture import backfill, documents, poll, walk
 from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS, PAGE_CLAMP, StbClient
 from docketyard.ingest import dockets, observations
 from docketyard.parties import resolve
-from docketyard.store import db, projections, search
+from docketyard.store import db, projections, search, traffic
 
 INGESTERS = {
     DOCKETS: dockets.ingest_capture,
@@ -176,6 +176,18 @@ def _parties(args: argparse.Namespace) -> int:
     return 0
 
 
+def _traffic(args: argparse.Namespace) -> int:
+    """The operator's view of the hourly counts; published nowhere."""
+    path = Path(args.db).parent / "traffic.sqlite"
+    if not path.exists():
+        print(f"no counts yet ({path})")
+        return 0
+    print(f"{'route':10s} {'readers':>8s} {'crawlers':>9s} {'MB':>8s} {'5xx':>5s} {'<500ms':>7s}")
+    for route, readers, crawlers, size, errors, fast in traffic.report(path, days=args.days):
+        print(f"{route:10s} {readers:8d} {crawlers:9d} {size / 1e6:8.1f} {errors:5d} {fast:6.0f}%")
+    return 0
+
+
 def _search_rebuild(args: argparse.Namespace) -> int:
     print(search.rebuild(db.connect(args.db)))
     return 0
@@ -337,6 +349,10 @@ def main(argv: list[str] | None = None) -> int:
     se_sub.add_parser("rebuild", help="rebuild the index from the store").set_defaults(
         func=_search_rebuild
     )
+
+    tr = sub.add_parser("traffic", help="hourly request counts, no identifier (docs/traffic.md)")
+    tr.add_argument("--days", type=int, default=1)
+    tr.set_defaults(func=_traffic)
 
     vk = sub.add_parser("vault", help="the address-encryption key")
     vk_sub = vk.add_subparsers(dest="what", required=True)
