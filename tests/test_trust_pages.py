@@ -43,4 +43,5 @@ def test_coverage_numbers_are_measured(tmp_path):
 def test_corrections_page_links_the_issue_form(client):
     r = client.get("/corrections")
     assert "issues/new?template=data-correction.yml" in r.text
-    assert "two business days" in r.text
+    assert "not a guarantee" in r.text and "does not correct" in r.text
+    assert "two business days" not in r.text  # no turnaround is promised

@@ -3,18 +3,25 @@
 {% block main %}
 <section class="caption">
   <h1 class="serif">Corrections</h1>
-  <p>If a sheet shows something the Board's record does not — a wrong date, a missing entry, a caption that is not the Board's — we want to know, and we would rather be told than be quietly distrusted.</p>
+  <p>A correction here is a correction of <em>this</em> record — what {{ site_name }} shows — against what the Board's record shows. {{ site_name }} does not correct, annotate, or speak for the Board's record. If a filing or decision itself is wrong, that is a matter for the Board and the parties; if this site shows the Board's record wrongly, that is ours to fix, and we would rather be told than be quietly distrusted.</p>
+  <h2>What counts as a correction</h2>
+  <ul>
+    <li>A sheet shows a date, caption, filer, type or summary that differs from what the Board's own file or record search shows.</li>
+    <li>An entry the Board has posted is missing from its sheet, or appears on the wrong docket.</li>
+    <li>A label or fold this site derives (see <a href="/methodology">methodology</a>) is misleading for an entry.</li>
+  </ul>
+  <p>Not a correction: disagreement with what the Board printed, or with what a filing says. The Board's record is the record, and every entry links to it.</p>
   <h2>How to report one</h2>
   <p><a class="btn" href="{{ issues_url }}" rel="noopener">Report a correction on GitHub</a></p>
-  <p>The form asks for the docket, the entry, what is wrong, and where the right answer is (usually the Board's own file, which every entry links). Reports are public, and so is what was done about them: that is the correction log.</p>
+  <p>The form asks for the docket, the entry, what is wrong, and where the right answer is — usually the Board's own file. Reports are public, and so is what was done about them: that is the correction log.</p>
   <h2>What happens next</h2>
   <ul>
-    <li><strong>Within two business days</strong> a person replies on the report — fixed, needs more, or disagreed, with the reason.</li>
+    <li><strong>A person reads every report.</strong> Corrections are usually made within seven days; that is how it has gone, not a guarantee. The report shows its own status — fixed, needs more, or disagreed with the reason — so you never have to wonder.</li>
     <li><strong>A fix propagates.</strong> Every entry carries its source, so a correction changes the record once and every page showing that entry follows; nothing is patched by hand on one page.</li>
-    <li><strong>The Board's record wins.</strong> Where the disagreement is about what the Board printed, the Board's file settles it. Where it is about how {{ site_name }} labelled or folded an entry, the answer is a change to the published <a href="/methodology">method</a>, not a one-off edit.</li>
+    <li><strong>The Board's file settles it.</strong> Where the disagreement is about what the Board printed, the Board's own file decides. Where it is about how {{ site_name }} labelled or folded an entry, the answer is a change to the published <a href="/methodology">method</a>, not a one-off edit.</li>
     <li><strong>Corrections survive.</strong> A hand correction is recorded as its own event with its own provenance, so a later re-run of the pipeline cannot silently overwrite it.</li>
   </ul>
   <h2>What this page does not promise</h2>
-  <p>That every entry is caught. The Board's search fails in ways that look like success; the coverage page says what is watched and records every gap the monitor has found.</p>
+  <p>That every entry is caught, or a fixed turnaround. The Board's search fails in ways that look like success; the <a href="/coverage">coverage</a> page says what is watched and records every gap the monitor has found.</p>
 </section>
 {% endblock %}

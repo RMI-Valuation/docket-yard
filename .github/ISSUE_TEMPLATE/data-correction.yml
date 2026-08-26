@@ -1,5 +1,5 @@
 name: Data correction
-description: Something on a docket sheet does not match the Board's record.
+description: Something on a Docket Yard sheet does not match the Board's own record. (Docket Yard does not correct the Board's record.)
 title: "Correction: "
 labels: ["data-correction"]
 body:
