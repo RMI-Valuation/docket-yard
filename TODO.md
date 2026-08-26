@@ -10,9 +10,9 @@ by pre-commit: when it fires, prune.
   on the encrypted store); then delete this line
 - Cameron: copy `DY_EMAIL_KEY` from `~/.docketyard-prod.env` into the password manager,
   then delete that file and `~/.docketyard-instance-key.json`
-- Backfill wave 1 (2024-08 → watch start) finished 2026-08-26: all documents held; the
-  one `partial` month (2025-10, the shutdown) is declared empty in v2026.08.16 — re-run the
-  wave once after deploying so the slice records `empty`. Later waves are separate decisions
+- Backfill wave 1 (2024-08 → watch start) complete 2026-08-26: 25 months, 4,864 documents
+  held, October 2025 declared empty (the shutdown). Waves 2 (2020) and 3 (1996) are the
+  operator's decisions
 - Cameron reviews `parties/seed.py` (66 rows, method human): every name, mark and
   parent/succession edge is an operator assertion, live in production under that provenance
 - Party resolution: watch `ambiguous`/`left` in the poll log; a `docketyard parties join`
