@@ -16,13 +16,13 @@
 {% macro columns(rows, label_every, title) -%}
 {#- rows: (label, filings, decisions, muted). Drawn server-side from the same numbers as the table. -#}
 {% set n = rows | length %}{% set peak = (rows | map(attribute=1) | max) or 1 %}
-{% set w = 720 %}{% set h = 200 %}{% set top = 12 %}{% set base = h - 28 %}{% set slot = w / n %}
+{% set pad = 28 %}{% set w = 720 %}{% set h = 200 %}{% set top = 12 %}{% set base = h - 28 %}{% set slot = (w - 2 * pad) / n %}
 <svg class="chart" viewBox="0 0 {{ w }} {{ h }}" role="img" aria-label="{{ title }}">
   <title>{{ title }}</title>
   <line class="axis" x1="0" y1="{{ base }}" x2="{{ w }}" y2="{{ base }}" />
   <text class="tick" x="{{ w }}" y="{{ top - 2 }}" text-anchor="end">{{ peak | commas }}</text>
   {%- for label, f, d, muted in rows %}
-  {%- set x = loop.index0 * slot %}{% set fh = ((base - top) * f / peak) %}{% set dh = ((base - top) * d / peak) %}
+  {%- set x = pad + loop.index0 * slot %}{% set fh = ((base - top) * f / peak) %}{% set dh = ((base - top) * d / peak) %}
   <g class="col{% if muted %} partial{% endif %}">
     <title>{{ label }}: {{ f | commas }} filings, {{ d | commas }} decisions{% if muted %} (so far){% endif %}</title>
     <rect class="f" x="{{ (x + slot * 0.15) | round(1) }}" y="{{ (base - fh) | round(1) }}" width="{{ (slot * 0.45) | round(1) }}" height="{{ fh | round(1) }}" />

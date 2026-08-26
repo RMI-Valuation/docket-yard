@@ -21,6 +21,7 @@ def test_every_trust_page_renders_without_a_cookie(client):
         assert r.status_code == 200, path
         assert "not affiliated" in r.text or "Not the Board" in r.text or path != "/about"
         assert "Set-Cookie" not in r.headers
+        assert 'href="/static/site.css?v=' in r.text  # cache-busted by content hash
 
 
 def test_coverage_numbers_are_measured(tmp_path):

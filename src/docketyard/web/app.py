@@ -12,6 +12,7 @@ subscription flow (subscribe, confirm, unsubscribe), the one place a reader hand
 address (ADR 0011); those three handlers open a writable connection and nothing else does.
 """
 
+import hashlib
 import sqlite3
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
@@ -147,8 +148,11 @@ def create_app(
         prefix_name=labels.prefix_name,
         display_filed_for=labels.display_filed_for,
     )
+    # The stylesheet is cached a week; its URL carries its content hash so a deploy is seen.
+    css_hash = hashlib.sha256((_PKG / "static" / "site.css").read_bytes()).hexdigest()[:12]
     templates.env.globals.update(
         site_name=site_name,
+        asset_v=css_hash,
         docket_path=urls.docket_path,
         printed_docket=urls.printed_docket,
         cite_docket=urls.cite_docket,
