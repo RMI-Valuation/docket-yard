@@ -18,7 +18,7 @@ addresses; `docketyard serve`) are built and reviewed. Deployment awaits ADR 001
 | `docs/README.md` | Index of the whole document set, with status per document |
 | `docs/validation-queries.md` | **The five queries the schema must answer.** All five answered on paper 2026-08-25. |
 | `docs/schema-draft.md` | The paper schema the queries were validated against; revision history included |
-| `docs/adr/` | **0001-0011 Accepted** (0002-0008, 0010, 0011 carry Validation sections); 0012 hosting and 0013 permanent URLs Proposed |
+| `docs/adr/` | **0001-0013 all Accepted** (0002-0008 and 0010-0013 carry Validation sections) |
 | `docs/stb-data-source.md` | Endpoint mechanics, its silent-failure traps, and every measurement taken |
 | `docs/capability-map.md` | The 28 capabilities. A menu, not a roadmap. |
 | `docs/research/comparable-platforms.md` | What CourtListener, FERC and others solved; what failed and why |

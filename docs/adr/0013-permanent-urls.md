@@ -1,7 +1,8 @@
 # ADR 0013 — Permanent URLs
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-25
+- **Accepted:** 2026-08-25
 
 ## Context
 
@@ -43,7 +44,12 @@ Effectively impossible after launch. Every citation in a brief, every bookmark a
 inbound link is a promise this record made; changing the scheme means keeping the old one
 alive forever anyway.
 
----
+## Validation (2026-08-25)
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-[`../validation-queries.md`](../validation-queries.md).*
+Checked against [`../validation-queries.md`](../validation-queries.md): addresses are built
+only from the identity ADR 0005 keys on (prefix, sequence, sub, suffix) and the record ids
+the source prints, so every query's join path is unchanged. Query 3's "the day before
+Decision No. 30" resolves through `/decision/{id}` once the printed decision number is
+extracted — an addition, not a re-keying. Implemented the same day in `web/urls.py`, which
+delegates to the ingest parser so there is one definition of identity; the review of that
+code caught a second grammar creeping in and it was removed.

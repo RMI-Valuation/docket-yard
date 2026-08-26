@@ -6,8 +6,7 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Cameron: review ADR 0012 (deployment topology) and ADR 0013 (permanent URLs)
-- M3 deploy (after ADR 0012 accepted): Dockerfile + compose (web, ingest, caddy) + Litestream;
+- M3 deploy: Dockerfile + compose (web, ingest, caddy) + Litestream;
   release-triggered image build; the instance; move the registry from rmi-ai-machine
 - Self-host the two fonts (interface.md) before anything ships — the pages fall back to
   system faces today

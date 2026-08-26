@@ -1,7 +1,8 @@
 # ADR 0012 — Deployment topology
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-25
+- **Accepted:** 2026-08-25
 
 ## Context
 
@@ -52,7 +53,11 @@ Low to moderate, by design. The store replays; blobs are already in S3; the comp
 runs anywhere Docker does. What would hurt is losing the S3 bucket, which is why nothing
 else in this record is allowed to be the only copy of anything.
 
----
+## Validation (2026-08-25)
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-[`../validation-queries.md`](../validation-queries.md).*
+Checked against [`../validation-queries.md`](../validation-queries.md): the five queries do
+not depend on where the store runs, and none needs anything SQLite lacks at the wedge's
+scale. The one query that will outgrow it — query 1's geometry intersection — is answered by
+the replay path this record relies on (ledger → Postgres/PostGIS) rather than by choosing
+Postgres now. The web tier built the same day runs read-only against the SQLite store
+exactly as this record assumes.
