@@ -24,7 +24,8 @@ Candidates the record can support now, in the order recommended 2026-08-26. None
 
 1. **Docket-type explainers** (P2) — writing, not engineering; the operator's.
 2. **The citator** (C2) — milestone-scale, on a branch; waits for wave 3 and the labelled sample.
-3. **Fielded search** (F4) — meaningful once thirty years are in the store.
+3. **Fielded search** (F4) — the one box shipped 2026-08-26 (captions, parties, summaries);
+   fields, boolean and proximity wait for the extracted text.
 
 Later, each waiting for a decision rather than capacity: the geographic index (C3/D2), the
 deadline engine (C4 — needs counsel's review before it ships), reference data and rule status
