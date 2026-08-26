@@ -62,8 +62,8 @@ def coverage(con: Connection) -> Coverage:
             FILINGS,
             DECISIONS,
         ),
-        filings=one("SELECT COUNT(*) FROM filing"),
-        decisions=one("SELECT COUNT(*) FROM decision_record"),
+        filings=one("SELECT COUNT(DISTINCT stb_filing_id) FROM filing"),
+        decisions=one("SELECT COUNT(DISTINCT stb_decision_id) FROM decision_record"),
         documents=one("SELECT COUNT(*) FROM document"),
         attachments_unfetched=one(
             "SELECT (SELECT COUNT(*) FROM filing_attachment WHERE document_sha256 IS NULL)"

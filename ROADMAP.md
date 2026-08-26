@@ -22,9 +22,10 @@ chosen from the capability map by the operator on 2026-08-26: see *After the wed
 | # | Milestone | Done means | Status |
 | --- | --- | --- | --- |
 | M6 | Party module (ADR 0004) | "Filed for" strings resolved to entities with aliases and successors, provenance on every link; a Parties view on the sheet; subscribe by party and by service-list membership (validation query 5) | **Done 2026-08-26** (v2026.08.14–15): parties, aliases and successions with provenance; Parties block + filter on every sheet; `/parties` browse view (a facet, not an address — ADR 0013 addendum); subscribe by party. Service-list predicate deferred to extraction |
+| M7 | Statistics page | What the record holds and what moves, every number measured (`docs/stats.md`); nothing about readers | **Done 2026-08-26** — `/stats`, chosen by the operator |
 | — | Extraction benchmark (background) | Local LLM on RMI-AI-MACHINE vs API on a hand-labelled sample, before any extraction commits to local output; unblocks the citator and the calendar | Not started |
 
-Deliberately not yet: backfill waves 2–3, RSS/webhooks, the stats page, the citator, the
+Deliberately not yet: RSS/webhooks, the citator, the
 geographic index. Each waits for a decision, not for capacity.
 
 Sequencing rationale: [`docs/capability-map.md`](docs/capability-map.md) § Sequence.

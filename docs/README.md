@@ -21,6 +21,7 @@ Documentation that isn't load-bearing is drag.
 | 03 | [`methodology.md`](methodology.md) | Extraction rules; doubles as the published methodology page | page published 2026-08-26 (`web/templates/methodology.html`); extraction rules await extraction |
 | 04 | [`licensing.md`](licensing.md) | Code, data and trademark terms | drafted |
 | 05 | [`coverage.md`](coverage.md) | What's in the corpus and what isn't (published) | published 2026-08-26, numbers measured from the store |
+| 05a | [`stats.md`](stats.md) | The record in numbers (published at `/stats`) | published 2026-08-26, every number measured from the store |
 | 06 | [`corrections.md`](corrections.md) | How errors are reported and propagated (published) | published 2026-08-26 |
 | 07 | [`about.md`](about.md) | What this is and is not (published) | published 2026-08-26 |
 | 08 | [`runbook.md`](runbook.md) | Failure modes and their fixes | DNS, repo, production, address key, mail, ingest |

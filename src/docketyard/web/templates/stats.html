@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Statistics — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">The record in numbers</h1>
+  <p class="muted">Every number here is measured from the record as it stands; none is typed. A filing or decision is counted once by the Board’s own identifier, even when it is entered under a parent and a sub-docket. Months are by the Board’s own dates — filed or served — so a month’s number is what this record holds dated in that month, whichever wave observed it; the earliest months fill in as the <a href="/coverage">backfill</a> reaches them. Nothing on this page is about who reads or follows.</p>
+  <div class="stats">
+    <div class="stat"><span class="n serif">{{ s.filings | commas }}</span><span class="l">filings</span></div>
+    <div class="stat"><span class="n serif">{{ s.decisions | commas }}</span><span class="l">decisions</span></div>
+    <div class="stat"><span class="n serif">{{ s.documents | commas }}</span><span class="l">documents held, {{ '%.1f' | format(s.document_bytes / 1e9) }} GB</span></div>
+    <div class="stat"><span class="n serif">{{ s.dockets | commas }}</span><span class="l">dockets in the registry</span></div>
+    <div class="stat"><span class="n serif">{{ s.parties | commas }}</span><span class="l">parties on record</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>By month{% if s.months %} — {{ s.months[0].month }} to {{ s.months[-1].month }}{% endif %}</h2>
+  {% if s.months %}
+  <p class="small muted">Filings as bars, decisions as the number beside each month. The table is the data; the bars are the same numbers drawn.</p>
+  <table class="months">
+    <thead><tr><th scope="col">Month</th><th scope="col" class="num">Filings</th><th scope="col"><span class="visually-hidden">Filings, drawn</span></th><th scope="col" class="num">Decisions</th></tr></thead>
+    <tbody>
+    {% for m in s.months | reverse %}
+    <tr>
+      <td class="mono">{{ m.month }}</td>
+      <td class="num">{{ m.filings | commas }}</td>
+      <td class="bar"><span class="fill" style="width: {{ m.share }}%"></span></td>
+      <td class="num">{{ m.decisions | commas }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">No dated records yet.</p>{% endif %}
+</section>
+
+<section class="two-col wide-rail">
+  <div>
+    <h2>Most active proceedings in {{ s.year }}</h2>
+    {% if s.busiest %}
+    <table class="moved">
+      <thead><tr><th scope="col">Docket</th><th scope="col">Proceeding</th><th scope="col" class="num">Filings</th></tr></thead>
+      <tbody>
+      {% for b in s.busiest %}
+      <tr><td class="dk"><a href="{{ docket_path(b.docket) }}">{{ printed_docket(b.docket) }}</a></td><td class="title as-printed">{{ b.title or '(caption not yet observed)' }}</td><td class="num filings">{{ b.filings | commas }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">No filings dated {{ s.year }} in the record yet.</p>{% endif %}
+    <h2>Decisions by deciding body</h2>
+    <table class="moved">
+      <thead><tr><th scope="col">Body, as printed on the entry</th><th scope="col" class="num">Decisions</th></tr></thead>
+      <tbody>
+      {% for body, n in s.by_body %}<tr><td class="title as-printed">{% if body is none %}<span class="muted">(entry shows none)</span>{% else %}{{ body }}{% endif %}</td><td class="num filings">{{ n | commas }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <aside class="rail">
+    <div>
+      <h2>Registry by docket prefix</h2>
+      <table class="moved">
+        <thead><tr><th scope="col">Prefix</th><th scope="col" class="num">Dockets</th><th scope="col" class="num">Filings held</th></tr></thead>
+        <tbody>
+        {% for prefix, dockets, filings in s.by_prefix %}<tr><td class="title mono">{{ prefix }}{% if prefix_name(prefix) != prefix ~ ' docket' %} <span class="muted small">{{ prefix_name(prefix) }}</span>{% endif %}</td><td class="num">{{ dockets | commas }} dockets</td><td class="num">{{ filings | commas }} filings</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </aside>
+</section>
+{% endblock %}

@@ -27,7 +27,7 @@ from docketyard import __version__
 from docketyard.alerts import feedback, mail, subscriptions, vault
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
-from docketyard.store import coverage, home, projections, sheet
+from docketyard.store import coverage, home, projections, sheet, stats
 from docketyard.store.db import MIGRATIONS
 from docketyard.web import labels, urls
 
@@ -141,6 +141,7 @@ def create_app(
     templates.env.filters["fmt_when"] = fmt_when
     templates.env.filters["fmt_day_month"] = fmt_day_month
     templates.env.filters["plural"] = labels.plural
+    templates.env.filters["commas"] = "{:,}".format
     templates.env.globals.update(
         fmt_range=fmt_range,
         prefix_name=labels.prefix_name,
@@ -270,6 +271,17 @@ def create_app(
         finally:
             con.close()
         return render(request, "coverage.html", cov=cov)
+
+    @app.get("/stats")  # the numbers move once a poll; the page may be cached that long
+    def stats_page(request: Request):
+        con = _connect(db_path)
+        try:
+            s = stats.stats(con)
+        finally:
+            con.close()
+        response = render(request, "stats.html", s=s)
+        response.headers["Cache-Control"] = "public, max-age=1800"
+        return response
 
     @app.get("/corrections")
     def corrections_page(request: Request):
