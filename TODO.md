@@ -18,8 +18,9 @@ by pre-commit: when it fires, prune.
   parent/succession edge is an operator assertion, live in production under that provenance
 - Party resolution: watch `ambiguous`/`left` in the poll log; a `docketyard parties join`
   command (human same_as edges) once real spelling pairs accumulate
-- Extraction benchmark on RMI-AI-MACHINE: hand-label a sample, run local vs API, record
-  method versions — background to M6
+- RMI-AI-MACHINE (docs/extraction-benchmark.md): Cameron re-approves Tailscale SSH; then
+  rsync the blobs from the instance and run `tools/rmi-ai-machine/extract_text.py` (step 0,
+  the text layer); then the 60-decision labelled sample (step 1) — Cameron labels
 - Whether/how to announce the wedge — the operator's call
 
 ## Next
