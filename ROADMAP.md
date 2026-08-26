@@ -15,20 +15,17 @@ in dated waves, the party module, the statistics page — see the milestones rec
 | # | Milestone | Done means | Chosen | Status |
 | --- | --- | --- | --- | --- |
 | — | Backfill waves 2–3 (2020 → 2024-07, then 1996 → 2019) | Every month `done` or declared `empty` on the coverage page; documents in S3; extraction re-run per wave | 2026-08-26 | Running unattended on the instance (TODO § Now) |
+| M8 | RSS and webhooks (rest of C1) | Atom feeds per docket, per party and agency-wide, built from the same events as the email alerts; signed webhooks carrying the same payload, confirmed like an address | 2026-08-26 | Next |
+| M9 | Bulk dumps and a minimal API (rest of F5) | A nightly snapshot published with schema and licence; JSON for every sheet | 2026-08-26 | After M8 |
 | — | Extraction benchmark (background) | Local LLM on RMI-AI-MACHINE vs API on a hand-labelled sample, before any extraction commits to local output; unblocks the citator | 2026-08-26 | Step 0 done; step 1 (60-decision labelled sample) awaits the operator's labels |
 
 ## Ripe — awaiting a decision
 
 Candidates the record can support now, in the order recommended 2026-08-26. None is chosen.
 
-1. **RSS and webhooks** (rest of C1) — per-docket and per-party feeds from the alert builder; a
-   signed webhook of the same payload. The map's own sequence: "email first, RSS and webhooks
-   immediately after."
-2. **Bulk dumps and a minimal API** (rest of F5) — a nightly snapshot published with schema and
-   licence; `/d/<docket>.json`. "Bulk access is a promise, not a feature."
-3. **Docket-type explainers** (P2) — writing, not engineering; the operator's.
-4. **The citator** (C2) — milestone-scale, on a branch; waits for wave 3 and the labelled sample.
-5. **Fielded search** (F4) — meaningful once thirty years are in the store.
+1. **Docket-type explainers** (P2) — writing, not engineering; the operator's.
+2. **The citator** (C2) — milestone-scale, on a branch; waits for wave 3 and the labelled sample.
+3. **Fielded search** (F4) — meaningful once thirty years are in the store.
 
 Later, each waiting for a decision rather than capacity: the geographic index (C3/D2), the
 deadline engine (C4 — needs counsel's review before it ships), reference data and rule status
