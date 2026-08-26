@@ -104,6 +104,7 @@ class Sender:
     region: str
     username: str = field(repr=False)
     password: str = field(repr=False)  # never in a traceback or a log line
+    configuration_set: str | None = None  # SES event feedback (bounces, complaints)
 
     @classmethod
     def from_env(cls, env=os.environ) -> "Sender":
@@ -114,6 +115,7 @@ class Sender:
             region=region,
             username=env["AWS_ACCESS_KEY_ID"],
             password=smtp_password(env["AWS_SECRET_ACCESS_KEY"], region),
+            configuration_set=env.get("DY_SES_CONFIGURATION_SET") or None,
         )
 
     @property
@@ -132,6 +134,8 @@ class Sender:
         msg["Date"] = formatdate(usegmt=True)
         msg["Message-ID"] = make_msgid(domain=self.domain)
         msg["Auto-Submitted"] = "auto-generated"
+        if self.configuration_set:
+            msg["X-SES-CONFIGURATION-SET"] = self.configuration_set
         if out.unsubscribe_url:
             msg["List-Unsubscribe"] = f"<{out.unsubscribe_url}>"
             msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"

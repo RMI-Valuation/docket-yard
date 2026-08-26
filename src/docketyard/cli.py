@@ -144,7 +144,12 @@ def _serve(args: argparse.Namespace) -> int:
     sender = _sender()
     if sender is None:
         print("mail not configured (AWS_* / DY_SES_REGION): the subscribe form answers 503")
-    app = create_app(args.db, site_host=os.environ.get("DY_HOST", "docketyard.org"), sender=sender)
+    app = create_app(
+        args.db,
+        site_host=os.environ.get("DY_HOST", "docketyard.org"),
+        sender=sender,
+        feedback_topic=os.environ.get("DY_SES_FEEDBACK_TOPIC") or None,
+    )
     uvicorn.run(app, host=args.host, port=args.port)
     return 0
 

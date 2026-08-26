@@ -8,9 +8,8 @@ by pre-commit: when it fires, prune.
 
 - M4: first real subscription confirmed 2026-08-26 (Cameron, FD 36873, as-it-happens);
   watch the first alert land, then delete this line
-- SES bounce/complaint feedback path (SNS topic → `email_suppression`) — promoted: SES's
-  account suppression list drops sends silently after one hard bounce (runbook § Mail), so
-  without feedback a subscriber whose mailbox once bounced is "sent" to forever
+- ADR 0014 (addresses at rest): accept in a later session after checking it against the
+  validation queries; then update CLAUDE.md's ADR line
 - After v2026.08.10 (encrypted addresses): re-make Cameron's FD 36873 subscription (0005
   drops the two test rows); Cameron copies `DY_EMAIL_KEY` from `~/.docketyard-prod.env`
   into the password manager, then deletes that file and the IAM key JSON

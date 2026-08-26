@@ -18,13 +18,13 @@ from datetime import UTC, date, datetime
 from importlib import resources
 from pathlib import Path
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import Body, FastAPI, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from docketyard import __version__
-from docketyard.alerts import mail, subscriptions, vault
+from docketyard.alerts import feedback, mail, subscriptions, vault
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.store import coverage, home, projections, sheet
 from docketyard.store.db import MIGRATIONS
@@ -131,6 +131,7 @@ def create_app(
     site_name: str = "Docket Yard",
     site_host: str = "docketyard.org",
     sender: mail.Sender | None = None,
+    feedback_topic: str | None = None,  # the SNS topic ARN SES feedback must come from
 ) -> FastAPI:
     _check_store(db_path)
     app = FastAPI(title=site_name, version=__version__, docs_url=None, redoc_url=None)
@@ -402,6 +403,25 @@ def create_app(
             "Unsubscribed",
             "That subscription and everything about it has been deleted.",
         )
+
+    @app.post("/ses/feedback")
+    def ses_feedback(request: Request, body: bytes = Body(...)):
+        """SNS delivers SES bounce/complaint events here. Off (503) until a topic is
+        configured; verified by signature and topic; an unverifiable message is a 400 and
+        nothing more. A plain def: the certificate fetch and RSA check run in the
+        threadpool, never on the event loop. Never any address in the log."""
+        if not feedback_topic:
+            raise HTTPException(503, "feedback not configured")
+        if len(body) > feedback.MAX_BODY:
+            raise HTTPException(413)
+        con = _connect_rw(db_path)
+        try:
+            outcome = feedback.handle(con, body, expected_topic=feedback_topic)
+        except feedback.Rejected as e:
+            raise HTTPException(400, str(e)) from e
+        finally:
+            con.close()
+        return JSONResponse({"ok": outcome})
 
     @app.get("/decision/{stb_id}")
     def decision_page(request: Request, stb_id: str):

@@ -92,8 +92,15 @@ IAM secret in `docketyard.alerts.mail.smtp_password`; a real login proved it.
   the derivation is pinned by `tests/test_mail.py` in shape only, so a real login is the
   test.
 - **554 Message rejected: Email address is not verified** — sandbox, see above.
-- **Bounces and complaints** are not yet fed back automatically (no SNS topic). Until then,
-  watch the SES reputation dashboard and add offenders to `email_suppression` by hand.
+- **Bounces and complaints feed back automatically** (from v2026.08.11): sends carry
+  `X-SES-CONFIGURATION-SET: docketyard`; the configuration set's event destination
+  publishes BOUNCE and COMPLAINT to the SNS topic `docketyard-ses-feedback`, which POSTs
+  to `https://docketyard.org/ses/feedback`. The endpoint verifies the SNS signature and
+  the topic ARN (`DY_SES_FEEDBACK_TOPIC`) before believing anything, then writes the
+  address's HMAC to `email_suppression`. Check the subscription:
+  `aws sns list-subscriptions-by-topic --region us-east-2 --topic-arn <arn>` — status must
+  not be `PendingConfirmation`. `docketyard status` does not yet count suppressions; the
+  ingest log line `ses feedback: bounce, 1 address(es) suppressed` is the trace.
 - **SES's own account-level suppression list swallows sends silently** (measured
   2026-08-26): a hard bounce puts the address on it, and every later message to that
   address is accepted with a 250 and never delivered — our `alert` row says `sent`. Check

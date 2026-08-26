@@ -72,6 +72,13 @@ password manager — never in the store, S3, or a backup. Every copy of the stor
 ciphertext. The operator can decrypt, because sending requires it; the privacy page says
 so. Losing the key loses every subscription; people subscribe again.
 
+**A mailbox that bounces or complains is never mailed again.** SES reports permanent
+bounces and complaints to an SNS topic that POSTs to the site; each report is verified by
+signature and puts the address's HMAC on the suppression list, which every subscribe and
+every send consults. This matters because SES's own account-level suppression accepts a
+message and drops it silently — without the feedback, a bounced subscriber would be
+"sent to" forever (runbook § Mail).
+
 **Unsubscribing forgets you.** The subscription row and everything about it is deleted,
 not flagged (ADR 0011). One-click unsubscribe from any old alert still answers "you are
 unsubscribed", because that is true.

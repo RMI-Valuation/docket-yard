@@ -10,6 +10,8 @@ x-mail: &mail
   DY_EMAIL_KEY: ${DY_EMAIL_KEY:-}  # addresses at rest; see docs/runbook.md
   DY_SES_REGION: ${DY_SES_REGION:-${AWS_REGION}}
   DY_MAIL_FROM: ${DY_MAIL_FROM:-Docket Yard <alerts@docketyard.org>}
+  DY_SES_CONFIGURATION_SET: ${DY_SES_CONFIGURATION_SET:-}
+  DY_SES_FEEDBACK_TOPIC: ${DY_SES_FEEDBACK_TOPIC:-}
   DY_HOST: ${DY_HOST:-docketyard.org}
   AWS_REGION: ${AWS_REGION}
   AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
