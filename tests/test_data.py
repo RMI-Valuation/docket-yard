@@ -18,6 +18,8 @@ def test_snapshot_omits_readers_and_measures_itself(tmp_path):
     path = build_store(tmp_path)
     con = db.connect(path)
     subscriptions.subscribe(con, "secret@example.org", 1, "pass")
+    con.execute("CREATE TABLE _litestream_seq (id INTEGER PRIMARY KEY, seq INTEGER)")  # as live
+    con.commit()
     con.close()
     out = tmp_path / "public"
     m = dump.dump(path, out, today=date(2026, 9, 1), now="2026-09-01T04:10:00+00:00")
@@ -37,6 +39,7 @@ def test_snapshot_omits_readers_and_measures_itself(tmp_path):
     assert not tables & set(dump.PRIVATE_TABLES)
     assert {"docket", "filing", "decision_record", "event", "capture"} <= tables
     assert not tables & set(dump.HELD_TABLES)  # the enriched layer waits for its licence
+    assert not tables & set(dump.TOOL_TABLES)  # replication bookkeeping is not record
     assert "parties" not in m.counts and m.held_tables == list(dump.HELD_TABLES)
     assert s.execute("SELECT COUNT(DISTINCT stb_filing_id) FROM filing").fetchone()[0] == 2
     s.close()

@@ -44,6 +44,8 @@ PRIVATE_TABLES = (
     "subscription",
     "email_suppression",
 )
+# Replication bookkeeping (Litestream keeps two tables in the store); not record, not published.
+TOOL_TABLES = ("_litestream_lock", "_litestream_seq")
 # Derived work held back pending the enriched-layer licence review (docs/licensing.md).
 HELD_TABLES = (
     "filing_party_link",
@@ -121,7 +123,7 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
     out = sqlite3.connect(dst)
     try:
         out.execute("PRAGMA foreign_keys = OFF")
-        for table in PRIVATE_TABLES + HELD_TABLES:
+        for table in PRIVATE_TABLES + HELD_TABLES + TOOL_TABLES:
             out.execute(f"DROP TABLE IF EXISTS {table}")
         out.commit()
         out.execute("VACUUM")
