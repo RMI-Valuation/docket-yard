@@ -87,6 +87,24 @@ def cite_docket(identity: ParsedDocket) -> str:
     return f"{head} (Sub-No. {identity.sub_sequence}{identity.suffix or ''})"
 
 
+def party_path(party_id: int) -> str:
+    """A party's permanent address (ADR 0015): its id, never a slug. /p/1234"""
+    return f"/p/{party_id}"
+
+
+def parse_party_id(text: str) -> int | None:
+    """ASCII digits only (str.isdigit admits superscripts and other scripts' digits, which
+    int() may reject or read as a second spelling of the same address); no sign, no
+    length beyond any id the store will hold."""
+    if not text or len(text) > 12 or not text.isascii() or not text.isdigit():
+        return None
+    return int(text)
+
+
+def party_feed_path(party_id: int) -> str:
+    return f"{party_path(party_id)}/feed"
+
+
 def week_path(monday) -> str:
     """A fixed Monday–Sunday week, addressed by its Monday: /week/2026-08-17."""
     return f"/week/{monday.isoformat()}"

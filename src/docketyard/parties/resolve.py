@@ -17,7 +17,9 @@ import json
 from sqlite3 import Connection
 
 from docketyard.parties import names
-from docketyard.store.db import utcnow
+from docketyard.store.db import load_json, utcnow
+
+JOIN_VERSION = "cli-join/1"  # `docketyard parties join`/`unjoin`: method human, this version
 
 # --- components: the same_as graph, loaded once ------------------------------------------
 
@@ -89,6 +91,16 @@ class Components:
 
 def component_of(con: Connection, party_id: int) -> int:
     return Components(con).rep(party_id)
+
+
+def party_exists(con: Connection, party_id: int) -> bool:
+    return bool(con.execute("SELECT 1 FROM party WHERE party_id = ?", (party_id,)).fetchone())
+
+
+def address_of(con: Connection, party_id: int) -> int | None:
+    """The id whose page answers for this one (ADR 0015): the component's representative,
+    or None if no such party. The web tier's one resolution for the page and the feed."""
+    return component_of(con, party_id) if party_exists(con, party_id) else None
 
 
 def display_name(con: Connection, party_id: int) -> str:
@@ -318,7 +330,7 @@ def load_seed(con: Connection, log=print) -> dict:
                 "SELECT party_id FROM party WHERE founding_key = ? AND party_id <> ?",
                 (names.normalise(name), party_id),
             ).fetchone()
-            if other and _join(con, party_id, other[0], now, loc):
+            if other and _join(con, party_id, other[0], now, loc) is not None:
                 stats["joined"] += 1
             stats["names"] += int(
                 add_name(
@@ -355,15 +367,23 @@ def load_seed(con: Connection, log=print) -> dict:
     return stats
 
 
-def _join(con: Connection, a: int, b: int, now: str, loc: dict) -> bool:
+def _join(con: Connection, a: int, b: int, now: str, loc: dict, version: str = "seed-join"):
+    """One live same_as edge between two ids, method human. Returns the new edge id, or
+    None when an edge between the pair already exists — live, or retired by `unjoin`:
+    a join the operator found wrong is never re-made by the seed on the next pass."""
     lo, hi = min(a, b), max(a, b)
-    cur = con.execute(
-        "INSERT OR IGNORE INTO party_relationship (from_party, to_party, rel_type,"
+    if con.execute(
+        "SELECT 1 FROM party_relationship WHERE from_party = ? AND to_party = ?"
+        " AND rel_type = 'same_as'",
+        (lo, hi),
+    ).fetchone():
+        return None
+    return con.execute(
+        "INSERT INTO party_relationship (from_party, to_party, rel_type,"
         " source_location, method, method_version, asserted_at, confidence)"
         " VALUES (?, ?, 'same_as', ?, 'human', ?, ?, 1.0)",
-        (lo, hi, json.dumps(loc), "seed-join", now),
-    )
-    return cur.rowcount > 0
+        (lo, hi, json.dumps(loc), version, now),
+    ).lastrowid
 
 
 def run(con: Connection, log=print) -> dict:
@@ -440,12 +460,236 @@ def components_of_filings(con: Connection, docket_ids: list[int]) -> dict[int, l
     return out
 
 
+def dockets_filed_in(con: Connection, members: list[int]) -> list[dict]:
+    """The dockets a component filed in, folded to the family (ADR 0005): number, caption
+    as the Board prints it, distinct filings, and the last filing date quoted from the
+    record. Most recent activity first. Shared by the party page and /parties."""
+    marks = ",".join("?" for _ in members)
+    rows = con.execute(
+        f"""
+        SELECT d.docket_id, d.raw_docket, d.latest_payload,
+               COUNT(DISTINCT f.stb_filing_id), MAX(f.filed_date)
+          FROM filing_party_link l
+          JOIN filing_party_span s ON s.span_id = l.span_id AND s.superseded_by IS NULL
+               AND s.role = 'filed_for'
+          JOIN filing f ON f.filing_pk = s.filing_pk AND f.filed_for_raw = s.raw_text
+          JOIN docket_current d ON d.docket_id = COALESCE(
+               (SELECT parent_docket_id FROM docket WHERE docket_id = f.docket_id), f.docket_id)
+         WHERE l.superseded_by IS NULL AND l.party_id IN ({marks})
+         GROUP BY d.docket_id ORDER BY 5 DESC, 4 DESC, d.raw_docket
+        """,
+        members,
+    ).fetchall()
+    return [
+        {
+            "docket_id": did,
+            "raw": raw,
+            "caption": load_json(payload).get("title") if payload else None,
+            "filings": n,
+            "last_filed": last,
+        }
+        for did, raw, payload, n, last in rows
+    ]
+
+
+def _provenance(con: Connection, location: str | None) -> dict:
+    """A source_location column, opened for the page: a seed row or an operator's note
+    carries its note; a span-derived row carries the filing it was read from."""
+    loc = load_json(location) if location else {}
+    out = {"note": loc.get("note"), "cite": loc.get("cite"), "filing": None}
+    span_id = loc.get("span_id")
+    if span_id:
+        row = con.execute(
+            "SELECT f.stb_filing_id FROM filing_party_span s JOIN filing f USING (filing_pk)"
+            " WHERE s.span_id = ?",
+            (span_id,),
+        ).fetchone()
+        out["filing"] = row[0] if row else None
+    return out
+
+
+def party_page(con: Connection, party_id: int) -> dict | None:
+    """Everything /p/<id> shows (ADR 0015 § 5), keyed on the component's representative.
+    None if no such party. The caller compares `party_id` with the representative and
+    answers 301 when they differ. Never a position; never an inferred relationship —
+    every row here is an assertion on record with its provenance beside it."""
+    if not party_exists(con, party_id):
+        return None
+    from docketyard.parties import seed
+
+    comps = Components(con)
+    rep = comps.rep(party_id)
+    members = comps.members(rep)
+    marks = ",".join("?" for _ in members)
+    party_names = [
+        {
+            "party_id": pid,
+            "raw": raw,
+            "kind": kind,
+            "method": method,
+            "version": version,
+            "asserted_at": at,
+            **_provenance(con, loc),
+        }
+        for pid, raw, kind, method, version, at, loc in con.execute(
+            f"SELECT party_id, raw_name, name_kind, method, method_version, asserted_at,"
+            f" source_location FROM party_name WHERE party_id IN ({marks})"
+            " AND superseded_by IS NULL ORDER BY name_id",
+            members,
+        )
+    ]
+    joins = [
+        {
+            "from": a,
+            "to": b,
+            "method": method,
+            "version": version,
+            "asserted_at": at,
+            **_provenance(con, loc),
+        }
+        for a, b, method, version, at, loc in con.execute(
+            f"SELECT from_party, to_party, method, method_version, asserted_at, source_location"
+            f" FROM party_relationship WHERE rel_type = 'same_as' AND superseded_by IS NULL"
+            f" AND from_party IN ({marks}) AND to_party IN ({marks}) ORDER BY edge_id",
+            members + members,
+        )
+    ]
+    relations = []
+    for a, b, rel, reading, when, method, version, at, loc in con.execute(
+        f"""
+        SELECT r.from_party, r.to_party, r.rel_type, v.reading, r.effective_date, r.method,
+               r.method_version, r.asserted_at, r.source_location
+          FROM party_relationship r JOIN relationship_vocab v USING (rel_type)
+         WHERE v.symmetric = 0 AND r.superseded_by IS NULL
+           AND (r.from_party IN ({marks}) OR r.to_party IN ({marks}))
+         ORDER BY COALESCE(r.effective_date, ''), r.edge_id
+        """,
+        members + members,
+    ):
+        if comps.rep(a) == rep and comps.rep(b) == rep:
+            # both ends were later held to be one entity: the edge is internal to the
+            # component and would read as "X renamed to X"; it stays on record, unshown
+            continue
+        outward = comps.rep(a) == rep
+        other = comps.rep(b if outward else a)
+        relations.append(
+            {
+                "rel_type": rel,
+                "reading": reading,
+                "outward": outward,  # this party is the `from` side of the reading
+                "other_id": other,
+                "other_name": comps.display_name(other),
+                "effective_date": when,
+                "method": method,
+                "version": version,
+                "asserted_at": at,
+                **_provenance(con, loc),
+            }
+        )
+    dockets = dockets_filed_in(con, members)
+    return {
+        "party_id": rep,
+        "name": comps.display_name(rep),
+        "members": members,
+        "names": party_names,
+        "joins": joins,
+        "relations": relations,
+        "dockets": dockets,
+        "filings": sum(d["filings"] for d in dockets),
+        "agency": comps.has_name(rep, names.normalise(seed.AGENCY)),
+    }
+
+
+def join(con: Connection, a: int, b: int, note: str, cite: str | None = None) -> int:
+    """The operator holds two ids to be one entity: a live same_as edge with method human,
+    the note (and any citation) as its provenance. Both must exist and be in different
+    components; the note is required — an edge without a reason is not an assertion."""
+    if not note.strip():
+        raise ValueError("a join needs a note: why these two are one entity")
+    _both_exist(con, a, b)
+    comps = Components(con)
+    if comps.rep(a) == comps.rep(b):
+        raise ValueError(f"{a} and {b} are already one component ({comps.rep(a)})")
+    loc = {"via": "docketyard parties join", "note": note.strip()}
+    if cite:
+        loc["cite"] = cite.strip()
+    edge_id = _join(con, a, b, utcnow(), loc, version=JOIN_VERSION)
+    if edge_id is None:  # a retired edge between the pair: the seed will not re-make it either
+        raise ValueError(
+            f"a join between {a} and {b} was retired earlier; re-joining is a new decision —"
+            " record it in parties/seed.py"
+        )
+    con.commit()
+    return edge_id
+
+
+def _both_exist(con: Connection, a: int, b: int) -> None:
+    for pid in (a, b):
+        if not party_exists(con, pid):
+            raise ValueError(f"no party {pid}")
+
+
+def unjoin(con: Connection, a: int, b: int, note: str) -> int:
+    """A join found wrong (ADR 0015 § 3): the live same_as edge between the two ids is
+    retired — superseded by itself, the convention for "retired without successor" — and
+    a correction row carries the note. The members keep their ids; only the redirect
+    target moves. Returns the retired edge id."""
+    if not note.strip():
+        raise ValueError("an unjoin needs a note: why the join was wrong")
+    _both_exist(con, a, b)
+    lo, hi = min(a, b), max(a, b)
+    row = con.execute(
+        "SELECT edge_id FROM party_relationship WHERE from_party = ? AND to_party = ?"
+        " AND rel_type = 'same_as' AND superseded_by IS NULL",
+        (lo, hi),
+    ).fetchone()
+    if row is None:
+        comps = Components(con)
+        if comps.rep(a) != comps.rep(b):
+            raise ValueError(f"{a} and {b} are not joined")
+        edges = _live_joins(con, comps.members(a))
+        raise ValueError(
+            f"{a} and {b} are one component through other edges, not a direct one; the live"
+            f" edges are {', '.join(f'{x}-{y}' for x, y in edges)} — retire the wrong one"
+        )
+    edge_id = row[0]
+    con.execute(
+        "UPDATE party_relationship SET superseded_by = edge_id WHERE edge_id = ?", (edge_id,)
+    )
+    con.execute(
+        "INSERT INTO correction (target_table, target_id, note, method, method_version,"
+        " source_location, asserted_at) VALUES ('party_relationship', ?, ?, 'human', ?, ?, ?)",
+        (
+            edge_id,
+            note.strip(),
+            JOIN_VERSION,
+            json.dumps({"via": "docketyard parties unjoin", "note": note.strip()}),
+            utcnow(),
+        ),
+    )
+    con.commit()
+    comps = Components(con)
+    # a triangle of joins splits one edge at a time: the caller says what is still holding
+    still = _live_joins(con, comps.members(a)) if comps.rep(a) == comps.rep(b) else []
+    return edge_id, still
+
+
+def _live_joins(con: Connection, members: list[int]) -> list[tuple[int, int]]:
+    marks = ",".join("?" for _ in members)
+    return con.execute(
+        f"SELECT from_party, to_party FROM party_relationship WHERE rel_type = 'same_as'"
+        f" AND superseded_by IS NULL AND from_party IN ({marks}) AND to_party IN ({marks})",
+        members + members,
+    ).fetchall()
+
+
 SEARCH_LIMIT = 50
 
 
 def search(con: Connection, text: str) -> tuple[list[dict], bool]:
     """The browse view: components whose any live name contains the text, with the dockets
-    they appear in. Returns (results, truncated). A convenience, not an address."""
+    they appear in. Returns (results, truncated). Each result links to the party's
+    address (ADR 0015); the list itself is a query, not an address."""
     norm = names.normalise(text).replace("_", " ").strip()
     if not norm:
         return [], False
@@ -465,20 +709,7 @@ def search(con: Connection, text: str) -> tuple[list[dict], bool]:
     for rep in reps[:SEARCH_LIMIT]:
         members = comps.members(rep)
         marks = ",".join("?" for _ in members)
-        dockets = con.execute(
-            f"""
-            SELECT d.docket_id, d.raw_docket, COUNT(DISTINCT f.stb_filing_id)
-              FROM filing_party_link l
-              JOIN filing_party_span s ON s.span_id = l.span_id AND s.superseded_by IS NULL
-                   AND s.role = 'filed_for'
-              JOIN filing f ON f.filing_pk = s.filing_pk AND f.filed_for_raw = s.raw_text
-              JOIN docket d ON d.docket_id = COALESCE(
-                   (SELECT parent_docket_id FROM docket WHERE docket_id = f.docket_id), f.docket_id)
-             WHERE l.superseded_by IS NULL AND l.party_id IN ({marks})
-             GROUP BY d.docket_id ORDER BY 3 DESC, d.raw_docket
-            """,
-            members,
-        ).fetchall()
+        dockets = dockets_filed_in(con, members)
         aliases = con.execute(
             f"SELECT raw_name, name_kind, method, method_version FROM party_name"
             f" WHERE party_id IN ({marks}) AND superseded_by IS NULL ORDER BY name_id",

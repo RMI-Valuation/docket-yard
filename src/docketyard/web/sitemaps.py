@@ -3,19 +3,20 @@
 An index at /sitemap.xml names one file per section per page of PAGE URLs (the protocol's
 limit is 50,000; the record will pass that as the backfill lands), each rendered from the
 store and memoised on the store's version stamp so crawlers do not re-run the queries.
-`lastmod` is measured: the newest capture that touched the docket, or observed the record.
-Parties have no address (ADR 0013 addendum) and so no sitemap entry; ADR 0015, if
-accepted, adds a section here.
+`lastmod` is measured: the newest capture that touched the docket, or observed the record,
+or (for a party, ADR 0015) the newest capture holding a filing resolved to its component.
+Only a component's representative is listed: every other member id 301s to it.
 """
 
 from sqlite3 import Connection
 from xml.sax.saxutils import escape
 
 from docketyard.ingest.dockets import parse_docket_id
+from docketyard.parties import resolve
 from docketyard.web import urls
 
 PAGE = 40_000
-SECTIONS = ("pages", "dockets", "decisions", "filings")
+SECTIONS = ("pages", "dockets", "decisions", "filings", "parties")
 STATIC_PAGES = (
     "/",
     "/parties",
@@ -32,23 +33,26 @@ _RECORDS = {
     "filings": ("filing", "stb_filing_id", urls.filing_path),
 }
 _memo: dict[tuple, str] = {}
+_parties_memo: dict[str, list[tuple[int, str | None]]] = {}  # stamp -> entries
 
 
-def _count(con: Connection, name: str) -> int:
+def _count(con: Connection, name: str, stamp: str) -> int:
     if name == "pages":
         return len(STATIC_PAGES)
     if name == "dockets":
         return con.execute("SELECT COUNT(*) FROM docket WHERE parent_docket_id IS NULL").fetchone()[
             0
         ]
+    if name == "parties":
+        return len(_party_entries(con, stamp))
     table, col, _ = _RECORDS[name]
     return con.execute(f"SELECT COUNT(DISTINCT {col}) FROM {table}").fetchone()[0]
 
 
-def index(con: Connection, site: str) -> str:
+def index(con: Connection, site: str, stamp: str) -> str:
     items = []
     for s in SECTIONS:
-        pages = max(1, -(-_count(con, s) // PAGE))
+        pages = max(1, -(-_count(con, s, stamp) // PAGE))
         items += [
             f"  <sitemap><loc>https://{site}/sitemap-{s}-{n}.xml</loc></sitemap>\n"
             for n in range(1, pages + 1)
@@ -70,6 +74,35 @@ def _urlset(entries: list[tuple[str, str | None]]) -> str:
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         f"{''.join(rows)}</urlset>\n"
     )
+
+
+def _party_entries(con: Connection, stamp: str) -> list[tuple[int, str | None]]:
+    """(representative id, lastmod) for every same_as component, in id order. A thousand
+    parties today, a few thousand after the backfill: one pass per store version — the
+    index and every page of the section read the same list — not one query per party."""
+    if stamp in _parties_memo:
+        return _parties_memo[stamp]
+    _parties_memo.clear()
+    comps = resolve.Components(con)
+    touched: dict[int, str] = {}
+    for party_id, mod in con.execute(
+        """
+        SELECT l.party_id, MAX(c.captured_at)
+          FROM filing_party_link l
+          JOIN filing_party_span s ON s.span_id = l.span_id AND s.superseded_by IS NULL
+               AND s.role = 'filed_for'
+          JOIN filing f ON f.filing_pk = s.filing_pk AND f.filed_for_raw = s.raw_text
+          JOIN event e ON e.event_id = f.observed_in_event
+          JOIN capture c ON c.capture_id = e.capture_id
+         WHERE l.superseded_by IS NULL
+         GROUP BY l.party_id
+        """
+    ):
+        rep = comps.rep(party_id)
+        touched[rep] = max(touched.get(rep) or "", mod)
+    reps = sorted({comps.rep(r[0]) for r in con.execute("SELECT party_id FROM party")})
+    _parties_memo[stamp] = [(rep, touched.get(rep)) for rep in reps]
+    return _parties_memo[stamp]
 
 
 def section(con: Connection, site: str, name: str, page: int, stamp: str) -> str | None:
@@ -104,6 +137,11 @@ def section(con: Connection, site: str, name: str, page: int, stamp: str) -> str
             ident = parse_docket_id(raw)
             if ident is not None:
                 entries.append((f"{base}{urls.docket_path(ident)}", mod))
+    elif name == "parties":
+        entries = [
+            (f"{base}{urls.party_path(rep)}", mod)
+            for rep, mod in _party_entries(con, stamp)[offset : offset + PAGE]
+        ]
     else:
         table, col, path = _RECORDS[name]
         rows = con.execute(

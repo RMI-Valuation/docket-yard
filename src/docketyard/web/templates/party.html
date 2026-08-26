@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ p.name }} — {{ site_name }}{% endblock %}
+{% block description %}{{ p.name }}: filings before the Surface Transportation Board, as the Board’s “Filed For” cells name it, resolved by rule.{% endblock %}
+{% block head %}<link rel="alternate" type="application/atom+xml" title="Filings for {{ p.name }}" href="{{ party_feed_path(p.party_id) }}">{% endblock %}
+{% block main %}
+<section class="caption">
+  <div class="caption-meta"><span class="label">Party on record</span><span>Before the Surface Transportation Board</span></div>
+  <h1 class="serif as-printed">{{ p.name }}{% if p.agency %} <span class="muted small">(the agency)</span>{% endif %}</h1>
+  <p class="print-only small muted">{{ site_name }} · docketyard.org{{ party_path(p.party_id) }}</p>
+  <p class="serif record-summary muted">{{ p.filings | plural('filing') }} resolved to this party in {{ p.dockets | length | plural('docket') }}{% if p.members | length > 1 %}; {{ p.members | length }} records held to be one entity{% endif %}.</p>
+  <p class="caption-note muted">Who filed, from the Board’s “Filed For” cells, resolved by rule (<a href="/methodology">how</a>). Nothing here says what anyone argued or what any party’s position is; every name, join and succession below is an assertion on record with its source beside it.</p>
+  <div class="actions no-print">
+    <a class="btn" href="#cite">Cite</a>
+    <button class="btn" type="button" data-print>Print</button>
+  </div>
+</section>
+
+<section class="two-col">
+  <div>
+    <h2>Dockets filed in</h2>
+    {% with dockets = p.dockets %}{% include "_party_dockets.html" %}{% endwith %}
+    {% if p.dockets %}<p class="small muted">Filings whose “Filed For” cell resolves to this party, counted once per docket family, most recent first. Captions and dates as the Board prints them. Decisions carry no filer and are not counted.</p>{% endif %}
+
+    <h2 class="moved-section">Names on record</h2>
+    <table class="moved">
+      <thead><tr><th scope="col">Name</th><th scope="col">Kind</th><th scope="col">Source</th></tr></thead>
+      <tbody>
+      {% for n in p.names %}
+      <tr>
+        <td class="as-printed">{{ n.raw }}</td>
+        <td>{{ n.kind | replace('_', ' ') }}</td>
+        <td class="small muted">{{ n.method }} {{ n.version }}, {{ n.asserted_at | fmt_date }}{% if n.filing %}; from filing <a href="{{ filing_path(n.filing) }}">{{ n.filing }}</a>{% endif %}{% if n.note %}; {{ n.note }}{% endif %}{% if p.members | length > 1 %}; record {{ n.party_id }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    {% if p.joins %}
+    <h2 class="moved-section">Also known here as</h2>
+    <p class="small muted">Records held to be one entity. Each id below resolves to this page; a join found wrong is retired, and the ids keep their addresses (ADR 0015).</p>
+    <ul class="plain">
+      {% for j in p.joins %}
+      <li class="small">Records <a href="{{ party_path(j.from) }}">{{ j.from }}</a> and <a href="{{ party_path(j.to) }}">{{ j.to }}</a> held to be one — <span class="muted">{{ j.method }} {{ j.version }}, {{ j.asserted_at | fmt_date }}{% if j.note %}; {{ j.note }}{% endif %}{% if j.cite %}; see {{ j.cite }}{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if p.relations %}
+    <h2 class="moved-section">Successions and parents</h2>
+    <p class="small muted">Relationships on record, each with a cited date where the source gives one. Never inferred from filings.</p>
+    <ul class="plain">
+      {% for r in p.relations %}
+      <li class="small">{% if r.outward %}{{ p.name }} <strong>{{ r.rel_type | replace('_', ' ') }}</strong> <a href="{{ party_path(r.other_id) }}">{{ r.other_name }}</a>{% else %}<a href="{{ party_path(r.other_id) }}">{{ r.other_name }}</a> <strong>{{ r.rel_type | replace('_', ' ') }}</strong> {{ p.name }}{% endif %}{% if r.effective_date %}, effective {{ r.effective_date | fmt_date }}{% endif %} — <span class="muted">{{ r.method }} {{ r.version }}, {{ r.asserted_at | fmt_date }}{% if r.note %}; {{ r.note }}{% endif %}{% if r.cite %}; see {{ r.cite }}{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  <aside class="rail">
+    <div class="no-print">
+      <h2 id="follow">Follow this party</h2>
+      <form class="follow" method="post" action="/subscribe">
+        <input type="hidden" name="party" value="{{ p.party_id }}">
+        <label class="small muted" for="follow-email">Email address</label>
+        <input id="follow-email" name="email" type="email" required autocomplete="email" placeholder="you@example.org">
+        <fieldset class="follow-cadence">
+          <legend class="vh">How often</legend>
+          <label><input type="radio" name="cadence" value="pass" checked> As it happens</label>
+          <label><input type="radio" name="cadence" value="daily"> One email a day</label>
+        </fieldset>
+        <button class="btn" type="submit">Send confirmation</button>
+        <p class="small muted">Filings whose “Filed For” resolves to this party, in any docket. One click to stop.</p>
+      </form>
+      <p class="small muted"><a href="{{ party_feed_path(p.party_id) }}">Atom feed of filings for {{ p.name }}</a></p>
+    </div>
+    <div>
+      <h2 id="cite">Cite this party</h2>
+      <p class="cite serif">{{ p.name }}, party on record before the Surface Transportation Board</p>
+      <p class="small muted">Permanent address<br><span class="mono">docketyard.org{{ party_path(p.party_id) }}</span><br>The number is the record’s own id, never reused (ADR 0015). Names change; the address does not.</p>
+    </div>
+    <div>
+      <h2>About this record</h2>
+      <p>A party is an entity, not a string: the Board’s “Filed For” cell is cut into names and each name is matched to a party by rule. Nothing here is a claim about what a party argued. <a href="/parties">Search parties</a>.</p>
+    </div>
+  </aside>
+</section>
+{% endblock %}

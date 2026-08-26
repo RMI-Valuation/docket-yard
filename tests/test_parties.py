@@ -256,6 +256,6 @@ def test_sheet_and_parties_view(tmp_path):
     assert "NRDC" in r.text and 'data-parties="' in r.text
     r = client.get("/parties", params={"name": "nrdc"})
     assert r.status_code == 200 and "FD 36873" in r.text and "resolve-exact 1" in r.text
-    assert "never a citation" in r.text
+    assert "permanent page" in r.text  # ADR 0015: the search leads to an address
     assert "No party on record" in client.get("/parties", params={"name": "%_%"}).text
     assert "No party on record" in client.get("/parties", params={"name": "zzz"}).text

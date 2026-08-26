@@ -1,0 +1,17 @@
+{# the dockets a party filed in: number, caption, filings, last filing — one table for
+   /p/<id> and /parties (resolve.dockets_filed_in) #}
+{% if dockets %}
+<table class="moved">
+  <thead><tr><th scope="col">Docket</th><th scope="col">Caption</th><th scope="col" class="num">Filings</th><th scope="col" class="num">Last filing</th></tr></thead>
+  <tbody>
+  {% for d in dockets %}
+  <tr>
+    <td class="dk"><a href="{{ docket_path(parse_docket_id(d.raw)) }}">{{ printed_docket(parse_docket_id(d.raw)) }}</a></td>
+    <td class="as-printed">{% if d.caption %}{{ d.caption }}{% else %}<span class="muted">Not yet observed in the Board’s dockets table</span>{% endif %}</td>
+    <td class="num">{{ d.filings }}</td>
+    <td class="num"><time datetime="{{ d.last_filed or '' }}">{{ d.last_filed | fmt_date }}</time></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="muted">On record by name only; no filings resolved to it yet.</p>{% endif %}

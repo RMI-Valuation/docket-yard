@@ -150,6 +150,26 @@ def _parties(args: argparse.Namespace) -> int:
     con = db.connect(args.db)
     if args.what == "seed":
         print(resolve.load_seed(con))
+    elif args.what in ("join", "unjoin"):
+        try:
+            if args.what == "join":
+                edge, still = resolve.join(con, args.a, args.b, args.note, cite=args.cite), []
+            else:
+                edge, still = resolve.unjoin(con, args.a, args.b, args.note)
+        except ValueError as e:
+            print(f"refused: {e}")
+            return 1
+        print(
+            f"{args.what}: edge {edge}; {args.a} now resolves to"
+            f" /p/{resolve.component_of(con, args.a)}, {args.b} to"
+            f" /p/{resolve.component_of(con, args.b)}"
+        )
+        if still:  # a triangle of joins splits one edge at a time
+            print(
+                "still one component through "
+                + ", ".join(f"{x}-{y}" for x, y in still)
+                + " — retire those too"
+            )
     else:
         print(resolve.run(con))
     return 0
@@ -292,6 +312,17 @@ def main(argv: list[str] | None = None) -> int:
     pt_sub.add_parser("seed", help="load parties/seed.py (method human)").set_defaults(
         func=_parties
     )
+    for what, blurb in (
+        ("join", "hold two party ids to be one entity (a same_as edge, method human)"),
+        ("unjoin", "retire a join found wrong; the ids keep their addresses"),
+    ):
+        pj = pt_sub.add_parser(what, help=blurb)
+        pj.add_argument("a", type=int, help="a party id (the number in /p/<id>)")
+        pj.add_argument("b", type=int, help="the other party id")
+        pj.add_argument("--note", required=True, help="why — recorded as the provenance")
+        if what == "join":
+            pj.add_argument("--cite", default=None, help="a filing or decision id, or a URL")
+        pj.set_defaults(func=_parties)
 
     vk = sub.add_parser("vault", help="the address-encryption key")
     vk_sub = vk.add_subparsers(dest="what", required=True)

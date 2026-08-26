@@ -7,34 +7,37 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Webhook live test: a throwaway webhook.site endpoint follows FD 36873; after its next
-  forward entry, verify the signed delivery (token in session notes), then unsubscribe
-- Backfill pipeline on the instance, queued in tmux (2026-08-26): `wave2` documents
-  (2020–2024-07, tables done) → `wave3` tables (1996–2019) → `wave3docs` (150–250 GB through
-  the 58 GB cache; prune keeps ≥20 GB free). Logs `/srv/docketyard/wave*.log`. When each
-  ends: check `partial` months and the coverage line; then re-run extraction on RMI-AI-MACHINE
-- Seed wave 2 (after wave 3 tables land): pull the most frequent unresolved spans; extend
-  the seed with the pre-2020 roads (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
-- RMI-AI-MACHINE: text layer (benchmark step 0) done 2026-08-26 for wave 1's files —
-  4,273 PDFs in 4 min, 2 image-only, 0 failed (`/data/docketyard/text`); re-run after each
-  wave lands, pulling from S3. Step 1 sample drawn 2026-08-26: Cameron fills
-  `docs/research/benchmark/labels.csv` (guide in its README); step 2 runs once it is in
+- Webhook live test: webhook.site endpoint follows FD 36873; after its next forward entry
+  verify the signed delivery (token in session notes), then unsubscribe
+- Backfill queued in tmux on the instance (2026-08-26): `wave2` docs → `wave3` tables
+  (1996–2019) → `wave3docs` (150–250 GB through the 58 GB cache). Logs `/srv/docketyard/
+  wave*.log`. As each ends: check `partial` months and coverage; re-run extraction
+- Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
+  (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
+- RMI-AI-MACHINE: text layer done for wave 1 (`/data/docketyard/text`); re-run after each
+  wave from S3. Benchmark step 1: Cameron fills `docs/research/benchmark/labels.csv`
+  (guide in its README); step 2 runs once it is in
 - Whether/how to announce the wedge — the operator's call
-- Explainers draft (`docs/explainers.md`): Cameron reviews; [?] rows need the Board's records
-  staff; then a page per prefix
+- Explainers draft (`docs/explainers.md`): Cameron reviews; [?] rows need the Board's
+  records staff; then a page per prefix
 
 ## Next
 
-- Cameron's asks (2026-08-26), in the order agreed: (1) ADR 0015 → Accepted next session, then
-  `/p/<id>` with dockets shown as number + caption + filings + last filing (also on
-  `/parties`), 301 for folded ids, `docketyard parties join`; (2) `/contribute` draft — ideas
-  → Issues (add an idea template), code → repo + CLA, money → hello@ for now, saying what it
-  pays for and buys nothing; entity question in `licensing.md` before any formal channel;
-  (3) one search box: docket number, party name or caption words, FTS5 index, `/suggest`
-  as-you-type showing captions, `/search` works without JS, nothing stored; (4) traffic as
-  hourly counts only (route class, status, bytes, latency, bot/not) — no identifier ever;
-  needs one privacy sentence Cameron signs off
-- FD 36873 sheet is 1.1 MB / 907 entries (79 KB wired): measure on a low-end phone first
+- Cameron's asks (2026-08-26), in the order agreed, each started only when he says so:
+  (2) `/contribute` draft for his review — ideas → Issues (add an idea template), code →
+  repo + CLA, money → hello@ for now, saying what it pays for and buys nothing; entity
+  question in `licensing.md` before any formal channel; (3) one search box: docket number,
+  party name or caption words, FTS5 index, `/suggest` as-you-type showing captions,
+  `/search` works without JS, nothing stored; (4) traffic as hourly counts only (route
+  class, status, bytes, latency, bot/not) — no identifier ever; bring him the one privacy
+  sentence to sign first
+- External review 2026-08-26: `/coverage` says the waves added 54,422 filings / 3,297
+  decisions, `/stats` holds 53,018 / 2,815 — reconcile or label each so the gap is plainly
+  intentional; FD 36873 sheet is 1.1 MB / 908 entries unpaginated — measure DOM cost on a
+  low-end phone before changing anything
+- M10 deferrals: an address following two ids later joined gets each filing twice per pass;
+  the follow form after a 301 follows the representative (a later split narrows it);
+  `--cite` is free text; `search()`/`Components.members()` costs — re-measure after wave 3
 - Enriched layer into the snapshot/JSON after the attorney review (`licensing.md` § Open):
   remove `dump.HELD_TABLES`, restore the Parties block, bump `JSON_SHAPE`, announce on `/data`
 - M8 deferrals: dead webhook endpoints self-suppress after N failures; per-pass delivery
@@ -42,14 +45,11 @@ by pre-commit: when it fires, prune.
 - `docketyard gap open/close` so a recorded outage has a `coverage_gap` row for the
   coverage page and the late-delivery marking to cite (today: nothing writes that table)
 - Key rotation pass for `DY_EMAIL_KEY` (decrypt under old, seal under new; four sealed
-  columns across three tables since 0008 — `subscription.secret_enc` is the fourth;
-  tables) — unwritten; ADR 0014 records it as the known gap
+  columns across three tables since 0008) — unwritten; ADR 0014 records the gap
 - Credentials ADR follow-up: Lightsail has no instance profile, so production runs on a
   bucket-scoped IAM user's keys; decide EC2 t4g / Roles Anywhere / accept (ADR 0012 gap)
-- Errata re-check is built but unscheduled: needs a last-checked column (schema change) so
-  a refresh pass walks the corpus oldest-checked first under a per-pass limit
-- Poller bookkeeping for permanently-bad items (ingest raises, 404 attachment): an attempt
-  counter is a schema change; today they are retried and re-logged every pass
+- Two schema-change chores: errata re-check needs a last-checked column (walk oldest-first,
+  per-pass limit); permanently-bad poll items need an attempt counter (retried every pass)
 - ADR 0012 addendum recording the blob cache design (sync + prune) once wave 3 proves it
 
 ## Parked
