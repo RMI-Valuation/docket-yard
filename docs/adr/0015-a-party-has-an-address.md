@@ -79,3 +79,15 @@ Checked against `docs/validation-queries.md` before acceptance:
 
 What this changes in ADR 0013's boundary: parties now hold a permanent address; places,
 labels and folds still do not.
+
+## Addendum (2026-08-26, at build): what the promise makes permanent
+
+Raised by the schema-critic during the build. Decision 1 makes the **`party` table part of
+the permanent record**: it is carried forward as data on any rebuild of the store, the way
+subscriptions are, and is never re-minted from captures — a rebuild that re-ran resolution
+would renumber every address. This supersedes the narrower rule in `docs/party-module.md`
+(only subscribed-to rows survive). Migration 0009 forbids deleting or renumbering a party
+row at the schema, and declares the convention for a withdrawn join: a `same_as` edge whose
+`superseded_by` points at itself is retired without successor, and the seed never re-makes
+an edge that was retired. The `correction` table gains `method_version` and
+`source_location` so a withdrawal carries ADR 0007's fields as the join did.
