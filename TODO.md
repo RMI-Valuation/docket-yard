@@ -8,8 +8,6 @@ by pre-commit: when it fires, prune.
 
 - M3 deploy: Dockerfile + compose (web, ingest, caddy) + Litestream;
   release-triggered image build; the instance; move the registry from rmi-ai-machine
-- Self-host the two fonts (interface.md) before anything ships — the pages fall back to
-  system faces today
 
 ## Next
 

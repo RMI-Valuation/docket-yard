@@ -1,5 +1,9 @@
-/* Docket Yard — the design system from docs/design, as tokens. Fonts are self-hosted in
-   production (interface.md); until the files are added, the fallback stacks carry. */
+/* Docket Yard — the design system from docs/design, as tokens. The two faces are
+   self-hosted (interface.md: a legal-research site must not leak its readers to a font
+   host); both are SIL Open Font License, texts in static/fonts/. */
+@font-face { font-family: "Newsreader"; font-style: normal; font-weight: 400 600; font-display: swap; src: url(/static/fonts/newsreader-normal.woff2) format("woff2"); }
+@font-face { font-family: "Newsreader"; font-style: italic; font-weight: 400 600; font-display: swap; src: url(/static/fonts/newsreader-italic.woff2) format("woff2"); }
+@font-face { font-family: "Source Sans 3"; font-style: normal; font-weight: 400 600; font-display: swap; src: url(/static/fonts/source-sans-3-normal.woff2) format("woff2"); }
 :root {
   --paper: #faf8f4; --ink: #1f1d1a; --muted: #6b665e; --hair: #dcd7cd; --tint: #f2eee6;
   --accent: #8a3b2a; --row-pad: 12px; --summary-lines: 40; --ids: none;
