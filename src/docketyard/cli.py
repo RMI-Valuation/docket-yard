@@ -170,9 +170,9 @@ def _parties(args: argparse.Namespace) -> int:
                 + ", ".join(f"{x}-{y}" for x, y in still)
                 + " — retire those too"
             )
-        print(f"search index: {search.rebuild(con)}")  # the names moved; the index follows
     else:
         print(resolve.run(con))
+    print(f"search index: {search.rebuild(con)}")  # names or edges moved; the index follows
     return 0
 
 

@@ -225,7 +225,8 @@ def create_app(
         path = _path(request)
         if request.method not in ("GET", "HEAD") or path.startswith(MOUNTS):
             return await call_next(request)
-        if path.startswith(NEVER_CACHE):
+        if path.startswith(NEVER_CACHE) or (path == "/search" and request.query_params.get("q")):
+            # a result page's address carries what was typed: no validator, no cache
             response = await call_next(request)
             response.headers["Cache-Control"] = "no-store"
             return response
@@ -655,9 +656,7 @@ def create_app(
             hits = search.search(con, q)
         finally:
             con.close()
-        response = render(request, "search.html", query=q, hits=hits)
-        response.headers["Cache-Control"] = "no-store"
-        return response
+        return render(request, "search.html", query=q, hits=hits, canonical=None)
 
     @app.get("/suggest")
     def suggest(q: str = ""):

@@ -147,11 +147,7 @@ def forward_pass(
         except Exception as e:  # noqa: BLE001 — delivery must never cost the next capture
             con.rollback()
             summary["problems"].append(f"alerts failed ({type(e).__name__}: {e})")
-    try:
-        summary["search"] = search.rebuild(con)
-    except Exception as e:  # noqa: BLE001 — the index is a convenience; the record comes first
-        con.rollback()
-        summary["problems"].append(f"search rebuild failed ({type(e).__name__}: {e})")
+    summary["search"] = search.rebuild_or_report(con, summary["problems"])
     log(f"poll {start}..{end}: {summary}")
     return summary
 
