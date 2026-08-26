@@ -1,4 +1,4 @@
-"""Migration 0004: the subscription tables and the constraints the promises rest on."""
+"""Migrations 0004/0005: the subscription tables and the constraints the promises rest on."""
 
 import sqlite3
 
@@ -15,9 +15,17 @@ def _docket(con):
 
 def _subscribe(con, email, docket_id, cadence="pass", status="pending", mark=None):
     return con.execute(
-        "INSERT INTO subscription (email, docket_id, cadence, status, high_water_event_id,"
-        " created_at, expires_at) VALUES (?, ?, ?, ?, ?, 't', ?)",
-        (email, docket_id, cadence, status, mark, "t" if status == "pending" else None),
+        "INSERT INTO subscription (email_hash, email_enc, docket_id, cadence, status,"
+        " high_water_event_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, 't', ?)",
+        (
+            email,
+            "enc:" + email,
+            docket_id,
+            cadence,
+            status,
+            mark,
+            "t" if status == "pending" else None,
+        ),
     ).lastrowid
 
 
@@ -38,7 +46,7 @@ def _event(con, docket_id):
 
 def _alert(con, status):
     return con.execute(
-        "INSERT INTO alert (email, cadence, status, created_at) VALUES ('a@example.org',"
+        "INSERT INTO alert (email_hash, email_enc, cadence, status, created_at) VALUES ('h', 'e',"
         " 'pass', ?, 't')",
         (status,),
     ).lastrowid
@@ -53,7 +61,7 @@ def _carry(con, alert_id, subscription_id, event_id):
 
 def test_migration_applies_and_stamps():
     con = db.connect(":memory:")
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 4
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 5
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     assert {"subscription", "subscription_token", "alert", "alert_event"} <= tables
     assert {"email_suppression", "coverage_gap"} <= tables
@@ -67,8 +75,6 @@ def test_one_live_subscription_per_address_and_docket():
         _subscribe(con, "a@example.org", d, cadence="daily")
     with pytest.raises(sqlite3.IntegrityError):  # cadence is a closed set
         _subscribe(con, "b@example.org", d, cadence="weekly")
-    with pytest.raises(sqlite3.IntegrityError):  # addresses are stored normalised, always
-        _subscribe(con, "B@Example.org", d)
     with pytest.raises(sqlite3.IntegrityError):  # there is no cancelled state to retain
         _subscribe(con, "c@example.org", d, status="cancelled")
 
@@ -82,8 +88,8 @@ def test_active_requires_a_high_water_mark():
     _subscribe(con, "a@example.org", d, status="active", mark=0)
     with pytest.raises(sqlite3.IntegrityError):  # and a pending row must carry its expiry
         con.execute(
-            "INSERT INTO subscription (email, docket_id, cadence, status, created_at)"
-            " VALUES ('b@example.org', ?, 'pass', 'pending', 't')",
+            "INSERT INTO subscription (email_hash, email_enc, docket_id, cadence, status,"
+            " created_at) VALUES ('b', 'e', ?, 'pass', 'pending', 't')",
             (d,),
         )
 

@@ -680,6 +680,15 @@ promise (`alerts.md`):
 - **`email_suppression`** is consulted by every send from day one, before any bounce path
   feeds it.
 
+## Revision notes as code met the paper (M5, 2026-08-26)
+
+Migration `0005_encrypted_addresses.sql` replaces every `email` column with `email_hash`
+(HMAC-SHA256 under the vault key; what uniqueness, suppression and rate limits match on)
+and `email_enc` (Fernet ciphertext; what the sender decrypts). `email_suppression` keeps
+only the hash. The tables were rebuilt, not altered, and their two test rows dropped —
+the one migration in the set that does not carry every row forward, recorded in its
+header. The key is held outside the store (`alerts/vault.py`).
+
 ## What this draft deliberately does not model
 
 Deadlines and procedural tracks (C4), outcome coding (M5), cross-agency joins (F6) beyond the

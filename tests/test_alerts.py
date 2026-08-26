@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 
-from docketyard.alerts import build, mail, subscriptions
+from docketyard.alerts import build, mail, subscriptions, vault
 from docketyard.capture import records
 from docketyard.capture.stb import FILINGS
 from docketyard.ingest import observations
@@ -275,8 +275,8 @@ def test_web_flow_subscribe_confirm_unsubscribe(store):
     assert "Unsubscribe" in client.get(f"/s/unsubscribe/{unsub}").text  # a page, not an action
     assert client.post(f"/s/unsubscribe/{unsub}").status_code == 200
     con = db.connect(path)
-    gone = "SELECT COUNT(*) FROM subscription WHERE email = 'g@example.org'"
-    assert con.execute(gone).fetchone()[0] == 0
+    gone = "SELECT COUNT(*) FROM subscription WHERE email_hash = ?"
+    assert con.execute(gone, (vault.current().hash("g@example.org"),)).fetchone()[0] == 0
     assert con.execute("SELECT COUNT(*) FROM subscription_token").fetchone()[0] == 0
     assert client.post(f"/s/unsubscribe/{unsub}").status_code == 200  # idempotent, same answer
 

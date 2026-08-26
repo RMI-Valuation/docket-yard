@@ -12,6 +12,7 @@ dependencies = [
     "uvicorn>=0.30",
     "python-multipart>=0.0.9",  # FastAPI form parsing (the subscribe form)
     "tzdata",  # zoneinfo needs a database: none on Windows, none promised in slim images
+    "cryptography>=42",  # Fernet for addresses at rest (alerts/vault.py); stdlib has no AEAD
 ]
 
 [project.optional-dependencies]

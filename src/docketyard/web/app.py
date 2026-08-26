@@ -24,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from docketyard import __version__
-from docketyard.alerts import mail, subscriptions
+from docketyard.alerts import mail, subscriptions, vault
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.store import coverage, home, projections, sheet
 from docketyard.store.db import MIGRATIONS
@@ -287,7 +287,7 @@ def create_app(
     ):
         """Whatever happens — new, pending, already active, suppressed, rate-limited — the
         answer is the same page, so nothing about an address can be learned here."""
-        if sender is None:  # never pretend a mail is on its way
+        if sender is None or not vault.is_open():  # never pretend a mail is on its way
             return message(
                 request,
                 "Subscriptions are not available right now",
@@ -337,7 +337,7 @@ def create_app(
                     subscriptions.withdraw_token(con, token)
                 finally:
                     con.close()
-                print(f"confirmation mail failed ({type(e).__name__}: {e})")
+                print(f"confirmation mail failed ({mail.describe_failure(e)})")
         return message(
             request,
             "Check your inbox",

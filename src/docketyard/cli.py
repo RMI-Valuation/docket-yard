@@ -4,7 +4,7 @@ import argparse
 import os
 import sys
 
-from docketyard.alerts import build, mail
+from docketyard.alerts import build, mail, vault
 from docketyard.capture import documents, poll, walk
 from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS, PAGE_CLAMP, StbClient
 from docketyard.ingest import dockets, observations
@@ -122,10 +122,18 @@ def _poll(args: argparse.Namespace) -> int:
 
 
 def _sender():
+    vault.configure(vault.Vault.from_env())
+    if not vault.is_open():
+        print("DY_EMAIL_KEY not set: the address vault is closed; subscriptions are off")
     try:
         return mail.Sender.from_env()
     except KeyError:
         return None
+
+
+def _vault_new_key(args: argparse.Namespace) -> int:
+    print(vault.Vault.new_key())
+    return 0
 
 
 def _serve(args: argparse.Namespace) -> int:
@@ -205,6 +213,12 @@ def main(argv: list[str] | None = None) -> int:
     pl.add_argument("--interval", type=float, default=2.0)
     pl.add_argument("--every", type=float, help="seconds between passes; omit for one pass")
     pl.set_defaults(func=_poll, parser=pl)
+
+    vk = sub.add_parser("vault", help="the address-encryption key")
+    vk_sub = vk.add_subparsers(dest="what", required=True)
+    vk_sub.add_parser(
+        "new-key", help="print a fresh DY_EMAIL_KEY; keep it in .env and a password manager"
+    ).set_defaults(func=_vault_new_key)
 
     st = sub.add_parser("status", help="counts for captures, records, documents, events")
     st.set_defaults(func=_status)

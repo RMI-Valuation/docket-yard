@@ -58,6 +58,22 @@ pass in its log, `problems: []` when healthy. A pass whose slice reads `partial`
 is the no-results trap (criteria, sort or nonce), not a quiet week — the window is seven
 days precisely so that an empty result is implausible.
 
+## The address key (`DY_EMAIL_KEY`)
+
+Subscriber addresses are stored as an HMAC plus a Fernet ciphertext under this key
+(`alerts/vault.py`, migration 0005). It lives in `/srv/docketyard/.env` on the instance and
+in the operator's password manager — **nowhere else**: not the store, not S3, not a backup,
+not the repo. `docketyard vault new-key` prints a fresh one.
+
+- **Without the key** both services fail closed: the subscribe form answers 503 and the
+  poller builds no alerts (`skipped: no sender or no DY_EMAIL_KEY` in the pass line).
+- **Losing the key** loses every subscription (the ciphertext is unreadable). Recovery is
+  to generate a new key and let people subscribe again; there is nothing else to restore.
+- **Rotating** the key needs a re-encryption pass (decrypt under old, seal under new) — not
+  written yet; do it in one sitting with both keys in the environment.
+- **Restoring the store elsewhere** (a dev copy, a new box) restores ciphertext. That is the
+  point: a `litestream restore` on a laptop holds no readable address.
+
 ## Mail (SES, us-east-2)
 
 Set up 2026-08-26. Identity `docketyard.org` verified (DKIM: three `*._domainkey` CNAMEs;

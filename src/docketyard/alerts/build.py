@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 from sqlite3 import Connection
 from zoneinfo import ZoneInfo
 
-from docketyard.alerts import subscriptions
+from docketyard.alerts import mail, subscriptions, vault
 from docketyard.alerts.mail import Outbound, Sender
 from docketyard.capture.stb import DECISIONS, FILINGS
 from docketyard.ingest.dockets import parse_docket_id
@@ -34,7 +34,7 @@ MAX_ATTEMPTS = 3
 @dataclass(frozen=True)
 class Carried:
     subscription_id: int
-    email: str
+    email_hash: str  # the address itself is never read while building
     event_id: int
     docket_raw: str
     late: bool
@@ -50,7 +50,7 @@ def pending_events(con: Connection, cadence: str) -> list[Carried]:
     marks = ",".join("?" for _ in ALERTING_EVENT_TYPES)
     rows = con.execute(
         f"""
-        SELECT s.subscription_id, s.email, e.event_id, d.raw_docket, c.captured_at
+        SELECT s.subscription_id, s.email_hash, e.event_id, d.raw_docket, c.captured_at
           FROM subscription s
           JOIN docket d ON d.docket_id = s.docket_id OR d.parent_docket_id = s.docket_id
           JOIN event e ON e.docket_id = d.docket_id AND e.event_id > s.high_water_event_id
@@ -63,10 +63,10 @@ def pending_events(con: Connection, cadence: str) -> list[Carried]:
     ).fetchall()
     late_memo: dict[str, bool] = {}
     out = []
-    for sid, email, eid, raw, captured in rows:
+    for sid, h, eid, raw, captured in rows:
         if captured not in late_memo:
             late_memo[captured] = _is_late(con, captured)
-        out.append(Carried(sid, email, eid, raw, late_memo[captured], captured))
+        out.append(Carried(sid, h, eid, raw, late_memo[captured], captured))
     return out
 
 
@@ -104,13 +104,19 @@ def build(con: Connection, cadence: str, now: datetime | None = None) -> list[in
     # one alert per group: the address alone for a digest, the subscription otherwise
     groups: dict[tuple[str, int | None], list[Carried]] = {}
     for c in carried:
-        key = (c.email, None if cadence == "daily" else c.subscription_id)
+        key = (c.email_hash, None if cadence == "daily" else c.subscription_id)
         groups.setdefault(key, []).append(c)
     ids = []
-    for (email, _), items in groups.items():
+    for (h, _), items in groups.items():
+        # the ciphertext is copied from the subscription; the alert never sees the address
+        enc = con.execute(
+            "SELECT email_enc FROM subscription WHERE subscription_id = ?",
+            (items[0].subscription_id,),
+        ).fetchone()[0]
         alert_id = con.execute(
-            "INSERT INTO alert (email, cadence, status, created_at) VALUES (?, ?, 'pending', ?)",
-            (email, cadence, t),
+            "INSERT INTO alert (email_hash, email_enc, cadence, status, created_at)"
+            " VALUES (?, ?, ?, 'pending', ?)",
+            (h, enc, cadence, t),
         ).lastrowid
         marks: dict[int, int] = {}
         for c in items:
@@ -216,7 +222,8 @@ def _event_line(con: Connection, event_id: int, site: str) -> list[str]:
 
 
 def render(con: Connection, alert_id: int, unsubscribe_url: str, site: str) -> Outbound:
-    email = con.execute("SELECT email FROM alert WHERE alert_id = ?", (alert_id,)).fetchone()[0]
+    enc = con.execute("SELECT email_enc FROM alert WHERE alert_id = ?", (alert_id,)).fetchone()[0]
+    email = vault.current().open(enc)  # the only moment an address is readable: to send
     rows = con.execute(
         "SELECT ae.event_id, ae.late, cg.started_at, cg.ended_at FROM alert_event ae"
         " LEFT JOIN coverage_gap cg ON cg.gap_id = ae.late_gap_id"
@@ -279,15 +286,15 @@ def deliver(con: Connection, sender: Sender, site: str, log=print) -> dict:
     the session without charging the alerts still waiting."""
     stats = {"sent": 0, "failed": 0, "suppressed": 0}
     pending = con.execute(
-        "SELECT alert_id, email FROM alert WHERE status = 'pending' AND attempts < ?"
+        "SELECT alert_id, email_hash FROM alert WHERE status = 'pending' AND attempts < ?"
         " ORDER BY alert_id",
         (MAX_ATTEMPTS,),
     ).fetchall()
     if not pending:
         return stats
     with sender.session() as session:
-        for alert_id, email in pending:
-            if con.execute("SELECT 1 FROM email_suppression WHERE email = ?", (email,)).fetchone():
+        for alert_id, h in pending:
+            if subscriptions.is_suppressed(con, h):
                 con.execute("UPDATE alert SET status = 'failed' WHERE alert_id = ?", (alert_id,))
                 stats["suppressed"] += 1
                 con.commit()
@@ -321,7 +328,7 @@ def deliver(con: Connection, sender: Sender, site: str, log=print) -> dict:
                 break
             except Exception as e:  # noqa: BLE001 — this message was refused; retried later
                 stats["failed"] += 1
-                log(f"alert {alert_id}: send failed ({type(e).__name__}: {e})")
+                log(f"alert {alert_id}: send failed ({mail.describe_failure(e)})")
                 continue
             con.execute(
                 "UPDATE alert SET status = 'sent', sent_at = ?, message_id = ? WHERE alert_id = ?",
@@ -338,8 +345,8 @@ def run_after_pass(con: Connection, sender: Sender | None, site: str, now=None, 
     marks stay put, so the first configured pass folds the backlog into one alert per
     subscription instead of one per historical pass."""
     swept = subscriptions.sweep(con, now)
-    if sender is None:
-        return {"swept": swept, "built": 0, "skipped": "no sender"}
+    if sender is None or not vault.is_open():
+        return {"swept": swept, "built": 0, "skipped": "no sender or no DY_EMAIL_KEY"}
     built = build(con, "pass", now)
     if daily_due(con, now):
         built += build(con, "daily", now)

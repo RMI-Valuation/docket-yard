@@ -93,3 +93,5 @@ def test_session_returns_the_providers_message_id():
     with pytest.raises(smtplib.SMTPRecipientsRefused):
         session.send(mail.Outbound(to="refuse@example.org", subject="s", text="t"))
     assert fake.resets == 1  # the envelope is cleared for the next message
+    refused = smtplib.SMTPRecipientsRefused({"refuse@example.org": (550, b"no")})
+    assert mail.describe_failure(refused) == "SMTPRecipientsRefused: 550 no"  # no address

@@ -10,8 +10,10 @@ by pre-commit: when it fires, prune.
   watch the first alert land, then delete this line
 - SES bounce/complaint feedback path (SNS topic → `email_suppression`) before any real
   volume; until then the SES reputation dashboard is checked by hand
-- `hello@docketyard.org`: Cameron enabling Cloudflare Email Routing → camrex@; send a test
-  once done (the about page already names it)
+- After v2026.08.10 (encrypted addresses): re-make Cameron's FD 36873 subscription (0005
+  drops the two test rows); Cameron copies `DY_EMAIL_KEY` from `~/.docketyard-prod.env`
+  into the password manager, then deletes that file and the IAM key JSON
+- Key rotation pass for `DY_EMAIL_KEY` (decrypt under old, seal under new) — unwritten
 - `docketyard gap open/close` so a recorded outage has a `coverage_gap` row for the
   coverage page and the late-delivery marking to cite
 - DMARC `p=quarantine` is now set on docketyard.org (2026-08-26) — any other sender on the

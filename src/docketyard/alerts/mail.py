@@ -30,6 +30,25 @@ SES_SMTP_VERSION = b"\x04"
 SMTP_PORT = 587
 
 
+def describe_failure(e: BaseException) -> str:
+    """A log line for a failed send that names the error, never the recipient: a refused
+    recipient's str() is the address itself, and the app log must hold no addresses."""
+    if isinstance(e, smtplib.SMTPRecipientsRefused):
+        codes = ", ".join(
+            f"{c} {r.decode(errors='replace') if isinstance(r, bytes) else r}"
+            for c, r in e.recipients.values()
+        )
+        return f"SMTPRecipientsRefused: {codes}"
+    if isinstance(e, smtplib.SMTPResponseException):
+        msg = (
+            e.smtp_error.decode(errors="replace")
+            if isinstance(e.smtp_error, bytes)
+            else e.smtp_error
+        )
+        return f"{type(e).__name__}: {e.smtp_code} {msg[:80]}"
+    return type(e).__name__
+
+
 def smtp_password(secret_access_key: str, region: str) -> str:
     """AWS's published derivation of an SES SMTP password from an IAM secret key."""
 

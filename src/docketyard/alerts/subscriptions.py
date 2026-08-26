@@ -1,10 +1,12 @@
-"""Subscriptions: an email address watching one docket family (ADR 0011, migration 0004).
+"""Subscriptions: an email address watching one docket family (ADR 0011, migration 0005).
 
-Tokens are 256 random bits, handed out once and stored only as SHA-256. A confirmation
-link expires; an unsubscribe link never does and a fresh one is minted for every alert, so
-the link in any alert ever sent still works — and an unknown one is answered "already
-unsubscribed", which is true. Unsubscribing DELETES: the subscription, its tokens, its
-alert history, and any alert row of that address left with nothing in it.
+Addresses are stored as an HMAC and a ciphertext under the vault key (alerts/vault.py);
+nothing here ever writes a readable address. Tokens are 256 random bits, handed out once
+and stored only as SHA-256. A confirmation link expires; an unsubscribe link never does
+and a fresh one is minted for every alert, so the link in any alert ever sent still works
+— and an unknown one is answered "already unsubscribed", which is true. Unsubscribing
+DELETES: the subscription, its tokens, its alert history, and any alert row of that
+address left with nothing in it.
 """
 
 import hashlib
@@ -12,6 +14,8 @@ import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from sqlite3 import Connection
+
+from docketyard.alerts import vault
 
 CONFIRM_TTL_HOURS = 48  # the one number the mail and the expired page both quote
 CONFIRM_TTL = timedelta(hours=CONFIRM_TTL_HOURS)
@@ -21,14 +25,13 @@ CONFIRM_MAILS_PER_HOUR = 3  # per address, whatever the docket (ADR 0011: rate-l
 @dataclass(frozen=True)
 class Subscription:
     subscription_id: int
-    email: str
+    email: str  # decrypted for the caller that needs to address the person
     docket_id: int
     cadence: str
     status: str
 
 
-def normalise_email(raw: str) -> str:
-    return raw.strip().lower()
+normalise_email = vault.normalise_email  # one definition; the vault hashes the same form
 
 
 def plausible_email(email: str) -> bool:
@@ -54,6 +57,14 @@ def _now(now: datetime | None) -> datetime:
     return now or datetime.now(UTC)
 
 
+def is_suppressed(con: Connection, email_hash: str) -> bool:
+    return bool(
+        con.execute(
+            "SELECT 1 FROM email_suppression WHERE email_hash = ?", (email_hash,)
+        ).fetchone()
+    )
+
+
 def subscribe(
     con: Connection, email: str, docket_id: int, cadence: str, now: datetime | None = None
 ) -> str | None:
@@ -61,20 +72,22 @@ def subscribe(
     or None when nothing should be mailed: the address is already active on this docket,
     is suppressed, or has hit the per-hour confirmation limit. The web tier responds the
     same way in every case (no enumeration)."""
+    v = vault.current()
     email = normalise_email(email)
+    h = v.hash(email)
     t = _now(now)
-    if con.execute("SELECT 1 FROM email_suppression WHERE email = ?", (email,)).fetchone():
+    if is_suppressed(con, h):
         return None
     recent = con.execute(
         "SELECT COUNT(*) FROM subscription_token t JOIN subscription s USING (subscription_id)"
-        " WHERE s.email = ? AND t.purpose = 'confirm' AND t.created_at > ?",
-        (email, _iso(t - timedelta(hours=1))),
+        " WHERE s.email_hash = ? AND t.purpose = 'confirm' AND t.created_at > ?",
+        (h, _iso(t - timedelta(hours=1))),
     ).fetchone()[0]
     if recent >= CONFIRM_MAILS_PER_HOUR:
         return None
     row = con.execute(
-        "SELECT subscription_id, status FROM subscription WHERE email = ? AND docket_id = ?",
-        (email, docket_id),
+        "SELECT subscription_id, status FROM subscription WHERE email_hash = ? AND docket_id = ?",
+        (h, docket_id),
     ).fetchone()
     expires = _iso(t + CONFIRM_TTL)
     if row and row[1] == "active":
@@ -88,9 +101,9 @@ def subscribe(
         )
     else:
         sid = con.execute(
-            "INSERT INTO subscription (email, docket_id, cadence, status, created_at,"
-            " expires_at) VALUES (?, ?, ?, 'pending', ?, ?)",
-            (email, docket_id, cadence, _iso(t), expires),
+            "INSERT INTO subscription (email_hash, email_enc, docket_id, cadence, status,"
+            " created_at, expires_at) VALUES (?, ?, ?, ?, 'pending', ?, ?)",
+            (h, v.seal(email), docket_id, cadence, _iso(t), expires),
         ).lastrowid
     token = new_token()
     con.execute(
@@ -132,11 +145,14 @@ def confirm(con: Connection, token: str, now: datetime | None = None) -> Subscri
 
 def get(con: Connection, subscription_id: int) -> Subscription | None:
     row = con.execute(
-        "SELECT subscription_id, email, docket_id, cadence, status FROM subscription"
+        "SELECT subscription_id, email_enc, docket_id, cadence, status FROM subscription"
         " WHERE subscription_id = ?",
         (subscription_id,),
     ).fetchone()
-    return Subscription(*row) if row else None
+    if row is None:
+        return None
+    sid, enc, docket_id, cadence, status = row
+    return Subscription(sid, vault.current().open(enc), docket_id, cadence, status)
 
 
 def unsubscribe_token(con: Connection, subscription_id: int, now: datetime | None = None) -> str:
@@ -159,31 +175,45 @@ def withdraw_token(con: Connection, token: str) -> None:
 def unsubscribe(con: Connection, token: str) -> bool:
     """Delete everything about the subscription the token names — and, for a daily
     digest, every daily subscription of the address, since the email it came from covered
-    them all. Returns whether a row existed; the page says the same thing either way."""
+    them all. Returns whether a row existed; the page says the same thing either way.
+    Needs no key: everything is matched on the hash."""
     row = con.execute(
-        "SELECT s.subscription_id, s.email, s.cadence FROM subscription_token k"
+        "SELECT s.subscription_id, s.email_hash, s.cadence FROM subscription_token k"
         " JOIN subscription s USING (subscription_id)"
         " WHERE k.token_sha256 = ? AND k.purpose = 'unsubscribe'",
         (token_hash(token),),
     ).fetchone()
     if row is None:
         return False
-    sid, email, cadence = row
+    sid, h, cadence = row
     if cadence == "daily":
-        con.execute("DELETE FROM subscription WHERE email = ? AND cadence = 'daily'", (email,))
+        con.execute("DELETE FROM subscription WHERE email_hash = ? AND cadence = 'daily'", (h,))
     else:
         con.execute("DELETE FROM subscription WHERE subscription_id = ?", (sid,))  # cascades
-    _forget_empty_alerts(con, email)
+    _forget_empty_alerts(con, h)
     con.commit()
     return True
 
 
-def _forget_empty_alerts(con: Connection, email: str) -> None:
+def _forget_empty_alerts(con: Connection, email_hash: str) -> None:
     con.execute(
-        "DELETE FROM alert WHERE email = ? AND NOT EXISTS"
+        "DELETE FROM alert WHERE email_hash = ? AND NOT EXISTS"
         " (SELECT 1 FROM alert_event ae WHERE ae.alert_id = alert.alert_id)",
-        (email,),
+        (email_hash,),
     )
+
+
+def suppress(con: Connection, email: str, reason: str, now: datetime | None = None) -> None:
+    """Never mail this address again. The ciphertext is kept only so a key rotation can
+    re-derive the hash; the address is never read back."""
+    v = vault.current()
+    email = normalise_email(email)
+    con.execute(
+        "INSERT OR IGNORE INTO email_suppression (email_hash, email_enc, reason, created_at)"
+        " VALUES (?, ?, ?, ?)",
+        (v.hash(email), v.seal(email), reason, _iso(_now(now))),
+    )
+    con.commit()
 
 
 def sweep(con: Connection, now: datetime | None = None) -> int:

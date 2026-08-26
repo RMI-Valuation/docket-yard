@@ -7,6 +7,7 @@
 # the mail sender (docketyard.alerts.mail) derives its SES SMTP password from these; both
 # web (confirmation mail) and ingest (alerts) send
 x-mail: &mail
+  DY_EMAIL_KEY: ${DY_EMAIL_KEY:-}  # addresses at rest; see docs/runbook.md
   DY_SES_REGION: ${DY_SES_REGION:-${AWS_REGION}}
   DY_MAIL_FROM: ${DY_MAIL_FROM:-Docket Yard <alerts@docketyard.org>}
   DY_HOST: ${DY_HOST:-docketyard.org}

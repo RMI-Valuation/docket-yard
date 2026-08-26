@@ -65,6 +65,13 @@ button does the confirming, because corporate mail gateways fetch links on deliv
 fetch is not consent. The same holds for unsubscribing from a page; the RFC 8058 one-click
 POST from a mail client's own button is honoured directly.
 
+**Addresses are never readable at rest** (decided 2026-08-26, migration 0005): the store
+holds an HMAC of the address for matching and a Fernet ciphertext for sending, under a
+key (`DY_EMAIL_KEY`) that lives only in the instance environment and the operator's
+password manager — never in the store, S3, or a backup. Every copy of the store is
+ciphertext. The operator can decrypt, because sending requires it; the privacy page says
+so. Losing the key loses every subscription; people subscribe again.
+
 **Unsubscribing forgets you.** The subscription row and everything about it is deleted,
 not flagged (ADR 0011). One-click unsubscribe from any old alert still answers "you are
 unsubscribed", because that is true.

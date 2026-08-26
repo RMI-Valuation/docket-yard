@@ -17,6 +17,7 @@
   <p>To email you, {{ site_name }} has to hold your address. That is the only case in which it holds anything about you, and it holds the minimum:</p>
   <ul>
     <li><strong>What is stored:</strong> your email address, the docket you follow, whether you chose as-it-happens or daily, when you confirmed, and a record of which entries were sent to you (so nothing is sent twice). Nothing else — no name, no organisation, no profile.</li>
+    <li><strong>The address is stored encrypted.</strong> The record holds a keyed hash of it (to match it) and an encrypted copy (to mail it); the key is kept only on the serving machine and in the operator's own safekeeping, never in the record, its backups, or any copy. A backup or a copy of the record cannot be read back into addresses without that key. The operator can decrypt, because sending mail requires it.</li>
     <li><strong>Nothing is sent until you confirm.</strong> A request to follow a docket sits unconfirmed for at most {{ confirm_ttl_hours }} hours and is then deleted; a fetch of the confirmation link by a mail scanner does not count, because confirming is a button you press.</li>
     <li><strong>Emails carry no tracking</strong> — no images that report being opened, no links that identify you when clicked. They are plain text. The one link that identifies your subscription is the one that stops it.</li>
     <li><strong>Unsubscribing deletes.</strong> The address, the docket, and the record of what was sent are removed, not flagged. There is no "cancelled" list.</li>
@@ -25,9 +26,9 @@
   </ul>
 
   <h2>What can be produced under legal process</h2>
-  <p>Only what exists: the subscription rows above, for addresses that are currently following a docket. There is no reading history, no visitor log with identities in it, and no record of past subscriptions. {{ site_name }} will not volunteer anything, will insist that any demand be lawful and specific, and will tell the affected person unless a court forbids it.</p>
+  <p>Only what exists: the subscription rows above, for addresses that are currently following a docket — and producing them in readable form would take the operator's key, since the record itself holds only ciphertext. There is no reading history, no visitor log with identities in it, and no record of past subscriptions. Emails are sent through Amazon Simple Email Service, which necessarily sees the addresses it delivers to. {{ site_name }} will not volunteer anything, will insist that any demand be lawful and specific, and will tell the affected person unless a court forbids it.</p>
 
   <h2>The operator</h2>
-  <p>{{ site_name }} is operated by RMI Valuation, LLC, which works in this industry. The architecture above is the answer to the obvious question — the operator cannot see who watches what, because there is no such record to see.</p>
+  <p>{{ site_name }} is operated by RMI Valuation, LLC, which works in this industry. The architecture above is the answer to the obvious question: the operator cannot see who reads what, because no such record exists; it could see who follows a docket only by deliberately decrypting the subscription rows with the key, and this page says so rather than pretending otherwise.</p>
 </section>
 {% endblock %}
