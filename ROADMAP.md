@@ -5,8 +5,8 @@ forward-only. Milestone level only; detail lives in [`docs/`](docs/). Anything b
 wedge lives in [`docs/capability-map.md`](docs/capability-map.md), which is a menu, not a
 roadmap. This file has a hard line cap enforced by pre-commit: when it fires, prune.
 
-**The wedge shipped 2026-08-26** (v2026.08.11) and is live, unannounced. What comes next is
-chosen from the capability map by the operator; nothing below M5 is planned until it is.
+**The wedge shipped 2026-08-26** (v2026.08.11) and is live, unannounced. What comes next was
+chosen from the capability map by the operator on 2026-08-26: see *After the wedge*.
 
 | # | Milestone | Done means | Status |
 | --- | --- | --- | --- |
@@ -16,6 +16,16 @@ chosen from the capability map by the operator; nothing below M5 is planned unti
 | M3 | Docket sheets + permanent URLs | One chronological page per proceeding at a stable, guessable URL | **Done 2026-08-26** — live at [docketyard.org](https://docketyard.org), polling forward every 30 min, Litestream + blob sync to S3 |
 | M4 | Alerting | Docket subscriptions, email delivery, silent-failure detection per `docs/alerts.md` | **Done 2026-08-26** — confirmed-opt-in subscriptions with addresses ciphertext at rest (ADR 0014), per-pass + daily alerts over SES with bounce/complaint feedback, hourly off-box heartbeat on captures / events / documents / delivery; first real subscription live, first alert awaited |
 | M5 | Launch | Coverage, corrections, about pages published; **the wedge is live** | **Done 2026-08-26** — about, coverage (measured), methodology, corrections and privacy pages signed off and linked; `hello@docketyard.org` routed |
+
+## After the wedge
+
+| # | Milestone | Done means | Status |
+| --- | --- | --- | --- |
+| M6 | Party module (ADR 0004) | "Filed for" strings resolved to entities with aliases and successors, provenance on every link; a Parties view on the sheet; subscribe by party and by service-list membership (validation query 5) | **Chosen 2026-08-26**; design first |
+| — | Extraction benchmark (background) | Local LLM on RMI-AI-MACHINE vs API on a hand-labelled sample, before any extraction commits to local output; unblocks the citator and the calendar | Not started |
+
+Deliberately not yet: backfill waves 2–3, RSS/webhooks, the stats page, the citator, the
+geographic index. Each waits for a decision, not for capacity.
 
 Sequencing rationale: [`docs/capability-map.md`](docs/capability-map.md) § Sequence.
 M1 before anything touching documents — the validated registry is what makes every later

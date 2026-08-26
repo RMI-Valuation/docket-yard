@@ -15,6 +15,11 @@ by pre-commit: when it fires, prune.
   the `wave {...}` summary for `partial` months, re-run once if any, confirm the coverage
   page's "History before …" line, then delete this. Later waves (2020, 1996) are separate
   decisions
+- M6 party module: design (schema for party/alias/successor/involvement per ADR 0004 and
+  schema-draft § Parties; the resolution method and its provenance; what the sheet shows),
+  schema-critic before any migration
+- Extraction benchmark on RMI-AI-MACHINE: hand-label a sample, run local vs API, record
+  method versions — background to M6
 - Whether/how to announce the wedge — the operator's call
 
 ## Next
