@@ -87,6 +87,15 @@ def cite_docket(identity: ParsedDocket) -> str:
     return f"{head} (Sub-No. {identity.sub_sequence}{identity.suffix or ''})"
 
 
+def party_path(party_id: int) -> str:
+    """A party's permanent address (ADR 0015): its id, never a slug. /p/1234"""
+    return f"/p/{party_id}"
+
+
+def party_feed_path(party_id: int) -> str:
+    return f"{party_path(party_id)}/feed"
+
+
 def week_path(monday) -> str:
     """A fixed Monday–Sunday week, addressed by its Monday: /week/2026-08-17."""
     return f"/week/{monday.isoformat()}"

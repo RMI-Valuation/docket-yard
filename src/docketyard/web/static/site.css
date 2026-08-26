@@ -196,6 +196,9 @@ table.moved { width: 100%; border-collapse: collapse; }
 .party-chip { font: inherit; text-align: left; background: none; border: 1px solid transparent; border-radius: 4px; padding: 2px 6px; color: var(--ink); cursor: pointer; width: 100%; }
 .party-chip:hover { border-color: var(--hair); }
 .party-chip[aria-pressed="true"] { background: var(--tint); border-color: var(--hair); }
+.party-row { display: flex; align-items: baseline; gap: 6px; }
+.party-row .party-chip { flex: 1; width: auto; }
+.party-link { white-space: nowrap; }
 
 /* stats page */
 .chart { display: block; width: 100%; height: auto; margin: 8px 0 20px; font-family: inherit; }

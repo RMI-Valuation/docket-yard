@@ -64,10 +64,10 @@
     {% if sheet.parties %}
     <div>
       <h2>Parties on record</h2>
-      <p class="small muted">Who filed, from the Board’s “Filed For” cells, resolved by rule (<a href="/methodology">how</a>). Nothing here says what anyone argued. Click to filter.</p>
+      <p class="small muted">Who filed, from the Board’s “Filed For” cells, resolved by rule (<a href="/methodology">how</a>). Nothing here says what anyone argued. Click a name to filter; “page” opens the party’s record.</p>
       <ul class="plain parties" id="parties">
       {% for p in sheet.parties %}
-        <li><button class="party-chip" type="button" data-party="{{ p.party_id }}" aria-pressed="false">{{ p.name }}{% if p.agency %} <span class="muted small">(the agency)</span>{% endif %} <span class="muted small">· {{ p.filings }}</span></button></li>
+        <li class="party-row"><button class="party-chip" type="button" data-party="{{ p.party_id }}" aria-pressed="false">{{ p.name }}{% if p.agency %} <span class="muted small">(the agency)</span>{% endif %} <span class="muted small">· {{ p.filings }}</span></button> <a class="small muted party-link" href="{{ party_path(p.party_id) }}" aria-label="{{ p.name }}: party page">page</a></li>
       {% endfor %}
       </ul>
     </div>

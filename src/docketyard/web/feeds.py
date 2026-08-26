@@ -7,12 +7,12 @@ the whole agency; each entry is the same `EventSummary` the email and the webhoo
 import re
 from dataclasses import dataclass
 from sqlite3 import Connection
-from urllib.parse import urlencode
 from xml.sax.saxutils import escape
 
 from docketyard.alerts import build
 from docketyard.alerts.summary import EventSummary, event_summary
 from docketyard.parties import resolve
+from docketyard.web import urls
 
 LIMIT = 100
 
@@ -48,8 +48,8 @@ def party_feed(con: Connection, party_id: int, site: str) -> Feed:
     return _feed(
         con,
         f"Filings for {name} — Docket Yard",
-        f"https://{site}/feed/party/{party_id}",
-        f"https://{site}/parties?{urlencode({'name': name})}",
+        f"https://{site}{urls.party_feed_path(party_id)}",
+        f"https://{site}{urls.party_path(party_id)}",
         ids,
         site,
     )

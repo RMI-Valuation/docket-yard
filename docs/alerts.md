@@ -101,9 +101,9 @@ captures, never a backfill wave — so a feed reader, a webhook receiver and an 
 same entry.
 
 **Atom feeds** (`web/feeds.py`) are stateless: `/feed` (agency-wide), `/d/<docket>/feed`
-(family) and `/feed/party/<id>` return the latest 100 entries, `Cache-Control: max-age=1800`.
-Nothing is stored about the reader (ADR 0011). A party feed is addressed by party id the
-way a party subscription is — a delivery channel, not a page (ADR 0013 addendum still holds).
+(family) and `/p/<id>/feed` return the latest 100 entries, `Cache-Control: max-age=1800`.
+Nothing is stored about the reader (ADR 0011). A party feed lives under the party's
+permanent address (ADR 0015); the M8 path `/feed/party/<id>` answers 301 to it, forever.
 
 **Webhooks** (`alerts/webhooks.py`, migration 0008) are subscriptions whose recipient is
 an https URL. Everything about addresses applies unchanged: the URL is hashed and sealed
