@@ -6,12 +6,12 @@ agency regulating freight rail. Docket sheets, alerts, and eventually a citator 
 Operated by RMI Valuation, LLC. Unaffiliated with the STB. Every record links to the agency's
 own PDF.
 
-**Status: the wedge is live, and the first post-wedge milestone shipped.** <https://docketyard.org>
+**Status: the wedge is live; M6 (parties) and M7 (stats) shipped after it.** <https://docketyard.org>
 serves the sheets, alerts, parties and the trust pages from one Lightsail instance (ADR
 0012), polling forward every 30 minutes since 2026-08-26; M1–M6 done, unannounced.
-Backfill wave 1 (2024-08 →) is running. What comes next is chosen from the capability map
-by the operator and recorded in `ROADMAP.md` § After the wedge — never assumed. Production
-operations: `infra/deploy/README.md`.
+Waves 2–3 of the backfill are running. What comes next is chosen from the capability map
+by the operator and recorded in `ROADMAP.md` § Chosen — never assumed; what has shipped is
+recorded in `docs/milestones.md`. Production operations: `infra/deploy/README.md`.
 
 ## Read these before proposing implementation work
 
@@ -97,8 +97,9 @@ ciphertext at rest under an operator-held key).
 
 - **Start every session by reading `TODO.md`; end it by updating `TODO.md`.**
 - Completed items are deleted, never checked off — git history is the archive.
-- `ROADMAP.md` is milestone-level only and covers the wedge; detail belongs in `docs/`, and
-  everything past the wedge belongs in the capability map, not the roadmap.
+- `ROADMAP.md` is forward-looking and milestone-level only; a landed milestone moves to
+  `docs/milestones.md` the day it ships. Detail belongs in `docs/`; the menu of what could
+  come next is the capability map, never the roadmap.
 - Both files have hard line caps enforced by pre-commit (`tools/check_plan_caps.py`). When a
   cap fires, prune or graduate items; never raise the cap as a side effect.
 - Internal planning never moves to GitHub Issues — Issues are reserved for outside intake
