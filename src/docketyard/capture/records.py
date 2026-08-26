@@ -10,17 +10,59 @@ twice is a no-op, and a capture row always points at bytes that exist.
 """
 
 import hashlib
+import time
 from pathlib import Path
 from sqlite3 import Connection
 
 from docketyard.store.db import dump_json, utcnow
+
+CHUNK = 1 << 20  # bytes per read when a file is streamed or hashed
+STALE_STAGING_SECONDS = 6 * 3600  # a download older than this was left by a killed process
 
 
 def blob_path(data_dir: str | Path, sha256: str) -> Path:
     return Path(data_dir) / "blobs" / sha256[:2] / sha256
 
 
-def save_blob(data_dir: str | Path, body: bytes) -> str:
+def staging_dir(data_dir: str | Path) -> Path:
+    """Where a download is streamed before it is hashed and moved into place: on the blob
+    store's own filesystem so the move is a rename. The host's S3 sync and prune skip it
+    (infra/deploy: `--exclude ".tmp/*"`; prune_blobs.py)."""
+    d = Path(data_dir) / "blobs" / ".tmp"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def sweep_staging(data_dir: str | Path, older_than: float = STALE_STAGING_SECONDS) -> int:
+    """Remove downloads a killed process left behind (an OOM kill runs no `finally`). Only
+    one process fetches documents at a time, so anything older than `older_than` seconds
+    is nobody's. Returns the count removed."""
+    cutoff = time.time() - older_than
+    removed = 0
+    for f in staging_dir(data_dir).glob("dl-*"):
+        try:
+            if f.is_file() and f.stat().st_mtime < cutoff:
+                f.unlink()
+                removed += 1
+        except OSError:
+            pass
+    return removed
+
+
+def sha256_of_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(CHUNK), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def save_blob(data_dir: str | Path, body: bytes | Path) -> str:
+    """Content-address bytes — or a file the downloader streamed onto the blob store's
+    filesystem, which is hashed by chunks and moved into place, never read whole. The
+    same bytes give the same address either way (ADR 0002)."""
+    if isinstance(body, Path):
+        return _save_blob_file(data_dir, body)
     sha256 = hashlib.sha256(body).hexdigest()
     path = blob_path(data_dir, sha256)
     if not path.exists():
@@ -28,6 +70,18 @@ def save_blob(data_dir: str | Path, body: bytes) -> str:
         tmp = path.with_suffix(".tmp")
         tmp.write_bytes(body)
         tmp.replace(path)
+    return sha256
+
+
+def _save_blob_file(data_dir: str | Path, src: Path) -> str:
+    sha256 = sha256_of_file(src)
+    path = blob_path(data_dir, sha256)
+    if path.exists():
+        if not src.samefile(path):  # the same bytes are already held: the download is surplus
+            src.unlink()
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        src.replace(path)
     return sha256
 
 
@@ -43,11 +97,12 @@ def save_capture(
     endpoint: str,
     table_action: str,
     request_params: list[tuple[str, str]],
-    body: bytes,
+    body: bytes | Path,
     http_status: int,
     ingest_mode: str,
 ) -> int:
-    """Persist the raw response, quarantined. Nothing here parses the body."""
+    """Persist the raw response, quarantined. Nothing here parses the body. A `Path` is a
+    download already on the blob filesystem (StbClient.download) and is moved, not read."""
     sha256 = save_blob(data_dir, body)
     cur = con.execute(
         """

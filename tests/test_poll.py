@@ -44,6 +44,19 @@ class FakeStb:
         self.fetched.append(url)
         return 200, b"%PDF-1.4 fake"
 
+    def fetcher(self, data_dir):
+        return lambda url: self.download(url, data_dir)
+
+    def download(self, url, into):  # the production fetcher: a file on the blob filesystem
+        from pathlib import Path
+
+        status, body = self.get(url)
+        tmp = Path(into) / "blobs" / ".tmp"
+        tmp.mkdir(parents=True, exist_ok=True)
+        path = tmp / f"dl-{len(self.fetched)}"
+        path.write_bytes(body)
+        return status, path
+
 
 def test_window_is_inclusive_and_spelled_like_the_endpoint():
     assert poll.window(date(2026, 8, 25)) == ("08/19/2026", "08/25/2026")
