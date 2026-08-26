@@ -40,6 +40,12 @@ def test_snapshot_omits_readers_and_measures_itself(tmp_path):
     assert {"docket", "filing", "decision_record", "event", "capture"} <= tables
     assert not tables & set(dump.HELD_TABLES)  # the enriched layer waits for its licence
     assert not tables & set(dump.TOOL_TABLES)  # replication bookkeeping is not record
+    # the search index ships empty: the held party names never reach the snapshot; the
+    # tables stay so the file is at schema 10 like any store
+    assert {"search_doc", "search_fts", "search_meta"} <= tables
+    assert s.execute("SELECT COUNT(*) FROM search_doc").fetchone()[0] == 0
+    empty = "SELECT COUNT(*) FROM search_fts WHERE search_fts MATCH 'a*'"
+    assert s.execute(empty).fetchone()[0] == 0
     assert "parties" not in m.counts and m.held_tables == list(dump.HELD_TABLES)
     assert s.execute("SELECT COUNT(DISTINCT stb_filing_id) FROM filing").fetchone()[0] == 2
     s.close()

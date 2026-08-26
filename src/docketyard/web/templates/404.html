@@ -4,8 +4,8 @@
 <section class="caption">
   <h1 class="serif docket-number">Not found</h1>
   <p class="muted">{{ detail or 'There is no record at this address.' }} Addresses here are meant to be permanent; if this one used to work, it is a defect on our side, and a corrections page is being written for exactly that.</p>
-  <form class="lookup" action="/d" method="get" role="search" style="margin-top: 20px;">
-    <input name="q" type="search" placeholder="Docket number, e.g. FD 36873" aria-label="Docket number">
+  <form class="lookup" action="/search" method="get" role="search" style="margin-top: 20px;">
+    <input name="q" type="search" placeholder="Docket number, party, or caption words" aria-label="Search the record">
   </form>
 </section>
 {% endblock %}
