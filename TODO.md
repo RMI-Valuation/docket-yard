@@ -26,6 +26,8 @@ by pre-commit: when it fires, prune.
 
 ## Next
 
+- Enriched layer into the snapshot/JSON after the attorney review (`licensing.md` § Open):
+  remove `dump.HELD_TABLES`, restore the Parties block, bump `JSON_SHAPE`, announce on `/data`
 - M8 review deferrals: a dead webhook endpoint should suppress itself after N consecutive
   failed alerts; a per-pass wall-clock budget for webhook delivery; `deliver` and
   `deliver_webhooks` want one loop over a channel object and one alert envelope; feeds
@@ -53,8 +55,6 @@ by pre-commit: when it fires, prune.
 - OCR pipeline for pre-2000 archive (GPU layout-OCR fits ADR 0003's IR) — backfill era
 - A key held off the box (KMS) so the instance decrypts addresses only at send time — the
   forward step ADR 0014 leaves open
-- Deploy credentials via GitHub OIDC role assumption if CI ever touches AWS
-- Quarterly bulk dumps (capability F5) doubling as production-corpus backups
 - Stats review deferrals (2026-08-26): `home.py` and `stats.py` each carry a month walker and
   the docket-family fold — share one helper; add an index on `filing(filed_date)` when a
   migration is next cut (the year and week queries range-scan without it)
