@@ -23,9 +23,7 @@ by pre-commit: when it fires, prune.
 ## Next
 
 - Cameron's asks (2026-08-26), in the order agreed, each started only when he says so:
-  (2) `/contribute` draft for his review — ideas → Issues (add an idea template), code →
-  repo + CLA, money → hello@ for now, saying what it pays for and buys nothing; entity
-  question in `licensing.md` before any formal channel; (3) one search box: docket number,
+  (3) one search box: docket number,
   party name or caption words, FTS5 index, `/suggest` as-you-type showing captions,
   `/search` works without JS, nothing stored; (4) traffic as hourly counts only (route
   class, status, bytes, latency, bot/not) — no identifier ever; bring him the one privacy
@@ -50,6 +48,8 @@ by pre-commit: when it fires, prune.
 - Two schema-change chores: errata re-check needs a last-checked column (walk oldest-first,
   per-pass limit); permanently-bad poll items need an attempt counter (retried every pass)
 - ADR 0012 addendum recording the blob cache design (sync + prune) once wave 3 proves it
+- Money on `/contribute` is omitted by decision; revisit only after the entity question in
+  `licensing.md` § Open and the CLA review (which also gates merging outside pull requests)
 - Cameron's idea (2026-08-26): switch cadence from the alert email; a signed-link manage
   page per address (cadence is already per subscription; no login — ADR 0011). His decision
 
