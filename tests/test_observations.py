@@ -1,6 +1,10 @@
 """Filings/decisions parsing, date-pair assertion, record folding, and document fetching."""
 
+import http.client
+import io
 import json
+import os
+import urllib.request
 
 import pytest
 
@@ -326,42 +330,46 @@ def test_refresh_detects_errata_and_keeps_the_chain_on_revert(con, tmp_path):
     assert payload["method"] == documents.DETECTION_METHOD
 
 
-def test_download_streams_to_disk_and_a_streamed_file_is_hashed_in_place(con, tmp_path):
+class _FakeResponse(io.BytesIO):
+    """An http.client response for tests: status, chunked reads, a context manager, and
+    optionally a failure part-way through the body."""
+
+    status = 200
+
+    def __init__(self, body: bytes, fail_after: int | None = None):
+        super().__init__(body)
+        self.fail_after = fail_after
+
+    def read(self, n=-1):
+        if self.fail_after is not None and self.tell() >= self.fail_after:
+            raise http.client.IncompleteRead(b"")
+        return super().read(n)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        self.close()
+
+
+def test_download_streams_to_disk_and_a_streamed_file_is_hashed_in_place(
+    con, tmp_path, monkeypatch
+):
     """A document never sits in memory whole: the client copies the response to a temp
     file on the blob filesystem by chunks, and the fetcher hashes and moves that file."""
-    import io
     import tracemalloc
 
     from docketyard.capture import stb
 
     body = b"%PDF-big " + bytes(range(256)) * (24 << 10)  # ~6 MB, well above one chunk
-
-    class FakeResponse(io.BytesIO):
-        status = 200
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *a):
-            self.close()
-
-    def fake_urlopen(req, timeout=None):
-        return FakeResponse(body)
-
-    stb.CHUNK = 64 << 10
+    monkeypatch.setattr(stb, "CHUNK", 64 << 10)
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=None: _FakeResponse(body))
     client = stb.StbClient(min_interval=0)
-    import urllib.request
-
-    original = urllib.request.urlopen
-    urllib.request.urlopen = fake_urlopen
-    try:
-        tracemalloc.start()
-        status, path = client.download("https://x/1.pdf", tmp_path)
-        peak = tracemalloc.get_traced_memory()[1]
-        tracemalloc.stop()
-    finally:
-        urllib.request.urlopen = original
-    assert status == 200 and path.parent == tmp_path / "blobs" / ".tmp"
+    tracemalloc.start()
+    status, path = client.download("https://x/1.pdf", tmp_path)
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert status == 200 and path.parent == records.staging_dir(tmp_path)
     assert path.stat().st_size == len(body) and peak < (1 << 20)  # never the whole body
     # the fetcher takes the file: hashed by chunks, moved into the blob store, media sniffed
     ingest(con, tmp_path, filing_row())  # its attachment is {S3}/830599/311981.pdf
@@ -372,13 +380,42 @@ def test_download_streams_to_disk_and_a_streamed_file_is_hashed_in_place(con, tm
     ).fetchone()
     assert size == len(body) and media == "pdf" and not path.exists()
     assert records.blob_path(tmp_path, sha).stat().st_size == len(body)
-    # a second download of bytes already held is discarded, not duplicated
-    urllib.request.urlopen = fake_urlopen
-    try:
-        _, again = client.download("https://x/1.pdf", tmp_path)
-    finally:
-        urllib.request.urlopen = original
+    # the same bytes give the same address whichever way they arrive (ADR 0002), and a
+    # second download of bytes already held is discarded, not duplicated
+    assert records.save_blob(tmp_path, body) == sha
+    _, again = client.download("https://x/1.pdf", tmp_path)
     assert records.save_blob(tmp_path, again) == sha and not again.exists()
+    # the blob itself is never a victim of its own save
+    assert records.save_blob(tmp_path, records.blob_path(tmp_path, sha)) == sha
+    assert records.blob_path(tmp_path, sha).exists()
+
+
+def test_a_body_cut_short_is_retried_and_leaves_no_staging_file(tmp_path, monkeypatch):
+    from docketyard.capture import stb
+
+    body = b"%PDF-" + b"x" * (300 << 10)
+    attempts = []
+
+    def urlopen(req, timeout=None):
+        attempts.append(1)
+        # the first two attempts die mid-body; the third completes
+        return _FakeResponse(body, fail_after=(100 << 10) if len(attempts) < 3 else None)
+
+    monkeypatch.setattr(stb, "CHUNK", 64 << 10)
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    client = stb.StbClient(min_interval=0)
+    status, path = client.download("https://x/2.pdf", tmp_path)
+    assert status == 200 and len(attempts) == 3 and path.stat().st_size == len(body)
+    assert sorted(records.staging_dir(tmp_path).glob("dl-*")) == [path]  # nothing else left
+    # a vanished file costs one URL, not the batch; a stale orphan is swept at the start
+    orphan = records.staging_dir(tmp_path) / "dl-orphan"
+    orphan.write_bytes(b"half")
+    os.utime(orphan, (1, 1))
+    con = db.connect(":memory:")
+    ingest(con, tmp_path, filing_row())
+    gone = records.staging_dir(tmp_path) / "dl-gone"
+    stats = documents.fetch_attachments(con, tmp_path, lambda u: (200, gone))
+    assert stats["failed"] == 1 and stats["fetched"] == 0 and not orphan.exists()
 
 
 def test_limit_zero_fetches_nothing(con, tmp_path):

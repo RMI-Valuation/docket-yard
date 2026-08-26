@@ -73,7 +73,7 @@ def wave(
     summary["documents"] = documents.fetch_attachments(
         con,
         data_dir,
-        lambda url: client.download(url, data_dir),
+        client.fetcher(data_dir),
         limit=fetch_limit,
         ingest_mode="backfill",
     )
