@@ -14,6 +14,7 @@ Append-only, newest last.
 | M5 | Launch | About, coverage, methodology, corrections and privacy pages published; **the wedge is live** | 2026-08-26, v2026.08.9–11 — coverage measured from the store; corrections are of this record against the Board's, seven days usual and not guaranteed; `hello@docketyard.org` routed. Unannounced |
 | M6 | Party module (ADR 0004) | "Filed for" strings resolved to entities with aliases and successions, provenance on every link; a Parties view on every sheet; subscribe by party | 2026-08-26, v2026.08.14–15 — 1,097 parties and 3,989 links resolved in production; `/parties` is a facet, not an address (ADR 0013 addendum); service-list predicate deferred to extraction |
 | M7 | Statistics page | What the record holds and what moves, every number measured (`docs/stats.md`); nothing about readers | 2026-08-26, v2026.08.17–19 — `/stats`, column charts drawn server-side from the same rows |
+| M8 | Feeds and webhooks (rest of C1) | Atom feeds per docket, per party and agency-wide from the same events as the email alerts; signed webhooks carrying the same payload, confirmed like an address (migration 0008) | 2026-08-26, v2026.08.20 (PR #1) — reviewed by code, security and schema passes before merge; first ping delivered, signature verified, and confirmed against a throwaway endpoint the same day |
 
 ## Background work completed
 
