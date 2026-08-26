@@ -6,10 +6,10 @@ agency regulating freight rail. Docket sheets, alerts, and eventually a citator 
 Operated by RMI Valuation, LLC. Unaffiliated with the STB. Every record links to the agency's
 own PDF.
 
-**Status: live, pre-launch.** <https://docketyard.org> serves the sheets from one Lightsail
-instance (ADR 0012) polling forward every 30 minutes since 2026-08-26; M1–M3 done. M4
-(alerting, heartbeat) and M5 (coverage/corrections/about pages) remain before the wedge is
-announced. Production operations: `infra/deploy/README.md`.
+**Status: the wedge is live.** <https://docketyard.org> serves the sheets, alerts and the
+trust pages from one Lightsail instance (ADR 0012), polling forward every 30 minutes since
+2026-08-26; M1–M5 done, unannounced. What comes next is chosen from the capability map, not
+assumed. Production operations: `infra/deploy/README.md`.
 
 ## Read these before proposing implementation work
 

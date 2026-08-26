@@ -10,9 +10,8 @@ by pre-commit: when it fires, prune.
   watch the first alert land, then delete this line
 - SES bounce/complaint feedback path (SNS topic → `email_suppression`) before any real
   volume; until then the SES reputation dashboard is checked by hand
-- M5 sign-off: Cameron reviews /about /coverage /corrections /methodology /privacy on the
-  live site (v2026.08.7); on approval link them in the footer and the sheet rail, and
-  create `hello@docketyard.org` (the about page names it) — or change the address
+- `hello@docketyard.org`: Cameron enabling Cloudflare Email Routing → camrex@; send a test
+  once done (the about page already names it)
 - `docketyard gap open/close` so a recorded outage has a `coverage_gap` row for the
   coverage page and the late-delivery marking to cite
 - DMARC `p=quarantine` is now set on docketyard.org (2026-08-26) — any other sender on the

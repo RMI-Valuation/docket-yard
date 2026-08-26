@@ -1,6 +1,6 @@
 # Extraction and interpretation
 
-> **Status: drafted 2026-08-26, awaiting operator sign-off.** The published page is `src/docketyard/web/templates/methodology.html`, served at `/methodology` and not yet linked from the footer. This file is the brief the page was written to; the page is the source.
+> **Status: published 2026-08-26 (operator sign-off in session).** The published page is `src/docketyard/web/templates/methodology.html`, served at `/methodology` and linked from every page's footer. This file is the brief the page was written to; the page is the source.
 
 ## Purpose
 
