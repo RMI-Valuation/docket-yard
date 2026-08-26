@@ -31,6 +31,8 @@ class Coverage:
     documents: int
     attachments_unfetched: int
     earliest_filed: str | None  # among forward-observed filings
+    record_from: str | None  # earliest Board date in the whole record, any wave
+    record_to: str | None  # latest
     earliest_served: str | None
     backfill_from: str | None  # earliest filed/served date observed by a backfill wave
     backfill_filings: int  # records first observed by a wave
@@ -73,6 +75,14 @@ def coverage(con: Connection) -> Coverage:
             "SELECT MIN(f.filed_date) FROM filing f"
             " JOIN event e ON e.event_id = f.observed_in_event"
             " JOIN capture c ON c.capture_id = e.capture_id WHERE c.ingest_mode = 'forward'"
+        ),
+        record_from=one(
+            "SELECT MIN(d) FROM (SELECT MIN(filed_date) AS d FROM filing"
+            " UNION ALL SELECT MIN(service_date) FROM decision_record)"
+        ),
+        record_to=one(
+            "SELECT MAX(d) FROM (SELECT MAX(filed_date) AS d FROM filing"
+            " UNION ALL SELECT MAX(service_date) FROM decision_record)"
         ),
         earliest_served=one(
             "SELECT MIN(r.service_date) FROM decision_record r"

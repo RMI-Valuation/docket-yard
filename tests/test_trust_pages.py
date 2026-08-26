@@ -40,7 +40,7 @@ def test_coverage_numbers_are_measured(tmp_path):
     con.close()
     r = TestClient(create_app(path)).get("/coverage")
     assert "2 filings" in r.text and "2 dockets" in r.text
-    assert "Gaps in the record" in r.text and "captures" in r.text and "<td>x</td>" in r.text
+    assert "Outages" in r.text and "captures" in r.text and "<td>x</td>" in r.text
 
 
 def test_corrections_page_links_the_issue_form(client):
