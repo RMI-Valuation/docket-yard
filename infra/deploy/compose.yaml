@@ -4,6 +4,16 @@
 #   docker compose pull && docker compose up -d      # deploy the tag in .env (pull-based)
 #   docker compose logs -f ingest                    # watch the poller
 
+# the mail sender (docketyard.alerts.mail) derives its SES SMTP password from these; both
+# web (confirmation mail) and ingest (alerts) send
+x-mail: &mail
+  DY_SES_REGION: ${DY_SES_REGION:-${AWS_REGION}}
+  DY_MAIL_FROM: ${DY_MAIL_FROM:-Docket Yard <alerts@docketyard.org>}
+  DY_HOST: ${DY_HOST:-docketyard.org}
+  AWS_REGION: ${AWS_REGION}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+
 services:
   migrate:
     # runs the release's migrations once and exits; web refuses a store that is behind,
@@ -19,6 +29,7 @@ services:
     command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
     volumes:
       - ./data:/data
+    environment: *mail  # the confirmation email is sent by the web process
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -36,14 +47,7 @@ services:
     command: ["poll", "--every", "${DY_POLL_EVERY:-1800}"]
     volumes:
       - ./data:/data
-    environment:
-      # the alert sender (docketyard.alerts.mail) derives its SES SMTP password from these
-      DY_SES_REGION: ${DY_SES_REGION:-${AWS_REGION}}
-      DY_MAIL_FROM: ${DY_MAIL_FROM:-Docket Yard <alerts@docketyard.org>}
-      DY_HOST: ${DY_HOST:-docketyard.org}
-      AWS_REGION: ${AWS_REGION}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    environment: *mail
     depends_on:
       migrate:
         condition: service_completed_successfully

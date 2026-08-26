@@ -286,3 +286,8 @@ def test_sheet_offers_the_follow_form(store):
     client = TestClient(create_app(path))
     r = client.get("/d/FD-36873")
     assert 'action="/subscribe"' in r.text and 'name="cadence" value="daily"' in r.text
+    # without a configured sender the form must not claim a mail is on its way
+    r = client.post("/subscribe", data={"email": "x@example.org", "docket": "FD 36873"})
+    assert r.status_code == 503 and "not available" in r.text
+    con = db.connect(path)
+    assert con.execute("SELECT COUNT(*) FROM subscription").fetchone()[0] == 0

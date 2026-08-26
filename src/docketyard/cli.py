@@ -133,9 +133,10 @@ def _serve(args: argparse.Namespace) -> int:
 
     from docketyard.web.app import create_app
 
-    app = create_app(
-        args.db, site_host=os.environ.get("DY_HOST", "docketyard.org"), sender=_sender()
-    )
+    sender = _sender()
+    if sender is None:
+        print("mail not configured (AWS_* / DY_SES_REGION): the subscribe form answers 503")
+    app = create_app(args.db, site_host=os.environ.get("DY_HOST", "docketyard.org"), sender=sender)
     uvicorn.run(app, host=args.host, port=args.port)
     return 0
 

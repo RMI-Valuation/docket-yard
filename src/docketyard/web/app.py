@@ -253,6 +253,14 @@ def create_app(
     ):
         """Whatever happens — new, pending, already active, suppressed, rate-limited — the
         answer is the same page, so nothing about an address can be learned here."""
+        if sender is None:  # never pretend a mail is on its way
+            return message(
+                request,
+                "Subscriptions are not available right now",
+                "Docket Yard cannot send email at the moment. Nothing was stored; please"
+                " try again later.",
+                503,
+            )
         identity = urls.lookup(docket)
         address = subscriptions.normalise_email(email)
         if identity is None or not subscriptions.plausible_email(address):
@@ -271,7 +279,7 @@ def create_app(
         finally:
             con.close()
         printed = urls.printed_docket(family)
-        if token and sender is not None:
+        if token:
             hours = subscriptions.CONFIRM_TTL_HOURS
             out = mail.Outbound(
                 to=address,
