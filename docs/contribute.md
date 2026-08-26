@@ -1,9 +1,11 @@
 # `/contribute` — design note
 
-> **Status: planning only, 2026-08-26.** Chosen by the operator as the ask after party pages;
-> not started. The page copy is a draft for the operator's review, and ships only on his
-> sign-off (a public promise; ADR 0011's rule applies). This note records what the page must
-> decide and where each decision already stands, so the draft is written once.
+> **Status: built 2026-08-26 (`web/templates/contribute.html`, `/contribute`), awaiting the
+> operator's sign-off before it is deployed** (a public promise; ADR 0011's rule applies).
+> **Decided 2026-08-26: two lanes, ideas and code. The money lane is tabled** — the page says
+> the project does not take money at present and will say what it pays for and buys if that
+> changes; the entity question (`licensing.md` § Open) comes first. This note is the source
+> the page is generated from; the two must not drift.
 
 ## What it is for
 
@@ -18,7 +20,7 @@ errors.
 | --- | --- | --- | --- |
 | **Ideas** | GitHub Issues, a new `idea.yml` template | Issues are for outside intake only (`CLAUDE.md`); `data-correction.yml` is the model | Template fields (below); whether ideas are triaged publicly (label + a one-line reply) or silently |
 | **Code** | The repository, under the CLA | CLA exists from the first commit (`CLA.md`, `licensing.md` § Contributions); AGPL-3.0 | Nothing on the page until the attorney has reviewed the CLA (`licensing.md` § Open) — until then the page says code contributions are welcome *by discussion first*, and links the CLA as what will apply |
-| **Money** | `hello@docketyard.org`, for now | Operator's decision 2026-08-26: no payment channel yet; say what money pays for and that it buys nothing | Whether to name the running cost (the instance, S3, SES — roughly the $12 plan plus cents) so "what it pays for" is a number; the entity question (`licensing.md` § Open) must be settled before any formal channel |
+| **Money** | none — tabled | Operator's decision 2026-08-26: the page says the project does not take money at present, and that if that changes the page will say what it pays for and what it does not buy | The entity question (`licensing.md` § Open) and whether to name the running cost, before any channel exists |
 
 ## What the page must say, in this order
 
@@ -29,11 +31,10 @@ errors.
 3. **Data errors are not ideas** — one line pointing at `/corrections`.
 4. **Code** — the repository link; the CLA, and why (single copyright ownership keeps
    relicensing possible: `licensing.md` § Contributions); "open an issue before a pull request".
-5. **Money** — what it pays for (hosting, mail, the backfill's storage; nothing else); that it
-   **buys nothing**: no priority, no influence over what is built, no access, no listing; that
-   there is no channel yet beyond an email; that the project may never take money at all.
-6. What contributing does **not** get anyone: their name on the site, a say in the record's
-   content, early access to anything.
+5. What contributing does **not** get anyone: their name on the site, a say in the record's
+   content, early access to anything, a private line to the operator.
+6. **Money** — one paragraph: the project does not take money at present; if that changes the
+   page will say what it pays for and what it does not buy; nothing to send, nowhere to send it.
 
 ## The idea template (`.github/ISSUE_TEMPLATE/idea.yml`)
 
@@ -55,9 +56,9 @@ off.
 
 ## Needs the operator
 
-- [ ] Approve the three-lane structure and the order above.
-- [ ] Decide whether the money paragraph names the monthly cost.
-- [ ] Confirm the code lane's wording is "discussion first, CLA applies" until the attorney
-      review, and that the review is the gate for merging any outside pull request.
-- [ ] Review the draft copy (written next, in `web/templates/contribute.html`, with this note
-      as the source) before it is linked from the footer.
+- [x] Two lanes; money tabled (2026-08-26).
+- [ ] Sign off the page copy (`web/templates/contribute.html`) before it is deployed and
+      linked from the footer.
+- [ ] Confirm the code lane's wording — "discussion first; pull requests held until the CLA
+      review" — and that the review is the gate for merging any outside pull request.
+- [ ] Later: the entity question, and whether a money paragraph ever names the running cost.

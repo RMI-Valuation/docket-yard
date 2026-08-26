@@ -44,6 +44,7 @@ PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move onc
 CORRECTIONS_URL = (
     "https://github.com/RMI-Valuation/docket-yard/issues/new?template=data-correction.yml"
 )
+IDEA_URL = "https://github.com/RMI-Valuation/docket-yard/issues/new?template=idea.yml"
 
 
 def _uri(db_path: str | Path) -> str:
@@ -448,6 +449,13 @@ def create_app(
     @app.get("/about")
     def about_page(request: Request):
         return render(request, "about.html")
+
+    @app.get("/contribute")
+    def contribute_page(request: Request):
+        """Two lanes — ideas and code — and what helping does not buy (docs/contribute.md).
+        No money lane: tabled by the operator 2026-08-26 until the entity question is
+        settled."""
+        return render(request, "contribute.html", idea_url=IDEA_URL)
 
     @app.get("/coverage")
     def coverage_page(request: Request):
