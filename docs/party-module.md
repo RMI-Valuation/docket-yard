@@ -176,3 +176,10 @@ over a sheet's entries, a browse list, a subscription predicate. A party view re
 query (`/parties?name=…`) is a convenience the site never offers as a citation and never
 promises to keep; ids are internal and may be re-minted on a rebuild; a `same_as` merge is
 a better answer to the same query. ADR 0013 records the boundary so it is never assumed.
+
+> **Superseded (2026-08-26):** the section above is superseded for the address question by
+> [ADR 0015](adr/0015-a-party-has-an-address.md), accepted the same day. A party's id is its
+> permanent address, `/p/<id>`; ids are never reused or renumbered; a non-representative
+> member of a same_as component 301s to the representative. Everything else in this document
+> stands — the id is still a resolution artefact, which is exactly why the page shows the
+> joins and their provenance.

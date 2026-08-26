@@ -72,3 +72,9 @@ identifies — dockets, filings, decisions — and calendar weeks, which are dat
 reading aids reached by query, may be re-minted or re-resolved as methods improve, and are
 never offered in a "cite this" box. A derived thing earns a permanent address only by a
 further record here, never by being served once.
+
+> **Note (2026-08-26):** the paragraph above is superseded for **parties** by
+> [ADR 0015](0015-a-party-has-an-address.md), accepted the same day: a party's id is its
+> permanent address (`/p/<id>`), never reused or renumbered, with 301 from any id folded
+> into a same_as component to its representative. The boundary stands unchanged for
+> places, labels and folds. This record is not edited; the note is appended (ADR 0001).
