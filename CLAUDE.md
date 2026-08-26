@@ -111,7 +111,8 @@ ciphertext at rest under an operator-held key), **0015** (a party has a permanen
 - **Docs-only or trivial changes:** commit after hooks pass; no model review required.
 - **Any substantive code change:** run `/code-review` on the diff before committing
   (low/medium for small diffs, high for anything structural) and triage the findings
-  in-session. Deferred findings go to `TODO.md`, never silently dropped.
+  in-session. Deferred findings go to `docs/deferred.md` (dated, with the release they were
+  found against), never silently dropped; `TODO.md` holds only near-term work.
 - **Schema-touching changes:** schema-critic reviews before commit, always.
 - **Ingest/parser/network code:** the stb-ingest-specialist agent reviews for the endpoint
   traps and invariants (create it at M1 if it does not exist yet); `/security-review` on
