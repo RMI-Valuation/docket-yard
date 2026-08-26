@@ -8,11 +8,8 @@ by pre-commit: when it fires, prune.
 
 - M4: first real subscription confirmed 2026-08-26 (Cameron, FD 36873, as-it-happens);
   watch the first alert land, then delete this line
-- ADR 0014 (addresses at rest): accept in a later session after checking it against the
-  validation queries; then update CLAUDE.md's ADR line
-- After v2026.08.10 (encrypted addresses): re-make Cameron's FD 36873 subscription (0005
-  drops the two test rows); Cameron copies `DY_EMAIL_KEY` from `~/.docketyard-prod.env`
-  into the password manager, then deletes that file and the IAM key JSON
+- Cameron: copy `DY_EMAIL_KEY` from `~/.docketyard-prod.env` into the password manager,
+  then delete that file and `~/.docketyard-instance-key.json`
 - Key rotation pass for `DY_EMAIL_KEY` (decrypt under old, seal under new) — unwritten
 - `docketyard gap open/close` so a recorded outage has a `coverage_gap` row for the
   coverage page and the late-delivery marking to cite

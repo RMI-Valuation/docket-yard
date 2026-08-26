@@ -16,15 +16,15 @@ Documentation that isn't load-bearing is drag.
 
 | # | Document | Purpose | Status |
 | --- | --- | --- | --- |
-| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0013 accepted; 0014 (addresses at rest) proposed |
+| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0014 all accepted |
 | 02 | [`document-ir.md`](document-ir.md) | What the PDF→JSON layer captures | stub |
-| 03 | [`methodology.md`](methodology.md) | Extraction rules; doubles as the published methodology page | stub |
+| 03 | [`methodology.md`](methodology.md) | Extraction rules; doubles as the published methodology page | page published 2026-08-26 (`web/templates/methodology.html`); extraction rules await extraction |
 | 04 | [`licensing.md`](licensing.md) | Code, data and trademark terms | drafted |
-| 05 | [`coverage.md`](coverage.md) | What's in the corpus and what isn't (published) | stub |
-| 06 | [`corrections.md`](corrections.md) | How errors are reported and propagated (published) | stub |
-| 07 | [`about.md`](about.md) | What this is and is not (published) | stub |
-| 08 | [`runbook.md`](runbook.md) | Failure modes and their fixes | DNS and repo sections written |
-| 09 | [`alerts.md`](alerts.md) | Delivery promise and silent-failure detection | stub |
+| 05 | [`coverage.md`](coverage.md) | What's in the corpus and what isn't (published) | published 2026-08-26, numbers measured from the store |
+| 06 | [`corrections.md`](corrections.md) | How errors are reported and propagated (published) | published 2026-08-26 |
+| 07 | [`about.md`](about.md) | What this is and is not (published) | published 2026-08-26 |
+| 08 | [`runbook.md`](runbook.md) | Failure modes and their fixes | DNS, repo, production, address key, mail, ingest |
+| 09 | [`alerts.md`](alerts.md) | Delivery promise and silent-failure detection | decided and live 2026-08-26 |
 | 10 | [`architecture.md`](architecture.md) | What runs where, storage layers, the rebuildable-store property | drafted |
 | 11 | [`interface.md`](interface.md) | Design direction: trust-and-density, not-gov, HTML-first, the sheet is the product | drafted |
 | 12 | [`ingest-design.md`](ingest-design.md) | M1 module layout and the rules ingest code is built around | drafted |

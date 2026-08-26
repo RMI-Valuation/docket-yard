@@ -1,7 +1,8 @@
 # ADR 0014 — Subscriber addresses are ciphertext at rest
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-26
+- **Accepted:** 2026-08-26 (operator sign-off in the drafting session, by explicit decision)
 
 ## Context
 
@@ -56,10 +57,13 @@ the door that record forbids swinging back). A stronger posture (a key held off 
 e.g. in a KMS with the box able to decrypt only at send time) is a forward step this record
 does not preclude.
 
-## Validation (to be completed on acceptance)
+## Validation (2026-08-26)
 
-Check against [`../validation-queries.md`](../validation-queries.md): only query 5 touches
+Checked against [`../validation-queries.md`](../validation-queries.md): only query 5 touches
 subscriptions, and its join (`schema-draft.md` § 6, `alerts/build.py`) never needs the
-address — it projects `email_hash` and the sender decrypts one row at send time. The
-schema-critic's review (2026-08-26) found the join, uniqueness, suppression, digest
-grouping and unsubscribe semantics intact on the hash.
+address — it projects `email_hash` and the sender decrypts one row at send time. Queries
+1–4 touch no subscription table. The schema-critic's review (2026-08-26) found the join,
+uniqueness, suppression, digest grouping and unsubscribe semantics intact on the hash, and
+the one finding it raised — a suppression list that could not survive key rotation — was
+fixed before the migration shipped (`email_suppression.email_enc`). Production ran on this
+schema (v2026.08.10–11) with a real subscription and a real bounce before acceptance.

@@ -18,7 +18,7 @@ assumed. Production operations: `infra/deploy/README.md`.
 | `docs/README.md` | Index of the whole document set, with status per document |
 | `docs/validation-queries.md` | **The five queries the schema must answer.** All five answered on paper 2026-08-25. |
 | `docs/schema-draft.md` | The paper schema the queries were validated against; revision history included |
-| `docs/adr/` | **0001-0013 all Accepted** (0002-0008 and 0010-0013 carry Validation sections); **0014 Proposed** (subscriber addresses are ciphertext at rest) — accept in a later session, never the one that drafted it |
+| `docs/adr/` | **0001-0014 all Accepted** (0002-0008 and 0010-0014 carry Validation sections) |
 | `docs/stb-data-source.md` | Endpoint mechanics, its silent-failure traps, and every measurement taken |
 | `docs/capability-map.md` | The 28 capabilities. A menu, not a roadmap. |
 | `docs/research/comparable-platforms.md` | What CourtListener, FERC and others solved; what failed and why |
@@ -72,7 +72,10 @@ validation against the five queries (see each record's Validation section):
 **Do not accept an ADR without first checking it against `docs/validation-queries.md`.** ADRs
 are append-only: superseding one means a new record, never editing the old.
 
-Also accepted: **0001** (record architecture decisions) and **0009** (name and domain topology).
+Also accepted: **0001** (record architecture decisions), **0009** (name and domain topology),
+**0010** (CalVer releases), **0011** (reading is anonymous; an account is an email address),
+**0012** (deployment topology), **0013** (permanent URLs), **0014** (subscriber addresses are
+ciphertext at rest under an operator-held key).
 
 ## Rules that are not negotiable
 
