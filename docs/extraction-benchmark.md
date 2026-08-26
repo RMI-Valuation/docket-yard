@@ -50,3 +50,5 @@ location is wrong.
 Recorded as an ADR: which method ships, at what confidence, and what is left to a human.
 "Local is good enough" and "API for the hard tier, local for the routine tier" are both
 acceptable outcomes; "ship without measuring" is not.
+
+> Step 1 note (2026-08-26): the tabled UP–NS tracker holds 988 hand-checked documents in FD 36873 — 33 decisions among them — with a tiering scheme (A/B/C) worth reading before designing routing here; see `upns-tracker-inheritance.md`. Its page-capped extraction makes labels from long exhibits weaker evidence.

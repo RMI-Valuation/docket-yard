@@ -36,7 +36,8 @@ by pre-commit: when it fires, prune.
   if needed; an unresolvable citation string is data, record the span; re-measure ~22% density
 - Deadline engine (C4) evidence: decision JSON carries no extracted obligations (verified
   2026-08-26); F1's "computed next deadline" presupposes it; a hand-checked fixture of 8 dated
-  obligations for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only).
+  obligations for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only;
+  what else to take from that project: `docs/upns-tracker-inheritance.md`).
   Hard rule: dates quoted, never computed; a reset schedule supersedes (ADR 0006)
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
 - Cameron's idea: cadence switch from the alert email; a signed-link manage page per address

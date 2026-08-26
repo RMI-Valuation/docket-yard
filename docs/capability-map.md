@@ -51,11 +51,11 @@ Each surfaced independently from constituencies sharing no interests.
 
 **C1 — Alerting — docket, search and citation.** Three subscriptions: everything new in this proceeding, anything matching this query, anything newly citing this decision. Email, RSS, webhook. *FERC's equivalent is the one feature its bar uses daily. STB has none of it.*
 
-**C2 — An STB and ICC citator.** Extract every citation, validate against the docket registry, publish forward citations with counts, flag negative treatment. *No citator exists. The official reporter stopped at Volume 7 in 2004. The deepest moat available.*
+**C2 — An STB and ICC citator.** Extract every citation, validate against the docket registry, publish forward citations with counts, flag negative treatment. *No citator exists. The official reporter stopped at Volume 7 in 2004. The deepest moat available.* A 988-document hand-checked fixture exists (`upns-tracker-inheritance.md`).
 
 **C3 — Address-to-docket lookup.** Enter an address, county or map point; get every proceeding touching that corridor, past and present. *Nothing in the federal government does place → proceeding. Rail geometry is free and unrestricted.*
 
-**C4 — The deadline engine.** Enter a filing or publication date; get every downstream deadline under the correct procedural track, with traps surfaced. *Windows are unforgiving and track-dependent. Miss one and the right is gone.*
+**C4 — The deadline engine.** Enter a filing or publication date; get every downstream deadline under the correct procedural track, with traps surfaced. *Windows are unforgiving and track-dependent. Miss one and the right is gone.* The output shape and a quoted fixture are in `upns-tracker-inheritance.md`; dates are quoted, never computed.
 
 ## Tier 2 — Datasets nobody has assembled
 
