@@ -22,9 +22,6 @@ by pre-commit: when it fires, prune.
 
 ## Next
 
-- Cameron's last queued ask (2026-08-26), only when he says so: traffic as hourly counts
-  (route class, status, bytes, latency, bot/not) — no identifier ever; bring him the one
-  privacy sentence in `docs/traffic.md` to sign first
 - Search deferrals (2026-08-26): rebuild diffs by (kind, ref) instead of whole; one record
   version for the ETag stamp and the index signature; `/subscribe` waits on a rebuild's lock
 - External review 2026-08-26: `/coverage` says the waves added 54,422 filings / 3,297
