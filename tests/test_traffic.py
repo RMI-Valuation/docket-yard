@@ -20,8 +20,10 @@ def test_route_classes_carry_no_identifier():
     assert traffic.route_class("/search") == traffic.route_class("/suggest") == "search"
     assert traffic.route_class("/s/confirm/abc") == "subscribe"
     assert traffic.route_class("/about") == "trust" and traffic.route_class("/zzz") == "other"
-    assert traffic.is_bot("Mozilla/5.0 (compatible; Googlebot/2.1)") and traffic.is_bot(None)
+    assert traffic.is_bot("Mozilla/5.0 (compatible; Googlebot/2.1)")
+    assert traffic.is_bot("Python-urllib/3.12")  # the compose healthcheck
     assert not traffic.is_bot("Mozilla/5.0 (Windows NT 10.0) Firefox/128.0")
+    assert not traffic.is_bot(None)  # a stripped User-Agent is a reader
 
 
 def test_counts_are_aggregates_and_fold_into_days(tmp_path):
@@ -33,19 +35,31 @@ def test_counts_are_aggregates_and_fold_into_days(tmp_path):
         client.get("/d/FD-36873/sub/1", headers={"User-Agent": "Firefox/128"})
         client.get("/p/999999", headers={"User-Agent": "Googlebot"})
         client.get("/search", params={"q": "peoria"}, headers={"User-Agent": "Firefox/128"})
+        client.head("/d/FD-36873", headers={"User-Agent": "curl/8.0"})
         now = datetime.now(UTC)
-        assert traffic.flush(app.state.traffic, counts, now, all_hours=True) >= 3
+        assert traffic.flush(app.state.traffic, counts, now) >= 3
     con = traffic.connect(counts)
     rows = con.execute(
         "SELECT route_class, status_class, bot, requests FROM traffic_hour ORDER BY 1, 2, 3"
     ).fetchall()
     assert ("sheet", "2xx", 0, 2) in rows and ("party", "4xx", 1, 1) in rows
     assert ("search", "2xx", 0, 1) in rows
+    # sizes are rounded up to the grain before summing: an exact length would name a page
+    assert (
+        con.execute(
+            "SELECT bytes FROM traffic_hour WHERE route_class = 'sheet' AND bot = 0"
+        ).fetchone()[0]
+        == 2 * traffic.SIZE_GRAIN
+    )
+    # a HEAD is a request with no bytes sent
+    assert con.execute(
+        "SELECT requests, bytes FROM traffic_hour WHERE route_class = 'sheet' AND bot = 1"
+    ).fetchone() == (1, 0)
     cols = {r[1] for r in con.execute("PRAGMA table_info(traffic_hour)")}
     assert not cols & {"path", "ip", "user_agent", "referer", "query"}  # nothing else exists
     # a second flush of the same hour adds to the row; a restart never loses a row's hour
     app.state.traffic.record("/d/FD-1", 200, 10, 5.0, "Firefox", now)
-    traffic.flush(app.state.traffic, counts, now, all_hours=True)
+    traffic.flush(app.state.traffic, counts, now)
     assert (
         con.execute("SELECT requests FROM traffic_hour WHERE route_class = 'sheet'").fetchone()[0]
         == 3
@@ -60,6 +74,31 @@ def test_counts_are_aggregates_and_fold_into_days(tmp_path):
     con.close()
     report = traffic.report(counts, days=1)
     assert report[0][0] == "sheet" and report[0][1] == 3  # readers, not crawlers, lead
+    # the daily rows count in a long report
+    long = {r[0]: r[1] for r in traffic.report(counts, days=120)}
+    assert long["sheet"] == 8
+    # a failed write gives the rows back
+    app.state.traffic.record("/", 200, 1, 1.0, "Firefox", now)
+    try:
+        traffic.flush(app.state.traffic, tmp_path / "no-such-dir" / "t.sqlite", now)
+    except Exception:  # noqa: BLE001
+        pass
+    assert app.state.traffic.drain() != []
+
+
+def test_an_unhandled_error_is_counted_as_a_5xx(tmp_path):
+    path = build_store(tmp_path)
+    counts = tmp_path / "traffic.sqlite"
+    app = create_app(path, traffic_path=counts)
+
+    @app.get("/boom")
+    def boom():
+        raise RuntimeError("x")
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        assert client.get("/boom", headers={"User-Agent": "Firefox"}).status_code == 500
+        rows = app.state.traffic.drain()  # before the shutdown flush takes them
+    assert any(r[1] == "other" and r[2] == "5xx" for r in rows)
 
 
 def test_the_store_never_holds_counts(tmp_path):

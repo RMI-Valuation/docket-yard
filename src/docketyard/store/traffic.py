@@ -8,7 +8,8 @@ Board's proceedings and stays free of anything about readers, and the snapshot n
 this file. No per-request row exists anywhere, at any point, even transiently on disk.
 
 What is never here: an address or any hash of one, a User-Agent string, a referrer, a
-query, a path, a docket or party or record id, a cookie, a session, a country.
+query, a path, a docket or party or record id, a cookie, a session, a country — nor a
+page's exact length, which would name the page in a quiet hour (sizes are rounded).
 """
 
 import sqlite3
@@ -37,8 +38,22 @@ ROUTE_CLASSES = (
 TRUST = {"/about", "/contribute", "/coverage", "/methodology", "/corrections", "/privacy"}
 LATENCY_BUCKETS = ("lt100", "lt500", "lt2000", "ge2000")  # milliseconds
 HOURLY_DAYS = 90  # hourly rows kept this long, then folded into daily rows kept indefinitely
+# a page's exact length would name the page in an hour with one reader (sheets are
+# deterministic for a store state): sizes are rounded up to this before they are summed
+SIZE_GRAIN = 64 * 1024
 # a crawler is a User-Agent that says so; the string is looked at in memory and never kept
-_BOT_MARKS = ("bot", "crawl", "spider", "slurp", "curl/", "wget", "python-requests", "go-http")
+# (the compose healthcheck's Python-urllib is one: it probes the home page every minute)
+_BOT_MARKS = (
+    "bot",
+    "crawl",
+    "spider",
+    "slurp",
+    "curl/",
+    "wget",
+    "python-requests",
+    "python-urllib",
+    "go-http",
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS traffic_hour (
@@ -104,8 +119,10 @@ def route_class(path: str) -> str:
 
 
 def is_bot(user_agent: str | None) -> bool:
+    """A crawler is a User-Agent that says so; a missing one is a reader (a hardened
+    browser or a privacy proxy strips it)."""
     ua = (user_agent or "").lower()
-    return not ua or any(mark in ua for mark in _BOT_MARKS)
+    return any(mark in ua for mark in _BOT_MARKS)
 
 
 def latency_bucket(ms: float) -> str:
@@ -137,19 +154,29 @@ class Counter:
         with self._lock:
             row = self._rows.setdefault(key, [0, 0, 0, 0, 0, 0])
             row[0] += 1
-            row[1] += max(size, 0)
+            row[1] += -(-max(size, 0) // SIZE_GRAIN) * SIZE_GRAIN  # rounded up, never exact
             row[2 + bucket] += 1
 
-    def drain(self, *, before_hour: str | None = None) -> list[tuple]:
-        """Rows for hours before `before_hour` (all rows when None), removed from memory."""
+    def drain(self) -> list[tuple]:
+        """Every row, removed from memory. Rows are additive on disk (an upsert), so the
+        current hour may be drained too and finished later."""
         with self._lock:
-            keys = [k for k in self._rows if before_hour is None or k[0] < before_hour]
-            out = [(*k, *self._rows.pop(k)) for k in keys]
+            out = [(*k, *v) for k, v in self._rows.items()]
+            self._rows.clear()
         return out
+
+    def restore(self, rows: list[tuple]) -> None:
+        """Give drained rows back (a write failed): nothing is lost, only delayed."""
+        with self._lock:
+            for hour, route, status, bot, *nums in rows:
+                row = self._rows.setdefault((hour, route, status, bot), [0, 0, 0, 0, 0, 0])
+                for i, n in enumerate(nums):
+                    row[i] += n
 
 
 def connect(path: str | Path) -> sqlite3.Connection:
     con = sqlite3.connect(str(path), timeout=30)
+    con.execute("PRAGMA journal_mode = WAL")  # the operator's report never blocks a flush
     con.executescript(SCHEMA)
     return con
 
@@ -195,48 +222,65 @@ def fold(con: sqlite3.Connection, now: datetime, keep_days: int = HOURLY_DAYS) -
     return folded
 
 
-def flush(counter: Counter, path: str | Path, now: datetime, *, all_hours: bool = False) -> int:
-    """What the hourly timer (and shutdown) calls: finished hours to disk, then the fold."""
-    rows = counter.drain(before_hour=None if all_hours else hour_of(now))
-    if not rows:
-        return 0
+def flush(counter: Counter, path: str | Path, now: datetime) -> int:
+    """What the hourly timer and the shutdown call: everything counted so far to disk (the
+    upsert makes a partial hour safe to write and finish later), then the fold. The
+    counter is drained only once the file is open, and refilled if the write fails."""
     con = connect(path)
+    rows = counter.drain()
     try:
-        n = write(con, rows)
+        if rows:
+            write(con, rows)
         fold(con, now)
+    except Exception:
+        counter.restore(rows)
+        raise
     finally:
         con.close()
-    return n
+    return len(rows)
 
 
 def report(path: str | Path, days: int = 1) -> list[tuple]:
     """The operator's view: per route class over the last `days`, requests (readers and
     crawlers), bytes, and the share answered under 500 ms. Published nowhere."""
-    since = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%dT%H")
+    since = datetime.now(UTC) - timedelta(days=days)
     con = connect(path)
     try:
         return con.execute(
             """
+            WITH rows AS (
+                SELECT route_class, status_class, bot, requests, bytes, lt100, lt500
+                  FROM traffic_hour WHERE hour >= ?
+                UNION ALL
+                SELECT route_class, status_class, bot, requests, bytes, lt100, lt500
+                  FROM traffic_day WHERE day >= ?
+            )
             SELECT route_class, SUM(CASE WHEN bot = 0 THEN requests ELSE 0 END) AS readers,
                    SUM(CASE WHEN bot = 1 THEN requests ELSE 0 END) AS crawlers,
                    SUM(bytes), SUM(CASE WHEN status_class = '5xx' THEN requests ELSE 0 END),
                    ROUND(100.0 * SUM(lt100 + lt500) / MAX(SUM(requests), 1))
-              FROM traffic_hour WHERE hour >= ? GROUP BY route_class ORDER BY 2 DESC
+              FROM rows GROUP BY route_class ORDER BY 2 DESC
             """,
-            (since,),
+            (since.strftime("%Y-%m-%dT%H"), since.strftime("%Y-%m-%d")),
         ).fetchall()
     finally:
         con.close()
 
 
-def start_timer(counter: Counter, path: str | Path, every: float = 3600.0) -> threading.Thread:
-    """A daemon thread that flushes finished hours; the process's exit flushes the rest."""
+def seconds_to_next_hour(now: datetime) -> float:
+    nxt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    return (nxt - now).total_seconds() + 5  # a few seconds past the boundary
+
+
+def start_timer(counter: Counter, path: str | Path) -> threading.Thread:
+    """A daemon thread that flushes just after every hour boundary; the process's exit
+    flushes what is left. A crash between the two loses at most the current hour."""
 
     def loop():
         import time
 
         while True:
-            time.sleep(every)
+            time.sleep(seconds_to_next_hour(datetime.now(UTC)))
             try:
                 flush(counter, path, datetime.now(UTC))
             except Exception as e:  # noqa: BLE001 — counting must never cost a page
