@@ -16,38 +16,38 @@ by pre-commit: when it fires, prune.
 - RMI-AI-MACHINE: text layer done for wave 1 (`/data/docketyard/text`); re-run after each
   wave from S3. Benchmark step 1: Cameron fills `docs/research/benchmark/labels.csv`
   (guide in its README); step 2 runs once it is in
-- Whether/how to announce the wedge — the operator's call
 - Explainers draft (`docs/explainers.md`): Cameron reviews; [?] rows need the Board's
-  records staff; then a page per prefix
+  records staff; then a page per prefix. Whether/how to announce the wedge — his call
 
 ## Next
 
-- Search deferrals (2026-08-26): rebuild diffs by (kind, ref) instead of whole; one record
-  version for the ETag stamp and the index signature; `/subscribe` waits on a rebuild's lock
-- External review 2026-08-26: `/coverage` says the waves added 54,422 filings / 3,297
-  decisions, `/stats` holds 53,018 / 2,815 — reconcile or label each so the gap is plainly
-  intentional; FD 36873 sheet is 1.1 MB / 908 entries unpaginated — measure DOM cost on a
-  low-end phone before changing anything
-- M10 deferrals: an address following two ids later joined gets each filing twice per pass;
-  the follow form after a 301 follows the representative; `--cite` is free text
-- Enriched layer into the snapshot/JSON after the attorney review (`licensing.md` § Open):
-  remove `dump.HELD_TABLES`, restore the Parties block, bump `JSON_SHAPE`, announce on `/data`
-- M8 deferrals: dead webhook endpoints self-suppress after N failures; per-pass delivery
-  budget; one delivery loop over a channel object; TTL-cache feeds on the ledger head
-- `docketyard gap open/close` so a recorded outage has a `coverage_gap` row for the
-  coverage page and the late-delivery marking to cite (today: nothing writes that table)
-- Key rotation pass for `DY_EMAIL_KEY` (decrypt under old, seal under new; four sealed
-  columns across three tables since 0008) — unwritten; ADR 0014 records the gap
-- Credentials ADR follow-up: Lightsail has no instance profile, so production runs on a
-  bucket-scoped IAM user's keys; decide EC2 t4g / Roles Anywhere / accept (ADR 0012 gap)
-- Two schema-change chores: errata re-check needs a last-checked column (walk oldest-first,
-  per-pass limit); permanently-bad poll items need an attempt counter (retried every pass)
-- ADR 0012 addendum recording the blob cache design (sync + prune) once wave 3 proves it
+- **Sitemap defect** (2026-08-26): `sitemap-dockets` lists family parents only, 21,807 of
+  32,605 rows; the 10,798 sub-dockets are real pages with their own canonical (2,032 carry
+  filings; search points at 765 AB 55 subs) while 16,805 empty parents are listed. Fix in
+  `sitemaps.py` (subs with their own `lastmod`); say on `/coverage` what the sitemap holds
+- `/coverage` says the waves added 54,422 filings / 23,702 decisions; `/stats` holds 53,027 /
+  19,829 (wave-added vs held) — label each; FD 36873 sheet 1.1 MB — measure on a low-end phone
+- F5's unfinished edge (no decision needed): `/api`, a human page for `/openapi.json` (what,
+  licence, stability, rate expectations, an example, links); `/llms.txt` from the trust pages' source
+- Citator schema gate, before C2 is chosen: the citation-edge shape against
+  `validation-queries.md` (negative treatment, segment history), ADR 0006 and 0007 — a new ADR
+  if needed; an unresolvable citation string is data, record the span; re-measure ~22% density
+- Deadline engine (C4) evidence: decision JSON carries no extracted obligations (verified
+  2026-08-26); F1's "computed next deadline" presupposes it; a hand-checked fixture of 8 dated
+  obligations for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only).
+  Hard rule: dates quoted, never computed; a reset schedule supersedes (ADR 0006)
+- Search deferrals: rebuild diffs by (kind, ref); one record version for stamp and signature
+- M10 deferrals: two ids later joined deliver twice; follow after a 301 follows the representative
+- Enriched layer into snapshot/JSON after the attorney review: drop `HELD_TABLES`, bump `JSON_SHAPE`
+- M8 deferrals: dead webhooks self-suppress after N failures; per-pass delivery budget
+- `docketyard gap open/close` so an outage has a `coverage_gap` row (nothing writes it today)
+- Key rotation pass for `DY_EMAIL_KEY` (four sealed columns) — unwritten; ADR 0014's known gap
+- Credentials: Lightsail has no instance profile; decide EC2 t4g / Roles Anywhere / accept
+- Schema chores: errata re-check needs a last-checked column; bad poll items an attempt
+  counter. ADR 0012 addendum for the blob cache (sync + prune) once wave 3 proves it
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
-- Money on `/contribute` is omitted by decision; revisit only after the entity question in
-  `licensing.md` § Open and the CLA review (which also gates merging outside pull requests)
-- Cameron's idea (2026-08-26): switch cadence from the alert email; a signed-link manage
-  page per address (cadence is already per subscription; no login — ADR 0011). His decision
+- Money on `/contribute` omitted by decision; revisit after the entity question and CLA review
+- Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
 
 ## Parked
 
