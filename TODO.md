@@ -6,8 +6,6 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Watch the first real alert land (Cameron, FD 36873, as-it-happens, confirmed 2026-08-26
-  on the encrypted store); then delete this line
 - Backfill pipeline on the instance, queued in tmux (2026-08-26): `wave2` documents
   (2020–2024-07, tables done) → `wave3` tables (1996–2019) → `wave3docs` (150–250 GB through
   the 58 GB cache; prune keeps ≥20 GB free). Logs `/srv/docketyard/wave*.log`. When each
