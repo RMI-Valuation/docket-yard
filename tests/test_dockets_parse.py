@@ -194,3 +194,18 @@ def test_nonce_parser_survives_attribute_reordering():
     nonces = stb.parse_nonces(page)
     assert nonces["stb_hook_table_dockets"] == "AB12cd"
     assert nonces["stb_hook_table_filings"] == "ff00aa"
+
+
+def test_nonce_fetch_busts_the_page_cache(monkeypatch):
+    """A cached search page carries a nonce WordPress rejects (measured from AWS)."""
+    urls = []
+
+    def fake_request(self, url, data=None):
+        urls.append(url)
+        return 200, b'<table data-stb-action="stb_hook_table_dockets" data-stb-nonce="ab">'
+
+    monkeypatch.setattr(stb.StbClient, "_request", fake_request)
+    client = stb.StbClient(min_interval=0)
+    assert client.get_nonces() == {"stb_hook_table_dockets": "ab"}
+    assert client.refresh_nonces() == {"stb_hook_table_dockets": "ab"}
+    assert len(urls) == 2 and all(u.startswith(stb.SEARCH_PAGE + "?dy=") for u in urls)

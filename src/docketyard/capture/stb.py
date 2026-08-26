@@ -123,9 +123,14 @@ class StbClient:
                     return resp.status, resp.read()
             except urllib.error.HTTPError as e:
                 if e.code == 403:
+                    body = e.read(200).decode("utf-8", "replace").strip()
+                    why = (
+                        "body `-1`: WordPress rejected the nonce (stale cached search page?)"
+                        if body == "-1"
+                        else "the WAF likely changed its User-Agent rules"
+                    )
                     raise RuntimeError(
-                        "STB endpoint returned 403 — the WAF likely changed its User-Agent"
-                        " rules; see docs/stb-data-source.md"
+                        f"STB endpoint returned 403 — {why}; see docs/stb-data-source.md"
                     ) from e
                 if e.code in (429, 500, 502, 503, 504):
                     last_error = e
@@ -150,7 +155,10 @@ class StbClient:
 
     def get_nonces(self) -> dict[str, str]:
         if not self._nonces:
-            _, body = self._request(SEARCH_PAGE)
+            # cache-busted: stb.gov's page cache serves a stale copy of the search page whose
+            # nonce no longer validates (403 with body `-1`, measured 2026-08-26 from AWS);
+            # a query string the cache has not seen forces a fresh render
+            _, body = self._request(f"{SEARCH_PAGE}?dy={int(time.time())}")
             self._nonces = parse_nonces(body.decode("utf-8", "replace"))
             if not self._nonces:
                 raise RuntimeError("no nonces found on the search page — markup changed?")

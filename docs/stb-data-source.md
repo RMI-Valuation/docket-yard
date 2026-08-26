@@ -37,6 +37,16 @@ a positive assertion that the filter was actually applied, not just that the cal
 `https://www.stb.gov/proceedings-actions/search-stb-records/`, where each results table carries
 `data-stb-action="stb_hook_table_*"` and `data-stb-nonce="<hex>"`.
 
+**The search page is cached, and a cached page carries a dead nonce** (measured 2026-08-26,
+first production pass from AWS us-east-2). The page came back `x-cache: HIT` from stb.gov's
+nginx cache with a nonce that WordPress rejected on every POST: **403 with body `-1`** — the
+`check_ajax_referer` failure, not a WAF block, and not User-Agent dependent (a browser UA got
+the same `-1`). `Cache-Control: no-cache` on the GET did nothing; a query string the cache had
+not seen (`?dy=<epoch>`) returned `x-cache: MISS`, a different nonce, and a 200 on the POST.
+The client cache-busts every nonce fetch. Home and rmi-ai-machine never hit this, presumably
+because they reached a different cache node or an uncached copy; do not read a working nonce
+from one network as proof it works from another.
+
 **The endpoint rejects non-browser User-Agents** (measured 2026-08-25): a POST with UA
 `DocketYard/0.0 (+https://docketyard.org)` returns **403 Forbidden**; the same request with
 `Mozilla/5.0 (compatible; DocketYard/0.0; +https://docketyard.org)` succeeds. A `Mozilla/5.0`

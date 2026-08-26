@@ -33,7 +33,10 @@ is an instance and not the container service.
 3. **On the box** (as `ubuntu`):
 
    ```sh
-   sudo apt update && sudo apt install -y docker.io docker-compose-v2 awscli
+   sudo apt update && sudo apt install -y docker.io docker-compose-v2 rsync unzip
+   # Noble has no awscli package; install AWS CLI v2 from the official archive
+   cd /tmp && curl -sS https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip \
+     && unzip -q awscliv2.zip && sudo ./aws/install && rm -rf aws awscliv2.zip
    sudo usermod -aG docker "$USER" && newgrp docker
    sudo mkdir -p /srv/docketyard/data && sudo chown -R "$USER" /srv/docketyard
    # copy compose.yaml, Caddyfile, litestream.yml, the two systemd units, and .env
