@@ -260,6 +260,20 @@ def test_sheet_order(client):
     assert oldest.index("311900") < oldest.index("311981")
 
 
+def test_health_reports_freshness_without_judging_it(client):
+    r = client.get("/health")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
+    h = r.json()
+    assert h["schema"] == db.MIGRATIONS[-1][0] and set(h["age_seconds"]) == {
+        "last_forward_capture",
+        "last_event",
+        "last_document",
+    }
+    assert h["last_event"] and h["age_seconds"]["last_event"] >= 0
+    assert h["last_document"] is None and h["age_seconds"]["last_document"] is None
+    assert "Set-Cookie" not in r.headers
+
+
 def test_record_pages_and_404s(client):
     assert client.get("/filing/311981").status_code == 200
     assert client.get("/filing/1").status_code == 404

@@ -2,7 +2,7 @@
 
 from sqlite3 import Connection
 
-from docketyard.capture.stb import DISPLAY_CAP
+from docketyard.capture.stb import DECISIONS, DISPLAY_CAP, FILINGS
 from docketyard.store.db import load_json
 
 
@@ -27,6 +27,26 @@ def docket_titles(con: Connection, limit: int = 20) -> list[tuple[str, str | Non
         (limit,),
     ).fetchall()
     return [(raw, load_json(p)["title"] if p else None) for raw, p in rows]
+
+
+def freshness(con: Connection) -> dict:
+    """The three timestamps the silent-failure decomposition in docs/alerts.md checks:
+    no captures (the poller is dead or refused), captures but no events (the parser is
+    broken or the Board is quiet), events but no documents (the fetch is broken). Off-box
+    monitoring reads these; the box never judges its own health."""
+    q = con.execute
+    return {
+        # table captures only: document fetches are captures too, and a draining attachment
+        # backlog must not make a refused poller look alive. Asserted, whether or not ingest
+        # has consumed it — an unconsumed capture is the parser's failure, not the poller's
+        "last_forward_capture": q(
+            "SELECT MAX(captured_at) FROM capture"
+            " WHERE ingest_mode = 'forward' AND filter_asserted = 1 AND table_action IN (?, ?)",
+            (FILINGS, DECISIONS),
+        ).fetchone()[0],
+        "last_event": q("SELECT MAX(recorded_at) FROM event").fetchone()[0],
+        "last_document": q("SELECT MAX(first_seen_at) FROM document").fetchone()[0],
+    }
 
 
 def status(con: Connection) -> dict:

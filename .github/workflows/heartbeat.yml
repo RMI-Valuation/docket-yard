@@ -1,0 +1,51 @@
+# The off-box heartbeat (ADR 0012, docs/alerts.md): a dead box cannot report its own death,
+# so GitHub's scheduler asks production for its freshness every hour and fails loudly —
+# a failed scheduled run emails the workflow's last committer — when a threshold is crossed.
+# Nothing here can reach the instance except over HTTPS as any reader would.
+name: Heartbeat
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: site answers
+        run: |
+          set -eo pipefail
+          curl -sSf -o /dev/null -w 'home %{http_code} %{time_total}s\n' https://docketyard.org/
+          curl -sSf -o health.json -w 'health %{http_code} %{time_total}s\n' https://docketyard.org/health
+      - name: freshness thresholds
+        run: |
+          set -eo pipefail
+          python3 - <<'EOF'
+          import json, sys
+          h = json.load(open("health.json"))
+          age = h["age_seconds"]
+          # the poller runs every 30 minutes; three hours is six missed passes.
+          # the Board serves something most business days; six days of nothing is the canary
+          limits = {
+              "last_forward_capture": 3 * 3600,
+              "last_event": 6 * 86400,
+              "last_document": 6 * 86400,
+          }
+          stale, never = [], []
+          for k, lim in limits.items():
+              a = age.get(k)
+              print(f"{k:22} {a}s (limit {lim}s)")
+              if a is None:
+                  never.append(k)  # a store that has not done this yet: reported, not paged
+              elif a > lim:
+                  stale.append(k)
+          print("version", h["version"], "schema", h["schema"])
+          if never:
+              print("::warning::never yet: " + ", ".join(never))
+          if stale:
+              sys.exit("STALE: " + ", ".join(stale) + " — see docs/alerts.md § The heartbeat")
+          EOF

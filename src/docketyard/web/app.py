@@ -17,13 +17,13 @@ from importlib import resources
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from docketyard import __version__
 from docketyard.ingest.dockets import find_docket, parse_docket_id
-from docketyard.store import home, sheet
+from docketyard.store import home, projections, sheet
 from docketyard.store.db import MIGRATIONS
 from docketyard.web import labels, urls
 
@@ -179,6 +179,28 @@ def create_app(db_path: str | Path, *, site_name: str = "Docket Yard") -> FastAP
         finally:
             con.close()
         return render(request, "home.html", week=w)
+
+    @app.get("/health")
+    def health():
+        """Freshness for the off-box heartbeat (docs/alerts.md). Always 200: the monitor
+        applies the thresholds, so a stale store is visible rather than a 5xx that a
+        restart loop could mask. No reader data, no identifiers."""
+        con = _connect(db_path)
+        try:
+            fresh = projections.freshness(con)
+        finally:
+            con.close()
+        now = datetime.now(UTC)
+        ages = {}
+        for key, value in fresh.items():
+            try:
+                ages[key] = int((now - datetime.fromisoformat(value)).total_seconds())
+            except (TypeError, ValueError):
+                ages[key] = None
+        return JSONResponse(
+            {"version": __version__, "schema": MIGRATIONS[-1][0], **fresh, "age_seconds": ages},
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/d")
     def lookup(request: Request, q: str = ""):
