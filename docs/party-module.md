@@ -102,12 +102,15 @@ Position or stance extraction (never inferred; a later, document-based method wi
 methodology page); service lists (above); reporting-mark data from external sources beyond
 the operator's seed; any UI that ranks parties.
 
-## Open questions for the operator
+## Decided by the operator (2026-08-26)
 
-1. Party page address: `/p/{id}` (opaque, stable) or a slug from the display name (readable,
-   but a rename breaks it)? Recommendation: `/p/{id}`, with the name in the page title.
-2. The Board as a party: show it in the Parties block (it is a filer of record) or fold it
-   out as "the Board" with its own treatment? Recommendation: show it, labelled as the
-   agency, never counted as a litigant in any later stance work.
-3. Seed list scope: Class I holding companies + operating railroads + marks (about 20
-   rows), or also the Amtrak/commuter and largest short-line holding companies?
+1. **Party page address is `/p/{id}`** — the store's party id, never re-minted, the name in
+   the page title. A party merged away by a `same_as` edge keeps its address, which answers
+   with the surviving party. An ADR 0013 addendum records the class.
+2. **The Board is shown in the Parties block, labelled as the agency**, and is never
+   treated as a litigant in any later work.
+3. **The seed list covers Class I carriers and holding companies with marks and recent
+   successions, plus Amtrak, the commuter agencies and the major short-line holding
+   companies** — on the order of sixty rows, entered with `method = 'operator'` and
+   reviewed by the operator before they ship; the list is data in the repository, so its
+   history is the audit trail.
