@@ -92,6 +92,14 @@ def week_path(monday) -> str:
     return f"/week/{monday.isoformat()}"
 
 
+def confirm_url(site: str, token: str) -> str:
+    return f"https://{site}/s/confirm/{token}"
+
+
+def unsubscribe_url(site: str, token: str) -> str:
+    return f"https://{site}/s/unsubscribe/{token}"
+
+
 def decision_path(stb_decision_id: str) -> str:
     return f"/decision/{stb_decision_id}"
 

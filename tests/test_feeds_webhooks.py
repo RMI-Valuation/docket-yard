@@ -2,7 +2,6 @@
 recipient is a URL, confirmed by a ping and delivered signed. Both render the same
 EventSummary the email does."""
 
-import json
 import xml.dom.minidom
 
 from fastapi.testclient import TestClient
@@ -107,12 +106,12 @@ def test_webhook_subscribe_ping_confirm_deliver_signed(store, monkeypatch):
     assert len(ids) == 1
     assert con.execute("SELECT channel FROM alert").fetchone()[0] == "webhook"
     stats = build.deliver_webhooks(con, "docketyard.org", log=lambda _: None)
-    assert stats == {"sent": 1, "failed": 0}
+    assert stats == {"sent": 1, "failed": 0, "suppressed": 0}
     url, payload, secret2, delivery_id = posted[1]
     assert secret2 == secret and delivery_id == str(ids[0])
     assert payload["events"][0]["record_id"] == "312000" and payload["events"][0]["late"] is False
     assert payload["unsubscribe_url"].startswith("https://docketyard.org/s/unsubscribe/")
-    body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
+    body = webhooks.encode(payload)
     assert webhooks.verify(secret, body, webhooks.sign(secret, body))
     assert not webhooks.verify(secret, body + b" ", webhooks.sign(secret, body))
     status, message_id = con.execute("SELECT status, message_id FROM alert").fetchone()
@@ -127,6 +126,34 @@ def test_webhook_subscribe_ping_confirm_deliver_signed(store, monkeypatch):
     assert con.execute("SELECT COUNT(*) FROM subscription").fetchone()[0] == 0
     assert con.execute("SELECT COUNT(*) FROM alert").fetchone()[0] == 0
     con.close()
+
+
+def test_webhook_same_page_when_nothing_is_sent(store, monkeypatch):
+    con, path, d, tmp_path = store
+    posted = []
+    monkeypatch.setattr(
+        webhooks, "post", lambda url, *a, **k: posted.append(url) or webhooks.Result(200)
+    )
+    con.close()
+    client = TestClient(create_app(path, sender=FakeSender()))
+    form = {"webhook_url": "https://Hooks.Example.org/stb", "docket": "FD 36873"}
+    pages = [client.post("/subscribe", data=form).text for _ in range(4)]
+    assert posted == ["https://hooks.example.org/stb"] * 3  # normalised; rate-limited at 3
+    assert len(set(pages)) == 1 and "Check the endpoint" in pages[0]  # the fourth page: same
+    assert "Hooks.Example.org" not in pages[0] and "/stb" not in pages[0]
+
+
+def test_one_secret_per_endpoint_across_subscriptions(store):
+    con, path, d, tmp_path = store
+    sub_id = con.execute("SELECT docket_id FROM docket WHERE raw_docket = 'FD_36873_1'").fetchone()[
+        0
+    ]
+    t1 = subscriptions.subscribe(con, "https://h.example/x", d, "daily", now=T0, channel="webhook")
+    t2 = subscriptions.subscribe(
+        con, "https://h.example/x", sub_id, "daily", now=T0, channel="webhook"
+    )
+    s1, s2 = subscriptions.for_confirm_token(con, t1), subscriptions.for_confirm_token(con, t2)
+    assert s1.subscription_id != s2.subscription_id and s1.secret == s2.secret
 
 
 def test_webhook_failures_are_retried_then_failed(store, monkeypatch):
@@ -145,6 +172,13 @@ def test_webhook_failures_are_retried_then_failed(store, monkeypatch):
         status, attempts = con.execute("SELECT status, attempts FROM alert").fetchone()
         assert attempts == attempt and status == ("failed" if attempt == 3 else "pending")
     assert build.deliver_webhooks(con, "docketyard.org")["failed"] == 0  # given up, logged
+    # the unsubscribe links those failed attempts carried were withdrawn: nobody holds them
+    assert (
+        con.execute(
+            "SELECT COUNT(*) FROM subscription_token WHERE purpose = 'unsubscribe'"
+        ).fetchone()[0]
+        == 0
+    )
 
 
 def test_webhook_refuses_private_destinations(store, monkeypatch):

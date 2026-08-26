@@ -22,6 +22,7 @@ class EventSummary:
     record_id: str | None  # the Board's filing or decision id
     date: str | None  # the Board's date, as printed
     url: str | None  # the record's permanent address here
+    record_kind: str | None = None  # filing | decision — for a replaced file, whose it was
     board_files: list[str] = field(default_factory=list)
     filing_type: str | None = None
     filed_for: str | None = None
@@ -32,12 +33,14 @@ class EventSummary:
 
     def title(self) -> str:
         if self.kind == "file_replaced":
-            return f"{self.docket} — the Board replaced a file on {self.record_label()}"
+            on = (
+                f"{self.record_kind} {self.record_id}"
+                if self.record_id
+                else "a record it holds (not identified)"
+            )
+            return f"{self.docket} — the Board replaced a file on {on}"
         what = "new" if self.first else "updated"
         return f"{self.docket} — {what} {self.kind} {self.record_id}, {self.date or 'undated'}"
-
-    def record_label(self) -> str:
-        return f"{self.kind if self.kind != 'file_replaced' else 'record'} {self.record_id}"
 
     def lines(self) -> list[str]:
         """The email's rendering: a head line and indented detail."""
@@ -98,6 +101,7 @@ def event_summary(con: Connection, event_id: int, site: str) -> EventSummary:
             docket_url=docket_url,
             first=False,
             record_id=decision_id or filing_id,
+            record_kind="decision" if decision_id else "filing" if filing_id else None,
             date=None,
             url=f"https://{site}{path}" if path else None,
             board_files=[p["source_url"]] if p.get("source_url") else [],
@@ -120,6 +124,7 @@ def event_summary(con: Connection, event_id: int, site: str) -> EventSummary:
         docket_url=docket_url,
         first=first,
         record_id=record_id,
+        record_kind=kind,
         date=p.get("date_printed") or p.get("date"),
         url=f"https://{site}{path}",
         board_files=list(p.get("attachments") or []),

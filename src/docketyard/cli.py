@@ -121,7 +121,7 @@ def _poll(args: argparse.Namespace) -> int:
     sender = _sender()
     site = os.environ.get("DY_HOST", "docketyard.org")
     if sender is None:
-        print("mail not configured (AWS_* / DY_SES_REGION): alerts are built, not sent")
+        print("mail not configured (AWS_* / DY_SES_REGION): email alerts wait; webhooks go")
 
     def alerts():
         return build.run_after_pass(con, sender, site)

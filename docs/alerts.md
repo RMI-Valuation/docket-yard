@@ -111,10 +111,16 @@ under the vault key, confirmed before anything is sent, rate-limited on confirma
 attempts, deleted on unsubscribe, and the alert ledger's claim-before-send discipline and
 three-attempt limit are the same. What differs:
 
-- **Confirmation is a ping**, not a mail: a signed POST to the URL carrying the confirmation
-  link and the signing secret. Only whoever reads the endpoint's traffic can confirm, and
-  the secret is never shown on a page. A ping the endpoint does not accept withdraws the
-  token, and the page says the same thing either way.
+- **Confirmation is a ping**, not a mail: a signed POST (3-second budget, no store handle
+  held while it waits) carrying the confirmation link and the signing secret. Only
+  whoever reads the endpoint's traffic can confirm, and the secret is never shown on a
+  page. A ping the endpoint does not accept still counts against the three-an-hour
+  limit and its token expires unused — withdrawing it would let a URL that never answers
+  be pinged without limit. The page says the same thing whatever happened.
+- **One secret per endpoint.** A URL following two dockets holds one secret, so a daily
+  digest across both verifies. The host is resolved once, every address checked, and the
+  checked address is the one dialled (certificate verified against the name), so a name
+  that answers differently on a second lookup cannot steer a request inward.
 - **Every delivery is signed**: `X-DocketYard-Signature: sha256=<HMAC-SHA256(secret, body)>`
   over the exact bytes, `X-DocketYard-Delivery: <alert id>`. The body is
   `build.payload()`: `events[]` (the summary fields plus `late`), `party` when the alert
@@ -123,9 +129,12 @@ three-attempt limit are the same. What differs:
   chose.** https only, no credentials in the URL, no redirects followed, ten-second
   timeout, and the host is resolved and refused unless every address is public unicast — a
   name pointing into the instance's own network never gets a connection.
-- **No suppression list for URLs.** An endpoint that fails three attempts fails that alert
-  and is tried again on the next; a permanently dead endpoint accumulates failed alerts
-  in the log. Revisit if it ever matters (TODO).
+- **Suppression applies by hash**, so an operator can stop an endpoint the way a bounced
+  address is stopped. Nothing suppresses automatically yet: an endpoint that fails three
+  attempts fails that alert and is tried again on the next, and a permanently dead one
+  accumulates failed alerts in the log (TODO.md carries the follow-up).
+- Webhooks go out whether or not mail is configured; email alerts wait, pending, for a
+  sender, and the heartbeat's `oldest_pending_alert` leg reports the wait.
 - The heartbeat leg `oldest_pending_alert` covers both channels: a pending webhook alert
   ages the same way.
 

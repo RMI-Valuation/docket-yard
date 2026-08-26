@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from sqlite3 import Connection
 
-from docketyard.alerts import vault
+from docketyard.alerts import vault, webhooks
 
 CONFIRM_TTL_HOURS = 48  # the one number the mail and the expired page both quote
 CONFIRM_TTL = timedelta(hours=CONFIRM_TTL_HOURS)
@@ -90,7 +90,7 @@ def subscribe(
     if channel not in ("email", "webhook"):
         raise ValueError("channel is email or webhook")
     v = vault.current()
-    email = normalise_email(email) if channel == "email" else email.strip()
+    email = normalise_email(email) if channel == "email" else webhooks.normalise_url(email)
     h = v.hash(email)
     t = _now(now)
     if is_suppressed(con, h):
@@ -125,7 +125,16 @@ def subscribe(
             (cadence, expires, sid),
         )
     else:
-        secret_enc = v.seal(new_token()) if channel == "webhook" else None
+        secret_enc = None
+        if channel == "webhook":
+            # one secret per endpoint, whatever it follows: a daily digest across two
+            # subscriptions of one URL is signed with the secret its owner already holds
+            held = con.execute(
+                "SELECT secret_enc FROM subscription WHERE email_hash = ?"
+                " AND secret_enc IS NOT NULL LIMIT 1",
+                (h,),
+            ).fetchone()
+            secret_enc = held[0] if held else v.seal(new_token())
         sid = con.execute(
             "INSERT INTO subscription (email_hash, email_enc, docket_id, party_id, cadence,"
             " status, created_at, expires_at, channel, secret_enc)"

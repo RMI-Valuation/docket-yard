@@ -29,7 +29,7 @@ from docketyard.alerts import feedback, mail, subscriptions, vault, webhooks
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
 from docketyard.store import coverage, home, projections, sheet, stats
-from docketyard.store.db import MIGRATIONS
+from docketyard.store.db import MIGRATIONS, utcnow
 from docketyard.web import feeds, labels, urls
 
 _PKG = resources.files("docketyard.web")
@@ -324,7 +324,7 @@ def create_app(
     # --- feeds: the alert stream as a page; nothing is stored about the reader ---------
 
     def atom(feed: feeds.Feed) -> Response:
-        body = feeds.render(feed, site_host, datetime.now(UTC).isoformat(timespec="seconds"))
+        body = feeds.render(feed, site_host, utcnow())
         return Response(
             body,
             media_type="application/atom+xml; charset=utf-8",
@@ -408,7 +408,9 @@ def create_app(
     ):
         """Whatever happens — new, pending, already active, suppressed, rate-limited — the
         answer is the same page, so nothing about an address can be learned here."""
-        if sender is None or not vault.is_open():  # never pretend a mail is on its way
+        channel = "webhook" if webhook_url.strip() else "email"
+        if not vault.is_open() or (channel == "email" and sender is None):
+            # never pretend a mail (or a ping) is on its way
             return message(
                 request,
                 "Subscriptions are not available right now",
@@ -416,7 +418,6 @@ def create_app(
                 " try again later.",
                 503,
             )
-        channel = "webhook" if webhook_url.strip() else "email"
         address = (
             webhooks.normalise_url(webhook_url)
             if channel == "webhook"
@@ -459,7 +460,7 @@ def create_app(
                 )
         finally:
             con.close()
-        if token and channel == "webhook":
+        if channel == "webhook":  # one page whatever happened, as for an address
             return _ping_webhook(request, address, token, printed)
         if token:
             hours = subscriptions.CONFIRM_TTL_HOURS
@@ -470,7 +471,7 @@ def create_app(
                     f"Someone — we hope you — asked {site_name} to email {address} when the"
                     f" Surface Transportation Board posts to {printed}.\n\n"
                     f"To confirm, open this link within {hours} hours and press Confirm:\n"
-                    f"https://{site_host}/s/confirm/{token}\n\n"
+                    f"{urls.confirm_url(site_host, token)}\n\n"
                     "If that was not you, do nothing: the request expires and the address"
                     " is deleted.\n\n"
                     f"{site_name} is an independent public record, not the Board."
@@ -493,48 +494,82 @@ def create_app(
             f" {printed}. Nothing is sent until you open it.",
         )
 
-    def _ping_webhook(request: Request, url: str, token: str, printed: str):
+    def _ping_webhook(request: Request, url: str, token: str | None, printed: str):
         """Confirmation for a webhook is a ping carrying the confirmation link and the
-        signing secret: whoever reads the endpoint's traffic can confirm, nobody else."""
-        con = _connect_rw(db_path)
-        try:
-            sub = subscriptions.for_confirm_token(con, token)
-            hours = subscriptions.CONFIRM_TTL_HOURS
-            ping = {
-                "type": "subscription.confirm",
-                "source": f"https://{site_host}/",
-                "what": printed,
-                "confirm_url": f"https://{site_host}/s/confirm/{token}",
-                "expires_in_hours": hours,
-                "secret": sub.secret if sub else None,
-                "note": f"Someone asked {site_name} to POST new filings and decisions for"
-                f" {printed} to this URL. To confirm, open confirm_url within {hours} hours"
-                " and press Confirm. Every later delivery is signed with `secret` as"
-                " X-DocketYard-Signature (HMAC-SHA256 over the body). If this was not you,"
-                " do nothing: the request expires and the URL is deleted.",
-            }
-            try:
-                result = webhooks.post(url, ping, sub.secret if sub else "", delivery_id="confirm")
-                ok = result.accepted
-            except webhooks.RefusedDestination:
-                ok = False
-            if not ok:
-                subscriptions.withdraw_token(con, token)
-        finally:
-            con.close()
-        return message(
+        signing secret: whoever reads the endpoint's traffic can confirm, nobody else.
+        Without a token (already following, rate-limited, suppressed) nothing is sent
+        and the page is the same."""
+        page = message(
             request,
             "Check the endpoint",
             f"If {webhooks.describe(url)} accepted a ping just now, it holds a confirmation"
             f" link and the signing secret for {printed}. Nothing is sent until the link is"
             " opened and confirmed.",
         )
+        if token is None:
+            return page
+        con = _connect(db_path)
+        try:
+            sub = subscriptions.for_confirm_token(con, token)
+        finally:
+            con.close()
+        if sub is None or not sub.secret:
+            return page
+        hours = subscriptions.CONFIRM_TTL_HOURS
+        # the ping itself: no store handle is held across the network wait
+        ping = {
+            "type": "subscription.confirm",
+            "source": f"https://{site_host}/",
+            "what": printed,
+            "confirm_url": urls.confirm_url(site_host, token),
+            "expires_in_hours": hours,
+            "secret": sub.secret,
+            "note": f"Someone asked {site_name} to POST new filings and decisions for"
+            f" {printed} to this URL. To confirm, open confirm_url within {hours} hours"
+            " and press Confirm. Every later delivery is signed with `secret` as"
+            " X-DocketYard-Signature (HMAC-SHA256 over the body). If this was not you,"
+            " do nothing: the request expires and the URL is deleted.",
+        }
+        # A ping that is not accepted still counts against the three-an-hour limit and
+        # its token simply expires: withdrawing it would let a URL that never answers be
+        # pinged without limit. The endpoint's owner sees nothing either way.
+        try:
+            webhooks.post(
+                url, ping, sub.secret, delivery_id="confirm", timeout=webhooks.PING_TIMEOUT
+            )
+        except webhooks.RefusedDestination:
+            pass
+        return page
 
     @app.get("/s/confirm/{token}")
     def confirm_page(request: Request, token: str):
         """A page with a button: mail-security gateways fetch links on delivery, and a
         fetch must never count as consent (ADR 0011). The POST below is the consent."""
-        return templates.TemplateResponse(request, "confirm.html", {"token": token})
+        con = _connect(db_path)
+        try:
+            sub = subscriptions.for_confirm_token(con, token) if vault.is_open() else None
+            what = None
+            if sub and sub.docket_id is not None:
+                raw = con.execute(
+                    "SELECT raw_docket FROM docket WHERE docket_id = ?", (sub.docket_id,)
+                ).fetchone()[0]
+                what = urls.printed_docket(parse_docket_id(raw))
+            elif sub:
+                what = f"filings for {resolve.display_name(con, sub.party_id)}"
+        finally:
+            con.close()
+        return templates.TemplateResponse(
+            request,
+            "confirm.html",
+            {
+                "token": token,
+                "channel": sub.channel if sub else "email",
+                "what": what,
+                "endpoint": webhooks.describe(sub.email)
+                if sub and sub.channel == "webhook"
+                else None,
+            },
+        )
 
     @app.post("/s/confirm/{token}")
     def confirm_subscription(request: Request, token: str):

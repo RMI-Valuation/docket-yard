@@ -156,5 +156,7 @@ def test_rebuilding_subscription_keeps_its_dependants(tmp_path):
     assert con.execute("SELECT COUNT(*) FROM subscription_token").fetchone()[0] == 1
     assert con.execute("SELECT COUNT(*) FROM alert_event").fetchone()[0] == 1
     assert con.execute("PRAGMA foreign_keys").fetchone()[0] == 1  # enforcement is back on
+    cols = {r[1] for r in con.execute("PRAGMA table_info(subscription)")}
+    assert {"channel", "secret_enc"} <= cols  # 0008 landed on the rebuilt table
     con.execute("DELETE FROM subscription WHERE subscription_id = ?", (s,))
     assert con.execute("SELECT COUNT(*) FROM subscription_token").fetchone()[0] == 0  # cascades
