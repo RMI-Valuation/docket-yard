@@ -54,3 +54,6 @@ by pre-commit: when it fires, prune.
   pushes to ghcr)
 - CLA-assistant Action gating outside PRs — when outside interest is real
 - Quarterly bulk dumps (capability F5) doubling as production-corpus backups
+- Stats review deferrals (2026-08-26): `home.py` and `stats.py` each carry a month walker and
+  the docket-family fold — share one helper; add an index on `filing(filed_date)` when a
+  migration is next cut (the year and week queries range-scan without it)
