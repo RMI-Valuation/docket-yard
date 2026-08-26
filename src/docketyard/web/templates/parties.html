@@ -25,6 +25,7 @@
       </tbody>
     </table>
     {% else %}<p class="muted">On record by name only; no filings resolved to it yet.</p>{% endif %}
+    <p class="small muted"><a href="/feed/party/{{ p.party_id }}">Atom feed of filings for {{ p.name }}</a></p>
     <form class="follow inline" method="post" action="/subscribe">
       <input type="hidden" name="party" value="{{ p.party_id }}">
       <label class="small muted" for="follow-{{ p.party_id }}">Follow filings for {{ p.name }}</label>

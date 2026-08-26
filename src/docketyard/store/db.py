@@ -20,6 +20,7 @@ MIGRATIONS: list[tuple[int, str]] = [
     (5, "0005_encrypted_addresses.sql"),
     (6, "0006_parties.sql"),
     (7, "0007_party_subscriptions.sql"),
+    (8, "0008_webhooks.sql"),
 ]
 
 

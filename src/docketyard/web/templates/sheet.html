@@ -2,6 +2,7 @@
 {% set printed = printed_docket(identity) %}
 {% block title %}{{ printed }} — {{ site_name }}{% endblock %}
 {% block description %}{{ sheet.title or printed }}{% endblock %}
+{% block head %}<link rel="alternate" type="application/atom+xml" title="{{ printed }}" href="{{ docket_path(identity.parent() or identity) }}/feed">{% endblock %}
 {% block main %}
 <section class="caption">
   <div class="caption-meta"><span class="label">{{ prefix_name(identity.prefix) }}</span><span>Before the Surface Transportation Board</span></div>
@@ -93,6 +94,22 @@
         <button class="btn" type="submit">Send confirmation</button>
         <p class="small muted">Confirmed by email; one click to stop, and the address is deleted when you do. No account.</p>
       </form>
+      <p class="small muted follow-alt">Or: <a href="{{ docket_path(identity.parent() or identity) }}/feed">Atom feed</a> · <a href="#webhook">webhook</a></p>
+      <details id="webhook" class="follow-webhook">
+        <summary class="small muted">Send new entries to a webhook</summary>
+        <form class="follow" method="post" action="/subscribe">
+          <input type="hidden" name="docket" value="{{ printed }}">
+          <label class="small muted" for="follow-webhook">HTTPS URL to POST to</label>
+          <input id="follow-webhook" name="webhook_url" type="url" required pattern="https://.*" placeholder="https://example.org/hooks/stb">
+          <fieldset class="follow-cadence">
+            <legend class="vh">How often</legend>
+            <label><input type="radio" name="cadence" value="pass" checked> As it happens</label>
+            <label><input type="radio" name="cadence" value="daily"> Once a day</label>
+          </fieldset>
+          <button class="btn" type="submit">Send a ping</button>
+          <p class="small muted">The ping carries a confirmation link and a signing secret; nothing is sent until the link is confirmed. Payload and signature: <a href="/methodology#webhooks">methodology</a>.</p>
+        </form>
+      </details>
     </div>
     <div>
       <h2 id="cite">Cite this docket</h2>

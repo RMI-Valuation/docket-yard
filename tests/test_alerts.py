@@ -228,6 +228,21 @@ def test_no_sender_builds_nothing_so_the_backlog_folds(store):
     assert build.run_after_pass(con, None, "docketyard.org")["built"] == 0
     assert con.execute("SELECT COUNT(*) FROM alert").fetchone()[0] == 0
     assert len(build.pending_events(con, "pass")) == 1  # still waiting, mark untouched
+    # a webhook subscription does not wait for mail: it is built and delivered regardless
+    from unittest import mock
+
+    from docketyard.alerts import webhooks
+
+    subscriptions.confirm(
+        con,
+        subscriptions.subscribe(con, "https://h.example/x", d, "pass", channel="webhook"),
+        now=T0,
+    )
+    observe(con, tmp_path, filing_row(fid="312006", date="8/26/2026"), 1)
+    with mock.patch.object(webhooks, "post", return_value=webhooks.Result(200)):
+        out = build.run_after_pass(con, None, "docketyard.org")
+    assert out["built"] == 1 and out["webhooks_sent"] == 1 and out["skipped"] == "no sender"
+    assert len(build.pending_events(con, "pass", "email")) == 2  # email still folding
 
 
 def test_web_flow_subscribe_confirm_unsubscribe(store):
