@@ -1,9 +1,8 @@
 # Traffic counts — design note
 
-> **Status: planning only, 2026-08-26.** The operator's fourth ask; not started. It ships only
-> with one sentence on `/privacy` that the operator has signed, because the privacy page
-> currently says the access log "records the page and the time" and nothing more — this
-> adds a kept, aggregated record, and the page must say so.
+> **Status: built 2026-08-26** (`store/traffic.py`, counted in the web tier's middleware,
+> `docketyard traffic` for the operator). The operator signed the privacy sentence below on
+> 2026-08-26 and it is on `/privacy` verbatim. This note is the source the code follows.
 
 ## The ask
 
@@ -17,19 +16,19 @@ One row per hour per (route class, status class, bot flag):
 | Column | Values | Why |
 | --- | --- | --- |
 | `hour` | ISO hour, UTC | the grain |
-| `route_class` | `home`, `sheet`, `record`, `party`, `parties`, `week`, `stats`, `feed`, `json`, `sitemap`, `data`, `trust` (about/coverage/methodology/corrections/privacy), `subscribe`, `static`, `other` | the page kind, never the page: no docket, no party, no record id |
+| `route_class` | `home`, `sheet`, `record`, `party`, `parties`, `search` (`/search` and `/suggest`), `week`, `stats`, `feed`, `json`, `sitemap` (and robots), `data`, `trust` (about/contribute/coverage/methodology/corrections/privacy), `subscribe` (and the token and SES paths), `static`, `other` — `ROUTE_CLASSES` in `store/traffic.py` | the page kind, never the page: no docket, no party, no record id |
 | `status_class` | `2xx`, `3xx`, `4xx`, `5xx` | health |
-| `bot` | 0/1 | a fixed list of substrings matched against the User-Agent *in memory*; the string itself is never written |
+| `bot` | 0/1 | a fixed list of substrings matched against the User-Agent *in memory* (`_BOT_MARKS`; the compose healthcheck's `Python-urllib` is one); a missing User-Agent is a reader; the string itself is never written |
 | `requests` | count | |
-| `bytes` | sum of response bytes | transfer |
+| `bytes` | sum of response sizes, each **rounded up to 64 KB** first | transfer volume — never a page: an exact length would identify a sheet in an hour with one reader (security review, 2026-08-26) |
 | `latency_ms` | four buckets: `<100`, `<500`, `<2000`, `≥2000`, as counts | slow pages are visible; no per-request timing survives |
 
-Twelve route classes × four status classes × two bot flags = at most 96 rows an hour, and
-in practice a handful. A month is a few thousand rows.
+Sixteen route classes × four status classes × two bot flags = at most 128 rows an hour,
+and in practice a handful. A month is a few thousand rows.
 
 **What is never in it:** IP address, any hash of one, User-Agent, referrer, query string,
 path, docket or party ids, cookies (none exist), session (none exists), country, anything
-per request. The row cannot be joined to anything else because nothing else exists.
+per request, a page's exact length. The row cannot be joined to anything else because nothing else exists.
 
 ## Where it is measured, and why not the access log
 
@@ -37,9 +36,11 @@ Caddy's access log already drops the address and User-Agent (ADR 0011) and is ke
 days; it has no bot flag and would need the path to classify the route. Rather than keep a
 richer log to aggregate from, the **web app counts in memory**: the existing `http_hygiene`
 middleware sees path, status, bytes and elapsed time, classifies the route and the agent on
-the spot, increments a counter, and forgets the request. Once an hour the counters are
-written and reset. No per-request record exists anywhere, at any point, even transiently on
-disk.
+the spot, increments a counter, and forgets the request. Just after every hour boundary,
+and at shutdown, the counters are written (additively, so a partial hour is safe) and
+reset; a crash loses at most the hour in progress. An unhandled error is counted as the
+5xx the reader saw; a HEAD counts zero bytes. No per-request record exists anywhere, at
+any point, even transiently on disk.
 
 The server is a reader with one exception (subscriptions). Counts are a second, separate
 exception: they go to a **separate file**, `data/traffic.sqlite`, never into the store —
@@ -68,8 +69,7 @@ Proposed, to be added under "Reading is anonymous", after the access-log bullet:
 
 ## Open
 
-- [ ] The operator signs the sentence above (or edits it); nothing is built before that.
-- [ ] Route-class list confirmed.
-- [ ] Retention confirmed (90 days hourly, daily forever).
-- [ ] Whether bot/not is worth the User-Agent match at all, given that the string is seen
-      in memory either way — the alternative is no bot flag and a simpler sentence.
+- [x] The operator signed the sentence (2026-08-26).
+- [x] Route classes as listed (plus `search`, added with the search box); retention 90 days
+      hourly, daily indefinitely; bot/not from a fixed substring list, matched in memory.
+- [ ] Publishing any aggregate is a separate decision with its own sentence.
