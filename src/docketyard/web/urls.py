@@ -87,6 +87,11 @@ def cite_docket(identity: ParsedDocket) -> str:
     return f"{head} (Sub-No. {identity.sub_sequence}{identity.suffix or ''})"
 
 
+def week_path(monday) -> str:
+    """A fixed Monday–Sunday week, addressed by its Monday: /week/2026-08-17."""
+    return f"/week/{monday.isoformat()}"
+
+
 def decision_path(stb_decision_id: str) -> str:
     return f"/decision/{stb_decision_id}"
 

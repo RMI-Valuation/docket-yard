@@ -53,3 +53,13 @@ Decision No. 30" resolves through `/decision/{id}` once the printed decision num
 extracted — an addition, not a re-keying. Implemented the same day in `web/urls.py`, which
 delegates to the ingest parser so there is one definition of identity; the review of that
 code caught a second grammar creeping in and it was removed.
+
+## Addendum (2026-08-26): weeks
+
+A fourth address class, decided by the operator: **`/week/{Monday}`** — a fixed Monday to
+Sunday calendar week (ISO), addressed by the ISO date of its Monday, e.g. `/week/2026-08-17`.
+Any day of the week resolves to its Monday with a 301; `/week` redirects to the most
+recent complete week. The home page's "this week" stays a rolling seven days ending at the
+latest activity and is not an address. A week the record does not yet cover exists at its
+address and says so, filling in when a backfill wave reaches it. The permanence rules
+above apply unchanged: a week address, once served, is never removed or repointed.

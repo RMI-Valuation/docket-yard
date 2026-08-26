@@ -14,7 +14,7 @@ address (ADR 0011); those three handlers open a writable connection and nothing 
 
 import sqlite3
 from dataclasses import replace
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from importlib import resources
 from pathlib import Path
 
@@ -201,6 +201,46 @@ def create_app(
         finally:
             con.close()
         return render(request, "home.html", week=w)
+
+    # --- past weeks: fixed Monday–Sunday weeks at permanent addresses --------------------
+
+    @app.get("/week")
+    def latest_week(request: Request):
+        """The most recent complete calendar week."""
+        con = _connect(db_path)
+        try:
+            latest = home.latest_activity_date(con)
+        finally:
+            con.close()
+        monday = home.monday_of(latest) - timedelta(days=7)
+        return RedirectResponse(urls.week_path(monday), status_code=303)
+
+    @app.get("/week/{day}")
+    def week_page(request: Request, day: str):
+        try:
+            d = date.fromisoformat(day)
+        except ValueError as e:
+            raise HTTPException(404) from e
+        monday = home.monday_of(d)
+        if d != monday:  # any day of the week resolves to the week's one address
+            return RedirectResponse(urls.week_path(monday), status_code=301)
+        con = _connect(db_path)
+        try:
+            w = home.calendar_week(con, monday)
+            is_covered = home.covered(con, monday, monday + timedelta(days=6))
+            latest = home.latest_activity_date(con)
+        finally:
+            con.close()
+        nxt = monday + timedelta(days=7)
+        return render(
+            request,
+            "week.html",
+            week=w,
+            monday_iso=monday.isoformat(),
+            covered=is_covered,
+            prev_path=urls.week_path(monday - timedelta(days=7)),
+            next_path=urls.week_path(nxt) if nxt <= latest else None,
+        )
 
     # --- the trust pages: about, coverage, corrections, methodology, privacy ------------
     # Reachable now, linked from the footer only once the operator has signed them off

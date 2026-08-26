@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Week of {{ monday_iso | fmt_date }} — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="week">
+  <div class="week-head">
+    <h1 class="serif week-title">Week of {{ monday_iso | fmt_date }}</h1>
+    <div class="muted small">{{ fmt_range(week.start, week.end) }} · Monday to Sunday · <a href="{{ prev_path }}">← previous week</a>{% if next_path %} · <a href="{{ next_path }}">next week →</a>{% endif %} · <a href="/">this week</a></div>
+  </div>
+</section>
+{% if covered %}
+{% include "_week_body.html" %}
+{% else %}
+<section class="caption">
+  <p>{{ site_name }}’s record does not yet cover this week. History is being added in dated waves; the <a href="/coverage">coverage page</a> says how far back the record reaches today. This address will fill in when a wave reaches it.</p>
+</section>
+{% endif %}
+<section class="caption">
+  <p class="small muted">Permanent address: <span class="mono">docketyard.org/week/{{ monday_iso }}</span> — any day of the week resolves here.</p>
+</section>
+{% endblock %}

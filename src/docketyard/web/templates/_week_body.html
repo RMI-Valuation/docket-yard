@@ -1,0 +1,53 @@
+  <div class="stats">
+    {% set dup = week.decision_entries - week.distinct_decisions %}
+    <div class="stat"><span class="n serif">{{ week.distinct_decisions }}</span><span class="l">decisions served{% if dup == 1 %} (one entered in two dockets){% elif dup > 1 %} ({{ dup }} entered in more than one docket){% endif %}</span></div>
+    <div class="stat"><span class="n serif">{{ week.filings }}</span><span class="l">filings observed, in {{ week.moved | length | plural('proceeding') }}</span></div>
+    {% if week.moved %}<div class="stat"><span class="n serif">{{ week.moved[0].filings }}</span><span class="l">of them in {{ printed_docket(parse_docket_id(week.moved[0].docket_raw)) }}</span></div>{% endif %}
+  </div>
+</section>
+
+<section class="two-col wide-rail">
+  <div>
+    <h2>Decisions served</h2>
+    <ol class="plain">
+    {% for d in week.decisions %}
+    <li class="row">
+      <span class="muted"><time datetime="{{ d.service_date }}">{{ d.service_date | fmt_date }}</time></span>
+      <span class="dk"><a href="{{ docket_path(parse_docket_id(d.docket_raw)) }}">{{ printed_docket(parse_docket_id(d.docket_raw)) }}</a></span>
+      <div>
+        {% if d.summary %}<div class="summary as-printed">{{ d.summary }}</div>{% endif %}
+        <div class="muted">{{ d.deciding_body or '' }}{% if d.docket_title %} · <span class="as-printed">{{ d.docket_title }}</span>{% endif %}{% if d.also_in %} · also entered in {% for raw in d.also_in %}<a href="{{ docket_path(parse_docket_id(raw)) }}">{{ printed_docket(parse_docket_id(raw)) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %} · <a href="{{ decision_path(d.stb_decision_id) }}">decision {{ d.stb_decision_id }}</a></div>
+      </div>
+    </li>
+    {% else %}
+    <li class="muted">No decisions served in this window.</li>
+    {% endfor %}
+    </ol>
+  </div>
+  <aside class="rail">
+    <div>
+      <h2>What this is</h2>
+      <p>{{ site_name }} is an independent public record, operated by RMI Valuation, LLC. It is not affiliated with the Surface Transportation Board; every entry links to the Board’s own document, and dates are quoted from the record, never computed.</p>
+    </div>
+  </aside>
+</section>
+
+<section class="moved-section">
+  <h2>Proceedings that moved this week</h2>
+  <table class="moved">
+    <thead><tr><th scope="col">Docket</th><th scope="col">Proceeding</th><th scope="col" class="num">Filings</th><th scope="col" class="num">Last activity</th></tr></thead>
+    <tbody>
+    {% for m in week.moved %}
+    <tr>
+      <td class="dk"><a href="{{ docket_path(parse_docket_id(m.docket_raw)) }}">{{ printed_docket(parse_docket_id(m.docket_raw)) }}</a></td>
+      <td class="title as-printed">{{ m.title or '(caption not yet observed)' }}</td>
+      <td class="num filings">{{ m.filings }}</td>
+      <td class="num last"><time datetime="{{ m.last_activity }}">{{ m.last_activity | fmt_day_month }}</time></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="muted">No filings in this window.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="small muted">Captions and summaries appear as the Board prints them. Counts are filings observed in the record between {{ fmt_range(week.start, week.end) }}; decisions are listed above and not counted here.</p>
+</section>

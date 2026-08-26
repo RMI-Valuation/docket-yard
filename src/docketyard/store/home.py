@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from sqlite3 import Connection
 
+from docketyard.capture.stb import DECISIONS, FILINGS
 from docketyard.store.db import load_json
 
 WEEK_DAYS = 7
@@ -139,6 +140,45 @@ def latest_activity_date(con: Connection, today: date | None = None) -> date:
         except ValueError:
             continue
     return today
+
+
+def monday_of(d: date) -> date:
+    return d - timedelta(days=d.weekday())
+
+
+def calendar_week(con: Connection, monday: date) -> Week:
+    """A fixed Monday–Sunday week at a permanent address (ADR 0013 addendum): the same
+    projection as the home page, over the ISO week."""
+    return week(con, monday.isoformat(), (monday + timedelta(days=6)).isoformat())
+
+
+def covered(con: Connection, start: date, end: date) -> bool:
+    """Whether the record claims this window: it ends on or after the day the watch began,
+    or every month it touches was walked to completion by a backfill wave for both
+    record tables. Anything else is 'not yet covered' — an honest empty page, not a
+    quiet week."""
+    row = con.execute(
+        "SELECT MIN(captured_at) FROM capture WHERE ingest_mode = 'forward'"
+        " AND filter_asserted = 1 AND table_action IN (?, ?)",
+        (FILINGS, DECISIONS),
+    ).fetchone()
+    watch = date.fromisoformat(row[0][:10]) if row and row[0] else None
+    if watch and end >= watch - timedelta(days=WEEK_DAYS - 1):
+        return True
+    months = set()
+    cursor = start.replace(day=1)
+    while cursor <= end:
+        months.add(cursor.strftime("%Y-%m"))
+        cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+    for action in (FILINGS, DECISIONS):
+        for m in months:
+            done = con.execute(
+                "SELECT 1 FROM walk_slice WHERE slice_key = ? AND status = 'done'",
+                (f"{action}:{m}",),
+            ).fetchone()
+            if not done:
+                return False
+    return True
 
 
 def this_week(con: Connection, today: date | None = None) -> Week:
