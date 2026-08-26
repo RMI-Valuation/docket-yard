@@ -1,7 +1,7 @@
 """The party module: splitting rules on the measured cell shapes, exact resolution with
 minting and ambiguity, supersession on a changed cell, and the same_as component."""
 
-from docketyard.parties import names, resolve
+from docketyard.parties import names, resolve, seed
 from docketyard.store import db
 
 
@@ -237,7 +237,7 @@ def test_seed_loads_idempotently_and_marks_are_matchable():
     assert next(p for p in block if p["name"] == "the Board")["agency"]
     assert con.execute(
         "SELECT method, method_version FROM party_name WHERE raw_name = 'BNSF'"
-    ).fetchone() == ("human", "seed-2026-08-26")
+    ).fetchone() == ("human", seed.SEED_VERSION)
 
 
 def test_sheet_and_parties_view(tmp_path):

@@ -10,20 +10,36 @@ guessed, and a wrong row is corrected by a `correction` and a superseding row, n
 edit in place.
 """
 
-SEED_VERSION = "seed-2026-08-26"
+SEED_VERSION = "seed-2026-08-26.1"
 
 # (legal name, [other names as (kind, name)], note)
 PARTIES: list[tuple[str, list[tuple[str, str]], str]] = [
     # --- Class I carriers and their holding companies -------------------------------
-    ("BNSF Railway Company", [("mark", "BNSF"), ("display", "BNSF Railway")], "Class I"),
+    (
+        "BNSF Railway Company",
+        [("mark", "BNSF"), ("display", "BNSF Railway"), ("colloquial", "BNSF Railway")],
+        "Class I",
+    ),
     ("Burlington Northern Santa Fe, LLC", [], "holding company of BNSF Railway Company"),
-    ("Union Pacific Railroad Company", [("mark", "UP"), ("display", "Union Pacific")], "Class I"),
+    (
+        "Union Pacific Railroad Company",
+        [("mark", "UP"), ("display", "Union Pacific"), ("colloquial", "Union Pacific Railroad")],
+        "Class I",
+    ),
     ("Union Pacific Corporation", [], "holding company of Union Pacific Railroad Company"),
-    ("CSX Transportation, Inc.", [("mark", "CSXT"), ("display", "CSX Transportation")], "Class I"),
+    (
+        "CSX Transportation, Inc.",
+        [("mark", "CSXT"), ("display", "CSX Transportation"), ("colloquial", "CSXT")],
+        "Class I",
+    ),
     ("CSX Corporation", [("mark", "CSX")], "holding company of CSX Transportation, Inc."),
     (
         "Norfolk Southern Railway Company",
-        [("mark", "NS"), ("display", "Norfolk Southern")],
+        [
+            ("mark", "NS"),
+            ("display", "Norfolk Southern"),
+            ("colloquial", "Norfolk Southern Railway"),
+        ],
         "Class I",
     ),
     ("Norfolk Southern Corporation", [], "holding company of Norfolk Southern Railway Company"),
