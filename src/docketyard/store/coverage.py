@@ -77,12 +77,12 @@ def coverage(con: Connection) -> Coverage:
             " JOIN capture c ON c.capture_id = e.capture_id WHERE c.ingest_mode = 'forward'"
         ),
         record_from=one(
-            "SELECT MIN(d) FROM (SELECT MIN(filed_date) AS d FROM filing"
-            " UNION ALL SELECT MIN(service_date) FROM decision_record)"
+            "SELECT MIN(d) FROM (SELECT MIN(NULLIF(filed_date, '')) AS d FROM filing"
+            " UNION ALL SELECT MIN(NULLIF(service_date, '')) FROM decision_record)"
         ),
         record_to=one(
-            "SELECT MAX(d) FROM (SELECT MAX(filed_date) AS d FROM filing"
-            " UNION ALL SELECT MAX(service_date) FROM decision_record)"
+            "SELECT MAX(d) FROM (SELECT MAX(NULLIF(filed_date, '')) AS d FROM filing"
+            " UNION ALL SELECT MAX(NULLIF(service_date, '')) FROM decision_record)"
         ),
         earliest_served=one(
             "SELECT MIN(r.service_date) FROM decision_record r"

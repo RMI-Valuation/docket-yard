@@ -1,10 +1,11 @@
 """Sitemaps, generated from the registry so that a deep page is found without a link.
 
-An index at /sitemap.xml names one file per section; each stays under the protocol's
-50,000-URL limit (the registry is 32,604 dockets today; a section splits by number when it
-would exceed that). `lastmod` is measured: the newest capture that touched the docket, or
-observed the record. Parties have no address (ADR 0013 addendum) and so no sitemap entry;
-if ADR 0015 gives them one, a section is added here.
+An index at /sitemap.xml names one file per section per page of PAGE URLs (the protocol's
+limit is 50,000; the record will pass that as the backfill lands), each rendered from the
+store and memoised on the store's version stamp so crawlers do not re-run the queries.
+`lastmod` is measured: the newest capture that touched the docket, or observed the record.
+Parties have no address (ADR 0013 addendum) and so no sitemap entry; ADR 0015, if
+accepted, adds a section here.
 """
 
 from sqlite3 import Connection
@@ -13,18 +14,49 @@ from xml.sax.saxutils import escape
 from docketyard.ingest.dockets import parse_docket_id
 from docketyard.web import urls
 
-LIMIT = 45_000
+PAGE = 40_000
 SECTIONS = ("pages", "dockets", "decisions", "filings")
+STATIC_PAGES = (
+    "/",
+    "/parties",
+    "/stats",
+    "/data",
+    "/about",
+    "/coverage",
+    "/methodology",
+    "/corrections",
+    "/privacy",
+)
+_RECORDS = {
+    "decisions": ("decision_record", "stb_decision_id", urls.decision_path),
+    "filings": ("filing", "stb_filing_id", urls.filing_path),
+}
+_memo: dict[tuple, str] = {}
 
 
-def index(site: str) -> str:
-    items = "".join(
-        f"  <sitemap><loc>https://{site}/sitemap-{s}.xml</loc></sitemap>\n" for s in SECTIONS
-    )
+def _count(con: Connection, name: str) -> int:
+    if name == "pages":
+        return len(STATIC_PAGES)
+    if name == "dockets":
+        return con.execute("SELECT COUNT(*) FROM docket WHERE parent_docket_id IS NULL").fetchone()[
+            0
+        ]
+    table, col, _ = _RECORDS[name]
+    return con.execute(f"SELECT COUNT(DISTINCT {col}) FROM {table}").fetchone()[0]
+
+
+def index(con: Connection, site: str) -> str:
+    items = []
+    for s in SECTIONS:
+        pages = max(1, -(-_count(con, s) // PAGE))
+        items += [
+            f"  <sitemap><loc>https://{site}/sitemap-{s}-{n}.xml</loc></sitemap>\n"
+            for n in range(1, pages + 1)
+        ]
     return (
         '<?xml version="1.0" encoding="utf-8"?>\n'
         '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        f"{items}</sitemapindex>\n"
+        f"{''.join(items)}</sitemapindex>\n"
     )
 
 
@@ -40,48 +72,53 @@ def _urlset(entries: list[tuple[str, str | None]]) -> str:
     )
 
 
-def section(con: Connection, site: str, name: str) -> str | None:
+def section(con: Connection, site: str, name: str, page: int, stamp: str) -> str | None:
+    """One page of one section, or None when there is no such page. Memoised on the
+    store's stamp; the memo is tiny (a handful of strings) and cleared when the stamp moves."""
+    if name not in SECTIONS or page < 1:
+        return None
+    key = (site, name, page, stamp)
+    if key in _memo:
+        return _memo[key]
+    for k in [k for k in _memo if k[3] != stamp]:
+        del _memo[k]
     base = f"https://{site}"
+    offset = (page - 1) * PAGE
     if name == "pages":
-        return _urlset(
-            [
-                (f"{base}{p}", None)
-                for p in ("/", "/parties", "/stats", "/data", "/about", "/coverage", "/methodology")
-            ]
-        )
-    if name == "dockets":
+        entries = [(f"{base}{p}", None) for p in STATIC_PAGES[offset : offset + PAGE]]
+    elif name == "dockets":
         rows = con.execute(
             """
             SELECT d.raw_docket, MAX(c.captured_at)
               FROM docket d
-              LEFT JOIN event e ON e.docket_id = d.docket_id
+              LEFT JOIN docket m ON m.docket_id = d.docket_id OR m.parent_docket_id = d.docket_id
+              LEFT JOIN event e ON e.docket_id = m.docket_id
               LEFT JOIN capture c ON c.capture_id = e.capture_id
              WHERE d.parent_docket_id IS NULL
-             GROUP BY d.docket_id ORDER BY d.prefix, d.sequence LIMIT ?
+             GROUP BY d.docket_id ORDER BY d.prefix, d.sequence LIMIT ? OFFSET ?
             """,
-            (LIMIT,),
+            (PAGE, offset),
         ).fetchall()
-        out = []
+        entries = []
         for raw, mod in rows:
             ident = parse_docket_id(raw)
             if ident is not None:
-                out.append((f"{base}{urls.docket_path(ident)}", mod))
-        return _urlset(out)
-    if name in ("decisions", "filings"):
-        table, col, path = (
-            ("decision_record", "stb_decision_id", urls.decision_path)
-            if name == "decisions"
-            else ("filing", "stb_filing_id", urls.filing_path)
-        )
+                entries.append((f"{base}{urls.docket_path(ident)}", mod))
+    else:
+        table, col, path = _RECORDS[name]
         rows = con.execute(
             f"""
             SELECT r.{col}, MAX(c.captured_at)
               FROM {table} r
               JOIN event e ON e.event_id = r.observed_in_event
               JOIN capture c ON c.capture_id = e.capture_id
-             GROUP BY r.{col} ORDER BY r.{col} LIMIT ?
+             GROUP BY r.{col} ORDER BY r.{col} LIMIT ? OFFSET ?
             """,
-            (LIMIT,),
+            (PAGE, offset),
         ).fetchall()
-        return _urlset([(f"{base}{path(rid)}", mod) for rid, mod in rows])
-    return None
+        entries = [(f"{base}{path(rid)}", mod) for rid, mod in rows]
+    if not entries and page > 1:
+        return None
+    body = _urlset(entries)
+    _memo[key] = body
+    return body

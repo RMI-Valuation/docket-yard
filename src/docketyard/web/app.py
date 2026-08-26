@@ -20,7 +20,8 @@ from importlib import resources
 from pathlib import Path
 
 from fastapi import Body, FastAPI, Form, HTTPException, Request
-from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -36,6 +37,8 @@ _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
 NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health")  # tokens, consent, telemetry
+MOUNTS = ("/static/", "/data/files/")  # StaticFiles: streams, validates and HEADs itself
+DISCOVERY_CACHE = 86400  # robots and sitemaps: a day
 PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move once a poll
 # outside intake is GitHub Issues (CLAUDE.md); the form template carries the fields
 CORRECTIONS_URL = (
@@ -158,6 +161,7 @@ def create_app(
     css_hash = hashlib.sha256((_PKG / "static" / "site.css").read_bytes()).hexdigest()[:12]
     templates.env.globals.update(
         site_name=site_name,
+        site_host=site_host,
         asset_v=css_hash,
         docket_path=urls.docket_path,
         printed_docket=urls.printed_docket,
@@ -176,94 +180,90 @@ def create_app(
     )
 
     def render(request: Request, name: str, **context):
+        context.setdefault("canonical", _path(request))
         return templates.TemplateResponse(request, name, context)
 
-    templates.env.globals["site_host"] = site_host
+    def stamp() -> str:
+        """The store's version as one cheap number: the newest capture and event ids. Every
+        reader page is a function of the store, so this is a valid validator for all of
+        them — and it costs two primary-key lookups, not a render."""
+        con = _connect(db_path)
+        try:
+            c, e = con.execute(
+                "SELECT (SELECT MAX(capture_id) FROM capture), (SELECT MAX(event_id) FROM event)"
+            ).fetchone()
+        finally:
+            con.close()
+        return f"{c or 0}.{e or 0}"
 
     @app.middleware("http")
     async def http_hygiene(request: Request, call_next):
-        """HEAD answers as GET without a body; successful GET pages carry a validator
-        (ETag from the bytes) and a short public cache life, and answer 304 to a
-        matching If-None-Match. Consent, token and telemetry paths are never cached.
-        No cookie is ever set, so caching is safe everywhere else (ADR 0011)."""
-        head = request.method == "HEAD"
-        if head:
-            request.scope["method"] = "GET"
-        response = await call_next(request)
+        """Reader pages carry a validator and a short public cache life; a matching
+        If-None-Match answers 304 before anything is rendered. Consent, token and telemetry
+        paths are marked no-store. Mounted files (static assets, the snapshot) are left to
+        StaticFiles, which streams and validates them itself. No cookie is ever set, so
+        caching is safe everywhere else (ADR 0011). HEAD is registered on every GET route
+        (below), so nothing here rewrites the method."""
         path = _path(request)
-        cacheable = (
-            request.method == "GET"
-            and response.status_code == 200
-            and not any(path.startswith(p) for p in NEVER_CACHE)
-            and not path.startswith("/static/")
-        )
-        if cacheable:
-            body = b"".join([chunk async for chunk in response.body_iterator])
-            etag = 'W/"' + hashlib.sha256(body).hexdigest()[:32] + '"'
+        if request.method not in ("GET", "HEAD") or path.startswith(MOUNTS):
+            return await call_next(request)
+        if path.startswith(NEVER_CACHE):
+            response = await call_next(request)
+            response.headers["Cache-Control"] = "no-store"
+            return response
+        etag = f'W/"{stamp()}"'
+        if request.headers.get("if-none-match") and etag in [
+            v.strip() for v in request.headers["if-none-match"].split(",")
+        ]:
+            return Response(status_code=304, headers={"ETag": etag})
+        response = await call_next(request)
+        if response.status_code == 200:
             response.headers.setdefault("Cache-Control", f"public, max-age={PAGE_CACHE}")
             response.headers["ETag"] = etag
-            response.headers.setdefault("Vary", "Accept-Encoding")
-            if request.headers.get("if-none-match") == etag:
-                return Response(
-                    status_code=304,
-                    headers={
-                        k: v for k, v in response.headers.items() if k.lower() != "content-length"
-                    },
-                )
-            response.headers["Content-Length"] = str(len(body))
-            if head:
-                return Response(status_code=200, headers=dict(response.headers))
-            return Response(
-                content=body,
-                status_code=200,
-                headers=dict(response.headers),
-                media_type=response.headers.get("content-type"),
-            )
-        if head:
-            async for _ in response.body_iterator:  # drain; the body is not sent
-                pass
-            return Response(status_code=response.status_code, headers=dict(response.headers))
         return response
+
+    def public(body: str, media_type: str, max_age: int = DISCOVERY_CACHE) -> Response:
+        return Response(
+            body, media_type=media_type, headers={"Cache-Control": f"public, max-age={max_age}"}
+        )
 
     # --- discovery: robots.txt and sitemaps, generated from the registry --------------
 
     @app.get("/robots.txt")
     def robots():
-        return PlainTextResponse(
-            "User-agent: *\n"
-            "Disallow: /s/\n"  # confirmation and unsubscribe links carry tokens
-            "Disallow: /subscribe\n"
-            "Disallow: /ses/\n"
-            f"Sitemap: https://{site_host}/sitemap.xml\n",
-            headers={"Cache-Control": "public, max-age=86400"},
+        # the paths a cache must not keep are the paths a crawler must not index
+        lines = ["User-agent: *"] + [f"Disallow: {p}" for p in NEVER_CACHE if p != "/health"]
+        return public(
+            "\n".join(lines) + f"\nSitemap: https://{site_host}/sitemap.xml\n", "text/plain"
         )
 
-    def xml(body: str) -> Response:
-        return Response(
-            body,
-            media_type="application/xml; charset=utf-8",
-            headers={"Cache-Control": "public, max-age=86400"},
-        )
+    XML = "application/xml; charset=utf-8"
 
     @app.get("/sitemap.xml")
     def sitemap_index():
-        return xml(sitemaps.index(site_host))
-
-    @app.get("/sitemap-{section}.xml")
-    def sitemap_section(section: str):
         con = _connect(db_path)
         try:
-            body = sitemaps.section(con, site_host, section)
+            return public(sitemaps.index(con, site_host), XML)
+        finally:
+            con.close()
+
+    @app.get("/sitemap-{section}-{page}.xml")
+    def sitemap_section(section: str, page: int):
+        con = _connect(db_path)
+        try:
+            body = sitemaps.section(con, site_host, section, page, stamp())
         finally:
             con.close()
         if body is None:
             raise HTTPException(404)
-        return xml(body)
+        return public(body, XML)
 
     @app.exception_handler(404)
     def not_found(request: Request, exc: HTTPException):
         detail = exc.detail if isinstance(exc.detail, str) and exc.detail != "Not Found" else ""
-        return templates.TemplateResponse(request, "404.html", {"detail": detail}, status_code=404)
+        return templates.TemplateResponse(
+            request, "404.html", {"detail": detail, "canonical": None}, status_code=404
+        )
 
     def family_sheet(identity):
         """The family a docket address belongs to (ADR 0005: a sheet folds its sub-dockets)
@@ -850,6 +850,9 @@ def create_app(
     def filing_page(request: Request, stb_id: str):
         return _record_page(request, db_path, render, "filing", stb_id)
 
+    for route in app.routes:  # HEAD answers as GET without a body, on every page
+        if isinstance(route, APIRoute) and "GET" in route.methods:
+            route.methods.add("HEAD")
     return app
 
 
