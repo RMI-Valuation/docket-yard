@@ -6,12 +6,12 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- M4 alerting, remaining: subscribe/confirm/unsubscribe web flow (tokens ≥128 random bits,
-  unsubscribe also deletes the address's `alert` rows, pending-row sweep, per-address rate
-  limit on confirmation mail); the alert join after each pass + the 23:00 ET daily digest;
-  send-time `email_suppression` check; late-delivery derivation from capture spacing
-- SES: production-access request pending with AWS (sandbox = verified recipients only);
-  bounce/complaint feedback path (SNS topic → `email_suppression`) before any real volume
+- M4 in production: deploy v2026.08.4, then a real end-to-end subscribe → confirm → alert
+  with Cameron's address; add a `last_delivery` timestamp to `/health` + the heartbeat
+- SES bounce/complaint feedback path (SNS topic → `email_suppression`) before any real
+  volume; until then the SES reputation dashboard is checked by hand
+- Coverage page: generated from `coverage_gap` + the capture ledger (M5); operator tooling
+  to record a gap (`docketyard gap open/close`) so the late-delivery marking has a row to cite
 - DMARC `p=quarantine` is now set on docketyard.org (2026-08-26) — any other sender on the
   domain must be DKIM-aligned or its mail will be quarantined; Cameron to confirm none exists
 - Credentials ADR follow-up: Lightsail has no instance profile, so the first deploy runs on

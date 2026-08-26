@@ -6,7 +6,13 @@ requires-python = ">=3.11"
 license = { text = "AGPL-3.0-only" }
 # The web tier earns its dependencies (decided 2026-08-25): server-rendered HTML, an ASGI
 # server, templates. No frontend framework. Everything else stays standard library.
-dependencies = ["fastapi>=0.115", "jinja2>=3.1", "uvicorn>=0.30"]
+dependencies = [
+    "fastapi>=0.115",
+    "jinja2>=3.1",
+    "uvicorn>=0.30",
+    "python-multipart>=0.0.9",  # FastAPI form parsing (the subscribe form)
+    "tzdata",  # zoneinfo needs a database: none on Windows, none promised in slim images
+]
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest", "pre-commit", "httpx"]  # httpx: FastAPI's TestClient

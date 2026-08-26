@@ -5,9 +5,11 @@ caching is a later concern) and quotes the record as printed — captions and de
 summaries appear in the Board's own capitals until a casing method exists as a derived
 assertion with provenance. No account, no cookie, no tracking on any read path (ADR 0011).
 
-The server is strictly a reader: it opens the store read-only, refuses a missing file or a
-store whose schema is not the one this code was built for, and never runs a migration —
-that is ingest's job, in its own process.
+The server is a reader with one exception: it opens the store read-only for every page,
+refuses a missing file or a store whose schema is not the one this code was built for, and
+never runs a migration — that is ingest's job, in its own process. The exception is the
+subscription flow (subscribe, confirm, unsubscribe), the one place a reader hands over an
+address (ADR 0011); those three handlers open a writable connection and nothing else does.
 """
 
 import sqlite3
@@ -16,12 +18,13 @@ from datetime import UTC, date, datetime
 from importlib import resources
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from docketyard import __version__
+from docketyard.alerts import mail, subscriptions
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.store import home, projections, sheet
 from docketyard.store.db import MIGRATIONS
@@ -111,7 +114,20 @@ def _path(request: Request) -> str:
     return path[len(root) :] if root and path.startswith(root) else path
 
 
-def create_app(db_path: str | Path, *, site_name: str = "Docket Yard") -> FastAPI:
+def _connect_rw(db_path: str | Path) -> sqlite3.Connection:
+    """The one writable path: subscriptions (ADR 0011). Everything else reads."""
+    con = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=rw", uri=True)
+    con.execute("PRAGMA foreign_keys = ON")
+    return con
+
+
+def create_app(
+    db_path: str | Path,
+    *,
+    site_name: str = "Docket Yard",
+    site_host: str = "docketyard.org",
+    sender: mail.Sender | None = None,
+) -> FastAPI:
     _check_store(db_path)
     app = FastAPI(title=site_name, version=__version__, docs_url=None, redoc_url=None)
     templates = Jinja2Templates(directory=str(_PKG / "templates"))
@@ -223,6 +239,127 @@ def create_app(db_path: str | Path, *, site_name: str = "Docket Yard") -> FastAP
         if identity is None:
             raise HTTPException(404)
         return sheet_response(request, identity)
+
+    # --- subscriptions: the one place a reader may hand over an address (ADR 0011) ------
+
+    def message(request: Request, title: str, body: str, status_code: int = 200):
+        return templates.TemplateResponse(
+            request, "message.html", {"title": title, "body": body}, status_code=status_code
+        )
+
+    @app.post("/subscribe")
+    def subscribe(
+        request: Request, email: str = Form(""), docket: str = Form(""), cadence: str = Form("pass")
+    ):
+        """Whatever happens — new, pending, already active, suppressed, rate-limited — the
+        answer is the same page, so nothing about an address can be learned here."""
+        identity = urls.lookup(docket)
+        address = subscriptions.normalise_email(email)
+        if identity is None or not subscriptions.plausible_email(address):
+            return message(
+                request, "That did not work", "Enter an email address and a docket number.", 400
+            )
+        if cadence not in ("pass", "daily"):
+            cadence = "pass"
+        family = identity.parent() or identity
+        con = _connect_rw(db_path)
+        try:
+            docket_id = find_docket(con, family)
+            if docket_id is None:
+                raise HTTPException(404)
+            token = subscriptions.subscribe(con, address, docket_id, cadence)
+        finally:
+            con.close()
+        printed = urls.printed_docket(family)
+        if token and sender is not None:
+            hours = subscriptions.CONFIRM_TTL_HOURS
+            out = mail.Outbound(
+                to=address,
+                subject=f"Confirm: follow {printed} on {site_name}",
+                text=(
+                    f"Someone — we hope you — asked {site_name} to email {address} when the"
+                    f" Surface Transportation Board posts to {printed}.\n\n"
+                    f"To confirm, open this link within {hours} hours and press Confirm:\n"
+                    f"https://{site_host}/s/confirm/{token}\n\n"
+                    "If that was not you, do nothing: the request expires and the address"
+                    " is deleted.\n\n"
+                    f"{site_name} is an independent public record, not the Board."
+                    f" https://{site_host}/"
+                ),
+            )
+            try:
+                sender.send(out)
+            except Exception as e:  # noqa: BLE001 — the page is the same; the slot is given back
+                con = _connect_rw(db_path)
+                try:
+                    subscriptions.withdraw_token(con, token)
+                finally:
+                    con.close()
+                print(f"confirmation mail failed ({type(e).__name__}: {e})")
+        return message(
+            request,
+            "Check your inbox",
+            f"If {address} can be followed up, a confirmation link is on its way for"
+            f" {printed}. Nothing is sent until you open it.",
+        )
+
+    @app.get("/s/confirm/{token}")
+    def confirm_page(request: Request, token: str):
+        """A page with a button: mail-security gateways fetch links on delivery, and a
+        fetch must never count as consent (ADR 0011). The POST below is the consent."""
+        return templates.TemplateResponse(request, "confirm.html", {"token": token})
+
+    @app.post("/s/confirm/{token}")
+    def confirm_subscription(request: Request, token: str):
+        con = _connect_rw(db_path)
+        try:
+            sub = subscriptions.confirm(con, token)
+            raw = (
+                con.execute(
+                    "SELECT raw_docket FROM docket WHERE docket_id = ?", (sub.docket_id,)
+                ).fetchone()[0]
+                if sub
+                else None
+            )
+        finally:
+            con.close()
+        if sub is None:
+            return message(
+                request,
+                "That link has expired",
+                f"Confirmation links last {subscriptions.CONFIRM_TTL_HOURS} hours. Ask again"
+                " from the docket's page.",
+                404,
+            )
+        identity = parse_docket_id(raw)
+        when = "as they happen" if sub.cadence == "pass" else "in one daily email"
+        return message(
+            request,
+            "You are following " + urls.printed_docket(identity),
+            f"New filings and decisions will reach {sub.email} {when}. Every email carries a"
+            " one-click link to stop.",
+        )
+
+    @app.get("/s/unsubscribe/{token}")
+    def unsubscribe_page(request: Request, token: str):
+        """A page with a button, so a link scanner cannot unsubscribe someone by fetching.
+        The RFC 8058 one-click POST below needs no page."""
+        return templates.TemplateResponse(
+            request, "unsubscribe.html", {"token": token}, status_code=200
+        )
+
+    @app.post("/s/unsubscribe/{token}")
+    def unsubscribe_now(request: Request, token: str):
+        con = _connect_rw(db_path)
+        try:
+            subscriptions.unsubscribe(con, token)
+        finally:
+            con.close()
+        return message(
+            request,
+            "Unsubscribed",
+            "That subscription and everything about it has been deleted.",
+        )
 
     @app.get("/decision/{stb_id}")
     def decision_page(request: Request, stb_id: str):

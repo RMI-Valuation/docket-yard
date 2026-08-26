@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Stop these emails — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Stop these emails?</h1>
+  <p>This deletes the subscription the email came from — for a daily digest, every docket in it — along with the address and the record of what was sent. There is nothing else to delete.</p>
+  <form method="post" action="/s/unsubscribe/{{ token }}">
+    <button class="btn" type="submit">Unsubscribe</button>
+  </form>
+</section>
+{% endblock %}

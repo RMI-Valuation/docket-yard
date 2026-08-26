@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">{{ title }}</h1>
+  <p>{{ body }}</p>
+  <p class="muted small">Reading {{ site_name }} never needs an account. An email address is stored only while it is following a docket, and deleted the moment it stops.</p>
+</section>
+{% endblock %}

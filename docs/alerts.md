@@ -62,6 +62,11 @@ never carries an entry the record observed before the confirmation — "observed
 recorded in the ledger, so a filing the Board back-dates but posts after confirmation *is*
 alerted, and one the record only caught up on later is alerted and marked late (below).
 
+**Confirmation is a button, not a link.** The confirmation email links to a page whose
+button does the confirming, because corporate mail gateways fetch links on delivery and a
+fetch is not consent. The same holds for unsubscribing from a page; the RFC 8058 one-click
+POST from a mail client's own button is honoured directly.
+
 **Unsubscribing forgets you.** The subscription row and everything about it is deleted,
 not flagged (ADR 0011). One-click unsubscribe from any old alert still answers "you are
 unsubscribed", because that is true.

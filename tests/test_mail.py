@@ -67,9 +67,14 @@ def test_a_caption_with_a_line_break_cannot_become_a_header():
 class FakeSmtp:
     def __init__(self):
         self.sent = []
+        self.resets = 0
 
     def mail(self, addr):
         self.from_ = addr
+        return 250, b"Ok"
+
+    def rset(self):
+        self.resets += 1
 
     def rcpt(self, addr):
         return (250, b"Ok") if "refuse" not in addr else (550, b"no")
@@ -87,3 +92,4 @@ def test_session_returns_the_providers_message_id():
     assert fake.from_ == "alerts@docketyard.org" and b"Subject: s" in fake.sent[0]
     with pytest.raises(smtplib.SMTPRecipientsRefused):
         session.send(mail.Outbound(to="refuse@example.org", subject="s", text="t"))
+    assert fake.resets == 1  # the envelope is cleared for the next message

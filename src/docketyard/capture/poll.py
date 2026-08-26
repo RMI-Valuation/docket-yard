@@ -75,6 +75,7 @@ def forward_pass(
     today=None,
     days=WINDOW_DAYS,
     fetch_limit=FETCH_LIMIT,
+    alerts=None,  # callable run after the pass: sweep, build and deliver alerts
     log=print,
 ):
     """Capture, ingest, fetch. Every failure lands in the summary's `problems`; nothing a
@@ -129,6 +130,12 @@ def forward_pass(
     summary["fetched"] = fetched
     if fetched.get("failed"):
         summary["problems"].append(f"attachments failed: {fetched['failed']}")
+    if alerts is not None:
+        try:
+            summary["alerts"] = alerts()
+        except Exception as e:  # noqa: BLE001 — delivery must never cost the next capture
+            con.rollback()
+            summary["problems"].append(f"alerts failed ({type(e).__name__}: {e})")
     log(f"poll {start}..{end}: {summary}")
     return summary
 

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Confirm — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Confirm this subscription?</h1>
+  <p>Press the button and {{ site_name }} will email you when the Board posts to the docket you asked about. Nothing is sent until you do; if this was not you, close the page and the request expires on its own.</p>
+  <form method="post" action="/s/confirm/{{ token }}">
+    <button class="btn" type="submit">Confirm</button>
+  </form>
+</section>
+{% endblock %}

@@ -178,3 +178,10 @@ table.moved { width: 100%; border-collapse: collapse; }
   .summary { display: block; -webkit-line-clamp: unset; overflow: visible; }
   a { color: #000; }
 }
+
+/* follow (subscribe) form in the sheet rail */
+.follow { display: grid; gap: 8px; }
+.follow input[type="email"] { width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
+.follow-cadence { border: 0; padding: 0; margin: 0; display: grid; gap: 4px; }
+.follow-cadence label { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.follow .btn { justify-self: start; }

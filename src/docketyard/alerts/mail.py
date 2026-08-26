@@ -61,9 +61,13 @@ class Session:
 
     def send(self, out: Outbound) -> str:
         msg = self._sender.build(out)
-        self._smtp.mail(parseaddr(self._sender.from_address)[1])
+        code, resp = self._smtp.mail(parseaddr(self._sender.from_address)[1])
+        if code != 250:
+            self._smtp.rset()
+            raise smtplib.SMTPSenderRefused(code, resp, self._sender.from_address)
         code, resp = self._smtp.rcpt(out.to)
         if code not in (250, 251):
+            self._smtp.rset()  # clear the envelope so the next message starts clean
             raise smtplib.SMTPRecipientsRefused({out.to: (code, resp)})
         code, resp = self._smtp.data(msg.as_bytes())
         if code != 250:

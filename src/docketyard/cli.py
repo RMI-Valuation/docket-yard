@@ -1,8 +1,10 @@
 """Command-line entry points: capture | ingest | fetch | walk | poll | status | serve."""
 
 import argparse
+import os
 import sys
 
+from docketyard.alerts import build, mail
 from docketyard.capture import documents, poll, walk
 from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS, PAGE_CLAMP, StbClient
 from docketyard.ingest import dockets, observations
@@ -102,9 +104,16 @@ def _poll(args: argparse.Namespace) -> int:
         args.parser.error(f"--days must be at least {poll.MIN_WINDOW_DAYS}")
     con = db.connect(args.db)
     client = StbClient(min_interval=args.interval)
+    sender = _sender()
+    site = os.environ.get("DY_HOST", "docketyard.org")
+    if sender is None:
+        print("mail not configured (AWS_* / DY_SES_REGION): alerts are built, not sent")
+
+    def alerts():
+        return build.run_after_pass(con, sender, site)
 
     def one_pass():
-        return poll.forward_pass(con, client, args.data_dir, days=args.days)
+        return poll.forward_pass(con, client, args.data_dir, days=args.days, alerts=alerts)
 
     if args.every is not None:
         poll.run_forever(one_pass, args.every)
@@ -112,12 +121,22 @@ def _poll(args: argparse.Namespace) -> int:
     return 1 if one_pass()["problems"] else 0
 
 
+def _sender():
+    try:
+        return mail.Sender.from_env()
+    except KeyError:
+        return None
+
+
 def _serve(args: argparse.Namespace) -> int:
     import uvicorn
 
     from docketyard.web.app import create_app
 
-    uvicorn.run(create_app(args.db), host=args.host, port=args.port)
+    app = create_app(
+        args.db, site_host=os.environ.get("DY_HOST", "docketyard.org"), sender=_sender()
+    )
+    uvicorn.run(app, host=args.host, port=args.port)
     return 0
 
 
