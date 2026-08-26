@@ -650,6 +650,36 @@ projection wrong. What changed, so the reasoning is not lost:
   module's pass over that raw, and the captures hold the original markup should separators
   ever matter.
 
+## Revision notes as code met the paper (M4, 2026-08-26)
+
+Migration `0004_subscriptions.sql` hardens § 6 under ADR 0011 and the decided delivery
+promise (`alerts.md`):
+
+- **`subscription` is (email, docket) with a cadence**, `pass` or `daily`, and a status
+  `pending → active`. **There is no cancelled state: unsubscribing deletes the row** and
+  everything cascading from it. The schema-critic's review made the case — a retained
+  cancelled row is exactly the attention data ADR 0011 forbids, and RFC 8058 needs an
+  idempotent answer to an unknown token, not a persistent row. The docket is the family's
+  parent, as the sheet folds its sub-dockets; it is nullable with a partial unique index so
+  query 5's party / service-list predicates can be added as columns without a rebuild.
+- **No backfill is a column, not a convention**: `high_water_event_id`, set to the
+  ledger's head in the confirmation transaction, is the floor every alert join applies;
+  a `CHECK` refuses an active row without one. The join also filters
+  `capture.ingest_mode = 'forward'` and an event-type allowlist — the mark alone would not
+  stop a backfill wave ingested *after* confirmation, nor alert on a caption change.
+- **Tokens are stored as SHA-256 only** (`subscription_token`), expiring for confirm,
+  never-expiring for unsubscribe.
+- **`alert` is one email to one address**; `alert_event` records which events it carried
+  for which subscription, with `UNIQUE (subscription_id, event_id)` as the at-most-once
+  claim. A daily digest across three dockets is one row, so a retry is an attempt on the
+  message that actually went out.
+- **Lateness is derived, then annotated**: the heartbeat runs off-box and cannot write the
+  store, so the alert builder derives an event's lateness from the spacing of the forward
+  captures around it, and `alert_event.late_gap_id` points at the operator's
+  `coverage_gap` row when one exists. The coverage page lists those rows.
+- **`email_suppression`** is consulted by every send from day one, before any bounce path
+  feeds it.
+
 ## What this draft deliberately does not model
 
 Deadlines and procedural tracks (C4), outcome coding (M5), cross-agency joins (F6) beyond the

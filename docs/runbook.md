@@ -58,6 +58,27 @@ pass in its log, `problems: []` when healthy. A pass whose slice reads `partial`
 is the no-results trap (criteria, sort or nonce), not a quiet week — the window is seven
 days precisely so that an empty result is implausible.
 
+## Mail (SES, us-east-2)
+
+Set up 2026-08-26. Identity `docketyard.org` verified (DKIM: three `*._domainkey` CNAMEs;
+custom MAIL FROM `mail.docketyard.org` with MX + SPF; DMARC `p=quarantine` reporting to
+`dmarc@rmivaluation.com`), all DNS-only in Cloudflare. Sending is over SMTP
+(`email-smtp.us-east-2.amazonaws.com:587`, STARTTLS) as the instance user
+`docketyard-instance`, whose second inline policy `docketyard-ses-send` allows
+`ses:SendRawEmail` only from `alerts@docketyard.org`. The SMTP password is derived from the
+IAM secret in `docketyard.alerts.mail.smtp_password`; a real login proved it.
+
+- **The account is in the SES sandbox until AWS approves production access** (requested
+  2026-08-26, case filed from the CLI, answer comes by email to the account). In the
+  sandbox: 200 messages a day, and recipients must be verified identities — so no real
+  subscriber can be mailed yet. Check: `aws sesv2 get-account --region us-east-2`.
+- **535 on login** — the password derivation drifted or the key was rotated. Re-derive;
+  the derivation is pinned by `tests/test_mail.py` in shape only, so a real login is the
+  test.
+- **554 Message rejected: Email address is not verified** — sandbox, see above.
+- **Bounces and complaints** are not yet fed back automatically (no SNS topic). Until then,
+  watch the SES reputation dashboard and add offenders to `email_suppression` by hand.
+
 ## Ingest — STB endpoint
 
 Endpoint mechanics and every measured trap: [`stb-data-source.md`](stb-data-source.md). The

@@ -36,6 +36,14 @@ services:
     command: ["poll", "--every", "${DY_POLL_EVERY:-1800}"]
     volumes:
       - ./data:/data
+    environment:
+      # the alert sender (docketyard.alerts.mail) derives its SES SMTP password from these
+      DY_SES_REGION: ${DY_SES_REGION:-${AWS_REGION}}
+      DY_MAIL_FROM: ${DY_MAIL_FROM:-Docket Yard <alerts@docketyard.org>}
+      DY_HOST: ${DY_HOST:-docketyard.org}
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

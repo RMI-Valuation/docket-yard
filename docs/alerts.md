@@ -43,10 +43,56 @@ The check itself can fail silently — GitHub's scheduler skips runs on inactive
 after 60 days without a commit. A repository that goes quiet for two months should expect
 the heartbeat to stop with it; `workflow_dispatch` re-arms it.
 
-## Still to decide
+## The delivery promise (decided 2026-08-26)
 
-- **Delivery promise** — cadence, expected lag, and what a subscriber should conclude from
-  receiving nothing.
-- **Backfill on subscribe** — whether a new subscriber sees recent history.
-- **Failure disclosure** — how subscribers are told an alert was missed. Rare, and the moment
-  that decides whether people trust the service.
+A subscription is to **one docket** (its family: the parent and its sub-dockets fold into
+one sheet and one subscription), at **one of two cadences the subscriber chooses**:
+
+- **As it happens** — one email per docket per poll pass that observed something new on
+  it. The poller runs every 30 minutes, so an entry the Board posts is usually in the
+  subscriber's inbox within the hour. A pass that finds three new entries on a docket
+  sends one email listing all three, never three emails.
+- **Daily** — one email per subscriber per day, listing everything new across all their
+  daily-cadence dockets, sent after the last pass of the day (23:00 Eastern; the Board's
+  own clock). Nothing new, no email.
+
+**No backfill.** Alerts are strictly forward from the moment a subscription is confirmed;
+the confirmation email links to the sheet, which already shows the whole record. An alert
+never carries an entry the record observed before the confirmation — "observed" meaning
+recorded in the ledger, so a filing the Board back-dates but posts after confirmation *is*
+alerted, and one the record only caught up on later is alerted and marked late (below).
+
+**Unsubscribing forgets you.** The subscription row and everything about it is deleted,
+not flagged (ADR 0011). One-click unsubscribe from any old alert still answers "you are
+unsubscribed", because that is true.
+
+**What receiving nothing means:** the Board posted nothing to that docket since the last
+email — or the record is behind, in which case the heartbeat has already paged the
+operator and the coverage page records the gap (below).
+
+**Alerts fire off the event ledger and nothing else** (`schema-draft.md` § 6): an alert
+row joins a subscription to an event whose capture is `forward`. Backfill never alerts.
+Each alert carries the same provenance the sheet does: the Board's own file, linked.
+
+## Failure disclosure (decided 2026-08-26)
+
+When the heartbeat catches a gap — a window in which the record was not being kept —
+two things happen:
+
+1. **The coverage page records the window.** The heartbeat runs off-box and cannot write
+   the store, so the operator, once paged, records the gap (start, end, what failed in the
+   decomposition's terms) as a `coverage_gap` row; the coverage page is generated from
+   those rows and from the capture ledger, so it can never claim more than was recorded.
+2. **The catch-up is marked, automatically.** Lateness is derived from the capture ledger
+   itself — an entry is late when the forward captures around it are further apart than
+   the heartbeat threshold — so it does not wait on the operator. Once the poller
+   recovers, entries observed late are still alerted (they are new events), and the alert
+   that carries them says so:
+   *"These entries were posted by the Board between (start) and (end), while Docket Yard
+   was not keeping the record. They are delivered late."* Sent normally otherwise — no
+   separate apology mail, no silence.
+
+What is **not** promised: that every entry is caught (the Board's endpoint fails silently
+in measured ways; see `stb-data-source.md`), or any lag figure tighter than "usually
+within the hour". Promises appear on the public coverage and privacy pages only after the
+operator signs off on that page (ADR 0011).

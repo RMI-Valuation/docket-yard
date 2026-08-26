@@ -16,6 +16,7 @@ MIGRATIONS: list[tuple[int, str]] = [
     (1, "schema.sql"),
     (2, "0002_filings_decisions.sql"),
     (3, "0003_walk_slices.sql"),
+    (4, "0004_subscriptions.sql"),
 ]
 
 

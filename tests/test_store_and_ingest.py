@@ -36,10 +36,11 @@ def save(con, data_dir, body, *, asserted=True, mode="forward"):
 
 
 def test_migrations_apply_once(con):
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 3
+    head = db.MIGRATIONS[-1][0]
+    assert con.execute("PRAGMA user_version").fetchone()[0] == head
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"capture", "docket", "event", "document", "filing", "walk_slice"} <= tables
-    assert db.migrate(con) == 3  # re-running changes nothing
+    assert db.migrate(con) == head  # re-running changes nothing
 
 
 def test_versionless_tables_are_refused():

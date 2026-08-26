@@ -6,8 +6,14 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- M4 alerting: subscriptions, delivery, and the off-box heartbeat — production polls every
-  30 min since 2026-08-26 with nothing watching it
+- M4 alerting, remaining: subscribe/confirm/unsubscribe web flow (tokens ≥128 random bits,
+  unsubscribe also deletes the address's `alert` rows, pending-row sweep, per-address rate
+  limit on confirmation mail); the alert join after each pass + the 23:00 ET daily digest;
+  send-time `email_suppression` check; late-delivery derivation from capture spacing
+- SES: production-access request pending with AWS (sandbox = verified recipients only);
+  bounce/complaint feedback path (SNS topic → `email_suppression`) before any real volume
+- DMARC `p=quarantine` is now set on docketyard.org (2026-08-26) — any other sender on the
+  domain must be DKIM-aligned or its mail will be quarantined; Cameron to confirm none exists
 - Credentials ADR follow-up: Lightsail has no instance profile, so the first deploy runs on
   a bucket-scoped IAM user's keys; decide EC2 t4g / Roles Anywhere / accept (ADR 0012 gap)
 
