@@ -102,7 +102,7 @@ def coverage(con: Connection) -> Coverage:
                     r[0].split(":", 1)[1][:7]
                     for r in q(
                         "SELECT slice_key FROM walk_slice WHERE table_action IN (?, ?)"
-                        " AND status <> 'done'",
+                        " AND status NOT IN ('done', 'empty')",
                         (FILINGS, DECISIONS),
                     )
                 }

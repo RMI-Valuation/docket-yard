@@ -23,6 +23,7 @@ from docketyard.capture.stb import (
     DOCKET_PREFIXES,
     DOCKETS,
     EXPECTED_EMPTY_PREFIXES,
+    FILINGS,
     PAGE_CLAMP,
     TABLE_SORT,
 )
@@ -278,6 +279,17 @@ def walk_dockets(con: Connection, client, *, data_dir, redo: bool = False, log=p
     return walk(con, client, DOCKETS, docket_prefix_slices(), data_dir=data_dir, redo=redo, log=log)
 
 
+# Months the operator has measured to be genuinely empty on a table, with why. A page-1
+# no-results envelope is the trap everywhere else; here it is the truth, and the slice
+# records `empty`. Add a month only after probing the endpoint (stb-data-source.md).
+EXPECTED_EMPTY_MONTHS: dict[str, dict[str, str]] = {
+    FILINGS: {
+        "2025-10": "federal shutdown: filings stop 2025-09-30 and resume 2025-11-13"
+        " (measured 2026-08-26, stb-data-source.md)",
+    },
+}
+
+
 def month_slices(action: str, start: date, end: date) -> list[Slice]:
     """One slice per calendar month, [start, end] inclusive, in the endpoint's own date
     spelling. A month is far below the display cap for either table (~200 filings, ~100
@@ -299,6 +311,7 @@ def month_slices(action: str, start: date, end: date) -> list[Slice]:
             Slice(
                 key=key,
                 criteria=[(first, lo.strftime("%m/%d/%Y")), (last, hi.strftime("%m/%d/%Y"))],
+                expected_empty=cursor.strftime("%Y-%m") in EXPECTED_EMPTY_MONTHS.get(action, {}),
             )
         )
         cursor = nxt

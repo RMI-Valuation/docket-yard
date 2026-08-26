@@ -113,6 +113,13 @@ both days; `08/25..08/26` returned only 08/25 (nothing yet on the 26th). Month s
 therefore meet edge to edge — last day of one, first day of the next — with no gap and no
 double count.
 
+**October 2025 has no filings** (measured 2026-08-26): every filings slice inside
+`10/01/2025..10/31/2025` returns the no-results envelope; filings run to 2025-09-30 and
+resume 2025-11-13 — the federal shutdown, during which the Board's e-filing was closed. Two
+decisions were served on 2025-10-01. It is the one month in the record where the page-1
+envelope is the truth rather than the trap; `walk.EXPECTED_EMPTY_MONTHS` records it, so a
+wave marks the slice `empty` with this measurement as its reason instead of `partial`.
+
 ## The 10,000 cap
 
 Every table reports `total: 10000` when the unfiltered result set is large. **This is a display

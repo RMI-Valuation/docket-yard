@@ -145,3 +145,29 @@ def test_poller_fetches_the_watch_own_files_before_a_wave_backlog(tmp_path):
     assert observations.attachments(con, unfetched_only=True, observed_in="forward") == []
     assert len(observations.attachments(con, unfetched_only=True)) == 1
     assert len(observations.attachments(con, unfetched_only=True, observed_in="backfill")) == 1
+
+
+def test_a_measured_empty_month_is_declared_not_guessed(tmp_path):
+    from datetime import date as d
+
+    from docketyard.capture.stb import FILINGS
+    from docketyard.store import home
+
+    slices = walk.month_slices(FILINGS, d(2025, 9, 1), d(2025, 11, 30))
+    assert [s.expected_empty for s in slices] == [False, True, False]  # only 2025-10
+    assert not any(
+        s.expected_empty for s in walk.month_slices(DECISIONS, d(2025, 10, 1), d(2025, 10, 31))
+    )
+    con = db.connect(tmp_path / "s.sqlite")
+    client = FakeStb({})  # everything answers the envelope
+    out = walk.walk_observations(
+        con, client, FILINGS, d(2025, 10, 1), d(2025, 10, 31), data_dir=tmp_path, log=lambda _: 0
+    )
+    assert out == {"done": 0, "empty": 1, "capped": 0, "partial": 0, "skipped": 0}
+    con.execute(
+        "INSERT INTO walk_slice (slice_key, table_action, criteria, status, rows, captures,"
+        " completed_at) VALUES (?, ?, '[]', 'done', 2, 1, 't')",
+        (f"{DECISIONS}:2025-10", DECISIONS),
+    )
+    con.commit()
+    assert home.covered(con, d(2025, 10, 6), d(2025, 10, 12))  # an empty month still counts

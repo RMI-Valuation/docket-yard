@@ -173,7 +173,7 @@ def covered(con: Connection, start: date, end: date) -> bool:
     for action in (FILINGS, DECISIONS):
         for m in months:
             done = con.execute(
-                "SELECT 1 FROM walk_slice WHERE slice_key = ? AND status = 'done'",
+                "SELECT 1 FROM walk_slice WHERE slice_key = ? AND status IN ('done', 'empty')",
                 (f"{action}:{m}",),
             ).fetchone()
             if not done:
