@@ -1,9 +1,8 @@
 # Traffic counts — design note
 
-> **Status: planning only, 2026-08-26.** The operator's fourth ask; not started. It ships only
-> with one sentence on `/privacy` that the operator has signed, because the privacy page
-> currently says the access log "records the page and the time" and nothing more — this
-> adds a kept, aggregated record, and the page must say so.
+> **Status: built 2026-08-26** (`store/traffic.py`, counted in the web tier's middleware,
+> `docketyard traffic` for the operator). The operator signed the privacy sentence below on
+> 2026-08-26 and it is on `/privacy` verbatim. This note is the source the code follows.
 
 ## The ask
 
@@ -68,8 +67,7 @@ Proposed, to be added under "Reading is anonymous", after the access-log bullet:
 
 ## Open
 
-- [ ] The operator signs the sentence above (or edits it); nothing is built before that.
-- [ ] Route-class list confirmed.
-- [ ] Retention confirmed (90 days hourly, daily forever).
-- [ ] Whether bot/not is worth the User-Agent match at all, given that the string is seen
-      in memory either way — the alternative is no bot flag and a simpler sentence.
+- [x] The operator signed the sentence (2026-08-26).
+- [x] Route classes as listed (plus `search`, added with the search box); retention 90 days
+      hourly, daily indefinitely; bot/not from a fixed substring list, matched in memory.
+- [ ] Publishing any aggregate is a separate decision with its own sentence.
