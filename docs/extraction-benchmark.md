@@ -21,7 +21,7 @@ measures the OCR burden directly (stb-data-source.md estimated ~1% image-only fo
 files), and it costs no model time. Output stays on the box beside the blobs until the
 internal API exists to carry assertions back (architecture.md § seam).
 
-## Step 1 — the sample
+## Step 1 — the sample (drawn 2026-08-26 — `docs/research/benchmark/`; awaiting labels)
 
 Sixty decisions, drawn from the two years wave 1 holds, stratified: 20 with many citations
 (rate cases, merger decisions), 20 routine (abandonment exemptions, notices), 20 short
