@@ -25,3 +25,4 @@ Append-only, newest last.
 | Backfill wave 1 (2024-08 → watch start): 25 months, 4,864 documents; October 2025 declared empty (federal shutdown) | 2026-08-26 |
 | Blob storage: S3 is the store, the instance a cache (prune after each 30-minute sync) — what lets wave 3's 150–250 GB pass through a 58 GB disk | 2026-08-26, v2026.08.16 |
 | Extraction benchmark step 0: text layer for wave 1's files on RMI-AI-MACHINE — 4,273 PDFs, 2 image-only, 0 failed | 2026-08-26 |
+| Streamed document downloads (v2026.08.25, PR #4): the record holds a 1.07 GB filing (FD 36500's merger application) that had the wave's documents step OOM-killed on the 2 GB instance; documents now stream to disk in 1 MB chunks and are hashed by chunks; the host's blob sync and prune leave the staging area alone | 2026-08-26 |
