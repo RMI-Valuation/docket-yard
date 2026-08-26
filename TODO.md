@@ -10,9 +10,10 @@ by pre-commit: when it fires, prune.
   on the encrypted store); then delete this line
 - Cameron: copy `DY_EMAIL_KEY` from `~/.docketyard-prod.env` into the password manager,
   then delete that file and `~/.docketyard-instance-key.json`
-- Backfill wave 1 (2024-08 → watch start) complete 2026-08-26: 25 months, 4,864 documents
-  held, October 2025 declared empty (the shutdown). Waves 2 (2020) and 3 (1996) are the
-  operator's decisions
+- Backfill wave 2 (2020-01 → 2024-07) running since 2026-08-26 on the instance (tmux
+  `wave2`, `/srv/docketyard/wave2.log`); wave 1 complete (25 months, 4,864 documents,
+  2025-10 declared empty). When wave 2 ends: check `partial` months, coverage line; wave 3
+  (1996) is the operator's decision
 - Cameron reviews `parties/seed.py` (66 rows, method human): every name, mark and
   parent/succession edge is an operator assertion, live in production under that provenance
 - Party resolution: watch `ambiguous`/`left` in the poll log; a `docketyard parties join`
