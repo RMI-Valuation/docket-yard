@@ -12,8 +12,10 @@ by pre-commit: when it fires, prune.
   (2020–2024-07, tables done) → `wave3` tables (1996–2019) → `wave3docs` (150–250 GB through
   the 58 GB cache; prune keeps ≥20 GB free). Logs `/srv/docketyard/wave*.log`. When each
   ends: check `partial` months and the coverage line; then re-run extraction on RMI-AI-MACHINE
-- Cameron reviews `parties/seed.py` (66 rows, method human): every name, mark and
-  parent/succession edge is an operator assertion, live in production under that provenance
+- Seed wave 2 (after wave 3 tables land): the 1996–2019 record names roads that no longer
+  exist — Conrail and its 1999 split, SP/UP, BN/ATSF, IC/CN, WC, KCS pre-CPKC — and the
+  spans will not resolve. Pull the most frequent unresolved spans, then extend the seed
+  with those roads and their dated successions (Cameron asserts; reviewed 2026-08-26)
 - Party resolution: watch `ambiguous`/`left` in the poll log; a `docketyard parties join`
   command (human same_as edges) once real spelling pairs accumulate
 - RMI-AI-MACHINE: text layer (benchmark step 0) done 2026-08-26 for wave 1's files —
