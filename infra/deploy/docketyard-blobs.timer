@@ -4,7 +4,7 @@ Description=Docket Yard: hourly blob sync
 
 [Timer]
 OnBootSec=10min
-OnUnitActiveSec=1h
+OnUnitActiveSec=30min
 RandomizedDelaySec=5min
 Persistent=true
 

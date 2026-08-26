@@ -107,6 +107,19 @@ IAM secret in `docketyard.alerts.mail.smtp_password`; a real login proved it.
   with `delete-suppressed-destination`. The first `hello@` test bounced before Cloudflare
   routing was live and suppressed the address for two later tests this way.
 
+## Blobs: S3 is the store, the instance is a cache
+
+From 2026-08-26 the host timer syncs `data/blobs` to S3 every 30 minutes and then runs
+`prune_blobs.py`, which deletes a local blob only if a fresh S3 listing holds its key, and
+then only when it is older than 30 days or free disk is under 20 GB (oldest first, back to
+28 GB). The site never reads blobs (every entry links the Board's file), so nothing
+user-facing changes; a document's bytes are fetched from S3 by hash when needed. A wave's
+documents (wave 3: 150–250 GB) therefore pass through the 58 GB instance disk. If the
+timer fails, the wave fills the disk: the heartbeat's `last_forward_capture` goes stale
+when SQLite cannot write, which is the page. `systemctl status docketyard-prune` and the
+sync unit's journal say why. RMI-AI-MACHINE pulls documents from S3 (read-only IAM user
+`docketyard-reader`), not from the instance.
+
 ## Backfill waves
 
 A wave adds history in dated slices (`docs/stb-data-source.md` § The 10,000 cap forces
