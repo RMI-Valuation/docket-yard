@@ -1,8 +1,10 @@
 # TODO
 
 Open work only. Completed items are **deleted**, never checked off — git history is the
-archive; shipped milestones are recorded in `docs/milestones.md`; deferred findings live in
-`docs/deferred.md`. Anything stale in Parked graduates to `ROADMAP.md` or dies. Hard line cap enforced
+archive; shipped milestones are recorded in `docs/milestones.md`. `docs/deferred.md` is the
+pool of accepted-later work: **pull an item from it into Next when capacity or a decision
+makes it near-term**, and delete it there when it lands. Anything stale in Parked graduates
+to `ROADMAP.md` or dies. Hard line cap enforced
 by pre-commit: when it fires, prune.
 
 ## Now
@@ -38,7 +40,8 @@ by pre-commit: when it fires, prune.
   Hard rule: dates quoted, never computed; a reset schedule supersedes (ADR 0006)
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
 - Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
-- Review findings and known gaps accepted as not-now live in `docs/deferred.md` (2026-08-26)
+- When this list runs short or a decision makes one of them near-term, pull the next item
+  from `docs/deferred.md` (review findings and known gaps, dated, with their context)
 
 ## Parked
 
