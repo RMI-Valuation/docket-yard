@@ -129,7 +129,7 @@ def forward_pass(
         fetched = documents.fetch_attachments(
             con,
             data_dir,
-            client.get,
+            lambda url: client.download(url, data_dir),
             limit=fetch_limit,
             ingest_mode="forward",
             observed_in="forward",  # the watch's own files first; a wave fetches its own

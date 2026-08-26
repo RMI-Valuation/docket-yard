@@ -326,6 +326,61 @@ def test_refresh_detects_errata_and_keeps_the_chain_on_revert(con, tmp_path):
     assert payload["method"] == documents.DETECTION_METHOD
 
 
+def test_download_streams_to_disk_and_a_streamed_file_is_hashed_in_place(con, tmp_path):
+    """A document never sits in memory whole: the client copies the response to a temp
+    file on the blob filesystem by chunks, and the fetcher hashes and moves that file."""
+    import io
+    import tracemalloc
+
+    from docketyard.capture import stb
+
+    body = b"%PDF-big " + bytes(range(256)) * (24 << 10)  # ~6 MB, well above one chunk
+
+    class FakeResponse(io.BytesIO):
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            self.close()
+
+    def fake_urlopen(req, timeout=None):
+        return FakeResponse(body)
+
+    stb.CHUNK = 64 << 10
+    client = stb.StbClient(min_interval=0)
+    import urllib.request
+
+    original = urllib.request.urlopen
+    urllib.request.urlopen = fake_urlopen
+    try:
+        tracemalloc.start()
+        status, path = client.download("https://x/1.pdf", tmp_path)
+        peak = tracemalloc.get_traced_memory()[1]
+        tracemalloc.stop()
+    finally:
+        urllib.request.urlopen = original
+    assert status == 200 and path.parent == tmp_path / "blobs" / ".tmp"
+    assert path.stat().st_size == len(body) and peak < (1 << 20)  # never the whole body
+    # the fetcher takes the file: hashed by chunks, moved into the blob store, media sniffed
+    ingest(con, tmp_path, filing_row())  # its attachment is {S3}/830599/311981.pdf
+    stats = documents.fetch_attachments(con, tmp_path, lambda u: (200, path))
+    assert stats == {"fetched": 1, "unchanged": 0, "new_documents": 1, "replaced": 0, "failed": 0}
+    sha, size, media = con.execute(
+        "SELECT document_sha256, size_bytes, media_type FROM document"
+    ).fetchone()
+    assert size == len(body) and media == "pdf" and not path.exists()
+    assert records.blob_path(tmp_path, sha).stat().st_size == len(body)
+    # a second download of bytes already held is discarded, not duplicated
+    urllib.request.urlopen = fake_urlopen
+    try:
+        _, again = client.download("https://x/1.pdf", tmp_path)
+    finally:
+        urllib.request.urlopen = original
+    assert records.save_blob(tmp_path, again) == sha and not again.exists()
+
+
 def test_limit_zero_fetches_nothing(con, tmp_path):
     ingest(con, tmp_path, filing_row())
     fetch = fake_fetch({})

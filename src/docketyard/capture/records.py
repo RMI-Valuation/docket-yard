@@ -20,7 +20,11 @@ def blob_path(data_dir: str | Path, sha256: str) -> Path:
     return Path(data_dir) / "blobs" / sha256[:2] / sha256
 
 
-def save_blob(data_dir: str | Path, body: bytes) -> str:
+def save_blob(data_dir: str | Path, body: "bytes | Path") -> str:
+    """Content-address bytes — or a file the downloader streamed onto the blob store's
+    filesystem, which is hashed by chunks and moved into place, never read whole."""
+    if isinstance(body, Path):
+        return _save_blob_file(data_dir, body)
     sha256 = hashlib.sha256(body).hexdigest()
     path = blob_path(data_dir, sha256)
     if not path.exists():
@@ -28,6 +32,21 @@ def save_blob(data_dir: str | Path, body: bytes) -> str:
         tmp = path.with_suffix(".tmp")
         tmp.write_bytes(body)
         tmp.replace(path)
+    return sha256
+
+
+def _save_blob_file(data_dir: str | Path, src: Path) -> str:
+    h = hashlib.sha256()
+    with src.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    sha256 = h.hexdigest()
+    path = blob_path(data_dir, sha256)
+    if path.exists():  # the same bytes are already held: the download is surplus
+        src.unlink()
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        src.replace(path)
     return sha256
 
 
@@ -43,11 +62,12 @@ def save_capture(
     endpoint: str,
     table_action: str,
     request_params: list[tuple[str, str]],
-    body: bytes,
+    body: "bytes | Path",
     http_status: int,
     ingest_mode: str,
 ) -> int:
-    """Persist the raw response, quarantined. Nothing here parses the body."""
+    """Persist the raw response, quarantined. Nothing here parses the body. A `Path` is a
+    download already on the blob filesystem (StbClient.download) and is moved, not read."""
     sha256 = save_blob(data_dir, body)
     cur = con.execute(
         """

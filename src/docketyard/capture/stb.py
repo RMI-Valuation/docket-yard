@@ -8,11 +8,15 @@ Everything here follows docs/stb-data-source.md. The traps this module answers:
   UA is the compatible-bot form — WAF-acceptable and still honestly identified.
 """
 
+import os
 import re
+import shutil
+import tempfile
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 from docketyard import __version__
 
@@ -29,6 +33,7 @@ DECISIONS = "stb_hook_table_decisions"
 DISPLAY_CAP = 10_000
 # per-page is clamped server-side (measured 2026-08-25): a page shorter than this is the last
 PAGE_CLAMP = 50
+CHUNK = 1 << 20  # bytes per read when a document is streamed to disk
 
 # The stable sort per table. The default order is NOT repeatable (measured), so every
 # multi-page walk pins one of these. Dockets ascend so a walk is resumable by inspection;
@@ -106,6 +111,35 @@ class StbClient:
             time.sleep(wait)
 
     def _request(self, url: str, data: bytes | None = None) -> tuple[int, bytes]:
+        """A table query or a small page: the whole body, in memory."""
+        return self._attempt(url, data, lambda resp: (resp.status, resp.read()))
+
+    def download(self, url: str, into: str | Path) -> tuple[int, Path]:
+        """A document: streamed in CHUNK-sized reads to a temporary file under `into`
+        (the blob store's own filesystem, so the caller renames it into place). Nothing
+        larger than one chunk is ever held in memory — the record holds a 1.07 GB filing
+        (FD 36500's application, 303143.pdf), and `resp.read()` of it took the process
+        past a 2 GB box's memory (measured 2026-08-26). The file is the caller's to
+        consume or delete; a failed attempt leaves nothing behind."""
+        tmp_dir = Path(into) / "blobs" / ".tmp"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+
+        def consume(resp) -> tuple[int, Path]:
+            fd, name = tempfile.mkstemp(dir=tmp_dir, prefix="dl-")
+            try:
+                with os.fdopen(fd, "wb") as out:
+                    shutil.copyfileobj(resp, out, CHUNK)
+            except BaseException:
+                Path(name).unlink(missing_ok=True)
+                raise
+            return resp.status, Path(name)
+
+        return self._attempt(url, None, consume)
+
+    def _attempt(self, url: str, data: bytes | None, consume):
+        """Run `consume(resp)` against a fresh response under the one retry policy: 403 is
+        a hard stop with a diagnosis; 429/5xx, transport failures and a failure mid-read
+        retry with backoff, three attempts in all."""
         headers = {"User-Agent": USER_AGENT}
         if data is not None:
             headers |= {
@@ -120,7 +154,7 @@ class StbClient:
             try:
                 req = urllib.request.Request(url, data=data, headers=headers)
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    return resp.status, resp.read()
+                    return consume(resp)
             except urllib.error.HTTPError as e:
                 if e.code == 403:
                     body = e.read(200).decode("utf-8", "replace").strip()

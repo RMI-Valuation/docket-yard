@@ -193,3 +193,12 @@ original work.
 The environmental comments table carries the commenter's own submitted text in a field, plus a
 location string. On FD 36873, 40 of 51 carried a clean "City, ST" — directly geocodable, and the
 cheapest possible first map layer.
+
+## Measured 2026-08-26: document sizes
+
+Attachments are served from S3 (`dcms-external.s3.amazonaws.com`) with `Content-Length`;
+most are under a megabyte, but the record holds files of 22 MB, 56 MB and **1.07 GB**
+(`303143.pdf`, the CP–KCS merger application in FD 36500, filed 2021-10-29). Reading a
+body whole (`resp.read()`) took the wave process to 1.4 GB RSS and the kernel killed it on
+the 2 GB instance, twice. Documents are therefore streamed to disk in 1 MB chunks
+(`StbClient.download`) and hashed by chunks; nothing about a file's size is assumed.

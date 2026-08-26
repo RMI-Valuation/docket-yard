@@ -80,7 +80,7 @@ def _fetch_attachments(args: argparse.Namespace) -> int:
     stats = documents.fetch_attachments(
         con,
         args.data_dir,
-        client.get,
+        lambda url: client.download(url, args.data_dir),
         limit=args.limit,
         refresh=args.refresh,
         ingest_mode=args.mode,

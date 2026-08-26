@@ -56,6 +56,16 @@ class FakeStb:
         self.fetched.append(url)
         return 200, b"%PDF-1.4 old"
 
+    def download(self, url, into):  # the production fetcher: a file on the blob filesystem
+        from pathlib import Path
+
+        status, body = self.get(url)
+        tmp = Path(into) / "blobs" / ".tmp"
+        tmp.mkdir(parents=True, exist_ok=True)
+        path = tmp / f"dl-{len(self.fetched)}"
+        path.write_bytes(body)
+        return status, path
+
 
 def test_wave_walks_ingests_fetches_and_never_alerts(tmp_path):
     con = db.connect(tmp_path / "s.sqlite")
