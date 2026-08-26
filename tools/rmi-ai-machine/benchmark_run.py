@@ -63,7 +63,7 @@ days"), leave target empty and say so in "note".
 
 Rules: copy text exactly as printed, including em dashes and abbreviations; one finding per
 distinct string on the page; use note "self" for a reference to this decision's own docket.
-If the page has neither, return {"findings": []}.
+If the page has neither, return {{"findings": []}}.
 
 Page {page} of decision {decision_id}:
 <<<
