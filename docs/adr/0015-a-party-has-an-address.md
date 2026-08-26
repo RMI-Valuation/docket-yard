@@ -1,8 +1,8 @@
 # 0015 — A party has an address, minted once and never reused
 
-**Status:** Proposed, 2026-08-26. Supersedes the "parties are a facet, not an address"
-addendum to ADR 0013 *if accepted*; ADR 0013 itself stands. Not to be accepted in the
-session that drafted it.
+**Status:** Accepted, 2026-08-26 (drafted earlier the same day; accepted by the operator in a
+later session, as the draft required). Supersedes the "parties are a facet, not an address"
+addendum to ADR 0013; ADR 0013 itself stands, and now carries a note pointing here.
 
 ## Context
 
@@ -51,9 +51,31 @@ URL that changes — worse than none (ADR 0013).
 - Validation query 5 (subscribe by party / service list) is unaffected: it keys on party
   ids already.
 
-## Validation
+## Validation (2026-08-26)
 
-To be recorded at acceptance against `docs/validation-queries.md`: query 5 (party
-subscriptions) and the ADR 0013 permanence promise; a test that every member id of a
-component 301s to the representative and that superseding a same_as edge changes only the
-redirect target.
+Checked against `docs/validation-queries.md` before acceptance:
+
+- **Query 5 (service-list membership alert)** — unchanged. A party subscription keys on
+  `subscription.party_id` and widens to the id's same_as component at delivery time
+  (`alerts/build.py: party_events`); the page reads the same component through the same
+  `Components` class, so what the page lists as "dockets filed in" is exactly what the
+  subscription would alert on. No new table, column or grain: the address is the existing
+  primary key.
+- **Queries 1–4** — untouched; none reads the party tables.
+- **ADR 0013's permanence promise** — extended to `/p/<id>` by decisions 1–4 above. The
+  mechanism is the one the docket address already uses: any spelling of the same identity
+  answers 301 to the one canonical address. The representative of a component is its
+  smallest live id, so a join can only lower the target id; superseding a same_as edge
+  re-splits the component and each id's target follows. A member's page never disappears
+  and never changes meaning; only the redirect target moves, and always to a page that
+  lists the id it was reached by.
+- **ADR 0007** — the join command records method `human`, a version, the timestamp and the
+  operator's note as `source_location`; the page shows that provenance beside every folded
+  id, every name and every succession. A `human` row is never superseded by a model pass.
+- **The tests that pin this** (`tests/test_party_pages.py`): every member id of a component
+  301s to the representative; `/p/<id>/<anything>` 301s to `/p/<id>`; `/feed/party/<id>`
+  301s to `/p/<id>/feed`; superseding the same_as edge changes only the redirect target,
+  and both pages answer 200 afterwards; an id that never existed is 404, never reused.
+
+What this changes in ADR 0013's boundary: parties now hold a permanent address; places,
+labels and folds still do not.
