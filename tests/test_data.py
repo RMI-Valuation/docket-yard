@@ -35,7 +35,9 @@ def test_snapshot_omits_readers_and_measures_itself(tmp_path):
     s = sqlite3.connect(snap)
     tables = {r[0] for r in s.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     assert not tables & set(dump.PRIVATE_TABLES)
-    assert {"docket", "filing", "decision_record", "event", "capture", "party"} <= tables
+    assert {"docket", "filing", "decision_record", "event", "capture"} <= tables
+    assert not tables & set(dump.HELD_TABLES)  # the enriched layer waits for its licence
+    assert "parties" not in m.counts and m.held_tables == list(dump.HELD_TABLES)
     assert s.execute("SELECT COUNT(DISTINCT stb_filing_id) FROM filing").fetchone()[0] == 2
     s.close()
     idx = json.loads((out / "index.json").read_text())
@@ -91,6 +93,7 @@ def test_json_twins_at_the_permanent_addresses(tmp_path):
     assert r.status_code == 200 and r.headers["cache-control"] == "public, max-age=1800"
     d = r.json()
     assert d["licence"] == "CC0-1.0" and d["source"] == "https://docketyard.org/"
+    assert "enriched" in d["held"] and "parties" not in d["docket"]
     doc = d["docket"]
     assert doc["printed"] == "FD 36873" and doc["url"] == "https://docketyard.org/d/FD-36873"
     assert len(doc["entries"]) == 3 and doc["sub_dockets"][0]["raw_docket"].startswith("FD_36873")
@@ -122,6 +125,5 @@ def test_json_twins_at_the_permanent_addresses(tmp_path):
         "summary",
         "attachments",
         "also_in",
-        "parties",
         "url",
     }

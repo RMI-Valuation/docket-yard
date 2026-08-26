@@ -1,7 +1,11 @@
 # Bulk data and JSON (M9, capability F5)
 
-**Status:** published 2026-08-26 at `/data`. Licence **CC0 1.0** for the data (the operator's
-decision, 2026-08-26); the code stays AGPL. This document is the spec the page is generated
+**Status:** published 2026-08-26 at `/data`. Licence **CC0 1.0** for the **raw index** (the
+operator's decision, 2026-08-26); the **enriched layer** — the party module today, the
+citator later — is **withheld** from the snapshot and the JSON (`dump.HELD_TABLES`, the
+Parties block stripped from the JSON, the envelope's `held` field saying so) until the
+attorney review in `licensing.md` is done, because a dedication cannot be withdrawn. The
+code stays AGPL. This document is the spec the page is generated
 from; `src/docketyard/store/dump.py` is what it describes.
 
 ## The snapshot

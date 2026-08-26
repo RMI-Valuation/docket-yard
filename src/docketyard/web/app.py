@@ -400,6 +400,7 @@ def create_app(
                 "licence": dump.LICENCE,
                 "licence_url": dump.LICENCE_URL,
                 "shape_version": JSON_SHAPE,
+                "held": {"enriched": dump.HELD_REASON},
                 "generated_at": utcnow(),
                 **body,
             },
@@ -417,6 +418,7 @@ def create_app(
 
     def entry_json(e) -> dict:
         d = asdict(e)
+        d.pop("parties", None)  # the enriched layer is held (dump.HELD_REASON)
         d["url"] = f"https://{site_host}{urls.record_path(e.kind, e.record_id)}"
         return d
 
@@ -426,6 +428,7 @@ def create_app(
             return RedirectResponse(canonical, status_code=301)
         family, s = family_sheet(identity)
         d = asdict(s)
+        d.pop("parties", None)  # the enriched layer is held (dump.HELD_REASON)
         d.update(docket_ref(s))
         d["sub_dockets"] = [
             {"docket_id": i, "raw_docket": raw, "title": title} for i, raw, title in s.sub_dockets

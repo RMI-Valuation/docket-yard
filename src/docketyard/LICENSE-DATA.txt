@@ -1,20 +1,27 @@
 Docket Yard — data licence
 
 The data in this snapshot, and everything served by docketyard.org's JSON endpoints, is
-dedicated to the public domain under the Creative Commons CC0 1.0 Universal dedication:
+the raw index of the Board's record — dockets, filings, decisions, dates, documents by
+content hash, and the capture ledger that is their provenance — and is dedicated to the
+public domain under the Creative Commons CC0 1.0 Universal dedication:
 
     https://creativecommons.org/publicdomain/zero/1.0/
 
 The underlying records are those of the United States Surface Transportation Board, a
 federal agency; as works of the United States Government they are in the public domain.
-Docket Yard's compilation, derived assertions and provenance are dedicated to the public
-domain by RMI Valuation, LLC, its operator. You may copy, modify, distribute and use the
+Docket Yard's compilation of them, and the provenance it records, are dedicated to the
+public domain by RMI Valuation, LLC, its operator. You may copy, modify, distribute and use the
 data, for any purpose, without asking permission and without attribution.
 
 The data is provided as is, without warranty of any kind. Every record carries its source;
 the Board's own file is authoritative. Docket Yard is not affiliated with the Board.
 
 Attribution is welcome but not required: "Docket Yard, https://docketyard.org".
+
+Not included: Docket Yard's enriched layer — entity resolution (the party module),
+and later the citation graph — is derived work whose licence is under review and is
+withheld from the snapshot and the JSON until that review is done. It will be published
+under terms stated here when it is; nothing about it is implied by this dedication.
 
 The software that produces the data is a separate work, licensed under the GNU Affero
 General Public License v3.0 (see the repository's LICENSE).

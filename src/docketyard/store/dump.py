@@ -17,8 +17,11 @@ Two safeguards, because a leak here would be licensed CC0 the moment it was serv
 The manifest (`index.json`) is measured from the files it describes; the page that offers
 the download is generated from the manifest, so it cannot claim a file that is not there.
 
-Data licence: CC0 1.0 (the operator's decision, 2026-08-26) — the Board's records are U.S.
-government works and the compilation is dedicated to the public domain.
+Data licence: CC0 1.0 (the operator's decision, 2026-08-26) for the **raw index** — the
+Board's records are U.S. government works and the compilation of them is dedicated to the
+public domain. The **enriched layer** (the party module today; the citator later) is held
+out of the snapshot and the JSON until the attorney review `docs/licensing.md` records is
+done: a dedication cannot be withdrawn, so nothing irreversible happens before it.
 """
 
 import gzip
@@ -41,6 +44,19 @@ PRIVATE_TABLES = (
     "subscription",
     "email_suppression",
 )
+# Derived work held back pending the enriched-layer licence review (docs/licensing.md).
+HELD_TABLES = (
+    "filing_party_link",
+    "filing_party_span",
+    "party_relationship",
+    "relationship_vocab",
+    "party_name",
+    "party",
+)
+HELD_REASON = (
+    "The party module (entity resolution, aliases, successions) is derived work whose licence"
+    " awaits review; it is withheld until then, not dedicated by default."
+)
 PUBLIC_TABLES = frozenset(
     {
         "capture",
@@ -54,12 +70,6 @@ PUBLIC_TABLES = frozenset(
         "document_source",
         "walk_slice",
         "coverage_gap",
-        "party",
-        "party_name",
-        "relationship_vocab",
-        "party_relationship",
-        "filing_party_span",
-        "filing_party_link",
         "correction",
     }
 )
@@ -89,7 +99,9 @@ class Manifest:
     licence_url: str
     schema_version: int
     counts: dict  # measured from the snapshot itself
-    omitted_tables: list[str]
+    omitted_tables: list[str]  # reader tables: never published
+    held_tables: list[str]  # derived work withheld pending its licence
+    held_reason: str
     latest: File
     dated: list[File]  # kept archives, newest first
     schema: str = SCHEMA  # file name
@@ -109,7 +121,7 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
     out = sqlite3.connect(dst)
     try:
         out.execute("PRAGMA foreign_keys = OFF")
-        for table in PRIVATE_TABLES:
+        for table in PRIVATE_TABLES + HELD_TABLES:
             out.execute(f"DROP TABLE IF EXISTS {table}")
         out.commit()
         out.execute("VACUUM")
@@ -134,7 +146,6 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
             ).fetchone()[0],
             "events": q("SELECT COUNT(*) FROM event").fetchone()[0],
             "documents": q("SELECT COUNT(*) FROM document").fetchone()[0],
-            "parties": q("SELECT COUNT(*) FROM party").fetchone()[0],
         }
         version = q("PRAGMA user_version").fetchone()[0]
         ddl = q(
@@ -213,6 +224,8 @@ def dump(
         schema_version=version,
         counts=counts,
         omitted_tables=list(PRIVATE_TABLES),
+        held_tables=list(HELD_TABLES),
+        held_reason=HELD_REASON,
         latest=File(LATEST, (out_dir / LATEST).stat().st_size, _sha256(out_dir / LATEST)),
         dated=[_file(p, known) for p in sorted(dated, reverse=True)],
     )
