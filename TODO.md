@@ -16,8 +16,8 @@ by pre-commit: when it fires, prune.
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
 - RMI-AI-MACHINE: text layer done for wave 1 (`/data/docketyard/text`); re-run after each
-  wave from S3. Benchmark step 1: Cameron fills `docs/research/benchmark/labels.csv`
-  (guide in its README); step 2 runs once it is in
+  wave from S3. Benchmark step 1: `labels.csv` is model-drafted (977 rows, 2026-08-26) and
+  awaits Cameron's check (README § Provenance); step 2 runs once he signs it off
 - Explainers draft (`docs/explainers.md`): Cameron reviews; [?] rows need the Board's
   records staff; then a page per prefix. Whether/how to announce the wedge — his call
 

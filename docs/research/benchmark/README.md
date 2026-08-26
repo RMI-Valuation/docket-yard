@@ -11,6 +11,25 @@ per-page text of each decision is on RMI-AI-MACHINE at `/data/docketyard/benchma
 and mirrored to `data/benchmark/text/` on the working machine (disposable, not committed)
 — but **label from the Board's PDF**, linked below; the text layer is what is being tested.
 
+## Provenance of the labels (2026-08-26)
+
+`labels.csv` was **drafted by a model** (Claude Fable 5, four passes over the Board's PDFs,
+one per tier and half-tier, under the rules below) and is **awaiting the operator's check**.
+It becomes ground truth for step 2 only after that check; rows the operator strikes or adds
+are the ones worth keeping notes on. Two things to hold in view when reading it:
+
+- The drafter is a Claude model and one of step 2's candidates is a Claude API model, so a
+  label the operator did not check is a Claude-flavoured target. The check is what removes
+  that.
+- The drafting passes were told to be exhaustive on the heavy tier and to label every
+  short-form and repeated citation on its page; they also labelled ordering-paragraph
+  "effective on its service date" sentences as deadlines with a blank `target`, and the
+  Board's stamp text on granted letters. Whether those conventions stand is the operator's
+  call; the notes column says which rows they are.
+
+Assembled 2026-08-26: 977 rows over the sixty decisions — 813 citations, 164 deadlines;
+every row passed the page-range check. Court cases carry `court`; self-references `self`.
+
 ## How to label
 
 One row per thing found. Copy the decision's first five columns down for each row.
