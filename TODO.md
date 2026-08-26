@@ -33,8 +33,7 @@ by pre-commit: when it fires, prune.
   intentional; FD 36873 sheet is 1.1 MB / 908 entries unpaginated — measure DOM cost on a
   low-end phone before changing anything
 - M10 deferrals: an address following two ids later joined gets each filing twice per pass;
-  the follow form after a 301 follows the representative (a later split narrows it);
-  `--cite` is free text; `search()`/`Components.members()` costs — re-measure after wave 3
+  the follow form after a 301 follows the representative; `--cite` is free text
 - Enriched layer into the snapshot/JSON after the attorney review (`licensing.md` § Open):
   remove `dump.HELD_TABLES`, restore the Parties block, bump `JSON_SHAPE`, announce on `/data`
 - M8 deferrals: dead webhook endpoints self-suppress after N failures; per-pass delivery
@@ -48,6 +47,7 @@ by pre-commit: when it fires, prune.
 - Two schema-change chores: errata re-check needs a last-checked column (walk oldest-first,
   per-pass limit); permanently-bad poll items need an attempt counter (retried every pass)
 - ADR 0012 addendum recording the blob cache design (sync + prune) once wave 3 proves it
+- JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
 - Money on `/contribute` is omitted by decision; revisit only after the entity question in
   `licensing.md` § Open and the CLA review (which also gates merging outside pull requests)
 - Cameron's idea (2026-08-26): switch cadence from the alert email; a signed-link manage
