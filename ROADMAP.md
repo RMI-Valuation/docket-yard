@@ -23,10 +23,17 @@ the milestones record. Nothing is chosen next; the Ripe list is the menu.
 Candidates the record can support now, in the order recommended 2026-08-26. None is chosen.
 
 1. **Docket-type explainers** (P2) — writing, not engineering; the operator's.
-2. **The citator** (C2) — milestone-scale, on a branch; waits for wave 3 and the labelled sample.
-3. **Fielded search** (F4) — the one box shipped 2026-08-26 (captions, parties, summaries);
+2. **The citation graph** — the first slice of the citator (C2): edges only (this decision
+   cites that decision, docket or document) against the validated registry, shipped as "cited
+   by" lists and search ranking; treatment classification lands later on the same edges. The
+   precondition moved 2026-08-26 (decisions 2,815 → 19,829, the record reaching 1996); still
+   gated on wave 3, the labelled sample, and the schema check in TODO § Next.
+3. **A machine-agent surface** (F7, proposed 2026-08-26) — read-only MCP over what exists;
+   Low effort because F5 shipped. On the menu, not chosen.
+4. **Fielded search** (F4) — the one box shipped 2026-08-26 (captions, parties, summaries);
    fields, boolean and proximity wait for the extracted text.
 
 Later, each waiting for a decision rather than capacity: the geographic index (C3/D2), the
-deadline engine (C4 — needs counsel's review before it ships), reference data and rule status
-(D3/D4).
+deadline engine (C4 — needs counsel's review before it ships; a hand-checked fixture of dated
+obligations exists, see TODO § Next), reference data and rule status (D3/D4). The unfetched
+documents (Chosen, running) improve the record gradually and defer none of these.
