@@ -28,6 +28,8 @@ by pre-commit: when it fires, prune.
 
 ## Next
 
+- ADR 0015 (party addresses) awaits Cameron; then `/p/<id>`, 301 for folded ids, sitemap row
+- FD 36873 sheet is 1.1 MB / 907 entries (79 KB wired): measure on a low-end phone first
 - Enriched layer into the snapshot/JSON after the attorney review (`licensing.md` § Open):
   remove `dump.HELD_TABLES`, restore the Parties block, bump `JSON_SHAPE`, announce on `/data`
 - M8 review deferrals: a dead webhook endpoint should suppress itself after N consecutive
@@ -45,8 +47,6 @@ by pre-commit: when it fires, prune.
   a refresh pass walks the corpus oldest-checked first under a per-pass limit
 - Poller bookkeeping for permanently-bad items (ingest raises, 404 attachment): an attempt
   counter is a schema change; today they are retried and re-logged every pass
-- What `total` counts on the filings table (rows vs records): unmeasured; the stop rule
-  does not depend on it
 - ADR 0012 addendum recording the blob cache design (sync + prune) once wave 3 proves it
 
 ## Parked
