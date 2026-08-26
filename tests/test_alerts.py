@@ -291,3 +291,49 @@ def test_sheet_offers_the_follow_form(store):
     assert r.status_code == 503 and "not available" in r.text
     con = db.connect(path)
     assert con.execute("SELECT COUNT(*) FROM subscription").fetchone()[0] == 0
+
+
+def test_subscribe_by_party_alerts_filings_across_dockets_and_never_decisions(store):
+    from docketyard.parties import resolve
+
+    con, path, d, tmp_path = store
+    resolve.run(con, log=lambda _: 0)  # NRDC and PPU become parties
+    nrdc = con.execute("SELECT party_id FROM party WHERE founding_key = 'nrdc'").fetchone()[0]
+    with pytest.raises(ValueError):
+        subscriptions.subscribe(con, "p@example.org", d, "pass", party_id=nrdc)
+    token = subscriptions.subscribe(con, "p@example.org", None, "pass", party_id=nrdc)
+    sub = subscriptions.confirm(con, token, now=T0)
+    assert sub.party_id == nrdc and sub.docket_id is None
+    # a new filing for NRDC in another docket, a decision, and a filing for someone else
+    observe(
+        con,
+        tmp_path,
+        filing_row(docket="AB_55", fid="400001", date="8/26/2026", filed_for="NRDC", pdf="a.pdf"),
+        1,
+    )
+    observe(
+        con,
+        tmp_path,
+        filing_row(docket="AB_55", fid="400002", date="8/26/2026", filed_for="PPU", pdf="b.pdf"),
+        1,
+    )
+    resolve.run(con, log=lambda _: 0)
+    pending = build.pending_events(con, "pass")
+    assert [p.docket_raw for p in pending] == ["AB_55"]
+    assert build.build(con, "pass", now=T0) and build.pending_events(con, "pass") == []
+    sender = FakeSender()
+    build.deliver(con, sender, "docketyard.org", log=lambda _: None)
+    out = sender.sent[0]
+    assert out.subject == "NRDC: 1 new filing" and "400001" in out.text and "400002" not in out.text
+    # the web form: a party predicate, the confirmation names the party
+    client = TestClient(create_app(path, sender=sender))
+    r = client.post("/subscribe", data={"email": "q@example.org", "party": str(nrdc)})
+    assert r.status_code == 200 and "filings for NRDC" in r.text
+    link = next(w for w in sender.sent[-1].text.split() if "/s/confirm/" in w)
+    r = client.post(f"/s/confirm/{link.rsplit('/', 1)[1]}")
+    assert r.status_code == 200 and "following filings for NRDC" in r.text
+    assert (
+        client.post("/subscribe", data={"email": "q@example.org", "party": "999999"}).status_code
+        == 404
+    )
+    assert 'name="party" value="' in client.get("/parties", params={"name": "nrdc"}).text

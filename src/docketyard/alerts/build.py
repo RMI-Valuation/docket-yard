@@ -21,6 +21,7 @@ from docketyard.alerts import mail, subscriptions, vault
 from docketyard.alerts.mail import Outbound, Sender
 from docketyard.capture.stb import DECISIONS, FILINGS
 from docketyard.ingest.dockets import parse_docket_id
+from docketyard.parties import resolve
 from docketyard.store.db import load_json, utcnow
 from docketyard.web import labels, urls
 
@@ -46,7 +47,10 @@ def _iso(t: datetime) -> str:
 
 
 def pending_events(con: Connection, cadence: str) -> list[Carried]:
-    """The join, for every active subscription of one cadence."""
+    """The join, for every active subscription of one cadence. A docket subscription takes
+    the family's record events; a party subscription takes filing events whose current
+    cell has a live filed_for link into the party's same_as component (decisions carry no
+    filer and so never reach a party subscription)."""
     marks = ",".join("?" for _ in ALERTING_EVENT_TYPES)
     rows = con.execute(
         f"""
@@ -55,15 +59,45 @@ def pending_events(con: Connection, cadence: str) -> list[Carried]:
           JOIN docket d ON d.docket_id = s.docket_id OR d.parent_docket_id = s.docket_id
           JOIN event e ON e.docket_id = d.docket_id AND e.event_id > s.high_water_event_id
           JOIN capture c ON c.capture_id = e.capture_id
-         WHERE s.status = 'active' AND s.cadence = ? AND c.ingest_mode = 'forward'
-           AND e.event_type IN ({marks})
+         WHERE s.status = 'active' AND s.cadence = ? AND s.docket_id IS NOT NULL
+           AND c.ingest_mode = 'forward' AND e.event_type IN ({marks})
          ORDER BY s.subscription_id, e.event_id
         """,
         (cadence, *ALERTING_EVENT_TYPES),
     ).fetchall()
+    party_subs = con.execute(
+        "SELECT subscription_id, email_hash, party_id, high_water_event_id FROM subscription"
+        " WHERE status = 'active' AND cadence = ? AND party_id IS NOT NULL",
+        (cadence,),
+    ).fetchall()
+    if party_subs:
+        comps = resolve.Components(con)
+        for sid, h, party_id, mark in party_subs:
+            members = comps.members(party_id)
+            pm = ",".join("?" for _ in members)
+            rows += con.execute(
+                f"""
+                SELECT ?, ?, e.event_id, d.raw_docket, c.captured_at
+                  FROM filing f
+                  JOIN filing_party_span sp ON sp.filing_pk = f.filing_pk
+                       AND sp.raw_text = f.filed_for_raw AND sp.superseded_by IS NULL
+                       AND sp.role = 'filed_for'
+                  JOIN filing_party_link l ON l.span_id = sp.span_id AND l.superseded_by IS NULL
+                       AND l.party_id IN ({pm})
+                  JOIN event e ON e.event_id = f.observed_in_event AND e.event_id > ?
+                  JOIN capture c ON c.capture_id = e.capture_id AND c.ingest_mode = 'forward'
+                  JOIN docket d ON d.docket_id = f.docket_id
+                 ORDER BY e.event_id
+                """,
+                (sid, h, *members, mark),
+            ).fetchall()
     late_memo: dict[str, bool] = {}
     out = []
-    for sid, h, eid, raw, captured in rows:
+    seen: set[tuple[int, int]] = set()
+    for sid, h, eid, raw, captured in sorted(rows, key=lambda r: (r[0], r[2])):
+        if (sid, eid) in seen:  # one cell cut into two spans of one component
+            continue
+        seen.add((sid, eid))
         if captured not in late_memo:
             late_memo[captured] = _is_late(con, captured)
         out.append(Carried(sid, h, eid, raw, late_memo[captured], captured))
@@ -225,18 +259,20 @@ def render(con: Connection, alert_id: int, unsubscribe_url: str, site: str) -> O
     enc = con.execute("SELECT email_enc FROM alert WHERE alert_id = ?", (alert_id,)).fetchone()[0]
     email = vault.current().open(enc)  # the only moment an address is readable: to send
     rows = con.execute(
-        "SELECT ae.event_id, ae.late, cg.started_at, cg.ended_at FROM alert_event ae"
-        " LEFT JOIN coverage_gap cg ON cg.gap_id = ae.late_gap_id"
-        " WHERE ae.alert_id = ? ORDER BY ae.event_id",
+        "SELECT ae.event_id, MAX(ae.late), MIN(cg.started_at), MAX(cg.ended_at)"
+        " FROM alert_event ae LEFT JOIN coverage_gap cg ON cg.gap_id = ae.late_gap_id"
+        " WHERE ae.alert_id = ? GROUP BY ae.event_id ORDER BY ae.event_id",
         (alert_id,),
-    ).fetchall()
+    ).fetchall()  # an event two subscriptions of one address both carry appears once
     dockets = sorted({_docket_of(con, eid) for eid, *_ in rows})
     n = len(rows)
-    subject = (
-        f"{dockets[0]}: {n} new {'entry' if n == 1 else 'entries'}"
-        if len(dockets) == 1
-        else f"Docket Yard daily: {n} new entries in {len(dockets)} proceedings"
-    )
+    party_name = _party_subject(con, alert_id)
+    if party_name:
+        subject = f"{party_name}: {n} new {'filing' if n == 1 else 'filings'}"
+    elif len(dockets) == 1:
+        subject = f"{dockets[0]}: {n} new {'entry' if n == 1 else 'entries'}"
+    else:
+        subject = f"Docket Yard daily: {n} new entries in {len(dockets)} proceedings"
     lines = [
         subject,
         "",
@@ -264,6 +300,19 @@ def render(con: Connection, alert_id: int, unsubscribe_url: str, site: str) -> O
     return Outbound(
         to=email, subject=subject, text="\n".join(lines), unsubscribe_url=unsubscribe_url
     )
+
+
+def _party_subject(con: Connection, alert_id: int) -> str | None:
+    """A pass-cadence alert carrying one party subscription is headed by the party."""
+    rows = con.execute(
+        "SELECT DISTINCT s.party_id FROM alert_event ae"
+        " JOIN subscription s ON s.subscription_id = ae.subscription_id"
+        " WHERE ae.alert_id = ?",
+        (alert_id,),
+    ).fetchall()
+    if len(rows) == 1 and rows[0][0] is not None:
+        return resolve.display_name(con, rows[0][0])
+    return None
 
 
 def _docket_of(con: Connection, event_id: int) -> str:

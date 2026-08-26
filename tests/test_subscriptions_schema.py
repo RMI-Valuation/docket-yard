@@ -131,3 +131,30 @@ def test_unsubscribe_cascades_tokens_and_alert_events():
     assert con.execute("SELECT COUNT(*) FROM alert_event").fetchone()[0] == 0
     # the address may subscribe again as a brand-new row with a fresh mark
     _subscribe(con, "a@example.org", d)
+
+
+def test_rebuilding_subscription_keeps_its_dependants(tmp_path):
+    """Migration 0007 drops and recreates `subscription`; with foreign keys enforced that
+    DROP would cascade into tokens and alert events (measured). The runner turns them off
+    per script and checks integrity after."""
+    path = tmp_path / "s.sqlite"
+    con = db.connect(path, upto=6)
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 6
+    d = _docket(con)
+    s = _subscribe(con, "h", d, status="active", mark=0)
+    e = _event(con, d)
+    con.execute(
+        "INSERT INTO subscription_token (token_sha256, subscription_id, purpose, created_at)"
+        " VALUES ('tok', ?, 'unsubscribe', 't')",
+        (s,),
+    )
+    _carry(con, _alert(con, "pending"), s, e)
+    con.commit()
+    con.close()
+    con = db.connect(path)  # migrates 6 -> 7
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 7
+    assert con.execute("SELECT COUNT(*) FROM subscription_token").fetchone()[0] == 1
+    assert con.execute("SELECT COUNT(*) FROM alert_event").fetchone()[0] == 1
+    assert con.execute("PRAGMA foreign_keys").fetchone()[0] == 1  # enforcement is back on
+    con.execute("DELETE FROM subscription WHERE subscription_id = ?", (s,))
+    assert con.execute("SELECT COUNT(*) FROM subscription_token").fetchone()[0] == 0  # cascades

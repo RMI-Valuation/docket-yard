@@ -19,6 +19,7 @@ MIGRATIONS: list[tuple[int, str]] = [
     (4, "0004_subscriptions.sql"),
     (5, "0005_encrypted_addresses.sql"),
     (6, "0006_parties.sql"),
+    (7, "0007_party_subscriptions.sql"),
 ]
 
 
@@ -35,17 +36,21 @@ def load_json(text: str):
     return json.loads(text)
 
 
-def connect(path: str | Path) -> Connection:
+def connect(path: str | Path, upto: int | None = None) -> Connection:
     if path != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
     con = _connect(path, timeout=30)  # a wave and the poller share the store; wait, do not fail
     con.execute("PRAGMA journal_mode = WAL")
     con.execute("PRAGMA foreign_keys = ON")
-    migrate(con)
+    migrate(con, upto=upto)
     return con
 
 
-def migrate(con: Connection) -> int:
+def migrate(con: Connection, upto: int | None = None) -> int:
+    """Apply every migration above the stamped version (or up to `upto`, for tests that
+    build an older store). Foreign-key enforcement is OFF while a script runs — SQLite's
+    documented rebuild procedure: with it on, `DROP TABLE` of a parent cascades into its
+    children and silently empties them — and `foreign_key_check` must be clean after."""
     applied = con.execute("PRAGMA user_version").fetchone()[0]
     if applied == 0:
         tables = con.execute("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'")
@@ -54,14 +59,22 @@ def migrate(con: Connection) -> int:
                 "database has tables but no schema version — not a docketyard store, or a"
                 " partially written one. data/ is disposable: delete it and re-run."
             )
-    for version, script in MIGRATIONS:
-        if version <= applied:
-            continue
-        sql = resources.files("docketyard.store").joinpath(script).read_text(encoding="utf-8")
-        con.executescript(sql)
-        stamped = con.execute("PRAGMA user_version").fetchone()[0]
-        if stamped != version:
-            raise RuntimeError(f"migration {script} did not stamp user_version {version}")
-        applied = version
+    con.commit()  # the pragma is a no-op inside a transaction
+    con.execute("PRAGMA foreign_keys = OFF")
+    try:
+        for version, script in MIGRATIONS:
+            if version <= applied or (upto is not None and version > upto):
+                continue
+            sql = resources.files("docketyard.store").joinpath(script).read_text(encoding="utf-8")
+            con.executescript(sql)
+            stamped = con.execute("PRAGMA user_version").fetchone()[0]
+            if stamped != version:
+                raise RuntimeError(f"migration {script} did not stamp user_version {version}")
+            broken = con.execute("PRAGMA foreign_key_check").fetchall()
+            if broken:
+                raise RuntimeError(f"migration {script} left dangling foreign keys: {broken[:5]}")
+            applied = version
+    finally:
+        con.execute("PRAGMA foreign_keys = ON")
     con.commit()
     return applied

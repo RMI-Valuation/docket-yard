@@ -3,7 +3,7 @@
 > **Status: built 2026-08-26 (migration 0006, `parties/`), shipping in v2026.08.14.** Implements
 > ADR 0004 over the record the wedge holds. Schema-critic and code review applied; the split
 > rules cut 91% of the two-year record's cells at full confidence and leave the rest whole.
-> Party subscriptions are the remaining M6 piece.
+> Party subscriptions ship in v2026.08.15 (migration 0007).
 
 ## What the record shows today
 
@@ -151,6 +151,21 @@ the operator's seed; any UI that ranks parties.
    companies** — on the order of sixty rows, entered with `method = 'operator'` and
    reviewed by the operator before they ship; the list is data in the repository, so its
    history is the audit trail.
+
+## Party ids once subscribed to
+
+A party subscription stores a `party_id`, which makes that id a durable referent for as
+long as the subscription lives. So: **a party row referenced by a subscription is never
+deleted or re-minted**; a rebuild of the store from captures carries the `party` table
+forward as data (the same way a subscription's own rows are carried), and `mint()` is
+deterministic on `founding_key` for everything else. Ids remain internal — no address —
+but they are not disposable.
+
+Semantics worth knowing: a filing whose span is linked *after* the pass that moved the
+subscriber's mark past it is not alerted (the mark fences it, as with a late `same_as`
+edge); errata (`document_replaced`) reach docket followers, not party followers; an address
+holding a docket subscription and a party subscription that both carry one filing receives
+it once in a daily digest and once per subscription under the as-it-happens cadence.
 
 ## Decided (operator, 2026-08-26): parties are a facet, not an address
 

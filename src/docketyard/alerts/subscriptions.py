@@ -26,9 +26,10 @@ CONFIRM_MAILS_PER_HOUR = 3  # per address, whatever the docket (ADR 0011: rate-l
 class Subscription:
     subscription_id: int
     email: str  # decrypted for the caller that needs to address the person
-    docket_id: int
+    docket_id: int | None  # exactly one of docket_id / party_id is set (migration 0007)
     cadence: str
     status: str
+    party_id: int | None = None
 
 
 normalise_email = vault.normalise_email  # one definition; the vault hashes the same form
@@ -66,12 +67,20 @@ def is_suppressed(con: Connection, email_hash: str) -> bool:
 
 
 def subscribe(
-    con: Connection, email: str, docket_id: int, cadence: str, now: datetime | None = None
+    con: Connection,
+    email: str,
+    docket_id: int | None,
+    cadence: str,
+    now: datetime | None = None,
+    *,
+    party_id: int | None = None,
 ) -> str | None:
-    """Create or refresh a pending subscription and return the confirmation token to mail —
-    or None when nothing should be mailed: the address is already active on this docket,
-    is suppressed, or has hit the per-hour confirmation limit. The web tier responds the
-    same way in every case (no enumeration)."""
+    """Create or refresh a pending subscription — to a docket family, or to a party — and
+    return the confirmation token to mail; or None when nothing should be mailed: the
+    address is already active on this predicate, is suppressed, or has hit the per-hour
+    confirmation limit. The web tier responds the same way in every case."""
+    if (docket_id is None) == (party_id is None):
+        raise ValueError("a subscription names exactly one of a docket or a party")
     v = vault.current()
     email = normalise_email(email)
     h = v.hash(email)
@@ -85,10 +94,18 @@ def subscribe(
     ).fetchone()[0]
     if recent >= CONFIRM_MAILS_PER_HOUR:
         return None
-    row = con.execute(
-        "SELECT subscription_id, status FROM subscription WHERE email_hash = ? AND docket_id = ?",
-        (h, docket_id),
-    ).fetchone()
+    if docket_id is not None:
+        row = con.execute(
+            "SELECT subscription_id, status FROM subscription WHERE email_hash = ?"
+            " AND docket_id = ?",
+            (h, docket_id),
+        ).fetchone()
+    else:
+        row = con.execute(
+            "SELECT subscription_id, status FROM subscription WHERE email_hash = ?"
+            " AND party_id = ?",
+            (h, party_id),
+        ).fetchone()
     expires = _iso(t + CONFIRM_TTL)
     if row and row[1] == "active":
         return None
@@ -101,9 +118,9 @@ def subscribe(
         )
     else:
         sid = con.execute(
-            "INSERT INTO subscription (email_hash, email_enc, docket_id, cadence, status,"
-            " created_at, expires_at) VALUES (?, ?, ?, ?, 'pending', ?, ?)",
-            (h, v.seal(email), docket_id, cadence, _iso(t), expires),
+            "INSERT INTO subscription (email_hash, email_enc, docket_id, party_id, cadence,"
+            " status, created_at, expires_at) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)",
+            (h, v.seal(email), docket_id, party_id, cadence, _iso(t), expires),
         ).lastrowid
     token = new_token()
     con.execute(
@@ -145,14 +162,14 @@ def confirm(con: Connection, token: str, now: datetime | None = None) -> Subscri
 
 def get(con: Connection, subscription_id: int) -> Subscription | None:
     row = con.execute(
-        "SELECT subscription_id, email_enc, docket_id, cadence, status FROM subscription"
-        " WHERE subscription_id = ?",
+        "SELECT subscription_id, email_enc, docket_id, cadence, status, party_id"
+        " FROM subscription WHERE subscription_id = ?",
         (subscription_id,),
     ).fetchone()
     if row is None:
         return None
-    sid, enc, docket_id, cadence, status = row
-    return Subscription(sid, vault.current().open(enc), docket_id, cadence, status)
+    sid, enc, docket_id, cadence, status, party_id = row
+    return Subscription(sid, vault.current().open(enc), docket_id, cadence, status, party_id)
 
 
 def unsubscribe_token(con: Connection, subscription_id: int, now: datetime | None = None) -> str:

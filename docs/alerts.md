@@ -1,9 +1,9 @@
 # Alert reliability
 
-> **Status: in progress.** The heartbeat is live (2026-08-26). The delivery promise,
-> backfill-on-subscribe and failure-disclosure sections are decisions still to be taken and
-> are written here only when taken — they are public promises (CLAUDE.md § Ask rather than
-> assume).
+> **Status: live (2026-08-26).** The heartbeat, the delivery promise, no backfill, the
+> failure-disclosure marking, encrypted addresses and bounce feedback are all decided and
+> running; each section names its decision date. Changes to a promise here are changes
+> to a public page and need the operator's sign-off (CLAUDE.md § Ask rather than assume).
 
 ## Purpose
 
@@ -44,7 +44,9 @@ the heartbeat to stop with it; `workflow_dispatch` re-arms it.
 ## The delivery promise (decided 2026-08-26)
 
 A subscription is to **one docket** (its family: the parent and its sub-dockets fold into
-one sheet and one subscription), at **one of two cadences the subscriber chooses**:
+one sheet and one subscription) **or, from M6, to one party** — filings whose "Filed For"
+cell resolves to that party, in any docket; decisions carry no filer and never reach a
+party subscription — at **one of two cadences the subscriber chooses**:
 
 - **As it happens** — one email per docket per poll pass that observed something new on
   it. The poller runs every 30 minutes, so an entry the Board posts is usually in the

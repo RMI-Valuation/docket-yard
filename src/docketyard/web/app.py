@@ -336,7 +336,11 @@ def create_app(
 
     @app.post("/subscribe")
     def subscribe(
-        request: Request, email: str = Form(""), docket: str = Form(""), cadence: str = Form("pass")
+        request: Request,
+        email: str = Form(""),
+        docket: str = Form(""),
+        cadence: str = Form("pass"),
+        party: str = Form(""),
     ):
         """Whatever happens — new, pending, already active, suppressed, rate-limited — the
         answer is the same page, so nothing about an address can be learned here."""
@@ -348,24 +352,36 @@ def create_app(
                 " try again later.",
                 503,
             )
-        identity = urls.lookup(docket)
         address = subscriptions.normalise_email(email)
-        if identity is None or not subscriptions.plausible_email(address):
+        identity = urls.lookup(docket) if docket.strip() else None
+        party_id = int(party) if party.strip().isdigit() else None
+        if (identity is None and party_id is None) or not subscriptions.plausible_email(address):
             return message(
-                request, "That did not work", "Enter an email address and a docket number.", 400
+                request,
+                "That did not work",
+                "Enter an email address and a docket number (or choose a party).",
+                400,
             )
         if cadence not in ("pass", "daily"):
             cadence = "pass"
-        family = identity.parent() or identity
         con = _connect_rw(db_path)
         try:
-            docket_id = find_docket(con, family)
-            if docket_id is None:
-                raise HTTPException(404)
-            token = subscriptions.subscribe(con, address, docket_id, cadence)
+            if identity is not None:
+                family = identity.parent() or identity
+                docket_id = find_docket(con, family)
+                if docket_id is None:
+                    raise HTTPException(404)
+                printed = urls.printed_docket(family)
+                token = subscriptions.subscribe(con, address, docket_id, cadence)
+            else:
+                if not con.execute(
+                    "SELECT 1 FROM party WHERE party_id = ?", (party_id,)
+                ).fetchone():
+                    raise HTTPException(404)
+                printed = f"filings for {resolve.display_name(con, party_id)}"
+                token = subscriptions.subscribe(con, address, None, cadence, party_id=party_id)
         finally:
             con.close()
-        printed = urls.printed_docket(family)
         if token:
             hours = subscriptions.CONFIRM_TTL_HOURS
             out = mail.Outbound(
@@ -409,13 +425,14 @@ def create_app(
         con = _connect_rw(db_path)
         try:
             sub = subscriptions.confirm(con, token)
-            raw = (
-                con.execute(
+            raw = None
+            what = None
+            if sub and sub.docket_id is not None:
+                raw = con.execute(
                     "SELECT raw_docket FROM docket WHERE docket_id = ?", (sub.docket_id,)
                 ).fetchone()[0]
-                if sub
-                else None
-            )
+            elif sub:
+                what = f"filings for {resolve.display_name(con, sub.party_id)}"
         finally:
             con.close()
         if sub is None:
@@ -426,11 +443,11 @@ def create_app(
                 " from the docket's page.",
                 404,
             )
-        identity = parse_docket_id(raw)
+        what = what or urls.printed_docket(parse_docket_id(raw))
         when = "as they happen" if sub.cadence == "pass" else "in one daily email"
         return message(
             request,
-            "You are following " + urls.printed_docket(identity),
+            "You are following " + what,
             f"New filings and decisions will reach {sub.email} {when}. Every email carries a"
             " one-click link to stop.",
         )
