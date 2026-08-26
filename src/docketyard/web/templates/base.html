@@ -8,6 +8,7 @@
   <link rel="preload" href="/static/fonts/newsreader-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/source-sans-3-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/site.css?v={{ asset_v }}">
+  {% block head %}<link rel="alternate" type="application/atom+xml" title="Every new filing and decision" href="/feed">{% endblock %}
   <script>
     // per-viewer display preferences, kept in this browser only (ADR 0011): never an account
     try {
@@ -42,7 +43,7 @@
   <main id="main">{% block main %}{% endblock %}</main>
   <footer class="footer">
     <div class="footer-links">
-      <a href="/about">About</a> · <a href="/coverage">Coverage</a> · <a href="/stats">Statistics</a> · <a href="/methodology">Methodology</a> · <a href="/corrections">Corrections</a> · <a href="/privacy">Privacy</a> · <a href="https://github.com/RMI-Valuation/docket-yard" rel="noopener">Source</a>
+      <a href="/about">About</a> · <a href="/coverage">Coverage</a> · <a href="/stats">Statistics</a> · <a href="/feed">Feed</a> · <a href="/methodology">Methodology</a> · <a href="/corrections">Corrections</a> · <a href="/privacy">Privacy</a> · <a href="https://github.com/RMI-Valuation/docket-yard" rel="noopener">Source</a>
     </div>
     <div>{{ site_name }} is operated by RMI Valuation, LLC and is not affiliated with the Surface Transportation Board.</div>
   </footer>

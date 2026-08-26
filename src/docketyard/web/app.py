@@ -20,17 +20,17 @@ from importlib import resources
 from pathlib import Path
 
 from fastapi import Body, FastAPI, Form, HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from docketyard import __version__
-from docketyard.alerts import feedback, mail, subscriptions, vault
+from docketyard.alerts import feedback, mail, subscriptions, vault, webhooks
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
 from docketyard.store import coverage, home, projections, sheet, stats
 from docketyard.store.db import MIGRATIONS
-from docketyard.web import labels, urls
+from docketyard.web import feeds, labels, urls
 
 _PKG = resources.files("docketyard.web")
 # outside intake is GitHub Issues (CLAUDE.md); the form template carries the fields
@@ -321,6 +321,53 @@ def create_app(
             headers={"Cache-Control": "no-store"},
         )
 
+    # --- feeds: the alert stream as a page; nothing is stored about the reader ---------
+
+    def atom(feed: feeds.Feed) -> Response:
+        body = feeds.render(feed, site_host, datetime.now(UTC).isoformat(timespec="seconds"))
+        return Response(
+            body,
+            media_type="application/atom+xml; charset=utf-8",
+            headers={"Cache-Control": "public, max-age=1800"},
+        )
+
+    @app.get("/feed")
+    def agency_feed():
+        con = _connect(db_path)
+        try:
+            return atom(feeds.agency_feed(con, site_host))
+        finally:
+            con.close()
+
+    @app.get("/feed/party/{party_id}")
+    def party_feed(party_id: int):
+        con = _connect(db_path)
+        try:
+            if not con.execute("SELECT 1 FROM party WHERE party_id = ?", (party_id,)).fetchone():
+                raise HTTPException(404)
+            return atom(feeds.party_feed(con, party_id, site_host))
+        finally:
+            con.close()
+
+    @app.get("/d/{ident}/feed")
+    def docket_feed(ident: str):
+        identity = urls.parse_docket_path(ident)
+        if identity is None:
+            raise HTTPException(404)
+        family = identity.parent() or identity
+        con = _connect(db_path)
+        try:
+            docket_id = find_docket(con, family)
+            if docket_id is None:
+                raise HTTPException(404)
+            return atom(
+                feeds.family_feed(
+                    con, docket_id, urls.printed_docket(family), urls.docket_path(family), site_host
+                )
+            )
+        finally:
+            con.close()
+
     @app.get("/d")
     def lookup(request: Request, q: str = ""):
         """The lookup box: whatever was typed, normalised to the one canonical address."""
@@ -357,6 +404,7 @@ def create_app(
         docket: str = Form(""),
         cadence: str = Form("pass"),
         party: str = Form(""),
+        webhook_url: str = Form(""),
     ):
         """Whatever happens — new, pending, already active, suppressed, rate-limited — the
         answer is the same page, so nothing about an address can be learned here."""
@@ -368,14 +416,25 @@ def create_app(
                 " try again later.",
                 503,
             )
-        address = subscriptions.normalise_email(email)
+        channel = "webhook" if webhook_url.strip() else "email"
+        address = (
+            webhooks.normalise_url(webhook_url)
+            if channel == "webhook"
+            else subscriptions.normalise_email(email)
+        )
+        plausible = (
+            webhooks.plausible_url(address)
+            if channel == "webhook"
+            else subscriptions.plausible_email(address)
+        )
         identity = urls.lookup(docket) if docket.strip() else None
         party_id = int(party) if party.strip().isdigit() else None
-        if (identity is None and party_id is None) or not subscriptions.plausible_email(address):
+        if (identity is None and party_id is None) or not plausible:
             return message(
                 request,
                 "That did not work",
-                "Enter an email address and a docket number (or choose a party).",
+                "Enter an email address — or an https:// webhook URL — and a docket number"
+                " (or choose a party).",
                 400,
             )
         if cadence not in ("pass", "daily"):
@@ -388,16 +447,20 @@ def create_app(
                 if docket_id is None:
                     raise HTTPException(404)
                 printed = urls.printed_docket(family)
-                token = subscriptions.subscribe(con, address, docket_id, cadence)
+                token = subscriptions.subscribe(con, address, docket_id, cadence, channel=channel)
             else:
                 if not con.execute(
                     "SELECT 1 FROM party WHERE party_id = ?", (party_id,)
                 ).fetchone():
                     raise HTTPException(404)
                 printed = f"filings for {resolve.display_name(con, party_id)}"
-                token = subscriptions.subscribe(con, address, None, cadence, party_id=party_id)
+                token = subscriptions.subscribe(
+                    con, address, None, cadence, party_id=party_id, channel=channel
+                )
         finally:
             con.close()
+        if token and channel == "webhook":
+            return _ping_webhook(request, address, token, printed)
         if token:
             hours = subscriptions.CONFIRM_TTL_HOURS
             out = mail.Outbound(
@@ -430,6 +493,43 @@ def create_app(
             f" {printed}. Nothing is sent until you open it.",
         )
 
+    def _ping_webhook(request: Request, url: str, token: str, printed: str):
+        """Confirmation for a webhook is a ping carrying the confirmation link and the
+        signing secret: whoever reads the endpoint's traffic can confirm, nobody else."""
+        con = _connect_rw(db_path)
+        try:
+            sub = subscriptions.for_confirm_token(con, token)
+            hours = subscriptions.CONFIRM_TTL_HOURS
+            ping = {
+                "type": "subscription.confirm",
+                "source": f"https://{site_host}/",
+                "what": printed,
+                "confirm_url": f"https://{site_host}/s/confirm/{token}",
+                "expires_in_hours": hours,
+                "secret": sub.secret if sub else None,
+                "note": f"Someone asked {site_name} to POST new filings and decisions for"
+                f" {printed} to this URL. To confirm, open confirm_url within {hours} hours"
+                " and press Confirm. Every later delivery is signed with `secret` as"
+                " X-DocketYard-Signature (HMAC-SHA256 over the body). If this was not you,"
+                " do nothing: the request expires and the URL is deleted.",
+            }
+            try:
+                result = webhooks.post(url, ping, sub.secret if sub else "", delivery_id="confirm")
+                ok = result.accepted
+            except webhooks.RefusedDestination:
+                ok = False
+            if not ok:
+                subscriptions.withdraw_token(con, token)
+        finally:
+            con.close()
+        return message(
+            request,
+            "Check the endpoint",
+            f"If {webhooks.describe(url)} accepted a ping just now, it holds a confirmation"
+            f" link and the signing secret for {printed}. Nothing is sent until the link is"
+            " opened and confirmed.",
+        )
+
     @app.get("/s/confirm/{token}")
     def confirm_page(request: Request, token: str):
         """A page with a button: mail-security gateways fetch links on delivery, and a
@@ -460,6 +560,14 @@ def create_app(
                 404,
             )
         what = what or urls.printed_docket(parse_docket_id(raw))
+        if sub.channel == "webhook":
+            when = "as they happen" if sub.cadence == "pass" else "once a day"
+            return message(
+                request,
+                "You are following " + what,
+                f"New filings and decisions will be POSTed to {webhooks.describe(sub.email)}"
+                f" {when}, signed. Every delivery carries an unsubscribe link.",
+            )
         when = "as they happen" if sub.cadence == "pass" else "in one daily email"
         return message(
             request,

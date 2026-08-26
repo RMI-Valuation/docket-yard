@@ -93,6 +93,42 @@ operator and the coverage page records the gap (below).
 row joins a subscription to an event whose capture is `forward`. Backfill never alerts.
 Each alert carries the same provenance the sheet does: the Board's own file, linked.
 
+## Feeds and webhooks (M8, decided 2026-08-26)
+
+Email is one channel of three. All three render the same `EventSummary`
+(`alerts/summary.py`) for the same events — record-bearing event types from forward
+captures, never a backfill wave — so a feed reader, a webhook receiver and an inbox see the
+same entry.
+
+**Atom feeds** (`web/feeds.py`) are stateless: `/feed` (agency-wide), `/d/<docket>/feed`
+(family) and `/feed/party/<id>` return the latest 100 entries, `Cache-Control: max-age=1800`.
+Nothing is stored about the reader (ADR 0011). A party feed is addressed by party id the
+way a party subscription is — a delivery channel, not a page (ADR 0013 addendum still holds).
+
+**Webhooks** (`alerts/webhooks.py`, migration 0008) are subscriptions whose recipient is
+an https URL. Everything about addresses applies unchanged: the URL is hashed and sealed
+under the vault key, confirmed before anything is sent, rate-limited on confirmation
+attempts, deleted on unsubscribe, and the alert ledger's claim-before-send discipline and
+three-attempt limit are the same. What differs:
+
+- **Confirmation is a ping**, not a mail: a signed POST to the URL carrying the confirmation
+  link and the signing secret. Only whoever reads the endpoint's traffic can confirm, and
+  the secret is never shown on a page. A ping the endpoint does not accept withdraws the
+  token, and the page says the same thing either way.
+- **Every delivery is signed**: `X-DocketYard-Signature: sha256=<HMAC-SHA256(secret, body)>`
+  over the exact bytes, `X-DocketYard-Delivery: <alert id>`. The body is
+  `build.payload()`: `events[]` (the summary fields plus `late`), `party` when the alert
+  is for one, `unsubscribe_url`.
+- **Outbound connections are the one place this service connects where a stranger
+  chose.** https only, no credentials in the URL, no redirects followed, ten-second
+  timeout, and the host is resolved and refused unless every address is public unicast — a
+  name pointing into the instance's own network never gets a connection.
+- **No suppression list for URLs.** An endpoint that fails three attempts fails that alert
+  and is tried again on the next; a permanently dead endpoint accumulates failed alerts
+  in the log. Revisit if it ever matters (TODO).
+- The heartbeat leg `oldest_pending_alert` covers both channels: a pending webhook alert
+  ages the same way.
+
 ## Failure disclosure (decided 2026-08-26)
 
 When the heartbeat catches a gap — a window in which the record was not being kept —

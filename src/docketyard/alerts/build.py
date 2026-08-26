@@ -17,13 +17,14 @@ from datetime import UTC, datetime, timedelta
 from sqlite3 import Connection
 from zoneinfo import ZoneInfo
 
-from docketyard.alerts import mail, subscriptions, vault
+from docketyard.alerts import mail, subscriptions, vault, webhooks
 from docketyard.alerts.mail import Outbound, Sender
+from docketyard.alerts.summary import event_summary
 from docketyard.capture.stb import DECISIONS, FILINGS
 from docketyard.ingest.dockets import parse_docket_id
 from docketyard.parties import resolve
-from docketyard.store.db import load_json, utcnow
-from docketyard.web import labels, urls
+from docketyard.store.db import utcnow
+from docketyard.web import urls
 
 ALERTING_EVENT_TYPES = ("filing_observed", "decision_observed", "document_replaced")
 LATE_AFTER = timedelta(hours=3)  # the heartbeat's own threshold for last_forward_capture
@@ -143,14 +144,14 @@ def build(con: Connection, cadence: str, now: datetime | None = None) -> list[in
     ids = []
     for (h, _), items in groups.items():
         # the ciphertext is copied from the subscription; the alert never sees the address
-        enc = con.execute(
-            "SELECT email_enc FROM subscription WHERE subscription_id = ?",
+        enc, channel = con.execute(
+            "SELECT email_enc, channel FROM subscription WHERE subscription_id = ?",
             (items[0].subscription_id,),
-        ).fetchone()[0]
+        ).fetchone()
         alert_id = con.execute(
-            "INSERT INTO alert (email_hash, email_enc, cadence, status, created_at)"
-            " VALUES (?, ?, ?, 'pending', ?)",
-            (h, enc, cadence, t),
+            "INSERT INTO alert (email_hash, email_enc, cadence, status, created_at, channel)"
+            " VALUES (?, ?, ?, 'pending', ?, ?)",
+            (h, enc, cadence, t, channel),
         ).lastrowid
         marks: dict[int, int] = {}
         for c in items:
@@ -199,60 +200,7 @@ def daily_due(con: Connection, now: datetime | None = None) -> bool:
 
 
 def _event_line(con: Connection, event_id: int, site: str) -> list[str]:
-    etype, docket_id, payload, source_key = con.execute(
-        "SELECT event_type, docket_id, payload, source_key FROM event WHERE event_id = ?",
-        (event_id,),
-    ).fetchone()
-    p = load_json(payload)
-    raw = con.execute("SELECT raw_docket FROM docket WHERE docket_id = ?", (docket_id,)).fetchone()
-    printed = urls.printed_docket(parse_docket_id(raw[0])) if raw else "?"
-    if etype == "document_replaced":
-        # keyed by the file's URL; the owning record lives in document_source
-        owner = con.execute(
-            "SELECT stb_filing_id, stb_decision_id FROM document_source"
-            " WHERE document_sha256 = ? AND source_url = ? LIMIT 1",
-            (p.get("new"), p.get("source_url")),
-        ).fetchone()
-        filing_id, decision_id = owner or (None, None)
-        path = (
-            urls.decision_path(decision_id)
-            if decision_id
-            else urls.filing_path(filing_id)
-            if filing_id
-            else None
-        )
-        record = f"decision {decision_id}" if decision_id else f"filing {filing_id}"
-        lines = [f"{printed} — the Board replaced a file on {record}"]
-        if path:
-            lines.append(f"  https://{site}{path}")
-        lines.append(f"  The Board's file: {p.get('source_url')}")
-        return lines
-    record_id = source_key.split("|")[-1]
-    kind = "decision" if etype == "decision_observed" else "filing"
-    first = (
-        con.execute(
-            "SELECT COUNT(*) FROM event WHERE source_key = ? AND event_type = ? AND event_id < ?",
-            (source_key, etype, event_id),
-        ).fetchone()[0]
-        == 0
-    )
-    date = p.get("date_printed") or p.get("date") or "undated"
-    head = f"{printed} — {'new' if first else 'updated'} {kind} {record_id}, {date}"
-    body = []
-    if kind == "decision":
-        who = p.get("deciding_body") or labels.kind_label(kind, p.get("decision_type"))
-        body.append(f"  {who}")
-        if p.get("summary"):
-            body.append(f"  {p['summary']}")
-    else:
-        body.append(f"  {p.get('filing_type') or 'Filing'}")
-        if p.get("filed_for"):
-            body.append(f"  Filed for: {labels.display_filed_for(p['filed_for'])}")
-    path = urls.decision_path(record_id) if kind == "decision" else urls.filing_path(record_id)
-    body.append(f"  https://{site}{path}")
-    for url in p.get("attachments") or []:
-        body.append(f"  The Board's file: {url}")
-    return [head, *body]
+    return event_summary(con, event_id, site).lines()
 
 
 def render(con: Connection, alert_id: int, unsubscribe_url: str, site: str) -> Outbound:
@@ -324,19 +272,107 @@ def _docket_of(con: Connection, event_id: int) -> str:
     return urls.printed_docket(parse_docket_id(row[0])) if row else "?"
 
 
+def payload(con: Connection, alert_id: int, unsubscribe_url: str, site: str) -> dict:
+    """The webhook body: the same events the email carries, structured."""
+    rows = con.execute(
+        "SELECT ae.event_id, MAX(ae.late) FROM alert_event ae WHERE ae.alert_id = ?"
+        " GROUP BY ae.event_id ORDER BY ae.event_id",
+        (alert_id,),
+    ).fetchall()
+    events = []
+    for eid, late in rows:
+        d = event_summary(con, eid, site).as_dict()
+        d["late"] = bool(late)
+        events.append(d)
+    return {
+        "source": f"https://{site}/",
+        "alert_id": alert_id,
+        "party": _party_subject(con, alert_id),
+        "events": events,
+        "note": "Docket Yard is an independent public record, not the Board. Dates are the"
+        " Board's own; every entry links to the Board's file.",
+        "unsubscribe_url": unsubscribe_url,
+    }
+
+
 # --- delivery ----------------------------------------------------------------------------
 
 
+def _claim(con: Connection, alert_id: int) -> None:
+    con.execute(
+        "UPDATE alert SET attempts = attempts + 1, status = CASE WHEN attempts + 1"
+        " >= ? THEN 'failed' ELSE 'pending' END WHERE alert_id = ?",
+        (MAX_ATTEMPTS, alert_id),
+    )
+    con.commit()  # the claim: whatever happens next, this attempt is on the record
+
+
+def _carrier(con: Connection, alert_id: int) -> int | None:
+    """The subscription an alert is delivered for — or None, deleting the alert, when the
+    recipient unsubscribed after it was built: nothing is left to carry."""
+    sid = con.execute(
+        "SELECT MIN(subscription_id) FROM alert_event WHERE alert_id = ?", (alert_id,)
+    ).fetchone()[0]
+    if sid is None:
+        con.execute("DELETE FROM alert WHERE alert_id = ?", (alert_id,))
+        con.commit()
+    return sid
+
+
+def deliver_webhooks(con: Connection, site: str, log=print) -> dict:
+    """POST every pending webhook alert, signed. Same claim-before-send discipline as
+    mail; a refused or unreachable endpoint is retried on a later pass up to MAX_ATTEMPTS.
+    A URL that resolves into a private network is failed outright and logged."""
+    stats = {"sent": 0, "failed": 0}
+    pending = con.execute(
+        "SELECT alert_id FROM alert WHERE status = 'pending' AND channel = 'webhook'"
+        " AND attempts < ? ORDER BY alert_id",
+        (MAX_ATTEMPTS,),
+    ).fetchall()
+    for (alert_id,) in pending:
+        sid = _carrier(con, alert_id)
+        if sid is None:
+            continue
+        sub = subscriptions.get(con, sid)
+        unsubscribe_url = (
+            f"https://{site}/s/unsubscribe/{subscriptions.unsubscribe_token(con, sid)}"
+        )
+        body = payload(con, alert_id, unsubscribe_url, site)
+        _claim(con, alert_id)
+        try:
+            result = webhooks.post(sub.email, body, sub.secret or "", delivery_id=str(alert_id))
+        except webhooks.RefusedDestination as e:
+            con.execute("UPDATE alert SET status = 'failed' WHERE alert_id = ?", (alert_id,))
+            con.commit()
+            stats["failed"] += 1
+            log(f"alert {alert_id}: webhook refused ({e})")
+            continue
+        if not result.accepted:
+            stats["failed"] += 1
+            log(
+                f"alert {alert_id}: webhook to {webhooks.describe(sub.email)} answered"
+                f" {result.status} {result.detail}".rstrip()
+            )
+            continue
+        con.execute(
+            "UPDATE alert SET status = 'sent', sent_at = ?, message_id = ? WHERE alert_id = ?",
+            (utcnow(), f"http-{result.status}", alert_id),
+        )
+        con.commit()
+        stats["sent"] += 1
+    return stats
+
+
 def deliver(con: Connection, sender: Sender, site: str, log=print) -> dict:
-    """Send every pending alert in one SMTP session. The attempt is claimed and committed
-    BEFORE the send, so a crash after the provider accepted the message cannot re-send
-    it without limit. A suppressed address is marked failed without a send; a provider
-    rejection is retried on a later call up to MAX_ATTEMPTS; a dropped connection ends
-    the session without charging the alerts still waiting."""
+    """Send every pending email alert in one SMTP session. The attempt is claimed and
+    committed BEFORE the send, so a crash after the provider accepted the message cannot
+    re-send it without limit. A suppressed address is marked failed without a send; a
+    provider rejection is retried on a later call up to MAX_ATTEMPTS; a dropped
+    connection ends the session without charging the alerts still waiting."""
     stats = {"sent": 0, "failed": 0, "suppressed": 0}
     pending = con.execute(
-        "SELECT alert_id, email_hash FROM alert WHERE status = 'pending' AND attempts < ?"
-        " ORDER BY alert_id",
+        "SELECT alert_id, email_hash FROM alert WHERE status = 'pending' AND channel = 'email'"
+        " AND attempts < ? ORDER BY alert_id",
         (MAX_ATTEMPTS,),
     ).fetchall()
     if not pending:
@@ -348,21 +384,12 @@ def deliver(con: Connection, sender: Sender, site: str, log=print) -> dict:
                 stats["suppressed"] += 1
                 con.commit()
                 continue
-            sid = con.execute(
-                "SELECT MIN(subscription_id) FROM alert_event WHERE alert_id = ?", (alert_id,)
-            ).fetchone()[0]
-            if sid is None:  # unsubscribed since the alert was built: nothing to carry
-                con.execute("DELETE FROM alert WHERE alert_id = ?", (alert_id,))
-                con.commit()
+            sid = _carrier(con, alert_id)
+            if sid is None:
                 continue
             token = subscriptions.unsubscribe_token(con, sid)
             out = render(con, alert_id, f"https://{site}/s/unsubscribe/{token}", site)
-            con.execute(
-                "UPDATE alert SET attempts = attempts + 1, status = CASE WHEN attempts + 1"
-                " >= ? THEN 'failed' ELSE 'pending' END WHERE alert_id = ?",
-                (MAX_ATTEMPTS, alert_id),
-            )
-            con.commit()  # the claim: whatever happens next, this attempt is on the record
+            _claim(con, alert_id)
             try:
                 message_id = session.send(out)
             except smtplib.SMTPServerDisconnected as e:
@@ -390,13 +417,21 @@ def deliver(con: Connection, sender: Sender, site: str, log=print) -> dict:
 
 def run_after_pass(con: Connection, sender: Sender | None, site: str, now=None, log=print) -> dict:
     """What the poller calls after every pass: sweep, build pass-cadence alerts, build the
-    daily digest when it is due, deliver. Without a sender nothing is built either — the
-    marks stay put, so the first configured pass folds the backlog into one alert per
-    subscription instead of one per historical pass."""
+    daily digest when it is due, deliver — email through the sender, webhooks directly.
+    Without a sender nothing is built either — the marks stay put, so the first configured
+    pass folds the backlog into one alert per subscription instead of one per historical
+    pass."""
     swept = subscriptions.sweep(con, now)
     if sender is None or not vault.is_open():
         return {"swept": swept, "built": 0, "skipped": "no sender or no DY_EMAIL_KEY"}
     built = build(con, "pass", now)
     if daily_due(con, now):
         built += build(con, "daily", now)
-    return {"swept": swept, "built": len(built), **deliver(con, sender, site, log)}
+    hooks = deliver_webhooks(con, site, log)
+    return {
+        "swept": swept,
+        "built": len(built),
+        **deliver(con, sender, site, log),
+        "webhooks_sent": hooks["sent"],
+        "webhooks_failed": hooks["failed"],
+    }
