@@ -7,6 +7,8 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
+- Webhook live test: a throwaway webhook.site endpoint follows FD 36873; after its next
+  forward entry, verify the signed delivery (token in session notes), then unsubscribe
 - Backfill pipeline on the instance, queued in tmux (2026-08-26): `wave2` documents
   (2020–2024-07, tables done) → `wave3` tables (1996–2019) → `wave3docs` (150–250 GB through
   the 58 GB cache; prune keeps ≥20 GB free). Logs `/srv/docketyard/wave*.log`. When each
@@ -42,8 +44,7 @@ by pre-commit: when it fires, prune.
   attachment) — retried and re-logged every pass; an attempt counter is a schema change
 - What `total` counts on the filings table (rows vs records): unmeasured; the stop rule
   does not depend on it
-- Blobs to S3 is a host `aws s3 sync` timer plus prune, not the in-process S3 store ADR 0012
-  describes; an addendum to 0012 should record the cache design once wave 3 has proven it
+- ADR 0012 addendum recording the blob cache design (sync + prune) once wave 3 proves it
 
 ## Parked
 
@@ -52,8 +53,7 @@ by pre-commit: when it fires, prune.
 - OCR pipeline for pre-2000 archive (GPU layout-OCR fits ADR 0003's IR) — backfill era
 - A key held off the box (KMS) so the instance decrypts addresses only at send time — the
   forward step ADR 0014 leaves open
-- Deploy credentials via GitHub OIDC role assumption if CI ever touches AWS (today it only
-  pushes to ghcr)
+- Deploy credentials via GitHub OIDC role assumption if CI ever touches AWS
 - Quarterly bulk dumps (capability F5) doubling as production-corpus backups
 - Stats review deferrals (2026-08-26): `home.py` and `stats.py` each carry a month walker and
   the docket-family fold — share one helper; add an index on `filing(filed_date)` when a
