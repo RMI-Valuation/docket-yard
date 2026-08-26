@@ -33,48 +33,80 @@ So the splitting judgement ADR 0004 warned about is real, and it is a judgement:
 ambiguous, "and" joins both subsidiaries and co-filers, and "on behalf of" names a
 relationship, not a second filer.
 
-## Schema (the § 3 and § 5 draft, hardened)
+## Schema (the § 3 and § 5 draft, hardened; revised after schema-critic review)
+
+The critic's first finding reshaped this: **splitting and resolving are two assertions
+with two provenances and must be two rows**, or "party_id is null until resolved" and
+"nothing ever rewrites a party_id" cannot both hold. So a cell becomes spans, and a span
+may acquire a link — each supersedable on its own.
 
 ```sql
-party (party_id INTEGER PRIMARY KEY, created_at TEXT NOT NULL)
+party (party_id PK, founding_key TEXT UNIQUE NOT NULL, created_at)
+  -- founding_key: the normalised span the party was minted from; deterministic, so a
+  -- rebuild from captures mints the same parties in the same order (see addresses)
 
-party_name (                       -- every surface form, with the judgement that linked it
-  party_id, raw_name, name_kind,   -- legal | mark | colloquial | trade | display
-  method, method_version, confidence, asserted_at, superseded_by
-)
+party_name (name_id PK, party_id FK, raw_name, norm_name, name_kind,   -- as_filed | legal |
+  provenance…, superseded_by)                                          -- mark | trade | display
+  -- natural key (party_id, norm_name, name_kind), partial UNIQUE WHERE superseded_by IS NULL
 
-party_relationship (from_party, to_party, rel_type, effective_date, provenance…)
-relationship_vocab (rel_type PK, reading)   -- succeeded_by, merged_into, renamed_to,
-                                            -- parent_of, same_as, on_behalf_of
+relationship_vocab (rel_type PK, reading, symmetric INTEGER NOT NULL CHECK (symmetric IN (0,1)))
+  -- succeeded_by, merged_into, renamed_to (earlier → later, 0); parent_of (parent → sub, 0);
+  -- same_as (1). Symmetry is DATA: every traversal unions both directions where symmetric = 1
+party_relationship (edge_id PK, from_party, to_party, rel_type FK, effective_date NULL,
+  provenance…, superseded_by)
+  -- natural key (from_party, to_party, rel_type, COALESCE(effective_date, ''))
 
-filing_party (                     -- one row per party named in a cell; the split
-  filing_pk, ordinal, raw_text,    -- raw_text = the WHOLE cell, always; ordinal = position
-  span_text,                       -- the piece this row is about, as cut
-  party_id NULL,                   -- null until resolved
-  role,                            -- filed_for | on_behalf_of
-  method, method_version, confidence, asserted_at, superseded_by
-)
+filing_party_span (span_id PK, filing_pk FK, raw_text NOT NULL,    -- the WHOLE cell, uncut
+  ordinal, span_start, span_end, span_text,                        -- location in the cell
+  role CHECK (role IN ('filed_for', 'on_behalf_of')),
+  provenance…, superseded_by)
+  -- natural key (filing_pk, raw_text, ordinal); a span whose raw_text no longer equals the
+  -- filing's current filed_for_raw is superseded by the next split pass (the mirror column
+  -- is overwritten on re-observation; the span remembers the cell it cut)
+
+filing_party_link (link_id PK, span_id FK NOT NULL, party_id FK NOT NULL,
+  provenance…, superseded_by)
+  -- natural key (span_id) among live rows; "unresolved" = no live link, never a NULL
+
+correction (correction_id PK, target_table, target_id, note, provenance…)
+  -- the amendment path for human rows (ADR 0007's rule that a model pass never supersedes
+  -- a human assertion needs somewhere for the human to say "this one was wrong")
 ```
 
-Two passes, each re-runnable and each leaving its predecessor's rows in place under
-supersession (ADR 0007):
+`provenance…` is ADR 0007's full block on every assertion table: `asserted_from_capture`,
+`source_location`, `method`, `method_version`, `asserted_at`, `confidence`. Partial
+indexes on `(filing_pk) WHERE superseded_by IS NULL` and `(party_id) WHERE superseded_by
+IS NULL` keep the sheet's queries cheap.
 
-1. **Split** (`split-rules`, v1): cut a cell into spans. Rules, in order: fold an exact
+**`party_component`** is one recursive view — a party and everything reachable over live
+`same_as` edges in both directions — and the display name, the Parties block, the party
+page and the alert join all read it. It is pinned by a test the way `docket_current` is.
+The representative of a component is its smallest live `party_id`; the display name is the
+representative's latest live `display` row, else its latest `legal`, else its `as_filed`.
+
+Two passes, each re-runnable, each superseding by pointer:
+
+1. **Split** (`split-rules`, v1) cuts a cell into spans. Rules, in order: fold an exact
    repeat; cut on `, on behalf of ` into a `filed_for` span and an `on_behalf_of` span;
-   cut on ` and ` only when both sides end in a corporate suffix or a known name; cut on
-   `, ` only when the right side does not start with a suffix token (`LLC`, `Inc.`,
-   `Limited`, `L.P.`, …). Everything the rules cannot cut stays one span with confidence
-   below 1 — never silently wrong, never discarded.
-2. **Resolve** (`resolve-exact`, v1): a span matches a `party_name` row by normalised form
-   (case, punctuation, `Inc`/`Incorporated`, `Co`/`Company`, `RR`/`Railroad`, `d/b/a`
-   split into a trade-name alias). No match creates a new party with the span as its
-   legal name at confidence 1 — *the span is the fact*; the resolution that it equals an
-   existing party is the judgement. Later, better methods add `same_as` edges; nothing
-   rewrites a `party_id`.
+   cut on ` and ` only when both sides end in a corporate suffix or match a known name;
+   cut on `, ` only when the right side does not start with a suffix token (`LLC`, `Inc.`,
+   `Limited`, `L.P.`, …). What the rules cannot cut stays one span at confidence below 1 —
+   never silently wrong, never discarded. The fold and the sheet's `display_filed_for`
+   become one function.
+2. **Resolve** (`resolve-exact`, v1) links a span to a party whose live `party_name` has the
+   same `norm_name` (case, punctuation, `Inc`/`Incorporated`, `Co`/`Company`,
+   `RR`/`Railroad`; `d/b/a` yields a `trade` alias). **Ambiguous** — the norm matches names
+   on two components — makes no link (nondeterminism is worse than a gap). **Minting** a
+   new party happens only from a `filed_for` span at split confidence 1: its founding name
+   is `as_filed`, not `legal` — the matcher has made no judgement about legal names — and
+   the party's confidence inherits from the span. An uncut `A and B` or an `on_behalf_of`
+   fragment therefore never becomes a party.
 
-A **seed list** of the Class I carriers and their holding companies, marks and recent
-successions (CP + KCS → CPKC, 2023) is hand-entered with `method = 'operator'` — the
-succession graph starts from what the operator knows, with provenance saying so.
+The **seed list** is a versioned file in `src/docketyard/parties/seed.py` (not `data/`,
+which is disposable), loaded with `method = 'human'`, `method_version` = the file's version,
+`source_location = {file, row}`. `effective_date` on a succession is set only when quoted
+from a Board decision the row cites; otherwise null with a note. The operator reviews the
+file before it ships; its git history is the audit trail.
 
 ## What the sheet shows
 
@@ -90,8 +122,14 @@ are stable only if never re-minted (they are not).
 
 ## Subscriptions by party
 
-`subscription.party_id` becomes non-null for a `party` predicate: alert on any filing in any
-docket where this party files. Query 5's *service-list* predicate is **not** in M6: the
+`subscription.party_id` (added nullable; a CHECK that exactly one predicate is set means a
+table rebuild, done in the same migration) alerts on any filing whose live link resolves
+into the subscribed party's **component** — so a `same_as` edge discovered later widens the
+subscription rather than splitting it, and one address subscribed to both halves of a pair
+receives an event once (the alert_event uniqueness is per subscription; the digest folds).
+Resolve runs before the alert builder in the same pass, so a span that has no link yet is
+simply not alerted until it has one; the high-water floor means a late edge never alerts
+history. Query 5's *service-list* predicate is **not** in M6: the
 Board's search exposes no service-list table, so membership would have to come from
 documents (certificates of service) — extraction, and a measurement of the source first.
 The coverage page says which predicates exist.
@@ -104,9 +142,13 @@ the operator's seed; any UI that ranks parties.
 
 ## Decided by the operator (2026-08-26)
 
-1. **Party page address is `/p/{id}`** — the store's party id, never re-minted, the name in
-   the page title. A party merged away by a `same_as` edge keeps its address, which answers
-   with the surviving party. An ADR 0013 addendum records the class.
+1. **Party page address is `/p/{id}`** — the store's party id, the name in the page title.
+   Revised after review: ids are minted from a deterministic `founding_key`, so a rebuild
+   from captures mints the same ids; a party merged by `same_as` **keeps its own page**
+   (never a redirect — the edge is a supersedable assertion and a redirect could not be
+   un-happened) and that page says, with provenance, which party it is held to be the same
+   as and lists the component's dockets. An ADR 0013 addendum records the class. *One
+   question remains for the operator — below.*
 2. **The Board is shown in the Parties block, labelled as the agency**, and is never
    treated as a litigant in any later work.
 3. **The seed list covers Class I carriers and holding companies with marks and recent
@@ -114,3 +156,16 @@ the operator's seed; any UI that ranks parties.
    companies** — on the order of sixty rows, entered with `method = 'operator'` and
    reviewed by the operator before they ship; the list is data in the repository, so its
    history is the audit trail.
+
+## Open (operator): what a party address promises
+
+The critic's remaining point. `/p/{id}` is minted by the pipeline, not printed by the
+Board — the first address class of that kind. Two ways to keep ADR 0013's promise:
+
+- **Deterministic ids** (proposed above): the id is derived from the founding span, so a
+  rebuild reproduces it. Cost: an id is only as stable as the split rules' first cut of that
+  span — a v2 rule that cuts an old cell differently founds a *new* party and leaves the
+  old one with a page that says what happened. Nothing breaks; some pages become
+  historical.
+- **Minted once, carried forward**: production is the registry of record; a rebuild carries
+  an id map as a migration. Simpler rules, one more operational promise.
