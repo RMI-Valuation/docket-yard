@@ -18,9 +18,9 @@ by pre-commit: when it fires, prune.
   parent/succession edge is an operator assertion, live in production under that provenance
 - Party resolution: watch `ambiguous`/`left` in the poll log; a `docketyard parties join`
   command (human same_as edges) once real spelling pairs accumulate
-- RMI-AI-MACHINE: text-layer extraction (benchmark step 0) running since 2026-08-26 in
-  tmux `extract`, log `/data/docketyard/extract.log`; re-run after wave 2 lands its files.
-  Next: the 60-decision labelled sample (step 1) — Cameron labels
+- RMI-AI-MACHINE: text layer (benchmark step 0) done 2026-08-26 for wave 1's files —
+  4,273 PDFs in 4 min, 2 image-only, 0 failed (`/data/docketyard/text`); re-run after each
+  wave lands, pulling from S3. Next: the 60-decision labelled sample (step 1) — Cameron labels
 - Whether/how to announce the wedge — the operator's call
 
 ## Next
