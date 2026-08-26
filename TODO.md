@@ -16,7 +16,9 @@ by pre-commit: when it fires, prune.
   page's "History before …" line, then delete this. Later waves (2020, 1996) are separate
   decisions
 - Cameron reviews `parties/seed.py` (66 rows, method human): every name, mark and
-  parent/succession edge is an operator assertion and ships under that provenance
+  parent/succession edge is an operator assertion, live in production under that provenance
+- Party resolution: watch `ambiguous`/`left` in the poll log; a `docketyard parties join`
+  command (human same_as edges) once real spelling pairs accumulate
 - Extraction benchmark on RMI-AI-MACHINE: hand-label a sample, run local vs API, record
   method versions — background to M6
 - Whether/how to announce the wedge — the operator's call
@@ -39,8 +41,8 @@ by pre-commit: when it fires, prune.
 - Poller bookkeeping for permanently-bad items (a capture whose ingest raises, a 404
   attachment) — retried and re-logged every pass; an attempt counter is a schema change
 - `docketyard status` should count suppressions and subscriptions (operator-only numbers)
-- What `total` counts on the filings table (rows vs records): still unmeasured; multi-row
-  filings are rare. The stop rule does not depend on it; revisit when one appears
+- What `total` counts on the filings table (rows vs records): unmeasured; the stop rule
+  does not depend on it; revisit when a multi-row filing appears
 - Blobs to S3 is a host `aws s3 sync` timer, not the in-process S3 store ADR 0012 describes;
   fine at this volume, revisit when the instance disk or a second consumer makes it matter
 
@@ -56,4 +58,3 @@ by pre-commit: when it fires, prune.
   pushes to ghcr)
 - CLA-assistant Action gating outside PRs — when outside interest is real
 - Quarterly bulk dumps (capability F5) doubling as production-corpus backups
-- Never attach a self-hosted Actions runner to this public repo (fork-PR code execution)

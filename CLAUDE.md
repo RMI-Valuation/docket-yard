@@ -122,6 +122,8 @@ ciphertext at rest under an operator-held key).
 - `data/` is disposable and gitignored. Anything there must be reproducible from the pipeline.
 - Never commit secrets. Tokens come from the environment, are short-lived, and are revoked
   after use. See `docs/runbook.md`.
+- Never attach a self-hosted Actions runner to this public repository (a fork's PR would run
+  code on it).
 
 ## Ask rather than assume
 
