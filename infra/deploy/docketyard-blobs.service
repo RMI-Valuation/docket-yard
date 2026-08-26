@@ -1,0 +1,11 @@
+# /etc/systemd/system/docketyard-blobs.service — push captures and documents to S3.
+# Blobs are content-addressed and never change, so a sync is a pure add. Litestream covers
+# the store; this covers everything the store can be rebuilt from.
+[Unit]
+Description=Docket Yard: sync the blob store to S3
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/srv/docketyard/.env
+ExecStart=/usr/bin/aws s3 sync /srv/docketyard/data/blobs s3://${DY_S3_BUCKET}/blobs --exclude "*.tmp" --no-progress --only-show-errors

@@ -6,17 +6,25 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- M3 deploy: Dockerfile + compose (web, ingest, caddy) + Litestream;
-  release-triggered image build; the instance; move the registry from rmi-ai-machine
+- M3 deploy, Cameron's side (`infra/deploy/README.md` § One-time bootstrap): S3 bucket +
+  scoped IAM user, the Lightsail instance + static IP, DNS apex, seed the store from
+  rmi-ai-machine, first release `v2026.08.1` to build the image
+- Credentials ADR follow-up: Lightsail has no instance profile, so the first deploy runs on
+  a bucket-scoped IAM user's keys; decide EC2 t4g / Roles Anywhere / accept (ADR 0012 gap)
 
 ## Next
 
 - What `total` counts on the filings table (rows vs records): still unmeasured after 36
   agency-wide filings showed one attachment row each; multi-row filings are rarer than the
   design session assumed. The stop rule does not depend on it; revisit when one appears
-- M3: docket sheet projection + server-rendered pages at permanent URLs (needs the hosting
-  decision to stop being deferred; the projection can be built first)
-- Dockerfile + release-triggered image build in CI (with M2, when there is something to run)
+- Blobs to S3 is a host `aws s3 sync` timer, not the in-process S3 store ADR 0012 describes;
+  fine at this volume, revisit when the instance disk or a second consumer makes it matter
+- Errata detection is built but unscheduled: nothing in production re-fetches known
+  documents. Needs a last-checked column (schema change) so a refresh pass can walk the
+  corpus oldest-checked first under a per-pass limit
+- Poller bookkeeping for permanently-bad items (a capture whose ingest raises, a 404
+  attachment) — retried and re-logged every pass; an attempt counter is a schema change
+- Off-box heartbeat for the poller (M4 alerts.md): nothing pages anyone yet if `ingest` dies
 
 ## Parked
 

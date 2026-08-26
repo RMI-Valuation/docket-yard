@@ -1,0 +1,11 @@
+# Litestream: stream the WAL to S3 continuously; a restore is `litestream restore`.
+dbs:
+  - path: /data/docketyard.sqlite
+    replicas:
+      - type: s3
+        bucket: ${DY_S3_BUCKET}
+        path: litestream/docketyard.sqlite
+        region: ${AWS_REGION}
+        retention: 168h
+        snapshot-interval: 24h
+        sync-interval: 10s

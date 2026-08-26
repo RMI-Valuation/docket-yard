@@ -1,9 +1,9 @@
-"""Command-line entry points: capture | ingest | fetch | walk | status."""
+"""Command-line entry points: capture | ingest | fetch | walk | poll | status | serve."""
 
 import argparse
 import sys
 
-from docketyard.capture import documents, walk
+from docketyard.capture import documents, poll, walk
 from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS, PAGE_CLAMP, StbClient
 from docketyard.ingest import dockets, observations
 from docketyard.store import db, projections
@@ -97,6 +97,21 @@ def _walk_dockets(args: argparse.Namespace) -> int:
     )
 
 
+def _poll(args: argparse.Namespace) -> int:
+    if args.days < poll.MIN_WINDOW_DAYS:
+        args.parser.error(f"--days must be at least {poll.MIN_WINDOW_DAYS}")
+    con = db.connect(args.db)
+    client = StbClient(min_interval=args.interval)
+
+    def one_pass():
+        return poll.forward_pass(con, client, args.data_dir, days=args.days)
+
+    if args.every is not None:
+        poll.run_forever(one_pass, args.every)
+        return 0
+    return 1 if one_pass()["problems"] else 0
+
+
 def _serve(args: argparse.Namespace) -> int:
     import uvicorn
 
@@ -159,6 +174,17 @@ def main(argv: list[str] | None = None) -> int:
     wd.add_argument("--interval", type=float, default=2.0)
     wd.add_argument("--redo", action="store_true", help="re-walk prefixes already done")
     wd.set_defaults(func=_walk_dockets)
+
+    pl = sub.add_parser("poll", help="forward pass: capture, ingest and fetch the recent window")
+    pl.add_argument(
+        "--days",
+        type=int,
+        default=poll.WINDOW_DAYS,
+        help=f"trailing window, at least {poll.MIN_WINDOW_DAYS}: shorter alarms on quiet days",
+    )
+    pl.add_argument("--interval", type=float, default=2.0)
+    pl.add_argument("--every", type=float, help="seconds between passes; omit for one pass")
+    pl.set_defaults(func=_poll, parser=pl)
 
     st = sub.add_parser("status", help="counts for captures, records, documents, events")
     st.set_defaults(func=_status)

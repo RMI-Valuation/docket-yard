@@ -1,0 +1,37 @@
+# ADR 0010: a GitHub Release builds the image; git tag, release tag and image tag are one
+# string. ADR 0012: the instance pulls the tag; nothing here reaches production.
+name: Release image
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: tag must be CalVer (vYYYY.MM.N)
+        run: echo "${{ github.event.release.tag_name }}" | grep -Eq '^v20[0-9]{2}\.(0[1-9]|1[0-2])\.[0-9]+$'
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: VERSION=${{ github.event.release.tag_name }}
+          # no `latest`: production pins DY_TAG, and a pre-release must never become the
+          # default anything pulls
+          tags: ghcr.io/rmi-valuation/docket-yard:${{ github.event.release.tag_name }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.event.release.tag_name }}
+            org.opencontainers.image.licenses=AGPL-3.0-only

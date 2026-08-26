@@ -1,0 +1,29 @@
+# TLS and reverse proxy for the web service. The redirect domains are handled at Cloudflare
+# (infra/cf_redirects.py); only the canonical host reaches this box.
+{$DY_HOST} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+	handle /static/* {
+		header Cache-Control "public, max-age=604800"
+		reverse_proxy web:8000
+	}
+	reverse_proxy web:8000
+	log {
+		# no IPs in the access log: reading leaves no trace (ADR 0011)
+		output stderr
+		format filter {
+			wrap console
+			fields {
+				request>remote_ip delete
+				request>client_ip delete
+				request>headers>User-Agent delete
+				request>headers>Cookie delete
+			}
+		}
+	}
+}

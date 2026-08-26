@@ -1,0 +1,12 @@
+# /etc/systemd/system/docketyard-blobs.timer
+[Unit]
+Description=Docket Yard: hourly blob sync
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

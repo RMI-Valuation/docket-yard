@@ -1,5 +1,12 @@
 # Infrastructure
 
+## `deploy/`
+
+Production per ADR 0012: the compose file (web, ingest, litestream, caddy), the Caddyfile,
+the Litestream config, the host timer that syncs blobs to S3, and the bootstrap runbook.
+See [`deploy/README.md`](deploy/README.md). The image is built by
+`.github/workflows/release.yml` from the repository `Dockerfile` on every GitHub Release.
+
 ## `rmi-ai-machine.md`
 
 Step-by-step conversion of the batch-enrichment box from Windows to headless Ubuntu Server,

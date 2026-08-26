@@ -50,6 +50,14 @@ Nothing is stored. Tokens are created with a short TTL and IP restriction, used,
 In PowerShell use `Read-Host -AsSecureString` rather than assigning inline — PowerShell writes
 every typed command to a plaintext history file.
 
+## Production instance
+
+Bootstrap, deploy, rollback, restore and health checks: [`../infra/deploy/README.md`](../infra/deploy/README.md).
+The forward poller is `docketyard poll --every 1800` in the `ingest` service; one line per
+pass in its log, `problems: []` when healthy. A pass whose slice reads `partial` on page 1
+is the no-results trap (criteria, sort or nonce), not a quiet week — the window is seven
+days precisely so that an empty result is implausible.
+
 ## Ingest — STB endpoint
 
 Endpoint mechanics and every measured trap: [`stb-data-source.md`](stb-data-source.md). The
