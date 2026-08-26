@@ -32,12 +32,10 @@ capture, so "nothing since X" splits into three independently observable failure
 | `last_forward_capture` — newest asserted forward capture of the filings or decisions table (document fetches are captures too and deliberately excluded: a draining attachment backlog must not make a refused poller look alive) | The poller is dead, or every pass is refused (nonce, WAF, criteria) | 3 hours: six missed 30-minute passes |
 | `last_event` — newest ledger row | Captures arrive but nothing new is parsed from them: the parser broke, or the Board is genuinely quiet | 6 days: the Board serves something most business days; a long weekend must not page |
 | `last_document` — newest fetched document | Records arrive but their files do not: the fetch broke, or the WAF began refusing GETs | 6 days |
+| `oldest_pending_alert` — the oldest alert built but not yet sent | Events reach subscribers' queues but mail does not leave: SES, credentials, or the sender | 3 hours; null means the queue is empty, which is the normal state |
 
 A timestamp that is null — a store that has never done that thing — is reported as a
 warning, not a failure, so a rebuilt store does not page every hour until its first fetch.
-
-What the heartbeat does **not** cover yet: delivery ("events but no deliveries"), because
-nothing is delivered yet. When alert delivery exists its own timestamp joins this table.
 
 The check itself can fail silently — GitHub's scheduler skips runs on inactive repositories
 after 60 days without a commit. A repository that goes quiet for two months should expect

@@ -268,6 +268,7 @@ def test_health_reports_freshness_without_judging_it(client):
         "last_forward_capture",
         "last_event",
         "last_document",
+        "oldest_pending_alert",
     }
     assert h["last_event"] and h["age_seconds"]["last_event"] >= 0
     assert h["last_document"] is None and h["age_seconds"]["last_document"] is None

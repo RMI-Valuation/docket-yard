@@ -6,8 +6,8 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- M4 in production: deploy v2026.08.4, then a real end-to-end subscribe → confirm → alert
-  with Cameron's address; add a `last_delivery` timestamp to `/health` + the heartbeat
+- M4: first real subscription confirmed 2026-08-26 (Cameron, FD 36873, as-it-happens);
+  watch the first alert land, then delete this line
 - SES bounce/complaint feedback path (SNS topic → `email_suppression`) before any real
   volume; until then the SES reputation dashboard is checked by hand
 - Coverage page: generated from `coverage_gap` + the capture ledger (M5); operator tooling

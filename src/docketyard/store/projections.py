@@ -46,6 +46,11 @@ def freshness(con: Connection) -> dict:
         ).fetchone()[0],
         "last_event": q("SELECT MAX(recorded_at) FROM event").fetchone()[0],
         "last_document": q("SELECT MAX(first_seen_at) FROM document").fetchone()[0],
+        # delivery: not "when did we last send" (a quiet week sends nothing) but "is
+        # anything waiting too long" — the oldest alert still pending
+        "oldest_pending_alert": q(
+            "SELECT MIN(created_at) FROM alert WHERE status = 'pending'"
+        ).fetchone()[0],
     }
 
 

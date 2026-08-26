@@ -34,13 +34,15 @@ jobs:
               "last_forward_capture": 3 * 3600,
               "last_event": 6 * 86400,
               "last_document": 6 * 86400,
+              "oldest_pending_alert": 3 * 3600,  # built but not delivered: mail is broken
           }
           stale, never = [], []
           for k, lim in limits.items():
               a = age.get(k)
               print(f"{k:22} {a}s (limit {lim}s)")
               if a is None:
-                  never.append(k)  # a store that has not done this yet: reported, not paged
+                  if k != "oldest_pending_alert":  # null there means the queue is empty
+                      never.append(k)  # a store that has not done this yet: reported, not paged
               elif a > lim:
                   stale.append(k)
           print("version", h["version"], "schema", h["schema"])
