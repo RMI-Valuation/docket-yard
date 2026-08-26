@@ -6,9 +6,8 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- M3 deploy, Cameron's side (`infra/deploy/README.md` § One-time bootstrap): S3 bucket +
-  scoped IAM user, the Lightsail instance + static IP, DNS apex, seed the store from
-  rmi-ai-machine, first release `v2026.08.1` to build the image
+- M4 alerting: subscriptions, delivery, and the off-box heartbeat — production polls every
+  30 min since 2026-08-26 with nothing watching it
 - Credentials ADR follow-up: Lightsail has no instance profile, so the first deploy runs on
   a bucket-scoped IAM user's keys; decide EC2 t4g / Roles Anywhere / accept (ADR 0012 gap)
 

@@ -8,9 +8,9 @@ roadmap. This file has a hard line cap enforced by pre-commit: when it fires, pr
 | # | Milestone | Done means | Status |
 | --- | --- | --- | --- |
 | M0 | Foundations | Repo public, tooling live, schema validated on paper, ADRs 0001–0009 accepted | **Done 2026-08-25** |
-| M1 | Docket registry | Dockets table ingested forward (metadata only, no PDFs); filter application positively asserted; registry validates extracted citations | **Done 2026-08-25** — full registry walked on rmi-ai-machine (32,604 dockets); forward polling awaits hosting |
-| M2 | Filings + decisions ingest | Forward capture of filings/decisions tables into the event ledger; documents hashed and stored; errata detection live | **Built 2026-08-25**; scheduled operation awaits hosting |
-| M3 | Docket sheets + permanent URLs | One chronological page per proceeding at a stable, guessable URL | **Built 2026-08-25** (sheet, home, record pages at the ADR 0013 addresses; Dockerfile, compose, Litestream, release image build in `infra/deploy/`); awaiting the instance bootstrap |
+| M1 | Docket registry | Dockets table ingested forward (metadata only, no PDFs); filter application positively asserted; registry validates extracted citations | **Done 2026-08-25** — full registry walked on rmi-ai-machine (32,604 dockets), now the production store |
+| M2 | Filings + decisions ingest | Forward capture of filings/decisions tables into the event ledger; documents hashed and stored; errata detection live | **Done 2026-08-26** in production; errata *re-check* is built but unscheduled (TODO) |
+| M3 | Docket sheets + permanent URLs | One chronological page per proceeding at a stable, guessable URL | **Done 2026-08-26** — live at [docketyard.org](https://docketyard.org) (v2026.08.2), polling forward every 30 min, Litestream + blob sync to S3 |
 | M4 | Alerting | Docket subscriptions, email delivery, silent-failure detection per `docs/alerts.md` | Not started |
 | M5 | Launch | Coverage, corrections, about pages published; **the wedge is live** | Not started |
 

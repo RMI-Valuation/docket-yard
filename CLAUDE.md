@@ -6,10 +6,10 @@ agency regulating freight rail. Docket sheets, alerts, and eventually a citator 
 Operated by RMI Valuation, LLC. Unaffiliated with the STB. Every record links to the agency's
 own PDF.
 
-**Status: building.** Repository public on GitHub, schema validated on paper, ADRs 0001-0011
-all accepted. M1 (docket registry — walked in full), M2 (filings/decisions ingest, document fetching
-with errata detection) and M3's web tier (sheet, home and record pages at the ADR 0013
-addresses; `docketyard serve`) are built and reviewed. Deployment awaits ADR 0012.
+**Status: live, pre-launch.** <https://docketyard.org> serves the sheets from one Lightsail
+instance (ADR 0012) polling forward every 30 minutes since 2026-08-26; M1–M3 done. M4
+(alerting, heartbeat) and M5 (coverage/corrections/about pages) remain before the wedge is
+announced. Production operations: `infra/deploy/README.md`.
 
 ## Read these before proposing implementation work
 
