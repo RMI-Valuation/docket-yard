@@ -8,15 +8,14 @@ with its date. Hard line cap enforced by pre-commit: when it fires, prune.
 
 **The wedge** (agency-wide docket sheets plus alerting, forward-only) **shipped 2026-08-26**
 and is live at [docketyard.org](https://docketyard.org), unannounced. Since then: backfill
-in dated waves, the party module, the statistics page, feeds and webhooks — see the
-milestones record.
+in dated waves, the party module, the statistics page, feeds and webhooks, bulk data and JSON — see
+the milestones record. Nothing is chosen next; the Ripe list is the menu.
 
 ## Chosen
 
 | # | Milestone | Done means | Chosen | Status |
 | --- | --- | --- | --- | --- |
 | — | Backfill waves 2–3 (2020 → 2024-07, then 1996 → 2019) | Every month `done` or declared `empty` on the coverage page; documents in S3; extraction re-run per wave | 2026-08-26 | Running unattended on the instance (TODO § Now) |
-| M9 | Bulk dumps and a minimal API (rest of F5) | A nightly snapshot published with schema and licence; JSON for every sheet | 2026-08-26 | Next |
 | — | Extraction benchmark (background) | Local LLM on RMI-AI-MACHINE vs API on a hand-labelled sample, before any extraction commits to local output; unblocks the citator | 2026-08-26 | Step 0 done; step 1 (60-decision labelled sample) awaits the operator's labels |
 
 ## Ripe — awaiting a decision
