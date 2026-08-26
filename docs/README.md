@@ -22,6 +22,7 @@ Documentation that isn't load-bearing is drag.
 | 04 | [`licensing.md`](licensing.md) | Code, data and trademark terms | drafted |
 | 05 | [`coverage.md`](coverage.md) | What's in the corpus and what isn't (published) | published 2026-08-26, numbers measured from the store |
 | 00 | [`milestones.md`](milestones.md) | The record of what has shipped, milestone by milestone | append-only |
+| 05b | [`data.md`](data.md) | Bulk snapshot and JSON (published at `/data`) | published 2026-08-26, CC0 |
 | 05a | [`stats.md`](stats.md) | The record in numbers (published at `/stats`) | published 2026-08-26, every number measured from the store |
 | 06 | [`corrections.md`](corrections.md) | How errors are reported and propagated (published) | published 2026-08-26 |
 | 07 | [`about.md`](about.md) | What this is and is not (published) | published 2026-08-26 |

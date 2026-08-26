@@ -92,6 +92,10 @@ def week_path(monday) -> str:
     return f"/week/{monday.isoformat()}"
 
 
+def record_path(kind: str, record_id: str) -> str:
+    return decision_path(record_id) if kind == "decision" else filing_path(record_id)
+
+
 def confirm_url(site: str, token: str) -> str:
     return f"https://{site}/s/confirm/{token}"
 
