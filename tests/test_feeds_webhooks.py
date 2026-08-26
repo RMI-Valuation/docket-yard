@@ -222,3 +222,61 @@ def test_pass_delivers_both_channels(store, monkeypatch):
     out = build.run_after_pass(con, sender, "docketyard.org", now=T0, log=lambda _: None)
     assert out["built"] == 2 and out["sent"] == 1 and out["webhooks_sent"] == 1
     assert len(sender.sent) == 1
+
+
+def test_url_identity_is_domain_separated_and_keeps_case(store):
+    con, path, d, tmp_path = store
+    from docketyard.alerts import vault
+
+    v = vault.current()
+    assert v.hash_recipient("webhook", "https://h.example/A") != v.hash_recipient(
+        "webhook", "https://h.example/a"
+    )  # the path is the owner's: two endpoints, two identities
+    assert v.hash_recipient("webhook", "x@example.org") != v.hash("x@example.org")
+    t1 = subscriptions.subscribe(con, "https://h.example/A", d, "pass", now=T0, channel="webhook")
+    t2 = subscriptions.subscribe(con, "https://h.example/a", d, "pass", now=T0, channel="webhook")
+    assert t1 and t2  # not "already active"
+    # the CHECK: a webhook row without a secret, or an email row with one, is refused
+    import sqlite3
+
+    import pytest
+
+    with pytest.raises(sqlite3.IntegrityError):
+        con.execute("UPDATE subscription SET secret_enc = NULL WHERE channel = 'webhook'")
+
+
+def test_suppressing_a_url_stops_delivery(store, monkeypatch):
+    con, path, d, tmp_path = store
+    posted = []
+    monkeypatch.setattr(
+        webhooks, "post", lambda url, *a, **k: posted.append(url) or webhooks.Result(200)
+    )
+    token = subscriptions.subscribe(
+        con, "https://dead.example/x", d, "pass", now=T0, channel="webhook"
+    )
+    subscriptions.confirm(con, token, now=T0)
+    subscriptions.suppress(con, "https://dead.example/x", "manual", channel="webhook")
+    _forward_filing(con, tmp_path)
+    build.build(con, "pass", now=T0)
+    assert build.deliver_webhooks(con, "docketyard.org", log=lambda _: None) == {
+        "sent": 0,
+        "failed": 0,
+        "suppressed": 1,
+    }
+    assert posted == []
+
+
+def test_daily_due_is_per_channel(store):
+    con, path, d, tmp_path = store
+    from datetime import datetime
+
+    from docketyard.alerts.build import EASTERN
+
+    at = datetime(2026, 8, 26, 23, 30, tzinfo=EASTERN)
+    assert build.daily_due(con, at, "email") and build.daily_due(con, at, "webhook")
+    con.execute(
+        "INSERT INTO alert (email_hash, email_enc, cadence, status, created_at, channel)"
+        " VALUES ('h', 'e', 'daily', 'pending', ?, 'webhook')",
+        (at.isoformat(),),
+    )
+    assert build.daily_due(con, at, "email") and not build.daily_due(con, at, "webhook")

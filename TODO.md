@@ -30,7 +30,8 @@ by pre-commit: when it fires, prune.
   run ~400 statements per request behind the cache header — TTL-cache on the ledger head
 - `docketyard gap open/close` so a recorded outage has a `coverage_gap` row for the
   coverage page and the late-delivery marking to cite (today: nothing writes that table)
-- Key rotation pass for `DY_EMAIL_KEY` (decrypt under old, seal under new, all three
+- Key rotation pass for `DY_EMAIL_KEY` (decrypt under old, seal under new; four sealed
+  columns across three tables since 0008 — `subscription.secret_enc` is the fourth;
   tables) — unwritten; ADR 0014 records it as the known gap
 - Credentials ADR follow-up: Lightsail has no instance profile, so production runs on a
   bucket-scoped IAM user's keys; decide EC2 t4g / Roles Anywhere / accept (ADR 0012 gap)
@@ -39,9 +40,8 @@ by pre-commit: when it fires, prune.
   corpus oldest-checked first under a per-pass limit
 - Poller bookkeeping for permanently-bad items (a capture whose ingest raises, a 404
   attachment) — retried and re-logged every pass; an attempt counter is a schema change
-- `docketyard status` should count suppressions and subscriptions (operator-only numbers)
 - What `total` counts on the filings table (rows vs records): unmeasured; the stop rule
-  does not depend on it; revisit when a multi-row filing appears
+  does not depend on it
 - Blobs to S3 is a host `aws s3 sync` timer plus prune, not the in-process S3 store ADR 0012
   describes; an addendum to 0012 should record the cache design once wave 3 has proven it
 

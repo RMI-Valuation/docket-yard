@@ -177,6 +177,24 @@ def _serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _suppress(args: argparse.Namespace) -> int:
+    """Stop delivering to one recipient — an address, or a webhook URL — for good."""
+    from docketyard.alerts import subscriptions, vault
+
+    vault.configure(vault.Vault.from_env())
+    if not vault.is_open():
+        print("DY_EMAIL_KEY is not set")
+        return 2
+    con = db.connect(args.db)
+    try:
+        channel = "webhook" if args.recipient.startswith("https://") else "email"
+        subscriptions.suppress(con, args.recipient, "manual", channel=channel)
+        print(f"suppressed one {channel} recipient")
+    finally:
+        con.close()
+    return 0
+
+
 def _status(args: argparse.Namespace) -> int:
     con = db.connect(args.db)
     for key, value in projections.status(con).items():
@@ -192,6 +210,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--db", default="data/docketyard.sqlite")
     parser.add_argument("--data-dir", default="data")
     sub = parser.add_subparsers(dest="command", required=True)
+    sup = sub.add_parser("suppress", help="never deliver to an address or webhook URL again")
+    sup.add_argument("recipient")
+    sup.set_defaults(func=_suppress)
 
     cap = sub.add_parser("capture", help="fetch one slice from the STB endpoint into captures")
     cap_sub = cap.add_subparsers(dest="table", required=True)

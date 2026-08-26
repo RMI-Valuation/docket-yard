@@ -72,6 +72,16 @@ class Vault:
         """Normalises first, so no caller can mint a second identity for one address."""
         return hmac.new(self._mac_key, normalise_email(email).encode(), hashlib.sha256).hexdigest()
 
+    def hash_recipient(self, channel: str, recipient: str) -> str:
+        """The matching hash for any recipient. An address is normalised and hashed as
+        before (production rows depend on it); a webhook URL keeps its case — the path
+        is the endpoint owner's — and is domain-separated so no URL can share a hash
+        with an address."""
+        if channel == "email":
+            return self.hash(recipient)
+        data = f"{channel}:{recipient}".encode()
+        return hmac.new(self._mac_key, data, hashlib.sha256).hexdigest()
+
     def seal(self, email: str) -> str:
         return self._fernet.encrypt(email.encode()).decode()
 

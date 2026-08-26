@@ -91,7 +91,7 @@ def subscribe(
         raise ValueError("channel is email or webhook")
     v = vault.current()
     email = normalise_email(email) if channel == "email" else webhooks.normalise_url(email)
-    h = v.hash(email)
+    h = v.hash_recipient(channel, email)
     t = _now(now)
     if is_suppressed(con, h):
         return None
@@ -200,16 +200,11 @@ def get(con: Connection, subscription_id: int) -> Subscription | None:
         return None
     sid, enc, docket_id, cadence, status, party_id, channel, secret_enc = row
     v = vault.current()
-    return Subscription(
-        sid,
-        v.open(enc),
-        docket_id,
-        cadence,
-        status,
-        party_id,
-        channel,
-        v.open(secret_enc) if secret_enc else None,
-    )
+    try:
+        secret = v.open(secret_enc) if secret_enc else None
+    except vault.VaultClosed:  # sealed under a key this box no longer holds: no secret,
+        secret = None  # so delivery fails this alert alone (a rotation gap, TODO)
+    return Subscription(sid, v.open(enc), docket_id, cadence, status, party_id, channel, secret)
 
 
 def unsubscribe_token(con: Connection, subscription_id: int, now: datetime | None = None) -> str:
@@ -260,15 +255,23 @@ def _forget_empty_alerts(con: Connection, email_hash: str) -> None:
     )
 
 
-def suppress(con: Connection, email: str, reason: str, now: datetime | None = None) -> None:
-    """Never mail this address again. The ciphertext is kept only so a key rotation can
-    re-derive the hash; the address is never read back."""
+def suppress(
+    con: Connection,
+    email: str,
+    reason: str,
+    now: datetime | None = None,
+    *,
+    channel: str = "email",
+) -> None:
+    """Never deliver to this recipient again — an address, or a webhook URL. The
+    ciphertext is kept only so a key rotation can re-derive the hash; the recipient is
+    never read back."""
     v = vault.current()
-    email = normalise_email(email)
+    email = normalise_email(email) if channel == "email" else webhooks.normalise_url(email)
     con.execute(
         "INSERT OR IGNORE INTO email_suppression (email_hash, email_enc, reason, created_at)"
         " VALUES (?, ?, ?, ?)",
-        (v.hash(email), v.seal(email), reason, _iso(_now(now))),
+        (v.hash_recipient(channel, email), v.seal(email), reason, _iso(_now(now))),
     )
     con.commit()
 

@@ -130,7 +130,7 @@ three-attempt limit are the same. What differs:
   timeout, and the host is resolved and refused unless every address is public unicast — a
   name pointing into the instance's own network never gets a connection.
 - **Suppression applies by hash**, so an operator can stop an endpoint the way a bounced
-  address is stopped. Nothing suppresses automatically yet: an endpoint that fails three
+  address is stopped (`docketyard suppress https://…`). Nothing suppresses automatically yet: an endpoint that fails three
   attempts fails that alert and is tried again on the next, and a permanently dead one
   accumulates failed alerts in the log (TODO.md carries the follow-up).
 - Webhooks go out whether or not mail is configured; email alerts wait, pending, for a

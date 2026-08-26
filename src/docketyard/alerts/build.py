@@ -193,17 +193,19 @@ def build(
     if not carried:
         return []
     # one alert per group: the address alone for a digest, the subscription otherwise
-    groups: dict[tuple[str, int | None], list[Carried]] = {}
+    groups: dict[tuple[str, str, int | None], list[Carried]] = {}
+    channels = dict(con.execute("SELECT subscription_id, channel FROM subscription"))
     for c in carried:
-        key = (c.email_hash, None if cadence == "daily" else c.subscription_id)
+        ch = channels[c.subscription_id]
+        key = (c.email_hash, ch, None if cadence == "daily" else c.subscription_id)
         groups.setdefault(key, []).append(c)
     ids = []
-    for (h, _), items in groups.items():
+    for (h, channel, _), items in groups.items():
         # the ciphertext is copied from the subscription; the alert never sees the address
-        enc, channel = con.execute(
-            "SELECT email_enc, channel FROM subscription WHERE subscription_id = ?",
+        enc = con.execute(
+            "SELECT email_enc FROM subscription WHERE subscription_id = ?",
             (items[0].subscription_id,),
-        ).fetchone()
+        ).fetchone()[0]
         alert_id = con.execute(
             "INSERT INTO alert (email_hash, email_enc, cadence, status, created_at, channel)"
             " VALUES (?, ?, ?, 'pending', ?, ?)",
@@ -239,14 +241,18 @@ def _gap_covering(con: Connection, captured_at: str) -> int | None:
     return row[0] if row else None
 
 
-def daily_due(con: Connection, now: datetime | None = None) -> bool:
+def daily_due(con: Connection, now: datetime | None = None, channel: str | None = None) -> bool:
     """True when no daily digest has been built since the most recent 23:00 Eastern —
     so a pass that misses the 23:00 hour still sends the day's digest, late, rather
-    than folding it into tomorrow's."""
+    than folding it into tomorrow's. Per channel when asked, so a webhook digest built
+    while mail was unconfigured does not cost the email digest its day."""
     local = (now or datetime.now(UTC)).astimezone(EASTERN)
     today_at = local.replace(hour=DAILY_AT_HOUR, minute=0, second=0, microsecond=0)
     boundary = today_at if local >= today_at else today_at - timedelta(days=1)
-    last = con.execute("SELECT MAX(created_at) FROM alert WHERE cadence = 'daily'").fetchone()[0]
+    last = con.execute(
+        "SELECT MAX(created_at) FROM alert WHERE cadence = 'daily' AND (? IS NULL OR channel = ?)",
+        (channel, channel),
+    ).fetchone()[0]
     if not last:  # never built: the first digest waits for the first 23:00
         return local >= today_at
     return datetime.fromisoformat(last) < boundary
@@ -454,6 +460,16 @@ def deliver(con: Connection, sender: Sender, site: str, log=print) -> dict:
             sid = _carrier(con, alert_id)
             if sid is None:
                 continue
+            if (
+                con.execute(
+                    "SELECT channel FROM subscription WHERE subscription_id = ?", (sid,)
+                ).fetchone()[0]
+                != "email"
+            ):  # never mail a URL
+                con.execute("UPDATE alert SET status = 'failed' WHERE alert_id = ?", (alert_id,))
+                con.commit()
+                stats["failed"] += 1
+                continue
             token = subscriptions.unsubscribe_token(con, sid)
             out = render(con, alert_id, urls.unsubscribe_url(site, token), site)
             _claim(con, alert_id)
@@ -494,10 +510,12 @@ def run_after_pass(con: Connection, sender: Sender | None, site: str, now=None, 
         return {"swept": swept, "built": 0, "skipped": "no DY_EMAIL_KEY"}
     # without a mail sender only webhook alerts are built: the email marks stay put, so the
     # first pass with a sender folds the backlog into one alert per subscription
-    channel = None if sender is not None else "webhook"
-    built = build(con, "pass", now, channel)
-    if daily_due(con, now):
-        built += build(con, "daily", now, channel)
+    channels = ("email", "webhook") if sender is not None else ("webhook",)
+    built = []
+    for channel in channels:
+        built += build(con, "pass", now, channel)
+        if daily_due(con, now, channel):
+            built += build(con, "daily", now, channel)
     hooks = deliver_webhooks(con, site, log)
     out = {
         "swept": swept,
