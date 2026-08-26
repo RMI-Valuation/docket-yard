@@ -33,6 +33,8 @@ from docketyard.store.db import MIGRATIONS, utcnow
 from docketyard.web import feeds, labels, urls
 
 _PKG = resources.files("docketyard.web")
+JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
+PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move once a poll
 # outside intake is GitHub Issues (CLAUDE.md); the form template carries the fields
 CORRECTIONS_URL = (
     "https://github.com/RMI-Valuation/docket-yard/issues/new?template=data-correction.yml"
@@ -138,7 +140,6 @@ def create_app(
 ) -> FastAPI:
     _check_store(db_path)
     public_dir = Path(public_dir) if public_dir else Path(db_path).parent / "public"
-    public_dir.mkdir(parents=True, exist_ok=True)
     app = FastAPI(title=site_name, version=__version__, docs_url=None, redoc_url=None)
     templates = Jinja2Templates(directory=str(_PKG / "templates"))
     templates.env.filters["fmt_date"] = fmt_date
@@ -167,7 +168,10 @@ def create_app(
         confirm_ttl_hours=subscriptions.CONFIRM_TTL_HOURS,  # the privacy page quotes it
     )
     app.mount("/static", StaticFiles(directory=str(_PKG / "static")), name="static")
-    app.mount("/data/files", StaticFiles(directory=str(public_dir)), name="data-files")
+    # the dump timer owns this directory; the web tier only reads it, and may start first
+    app.mount(
+        "/data/files", StaticFiles(directory=str(public_dir), check_dir=False), name="data-files"
+    )
 
     def render(request: Request, name: str, **context):
         return templates.TemplateResponse(request, name, context)
@@ -176,6 +180,20 @@ def create_app(
     def not_found(request: Request, exc: HTTPException):
         detail = exc.detail if isinstance(exc.detail, str) and exc.detail != "Not Found" else ""
         return templates.TemplateResponse(request, "404.html", {"detail": detail}, status_code=404)
+
+    def family_sheet(identity):
+        """The family a docket address belongs to (ADR 0005: a sheet folds its sub-dockets)
+        and its sheet, or 404 — one resolution for the page, the feed and the JSON."""
+        family = identity.parent() or identity
+        con = _connect(db_path)
+        try:
+            docket_id = find_docket(con, family)
+            s = sheet.docket_sheet(con, docket_id) if docket_id is not None else None
+        finally:
+            con.close()
+        if s is None:
+            raise HTTPException(404)
+        return family, s
 
     def sheet_response(request: Request, identity):
         canonical = urls.docket_path(identity)
@@ -288,7 +306,7 @@ def create_app(
         finally:
             con.close()
         response = render(request, "stats.html", s=s)
-        response.headers["Cache-Control"] = "public, max-age=1800"
+        response.headers.update(PUBLIC_CACHE)
         return response
 
     @app.get("/corrections")
@@ -332,7 +350,7 @@ def create_app(
         return Response(
             body,
             media_type="application/atom+xml; charset=utf-8",
-            headers={"Cache-Control": "public, max-age=1800"},
+            headers=PUBLIC_CACHE,
         )
 
     @app.get("/feed")
@@ -358,15 +376,16 @@ def create_app(
         identity = urls.parse_docket_path(ident)
         if identity is None:
             raise HTTPException(404)
-        family = identity.parent() or identity
+        family, s = family_sheet(identity)
         con = _connect(db_path)
         try:
-            docket_id = find_docket(con, family)
-            if docket_id is None:
-                raise HTTPException(404)
             return atom(
                 feeds.family_feed(
-                    con, docket_id, urls.printed_docket(family), urls.docket_path(family), site_host
+                    con,
+                    s.docket_id,
+                    urls.printed_docket(family),
+                    urls.docket_path(family),
+                    site_host,
                 )
             )
         finally:
@@ -380,50 +399,74 @@ def create_app(
                 "source": f"https://{site_host}/",
                 "licence": dump.LICENCE,
                 "licence_url": dump.LICENCE_URL,
+                "shape_version": JSON_SHAPE,
                 "generated_at": utcnow(),
                 **body,
             },
-            headers={"Cache-Control": "public, max-age=1800"},
+            headers=PUBLIC_CACHE,
         )
 
-    def sheet_json(identity) -> JSONResponse:
-        family = identity.parent() or identity
-        con = _connect(db_path)
-        try:
-            docket_id = find_docket(con, family)
-            s = sheet.docket_sheet(con, docket_id) if docket_id is not None else None
-        finally:
-            con.close()
-        if s is None:
-            raise HTTPException(404)
+    def docket_ref(s) -> dict:
+        ident = parse_docket_id(s.raw_docket)
+        return {
+            "raw_docket": s.raw_docket,
+            "printed": urls.printed_docket(ident) if ident else s.raw_docket,
+            "title": s.title,
+            "url": f"https://{site_host}{urls.docket_path(ident)}" if ident else None,
+        }
+
+    def entry_json(e) -> dict:
+        d = asdict(e)
+        d["url"] = f"https://{site_host}{urls.record_path(e.kind, e.record_id)}"
+        return d
+
+    def sheet_json(request: Request, identity) -> Response:
+        canonical = urls.docket_path(identity) + ".json"
+        if _path(request) != canonical:  # any case resolves; one address is served
+            return RedirectResponse(canonical, status_code=301)
+        family, s = family_sheet(identity)
         d = asdict(s)
-        d["printed"] = urls.printed_docket(family)
-        d["url"] = f"https://{site_host}{urls.docket_path(family)}"
+        d.update(docket_ref(s))
         d["sub_dockets"] = [
             {"docket_id": i, "raw_docket": raw, "title": title} for i, raw, title in s.sub_dockets
         ]
-        for e in d["entries"]:
-            e["url"] = f"https://{site_host}" + (
-                urls.decision_path(e["record_id"])
-                if e["kind"] == "decision"
-                else urls.filing_path(e["record_id"])
-            )
-        return as_json({"docket": d})
+        d["entries"] = [entry_json(e) for e in s.entries]
+        body = {"docket": d}
+        if identity != family:  # a sub-docket address answers with its family, and says so
+            body["requested"] = {
+                "raw_docket": identity.canonical(),
+                "printed": urls.printed_docket(identity),
+                "url": f"https://{site_host}{urls.docket_path(identity)}",
+            }
+        return as_json(body)
 
     @app.get("/d/{ident}.json")
-    def docket_json(ident: str):
+    def docket_json(request: Request, ident: str):
         identity = urls.parse_docket_path(ident)
         if identity is None:
             raise HTTPException(404)
-        return sheet_json(identity)
+        return sheet_json(request, identity)
+
+    @app.get("/d/{ident}/sub/{sub}.json")
+    def sub_docket_json(request: Request, ident: str, sub: str):
+        identity = urls.parse_docket_path(ident, sub)
+        if identity is None:
+            raise HTTPException(404)
+        return sheet_json(request, identity)
+
+    def record_json(kind: str, stb_id: str) -> JSONResponse:
+        s, entry = _record_entry(db_path, kind, stb_id)
+        d = entry_json(entry)
+        d["docket"] = docket_ref(s)
+        return as_json({kind: d})
 
     @app.get("/filing/{stb_id}.json")
     def filing_json(stb_id: str):
-        return _record_json(db_path, site_host, as_json, "filing", stb_id)
+        return record_json("filing", stb_id)
 
     @app.get("/decision/{stb_id}.json")
     def decision_json(stb_id: str):
-        return _record_json(db_path, site_host, as_json, "decision", stb_id)
+        return record_json("decision", stb_id)
 
     @app.get("/data")
     def data_page(request: Request):
@@ -723,42 +766,8 @@ def create_app(
     return app
 
 
-def _record_json(db_path, site_host: str, as_json, kind: str, stb_id: str):
-    table, column = (
-        ("decision_record", "stb_decision_id")
-        if kind == "decision"
-        else ("filing", "stb_filing_id")
-    )
-    con = _connect(db_path)
-    try:
-        row = con.execute(
-            f"SELECT r.docket_id FROM {table} r JOIN docket d ON d.docket_id = r.docket_id"
-            f" WHERE r.{column} = ?"
-            " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, '') LIMIT 1",
-            (stb_id,),
-        ).fetchone()
-        if row is None:
-            raise HTTPException(404)
-        s = sheet.docket_sheet(con, row[0])
-    finally:
-        con.close()
-    assert s is not None
-    entry = next(e for e in s.entries if e.kind == kind and e.record_id == stb_id)
-    ident = parse_docket_id(s.raw_docket)
-    d = asdict(entry)
-    d["url"] = f"https://{site_host}" + (
-        urls.decision_path(stb_id) if kind == "decision" else urls.filing_path(stb_id)
-    )
-    d["docket"] = {
-        "raw_docket": s.raw_docket,
-        "printed": urls.printed_docket(ident) if ident else s.raw_docket,
-        "title": s.title,
-        "url": f"https://{site_host}{urls.docket_path(ident)}" if ident else None,
-    }
-    return as_json({kind: d})
-
-
-def _record_page(request, db_path, render, kind: str, stb_id: str):
+def _record_entry(db_path, kind: str, stb_id: str):
+    """A record's family sheet and its entry, or 404 — one lookup for the page and JSON."""
     table, column = (
         ("decision_record", "stb_decision_id")
         if kind == "decision"
@@ -779,5 +788,12 @@ def _record_page(request, db_path, render, kind: str, stb_id: str):
     finally:
         con.close()
     assert s is not None
-    entry = next(e for e in s.entries if e.kind == kind and e.record_id == stb_id)
+    entry = next((e for e in s.entries if e.kind == kind and e.record_id == stb_id), None)
+    if entry is None:
+        raise HTTPException(404)
+    return s, entry
+
+
+def _record_page(request, db_path, render, kind: str, stb_id: str):
+    s, entry = _record_entry(db_path, kind, stb_id)
     return render(request, "record.html", sheet=s, entry=entry)

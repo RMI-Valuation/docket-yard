@@ -200,7 +200,7 @@ def _dump(args: argparse.Namespace) -> int:
     """Cut the nightly public snapshot (M9): the store minus every reader table."""
     from docketyard.store import dump
 
-    out = Path(args.out) if args.out else Path(args.data_dir) / "public"
+    out = Path(args.out) if args.out else Path(args.db).parent / "public"
     m = dump.dump(Path(args.db), out)
     print(
         f"{m.latest.name}: {m.latest.bytes:,} bytes, {m.counts['filings']:,} filings,"

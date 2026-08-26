@@ -6,4 +6,4 @@ Requires=docker.service
 [Service]
 Type=oneshot
 WorkingDirectory=/srv/docketyard
-ExecStart=/usr/bin/docker compose run --rm --no-deps web dump --out /data/public
+ExecStart=/usr/bin/docker compose run --rm --no-deps -e DY_EMAIL_KEY= -e AWS_ACCESS_KEY_ID= -e AWS_SECRET_ACCESS_KEY= web dump --out /data/public

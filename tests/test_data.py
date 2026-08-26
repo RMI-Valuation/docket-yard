@@ -21,6 +21,10 @@ def test_snapshot_omits_readers_and_measures_itself(tmp_path):
     con.close()
     out = tmp_path / "public"
     m = dump.dump(path, out, today=date(2026, 9, 1), now="2026-09-01T04:10:00+00:00")
+    schema = (out / "schema.sql").read_text()
+    assert "subscription" not in schema and "PRAGMA user_version" in schema  # its own DDL
+    assert not list(out.glob(".*"))  # nothing half-built is left where it is served
+    assert not (out.parent / ".dump-work" / "snapshot.sqlite").exists()
     assert m.licence == "CC0-1.0" and m.schema_version == db.MIGRATIONS[-1][0]
     assert m.counts["filings"] == 2 and m.omitted_tables == list(dump.PRIVATE_TABLES)
     assert (out / "docketyard-2026-09-01.sqlite.gz").exists()  # first of the month: kept
@@ -40,11 +44,28 @@ def test_snapshot_omits_readers_and_measures_itself(tmp_path):
         "CC0" in (out / "LICENSE.txt").read_text()
         and "CREATE TABLE" in (out / "schema.sql").read_text()
     )
-    # a mid-month cut replaces latest and drops nothing kept
+    # a later cut in the month replaces latest and keeps the month's one archive
     m2 = dump.dump(path, out, today=date(2026, 9, 2), now="2026-09-02T04:10:00+00:00")
     assert [f.name for f in m2.dated] == ["docketyard-2026-09-01.sqlite.gz"]
     assert not (out / "docketyard-2026-09-02.sqlite.gz").exists()
     assert dump.read_manifest(out).built_at == "2026-09-02T04:10:00+00:00"
+    assert m2.dated[0].sha256 == m.dated[0].sha256  # an archive keeps last night's hash
+    # a month whose first was missed still gets its archive on the first run that happens
+    m3 = dump.dump(path, out, today=date(2026, 10, 3))
+    assert [f.name for f in m3.dated][0] == "docketyard-2026-10-03.sqlite.gz"
+
+
+def test_scrub_refuses_a_table_it_does_not_know(tmp_path):
+    import pytest
+
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    con.execute("CREATE TABLE subscription_digest (email_hash TEXT, last_sent TEXT)")
+    con.commit()
+    con.close()
+    with pytest.raises(dump.Unsafe):
+        dump.dump(path, tmp_path / "public")
+    assert not (tmp_path / "public" / dump.LATEST).exists()  # nothing was offered
 
 
 def test_data_page_and_files_follow_the_manifest(tmp_path):
@@ -80,4 +101,27 @@ def test_json_twins_at_the_permanent_addresses(tmp_path):
     assert one["record_id"] == fid and one["docket"]["printed"].startswith("FD 36873")
     assert client.get("/filing/nope.json").status_code == 404
     assert client.get("/d/FD-99999.json").status_code == 404
-    assert client.get("/d/fd-36873.json").status_code == 200  # any case resolves
+    r = client.get("/d/fd-36873.json", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == "/d/FD-36873.json"
+    sub = client.get("/d/FD-36873/sub/1.json").json()
+    assert (
+        sub["requested"]["printed"] == "FD 36873 (Sub-No. 1)"
+        and sub["docket"]["printed"] == "FD 36873"
+    )
+    assert d["shape_version"] == 1
+    # the key set is the public contract: a rename must be a deliberate shape bump
+    assert set(e) == {
+        "kind",
+        "date",
+        "date_printed",
+        "docket_raw",
+        "record_id",
+        "type",
+        "filed_for_raw",
+        "deciding_body",
+        "summary",
+        "attachments",
+        "also_in",
+        "parties",
+        "url",
+    }

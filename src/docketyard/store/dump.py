@@ -3,9 +3,19 @@
 What leaves the box is a copy of the store with every table that could name a reader
 dropped — subscriptions, tokens, alerts, suppression — *including their ciphertext* (ADR
 0011, 0014: nothing about a reader is published, readable or not). Everything else is the
-record itself and its provenance, rebuildable from the Board's own files. The manifest
-(`index.json`) is measured from the file it describes; the page that offers the download
-is generated from the manifest, so it cannot claim a file that is not there.
+record itself and its provenance, rebuildable from the Board's own files.
+
+Two safeguards, because a leak here would be licensed CC0 the moment it was served:
+
+- The copy is built in a working directory that is **not** served, and only finished
+  files are moved into the public one; the unscrubbed copy never has a URL.
+- The scrub is an allowlist. After the named private tables are dropped, every table
+  left must be one the snapshot is known to publish, and no surviving column may look
+  like a recipient, a token or ciphertext. A future migration that adds a reader table
+  under a new name fails the dump rather than publishing it.
+
+The manifest (`index.json`) is measured from the files it describes; the page that offers
+the download is generated from the manifest, so it cannot claim a file that is not there.
 
 Data licence: CC0 1.0 (the operator's decision, 2026-08-26) — the Board's records are U.S.
 government works and the compilation is dedicated to the public domain.
@@ -14,12 +24,15 @@ government works and the compilation is dedicated to the public domain.
 import gzip
 import hashlib
 import json
+import re
 import shutil
 import sqlite3
 from dataclasses import asdict, dataclass
-from datetime import UTC, date, datetime
+from datetime import date
 from importlib import resources
 from pathlib import Path
+
+from docketyard.store.db import utcnow
 
 PRIVATE_TABLES = (
     "alert_event",
@@ -28,9 +41,38 @@ PRIVATE_TABLES = (
     "subscription",
     "email_suppression",
 )
+PUBLIC_TABLES = frozenset(
+    {
+        "capture",
+        "event",
+        "docket",
+        "filing",
+        "filing_attachment",
+        "decision_record",
+        "decision_attachment",
+        "document",
+        "document_source",
+        "walk_slice",
+        "coverage_gap",
+        "party",
+        "party_name",
+        "relationship_vocab",
+        "party_relationship",
+        "filing_party_span",
+        "filing_party_link",
+        "correction",
+    }
+)
+_SUSPECT_COLUMN = re.compile(r"email|token|secret|_enc$|recipient|address", re.I)
 LATEST = "docketyard-latest.sqlite.gz"
+SCHEMA = "schema.sql"
 LICENCE = "CC0-1.0"
 LICENCE_URL = "https://creativecommons.org/publicdomain/zero/1.0/"
+_DATED = "docketyard-????-??-??.sqlite.gz"
+
+
+class Unsafe(RuntimeError):
+    """The scrubbed copy still holds something that must not be published."""
 
 
 @dataclass(frozen=True)
@@ -38,7 +80,6 @@ class File:
     name: str
     bytes: int
     sha256: str
-    built_at: str  # ISO UTC
 
 
 @dataclass(frozen=True)
@@ -51,14 +92,16 @@ class Manifest:
     omitted_tables: list[str]
     latest: File
     dated: list[File]  # kept archives, newest first
-    schema: str  # file name
+    schema: str = SCHEMA  # file name
 
 
-def scrub(src: Path, dst: Path) -> None:
-    """A consistent copy of the store with the private tables gone and the space reclaimed."""
+def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
+    """A consistent copy of the store with the private tables gone and the space reclaimed.
+    Returns what was measured from the copy: counts, schema version, and its DDL — the
+    schema published is the snapshot's own, not the live store's."""
     if dst.exists():
         dst.unlink()
-    con = sqlite3.connect(f"file:{src}?mode=ro", uri=True)
+    con = sqlite3.connect(f"{src.resolve().as_uri()}?mode=ro", uri=True)  # encoded path
     try:
         con.execute("VACUUM INTO ?", (str(dst),))
     finally:
@@ -70,100 +113,110 @@ def scrub(src: Path, dst: Path) -> None:
             out.execute(f"DROP TABLE IF EXISTS {table}")
         out.commit()
         out.execute("VACUUM")
-        left = {r[0] for r in out.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-        assert not left & set(PRIVATE_TABLES), "a private table survived the scrub"
-    finally:
-        out.close()
-
-
-def _counts(path: Path) -> dict:
-    con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-    try:
-        return {
-            "dockets": con.execute("SELECT COUNT(*) FROM docket").fetchone()[0],
-            "filings": con.execute("SELECT COUNT(DISTINCT stb_filing_id) FROM filing").fetchone()[
-                0
-            ],
-            "decisions": con.execute(
+        q = out.execute
+        left = {
+            r[0]
+            for r in q("SELECT name FROM sqlite_master WHERE type = 'table'")
+            if not r[0].startswith("sqlite_")
+        }
+        unknown = left - PUBLIC_TABLES
+        if unknown:
+            raise Unsafe(f"tables not on the public allowlist: {sorted(unknown)}")
+        for table in sorted(left):
+            for col in [r[1] for r in q(f"PRAGMA table_info({table})")]:
+                if _SUSPECT_COLUMN.search(col):
+                    raise Unsafe(f"{table}.{col} looks like reader data")
+        counts = {
+            "dockets": q("SELECT COUNT(*) FROM docket").fetchone()[0],
+            "filings": q("SELECT COUNT(DISTINCT stb_filing_id) FROM filing").fetchone()[0],
+            "decisions": q(
                 "SELECT COUNT(DISTINCT stb_decision_id) FROM decision_record"
             ).fetchone()[0],
-            "events": con.execute("SELECT COUNT(*) FROM event").fetchone()[0],
-            "documents": con.execute("SELECT COUNT(*) FROM document").fetchone()[0],
-            "parties": con.execute("SELECT COUNT(*) FROM party").fetchone()[0],
-            "schema_version": con.execute("PRAGMA user_version").fetchone()[0],
+            "events": q("SELECT COUNT(*) FROM event").fetchone()[0],
+            "documents": q("SELECT COUNT(*) FROM document").fetchone()[0],
+            "parties": q("SELECT COUNT(*) FROM party").fetchone()[0],
         }
-    finally:
-        con.close()
-
-
-def _schema_sql(path: Path) -> str:
-    con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-    try:
-        rows = con.execute(
+        version = q("PRAGMA user_version").fetchone()[0]
+        ddl = q(
             "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL"
             " ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 ELSE 2 END, name"
         ).fetchall()
+        schema = ";\n\n".join(r[0] for r in ddl) + f";\n\nPRAGMA user_version = {version};\n"
     finally:
-        con.close()
-    return ";\n\n".join(r[0] for r in rows) + ";\n"
+        out.close()
+    return counts, version, schema
 
 
-def _gzip(src: Path, dst: Path) -> None:
-    with open(src, "rb") as f, gzip.open(dst, "wb", compresslevel=6) as g:
-        shutil.copyfileobj(f, g)
-
-
-def _file(path: Path, built_at: str) -> File:
+def _sha256(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
-    return File(path.name, path.stat().st_size, h.hexdigest(), built_at)
+    return h.hexdigest()
+
+
+def _file(path: Path, known: dict[str, File]) -> File:
+    """An archive never changes once written: its hash from last night's manifest stands."""
+    size = path.stat().st_size
+    prior = known.get(path.name)
+    if prior and prior.bytes == size:
+        return prior
+    return File(path.name, size, _sha256(path))
+
+
+def _put(out_dir: Path, name: str, text: str) -> None:
+    """Write a served file atomically: a reader never sees a torn one."""
+    tmp = out_dir / f".{name}.tmp"
+    tmp.write_text(text, encoding="utf-8", newline="\n")
+    tmp.replace(out_dir / name)
 
 
 def dump(
     db_path: Path, out_dir: Path, today: date | None = None, now: str | None = None
 ) -> Manifest:
-    """Cut tonight's snapshot into `out_dir`: `docketyard-latest.sqlite.gz` always; a dated
-    copy kept when today is the first of a month (older dated copies from other days are
-    removed), plus `schema.sql`, the licence, and `index.json` measured from the files."""
+    """Cut tonight's snapshot into `out_dir`: `docketyard-latest.sqlite.gz` always; the
+    first cut of each month kept as a dated archive (whatever day it runs on — a missed
+    first does not lose the month); plus `schema.sql`, the licence, and `index.json`
+    measured from the files. The copy is built beside `out_dir`, never inside it."""
     today = today or date.today()
-    built_at = now or datetime.now(UTC).isoformat(timespec="seconds")
     out_dir.mkdir(parents=True, exist_ok=True)
-    work = out_dir / ".building.sqlite"
-    scrub(db_path, work)
-    counts = _counts(work)
-    dated_name = f"docketyard-{today.isoformat()}.sqlite.gz"
-    tmp = out_dir / ".building.sqlite.gz"
-    _gzip(work, tmp)
-    work.unlink()
-    tmp.replace(out_dir / LATEST)
-    if today.day == 1:
-        shutil.copyfile(out_dir / LATEST, out_dir / dated_name)
-    for old in out_dir.glob("docketyard-????-??-??.sqlite.gz"):
-        if old.name != dated_name and not old.name.endswith("-01.sqlite.gz"):
-            old.unlink()
-    (out_dir / "schema.sql").write_text(_schema_sql(db_path), encoding="utf-8", newline="\n")
-    (out_dir / "LICENSE.txt").write_text(
+    work_dir = out_dir.parent / ".dump-work"  # not served
+    work_dir.mkdir(exist_ok=True)
+    prior = read_manifest(out_dir)
+    known = {f.name: f for f in prior.dated} if prior else {}
+    work = work_dir / "snapshot.sqlite"
+    try:
+        counts, version, schema = scrub(db_path, work)
+        packed = work_dir / "snapshot.sqlite.gz"
+        with open(work, "rb") as f, gzip.open(packed, "wb", compresslevel=9) as g:
+            shutil.copyfileobj(f, g)
+    finally:
+        work.unlink(missing_ok=True)
+    packed.replace(out_dir / LATEST)
+    month = today.strftime("%Y-%m")
+    dated: list[Path] = []
+    have_month = any(p.name.startswith(f"docketyard-{month}-") for p in out_dir.glob(_DATED))
+    if not have_month:
+        shutil.copyfile(out_dir / LATEST, out_dir / f"docketyard-{today.isoformat()}.sqlite.gz")
+    for p in out_dir.glob(_DATED):
+        dated.append(p)
+    _put(out_dir, SCHEMA, schema)
+    _put(
+        out_dir,
+        "LICENSE.txt",
         resources.files("docketyard").joinpath("LICENSE-DATA.txt").read_text(encoding="utf-8"),
-        encoding="utf-8",
-        newline="\n",
     )
-    dated = sorted(out_dir.glob("docketyard-????-??-??.sqlite.gz"), reverse=True)
     manifest = Manifest(
-        built_at=built_at,
+        built_at=now or utcnow(),
         licence=LICENCE,
         licence_url=LICENCE_URL,
-        schema_version=counts.pop("schema_version"),
+        schema_version=version,
         counts=counts,
         omitted_tables=list(PRIVATE_TABLES),
-        latest=_file(out_dir / LATEST, built_at),
-        dated=[_file(p, built_at) for p in dated],
-        schema="schema.sql",
+        latest=File(LATEST, (out_dir / LATEST).stat().st_size, _sha256(out_dir / LATEST)),
+        dated=[_file(p, known) for p in sorted(dated, reverse=True)],
     )
-    (out_dir / "index.json").write_text(
-        json.dumps(asdict(manifest), indent=1), encoding="utf-8", newline="\n"
-    )
+    _put(out_dir, "index.json", json.dumps(asdict(manifest), indent=1))
     return manifest
 
 
@@ -171,15 +224,10 @@ def read_manifest(out_dir: Path) -> Manifest | None:
     p = out_dir / "index.json"
     if not p.exists():
         return None
-    d = json.loads(p.read_text(encoding="utf-8"))
-    return Manifest(
-        built_at=d["built_at"],
-        licence=d["licence"],
-        licence_url=d["licence_url"],
-        schema_version=d["schema_version"],
-        counts=d["counts"],
-        omitted_tables=d["omitted_tables"],
-        latest=File(**d["latest"]),
-        dated=[File(**f) for f in d["dated"]],
-        schema=d["schema"],
-    )
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+        return Manifest(
+            **{**d, "latest": File(**d["latest"]), "dated": [File(**f) for f in d["dated"]]}
+        )
+    except (ValueError, KeyError, TypeError):  # a manifest from another shape: not offered
+        return None

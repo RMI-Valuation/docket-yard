@@ -45,6 +45,8 @@ is an instance and not the container service.
    sudo chown -R 1000:1000 /srv/docketyard/data     # the image's uid
    sudo cp /srv/docketyard/docketyard-blobs.* /etc/systemd/system/
    sudo systemctl enable --now docketyard-blobs.timer
+   sudo cp /srv/docketyard/docketyard-dump.* /etc/systemd/system/
+   sudo systemctl enable --now docketyard-dump.timer   # nightly public snapshot (M9)
    ```
 
 4. **Seed the store** from rmi-ai-machine — a copy, not a migration (ADR 0012). Stop any
