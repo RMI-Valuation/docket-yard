@@ -15,9 +15,11 @@ by pre-commit: when it fires, prune.
   re-run extraction. Deferred: Range-resume mid-body; hash while streaming; commit per doc
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
-- RMI-AI-MACHINE: text layer done for wave 1 (`/data/docketyard/text`); re-run after each
-  wave from S3. Benchmark step 1: `labels.csv` is model-drafted (977 rows, 2026-08-26) and
-  awaits Cameron's check (README § Provenance); step 2 runs once he signs it off
+- RMI-AI-MACHINE (2026-08-26 19:46 UTC): tmux `extract` pulls the blob store from S3 with
+  `pull_blobs.py` and re-runs the text layer incrementally (re-run again after the wave
+  ends); tmux `bench` runs qwen3:14b over the 60 decisions (`benchmark/runs/`, log
+  `bench-qwen3-14b.log`). Scoring waits on Cameron's check of the model-drafted `labels.csv`
+  (README § Provenance); the API candidate waits on his go (it spends money)
 - Explainers draft (`docs/explainers.md`): Cameron reviews; [?] rows need the Board's
   records staff; then a page per prefix. Whether/how to announce the wedge — his call
 
