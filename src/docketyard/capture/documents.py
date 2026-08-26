@@ -29,7 +29,9 @@ DETECTION_METHOD_VERSION = 1
 _EXTENSION_TYPES = {".pdf": "pdf", ".xlsx": "xlsx", ".zip": "zip", ".jpg": "jpg",
                     ".jpeg": "jpg", ".docx": "docx"}  # fmt: skip
 
-Fetcher = Callable[[str], tuple[int, bytes]]
+# production: StbClient.fetcher(data_dir) — a file streamed onto the blob filesystem;
+# a test may hand back bytes for a small fake document
+Fetcher = Callable[[str], tuple[int, bytes | Path]]
 
 
 def media_type_for(url: str, body: bytes) -> str | None:
@@ -55,8 +57,10 @@ def fetch_attachments(
     observed_in: str | None = None,
     ingest_mode: str = "forward",
 ) -> dict:
-    """Fetch attachment bytes into the store. `fetch` is injected (StbClient.get in
-    production) so the pipeline is testable without the network."""
+    """Fetch attachments into the store. `fetch` is injected — in production a
+    `StbClient.download` bound to the data directory, which streams each file to disk;
+    a test's fetcher may return bytes — so the pipeline is testable without the network."""
+    records.sweep_staging(data_dir)  # what a killed run left half-written
     by_url: dict[str, list[observations.AttachmentRef]] = {}
     for ref in observations.attachments(
         con, unfetched_only=not refresh, limit=limit, observed_in=observed_in
@@ -65,11 +69,21 @@ def fetch_attachments(
     stats = {"fetched": 0, "unchanged": 0, "new_documents": 0, "replaced": 0, "failed": 0}
     for url, owners in by_url.items():
         old_sha = next((o.document_sha256 for o in owners if o.document_sha256), None)
+        body: bytes | Path = b""
         try:
             status, body = fetch(url)
+            # what the document table needs, read before save_capture moves a streamed file
+            if isinstance(body, Path):
+                size = body.stat().st_size
+                with body.open("rb") as f:
+                    head = f.read(16)
+            else:
+                size, head = len(body), body[:16]
         except Exception as e:  # noqa: BLE001 — one bad URL must not strand the batch
             print(f"  FAILED {url} ({type(e).__name__}: {e})")
             stats["failed"] += 1
+            if isinstance(body, Path):
+                body.unlink(missing_ok=True)
             continue
         capture_id = records.save_capture(
             con,
@@ -100,7 +114,7 @@ def fetch_attachments(
         stats["new_documents"] += con.execute(
             "INSERT OR IGNORE INTO document (document_sha256, size_bytes, media_type,"
             " first_seen_at) VALUES (?, ?, ?, ?)",
-            (sha256, len(body), media_type_for(url, body), now),
+            (sha256, size, media_type_for(url, head), now),
         ).rowcount
         for owner in owners:
             docket_id, record_id = _owner(con, owner)

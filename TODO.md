@@ -7,9 +7,10 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Documents backfill (1996 → 2024-07, ~75k files) running in tmux `wave3docs` as 500-file
-  `fetch attachments` batches (the one-process wave was OOM-killed at 1.4 GB); log
-  `wave3docs.log`. When it ends: 41 `partial` months to re-walk; re-run extraction
+- Documents backfill (1996 → 2024-07, ~75k files) in tmux `wave3docs`, log `wave3docs.log`:
+  batches under `ulimit -v` until v2026.08.25 (streamed downloads) is deployed, then one
+  loop; the 1.07 GB FD 36500 application must land. Then: 41 `partial` months to re-walk;
+  re-run extraction. Deferred: Range-resume mid-body; hash while streaming; commit per doc
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
 - RMI-AI-MACHINE: text layer done for wave 1 (`/data/docketyard/text`); re-run after each

@@ -71,7 +71,11 @@ def wave(
         log(f"parties: {summary['parties']}")
     log("=== documents")
     summary["documents"] = documents.fetch_attachments(
-        con, data_dir, client.get, limit=fetch_limit, ingest_mode="backfill"
+        con,
+        data_dir,
+        client.fetcher(data_dir),
+        limit=fetch_limit,
+        ingest_mode="backfill",
     )
     log(f"wave {summary}")
     return summary

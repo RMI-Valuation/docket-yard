@@ -25,7 +25,6 @@ done: a dedication cannot be withdrawn, so nothing irreversible happens before i
 """
 
 import gzip
-import hashlib
 import json
 import re
 import shutil
@@ -35,6 +34,7 @@ from datetime import date
 from importlib import resources
 from pathlib import Path
 
+from docketyard.capture import records
 from docketyard.store.db import utcnow
 
 PRIVATE_TABLES = (
@@ -161,11 +161,7 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
 
 
 def _sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    return records.sha256_of_file(path)
 
 
 def _file(path: Path, known: dict[str, File]) -> File:
