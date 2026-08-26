@@ -18,6 +18,7 @@ from dataclasses import asdict, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib import resources
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import Body, FastAPI, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
@@ -29,14 +30,14 @@ from docketyard import __version__
 from docketyard.alerts import feedback, mail, subscriptions, vault, webhooks
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
-from docketyard.store import coverage, dump, home, projections, sheet, stats
+from docketyard.store import coverage, dump, home, projections, search, sheet, stats
 from docketyard.store.db import MIGRATIONS, utcnow
 from docketyard.web import feeds, labels, sitemaps, urls
 
 _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
-NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health")  # tokens, consent, telemetry
+NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/suggest")  # tokens, consent
 MOUNTS = ("/static/", "/data/files/")  # StaticFiles: streams, validates and HEADs itself
 DISCOVERY_CACHE = 86400  # robots and sitemaps: a day
 PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move once a poll
@@ -130,7 +131,8 @@ def _path(request: Request) -> str:
 
 def _connect_rw(db_path: str | Path) -> sqlite3.Connection:
     """The one writable path: subscriptions (ADR 0011). Everything else reads."""
-    con = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=rw", uri=True)
+    # a rebuild of the search index or a wave's commit may hold the write lock for seconds
+    con = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=rw", uri=True, timeout=30)
     con.execute("PRAGMA foreign_keys = ON")
     return con
 
@@ -200,16 +202,17 @@ def create_app(
         them — and it costs two primary-key lookups, not a render."""
         con = _connect(db_path)
         try:
-            c, e, r, k = con.execute(
+            c, e, r, k, s = con.execute(
                 "SELECT (SELECT MAX(capture_id) FROM capture), (SELECT MAX(event_id) FROM event),"
                 " (SELECT MAX(edge_id) FROM party_relationship),"
-                " (SELECT MAX(correction_id) FROM correction)"
+                " (SELECT MAX(correction_id) FROM correction),"
+                " (SELECT build FROM search_meta WHERE key = 'built')"
             ).fetchone()
         finally:
             con.close()
-        # an operator's join or unjoin (ADR 0015) moves addresses without a capture: the
-        # newest edge and the newest correction are part of the version
-        return f"{c or 0}.{e or 0}.{r or 0}.{k or 0}"
+        # an operator's join or unjoin (ADR 0015) moves addresses without a capture, and a
+        # search rebuild changes result pages: both are part of the version
+        return f"{c or 0}.{e or 0}.{r or 0}.{k or 0}.{s or 0}"
 
     @app.middleware("http")
     async def http_hygiene(request: Request, call_next):
@@ -222,7 +225,8 @@ def create_app(
         path = _path(request)
         if request.method not in ("GET", "HEAD") or path.startswith(MOUNTS):
             return await call_next(request)
-        if path.startswith(NEVER_CACHE):
+        if path.startswith(NEVER_CACHE) or (path == "/search" and request.query_params.get("q")):
+            # a result page's address carries what was typed: no validator, no cache
             response = await call_next(request)
             response.headers["Cache-Control"] = "no-store"
             return response
@@ -627,11 +631,50 @@ def create_app(
 
     @app.get("/d")
     def lookup(request: Request, q: str = ""):
-        """The lookup box: whatever was typed, normalised to the one canonical address."""
+        """The old lookup box: whatever was typed, normalised to the one canonical address;
+        anything that is not a docket number is now a search."""
         identity = urls.lookup(q)
         if identity is None:
-            raise HTTPException(404, "not a docket number")
+            return RedirectResponse(f"/search?{urlencode({'q': q.strip()})}", status_code=303)
         return RedirectResponse(urls.docket_path(identity), status_code=303)
+
+    # --- search: a docket number is never a search; everything else is the index -------
+    # (docs/search.md). Nothing about the query is stored; Caddy drops it from the log.
+
+    @app.get("/search")
+    def search_page(request: Request, q: str = ""):
+        """A docket number the record holds is a 303 to its sheet; anything else is a result
+        page — never cached or indexed, because its address carries what was typed."""
+        q = q.strip()[: search.MAX_QUERY]
+        if not q:
+            return render(request, "search.html", query="", hits=[])
+        con = _connect(db_path)
+        try:
+            docket = search.held_docket(con, q)
+            if docket is not None:
+                return RedirectResponse(docket.path, status_code=303)
+            hits = search.search(con, q)
+        finally:
+            con.close()
+        return render(request, "search.html", query=q, hits=hits, canonical=None)
+
+    @app.get("/suggest")
+    def suggest(q: str = ""):
+        """As-you-type: a few rows, the same fields, never cached, never stored. A docket
+        number the record holds leads, once."""
+        q = q.strip()[: search.MAX_QUERY]
+        hits: list[dict] = []
+        if q:
+            con = _connect(db_path)
+            try:
+                docket = search.held_docket(con, q)
+                found = search.search(con, q, limit=search.SUGGEST, prefix=True)
+            finally:
+                con.close()
+            if docket is not None:
+                hits.append(asdict(docket))
+            hits += [asdict(h) for h in found if docket is None or h.path != docket.path]
+        return JSONResponse({"hits": hits[: search.SUGGEST]}, headers={"Cache-Control": "no-store"})
 
     @app.get("/d/{ident}")
     def docket_page(request: Request, ident: str):

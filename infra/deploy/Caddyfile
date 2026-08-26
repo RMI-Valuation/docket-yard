@@ -28,6 +28,11 @@
 				request>client_ip delete
 				request>headers>User-Agent delete
 				request>headers>Cookie delete
+				# what a reader typed is theirs: no query string, whatever its parameter is
+				# called, and no Referer (a same-origin click carries the search page's URL)
+				request>uri regexp "\?.*$" ""
+				request>headers>Referer delete
+				resp_headers>Location regexp "\?.*$" ""
 			}
 		}
 	}

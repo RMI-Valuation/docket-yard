@@ -20,6 +20,7 @@ SECTIONS = ("pages", "dockets", "decisions", "filings", "parties")
 STATIC_PAGES = (
     "/",
     "/parties",
+    "/search",
     "/stats",
     "/data",
     "/about",

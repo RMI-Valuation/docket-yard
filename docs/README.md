@@ -33,7 +33,7 @@ Documentation that isn't load-bearing is drag.
 | 11 | [`interface.md`](interface.md) | Design direction: trust-and-density, not-gov, HTML-first, the sheet is the product | drafted |
 | 12 | [`ingest-design.md`](ingest-design.md) | M1 module layout and the rules ingest code is built around | drafted |
 | 13 | [`contribute.md`](contribute.md) | The `/contribute` page: three lanes (ideas, code, money), what each may and may not promise | built and signed off 2026-08-26 (`/contribute`, v2026.08.26); silent on money by decision |
-| 14 | [`search.md`](search.md) | One search box: docket number fast path, FTS5 over captions, party names and decisions, `/search` without JS, `/suggest` | planning note 2026-08-26; migration 0010 to the schema-critic before build |
+| 14 | [`search.md`](search.md) | One search box: docket number fast path, FTS5 over captions, party names and decisions, `/search` without JS, `/suggest` | built 2026-08-26 (`/search`, `/suggest`, migration 0010); schema-critic reviewed |
 | 15 | [`traffic.md`](traffic.md) | Hourly request counts with no identifier; the privacy sentence the operator signs first | planning note 2026-08-26; nothing built before the sentence is signed |
 
 ## Order

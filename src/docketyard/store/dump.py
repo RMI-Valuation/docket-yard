@@ -46,6 +46,17 @@ PRIVATE_TABLES = (
 )
 # Replication bookkeeping (Litestream keeps two tables in the store); not record, not published.
 TOOL_TABLES = ("_litestream_lock", "_litestream_seq")
+# The search index (migration 0010): derived, rebuilt from the record when it changes, and
+# it carries party names — the held layer — so the snapshot ships it EMPTY: the tables stay
+# (a restored copy is at schema 10 and `docketyard search rebuild` remakes it), the rows go.
+DERIVED_TABLES = ("search_doc", "search_meta")
+SEARCH_SHADOWS = (
+    "search_fts",
+    "search_fts_config",
+    "search_fts_data",
+    "search_fts_docsize",
+    "search_fts_idx",
+)
 # Derived work held back pending the enriched-layer licence review (docs/licensing.md).
 HELD_TABLES = (
     "filing_party_link",
@@ -61,6 +72,8 @@ HELD_REASON = (
 )
 PUBLIC_TABLES = frozenset(
     {
+        *DERIVED_TABLES,  # present and empty, see above
+        *SEARCH_SHADOWS,
         "capture",
         "event",
         "docket",
@@ -125,6 +138,9 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
         out.execute("PRAGMA foreign_keys = OFF")
         for table in PRIVATE_TABLES + HELD_TABLES + TOOL_TABLES:
             out.execute(f"DROP TABLE IF EXISTS {table}")
+        for table in DERIVED_TABLES:
+            out.execute(f"DELETE FROM {table}")
+        out.execute("INSERT INTO search_fts (search_fts) VALUES ('rebuild')")  # now empty
         out.commit()
         out.execute("VACUUM")
         q = out.execute
