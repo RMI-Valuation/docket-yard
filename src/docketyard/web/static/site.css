@@ -185,3 +185,9 @@ table.moved { width: 100%; border-collapse: collapse; }
 .follow-cadence { border: 0; padding: 0; margin: 0; display: grid; gap: 4px; }
 .follow-cadence label { display: flex; gap: 8px; align-items: center; font-size: 14px; }
 .follow .btn { justify-self: start; }
+
+/* parties on record (sheet rail) */
+.parties { display: grid; gap: 4px; }
+.party-chip { font: inherit; text-align: left; background: none; border: 1px solid transparent; border-radius: 4px; padding: 2px 6px; color: var(--ink); cursor: pointer; width: 100%; }
+.party-chip:hover { border-color: var(--hair); }
+.party-chip[aria-pressed="true"] { background: var(--tint); border-color: var(--hair); }

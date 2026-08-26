@@ -15,9 +15,9 @@ by pre-commit: when it fires, prune.
   the `wave {...}` summary for `partial` months, re-run once if any, confirm the coverage
   page's "History before …" line, then delete this. Later waves (2020, 1996) are separate
   decisions
-- M6 party module: design (schema for party/alias/successor/involvement per ADR 0004 and
-  schema-draft § Parties; the resolution method and its provenance; what the sheet shows),
-  schema-critic before any migration
+- M6 remaining: subscribe by party (subscription.party_id + component join in the alert
+  builder); Cameron reviews `parties/seed.py`; after v2026.08.14 deploys, run
+  `docketyard parties resolve` on production and read FD 36873's Parties block
 - Extraction benchmark on RMI-AI-MACHINE: hand-label a sample, run local vs API, record
   method versions — background to M6
 - Whether/how to announce the wedge — the operator's call

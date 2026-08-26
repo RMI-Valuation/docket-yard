@@ -1,8 +1,9 @@
 # The party module (M6) — design
 
-> **Status: draft for review, 2026-08-26.** Implements ADR 0004 over the record the wedge
-> already holds. Schema-critic review and operator sign-off precede any migration; the
-> resolution method is versioned from day one (ADR 0007).
+> **Status: built 2026-08-26 (migration 0006, `parties/`), shipping in v2026.08.14.** Implements
+> ADR 0004 over the record the wedge holds. Schema-critic and code review applied; the split
+> rules cut 91% of the two-year record's cells at full confidence and leave the rest whole.
+> Party subscriptions are the remaining M6 piece.
 
 ## What the record shows today
 

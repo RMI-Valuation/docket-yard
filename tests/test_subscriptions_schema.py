@@ -61,7 +61,7 @@ def _carry(con, alert_id, subscription_id, event_id):
 
 def test_migration_applies_and_stamps():
     con = db.connect(":memory:")
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 5
+    assert con.execute("PRAGMA user_version").fetchone()[0] == db.MIGRATIONS[-1][0]
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     assert {"subscription", "subscription_token", "alert", "alert_event"} <= tables
     assert {"email_suppression", "coverage_gap"} <= tables

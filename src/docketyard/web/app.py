@@ -26,6 +26,7 @@ from fastapi.templating import Jinja2Templates
 from docketyard import __version__
 from docketyard.alerts import feedback, mail, subscriptions, vault
 from docketyard.ingest.dockets import find_docket, parse_docket_id
+from docketyard.parties import resolve
 from docketyard.store import coverage, home, projections, sheet
 from docketyard.store.db import MIGRATIONS
 from docketyard.web import labels, urls
@@ -201,6 +202,17 @@ def create_app(
         finally:
             con.close()
         return render(request, "home.html", week=w)
+
+    # --- parties: a facet of the record, reached by query, never an address --------------
+
+    @app.get("/parties")
+    def parties_page(request: Request, name: str = ""):
+        con = _connect(db_path)
+        try:
+            found, truncated = resolve.search(con, name) if name.strip() else ([], False)
+        finally:
+            con.close()
+        return render(request, "parties.html", query=name.strip(), found=found, truncated=truncated)
 
     # --- past weeks: fixed Monday–Sunday weeks at permanent addresses --------------------
 

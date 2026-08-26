@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Parties{% if query %} — {{ query }}{% endif %} — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Parties on record</h1>
+  <p class="muted">Who files, as the Board’s “Filed For” cells name them, resolved by rule (<a href="/methodology">how</a>). A reading aid, not an address: this view may change as resolution improves, and it is never a citation.</p>
+  <form class="search" action="/parties" method="get" role="search">
+    <input name="name" type="search" value="{{ query }}" placeholder="Part of a name — e.g. Union Pacific, BNSF, Watco" aria-label="Party name">
+  </form>
+</section>
+{% if query %}
+<section>
+  {% if truncated %}<p class="muted small">More than {{ found | length }} parties match; showing the first {{ found | length }}. Narrow the name.</p>{% endif %}
+  {% for p in found %}
+  <div class="party">
+    <h2>{{ p.name }}{% if p.members > 1 %} <span class="muted small">· {{ p.members }} spellings held to be one entity</span>{% endif %}</h2>
+    <p class="small muted">Also named as: {% for raw, kind, method, version in p.aliases %}<span class="as-printed">{{ raw }}</span> <span class="muted">({{ kind }}, {{ method }} {{ version }})</span>{% if not loop.last %}; {% endif %}{% endfor %}</p>
+    {% if p.dockets %}
+    <table class="moved">
+      <thead><tr><th scope="col">Docket</th><th scope="col" class="num">Filings</th></tr></thead>
+      <tbody>
+      {% for docket_id, raw, n in p.dockets %}
+      <tr><td class="dk"><a href="{{ docket_path(parse_docket_id(raw)) }}">{{ printed_docket(parse_docket_id(raw)) }}</a></td><td class="num">{{ n }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="muted">On record by name only; no filings resolved to it yet.</p>{% endif %}
+  </div>
+  {% else %}
+  <p class="muted">No party on record matches “{{ query }}”. Names are matched as the Board prints them; a docket sheet’s entries always show the cell in full.</p>
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

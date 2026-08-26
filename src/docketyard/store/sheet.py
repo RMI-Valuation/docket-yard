@@ -9,6 +9,7 @@ needs to link the Board's own PDF and to cite the record.
 from dataclasses import dataclass, field
 from sqlite3 import Connection
 
+from docketyard.parties import resolve
 from docketyard.store.db import load_json
 
 
@@ -32,6 +33,7 @@ class Entry:
     summary: str | None  # decisions only; the Board's own words as printed
     attachments: list[Attachment] = field(default_factory=list)
     also_in: list[str] = field(default_factory=list)  # other family dockets it was entered in
+    parties: list[int] = field(default_factory=list)  # component ids the filing was filed for
 
 
 @dataclass(frozen=True)
@@ -46,6 +48,7 @@ class DocketSheet:
     filings: int
     decisions: int
     last_checked: str | None  # latest capture that touched the family, ISO UTC
+    parties: list[dict] = field(default_factory=list)  # the Parties block (party module)
 
 
 def _family(con: Connection, docket_id: int) -> list[tuple[int, str, str | None]]:
@@ -87,11 +90,13 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
     ids = [d for d, _, _ in family]
     marks = ",".join("?" for _ in ids)
     entries: list[Entry] = []
-    for pk, fam_docket, fid, ftype, fdate, filed_for, event_id in con.execute(
+    filing_rows = con.execute(
         f"SELECT filing_pk, docket_id, stb_filing_id, filing_type, filed_date,"
         f" filed_for_raw, observed_in_event FROM filing WHERE docket_id IN ({marks})",
         ids,
-    ).fetchall():
+    ).fetchall()
+    party_map = resolve.components_of_filings(con, [r[0] for r in filing_rows])
+    for pk, fam_docket, fid, ftype, fdate, filed_for, event_id in filing_rows:
         p = _latest_payload(con, event_id)
         entries.append(
             Entry(
@@ -105,6 +110,7 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
                 deciding_body=None,
                 summary=None,
                 attachments=_attachments(con, "filing_attachment", "filing_pk", pk),
+                parties=party_map.get(pk, []),
             )
         )
     for pk, fam_docket, did, dtype, body, sdate, event_id in con.execute(
@@ -151,6 +157,7 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
         filings=sum(1 for e in entries if e.kind == "filing"),
         decisions=sum(1 for e in entries if e.kind == "decision"),
         last_checked=last,
+        parties=resolve.parties_in(con, ids),
     )
 
 

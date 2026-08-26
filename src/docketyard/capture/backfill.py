@@ -17,6 +17,7 @@ from sqlite3 import Connection
 from docketyard.capture import documents, walk
 from docketyard.capture.stb import DECISIONS, FILINGS
 from docketyard.ingest import observations
+from docketyard.parties import resolve
 from docketyard.store import projections
 
 
@@ -62,6 +63,12 @@ def wave(
             con, client, action, start, end, data_dir=data_dir, log=log
         )
         summary[f"{action}:ingest"] = ingest_pending(con, data_dir, action, log)
+    try:
+        summary["parties"] = resolve.run(con, log)
+    except Exception as e:  # noqa: BLE001 — resolution must not cost the documents
+        con.rollback()
+        summary["parties"] = f"FAILED ({type(e).__name__}: {e})"
+        log(f"parties: {summary['parties']}")
     log("=== documents")
     summary["documents"] = documents.fetch_attachments(
         con, data_dir, client.get, limit=fetch_limit, ingest_mode="backfill"

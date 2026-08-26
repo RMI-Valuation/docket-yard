@@ -38,7 +38,7 @@
 
     <ol class="plain" id="entries">
     {% for e in sheet.entries %}
-    <li class="entry{% if e.kind == 'decision' %} entry-decision{% endif %}" data-kind="{{ e.kind }}" data-type="{{ filter_key(e.kind, e.type) }}">
+    <li class="entry{% if e.kind == 'decision' %} entry-decision{% endif %}" data-kind="{{ e.kind }}" data-type="{{ filter_key(e.kind, e.type) }}" data-parties="{{ e.parties | join(' ') }}">
       <div class="entry-date muted"><time datetime="{{ e.date or '' }}">{{ e.date | fmt_date }}</time>{% if e.date_printed %}<span class="vh"> (printed as {{ e.date_printed }})</span>{% endif %}</div>
       <div class="kind{% if e.kind == 'decision' %} kind-decision{% endif %}">{{ kind_label(e.kind, e.type) }}</div>
       <div class="entry-body">
@@ -60,6 +60,17 @@
     <p class="muted small no-print" id="empty-note" aria-live="polite" hidden>Nothing of that kind in this docket.</p>
   </div>
   <aside class="rail">
+    {% if sheet.parties %}
+    <div>
+      <h2>Parties on record</h2>
+      <p class="small muted">Who filed, from the Board’s “Filed For” cells, resolved by rule (<a href="/methodology">how</a>). Nothing here says what anyone argued. Click to filter.</p>
+      <ul class="plain parties" id="parties">
+      {% for p in sheet.parties %}
+        <li><button class="party-chip" type="button" data-party="{{ p.party_id }}" aria-pressed="false">{{ p.name }}{% if p.agency %} <span class="muted small">(the agency)</span>{% endif %} <span class="muted small">· {{ p.filings }}</span></button></li>
+      {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
     {% if sheet.sub_dockets %}
     <div>
       <h2>Related proceedings</h2>
@@ -104,18 +115,32 @@
     const entries = Array.from(document.querySelectorAll("#entries .entry"));
     const note = document.getElementById("empty-note");
     const state = document.getElementById("print-state");
+    let kind = "", party = "";
+    const apply = () => {
+      let shown = 0;
+      entries.forEach((e) => {
+        const kindOk = !kind || e.dataset.kind === kind || e.dataset.type === kind;
+        const partyOk = !party || (e.dataset.parties || "").split(" ").includes(party);
+        const on = kindOk && partyOk;
+        e.hidden = !on;
+        if (on) shown++;
+      });
+      note.hidden = shown > 0;
+      if (state) state.textContent = state.textContent.replace(/^[^,]+/, kind || party ? "filtered" : "all");
+    };
     document.querySelectorAll("#filters .chip").forEach((chip) => {
       chip.addEventListener("click", () => {
         document.querySelectorAll("#filters .chip").forEach((c) => c.setAttribute("aria-pressed", String(c === chip)));
-        const f = chip.dataset.filter;
-        let shown = 0;
-        entries.forEach((e) => {
-          const on = !f || e.dataset.kind === f || e.dataset.type === f;
-          e.hidden = !on;
-          if (on) shown++;
-        });
-        note.hidden = shown > 0;
-        if (state) state.textContent = state.textContent.replace(/^[^,]+/, f ? chip.textContent.toLowerCase() : "all");
+        kind = chip.dataset.filter;
+        apply();
+      });
+    });
+    document.querySelectorAll("#parties .party-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const next = party === chip.dataset.party ? "" : chip.dataset.party;
+        document.querySelectorAll("#parties .party-chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.party === next)));
+        party = next;
+        apply();
       });
     });
   })();

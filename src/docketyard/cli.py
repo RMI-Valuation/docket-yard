@@ -9,6 +9,7 @@ from docketyard.alerts import build, mail, vault
 from docketyard.capture import backfill, documents, poll, walk
 from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS, PAGE_CLAMP, StbClient
 from docketyard.ingest import dockets, observations
+from docketyard.parties import resolve
 from docketyard.store import db, projections
 
 INGESTERS = {
@@ -144,6 +145,15 @@ def _sender():
         return None
 
 
+def _parties(args: argparse.Namespace) -> int:
+    con = db.connect(args.db)
+    if args.what == "seed":
+        print(resolve.load_seed(con))
+    else:
+        print(resolve.run(con))
+    return 0
+
+
 def _vault_new_key(args: argparse.Namespace) -> int:
     print(vault.Vault.new_key())
     return 0
@@ -238,6 +248,15 @@ def main(argv: list[str] | None = None) -> int:
     pl.add_argument("--interval", type=float, default=2.0)
     pl.add_argument("--every", type=float, help="seconds between passes; omit for one pass")
     pl.set_defaults(func=_poll, parser=pl)
+
+    pt = sub.add_parser("parties", help="the party module: split and resolve, or load the seed")
+    pt_sub = pt.add_subparsers(dest="what", required=True)
+    pt_sub.add_parser("resolve", help="split new cells and link spans to parties").set_defaults(
+        func=_parties
+    )
+    pt_sub.add_parser("seed", help="load parties/seed.py (method human)").set_defaults(
+        func=_parties
+    )
 
     vk = sub.add_parser("vault", help="the address-encryption key")
     vk_sub = vk.add_subparsers(dest="what", required=True)

@@ -19,6 +19,7 @@ from sqlite3 import Connection
 from docketyard.capture import documents, walk
 from docketyard.capture.stb import DECISIONS, FILINGS
 from docketyard.ingest import observations
+from docketyard.parties import resolve
 from docketyard.store import projections
 
 WINDOW_DAYS = 7
@@ -119,6 +120,11 @@ def forward_pass(
         # ingest needs no network: whatever an earlier pass left asserted-but-pending is
         # consumed even while the endpoint is down
         summary["ingested"][action] = _ingest_pending(con, data_dir, action, summary["problems"])
+    try:
+        summary["parties"] = resolve.run(con, log=lambda _: None)
+    except Exception as e:  # noqa: BLE001 — a resolution bug must not cost the capture
+        con.rollback()
+        summary["problems"].append(f"party resolution failed ({type(e).__name__}: {e})")
     try:
         fetched = documents.fetch_attachments(
             con,
