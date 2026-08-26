@@ -51,6 +51,10 @@ name or meaning; `tests/test_data.py` pins the key set so a rename cannot pass u
 
 ## Not built, deliberately
 
+The search index (`search_doc`, `search_fts`; migration 0010) — derived, rebuilt from the
+record when it changes, and it carries party names, so the snapshot ships the tables empty;
+a full restore (Litestream) rebuilds it with `docketyard search rebuild`.
+
 A query API (search, filters) — the snapshot answers every whole-record question and the
 sheet JSON every per-docket one; anything more waits for a request. Documents in bulk —
 150–250 GB once wave 3 lands; a public S3 prefix is the natural route when someone needs it.

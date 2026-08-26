@@ -55,6 +55,10 @@ main { padding: 0 56px; }
 .wordmark { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
 .nav { display: flex; gap: 22px; font-size: 14px; }
 .nav a { color: var(--ink); font-weight: 500; }
+.lookup { position: relative; }
+.suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin: 4px 0 0; padding: 4px 0; list-style: none; background: var(--paper); border: 1px solid var(--hair); border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+.suggest li a { display: block; padding: 6px 12px; color: var(--ink); text-decoration: none; }
+.suggest li[aria-selected="true"] a, .suggest li a:hover { background: var(--tint); }
 .lookup input { width: 320px; height: 36px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 4px; font: inherit; font-size: 14px; background: var(--paper); color: var(--ink); }
 
 /* home */

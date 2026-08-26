@@ -42,8 +42,9 @@
         <a href="/stats">Statistics</a>
       </nav>
     </div>
-    <form class="lookup" action="/d" method="get" role="search">
-      <input name="q" type="search" placeholder="Docket number, e.g. FD 36873" aria-label="Docket number">
+    <form class="lookup" action="/search" method="get" role="search">
+      <input id="q" name="q" type="search" placeholder="Docket number, party, or caption words" aria-label="Search the record" autocomplete="off" aria-autocomplete="list" aria-controls="suggest" aria-expanded="false">
+      <ul id="suggest" class="suggest" role="listbox" hidden></ul>
     </form>
   </header>
   <main id="main">{% block main %}{% endblock %}</main>
@@ -90,6 +91,43 @@
       });
     });
     document.querySelectorAll("[data-print]").forEach((b) => b.addEventListener("click", () => window.print()));
+  })();
+  // as-you-type suggestions: /suggest answers a few rows; nothing is stored, and without
+  // script the box is the /search form
+  (function () {
+    const box = document.getElementById("q"), list = document.getElementById("suggest");
+    if (!box || !list) return;
+    let timer = null, active = -1, rows = [];
+    const close = () => { list.hidden = true; list.innerHTML = ""; box.setAttribute("aria-expanded", "false"); box.removeAttribute("aria-activedescendant"); active = -1; rows = []; };
+    const render = (hits) => {
+      rows = hits; list.innerHTML = ""; active = -1; box.removeAttribute("aria-activedescendant");
+      hits.forEach((h, i) => {
+        const li = document.createElement("li"); li.setAttribute("role", "option"); li.id = "sg-" + i;
+        const a = document.createElement("a"); a.href = h.path;
+        const t = document.createElement("span"); t.textContent = h.title; a.appendChild(t);
+        const f = document.createElement("span"); f.className = "muted small"; f.textContent = " · " + h.kind + " · " + h.fact; a.appendChild(f);
+        li.appendChild(a); list.appendChild(li);
+      });
+      list.hidden = hits.length === 0; box.setAttribute("aria-expanded", String(hits.length > 0));
+    };
+    box.addEventListener("input", () => {
+      clearTimeout(timer); const q = box.value.trim();
+      if (q.length < 2) { close(); return; }
+      timer = setTimeout(() => {
+        fetch("/suggest?q=" + encodeURIComponent(q), { headers: { Accept: "application/json" } })
+          .then((r) => r.ok ? r.json() : { hits: [] }).then((d) => { if (box.value.trim() === q) render(d.hits || []); }).catch(close);
+      }, 150);
+    });
+    box.addEventListener("keydown", (e) => {
+      if (list.hidden) return;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault(); active = active < 0 && e.key === "ArrowUp" ? rows.length - 1 : (active + (e.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length;
+        [...list.children].forEach((li, i) => li.setAttribute("aria-selected", String(i === active)));
+        box.setAttribute("aria-activedescendant", "sg-" + active);
+      } else if (e.key === "Enter" && active >= 0 && rows[active]) { e.preventDefault(); location.href = rows[active].path; }
+      else if (e.key === "Escape") close();
+    });
+    document.addEventListener("click", (e) => { if (!list.contains(e.target) && e.target !== box) close(); });
   })();
 </script>
 </body>
