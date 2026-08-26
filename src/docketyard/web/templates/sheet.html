@@ -4,66 +4,83 @@
 {% block description %}{{ sheet.title or printed }}{% endblock %}
 {% block main %}
 <section class="caption">
-  <div class="caption-meta muted small">{{ identity.prefix }} docket · before the Surface Transportation Board</div>
+  <div class="caption-meta"><span class="label">{{ prefix_name(identity.prefix) }}</span><span>Before the Surface Transportation Board</span></div>
   <h1 class="serif docket-number">{{ printed }}</h1>
-  {% if sheet.title %}<p class="serif caption-title as-printed">{{ sheet.title }}</p>{% else %}<p class="muted">This docket has not yet been observed directly in the Board’s dockets table; its entries below come from filings and decisions that name it.</p>{% endif %}
+  <p class="print-only small muted">{{ site_name }} · docketyard.org{{ docket_path(identity) }} · entries shown: <span id="print-state">all, {{ 'oldest' if order == 'oldest' else 'newest' }} first</span></p>
+  {% if sheet.title %}<p class="serif caption-title as-printed">{{ sheet.title }}</p>{% else %}<p class="caption-note muted">This docket has not yet been observed directly in the Board’s dockets table; its entries below come from filings and decisions that name it.</p>{% endif %}
   {% if sheet.sub_dockets %}
-  <p class="small muted">Sub-dockets, included below:
+  <p class="caption-note muted">Caption from the Board’s record. Sub-dockets, included below:
     {% for did, raw, title in sheet.sub_dockets %}<a href="{{ docket_path(parse_docket_id(raw)) }}">{{ printed_docket(parse_docket_id(raw)) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
   </p>
-  {% endif %}
-  <p class="serif record-summary muted">{{ sheet.filings }} filings and {{ sheet.decisions }} decisions in the record{% if sheet.last_checked %}; last checked {{ sheet.last_checked | fmt_when }}{% endif %}.</p>
+  {% elif sheet.title %}<p class="caption-note muted">Caption from the Board’s record.</p>{% endif %}
+  <p class="serif record-summary muted">{{ sheet.filings | plural('filing') }} and {{ sheet.decisions | plural('decision') }} observed here{% if sheet.last_checked %}; last checked {{ sheet.last_checked | fmt_when }}{% endif %}.</p>
   <div class="actions no-print">
     <a class="btn" href="#cite">Cite</a>
-    <button class="btn" type="button" onclick="window.print()">Print</button>
+    <button class="btn" type="button" data-print>Print</button>
+    <a class="ext" href="https://www.stb.gov/proceedings-actions/search-stb-records/" rel="noopener">View on stb.gov</a>
   </div>
 </section>
 
 <section class="two-col">
   <div>
+    <h2 class="vh">Entries</h2>
     <div class="toolbar no-print">
       <div class="chips" id="filters" role="group" aria-label="Show">
-        <button class="chip chip-on" type="button" data-filter="">All entries</button>
-        <button class="chip" type="button" data-filter="decision">Decisions</button>
-        <button class="chip" type="button" data-filter="filing">Filings</button>
-        {% for key, label in kinds %}<button class="chip" type="button" data-filter="{{ key }}">{{ label }}</button>{% endfor %}
+        <button class="chip" type="button" data-filter="" aria-pressed="true">All entries</button>
+        <button class="chip" type="button" data-filter="decision" aria-pressed="false">Decisions</button>
+        <button class="chip" type="button" data-filter="filing" aria-pressed="false">Filings</button>
+        {% for key, label in kinds %}<button class="chip" type="button" data-filter="{{ key }}" aria-pressed="false">{{ label }}</button>{% endfor %}
       </div>
       <div class="toolbar-right small">
-        {% if order == 'oldest' %}<a href="?">Newest first</a> · <span>Oldest first</span>{% else %}<span>Newest first</span> · <a href="?order=oldest">Oldest first</a>{% endif %}
+        {% if order == 'oldest' %}<a href="?">Newest first</a> · <span aria-current="true">oldest first</span>{% else %}<span aria-current="true">Newest first</span> · <a href="?order=oldest">oldest first</a>{% endif %}
       </div>
     </div>
 
-    <div id="entries">
+    <ol class="plain" id="entries">
     {% for e in sheet.entries %}
-    <div class="entry{% if e.kind == 'decision' %} entry-decision{% endif %}" data-kind="{{ e.kind }}" data-type="{{ filter_key(e.kind, e.type) }}">
-      <div class="entry-date muted" title="As printed: {{ e.date_printed or '' }}">{{ e.date | fmt_date }}</div>
+    <li class="entry{% if e.kind == 'decision' %} entry-decision{% endif %}" data-kind="{{ e.kind }}" data-type="{{ filter_key(e.kind, e.type) }}">
+      <div class="entry-date muted"><time datetime="{{ e.date or '' }}">{{ e.date | fmt_date }}</time>{% if e.date_printed %}<span class="vh"> (printed as {{ e.date_printed }})</span>{% endif %}</div>
       <div class="kind{% if e.kind == 'decision' %} kind-decision{% endif %}">{{ kind_label(e.kind, e.type) }}</div>
       <div class="entry-body">
-        <div class="entry-title"><span class="id">{{ e.record_id }}</span>
-          {% if e.kind == 'decision' %}{{ e.deciding_body or 'Decision' }}{% else %}{{ e.type or 'Filing' }}{% endif %}
+        <div class="entry-title"><span class="id">{{ e.record_id }}</span><a href="{{ decision_path(e.record_id) if e.kind == 'decision' else filing_path(e.record_id) }}" aria-label="{{ 'Decision' if e.kind == 'decision' else 'Filing' }} {{ e.record_id }}: permanent address">{% if e.kind == 'decision' %}{{ e.deciding_body or 'Decision' }}{% else %}{{ e.type or 'Filing' }}{% endif %}</a>
           {% if e.docket_raw != sheet.raw_docket %}<span class="muted small">· in {{ printed_docket(parse_docket_id(e.docket_raw)) }}</span>{% endif %}
           {% if e.also_in %}<span class="muted small">· also entered in {% for raw in e.also_in %}{{ printed_docket(parse_docket_id(raw)) }}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
         </div>
         {% if e.kind == 'decision' and e.summary %}<div class="summary as-printed">{{ e.summary }}</div>{% endif %}
-        {% if e.kind == 'filing' and e.filed_for_raw %}<div class="entry-for as-printed">{{ e.filed_for_raw }}</div>{% endif %}
+        {% if e.kind == 'filing' and e.filed_for_raw %}<div class="entry-for as-printed">{{ display_filed_for(e.filed_for_raw) }}</div>{% endif %}
       </div>
       <div class="entry-links">
-        {% for a in e.attachments %}<a class="pdf" href="{{ a.url }}" title="{{ a.label or 'Attachment' }} (the Board’s own file)">{{ a.label or 'file' }}</a>{% endfor %}
-        <a class="small" href="{{ decision_path(e.record_id) if e.kind == 'decision' else filing_path(e.record_id) }}">permalink</a>
+        {% for a in e.attachments %}<a class="pdf" href="{{ a.url }}" aria-label="The Board’s file for {{ 'decision' if e.kind == 'decision' else 'filing' }} {{ e.record_id }}{% if a.label %} ({{ a.label }}){% endif %}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>{% endfor %}
       </div>
-    </div>
+    </li>
     {% else %}
-    <p class="muted">No filings or decisions observed yet for this docket.</p>
+    <li class="muted">No filings or decisions observed yet for this docket.</li>
     {% endfor %}
-    </div>
-    <p class="muted small no-print" id="empty-note" hidden>Nothing of that kind in this docket.</p>
+    </ol>
+    <p class="muted small no-print" id="empty-note" aria-live="polite" hidden>Nothing of that kind in this docket.</p>
   </div>
   <aside class="rail">
-    <h2 id="cite">Cite this docket</h2>
-    <p class="cite serif">{{ cite_docket(identity) }}</p>
-    <p class="small muted">Permanent address<br><span class="mono">docketyard.org{{ docket_path(identity) }}</span></p>
-    <h2>About this record</h2>
-    <p class="small">Every entry links to the Board’s own file. Dates are quoted from the record, never computed. Captions and summaries appear as the Board prints them.</p>
+    {% if sheet.sub_dockets %}
+    <div>
+      <h2>Related proceedings</h2>
+      {% for did, raw, title in sheet.sub_dockets %}
+      <p><a href="{{ docket_path(parse_docket_id(raw)) }}" style="font-weight: 500;">{{ printed_docket(parse_docket_id(raw)) }}</a>{% if title %}<br><span class="small muted as-printed">{{ title }}</span>{% endif %}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div>
+      <h2 id="cite">Cite this docket</h2>
+      <p class="cite serif">{{ cite_docket(identity) }}</p>
+      <p class="small muted">Permanent address<br><span class="mono">docketyard.org{{ docket_path(identity) }}</span></p>
+    </div>
+    <div>
+      <h2>About this record</h2>
+      <p>Every entry links to the Board’s own file. Dates are quoted from the record, never computed. Captions and summaries appear as the Board prints them. Source: <a href="https://www.stb.gov/proceedings-actions/search-stb-records/" rel="noopener">STB record search</a>.</p>
+    </div>
+    <div>
+      <h2>Corrections</h2>
+      <p class="muted">Something wrong on this sheet? Every entry carries its source, so a correction propagates everywhere the entry appears. A corrections page is being written.</p>
+    </div>
   </aside>
 </section>
 <script>
@@ -71,9 +88,10 @@
     // filters: client-side, nothing leaves the page
     const entries = Array.from(document.querySelectorAll("#entries .entry"));
     const note = document.getElementById("empty-note");
+    const state = document.getElementById("print-state");
     document.querySelectorAll("#filters .chip").forEach((chip) => {
       chip.addEventListener("click", () => {
-        document.querySelectorAll("#filters .chip").forEach((c) => c.classList.toggle("chip-on", c === chip));
+        document.querySelectorAll("#filters .chip").forEach((c) => c.setAttribute("aria-pressed", String(c === chip)));
         const f = chip.dataset.filter;
         let shown = 0;
         entries.forEach((e) => {
@@ -82,6 +100,7 @@
           if (on) shown++;
         });
         note.hidden = shown > 0;
+        if (state) state.textContent = state.textContent.replace(/^[^,]+/, f ? chip.textContent.toLowerCase() : "all");
       });
     });
   })();

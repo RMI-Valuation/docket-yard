@@ -156,7 +156,10 @@ def test_home_lists_the_week_once_per_record(client):
     assert "not affiliated" in r.text
     assert r.text.count("ORDERED REPLIES DUE") == 1  # entered in two dockets, shown once
     assert "also entered in" in r.text and 'href="/d/FD-36873/sub/1"' in r.text
-    assert '2</span><span class="l">filings, in 1 proceedings' in r.text  # folded by family
+    assert "(one entered in two dockets)" in r.text
+    assert '2</span><span class="l">filings observed, in 1 proceeding<' in r.text  # by family
+    assert "<table" in r.text and '<th scope="col">Docket</th>' in r.text
+    assert "19–25 August 2026" in r.text
 
 
 def test_this_week_is_seven_days_and_never_in_the_future(tmp_path):
@@ -173,8 +176,10 @@ def test_sheet_at_its_permanent_address(client):
     assert r.status_code == 200
     assert "UP/NS CONTROL" in r.text
     assert "311900" in r.text  # the sub-docket's own entry is included
-    assert r.text.count("permalink") == 3  # 311981, 311900, 53210 — each once
+    for link in ('href="/filing/311981"', 'href="/filing/311900"', 'href="/decision/53210"'):
+        assert r.text.count(link) == 1, link  # each record once, its title the permalink
     assert "Sub-No. 1" in r.text
+    assert "Related proceedings" in r.text and "Finance Docket" in r.text
     assert "STB Finance Docket No. 36873" in r.text
     assert "docketyard.org/d/FD-36873" in r.text  # cite-this emits the canonical address
     assert "Set-Cookie" not in r.headers  # reading leaves no trace (ADR 0011)
@@ -223,8 +228,32 @@ def test_sheet_toolbar_filters_and_order(client):
     # the preference strip is site-wide and above the masthead, on every page
     for page in (r.text, client.get("/").text):
         assert page.index('class="prefs') < page.index('class="masthead')
-        assert 'data-pref="density"' in page
-    assert "25 Aug 2026" in r.text and 'title="As printed: 8/25/2026"' in r.text
+        assert 'data-pref="density" data-value="compact" aria-pressed="false"' in page
+    assert 'datetime="2026-08-25">25 Aug 2026</time>' in r.text
+    assert "(printed as 8/25/2026)" in r.text  # the quoted form is real text, not a tooltip
+    assert 'aria-pressed="true">All entries' in r.text
+
+
+def test_display_helpers():
+    from docketyard.web import labels
+    from docketyard.web.app import fmt_range
+
+    thrice = ", ".join(["Grand Trunk Corporation, on behalf of itself and its subsidiaries"] * 3)
+    assert labels.display_filed_for(thrice) == (
+        "Grand Trunk Corporation, on behalf of itself and its subsidiaries"
+    )
+    two_parties = "Norfolk Southern Corporation, Union Pacific Corporation"
+    assert labels.display_filed_for(two_parties) == two_parties  # different parties stay
+    assert labels.plural(1, "filing") == "1 filing" and labels.plural(2, "filing") == "2 filings"
+    assert labels.kind_label("filing", "Support Statem") == "Statement"
+    assert (
+        labels.prefix_name("FD") == "Finance Docket" and labels.prefix_name("NOR") == "NOR docket"
+    )
+    assert fmt_range("2026-08-18", "2026-08-25") == "18–25 August 2026"
+    assert fmt_range("2026-07-28", "2026-08-03") == "28 July – 3 August 2026"
+
+
+def test_sheet_order(client):
     newest = client.get("/d/FD-36873").text
     oldest = client.get("/d/FD-36873?order=oldest").text
     assert newest.index("311981") < newest.index("311900")

@@ -5,9 +5,9 @@
 <section class="caption">
   <div class="caption-meta muted small"><a href="{{ docket_path(identity) }}">{{ printed_docket(identity) }}</a>{% if sheet.title %} · <span class="as-printed">{{ sheet.title }}</span>{% endif %}</div>
   <h1 class="serif docket-number">{{ 'Decision' if entry.kind == 'decision' else 'Filing' }} {{ entry.record_id }}</h1>
-  <p class="muted" title="As printed: {{ entry.date_printed or '' }}">{{ entry.date | fmt_date }}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}</p>
+  <p class="muted"><time datetime="{{ entry.date or '' }}">{{ entry.date | fmt_date }}</time>{% if entry.date_printed %} <span class="small">(printed as {{ entry.date_printed }})</span>{% endif %}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}</p>
   {% if entry.summary %}<p class="serif summary as-printed">{{ entry.summary }}</p>{% endif %}
-  {% if entry.filed_for_raw %}<p>Filed for: <span class="as-printed">{{ entry.filed_for_raw }}</span></p>{% endif %}
+  {% if entry.filed_for_raw %}<p>Filed for: <span class="as-printed">{{ display_filed_for(entry.filed_for_raw) }}</span></p>{% endif %}
   <p>
     {% for a in entry.attachments %}<a class="btn" href="{{ a.url }}">{{ a.label or 'The Board’s file' }}</a> {% endfor %}
   </p>

@@ -1,9 +1,9 @@
-"""Presentation labels for the sheet's kind column.
+"""Presentation labels and display helpers.
 
-A short label derived from the Board's own filing-type string so the column scans; the
-full type still appears on the entry. This groups the record's *type labels* for display —
-it says nothing about what a document argues, and never looks at who filed it (a filing
-from the Board itself is labelled by its type like any other).
+A short kind label is derived from the Board's own filing-type string so the column scans;
+the full type still appears on the entry. This groups the record's *type labels* for
+display — it says nothing about what a document argues, and never looks at who filed it (a
+filing from the Board itself is labelled by its type like any other).
 """
 
 _RULES: tuple[tuple[str, str], ...] = (
@@ -24,8 +24,13 @@ _RULES: tuple[tuple[str, str], ...] = (
     ("application", "Application"),
     ("brief", "Brief"),
     ("errata", "Errata"),
+    ("support statem", "Statement"),
+    ("statement", "Statement"),
     ("miscellaneous", "Misc."),
 )
+
+# the Board's docket-prefix names, only the ones its own materials spell out
+PREFIX_NAMES = {"FD": "Finance Docket", "AB": "Abandonment", "EP": "Ex Parte"}
 
 
 def kind_label(kind: str, filing_type: str | None) -> str:
@@ -35,9 +40,31 @@ def kind_label(kind: str, filing_type: str | None) -> str:
     for needle, label in _RULES:
         if needle in text:
             return label
-    return (filing_type or "Filing").split("/")[0].split("(")[0].strip()[:14] or "Filing"
+    first = (filing_type or "Filing").split("/")[0].split("(")[0].strip().split(" ")[0]
+    return first or "Filing"
 
 
 def filter_key(kind: str, filing_type: str | None) -> str:
     """The data attribute the filter chips match on."""
     return kind_label(kind, filing_type).lower().rstrip(".")
+
+
+def prefix_name(prefix: str) -> str:
+    return PREFIX_NAMES.get(prefix, f"{prefix} docket")
+
+
+def display_filed_for(raw: str) -> str:
+    """The Board's cell sometimes repeats one party several times over (measured). Show a
+    repeated identical run once; the raw cell is untouched in the store and on the record."""
+    for i in range(1, len(raw)):
+        if raw.startswith(", ", i):
+            unit = raw[:i]
+            n, rem = divmod(len(raw) - len(unit), len(unit) + 2)
+            if n >= 1 and rem == 0 and raw == ", ".join([unit] * (n + 1)):
+                return unit
+    return raw
+
+
+def plural(n: int, noun: str, plural_form: str | None = None) -> str:
+    word = noun if n == 1 else (plural_form or noun + "s")
+    return f"{n} {word}"

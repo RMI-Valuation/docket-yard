@@ -42,6 +42,7 @@ class Week:
     checked: str | None
     decisions: list[DecisionServed]
     distinct_decisions: int
+    decision_entries: int  # record rows, counting a decision once per docket it is entered in
     moved: list[ProceedingMoved]
     filings: int
 
@@ -112,6 +113,7 @@ def week(con: Connection, start: str, end: str) -> Week:
         checked=checked,
         decisions=decisions,
         distinct_decisions=len(decisions),
+        decision_entries=len(rows),
         moved=moved,
         filings=sum(m.filings for m in moved),
     )

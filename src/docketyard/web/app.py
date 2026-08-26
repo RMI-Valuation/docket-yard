@@ -67,6 +67,30 @@ def fmt_date(value: str | None) -> str:
     return f"{d.day} {d.strftime('%b %Y')}"
 
 
+def fmt_day_month(value: str | None) -> str:
+    """25 Aug — for a column whose year is stated once above it."""
+    if not value:
+        return ""
+    try:
+        d = date.fromisoformat(value[:10])
+    except ValueError:
+        return value
+    return f"{d.day} {d.strftime('%b')}"
+
+
+def fmt_range(start: str, end: str) -> str:
+    """18–25 August 2026, collapsing what the two dates share."""
+    try:
+        a, b = date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError:
+        return f"{start} to {end}"
+    if (a.year, a.month) == (b.year, b.month):
+        return f"{a.day}–{b.day} {b.strftime('%B %Y')}"
+    if a.year == b.year:
+        return f"{a.day} {a.strftime('%B')} – {b.day} {b.strftime('%B %Y')}"
+    return f"{a.day} {a.strftime('%B %Y')} – {b.day} {b.strftime('%B %Y')}"
+
+
 def fmt_when(value: str | None) -> str:
     """A capture timestamp: 25 Aug 2026, 14:35 UTC."""
     if not value:
@@ -93,6 +117,13 @@ def create_app(db_path: str | Path, *, site_name: str = "Docket Yard") -> FastAP
     templates = Jinja2Templates(directory=str(_PKG / "templates"))
     templates.env.filters["fmt_date"] = fmt_date
     templates.env.filters["fmt_when"] = fmt_when
+    templates.env.filters["fmt_day_month"] = fmt_day_month
+    templates.env.filters["plural"] = labels.plural
+    templates.env.globals.update(
+        fmt_range=fmt_range,
+        prefix_name=labels.prefix_name,
+        display_filed_for=labels.display_filed_for,
+    )
     templates.env.globals.update(
         site_name=site_name,
         docket_path=urls.docket_path,
