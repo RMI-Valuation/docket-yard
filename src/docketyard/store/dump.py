@@ -46,6 +46,10 @@ PRIVATE_TABLES = (
 )
 # Replication bookkeeping (Litestream keeps two tables in the store); not record, not published.
 TOOL_TABLES = ("_litestream_lock", "_litestream_seq")
+# The search index (migration 0010): derived, rebuilt from the record after every pass, and
+# it carries party names — the held layer — so it is never in the snapshot. `docketyard
+# search rebuild` remakes it from a restored copy. The FTS table's shadows go with it.
+DERIVED_TABLES = ("search_fts", "search_doc")
 # Derived work held back pending the enriched-layer licence review (docs/licensing.md).
 HELD_TABLES = (
     "filing_party_link",
@@ -123,7 +127,7 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
     out = sqlite3.connect(dst)
     try:
         out.execute("PRAGMA foreign_keys = OFF")
-        for table in PRIVATE_TABLES + HELD_TABLES + TOOL_TABLES:
+        for table in PRIVATE_TABLES + HELD_TABLES + TOOL_TABLES + DERIVED_TABLES:
             out.execute(f"DROP TABLE IF EXISTS {table}")
         out.commit()
         out.execute("VACUUM")

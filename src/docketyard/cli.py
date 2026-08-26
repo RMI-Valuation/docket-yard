@@ -11,7 +11,7 @@ from docketyard.capture import backfill, documents, poll, walk
 from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS, PAGE_CLAMP, StbClient
 from docketyard.ingest import dockets, observations
 from docketyard.parties import resolve
-from docketyard.store import db, projections
+from docketyard.store import db, projections, search
 
 INGESTERS = {
     DOCKETS: dockets.ingest_capture,
@@ -175,6 +175,11 @@ def _parties(args: argparse.Namespace) -> int:
     return 0
 
 
+def _search_rebuild(args: argparse.Namespace) -> int:
+    print(search.rebuild(db.connect(args.db)))
+    return 0
+
+
 def _vault_new_key(args: argparse.Namespace) -> int:
     print(vault.Vault.new_key())
     return 0
@@ -323,6 +328,12 @@ def main(argv: list[str] | None = None) -> int:
         if what == "join":
             pj.add_argument("--cite", default=None, help="a filing or decision id, or a URL")
         pj.set_defaults(func=_parties)
+
+    se = sub.add_parser("search", help="the search index (docs/search.md)")
+    se_sub = se.add_subparsers(dest="what", required=True)
+    se_sub.add_parser("rebuild", help="rebuild the index from the store").set_defaults(
+        func=_search_rebuild
+    )
 
     vk = sub.add_parser("vault", help="the address-encryption key")
     vk_sub = vk.add_subparsers(dest="what", required=True)

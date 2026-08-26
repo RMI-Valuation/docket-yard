@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{% if query %}{{ query }} — search — {{ site_name }}{% else %}Search — {{ site_name }}{% endif %}{% endblock %}
+{% block description %}Search the record: a docket number, a party's name, or words from a caption or a decision.{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Search the record</h1>
+  <p class="muted">A docket number opens its sheet. Anything else is matched against captions as the Board prints them, every name a party is on record under, and the Board's printed decision summaries. Nothing you search for is kept.</p>
+  <form class="search" action="/search" method="get" role="search">
+    <input name="q" type="search" value="{{ query }}" placeholder="FD 36873, Union Pacific, or words from a caption" aria-label="Search">
+  </form>
+</section>
+{% if query %}
+<section>
+  {% if hits %}
+  <p class="small muted">{{ hits | length }} result{% if hits | length != 1 %}s{% endif %}{% if hits | length == 50 %} (the first fifty; narrow the words){% endif %}.</p>
+  <table class="moved">
+    <thead><tr><th scope="col">Kind</th><th scope="col">Result</th><th scope="col">On record</th></tr></thead>
+    <tbody>
+    {% for h in hits %}
+    <tr><td class="dk">{{ h.kind }}</td><td><a href="{{ h.address }}"{% if h.kind != 'party' %} class="as-printed"{% endif %}>{{ h.title }}</a></td><td class="small muted">{{ h.fact }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Nothing on record matches “{{ query }}”. Names and captions are matched as the Board prints them; a docket number in any spelling opens its sheet directly.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
