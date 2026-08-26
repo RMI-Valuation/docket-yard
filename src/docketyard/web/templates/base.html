@@ -102,7 +102,7 @@
     const render = (hits) => {
       rows = hits; list.innerHTML = ""; active = -1; box.removeAttribute("aria-activedescendant");
       hits.forEach((h, i) => {
-        const li = document.createElement("li"); li.role = "option"; li.id = "sg-" + i;
+        const li = document.createElement("li"); li.setAttribute("role", "option"); li.id = "sg-" + i;
         const a = document.createElement("a"); a.href = h.path;
         const t = document.createElement("span"); t.textContent = h.title; a.appendChild(t);
         const f = document.createElement("span"); f.className = "muted small"; f.textContent = " · " + h.kind + " · " + h.fact; a.appendChild(f);

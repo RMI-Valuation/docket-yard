@@ -21,7 +21,7 @@ LIMIT = 50  # results on /search
 SUGGEST = 8  # rows /suggest answers
 MAX_QUERY = 200  # characters a query is cut to before anything looks at it
 MIN_PREFIX = 2  # characters before a prefix query is asked (mirrors the page's script)
-_TOKEN = re.compile(r"[0-9A-Za-zÀ-ɏ]+")
+_TOKEN = re.compile(r"[^\W_]+")
 
 
 @dataclass(frozen=True)
@@ -124,14 +124,17 @@ def _decision_docs(con: Connection):
     docket and its sub-docket is one page), headlined by the docket nearest the parent."""
     for pk, sid, raw, date, summary in con.execute(
         """
-        SELECT r.decision_pk, r.stb_decision_id, d.raw_docket, r.service_date,
-               json_extract(e.payload, '$.summary') AS summary
-          FROM decision_record r
-          JOIN docket d ON d.docket_id = r.docket_id
-          JOIN event e ON e.event_id = r.observed_in_event
-         WHERE TRIM(COALESCE(json_extract(e.payload, '$.summary'), '')) <> ''
-         GROUP BY r.stb_decision_id
-        HAVING MIN(COALESCE(d.sub_sequence, -1)) = COALESCE(d.sub_sequence, -1)
+        SELECT decision_pk, stb_decision_id, raw_docket, service_date, summary
+          FROM (SELECT r.decision_pk, r.stb_decision_id, d.raw_docket, r.service_date,
+                       json_extract(e.payload, '$.summary') AS summary,
+                       ROW_NUMBER() OVER (PARTITION BY r.stb_decision_id
+                                          ORDER BY COALESCE(d.sub_sequence, -1),
+                                                   COALESCE(d.suffix, '')) AS nearest
+                  FROM decision_record r
+                  JOIN docket d ON d.docket_id = r.docket_id
+                  JOIN event e ON e.event_id = r.observed_in_event
+                 WHERE TRIM(COALESCE(json_extract(e.payload, '$.summary'), '')) <> '')
+         WHERE nearest = 1
         """
     ):
         ident = parse_docket_id(raw)
@@ -143,14 +146,20 @@ def _decision_docs(con: Connection):
 
 def signature(con: Connection) -> str:
     """What the index depends on, as one string: the newest event, name, link, edge and
-    correction. Unchanged signature, unchanged index."""
+    correction, and how many names, links and edges have been retired (a re-split or a
+    withdrawal supersedes rows without inserting any). Unchanged signature, unchanged
+    index."""
     return ".".join(
         str(v or 0)
         for v in con.execute(
             "SELECT (SELECT MAX(event_id) FROM event), (SELECT MAX(name_id) FROM party_name),"
             " (SELECT MAX(link_id) FROM filing_party_link),"
             " (SELECT MAX(edge_id) FROM party_relationship),"
-            " (SELECT MAX(correction_id) FROM correction)"
+            " (SELECT MAX(correction_id) FROM correction),"
+            " (SELECT COUNT(*) FROM party_name WHERE superseded_by IS NOT NULL),"
+            " (SELECT COUNT(*) FROM filing_party_link WHERE superseded_by IS NOT NULL),"
+            " (SELECT COUNT(*) FROM filing_party_span WHERE superseded_by IS NOT NULL),"
+            " (SELECT COUNT(*) FROM party_relationship WHERE superseded_by IS NOT NULL)"
         ).fetchone()
     )
 
@@ -196,6 +205,17 @@ def rebuild(con: Connection, *, force: bool = False) -> dict:
     return counts
 
 
+def rebuild_or_report(con: Connection, problems: list[str]) -> dict | None:
+    """What a pass calls: the index is a convenience and the record comes first, so a
+    failure is rolled back and reported as a problem, never raised."""
+    try:
+        return rebuild(con)
+    except Exception as e:  # noqa: BLE001
+        con.rollback()
+        problems.append(f"search rebuild failed ({type(e).__name__}: {e})")
+        return None
+
+
 # --- the query -----------------------------------------------------------------------------
 
 
@@ -238,6 +258,15 @@ def held_docket(con: Connection, text: str) -> Hit | None:
     nothing — and then the words are a search like any other."""
     identity = urls.lookup(text)
     if identity is None:
+        return None
+    # the ingest grammar reads a trailing word as a suffix ("AB 55 Peoria" → suffix PEORIA);
+    # the fast path applies only when every typed token is part of the number itself
+    if identity.suffix and len(identity.suffix) > 3:  # a word read as a suffix (X, A, L, M, C)
+        return None
+    typed = {t.lower() for t in _TOKEN.findall(text)} - {"sub", "no"}
+    parts = [identity.prefix, str(identity.sequence), identity.sub_sequence, identity.suffix]
+    number = {str(part).lower() for part in parts if part is not None}
+    if typed != number:
         return None
     for candidate in (identity, identity.parent()):
         if candidate is not None and find_docket(con, candidate) is not None:

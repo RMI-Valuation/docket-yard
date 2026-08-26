@@ -77,10 +77,6 @@ def wave(
         limit=fetch_limit,
         ingest_mode="backfill",
     )
-    try:
-        summary["search"] = search.rebuild(con)
-    except Exception as e:  # noqa: BLE001
-        con.rollback()
-        summary["search"] = f"FAILED ({type(e).__name__}: {e})"
+    summary["search"] = search.rebuild_or_report(con, summary.setdefault("problems", []))
     log(f"wave {summary}")
     return summary
