@@ -199,12 +199,16 @@ def create_app(
         them — and it costs two primary-key lookups, not a render."""
         con = _connect(db_path)
         try:
-            c, e = con.execute(
-                "SELECT (SELECT MAX(capture_id) FROM capture), (SELECT MAX(event_id) FROM event)"
+            c, e, r, k = con.execute(
+                "SELECT (SELECT MAX(capture_id) FROM capture), (SELECT MAX(event_id) FROM event),"
+                " (SELECT MAX(edge_id) FROM party_relationship),"
+                " (SELECT MAX(correction_id) FROM correction)"
             ).fetchone()
         finally:
             con.close()
-        return f"{c or 0}.{e or 0}"
+        # an operator's join or unjoin (ADR 0015) moves addresses without a capture: the
+        # newest edge and the newest correction are part of the version
+        return f"{c or 0}.{e or 0}.{r or 0}.{k or 0}"
 
     @app.middleware("http")
     async def http_hygiene(request: Request, call_next):
@@ -253,7 +257,7 @@ def create_app(
     def sitemap_index():
         con = _connect(db_path)
         try:
-            return public(sitemaps.index(con, site_host), XML)
+            return public(sitemaps.index(con, site_host, stamp()), XML)
         finally:
             con.close()
 
@@ -338,35 +342,47 @@ def create_app(
         return render(request, "parties.html", query=name.strip(), found=found, truncated=truncated)
 
     def party_id_of(text: str) -> int:
-        """An address is digits only; anything else is not a party address (404, not 422)."""
-        if not text.isdigit() or len(text) > 12:
+        """An address is ASCII digits only; anything else is not a party address (404)."""
+        pid = urls.parse_party_id(text)
+        if pid is None:
             raise HTTPException(404)
-        return int(text)
+        return pid
+
+    def party_address(request: Request, party_id: str, path) -> int | Response:
+        """One resolution for the page and the feed: the id the address answers for, or
+        the 301 that gets there — to the canonical spelling (no leading zeros) and to the
+        component's representative — or 404."""
+        pid = party_id_of(party_id)
+        con = _connect(db_path)
+        try:
+            rep = resolve.address_of(con, pid)
+        finally:
+            con.close()
+        if rep is None:
+            raise HTTPException(404)
+        if rep != pid or _path(request) != path(pid):
+            return RedirectResponse(path(rep), status_code=301)
+        return rep
 
     @app.get("/p/{party_id}")
     def party_page(request: Request, party_id: str):
-        pid = party_id_of(party_id)
+        rep = party_address(request, party_id, urls.party_path)
+        if isinstance(rep, Response):
+            return rep
         con = _connect(db_path)
         try:
-            page = resolve.party_page(con, pid)
+            page = resolve.party_page(con, rep)
         finally:
             con.close()
-        if page is None:
-            raise HTTPException(404)
-        if page["party_id"] != pid:  # folded into a component: the representative's page
-            return RedirectResponse(urls.party_path(page["party_id"]), status_code=301)
         return render(request, "party.html", p=page)
 
     @app.get("/p/{party_id}/feed")
-    def party_feed(party_id: str):
-        pid = party_id_of(party_id)
+    def party_feed(request: Request, party_id: str):
+        rep = party_address(request, party_id, urls.party_feed_path)
+        if isinstance(rep, Response):
+            return rep
         con = _connect(db_path)
         try:
-            if not con.execute("SELECT 1 FROM party WHERE party_id = ?", (pid,)).fetchone():
-                raise HTTPException(404)
-            rep = resolve.component_of(con, pid)
-            if rep != pid:
-                return RedirectResponse(urls.party_feed_path(rep), status_code=301)
             return atom(feeds.party_feed(con, rep, site_host))
         finally:
             con.close()
@@ -374,8 +390,11 @@ def create_app(
     @app.get("/p/{party_id}/{rest:path}")
     def party_page_slug(party_id: str, rest: str):
         """A pasted "pretty" link — /p/1234/union-pacific — still works: the address is
-        the id alone (ADR 0015 § 4)."""
-        return RedirectResponse(urls.party_path(party_id_of(party_id)), status_code=301)
+        the id alone (ADR 0015 § 4). A feed path with a trailing slash goes to the feed."""
+        pid = party_id_of(party_id)
+        if rest.strip("/") == "feed":
+            return RedirectResponse(urls.party_feed_path(pid), status_code=301)
+        return RedirectResponse(urls.party_path(pid), status_code=301)
 
     @app.get("/feed/party/{party_id}")
     def old_party_feed(party_id: str):
@@ -680,9 +699,7 @@ def create_app(
                 printed = urls.printed_docket(family)
                 token = subscriptions.subscribe(con, address, docket_id, cadence, channel=channel)
             else:
-                if not con.execute(
-                    "SELECT 1 FROM party WHERE party_id = ?", (party_id,)
-                ).fetchone():
+                if not resolve.party_exists(con, party_id):
                     raise HTTPException(404)
                 printed = f"filings for {resolve.display_name(con, party_id)}"
                 token = subscriptions.subscribe(
