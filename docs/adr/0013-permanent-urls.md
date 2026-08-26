@@ -63,3 +63,12 @@ recent complete week. The home page's "this week" stays a rolling seven days end
 latest activity and is not an address. A week the record does not yet cover exists at its
 address and says so, filling in when a backfill wave reaches it. The permanence rules
 above apply unchanged: a week address, once served, is never removed or repointed.
+
+## Addendum (2026-08-26): the boundary of the promise
+
+Decided by the operator: the promise covers addresses built from what the Board itself
+identifies — dockets, filings, decisions — and calendar weeks, which are dates. It does
+**not** extend to anything the pipeline derives: parties, places, labels, folds. Those are
+reading aids reached by query, may be re-minted or re-resolved as methods improve, and are
+never offered in a "cite this" box. A derived thing earns a permanent address only by a
+further record here, never by being served once.

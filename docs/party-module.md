@@ -115,10 +115,9 @@ filings each, from `filing_party` joined through the family. Names are the party
 name; the raw cell is always one click away on the entry. Nothing about position, side, or
 stance (CLAUDE.md rules; interface.md's Parties-view row).
 
-A **party page** at a permanent address — proposed `/p/{party_id}` — listing the dockets a
-party appears in and its aliases and successors, with every link's provenance. That is a
-new address class and needs an ADR 0013 addendum; ids are the store's own integers, which
-are stable only if never re-minted (they are not).
+A **filter** on the sheet ("only entries filed for …") and a **browse view**
+(`/parties?name=…`) listing the dockets a party appears in with its aliases, successors and
+each link's provenance — a convenience, not an address (see the decision below).
 
 ## Subscriptions by party
 
@@ -142,13 +141,8 @@ the operator's seed; any UI that ranks parties.
 
 ## Decided by the operator (2026-08-26)
 
-1. **Party page address is `/p/{id}`** — the store's party id, the name in the page title.
-   Revised after review: ids are minted from a deterministic `founding_key`, so a rebuild
-   from captures mints the same ids; a party merged by `same_as` **keeps its own page**
-   (never a redirect — the edge is a supersedable assertion and a redirect could not be
-   un-happened) and that page says, with provenance, which party it is held to be the same
-   as and lists the component's dockets. An ADR 0013 addendum records the class. *One
-   question remains for the operator — below.*
+1. ~~Party page address is `/p/{id}`~~ — superseded the same day: parties are a facet,
+   not an address (the last section).
 2. **The Board is shown in the Parties block, labelled as the agency**, and is never
    treated as a litigant in any later work.
 3. **The seed list covers Class I carriers and holding companies with marks and recent
@@ -157,15 +151,12 @@ the operator's seed; any UI that ranks parties.
    reviewed by the operator before they ship; the list is data in the repository, so its
    history is the audit trail.
 
-## Open (operator): what a party address promises
+## Decided (operator, 2026-08-26): parties are a facet, not an address
 
-The critic's remaining point. `/p/{id}` is minted by the pipeline, not printed by the
-Board — the first address class of that kind. Two ways to keep ADR 0013's promise:
-
-- **Deterministic ids** (proposed above): the id is derived from the founding span, so a
-  rebuild reproduces it. Cost: an id is only as stable as the split rules' first cut of that
-  span — a v2 rule that cuts an old cell differently founds a *new* party and leaves the
-  old one with a page that says what happened. Nothing breaks; some pages become
-  historical.
-- **Minted once, carried forward**: production is the registry of record; a rebuild carries
-  an id map as a migration. Simpler rules, one more operational promise.
+The permanence promise (ADR 0013) covers what the Board itself identifies — dockets,
+filings, decisions — and the calendar weeks, which are dates. **Parties get no permanent
+address.** A party is a way of reading the record: a Parties block on the sheet, a filter
+over a sheet's entries, a browse list, a subscription predicate. A party view reachable by
+query (`/parties?name=…`) is a convenience the site never offers as a citation and never
+promises to keep; ids are internal and may be re-minted on a rebuild; a `same_as` merge is
+a better answer to the same query. ADR 0013 records the boundary so it is never assumed.
