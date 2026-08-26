@@ -1,6 +1,6 @@
 # What this is and is not
 
-> **Status: stub.** Published page. Short, plain, prominent.
+> **Status: drafted 2026-08-26, awaiting operator sign-off.** The published page is `src/docketyard/web/templates/about.html`, served at `/about` and not yet linked from the footer. This file is the brief the page was written to; the page is the source.
 
 ## Purpose
 

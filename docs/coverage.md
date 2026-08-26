@@ -1,6 +1,6 @@
 # Coverage and limitations
 
-> **Status: stub.** Published page. Write before launch — writing it forces you to measure your gaps rather than assume them.
+> **Status: drafted 2026-08-26, awaiting operator sign-off.** The published page is `src/docketyard/web/templates/coverage.html`, served at `/coverage` and not yet linked from the footer. This file is the brief the page was written to; the page is the source.
 
 ## Purpose
 

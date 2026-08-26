@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Privacy — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Privacy</h1>
+  <p>On a legal-research site, who is watching what is itself sensitive information. {{ site_name }} is built so that it cannot know — not so that it promises not to look. Data that is never collected cannot be subpoenaed, breached, sold, or misused, including by us.</p>
+
+  <h2>Reading is anonymous</h2>
+  <ul>
+    <li>No account is needed to read anything, and there is nothing to sign in to.</li>
+    <li>No cookies are set. Display preferences (compact rows, record ids, theme) live in your own browser and are never sent to the server.</li>
+    <li>The web server's access log does not record your address, your browser, or any identifier. It records the page and the time, for keeping the site up. Logs are kept for days, not months.</li>
+    <li>There are no analytics scripts, no third-party fonts or assets, and no tracking of any kind. Every request the page makes goes to this site.</li>
+  </ul>
+
+  <h2>Following a docket</h2>
+  <p>To email you, {{ site_name }} has to hold your address. That is the only case in which it holds anything about you, and it holds the minimum:</p>
+  <ul>
+    <li><strong>What is stored:</strong> your email address, the docket you follow, whether you chose as-it-happens or daily, when you confirmed, and a record of which entries were sent to you (so nothing is sent twice). Nothing else — no name, no organisation, no profile.</li>
+    <li><strong>Nothing is sent until you confirm.</strong> A request to follow a docket sits unconfirmed for at most {{ confirm_ttl_hours }} hours and is then deleted; a fetch of the confirmation link by a mail scanner does not count, because confirming is a button you press.</li>
+    <li><strong>Emails carry no tracking</strong> — no images that report being opened, no links that identify you when clicked. They are plain text. The one link that identifies your subscription is the one that stops it.</li>
+    <li><strong>Unsubscribing deletes.</strong> The address, the docket, and the record of what was sent are removed, not flagged. There is no "cancelled" list.</li>
+    <li><strong>Nobody sees counts.</strong> How many people follow a docket is not published, and is not kept in any form beyond the subscription rows themselves.</li>
+    <li>Emails are sent through Amazon Simple Email Service. If your mail server rejects a message or reports it as unwanted, the address is added to a stop list so it is never mailed again.</li>
+  </ul>
+
+  <h2>What can be produced under legal process</h2>
+  <p>Only what exists: the subscription rows above, for addresses that are currently following a docket. There is no reading history, no visitor log with identities in it, and no record of past subscriptions. {{ site_name }} would resist an overbroad demand and, where the law allows, tell the affected person.</p>
+
+  <h2>The operator</h2>
+  <p>{{ site_name }} is operated by RMI Valuation, LLC, which works in this industry. The architecture above is the answer to the obvious question — the operator cannot see who watches what, because there is no such record to see.</p>
+</section>
+{% endblock %}

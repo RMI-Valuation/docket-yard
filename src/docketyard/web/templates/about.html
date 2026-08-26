@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}About — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">What this is, and is not</h1>
+  <p>{{ site_name }} is an independent public record of proceedings before the Surface Transportation Board, the federal agency that regulates freight rail. It keeps one chronological sheet per proceeding — every filing and decision the Board posts, in the order the Board dates them — at an address that does not change, and it emails people who ask to follow a docket.</p>
+  <h2>Not the Board</h2>
+  <p>{{ site_name }} is not affiliated with, endorsed by, or acting on behalf of the Surface Transportation Board. The Board's own record is at <a href="https://www.stb.gov/proceedings-actions/search-stb-records/" rel="noopener">stb.gov</a>, and every entry here links to the Board's own file. If this record and the Board's ever disagree, the Board's is the record; ours is the one that is wrong, and we would like to <a href="/corrections">hear about it</a>.</p>
+  <h2>Who runs it</h2>
+  <p>{{ site_name }} is operated by RMI Valuation, LLC, a firm that works in railroad valuation and so reads these dockets for a living. It was built because the Board's search is a search, not a record: it answers a question and forgets it, and nothing on it tells you when something new arrives. The code is open under the AGPL at <a href="https://github.com/RMI-Valuation/docket-yard" rel="noopener">github.com/RMI-Valuation/docket-yard</a>; the design decisions are recorded there too.</p>
+  <h2>What the summaries are</h2>
+  <p>Captions and decision summaries appear exactly as the Board prints them — in the Board's own capitals, including its abbreviations. {{ site_name }} adds a short label to each entry's type so a column can be scanned, and folds a record entered in both a docket and its sub-docket into one line. It does not summarise documents, characterise what a party argued, or compute a date. Where it ever derives a claim from a document, that claim will say what produced it and link to the passage; see <a href="/methodology">methodology</a>.</p>
+  <p>Nothing here is legal advice, and a sheet is a reading aid, not a substitute for the record.</p>
+  <h2>How to reach a person</h2>
+  <p>Corrections and bug reports go through <a href="{{ 'https://github.com/RMI-Valuation/docket-yard/issues' }}" rel="noopener">GitHub Issues</a>, where they are public and their handling is auditable. Anything else: <span class="mono">hello@docketyard.org</span>.</p>
+</section>
+{% endblock %}

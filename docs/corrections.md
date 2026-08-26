@@ -1,6 +1,6 @@
 # Corrections
 
-> **Status: stub.** Published page, and an engineering requirement in disguise. Depends on ADR 0007 being honoured.
+> **Status: drafted 2026-08-26, awaiting operator sign-off.** The published page is `src/docketyard/web/templates/corrections.html`, served at `/corrections` and not yet linked from the footer. This file is the brief the page was written to; the page is the source.
 
 ## Purpose
 

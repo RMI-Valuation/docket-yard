@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Corrections — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Corrections</h1>
+  <p>If a sheet shows something the Board's record does not — a wrong date, a missing entry, a caption that is not the Board's — we want to know, and we would rather be told than be quietly distrusted.</p>
+  <h2>How to report one</h2>
+  <p><a class="btn" href="{{ issues_url }}" rel="noopener">Report a correction on GitHub</a></p>
+  <p>The form asks for the docket, the entry, what is wrong, and where the right answer is (usually the Board's own file, which every entry links). Reports are public, and so is what was done about them: that is the correction log.</p>
+  <h2>What happens next</h2>
+  <ul>
+    <li><strong>Within two business days</strong> a person replies on the report — fixed, needs more, or disagreed, with the reason.</li>
+    <li><strong>A fix propagates.</strong> Every entry carries its source, so a correction changes the record once and every page showing that entry follows; nothing is patched by hand on one page.</li>
+    <li><strong>The Board's record wins.</strong> Where the disagreement is about what the Board printed, the Board's file settles it. Where it is about how {{ site_name }} labelled or folded an entry, the answer is a change to the published <a href="/methodology">method</a>, not a one-off edit.</li>
+    <li><strong>Corrections survive.</strong> A hand correction is recorded as its own event with its own provenance, so a later re-run of the pipeline cannot silently overwrite it.</li>
+  </ul>
+  <h2>What this page does not promise</h2>
+  <p>That every entry is caught. The Board's search fails in ways that look like success; the coverage page says what is watched and records every gap the monitor has found.</p>
+</section>
+{% endblock %}

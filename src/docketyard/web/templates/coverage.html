@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Coverage — {{ site_name }}{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Coverage and limitations</h1>
+  <p class="muted">Every number on this page is measured from the record as it stands, not typed. Last checked {{ cov.last_checked | fmt_when }}.</p>
+
+  <h2>What is watched</h2>
+  <p>{{ site_name }} asks the Board's record search for new filings and decisions every thirty minutes, across every docket, and has done so continuously since <strong>{{ cov.forward_since | fmt_when }}</strong>. An entry the Board posts is usually on its sheet within the hour. The record has <strong>{{ cov.filings | plural('filing') }}</strong> and <strong>{{ cov.decisions | plural('decision') }}</strong>, and holds <strong>{{ cov.documents | plural('document') }}</strong> — the Board's own files, kept by their content hash so a replaced file is noticed{% if cov.attachments_unfetched %}; {{ cov.attachments_unfetched | plural('file') }} listed by the Board have not yet been fetched{% endif %}.</p>
+  <p>The earliest filing observed under this watch is dated {{ cov.earliest_filed | fmt_date }}; the earliest decision, {{ cov.earliest_served | fmt_date }}. Those are the Board's dates, quoted.</p>
+
+  <h2>The docket registry</h2>
+  <p>The registry of proceedings — <strong>{{ '{:,}'.format(cov.dockets) }} dockets</strong> — was walked in full from the Board's dockets table{% if cov.registry_walked_at %} on {{ cov.registry_walked_at | fmt_date }}{% endif %}, one prefix at a time. Six prefixes the Board's search offers return nothing ({{ cov.empty_prefixes | join(', ') }}); they are listed so that their absence here is not mistaken for a gap.</p>
+
+  <h2>What is not here</h2>
+  <ul>
+    <li><strong>History before the watch began.</strong> A docket's sheet shows what the Board has posted since {{ cov.forward_since | fmt_date }}, plus anything observed while building the registry. Older filings and decisions are real and will be added in dated waves; until then a sheet is not the docket's complete history and does not claim to be.</li>
+    <li><strong>Environmental comments and rail recordations</strong>, which the Board keeps in separate tables.</li>
+    <li><strong>Document text.</strong> Files are kept and linked; nothing is yet extracted from inside them.</li>
+    <li><strong>Anything the Board's search itself does not show.</strong> Its result tables display at most 10,000 rows per query and fail in ways that look like success; the pipeline asserts on every response that the filter it asked for was applied, and quarantines anything it cannot prove.</li>
+  </ul>
+
+  <h2>Gaps in the record</h2>
+  {% if cov.gaps %}
+  <table class="moved">
+    <thead><tr><th scope="col">From</th><th scope="col">To</th><th scope="col">What failed</th><th scope="col">Note</th></tr></thead>
+    <tbody>
+    {% for g in cov.gaps %}
+    <tr><td>{{ g.started_at | fmt_when }}</td><td>{{ g.ended_at | fmt_when if g.ended_at else 'open' }}</td><td>{{ g.failure }}</td><td>{{ g.note or '' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="small muted">Entries the Board posted during a gap were caught up afterwards; any alert that carried them said so.</p>
+  {% else %}
+  <p>None recorded. A monitor outside the server checks every hour that captures, entries, files and alert deliveries are all fresh; when it finds a gap, the window is recorded here and any alert that carried the late entries says so.</p>
+  {% endif %}
+</section>
+{% endblock %}

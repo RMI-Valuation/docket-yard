@@ -1,0 +1,37 @@
+name: Data correction
+description: Something on a docket sheet does not match the Board's record.
+title: "Correction: "
+labels: ["data-correction"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Reports are public, and so is what is done about them — that is the correction log.
+        The Board's own file settles what the Board printed; a link to it is the best evidence.
+  - type: input
+    id: docket
+    attributes:
+      label: Docket
+      description: As printed, e.g. FD 36873 or AB 55 (Sub-No. 785X)
+      placeholder: FD 36873
+    validations:
+      required: true
+  - type: input
+    id: entry
+    attributes:
+      label: Entry
+      description: The filing or decision id shown on the sheet, or the page address
+      placeholder: filing 311981, or https://docketyard.org/decision/53210
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What is wrong
+      description: What the sheet shows, and what it should show
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Where the right answer is
+      description: Usually the Board's file or record-search result
+      placeholder: https://www.stb.gov/...

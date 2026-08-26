@@ -1,6 +1,6 @@
 # Extraction and interpretation
 
-> **Status: stub.** Publish this as the site methodology page, generated from this same file. One source, two audiences.
+> **Status: drafted 2026-08-26, awaiting operator sign-off.** The published page is `src/docketyard/web/templates/methodology.html`, served at `/methodology` and not yet linked from the footer. This file is the brief the page was written to; the page is the source.
 
 ## Purpose
 

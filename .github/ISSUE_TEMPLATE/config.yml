@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: How corrections are handled
+    url: https://docketyard.org/corrections
+    about: What is promised, and how a fix propagates

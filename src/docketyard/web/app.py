@@ -26,11 +26,15 @@ from fastapi.templating import Jinja2Templates
 from docketyard import __version__
 from docketyard.alerts import mail, subscriptions
 from docketyard.ingest.dockets import find_docket, parse_docket_id
-from docketyard.store import home, projections, sheet
+from docketyard.store import coverage, home, projections, sheet
 from docketyard.store.db import MIGRATIONS
 from docketyard.web import labels, urls
 
 _PKG = resources.files("docketyard.web")
+# outside intake is GitHub Issues (CLAUDE.md); the form template carries the fields
+CORRECTIONS_URL = (
+    "https://github.com/RMI-Valuation/docket-yard/issues/new?template=data-correction.yml"
+)
 
 
 def _uri(db_path: str | Path) -> str:
@@ -150,6 +154,7 @@ def create_app(
         parse_docket_id=parse_docket_id,
         kind_label=labels.kind_label,
         filter_key=labels.filter_key,
+        confirm_ttl_hours=subscriptions.CONFIRM_TTL_HOURS,  # the privacy page quotes it
     )
     app.mount("/static", StaticFiles(directory=str(_PKG / "static")), name="static")
 
@@ -195,6 +200,35 @@ def create_app(
         finally:
             con.close()
         return render(request, "home.html", week=w)
+
+    # --- the trust pages: about, coverage, corrections, methodology, privacy ------------
+    # Reachable now, linked from the footer only once the operator has signed them off
+    # (ADR 0011: a public promise ships on explicit sign-off). Every number is measured.
+
+    @app.get("/about")
+    def about_page(request: Request):
+        return render(request, "about.html")
+
+    @app.get("/coverage")
+    def coverage_page(request: Request):
+        con = _connect(db_path)
+        try:
+            cov = coverage.coverage(con)
+        finally:
+            con.close()
+        return render(request, "coverage.html", cov=cov)
+
+    @app.get("/corrections")
+    def corrections_page(request: Request):
+        return render(request, "corrections.html", issues_url=CORRECTIONS_URL)
+
+    @app.get("/methodology")
+    def methodology_page(request: Request):
+        return render(request, "methodology.html")
+
+    @app.get("/privacy")
+    def privacy_page(request: Request):
+        return render(request, "privacy.html")
 
     @app.get("/health")
     def health():
