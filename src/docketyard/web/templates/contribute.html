@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Contribute — {{ site_name }}{% endblock %}
+{% block description %}How to help {{ site_name }}: ideas through GitHub Issues, code through the repository under its contributor agreement.{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">How to help</h1>
+  <p>{{ site_name }} is an independent public record of proceedings before the Surface Transportation Board, operated by RMI Valuation, LLC and not affiliated with the Board. It is built and run by a very small number of people. There are two ways to help, and one thing that is not a way to help.</p>
+
+  <h2>Ideas</h2>
+  <p>If something you tried to do here did not work, or something would have helped and does not exist, say so: <a href="{{ idea_url }}" rel="noopener">open an idea</a>. It asks three things — what you were trying to do, what would have helped, and which of the <a href="https://github.com/RMI-Valuation/docket-yard/blob/main/docs/capability-map.md" rel="noopener">capabilities on the menu</a> it is nearest to — and nothing about you.</p>
+  <p>Ideas are public, and so is what is done about them. What is built next is chosen by the operator from that menu, one decision at a time; an idea is a reason, not a place in a queue, and there is no promise of a reply, a date, or a delivery.</p>
+  <p>A mistake on a sheet is not an idea. If something here does not match the Board's own record, that is a <a href="/corrections">correction</a>, with its own form and its own promise.</p>
+
+  <h2>Code</h2>
+  <p>The code is open under the AGPL at <a href="https://github.com/RMI-Valuation/docket-yard" rel="noopener">github.com/RMI-Valuation/docket-yard</a>, with every design decision recorded beside it. Contributions are welcome, discussion first: open an issue describing the change before a pull request, so that work that would not be merged is not written.</p>
+  <p>A merged contribution is made under the project's <a href="https://github.com/RMI-Valuation/docket-yard/blob/main/CLA.md" rel="noopener">contributor licence agreement</a>: you keep your copyright and grant the project a licence to relicense, which is what keeps single ownership of the code and, with it, the option of terms that could fund the record one day. The agreement is under legal review; until that review is done, pull requests are discussed and held rather than merged.</p>
+
+  <h2>What helping does not get you</h2>
+  <p>Not your name on the site, not a say in what the record shows, not early access to anything, not a line to the operator that other readers do not have. The record is the same for everyone, and everything about it — what it holds, what it does not, and how it is made — is written down in public.</p>
+
+  <h2>Anything else</h2>
+  <p><span class="mono">hello@docketyard.org</span> reaches a person. Corrections and ideas belong in the public forms above, where their handling can be seen.</p>
+</section>
+{% endblock %}

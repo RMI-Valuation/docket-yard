@@ -23,6 +23,7 @@ STATIC_PAGES = (
     "/stats",
     "/data",
     "/about",
+    "/contribute",
     "/coverage",
     "/methodology",
     "/corrections",

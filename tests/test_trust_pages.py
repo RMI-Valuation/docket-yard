@@ -16,7 +16,15 @@ def client(tmp_path):
 
 
 def test_every_trust_page_renders_without_a_cookie(client):
-    for path in ("/about", "/coverage", "/corrections", "/methodology", "/privacy", "/stats"):
+    for path in (
+        "/about",
+        "/contribute",
+        "/coverage",
+        "/corrections",
+        "/methodology",
+        "/privacy",
+        "/stats",
+    ):
         r = client.get(path)
         assert r.status_code == 200, path
         assert "not affiliated" in r.text or "Not the Board" in r.text or path != "/about"
