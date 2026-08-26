@@ -5,14 +5,17 @@ forward-only. Milestone level only; detail lives in [`docs/`](docs/). Anything b
 wedge lives in [`docs/capability-map.md`](docs/capability-map.md), which is a menu, not a
 roadmap. This file has a hard line cap enforced by pre-commit: when it fires, prune.
 
+**The wedge shipped 2026-08-26** (v2026.08.11) and is live, unannounced. What comes next is
+chosen from the capability map by the operator; nothing below M5 is planned until it is.
+
 | # | Milestone | Done means | Status |
 | --- | --- | --- | --- |
 | M0 | Foundations | Repo public, tooling live, schema validated on paper, ADRs 0001–0009 accepted | **Done 2026-08-25** |
 | M1 | Docket registry | Dockets table ingested forward (metadata only, no PDFs); filter application positively asserted; registry validates extracted citations | **Done 2026-08-25** — full registry walked on rmi-ai-machine (32,604 dockets), now the production store |
 | M2 | Filings + decisions ingest | Forward capture of filings/decisions tables into the event ledger; documents hashed and stored; errata detection live | **Done 2026-08-26** in production; errata *re-check* is built but unscheduled (TODO) |
-| M3 | Docket sheets + permanent URLs | One chronological page per proceeding at a stable, guessable URL | **Done 2026-08-26** — live at [docketyard.org](https://docketyard.org) (v2026.08.2), polling forward every 30 min, Litestream + blob sync to S3 |
-| M4 | Alerting | Docket subscriptions, email delivery, silent-failure detection per `docs/alerts.md` | **Live 2026-08-26** (v2026.08.5): confirmed-opt-in subscriptions, per-pass + daily alerts over SES, hourly off-box heartbeat on all four legs; first real subscription confirmed, first alert awaited |
-| M5 | Launch | Coverage, corrections, about pages published; **the wedge is live** | **Done 2026-08-26** (v2026.08.9): about, coverage, methodology, corrections and privacy pages signed off and linked; the wedge is live and unannounced |
+| M3 | Docket sheets + permanent URLs | One chronological page per proceeding at a stable, guessable URL | **Done 2026-08-26** — live at [docketyard.org](https://docketyard.org), polling forward every 30 min, Litestream + blob sync to S3 |
+| M4 | Alerting | Docket subscriptions, email delivery, silent-failure detection per `docs/alerts.md` | **Done 2026-08-26** — confirmed-opt-in subscriptions with addresses ciphertext at rest (ADR 0014), per-pass + daily alerts over SES with bounce/complaint feedback, hourly off-box heartbeat on captures / events / documents / delivery; first real subscription live, first alert awaited |
+| M5 | Launch | Coverage, corrections, about pages published; **the wedge is live** | **Done 2026-08-26** — about, coverage (measured), methodology, corrections and privacy pages signed off and linked; `hello@docketyard.org` routed |
 
 Sequencing rationale: [`docs/capability-map.md`](docs/capability-map.md) § Sequence.
 M1 before anything touching documents — the validated registry is what makes every later
