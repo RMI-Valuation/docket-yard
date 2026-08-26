@@ -56,6 +56,9 @@ class FakeStb:
         self.fetched.append(url)
         return 200, b"%PDF-1.4 old"
 
+    def fetcher(self, data_dir):
+        return lambda url: self.download(url, data_dir)
+
     def download(self, url, into):  # the production fetcher: a file on the blob filesystem
         from pathlib import Path
 

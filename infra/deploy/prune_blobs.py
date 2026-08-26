@@ -59,7 +59,8 @@ def main(blobs: Path, bucket: str, dry_run: bool) -> None:
     now = time.time()
     candidates = []
     for path in blobs.glob("*/*"):
-        if not path.is_file() or path.suffix == ".tmp":
+        if not path.is_file() or path.suffix == ".tmp" or path.parent.name == ".tmp":
+            # a half-written sibling, or the downloader's staging area (records.staging_dir)
             continue
         key = f"blobs/{path.parent.name}/{path.name}"
         if key not in held:
