@@ -7,7 +7,7 @@
 
   <h2>What is watched</h2>
   <p>{{ site_name }} asks the Board's record search for new filings and decisions every thirty minutes, across every docket, and has done so continuously since <strong>{{ cov.forward_since | fmt_when }}</strong>. An entry the Board posts is usually on its sheet within the hour. The record has <strong>{{ cov.filings | plural('filing') }}</strong> and <strong>{{ cov.decisions | plural('decision') }}</strong>, and holds <strong>{{ cov.documents | plural('document') }}</strong> — the Board's own files, kept by their content hash so a replaced file is noticed{% if cov.attachments_unfetched %}; {{ cov.attachments_unfetched | plural('file') }} listed by the Board have not yet been fetched{% endif %}.</p>
-  <p>The earliest filing observed under this watch is dated {{ cov.earliest_filed | fmt_date }}; the earliest decision, {{ cov.earliest_served | fmt_date }}. Those are the Board's dates, quoted.</p>
+  <p><strong>The watch began</strong> {{ cov.forward_since | fmt_when }}: from that moment every new entry is caught within the hour. <strong>The record spans</strong> entries the Board dated from {{ cov.record_from | fmt_date }} to {{ cov.record_to | fmt_date }} — the watch's own catch plus the dated waves described below. The earliest entry the watch itself caught is dated {{ cov.earliest_filed | fmt_date }} (filing) and {{ cov.earliest_served | fmt_date }} (decision). All dates are the Board's, quoted.</p>
 
   <h2>The docket registry</h2>
   <p>The registry of proceedings — <strong>{{ '{:,}'.format(cov.dockets) }} dockets</strong> — was walked in full from the Board's dockets table{% if cov.registry_walked_at %} on {{ cov.registry_walked_at | fmt_date }}{% endif %}, one prefix at a time. Six prefixes the Board's search offers return nothing ({{ cov.empty_prefixes | join(', ') }}); they are listed so that their absence here is not mistaken for a gap.</p>
@@ -24,7 +24,8 @@
     <li><strong>Anything the Board's search itself does not show.</strong> Its result tables display at most 10,000 rows per query and fail in ways that look like success; the pipeline asserts on every response that the filter it asked for was applied, and quarantines anything it cannot prove.</li>
   </ul>
 
-  <h2>Gaps in the record</h2>
+  <h2>Outages</h2>
+  <p class="small muted">The limits above are by design and stated. An outage is different: a period when the watch was not keeping the record and entries were caught up late.</p>
   {% if cov.gaps %}
   <table class="moved">
     <thead><tr><th scope="col">From</th><th scope="col">To</th><th scope="col">What failed</th><th scope="col">Note</th></tr></thead>
@@ -36,7 +37,7 @@
   </table>
   <p class="small muted">Entries the Board posted during a gap were caught up afterwards; any alert that carried them said so.</p>
   {% else %}
-  <p>None recorded. A monitor outside the server checks every hour that captures, entries, files and alert deliveries are all fresh; when it finds a gap, the window is recorded here and any alert that carried the late entries says so.</p>
+  <p>No outage has been recorded since the watch began. A monitor outside the server checks every hour that captures, entries, files and alert deliveries are all fresh; when it finds a gap, the window is recorded here and any alert that carried the late entries says so.</p>
   {% endif %}
 </section>
 {% endblock %}

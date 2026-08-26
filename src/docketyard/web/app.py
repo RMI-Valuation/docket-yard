@@ -20,7 +20,7 @@ from importlib import resources
 from pathlib import Path
 
 from fastapi import Body, FastAPI, Form, HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -30,10 +30,12 @@ from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
 from docketyard.store import coverage, dump, home, projections, sheet, stats
 from docketyard.store.db import MIGRATIONS, utcnow
-from docketyard.web import feeds, labels, urls
+from docketyard.web import feeds, labels, sitemaps, urls
 
 _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
+PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
+NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health")  # tokens, consent, telemetry
 PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move once a poll
 # outside intake is GitHub Issues (CLAUDE.md); the form template carries the fields
 CORRECTIONS_URL = (
@@ -175,6 +177,88 @@ def create_app(
 
     def render(request: Request, name: str, **context):
         return templates.TemplateResponse(request, name, context)
+
+    templates.env.globals["site_host"] = site_host
+
+    @app.middleware("http")
+    async def http_hygiene(request: Request, call_next):
+        """HEAD answers as GET without a body; successful GET pages carry a validator
+        (ETag from the bytes) and a short public cache life, and answer 304 to a
+        matching If-None-Match. Consent, token and telemetry paths are never cached.
+        No cookie is ever set, so caching is safe everywhere else (ADR 0011)."""
+        head = request.method == "HEAD"
+        if head:
+            request.scope["method"] = "GET"
+        response = await call_next(request)
+        path = _path(request)
+        cacheable = (
+            request.method == "GET"
+            and response.status_code == 200
+            and not any(path.startswith(p) for p in NEVER_CACHE)
+            and not path.startswith("/static/")
+        )
+        if cacheable:
+            body = b"".join([chunk async for chunk in response.body_iterator])
+            etag = 'W/"' + hashlib.sha256(body).hexdigest()[:32] + '"'
+            response.headers.setdefault("Cache-Control", f"public, max-age={PAGE_CACHE}")
+            response.headers["ETag"] = etag
+            response.headers.setdefault("Vary", "Accept-Encoding")
+            if request.headers.get("if-none-match") == etag:
+                return Response(
+                    status_code=304,
+                    headers={
+                        k: v for k, v in response.headers.items() if k.lower() != "content-length"
+                    },
+                )
+            response.headers["Content-Length"] = str(len(body))
+            if head:
+                return Response(status_code=200, headers=dict(response.headers))
+            return Response(
+                content=body,
+                status_code=200,
+                headers=dict(response.headers),
+                media_type=response.headers.get("content-type"),
+            )
+        if head:
+            async for _ in response.body_iterator:  # drain; the body is not sent
+                pass
+            return Response(status_code=response.status_code, headers=dict(response.headers))
+        return response
+
+    # --- discovery: robots.txt and sitemaps, generated from the registry --------------
+
+    @app.get("/robots.txt")
+    def robots():
+        return PlainTextResponse(
+            "User-agent: *\n"
+            "Disallow: /s/\n"  # confirmation and unsubscribe links carry tokens
+            "Disallow: /subscribe\n"
+            "Disallow: /ses/\n"
+            f"Sitemap: https://{site_host}/sitemap.xml\n",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    def xml(body: str) -> Response:
+        return Response(
+            body,
+            media_type="application/xml; charset=utf-8",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    @app.get("/sitemap.xml")
+    def sitemap_index():
+        return xml(sitemaps.index(site_host))
+
+    @app.get("/sitemap-{section}.xml")
+    def sitemap_section(section: str):
+        con = _connect(db_path)
+        try:
+            body = sitemaps.section(con, site_host, section)
+        finally:
+            con.close()
+        if body is None:
+            raise HTTPException(404)
+        return xml(body)
 
     @app.exception_handler(404)
     def not_found(request: Request, exc: HTTPException):
