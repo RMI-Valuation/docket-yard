@@ -22,12 +22,11 @@ by pre-commit: when it fires, prune.
 
 ## Next
 
-- Cameron's asks (2026-08-26), in the order agreed, each started only when he says so:
-  (3) one search box: docket number,
-  party name or caption words, FTS5 index, `/suggest` as-you-type showing captions,
-  `/search` works without JS, nothing stored; (4) traffic as hourly counts only (route
-  class, status, bytes, latency, bot/not) — no identifier ever; bring him the one privacy
-  sentence to sign first
+- Cameron's last queued ask (2026-08-26), only when he says so: traffic as hourly counts
+  (route class, status, bytes, latency, bot/not) — no identifier ever; bring him the one
+  privacy sentence in `docs/traffic.md` to sign first
+- Search deferrals (2026-08-26): rebuild diffs by (kind, ref) instead of whole; one record
+  version for the ETag stamp and the index signature; `/subscribe` waits on a rebuild's lock
 - External review 2026-08-26: `/coverage` says the waves added 54,422 filings / 3,297
   decisions, `/stats` holds 53,018 / 2,815 — reconcile or label each so the gap is plainly
   intentional; FD 36873 sheet is 1.1 MB / 908 entries unpaginated — measure DOM cost on a
