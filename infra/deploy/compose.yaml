@@ -36,6 +36,10 @@ services:
     environment:
       <<: *mail  # the confirmation email is sent by the web process
       DY_S3_BUCKET: ${DY_S3_BUCKET}  # a pruned document is fetched from the store on view
+      # the internet-facing process holds its own key: read blobs and send mail, nothing
+      # that writes, deletes or lists (IAM user docketyard-web); the ingest keys stay out
+      AWS_ACCESS_KEY_ID: ${DY_WEB_AWS_ACCESS_KEY_ID:?the web tier needs its own key}
+      AWS_SECRET_ACCESS_KEY: ${DY_WEB_AWS_SECRET_ACCESS_KEY:?the web tier needs its own key}
     depends_on:
       migrate:
         condition: service_completed_successfully

@@ -9,8 +9,8 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Document viewer: frame confirmed rendering by Cameron 2026-08-27. Open: the read-only S3 key
-  pair for the web tier and the `sandbox` CSP test (`docs/deferred.md` § Document viewer)
+- Document viewer: confirmed in a browser; the web tier runs on its own read-only key since
+  2026-08-27. Open: the `sandbox` CSP test (`docs/deferred.md` § Document viewer)
 - Backfill complete 2026-08-27: 77,565 documents held; the 41 partial months re-walked and
   recorded `empty` (13:58 UTC), `/coverage` lists none. One legacy `/MPD/` URL 403s (rests
   a week from PR #10)
