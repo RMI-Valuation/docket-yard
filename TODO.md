@@ -35,6 +35,10 @@ by pre-commit: when it fires, prune.
   what else to take from that project: `docs/upns-tracker-inheritance.md`).
   Hard rule: dates quoted, never computed; a reset schedule supersedes (ADR 0006)
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
+- **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md` —
+  ground truth the operator checks, engines measured by CER and by docket-number/date errors,
+  a review layer (agreement → confidence, registry checks, an operator queue). Four
+  decisions at the end of the plan are Cameron's; nothing reads into the store before step 3
 - Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
 - When this list runs short or a decision makes one of them near-term, pull the next item
   from `docs/deferred.md` (review findings and known gaps, dated, with their context)
