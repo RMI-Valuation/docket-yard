@@ -51,6 +51,11 @@ name or meaning; `tests/test_data.py` pins the key set so a rename cannot pass u
 
 ## Not built, deliberately
 
+**Document bytes** have a permanent address, `/document/<sha256>.pdf` (ADR 0013 addendum,
+2026-08-27): exactly the bytes that hash to that name, served inline, fetched from the
+store if the instance has pruned them. The snapshot's `document` and `document_source`
+tables carry the hashes, so every row there resolves to its file.
+
 The search index (`search_doc`, `search_fts`; migration 0010) — derived, rebuilt from the
 record when it changes, and it carries party names, so the snapshot ships the tables empty;
 a full restore (Litestream) rebuilds it with `docketyard search rebuild`.

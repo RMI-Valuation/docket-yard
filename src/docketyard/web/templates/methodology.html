@@ -33,6 +33,9 @@
   <h2>Provenance</h2>
   <p>Every entry points at the capture it was observed in, and every capture at the raw response. Where a derived claim is ever published, it carries the source document, the location in it, the method and its version, when it was produced, and a confidence — and a later method does not overwrite an earlier claim; it supersedes it, and the earlier one stays on record.</p>
 
+  <h2 id="documents">Documents</h2>
+  <p>Every file the Board posts is fetched, hashed and kept; the hash is the file's identity. A record's file can be read here beside the record — at <span class="mono">/filing/&lt;id&gt;/view</span> or <span class="mono">/decision/&lt;id&gt;/view</span> — and the bytes themselves have a permanent address, <span class="mono">/document/&lt;sha256&gt;.pdf</span>, which answers with exactly the bytes that hash to that name, forever. A file the Board replaces is a new hash with the old one chained to it; the Board's own link stays beside every file.</p>
+
   <h2 id="search">Search</h2>
   <p>One box. A docket number in any spelling opens its sheet without a search. Anything else is matched, word by word, against three things: docket captions as the Board prints them (a sub-docket with a caption of its own is a result at its own address, which opens the family sheet); every name a party is currently on record under; and the Board's own printed decision summaries. Documents are not searched — no text is extracted from them yet. The index is rebuilt from the record whenever the record has changed; it holds no reader's query, and the server keeps none.</p>
 

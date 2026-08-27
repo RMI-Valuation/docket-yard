@@ -122,6 +122,16 @@ def unsubscribe_url(site: str, token: str) -> str:
     return f"https://{site}/s/unsubscribe/{token}"
 
 
+def viewer_path(kind: str, record_id: str, index: int = 0) -> str:
+    """The record's file shown beside the record; `index` picks among several files."""
+    return record_path(kind, record_id) + "/view" + (f"?file={index}" if index else "")
+
+
+def document_path(sha256: str) -> str:
+    """A document's permanent address: its bytes by content hash (ADR 0013 addendum)."""
+    return f"/document/{sha256}.pdf"
+
+
 def decision_path(stb_decision_id: str) -> str:
     return f"/decision/{stb_decision_id}"
 
