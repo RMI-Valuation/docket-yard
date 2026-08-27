@@ -108,6 +108,10 @@ def route_class(path: str) -> str:
         return "week"
     if path == "/stats":
         return "stats"
+    if path in ("/court", "/protective"):
+        return "register"
+    if path == "/cite":
+        return "search"
     if path.startswith("/sitemap") or path == "/robots.txt":
         return "sitemap"
     if path.startswith("/data") or path in ("/api", "/llms.txt", "/openapi.json"):

@@ -24,6 +24,8 @@ STATIC_PAGES = (
     "/stats",
     "/data",
     "/api",
+    "/court",
+    "/protective",
     "/about",
     "/contribute",
     "/coverage",

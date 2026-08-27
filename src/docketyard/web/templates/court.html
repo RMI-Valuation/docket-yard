@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Court actions — {{ site_name }}{% endblock %}
+{% block description %}Every decision the Board typed "Notice of Court Action": a proceeding or rule taken to court, by docket, in the Board's own words.{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Court actions</h1>
+  <p class="muted">Every decision the Board itself typed <span class="as-printed">Notice of Court Action</span> — {{ total | plural('notice') }} in {{ groups | length | plural('docket') }} — newest first. A notice is the Board recording that a proceeding or rule has gone to a court of appeals; what the court did is in the document, which is linked from each record, and is not read here. This is a projection of the Board's own decision type, nothing inferred: a case that reached court without a notice of this type is not listed. <a href="/methodology#registers">How registers are made</a>.</p>
+</section>
+{% include "_register_groups.html" %}
+{% if not groups %}<section class="caption"><p class="muted">The record holds no decision of this type yet.</p></section>{% endif %}
+<section class="caption"><p class="small muted">Permanent address <span class="mono">docketyard.org/court</span>.</p></section>
+{% endblock %}
