@@ -91,3 +91,10 @@ do not support instance profiles, so the first deployment uses a bucket-scoped I
 keys in `/srv/docketyard/.env` (mode 600). The honest alternatives are an EC2 `t4g.small`
 (instance profile, similar price, more knobs) or IAM Roles Anywhere; either is a small
 follow-up ADR, not a change to anything else here.
+
+Since 2026-08-27 the **web tier holds its own key** (IAM user `docketyard-web`,
+`DY_WEB_AWS_*` in `.env`): `s3:GetObject` on `blobs/*` and SES send from the alerts
+address, nothing that writes, deletes or lists. The internet-facing process can therefore
+read a pruned document and send a confirmation email, and nothing else; the read/write pair
+(`docketyard-instance`) stays with `ingest` and Litestream. Compose refuses to start `web`
+without the web key.

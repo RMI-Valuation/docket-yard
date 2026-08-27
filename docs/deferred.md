@@ -37,11 +37,6 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 
 ## Document viewer (PR #10, 2026-08-27)
 
-- **The web tier holds write-capable S3 keys.** The container already carried the bucket
-  user's keys for SES; the viewer's store fetch now uses them for `GetObject`. A second key
-  pair scoped to `s3:GetObject` on `blobs/*` for `web` (keep the read/write pair on `ingest`
-  and `litestream`) keeps a write key out of the one internet-facing process. Cameron's
-  (keys live in his password manager; nothing recreates them silently).
 - **Sandbox the document response.** `Content-Security-Policy: sandbox; frame-ancestors
   'self'` on `/document/*` would put the PDF in an opaque origin (the pdf.js CVE-2024-4367
   class could not reach the site's origin). Not shipped because a `sandbox`ed PDF's
