@@ -472,6 +472,73 @@ def test_the_client_hands_a_document_hosts_refusal_back_as_the_answer(tmp_path, 
         client.get("https://www.stb.gov/x")
 
 
+def test_a_shared_url_keeps_its_chain_and_fills_its_new_owner(con, tmp_path):
+    """The same file under a docket and a later sub-docket row: a forward fetch of the new
+    row must not restart the errata chain, and an unchanged re-check must still give the
+    new row its hash."""
+    url = f"{S3}/830599/311981.pdf"
+    ingest(con, tmp_path, filing_row())
+    assert documents.fetch_attachments(con, tmp_path, fake_fetch({url: b"%PDF-A"}))["fetched"] == 1
+    # a second record citing the held file (as a sub-docket entry does)
+    ingest(con, tmp_path, filing_row(docket="FD_36873_1", fid="311999"))
+    assert (
+        con.execute(
+            "SELECT COUNT(*) FROM filing_attachment WHERE document_sha256 IS NULL"
+        ).fetchone()[0]
+        == 1
+    )
+    # ... the Board replaced the file meanwhile: the forward fetch sees the chain
+    stats = documents.fetch_attachments(con, tmp_path, fake_fetch({url: b"%PDF-B"}))
+    assert stats["replaced"] == 1
+    assert (
+        con.execute(
+            "SELECT COUNT(*) FROM document_source WHERE supersedes_sha256 IS NOT NULL"
+        ).fetchone()[0]
+        == 2
+    )  # both rows chained from A
+    # a third record citing it, unchanged on re-check: it still gets the hash
+    ingest(con, tmp_path, filing_row(docket="FD_36873_2", fid="312000"))
+    stats = documents.fetch_attachments(con, tmp_path, fake_fetch({url: b"%PDF-B"}), refresh=True)
+    assert stats["unchanged"] == 1
+    assert (
+        con.execute(
+            "SELECT COUNT(*) FROM filing_attachment WHERE document_sha256 IS NULL"
+        ).fetchone()[0]
+        == 0
+    )
+
+
+def test_the_recheck_walks_the_longest_unchecked_first_within_its_bounds(con, tmp_path):
+    from docketyard.ingest import observations
+
+    url = f"{S3}/830599/311981.pdf"
+    ingest(con, tmp_path, filing_row())
+    documents.fetch_attachments(con, tmp_path, fake_fetch({url: b"%PDF-1"}))
+    assert observations.recheck_urls(con, limit=10) == [url]  # the operator: any age
+    assert observations.recheck_urls(con, limit=10, after_days=30) == []  # the watch: not yet
+    con.execute("UPDATE capture SET captured_at = '2026-01-01T00:00:00+00:00'")
+    assert observations.recheck_urls(con, limit=10, after_days=30) == [url]
+    assert observations.recheck_urls(con, limit=10, after_days=30, max_bytes=3) == []  # too big
+    assert observations.held_url_count(con, 3) == 0 and observations.held_url_count(con) == 1
+
+    # a re-check that raises is an attempt on record: the URL goes to the back of the line
+    def boom(u):
+        raise ConnectionError("reset")
+
+    stats = documents.fetch_attachments(con, tmp_path, boom, refresh=True)
+    assert stats["failed"] == 1
+    assert (
+        con.execute("SELECT http_status FROM capture ORDER BY capture_id DESC LIMIT 1").fetchone()[
+            0
+        ]
+        == 0
+    )
+    assert observations.recheck_urls(con, limit=10, after_days=30) == []
+    assert con.execute("SELECT document_sha256 FROM filing_attachment").fetchone()[0]  # kept
+    with pytest.raises(ValueError):
+        documents.fetch_attachments(con, tmp_path, boom, refresh=True, observed_in="forward")
+
+
 def test_limit_zero_fetches_nothing(con, tmp_path):
     ingest(con, tmp_path, filing_row())
     fetch = fake_fetch({})

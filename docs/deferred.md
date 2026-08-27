@@ -60,9 +60,13 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   across three tables since 0008) — unwritten; ADR 0014 records the gap.
 - **Credentials**: Lightsail has no instance profile, so production runs on a bucket-scoped
   IAM user's keys; decide EC2 t4g / Roles Anywhere / accept (ADR 0012 gap).
-- **Schema chores**: the errata re-check needs a last-checked column (walk oldest-first under
-  a per-pass limit). A refused document URL rests a week from its capture (PR #10); a poll
-  item that is permanently bad for another reason still has no attempt counter.
+- **Schema chore**: a poll item that is permanently bad for a reason other than a refused
+  document (which rests a week from its capture, PR #10) still has no attempt counter.
+- **Re-check bytes** (2026-08-27, v2026.08.35): the errata re-check downloads each held file
+  whole (≤64 MB; ~1,900 a day, tens of GB per six-week cycle from the Board's bucket). S3
+  honours `If-None-Match`; recording the response `ETag` on the fetch capture and sending
+  it on re-check would make an unchanged file a 304. Larger files are the operator's
+  `fetch attachments --refresh`, which has no age floor and no default limit.
 - **ADR 0012 addendum** recording the blob cache design (S3 the store, the instance a cache;
   sync + prune) once wave 3 proves it.
 - **Streamed downloads** (2026-08-26, v2026.08.25): no Range-resume on a mid-body failure;

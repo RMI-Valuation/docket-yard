@@ -325,6 +325,9 @@ def _upsert_record(
 
 
 REFUSAL_REST_DAYS = 7  # a URL the host refused is not asked for again this soon
+RECHECK_AFTER_DAYS = 30  # a held file is fetched again no sooner than this (errata, ADR 0002)
+RECHECK_MAX_BYTES = 64 << 20  # the watch re-fetches files up to this; larger ones (a 1.07 GB
+# application, measured) are the operator's `fetch attachments --refresh`, not every cycle's
 _EMPTY_SHA = hashlib.sha256(b"").hexdigest()
 
 
@@ -342,6 +345,61 @@ def recently_refused(con: Connection, days: int = REFUSAL_REST_DAYS) -> set[str]
     return {url for url, refused in latest.items() if refused}
 
 
+_HELD_URLS = (
+    "SELECT source_url FROM filing_attachment WHERE document_sha256 IS NOT NULL"
+    " UNION SELECT source_url FROM decision_attachment WHERE document_sha256 IS NOT NULL"
+)
+_HELD_URLS_UNDER = (  # the same, bounded by the held document's size
+    "SELECT a.source_url FROM filing_attachment a JOIN document d"
+    " ON d.document_sha256 = a.document_sha256 WHERE d.size_bytes <= ?"
+    " UNION SELECT a.source_url FROM decision_attachment a JOIN document d"
+    " ON d.document_sha256 = a.document_sha256 WHERE d.size_bytes <= ?"
+)
+_LAST_FETCH = (
+    "SELECT endpoint, MAX(captured_at) AS at FROM capture"
+    " WHERE table_action = 'document_fetch' GROUP BY endpoint"
+)
+
+
+def recheck_urls(
+    con: Connection,
+    *,
+    limit: int | None,
+    after_days: int | None = None,
+    max_bytes: int | None = None,
+) -> list[str]:
+    """Held URLs due a re-fetch — last asked for more than `after_days` ago (None: however
+    recently, the operator asked), the longest-unchecked first, `limit` distinct URLs —
+    so the whole record is walked again a slice per pass and a replaced file (an erratum)
+    is noticed within one cycle. The capture ledger is the last-checked column: any
+    attempt that left a capture, a refusal included, moved the URL to the back of the
+    line. One query; nothing is materialised."""
+    since = (
+        (datetime.now(UTC) - timedelta(days=after_days)).isoformat(timespec="seconds")
+        if after_days is not None
+        else "\uffff"
+    )
+    held, size = (_HELD_URLS, ()) if max_bytes is None else (_HELD_URLS_UNDER, (max_bytes,) * 2)
+    return [
+        url
+        for (url,) in con.execute(
+            f"SELECT a.source_url FROM ({held}) a LEFT JOIN ({_LAST_FETCH}) c"
+            " ON c.endpoint = a.source_url WHERE COALESCE(c.at, '') <= ?"
+            " ORDER BY COALESCE(c.at, ''), a.source_url LIMIT ?",
+            (*size, since, -1 if limit is None else limit),
+        )
+    ]
+
+
+def held_url_count(con: Connection, max_bytes: int | None = None) -> int:
+    """How many distinct URLs the re-check walks: the published cycle is computed from it."""
+    if max_bytes is None:
+        return con.execute(f"SELECT COUNT(*) FROM ({_HELD_URLS})").fetchone()[0]
+    return con.execute(
+        f"SELECT COUNT(*) FROM ({_HELD_URLS_UNDER})", (max_bytes, max_bytes)
+    ).fetchone()[0]
+
+
 @dataclass(frozen=True)
 class AttachmentRef:
     spec: TableSpec
@@ -356,6 +414,7 @@ def attachments(
     unfetched_only: bool,
     limit: int | None = None,
     observed_in: str | None = None,
+    urls: list[str] | None = None,  # only these (a re-check slice); None = no restriction
 ) -> list[AttachmentRef]:
     """Attachment rows across both record tables, oldest first. `observed_in` restricts
     to records whose latest observation came from captures of that ingest mode — the
@@ -367,6 +426,9 @@ def attachments(
         params: tuple = ()
         if unfetched_only:
             conds.append("a.document_sha256 IS NULL")
+        if urls is not None:
+            conds.append(f"a.source_url IN ({','.join('?' for _ in urls)})")
+            params += tuple(urls)
         if observed_in:
             conds.append(
                 f"a.{spec.record_pk} IN (SELECT r.{spec.record_pk} FROM {spec.record_table} r"

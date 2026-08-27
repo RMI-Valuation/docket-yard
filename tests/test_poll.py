@@ -94,6 +94,21 @@ def test_forward_pass_captures_ingests_and_fetches(tmp_path):
     assert after["captures"] == before["captures"] + 2  # one page per table; no fetch captures
     for key in ("filings", "decisions", "documents", "events"):
         assert after[key] == before[key], key
+    assert again["rechecked"]["fetched"] == 0  # nothing held is 30 days unchecked yet
+    # a month on, the held files are due: the pass re-fetches them, oldest-checked first,
+    # under its own limit, and a replaced file is an erratum event that alerts
+    con.execute("UPDATE capture SET captured_at = '2026-07-01T00:00:00+00:00'")
+    con.commit()
+    client.get = lambda url: (client.fetched.append(url), (200, b"%PDF-1.4 replaced"))[1]
+    passes = lambda: poll.forward_pass(  # noqa: E731
+        con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0, recheck_limit=1
+    )
+    third = passes()
+    assert third["rechecked"]["fetched"] == 1 and third["rechecked"]["replaced"] == 1
+    replaced = "SELECT COUNT(*) FROM event WHERE event_type = 'document_replaced'"
+    assert con.execute(replaced).fetchone()[0] == 1
+    assert passes()["rechecked"]["fetched"] == 1  # the other one; the first is checked now
+    assert passes()["rechecked"]["fetched"] == 0  # both checked within the month
 
 
 def test_a_pass_over_a_dead_endpoint_reports_rather_than_raises(tmp_path):

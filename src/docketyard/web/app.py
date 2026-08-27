@@ -30,7 +30,8 @@ from fastapi.templating import Jinja2Templates
 
 from docketyard import __version__
 from docketyard.alerts import feedback, mail, subscriptions, vault, webhooks
-from docketyard.capture import s3
+from docketyard.capture import poll, s3
+from docketyard.ingest import observations
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
 from docketyard.store import coverage, dump, home, projections, search, sheet, stats, traffic
@@ -39,6 +40,7 @@ from docketyard.web import documents, feeds, labels, sitemaps, urls
 
 _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
+POLL_MINUTES = 30  # the watch's cadence, as /coverage states it (compose: --interval 30)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
 NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/suggest")  # tokens, consent
 MOUNTS = ("/static/", "/data/files/")  # StaticFiles: streams, validates and HEADs itself
@@ -542,7 +544,20 @@ def create_app(
 
     @app.get("/methodology")
     def methodology_page(request: Request):
-        return render(request, "methodology.html")
+        con = _connect(db_path)
+        try:
+            held = observations.held_url_count(con, observations.RECHECK_MAX_BYTES)
+        finally:
+            con.close()
+        per_day = poll.RECHECK_LIMIT * (24 * 60 // POLL_MINUTES)
+        return render(
+            request,
+            "methodology.html",
+            recheck_per_pass=poll.RECHECK_LIMIT,
+            recheck_after_days=observations.RECHECK_AFTER_DAYS,
+            recheck_max_mb=observations.RECHECK_MAX_BYTES >> 20,
+            recheck_cycle_days=max(observations.RECHECK_AFTER_DAYS, -(-held // per_day)),
+        )
 
     @app.get("/privacy")
     def privacy_page(request: Request):
