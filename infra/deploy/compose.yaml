@@ -32,7 +32,9 @@ services:
     command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
     volumes:
       - ./data:/data
-    environment: *mail  # the confirmation email is sent by the web process
+    environment:
+      <<: *mail  # the confirmation email is sent by the web process
+      DY_S3_BUCKET: ${DY_S3_BUCKET}  # a pruned document is fetched from the store on view
     depends_on:
       migrate:
         condition: service_completed_successfully

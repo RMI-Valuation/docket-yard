@@ -51,6 +51,7 @@
         {% if e.kind == 'filing' and e.filed_for_raw %}<div class="entry-for as-printed">{{ display_filed_for(e.filed_for_raw) }}</div>{% endif %}
       </div>
       <div class="entry-links">
+        {% set v = viewable_index(e) %}{% if v is not none %}<a class="view small" href="{{ viewer_path(e.kind, e.record_id, v) }}" target="_blank" rel="noopener" aria-label="View {{ 'decision' if e.kind == 'decision' else 'filing' }} {{ e.record_id }} beside its record">view</a>{% endif %}
         {% for a in e.attachments %}<a class="pdf" href="{{ a.url }}" aria-label="The Board’s file for {{ 'decision' if e.kind == 'decision' else 'filing' }} {{ e.record_id }}{% if a.label %} ({{ a.label }}){% endif %}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>{% endfor %}
       </div>
     </li>

@@ -35,20 +35,42 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 - Dead webhook endpoints should self-suppress after N failures; a per-pass delivery budget;
   one delivery loop over a channel object; TTL-cache feeds on the ledger head.
 
+## Document viewer (PR #10, 2026-08-27)
+
+- **The web tier holds write-capable S3 keys.** The container already carried the bucket
+  user's keys for SES; the viewer's store fetch now uses them for `GetObject`. A second key
+  pair scoped to `s3:GetObject` on `blobs/*` for `web` (keep the read/write pair on `ingest`
+  and `litestream`) keeps a write key out of the one internet-facing process. Cameron's
+  (keys live in his password manager; nothing recreates them silently).
+- **Sandbox the document response.** `Content-Security-Policy: sandbox; frame-ancestors
+  'self'` on `/document/*` would put the PDF in an opaque origin (the pdf.js CVE-2024-4367
+  class could not reach the site's origin). Not shipped because a `sandbox`ed PDF's
+  rendering in Chrome's viewer must be checked in a browser first; the site sets no cookie
+  and holds no per-user state, so the exposure today is small.
+- **A miss fetched twice.** Two concurrent requests for one pruned hash each stream it from
+  the store (the second rename is a no-op); a browser viewer's parallel Range requests can
+  do this. A per-hash in-flight lock, or streaming the store's body through while teeing to
+  disk, if the traffic counts ever show it.
+- **The sitemap advertises pruned documents.** A crawler walking every document address
+  pulls every pruned file back from S3 (egress at ~$0.09/GB; the prune re-bounds the disk).
+  Watch the `document` class on `docketyard traffic`; drop the section or add `crawl-delay`
+  if it costs.
+- **Template triplication.** The follow form lives in `sheet.html`, `party.html` and
+  `viewer.html`; an `_follow_form.html` include when it next changes. The S3 key layout
+  `blobs/aa/<sha>` is spelled in `web/documents.py`, `prune_blobs.py` and the sync unit.
+- **One 503, three states.** No store configured, the store did not answer, and the store
+  answered wrong bytes are logged apart but all answer 503; a `Retry-After` on the
+  transient one, and a startup refusal when `DY_S3_BUCKET` is set without keys.
+
 ## Store and operations
 
-- **A 403 on one document reads as a WAF rule change** (2026-08-27, v2026.08.29): `StbClient`
-  diagnoses every 403 as "the WAF likely changed its User-Agent rules". A single legacy
-  `dcms-external.s3.amazonaws.com/MPD/…` attachment (double-encoded old-DCMS path) returned
-  403 mid-wave while every other fetch succeeded; the message should say which host answered
-  and reserve the WAF diagnosis for the STB search endpoint. The item is retried every batch
-  (the attempt-counter chore below).
 - **Key rotation** for `DY_EMAIL_KEY` (decrypt under old, seal under new; four sealed columns
   across three tables since 0008) — unwritten; ADR 0014 records the gap.
 - **Credentials**: Lightsail has no instance profile, so production runs on a bucket-scoped
   IAM user's keys; decide EC2 t4g / Roles Anywhere / accept (ADR 0012 gap).
 - **Schema chores**: the errata re-check needs a last-checked column (walk oldest-first under
-  a per-pass limit); permanently-bad poll items need an attempt counter (retried every pass).
+  a per-pass limit). A refused document URL rests a week from its capture (PR #10); a poll
+  item that is permanently bad for another reason still has no attempt counter.
 - **ADR 0012 addendum** recording the blob cache design (S3 the store, the instance a cache;
   sync + prune) once wave 3 proves it.
 - **`docketyard gap open/close`** so a recorded outage has a `coverage_gap` row for the

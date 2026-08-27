@@ -9,9 +9,16 @@
 		X-Frame-Options DENY
 		# inline scripts and style attributes are the site's own (preferences, chart widths);
 		# nothing external loads, nothing may frame it
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'"
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
 		-Server
+	}
+	handle /document/* {
+		# the bytes at a hash, shown inside the viewer's own frame: this one path may be
+		# framed by this site; it carries no script of ours and nothing else changes
+		header -X-Frame-Options
+		header Content-Security-Policy "frame-ancestors 'self'"
+		reverse_proxy web:8000
 	}
 	handle /static/* {
 		header Cache-Control "public, max-age=604800"

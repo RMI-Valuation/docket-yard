@@ -78,3 +78,17 @@ further record here, never by being served once.
 > permanent address (`/p/<id>`), never reused or renumbered, with 301 from any id folded
 > into a same_as component to its representative. The boundary stands unchanged for
 > places, labels and folds. This record is not edited; the note is appended (ADR 0001).
+
+## Addendum (2026-08-27): documents by content hash
+
+Decided by the operator: a fifth address class, **`/document/{sha256}.{ext}`** — the bytes of a
+document the record holds, addressed by their SHA-256 (ADR 0002); the suffix names what the
+bytes are (`pdf`, `jpg`, `zip`, `xlsx`, `docx`; `bin` when nothing sniffed) and any other
+suffix at the same hash answers 301 to it. A PDF or image is served inline so a browser shows
+it rather than downloads it, with the Board's own file linked beside. The hash is
+the identity, so the address is permanent by construction: the same bytes always answer at
+the same address, and a replaced file (an erratum) is a different address, with the chain
+kept in `document_source`. The address is offered in the cite box and listed in the sitemap.
+It carries no derived claim; it is the primary source itself. The viewer page a reader opens
+from a sheet — `/filing/{id}/view`, `/decision/{id}/view` — is a sub-address of a record
+that already exists and adds no class.

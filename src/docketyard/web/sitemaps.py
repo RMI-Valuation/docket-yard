@@ -16,7 +16,7 @@ from docketyard.parties import resolve
 from docketyard.web import urls
 
 PAGE = 40_000
-SECTIONS = ("pages", "dockets", "decisions", "filings", "parties")
+SECTIONS = ("pages", "dockets", "decisions", "filings", "parties", "documents")
 STATIC_PAGES = (
     "/",
     "/parties",
@@ -45,6 +45,8 @@ def _count(con: Connection, name: str, stamp: str) -> int:
         return con.execute("SELECT COUNT(*) FROM docket").fetchone()[0]
     if name == "parties":
         return len(_party_entries(con, stamp))
+    if name == "documents":
+        return con.execute("SELECT COUNT(*) FROM document").fetchone()[0]
     table, col, _ = _RECORDS[name]
     return con.execute(f"SELECT COUNT(DISTINCT {col}) FROM {table}").fetchone()[0]
 
@@ -156,6 +158,16 @@ def section(con: Connection, site: str, name: str, page: int, stamp: str) -> str
         entries = [
             (f"{base}{urls.party_path(rep)}", mod)
             for rep, mod in _party_entries(con, stamp)[offset : offset + PAGE]
+        ]
+    elif name == "documents":
+        # the bytes at a hash never change: lastmod is the day they were first held
+        entries = [
+            (f"{base}{urls.document_path(sha, kind)}", seen)
+            for sha, seen, kind in con.execute(
+                "SELECT document_sha256, first_seen_at, media_type FROM document"
+                " ORDER BY document_sha256 LIMIT ? OFFSET ?",
+                (PAGE, offset),
+            )
         ]
     else:
         table, col, path = _RECORDS[name]

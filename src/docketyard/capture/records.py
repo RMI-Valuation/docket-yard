@@ -34,12 +34,13 @@ def staging_dir(data_dir: str | Path) -> Path:
 
 
 def sweep_staging(data_dir: str | Path, older_than: float = STALE_STAGING_SECONDS) -> int:
-    """Remove downloads a killed process left behind (an OOM kill runs no `finally`). Only
-    one process fetches documents at a time, so anything older than `older_than` seconds
-    is nobody's. Returns the count removed."""
+    """Remove downloads a killed process left behind (an OOM kill runs no `finally`):
+    the fetcher's `dl-*` and the web tier's `ws-*` (a pruned document fetched back from
+    the store). No download takes `older_than` seconds, so anything older is nobody's.
+    Returns the count removed."""
     cutoff = time.time() - older_than
     removed = 0
-    for f in staging_dir(data_dir).glob("dl-*"):
+    for f in (*staging_dir(data_dir).glob("dl-*"), *staging_dir(data_dir).glob("ws-*")):
         try:
             if f.is_file() and f.stat().st_mtime < cutoff:
                 f.unlink()

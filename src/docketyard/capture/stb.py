@@ -136,14 +136,14 @@ class StbClient:
                 raise
             return resp.status, Path(name)
 
-        return self._attempt(url, None, consume)
+        return self._attempt(url, None, consume, keep_refusals=True)
 
     def fetcher(self, data_dir: str | Path):
         """The document fetcher `documents.fetch_attachments` takes: `download` bound to
         the blob store's directory, so every caller streams and none reads whole."""
         return lambda url: self.download(url, data_dir)
 
-    def _attempt(self, url: str, data: bytes | None, consume):
+    def _attempt(self, url: str, data: bytes | None, consume, *, keep_refusals: bool = False):
         """Run `consume(resp)` against a fresh response under the one retry policy: 403 is
         a hard stop with a diagnosis; 429/5xx, transport failures and a failure mid-read
         (timeout, reset, a body cut short of its Content-Length) retry with backoff,
@@ -164,9 +164,18 @@ class StbClient:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                     return consume(resp)
             except urllib.error.HTTPError as e:
+                host = urllib.parse.urlsplit(url).netloc
+                if (
+                    keep_refusals
+                    and not host.endswith("stb.gov")
+                    and e.code < 500
+                    and e.code != 429
+                ):
+                    # a document host refusing one object (403 on a legacy /MPD/ path,
+                    # measured 2026-08-27; a 404): the answer is the record of the attempt
+                    return consume(e)
                 if e.code == 403:
                     body = e.read(200).decode("utf-8", "replace").strip()
-                    host = urllib.parse.urlsplit(url).netloc
                     if body == "-1":
                         why = "body `-1`: WordPress rejected the nonce (stale cached search page?)"
                     elif host.endswith("stb.gov"):

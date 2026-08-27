@@ -9,10 +9,15 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Backfill: documents done 2026-08-27 (77,565 held; one legacy `/MPD/` URL 403s). The 41
-  `partial` months (1996–2000) are **proven empty** by neighbour-window reconciliation
-  (`stb-data-source.md` § Measured 2026-08-27); the walker now proves that itself. After
-  v2026.08.30 deploys, re-walk 1996–2000 so they record `empty` and `/coverage` drops them
+- **Document viewer, PR #10** (branch `document-viewer`, 2026-08-27): reviews answered; CI →
+  merge → v2026.08.31 → deploy with the new `Caddyfile` (a `/document/*` handle block) and
+  `compose.yaml` (`DY_S3_BUCKET` in the web env) → verify `/document/<sha>.pdf` (200, 206,
+  304) and `/filing/<id>/view` from outside → `docs/milestones.md`. **Cameron, in a
+  browser:** does the frame render (Chrome, Firefox, a phone)? Then decide the two key
+  questions in `docs/deferred.md` § Document viewer (a read-only key pair for the web tier)
+- Backfill complete 2026-08-27: 77,565 documents held; the 41 partial months re-walked and
+  recorded `empty` (13:58 UTC), `/coverage` lists none. One legacy `/MPD/` URL 403s (rests
+  a week from PR #10). Record the waves' close in `docs/milestones.md` with the viewer
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
 - RMI-AI-MACHINE: qwen3:14b step-2 run done 2026-08-26 (60/60, `benchmark/runs/`); text
@@ -24,12 +29,6 @@ by pre-commit: when it fires, prune.
 
 ## Next
 
-- **Sitemap defect** (2026-08-26): `sitemap-dockets` lists family parents only, 21,807 of
-  32,605 rows; the 10,798 sub-dockets are real pages with their own canonical (2,032 carry
-  filings; search points at 765 AB 55 subs) while 16,805 empty parents are listed. Fix in
-  `sitemaps.py` (subs with their own `lastmod`); say on `/coverage` what the sitemap holds
-- `/coverage` says the waves added 54,422 filings / 23,702 decisions; `/stats` holds 53,027 /
-  19,829 (wave-added vs held) — label each so the gap is plainly intentional
 - F5's unfinished edge (no decision needed): `/api`, a human page for `/openapi.json` (what,
   licence, stability, rate expectations, an example, links); `/llms.txt` from the trust pages' source
 - Citator schema gate, before C2 is chosen: the citation-edge shape against
