@@ -14,6 +14,41 @@ from docketyard.web.app import create_app
 from tests.test_web import build_store
 
 
+def test_api_page_and_llms_txt_say_what_the_surface_is(tmp_path):
+    client = TestClient(create_app(build_store(tmp_path)))
+    r = client.get("/api")
+    assert r.status_code == 200
+    for needle in (
+        "/openapi.json",
+        "/llms.txt",
+        "CC0 1.0",
+        '"shape_version": 1',
+        "ADR 0013",
+        "User-Agent",
+        "/document/&lt;sha256&gt;.pdf",
+        "position",
+    ):
+        assert needle in r.text, needle
+    assert "v20" in r.text or "0.0.0" in r.text  # the release this answer came from
+    r = client.get("/llms.txt")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/plain")
+    assert r.text.startswith("# Docket Yard\n\n> ")
+    for needle in (
+        "## Read the record",
+        "## Data",
+        "## Trust",
+        "does not say what any party argued",
+        "https://docketyard.org/api",
+        "https://docketyard.org/coverage",
+        "2 filings",
+        "CC0 1.0",
+    ):
+        assert needle in r.text, needle
+    assert "Cache-Control" in r.headers
+    assert '"description"' in client.get("/openapi.json").text
+    assert "/api<" in client.get("/sitemap-pages-1.xml").text
+
+
 def test_snapshot_omits_readers_and_measures_itself(tmp_path):
     path = build_store(tmp_path)
     con = db.connect(path)

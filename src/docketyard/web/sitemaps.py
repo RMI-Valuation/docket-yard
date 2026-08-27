@@ -23,6 +23,7 @@ STATIC_PAGES = (
     "/search",
     "/stats",
     "/data",
+    "/api",
     "/about",
     "/contribute",
     "/coverage",
