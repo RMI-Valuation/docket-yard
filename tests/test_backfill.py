@@ -91,7 +91,8 @@ def test_wave_walks_ingests_fetches_and_never_alerts(tmp_path):
     ).fetchone()[0]
     assert summary[FILINGS]["done"] == 2
     # September decisions: the no-results envelope on page 1 is the trap, never "empty"
-    assert summary[DECISIONS]["done"] == 1 and summary[DECISIONS]["partial"] == 1
+    # the doubted decision month reconciles against its done neighbour: proven empty
+    assert summary[DECISIONS]["done"] == 1 and summary[DECISIONS]["empty"] == 1
     assert summary[f"{FILINGS}:ingest"]["captures"] >= 1
     assert summary["documents"]["fetched"] == 3
     status = con.execute("SELECT COUNT(*) FROM filing").fetchone()[0]
@@ -184,3 +185,84 @@ def test_a_measured_empty_month_is_declared_not_guessed(tmp_path):
     )
     con.commit()
     assert home.covered(con, d(2025, 10, 6), d(2025, 10, 12))  # an empty month still counts
+
+
+class WindowStb(FakeStb):
+    """Keyed by (action, start, end): a month and a window that begins the same day differ."""
+
+    def query_table(self, action, criteria, *, page, per_page, sort_by="", sort_order=""):
+        self.requests += 1
+        start, end = (v for _, v in criteria)
+        body = self.pages.get((action, start, end))
+        if page > 1 or body is None:
+            return 200, NO_RESULTS, []
+        return 200, body, [("search-criteria[0][name]", "x")]
+
+
+def _month_body(n, month, year=1996, first_id=100):
+    rows = "".join(
+        filing_row(fid=str(first_id + i), date=f"{month}/{i + 1}/{year}", pdf=f"{first_id + i}.pdf")
+        for i in range(n)
+    )
+    return body_of(rows, n)
+
+
+def test_a_month_that_answers_the_envelope_is_proven_empty_by_a_neighbour_window(tmp_path):
+    """May holds two filings, June answers the envelope, July one filing. Walking May–July:
+    June has no done month after it yet, so the proof looks back — a window May 1 → June 30
+    that totals exactly May's 2 proves June empty. Both proof requests are captured."""
+    from datetime import date as d
+
+    from docketyard.capture.stb import FILINGS
+
+    con = db.connect(tmp_path / "s.sqlite")
+    client = WindowStb(
+        {
+            (FILINGS, "05/01/1996", "05/31/1996"): _month_body(2, 5),
+            (FILINGS, "07/01/1996", "07/31/1996"): _month_body(1, 7, first_id=200),
+            (FILINGS, "05/01/1996", "06/30/1996"): _month_body(2, 5),  # the window: May alone
+        }
+    )
+    out = walk.walk_observations(
+        con, client, FILINGS, d(1996, 5, 1), d(1996, 7, 31), data_dir=tmp_path, log=lambda _: 0
+    )
+    assert out == {"done": 2, "empty": 1, "capped": 0, "partial": 0, "skipped": 0}
+    status = dict(con.execute("SELECT slice_key, status FROM walk_slice").fetchall())
+    assert status[f"{FILINGS}:1996-06"] == "empty"
+    # the two proof captures are on record, marked backfill and processed (never ingested)
+    captures = con.execute(
+        "SELECT COUNT(*) FROM capture WHERE ingest_mode = 'backfill' AND table_action = ?",
+        (FILINGS,),
+    ).fetchone()[0]
+    assert captures == 5 and client.requests == 5  # May, June, the two proofs, July
+
+
+def test_a_window_that_does_not_reconcile_leaves_the_month_partial(tmp_path):
+    """The same shape, but the window returns more than May alone (June is not empty; the
+    month's own request answered the envelope for some other reason): partial, with the
+    walker saying the criterion may be wrong rather than guessing empty."""
+    from datetime import date as d
+
+    from docketyard.capture.stb import FILINGS
+
+    con = db.connect(tmp_path / "s.sqlite")
+    notes = []
+    client = WindowStb(
+        {
+            (FILINGS, "05/01/1996", "05/31/1996"): _month_body(2, 5),
+            (FILINGS, "05/01/1996", "06/30/1996"): _month_body(3, 5),  # one more than May
+        }
+    )
+    out = walk.walk_observations(
+        con, client, FILINGS, d(1996, 5, 1), d(1996, 6, 30), data_dir=tmp_path, log=notes.append
+    )
+    assert out["empty"] == 0 and out["partial"] == 1
+    assert any("did not reconcile" in n for n in notes)
+    assert any("criterion may be wrong" in n for n in notes)
+    # and with no done neighbour at all, nothing is asked and the month stays partial
+    con2 = db.connect(tmp_path / "t.sqlite")
+    client2 = WindowStb({})
+    out2 = walk.walk_observations(
+        con2, client2, FILINGS, d(1996, 6, 1), d(1996, 6, 30), data_dir=tmp_path, log=lambda _: 0
+    )
+    assert out2["partial"] == 1 and client2.requests == 1

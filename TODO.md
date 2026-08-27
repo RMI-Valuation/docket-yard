@@ -11,7 +11,7 @@ by pre-commit: when it fires, prune.
 
 - Backfill: documents done 2026-08-27 (77,565 held; one legacy `/MPD/` URL 403s). The 41
   `partial` months (1996–2000) are **proven empty** by neighbour-window reconciliation
-  (`stb-data-source.md` § Measured 2026-08-27), declared in `EXPECTED_EMPTY_MONTHS`; after
+  (`stb-data-source.md` § Measured 2026-08-27); the walker now proves that itself. After
   v2026.08.30 deploys, re-walk 1996–2000 so they record `empty` and `/coverage` drops them
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
