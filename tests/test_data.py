@@ -40,7 +40,7 @@ def test_api_page_and_llms_txt_say_what_the_surface_is(tmp_path):
         "does not say what any party argued",
         "https://docketyard.org/api",
         "https://docketyard.org/coverage",
-        "2 filings",
+        "2 filings, 1 decision and",
         "CC0 1.0",
     ):
         assert needle in r.text, needle
