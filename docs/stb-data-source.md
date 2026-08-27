@@ -218,7 +218,25 @@ June alone, while 06/01–08/31 → 70; `serviceStartDate` 01/01–08/31/1996 �
 alone. Both date-criteria pairs answer the envelope for the doubted months. The earliest
 record the endpoint returns is dated 25 Jan 1996; 1995 answers the envelope outright.
 
-What follows: the 41 months are declared in `EXPECTED_EMPTY_MONTHS` with this
-measurement as their reason, so a re-walk records them `empty` and the coverage page stops
-listing them as incomplete. Automating the proof (two neighbour-window requests per doubted
-month) is recorded in `docs/deferred.md`; the walker's note now says what it knows.
+What follows: the walker now runs this proof itself (`walk.reconcile_empty_month`):
+a month that answers the envelope on its first page is walked outward to the nearest `done`
+month and one window is asked across the doubted run; equal totals record the month
+`empty` with the proof in its captures, anything else leaves it `partial` and says so. A
+wrong criterion cannot pass — the window would answer the envelope too. The table below is
+the measurement the mechanism was checked against.
+
+| Table | Doubted months | Done neighbour | Neighbour total | Window total |
+|---|---|---|---|---|
+| decisions | 1996-01 → 1996-07 (7) | 1996-08 | 38 | 38 |
+| decisions | 1996-09 (1) | 1996-10 | 1 | 1 |
+| filings | 1996-02 → 1996-08 (7) | 1996-09 | 1 | 1 |
+| filings | 1996-10 → 1996-11 (2) | 1996-12 | 2 | 2 |
+| filings | 1997-02 → 1997-04 (3) | 1997-05 | 1 | 1 |
+| filings | 1997-07 → 1998-02 (8) | 1998-03 | 101 | 101 |
+| filings | 1998-08 (1) | 1998-09 | 7 | 7 |
+| filings | 1998-10 (1) | 1998-11 | 2 | 2 |
+| filings | 1998-12 → 1999-01 (2) | 1999-02 | 1 | 1 |
+| filings | 1999-06 → 2000-01 (8) | 2000-02 | 655 | 655 |
+| filings | 2000-07 (1) | 2000-08 | 14 | 14 |
+
+Eleven windows, 22 requests, 41 months: every window equals its neighbour alone.
