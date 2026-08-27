@@ -117,7 +117,7 @@ def test_wave_walks_ingests_fetches_and_never_alerts(tmp_path):
     again = backfill.wave(
         con, client, tmp_path, date(2024, 8, 1), date(2024, 9, 30), log=lambda _: 0
     )
-    assert again[FILINGS]["skipped"] == 2 and again[DECISIONS]["skipped"] == 1
+    assert again[FILINGS]["skipped"] == 2 and again[DECISIONS]["skipped"] == 2  # empty skips too
     assert client.requests - before <= 2 and again["documents"]["fetched"] == 0
 
 
