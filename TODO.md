@@ -9,10 +9,9 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Documents backfill (1996 → 2024-07, ~75k files) in tmux `wave3docs`, log `wave3docs.log`:
-  one streaming loop since v2026.08.25 (5,000-file batches; the 1.07 GB FD 36500 application
-  landed at 34 MB RSS). When it ends: 41 `partial` months to re-walk;
-  re-run extraction. Deferred: Range-resume mid-body; hash while streaming; commit per doc
+- Backfill: documents done 2026-08-27 (77,565 held; one legacy `/MPD/` URL 403s). Next: re-walk
+  the 41 `partial` table months (8 decisions, 33 filings), then `/coverage`; then pull the
+  new blobs to RMI-AI-MACHINE and re-run the text layer (needs Cameron's Tailscale approval)
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
 - RMI-AI-MACHINE (2026-08-26 19:46 UTC): tmux `extract` pulls the blob store from S3 with
