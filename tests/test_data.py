@@ -175,3 +175,21 @@ def test_json_twins_at_the_permanent_addresses(tmp_path):
         "also_in",
         "url",
     }
+
+
+def test_every_template_is_packaged():
+    """The wheel ships only the globs in pyproject's package-data: a template the app can
+    render locally but the image cannot is a 500 in production (llms.txt, 2026-08-27)."""
+    import fnmatch
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    globs = re.search(r'"docketyard.web" = \[(.*?)\]', (root / "pyproject.toml").read_text()).group(
+        1
+    )
+    patterns = re.findall(r'"([^"]+)"', globs)
+    web = root / "src" / "docketyard" / "web"
+    for f in (web / "templates").iterdir():
+        rel = f.relative_to(web).as_posix()
+        assert any(fnmatch.fnmatch(rel, p) for p in patterns), f"{rel} is not in package-data"

@@ -28,7 +28,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.package-data]
 "docketyard.store" = ["*.sql"]
 "docketyard" = ["LICENSE-DATA.txt"]
-"docketyard.web" = ["templates/*.html", "static/*", "static/fonts/*"]
+"docketyard.web" = ["templates/*.html", "templates/*.txt", "static/*", "static/fonts/*"]
 
 [tool.ruff]
 line-length = 100
