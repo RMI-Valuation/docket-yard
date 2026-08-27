@@ -44,7 +44,11 @@ def test_api_page_and_llms_txt_say_what_the_surface_is(tmp_path):
         "CC0 1.0",
     ):
         assert needle in r.text, needle
-    assert "Cache-Control" in r.headers
+    assert "Cache-Control" in r.headers and "&#" not in r.text and "&amp;" not in r.text
+    assert (
+        "pages are good for 5 minutes, JSON for 30, a document for 365 days"
+        in client.get("/api").text
+    )
     assert '"description"' in client.get("/openapi.json").text
     assert "/api<" in client.get("/sitemap-pages-1.xml").text
 
