@@ -46,7 +46,7 @@ def _count(con: Connection, name: str, stamp: str) -> int:
     if name == "parties":
         return len(_party_entries(con, stamp))
     if name == "documents":
-        return con.execute("SELECT COUNT(*) FROM document WHERE media_type = 'pdf'").fetchone()[0]
+        return con.execute("SELECT COUNT(*) FROM document").fetchone()[0]
     table, col, _ = _RECORDS[name]
     return con.execute(f"SELECT COUNT(DISTINCT {col}) FROM {table}").fetchone()[0]
 
@@ -162,9 +162,9 @@ def section(con: Connection, site: str, name: str, page: int, stamp: str) -> str
     elif name == "documents":
         # the bytes at a hash never change: lastmod is the day they were first held
         entries = [
-            (f"{base}{urls.document_path(sha)}", seen)
-            for sha, seen in con.execute(
-                "SELECT document_sha256, first_seen_at FROM document WHERE media_type = 'pdf'"
+            (f"{base}{urls.document_path(sha, kind)}", seen)
+            for sha, seen, kind in con.execute(
+                "SELECT document_sha256, first_seen_at, media_type FROM document"
                 " ORDER BY document_sha256 LIMIT ? OFFSET ?",
                 (PAGE, offset),
             )

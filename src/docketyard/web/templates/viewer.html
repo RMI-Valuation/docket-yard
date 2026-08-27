@@ -8,10 +8,10 @@
 <section class="viewer">
   <div class="viewer-doc">
     {% if current %}
-    <iframe class="viewer-frame" src="{{ document_path(current.document_sha256) }}#toolbar=1" title="{{ label }} {{ entry.record_id }}{% if current.label %} ({{ current.label }}){% endif %}"></iframe>
-    <p class="small muted viewer-fallback">If the file does not appear here, <a href="{{ document_path(current.document_sha256) }}" target="_blank" rel="noopener">open it in its own tab</a> (some phones show only the first page inside a frame).</p>
+    <iframe class="viewer-frame" src="{{ document_path(current.document_sha256, current.media_type) }}#toolbar=1" title="{{ label }} {{ entry.record_id }}{% if current.label %} ({{ current.label }}){% endif %}"></iframe>
+    <p class="small muted viewer-fallback">If the file does not appear here, <a href="{{ document_path(current.document_sha256, current.media_type) }}" target="_blank" rel="noopener">open it in its own tab</a> (some phones show only the first page inside a frame).</p>
     {% else %}
-    <p class="muted viewer-fallback">This record's file has not been fetched into the record yet{% if entry.attachments %}; the Board's own copy is linked in the sidebar{% endif %}.</p>
+    <p class="muted viewer-fallback">{% if entry.attachments | selectattr('document_sha256') | list %}This record's file is not a kind a browser shows; it is offered as a download in the sidebar{% else %}This record's file has not been fetched into the record yet{% if entry.attachments %}; the Board's own copy is linked in the sidebar{% endif %}{% endif %}.</p>
     {% endif %}
   </div>
   <aside class="rail viewer-rail">
@@ -27,21 +27,21 @@
       <h2>Files</h2>
       <ul class="plain small">
       {% for a in entry.attachments %}
-        <li>{% if a.document_sha256 %}<a href="{{ viewer_path(entry.kind, entry.record_id, loop.index0) }}"{% if a is sameas current %} aria-current="true"{% endif %}>{{ a.label or 'The file' }}</a> · <span class="mono muted" title="SHA-256 of the bytes, the document's permanent identity">{{ a.document_sha256[:12] }}…</span>{% else %}{{ a.label or 'The file' }} <span class="muted">(not yet held here)</span>{% endif %} · <a href="{{ a.url }}" rel="noopener">the Board’s copy</a></li>
+        <li>{% if a.document_sha256 and a.media_type in ('pdf', 'jpg') %}<a href="{{ viewer_path(entry.kind, entry.record_id, loop.index0) }}"{% if a is sameas current %} aria-current="true"{% endif %}>{{ a.label or 'The file' }}</a> ·{% elif a.document_sha256 %}<a href="{{ document_path(a.document_sha256, a.media_type) }}">{{ a.label or 'The file' }}</a> <span class="muted">(download, .{{ a.media_type or 'bin' }})</span> · <span class="mono muted" title="SHA-256 of the bytes, the document's permanent identity">{{ a.document_sha256[:12] }}…</span>{% else %}{{ a.label or 'The file' }} <span class="muted">(not yet held here)</span>{% endif %} · <a href="{{ a.url }}" rel="noopener">the Board’s copy</a></li>
       {% endfor %}
       </ul>
     </div>
     {% if prev or next %}
     <div>
       <h2>On this sheet</h2>
-      <p class="small">{% if prev %}← <a href="{{ viewer_path(prev.kind, prev.record_id, 0) if prev.attachments and prev.attachments[0].document_sha256 else record_path(prev.kind, prev.record_id) }}">{{ prev.date | fmt_date }} · {{ kind_label(prev.kind, prev.type) }} {{ prev.record_id }}</a>{% endif %}{% if prev and next %}<br>{% endif %}{% if next %}<a href="{{ viewer_path(next.kind, next.record_id, 0) if next.attachments and next.attachments[0].document_sha256 else record_path(next.kind, next.record_id) }}">{{ next.date | fmt_date }} · {{ kind_label(next.kind, next.type) }} {{ next.record_id }}</a> →{% endif %}</p>
+      <p class="small">{% if prev %}← <a href="{% set pv = viewable_index(prev) %}{{ viewer_path(prev.kind, prev.record_id, pv) if pv is not none else record_path(prev.kind, prev.record_id) }}">{{ prev.date | fmt_date }} · {{ kind_label(prev.kind, prev.type) }} {{ prev.record_id }}</a>{% endif %}{% if prev and next %}<br>{% endif %}{% if next %}<a href="{% set nv = viewable_index(next) %}{{ viewer_path(next.kind, next.record_id, nv) if nv is not none else record_path(next.kind, next.record_id) }}">{{ next.date | fmt_date }} · {{ kind_label(next.kind, next.type) }} {{ next.record_id }}</a> →{% endif %}</p>
       <p class="small muted">Newest first, as on the sheet.</p>
     </div>
     {% endif %}
     <div>
       <h2 id="cite">Cite</h2>
       <p class="cite serif" id="cite-line">{{ label }} {{ entry.record_id }}, {{ cite_docket(identity) }}{% if entry.date %} ({{ entry.date | fmt_date }}){% endif %}</p>
-      <p class="small muted">Record <span class="mono">docketyard.org{{ record_path(entry.kind, entry.record_id) }}</span>{% if current %}<br>File <span class="mono">docketyard.org{{ document_path(current.document_sha256) }}</span>{% endif %}</p>
+      <p class="small muted">Record <span class="mono">docketyard.org{{ record_path(entry.kind, entry.record_id) }}</span>{% if current %}<br>File <span class="mono">docketyard.org{{ document_path(current.document_sha256, current.media_type) }}</span>{% endif %}</p>
       <button class="btn no-print" type="button" data-copy="cite-line" hidden>Copy citation</button>
     </div>
     <div class="no-print">
