@@ -53,7 +53,9 @@ def fetch_attachments(
     fetch: Fetcher,
     *,
     limit: int | None = None,
-    refresh: bool = False,
+    refresh: bool = False,  # re-fetch held files (errata) instead of new ones ...
+    recheck_after_days: int | None = None,  # ... only those unchecked this long (None: any)
+    recheck_max_bytes: int | None = None,  # ... and no larger than this (None: any size)
     observed_in: str | None = None,
     ingest_mode: str = "forward",
 ) -> dict:
@@ -62,13 +64,22 @@ def fetch_attachments(
     a test's fetcher may return bytes — so the pipeline is testable without the network."""
     records.sweep_staging(data_dir)  # what a killed run left half-written
     by_url: dict[str, list[observations.AttachmentRef]] = {}
-    for ref in observations.attachments(
-        con, unfetched_only=not refresh, limit=limit, observed_in=observed_in
-    ):
+    if refresh:  # the held files due a re-check, longest-unchecked first
+        if observed_in:
+            raise ValueError("a re-check walks every held file; observed_in does not apply")
+        urls = observations.recheck_urls(
+            con, limit=limit, after_days=recheck_after_days, max_bytes=recheck_max_bytes
+        )
+        refs = observations.attachments(con, unfetched_only=False, urls=urls) if urls else []
+    else:
+        refs = observations.attachments(
+            con, unfetched_only=True, limit=limit, observed_in=observed_in
+        )
+    for ref in refs:
         by_url.setdefault(ref.url, []).append(ref)
     stats = {"fetched": 0, "unchanged": 0, "new_documents": 0, "replaced": 0, "failed": 0}
     for url, owners in by_url.items():
-        old_sha = next((o.document_sha256 for o in owners if o.document_sha256), None)
+        old_sha = _held_sha(con, url)  # any row holding this URL: the chain must not break
         body: bytes | Path = b""
         try:
             status, body = fetch(url)
@@ -84,6 +95,10 @@ def fetch_attachments(
             stats["failed"] += 1
             if isinstance(body, Path):
                 body.unlink(missing_ok=True)
+            if refresh:
+                # the attempt is on record with no answer (status 0), so the URL goes to
+                # the back of the re-check line instead of heading it every pass
+                _record_attempt(con, data_dir, url, ingest_mode)
             continue
         capture_id = records.save_capture(
             con,
@@ -117,8 +132,31 @@ def fetch_attachments(
         stats["fetched"] += 1
         if old_sha == sha256:
             stats["unchanged"] += 1
+            for owner in owners:  # a row that cited the held file without its hash yet
+                if owner.document_sha256 is None:
+                    docket_id, record_id = _owner(con, owner)
+                    con.execute(
+                        "INSERT OR IGNORE INTO document_source (document_sha256, source_url,"
+                        " stb_filing_id, stb_decision_id, supersedes_sha256, capture_id,"
+                        " observed_at) VALUES (?, ?, ?, ?, NULL, ?, ?)",
+                        (
+                            sha256,
+                            url,
+                            record_id if owner.spec is observations.FILINGS_SPEC else None,
+                            record_id if owner.spec is observations.DECISIONS_SPEC else None,
+                            capture_id,
+                            now,
+                        ),
+                    )
+                    con.execute(
+                        f"UPDATE {owner.spec.attachment_table} SET document_sha256 = ?"
+                        " WHERE source_url = ? AND document_sha256 IS NULL",
+                        (sha256, url),
+                    )
             con.commit()
             continue
+        if old_sha is not None:  # a replacement re-links every row citing the URL
+            owners = observations.attachments(con, unfetched_only=False, urls=[url])
         stats["new_documents"] += con.execute(
             "INSERT OR IGNORE INTO document (document_sha256, size_bytes, media_type,"
             " first_seen_at) VALUES (?, ?, ?, ?)",
@@ -166,6 +204,37 @@ def fetch_attachments(
             )
         con.commit()
     return stats
+
+
+def _held_sha(con: Connection, url: str) -> str | None:
+    """The hash the record holds for a URL, whichever record cites it — a new sub-docket
+    row citing a held file must not start the chain over (ADR 0002)."""
+    row = con.execute(
+        "SELECT document_sha256 FROM filing_attachment WHERE source_url = ?"
+        " AND document_sha256 IS NOT NULL UNION SELECT document_sha256 FROM"
+        " decision_attachment WHERE source_url = ? AND document_sha256 IS NOT NULL LIMIT 1",
+        (url, url),
+    ).fetchone()
+    return row[0] if row else None
+
+
+def _record_attempt(con: Connection, data_dir, url: str, ingest_mode: str) -> None:
+    capture_id = records.save_capture(
+        con,
+        data_dir,
+        source_system="stb-dcms",
+        endpoint=url,
+        table_action=FETCH_ACTION,
+        request_params=[("url", url)],
+        body=b"",
+        http_status=0,
+        ingest_mode=ingest_mode,
+    )
+    con.execute(
+        "UPDATE capture SET filter_asserted = 1, processed_at = ? WHERE capture_id = ?",
+        (utcnow(), capture_id),
+    )
+    con.commit()
 
 
 def _owner(con: Connection, ref: observations.AttachmentRef) -> tuple[int, str]:
