@@ -166,13 +166,17 @@ class StbClient:
             except urllib.error.HTTPError as e:
                 if e.code == 403:
                     body = e.read(200).decode("utf-8", "replace").strip()
-                    why = (
-                        "body `-1`: WordPress rejected the nonce (stale cached search page?)"
-                        if body == "-1"
-                        else "the WAF likely changed its User-Agent rules"
-                    )
+                    host = urllib.parse.urlsplit(url).netloc
+                    if body == "-1":
+                        why = "body `-1`: WordPress rejected the nonce (stale cached search page?)"
+                    elif host.endswith("stb.gov"):
+                        why = "the WAF likely changed its User-Agent rules"
+                    else:
+                        # a document host (the Board's S3 bucket): one object it will not
+                        # serve — a legacy /MPD/ path, measured 2026-08-27 — not a rule change
+                        why = "that object is not served; other fetches are unaffected"
                     raise RuntimeError(
-                        f"STB endpoint returned 403 — {why}; see docs/stb-data-source.md"
+                        f"{host} returned 403 — {why}; see docs/stb-data-source.md"
                     ) from e
                 if e.code in (429, 500, 502, 503, 504):
                     last_error = e
