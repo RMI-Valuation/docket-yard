@@ -37,6 +37,12 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 
 ## Store and operations
 
+- **A 403 on one document reads as a WAF rule change** (2026-08-27, v2026.08.29): `StbClient`
+  diagnoses every 403 as "the WAF likely changed its User-Agent rules". A single legacy
+  `dcms-external.s3.amazonaws.com/MPD/…` attachment (double-encoded old-DCMS path) returned
+  403 mid-wave while every other fetch succeeded; the message should say which host answered
+  and reserve the WAF diagnosis for the STB search endpoint. The item is retried every batch
+  (the attempt-counter chore below).
 - **Key rotation** for `DY_EMAIL_KEY` (decrypt under old, seal under new; four sealed columns
   across three tables since 0008) — unwritten; ADR 0014 records the gap.
 - **Credentials**: Lightsail has no instance profile, so production runs on a bucket-scoped
