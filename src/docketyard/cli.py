@@ -190,7 +190,10 @@ def _gap(args: argparse.Namespace) -> int:
     except ValueError as e:
         print(f"refused: {e}")
         return 1
-    for g in gaps.list_gaps(con):
+    rows = gaps.list_gaps(con)
+    if not rows:
+        print("no gap recorded")
+    for g in rows:
         print(
             f"{g.gap_id:4d} {g.failure:10s} {g.started_at} → {g.ended_at or 'open'} {g.note or ''}"
         )
