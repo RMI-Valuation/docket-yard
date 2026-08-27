@@ -16,7 +16,7 @@ the milestones record, and the document viewer (2026-08-27). The Ripe list is th
 | # | Milestone | Done means | Chosen | Status |
 | --- | --- | --- | --- | --- |
 | — | Extraction benchmark (background) | Local LLM on RMI-AI-MACHINE vs API on a hand-labelled sample, before any extraction commits to local output; unblocks the citator | 2026-08-26 | Step 0 done; step 1 (60-decision labelled sample) awaits the operator's labels |
-| — | Three held-metadata slices, chosen by delegation ("proceed with whatever you see fit", 2026-08-27) | The citation resolver (F2's second half: a docket or decision citation in any of the Board's printed forms resolves to its address with no search step); a court-action index (D4's first slice: the 491 `Notice Of Court Action` decisions by rulemaking, quoted); a protective-order register (D7's first slice: the 695 `Motion For Protective Order` filings on one page and marked on the sheet). No inference, no extraction — projections of held rows | 2026-08-27 | In progress |
+| — | Three held-metadata slices, chosen by delegation ("proceed with whatever you see fit", 2026-08-27) | The citation resolver (F2's second half: a docket or decision citation in any of the Board's printed forms resolves to its address with no search step); a court-action index (D4's first slice: the 491 `Notice Of Court Action` decisions by rulemaking, quoted); a protective-order register (D7's first slice: the 695 `Motion For Protective Order` filings on one page and marked on the sheet). No inference, no extraction — projections of held rows | 2026-08-27 | Landed v2026.08.36 (milestones) |
 
 ## Ripe — awaiting a decision
 
