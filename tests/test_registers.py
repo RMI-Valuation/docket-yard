@@ -39,14 +39,15 @@ def _store(tmp_path):
 
 def test_registers_list_what_the_board_typed_and_nothing_else(tmp_path):
     path, con = _store(tmp_path)
-    assert registers.counts(con) == {"court_actions": 1, "protective_orders": 1}
-    court = registers.court_actions(con)
+    court = registers.court_actions(con).groups
     assert [g.raw_docket for g in court] == ["EP_711"]
     assert (
         court[0].entries[0].record_id == "60001"
         and court[0].entries[0].type == "Notice Of Court Action"
     )
-    prot = registers.protective_orders(con)
+    reg = registers.protective_orders(con)
+    prot = reg.groups
+    assert reg.names  # the party names the page prints, from the one components build
     assert prot[0].raw_docket == "FD_36873" and prot[0].entries[0].record_id == "400001"
     assert prot[0].entries[0].parties  # filed for NRDC, resolved
     client = TestClient(create_app(path))
@@ -67,8 +68,9 @@ def test_the_resolver_reads_every_printed_form_and_never_guesses(tmp_path):
     assert r("Docket No. FD 36873 (Sub-No. 1)").path == "/d/FD-36873/sub/1"
     assert r("Ex Parte No. 711").path == "/d/EP-711" and r("STB Ex Parte 711").kind == "docket"
     assert r("Surface Transportation Board Docket No. EP 711").path == "/d/EP-711"
-    assert r("Decision 60001").path == "/decision/60001" and r("filing no. 400001").kind == "filing"
+    assert r("Decision 60001").path == "/decision/60001" and r("filing 400001").kind == "filing"
     assert r("Decision 99999") is None and r("FD 99999") is None and r("lorem ipsum") is None
+    assert r("Decision No. 12") is None and r("decision 2019") is None  # never a guess
     # a decision is the docket plus its service date, in any printed form
     for q in (
         "EP 711 (STB served Aug. 26, 2026)",

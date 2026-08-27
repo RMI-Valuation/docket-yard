@@ -30,8 +30,8 @@ the same as JSON (`web/cite.py`). Forms: every docket spelling `urls.lookup` alr
 plus the Board's long names (`STB Finance Docket No. 36873`, `Ex Parte No. 711`, `Docket
 No. NOR 42130`), a decision as docket + service date (`FD 36873 (STB served Aug. 25,
 2026)`, `… decided 8/25/2026`), and the Board's record ids (`Decision 53210`, `Filing
-311981`). A date that two held decisions share resolves to the sheet with a note; a date not
-held resolves to the sheet with a note; a number the record does not hold resolves to the
+311981`). A date that two held decisions share resolves to the sheet (which lists both), a date not
+held to the sheet — `/cite` carries the reason as `note`, `/d` just lands there; a number the record does not hold resolves to the
 sheet address anyway (which says it is not held). The Board's reporter form (`N S.T.B. n`)
 and `Decision No. n` are not resolvable until extraction fills `decision_number`. The search
 box tries the resolver before the index, so a pasted citation never becomes a word search.

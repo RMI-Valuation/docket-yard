@@ -36,11 +36,23 @@ class DocketGroup:
     entries: list[Entry]  # newest first
 
 
+@dataclass(frozen=True)
+class Register:
+    groups: list[DocketGroup]  # newest first
+    names: dict[int, str]  # party id -> display name, for every party an entry names
+
+
+def _newest_first(groups: dict[int, DocketGroup]) -> list[DocketGroup]:
+    return sorted(
+        groups.values(), key=lambda g: (g.entries[0].date or "", g.raw_docket), reverse=True
+    )
+
+
 def _title(payload: str | None) -> str | None:
     return load_json(payload)["title"] if payload else None
 
 
-def court_actions(con: Connection) -> list[DocketGroup]:
+def court_actions(con: Connection) -> Register:
     groups: dict[int, DocketGroup] = {}
     for docket_id, raw, payload, did, date, dtype in con.execute(
         "SELECT d.docket_id, d.raw_docket, d.latest_payload, r.stb_decision_id, r.service_date,"
@@ -52,12 +64,10 @@ def court_actions(con: Connection) -> list[DocketGroup]:
         if g is None:
             g = groups[docket_id] = DocketGroup(raw, _title(payload), [])
         g.entries.append(Entry("decision", did, date, dtype))
-    return sorted(
-        groups.values(), key=lambda g: (g.entries[0].date or "", g.raw_docket), reverse=True
-    )
+    return Register(_newest_first(groups), {})
 
 
-def protective_orders(con: Connection) -> list[DocketGroup]:
+def protective_orders(con: Connection) -> Register:
     rows = con.execute(
         "SELECT d.docket_id, d.raw_docket, d.latest_payload, f.filing_pk, f.stb_filing_id,"
         " f.filed_date, f.filing_type, f.filed_for_raw FROM filing f"
@@ -65,25 +75,15 @@ def protective_orders(con: Connection) -> list[DocketGroup]:
         " WHERE LOWER(f.filing_type) LIKE ? ORDER BY f.filed_date DESC, f.stb_filing_id DESC",
         (f"%{PROTECTIVE_ORDER}%",),
     ).fetchall()
-    parties = resolve.components_of_filings(con, sorted({r[0] for r in rows}))  # by docket
+    comps = resolve.Components(con)
+    parties = resolve.components_of_filings(con, sorted({r[0] for r in rows}), comps=comps)
     groups: dict[int, DocketGroup] = {}
     for docket_id, raw, payload, pk, fid, date, ftype, filed_for in rows:
         g = groups.get(docket_id)
         if g is None:
             g = groups[docket_id] = DocketGroup(raw, _title(payload), [])
         g.entries.append(Entry("filing", fid, date, ftype, filed_for, parties.get(pk, [])))
-    return sorted(
-        groups.values(), key=lambda g: (g.entries[0].date or "", g.raw_docket), reverse=True
-    )
-
-
-def counts(con: Connection) -> dict[str, int]:
-    return {
-        "court_actions": con.execute(
-            "SELECT COUNT(*) FROM decision_record WHERE LOWER(decision_type) = ?", (COURT_ACTION,)
-        ).fetchone()[0],
-        "protective_orders": con.execute(
-            "SELECT COUNT(*) FROM filing WHERE LOWER(filing_type) LIKE ?",
-            (f"%{PROTECTIVE_ORDER}%",),
-        ).fetchone()[0],
+    names = {
+        p: comps.display_name(p) for g in groups.values() for e in g.entries for p in e.parties
     }
+    return Register(_newest_first(groups), names)

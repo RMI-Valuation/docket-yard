@@ -563,6 +563,8 @@ def create_app(
         return render(
             request,
             "methodology.html",
+            court_action=registers.COURT_ACTION,
+            protective_order=registers.PROTECTIVE_ORDER,
             recheck_per_pass=poll.RECHECK_LIMIT,
             recheck_after_days=observations.RECHECK_AFTER_DAYS,
             recheck_max_mb=observations.RECHECK_MAX_BYTES >> 20,
@@ -743,8 +745,8 @@ def create_app(
     def lookup(request: Request, q: str = ""):
         """The citation resolver (F2): a docket or decision citation in any of the Board's
         printed forms is a 303 to its permanent address, no search step (web/cite.py);
-        anything else is a search. A resolution that could only reach the sheet says why
-        in the Location's fragment, so nothing is guessed silently."""
+        anything else is a search. A date that reached only the sheet lands there — the
+        sheet lists every decision by date; the reason is on /cite for a program."""
         con = _connect(db_path)
         try:
             found = cite.resolve(con, q)
@@ -774,43 +776,29 @@ def create_app(
 
     # --- registers: one page each over a type the Board printed (docs/registers.md) ----
 
-    @app.get("/court")
-    def court_page(request: Request):
+    def register_page(request: Request, build, template: str):
         con = _connect(db_path)
         try:
-            groups = registers.court_actions(con)
-            comps = resolve.Components(con)
-            names = {p: comps.display_name(p) for g in groups for e in g.entries for p in e.parties}
+            reg = build(con)
         finally:
             con.close()
         response = render(
             request,
-            "court.html",
-            groups=groups,
-            total=sum(len(g.entries) for g in groups),
-            party_name=names.get,
+            template,
+            groups=reg.groups,
+            total=sum(len(g.entries) for g in reg.groups),
+            party_name=reg.names.get,
         )
         response.headers.update(PUBLIC_CACHE)
         return response
 
+    @app.get("/court")
+    def court_page(request: Request):
+        return register_page(request, registers.court_actions, "court.html")
+
     @app.get("/protective")
     def protective_page(request: Request):
-        con = _connect(db_path)
-        try:
-            groups = registers.protective_orders(con)
-            comps = resolve.Components(con)
-            names = {p: comps.display_name(p) for g in groups for e in g.entries for p in e.parties}
-        finally:
-            con.close()
-        response = render(
-            request,
-            "protective.html",
-            groups=groups,
-            total=sum(len(g.entries) for g in groups),
-            party_name=names.get,
-        )
-        response.headers.update(PUBLIC_CACHE)
-        return response
+        return register_page(request, registers.protective_orders, "protective.html")
 
     # --- search: a docket number is never a search; everything else is the index -------
     # (docs/search.md). Nothing about the query is stored; Caddy drops it from the log.

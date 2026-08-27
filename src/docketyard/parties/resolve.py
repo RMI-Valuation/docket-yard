@@ -449,9 +449,12 @@ def parties_in(con: Connection, docket_ids: list[int]) -> list[dict]:
     return out
 
 
-def components_of_filings(con: Connection, docket_ids: list[int]) -> dict[int, list[int]]:
-    """filing_pk → component representatives it was filed for (the sheet's filter)."""
-    comps = Components(con)
+def components_of_filings(
+    con: Connection, docket_ids: list[int], comps: "Components | None" = None
+) -> dict[int, list[int]]:
+    """filing_pk → component representatives it was filed for (the sheet's filter). A
+    caller that already built the components passes them rather than building twice."""
+    comps = comps or Components(con)
     out: dict[int, list[int]] = {}
     for filing_pk, _, party_id in _filed_for_links(con, docket_ids):
         rep = comps.rep(party_id)
