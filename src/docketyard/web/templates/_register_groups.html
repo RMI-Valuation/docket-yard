@@ -1,0 +1,12 @@
+{#- A register's body: docket groups, newest first, each entry linking its record. -#}
+{% for g in groups %}{% set identity = parse_docket_id(g.raw_docket) %}
+<section class="register-group">
+  <h2 class="serif docket-number"><a href="{{ docket_path(identity) }}">{{ printed_docket(identity) }}</a></h2>
+  {% if g.title %}<p class="small as-printed">{{ g.title }}</p>{% endif %}
+  <ul class="plain small">
+  {% for e in g.entries %}
+    <li><time datetime="{{ e.date or '' }}">{{ e.date | fmt_date }}</time> · <a href="{{ record_path(e.kind, e.record_id) }}">{{ e.type or ('Decision' if e.kind == 'decision' else 'Filing') }} {{ e.record_id }}</a>{% if e.filed_for_raw %} · <span class="as-printed">{{ display_filed_for(e.filed_for_raw) }}</span>{% endif %}{% if e.parties %} — {% for p in e.parties %}<a href="{{ party_path(p) }}">{{ party_name(p) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</li>
+  {% endfor %}
+  </ul>
+</section>
+{% endfor %}

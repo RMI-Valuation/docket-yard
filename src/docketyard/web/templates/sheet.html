@@ -49,6 +49,7 @@
         </div>
         {% if e.kind == 'decision' and e.summary %}<div class="summary as-printed">{{ e.summary }}</div>{% endif %}
         {% if e.kind == 'filing' and e.filed_for_raw %}<div class="entry-for as-printed">{{ display_filed_for(e.filed_for_raw) }}</div>{% endif %}
+        {% if e.type and 'protective order' in e.type | lower %}<div class="small"><a class="muted" href="/protective">in the protective-order register</a></div>{% endif %}
       </div>
       <div class="entry-links">
         {% set v = viewable_index(e) %}{% if v is not none %}<a class="view small" href="{{ viewer_path(e.kind, e.record_id, v) }}" target="_blank" rel="noopener" aria-label="View {{ 'decision' if e.kind == 'decision' else 'filing' }} {{ e.record_id }} beside its record">view</a>{% endif %}

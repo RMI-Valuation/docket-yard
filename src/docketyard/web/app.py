@@ -34,9 +34,19 @@ from docketyard.capture import poll, s3
 from docketyard.ingest import observations
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
-from docketyard.store import coverage, dump, home, projections, search, sheet, stats, traffic
+from docketyard.store import (
+    coverage,
+    dump,
+    home,
+    projections,
+    registers,
+    search,
+    sheet,
+    stats,
+    traffic,
+)
 from docketyard.store.db import MIGRATIONS, utcnow
-from docketyard.web import documents, feeds, labels, sitemaps, urls
+from docketyard.web import cite, documents, feeds, labels, sitemaps, urls
 
 _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
@@ -731,12 +741,76 @@ def create_app(
 
     @app.get("/d")
     def lookup(request: Request, q: str = ""):
-        """The old lookup box: whatever was typed, normalised to the one canonical address;
-        anything that is not a docket number is now a search."""
-        identity = urls.lookup(q)
-        if identity is None:
+        """The citation resolver (F2): a docket or decision citation in any of the Board's
+        printed forms is a 303 to its permanent address, no search step (web/cite.py);
+        anything else is a search. A resolution that could only reach the sheet says why
+        in the Location's fragment, so nothing is guessed silently."""
+        con = _connect(db_path)
+        try:
+            found = cite.resolve(con, q)
+        finally:
+            con.close()
+        if found is None:
+            identity = urls.lookup(q)
+            if identity is not None:  # a well-formed number the record does not hold
+                return RedirectResponse(urls.docket_path(identity), status_code=303)
             return RedirectResponse(f"/search?{urlencode({'q': q.strip()})}", status_code=303)
-        return RedirectResponse(urls.docket_path(identity), status_code=303)
+        return RedirectResponse(found.path, status_code=303)
+
+    @app.get("/cite")
+    def cite_json(q: str = ""):
+        """The resolver as data: what a citation names, or null, never a guess."""
+        con = _connect(db_path)
+        try:
+            found = cite.resolve(con, q)
+        finally:
+            con.close()
+        body = None if found is None else asdict(found)
+        if body:
+            body["url"] = f"https://{site_host}{found.path}"
+        return JSONResponse(
+            {"query": q.strip(), "resolved": body}, headers={"Cache-Control": "no-store"}
+        )
+
+    # --- registers: one page each over a type the Board printed (docs/registers.md) ----
+
+    @app.get("/court")
+    def court_page(request: Request):
+        con = _connect(db_path)
+        try:
+            groups = registers.court_actions(con)
+            comps = resolve.Components(con)
+            names = {p: comps.display_name(p) for g in groups for e in g.entries for p in e.parties}
+        finally:
+            con.close()
+        response = render(
+            request,
+            "court.html",
+            groups=groups,
+            total=sum(len(g.entries) for g in groups),
+            party_name=names.get,
+        )
+        response.headers.update(PUBLIC_CACHE)
+        return response
+
+    @app.get("/protective")
+    def protective_page(request: Request):
+        con = _connect(db_path)
+        try:
+            groups = registers.protective_orders(con)
+            comps = resolve.Components(con)
+            names = {p: comps.display_name(p) for g in groups for e in g.entries for p in e.parties}
+        finally:
+            con.close()
+        response = render(
+            request,
+            "protective.html",
+            groups=groups,
+            total=sum(len(g.entries) for g in groups),
+            party_name=names.get,
+        )
+        response.headers.update(PUBLIC_CACHE)
+        return response
 
     # --- search: a docket number is never a search; everything else is the index -------
     # (docs/search.md). Nothing about the query is stored; Caddy drops it from the log.
@@ -753,6 +827,9 @@ def create_app(
             docket = search.held_docket(con, q)
             if docket is not None:
                 return RedirectResponse(docket.path, status_code=303)
+            found = cite.resolve(con, q)  # a citation form: the resolver, not the index
+            if found is not None:
+                return RedirectResponse(found.path, status_code=303)
             hits = search.search(con, q)
         finally:
             con.close()

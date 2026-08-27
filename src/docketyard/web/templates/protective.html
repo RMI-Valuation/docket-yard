@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Protective orders — {{ site_name }}{% endblock %}
+{% block description %}Every motion for a protective order in the Board's record, by docket, with the parties it was filed for.{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Protective orders</h1>
+  <p class="muted">Every filing the Board typed as a motion for a protective order — {{ total | plural('motion') }} in {{ groups | length | plural('docket') }} — newest first, with the parties each was filed for. A motion is a request; whether the Board granted it, and what was then filed under seal, is in the docket's later entries and documents, which are linked, and is not read here. This is a projection of the Board's own filing type, nothing inferred. <a href="/methodology#registers">How registers are made</a>.</p>
+</section>
+{% include "_register_groups.html" %}
+{% if not groups %}<section class="caption"><p class="muted">The record holds no filing of this type yet.</p></section>{% endif %}
+<section class="caption"><p class="small muted">Permanent address <span class="mono">docketyard.org/protective</span>.</p></section>
+{% endblock %}
