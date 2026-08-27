@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}API — {{ site_name }}{% endblock %}
+{% block description %}How to read {{ site_name }}'s record as data: JSON at every permanent address, feeds, document bytes by hash, the OpenAPI description — with the licence, what is stable, and what is asked of a client.{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">The record for programs</h1>
+  <p class="muted">Everything a page shows is also data at the same address. There are no keys, no accounts and no rate limits; there is a licence, a stability promise and a request to be reasonable. The whole record in one file is on the <a href="/data">data page</a>.</p>
+</section>
+
+<section>
+  <h2 id="what">What answers</h2>
+  <table class="moved">
+    <thead><tr><th scope="col">Address</th><th scope="col">Returns</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">/d/FD-36873.json<br>/d/FD-36873/sub/1.json</td><td class="title">The docket family's sheet as JSON: caption, sub-dockets, every filing and decision with the Board's dates as printed, each attachment with its content hash and the Board's own URL. A sub-docket address answers with its family and names what was asked. Any case of the number resolves; one spelling is served, the rest 301 to it.</td></tr>
+      <tr><td class="mono">/filing/&lt;id&gt;.json<br>/decision/&lt;id&gt;.json</td><td class="title">One record with its docket. The ids are the Board's own.</td></tr>
+      <tr><td class="mono">/document/&lt;sha256&gt;.pdf</td><td class="title">The bytes of a file the record holds, by their SHA-256 — the suffix says what they are (<span class="mono">.pdf</span>, <span class="mono">.jpg</span>, <span class="mono">.zip</span>, <span class="mono">.xlsx</span>, <span class="mono">.docx</span>). Range requests, a year's cache, the hash as <span class="mono">ETag</span>. Permanent by construction: the same bytes always answer at the same address.</td></tr>
+      <tr><td class="mono">/d/FD-36873/feed<br>/p/&lt;id&gt;/feed<br>/feed</td><td class="title">Atom: a docket, a party, or the agency. Webhooks carry the same payload, signed — see <a href="/methodology#webhooks">methodology</a>.</td></tr>
+      <tr><td class="mono">/suggest?q=</td><td class="title">Search-as-you-type over docket numbers, captions and party names: a JSON list of hits. Nothing typed is kept.</td></tr>
+      <tr><td class="mono">/sitemap.xml</td><td class="title">Every address the record has, paginated by kind, with <span class="mono">lastmod</span>; the cheapest way to learn what exists.</td></tr>
+      <tr><td class="mono">/health</td><td class="title">The store's freshness, as the heartbeat reads it.</td></tr>
+      <tr><td class="mono">/openapi.json</td><td class="title">The machine description of every route this site serves, HTML pages included, generated from the code that serves them. There is no separate API: the pages <em>are</em> the API.</td></tr>
+      <tr><td class="mono">/llms.txt</td><td class="title">A plain-text account of what this record is and is not, for an assistant that reads it — the same caveats a reader gets.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2 id="example">An example</h2>
+  <pre class="mono small">curl -H "User-Agent: my-tool/1.0 (hello@example.org)" https://{{ site_host }}/filing/311981.json</pre>
+  <pre class="mono small">{
+  "source": "https://{{ site_host }}/",
+  "licence": "CC0-1.0",
+  "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "shape_version": {{ shape_version }},
+  "held": {"enriched": "…"},
+  "generated_at": "2026-08-27T14:40:00+00:00",
+  "filing": {
+    "kind": "filing",
+    "date": "2026-08-25",
+    "date_printed": "8/25/2026",
+    "docket_raw": "FD 36873",
+    "record_id": "311981",
+    "type": "Motion",
+    "filed_for_raw": "Union Pacific Railroad Company",
+    "attachments": [{"url": "https://dcms-external.s3.amazonaws.com/…/311981.pdf",
+                     "label": "311981.pdf",
+                     "document_sha256": "9bbce28b…",
+                     "media_type": "pdf"}],
+    "url": "https://{{ site_host }}/filing/311981",
+    "docket": {"raw_docket": "FD 36873", "printed": "FD 36873", "url": "https://{{ site_host }}/d/FD-36873"}
+  }
+}</pre>
+  <p class="small muted">Illustrative: the dates and attachment are shaped like the real ones, not copied from them. A field the Board left blank is <span class="mono">null</span>, never guessed.</p>
+</section>
+
+<section>
+  <h2 id="licence">Licence</h2>
+  <p>The raw index — every docket, filing, decision, date and document hash, with its provenance — is dedicated to the public domain under <a href="https://creativecommons.org/publicdomain/zero/1.0/" rel="noopener">CC0 1.0</a>; every JSON response says so in its <span class="mono">licence</span> field. The Board's own files are United States government records. The enriched layer (the party module: who filed for whom, resolved to entities) is <strong>held</strong> out of the JSON and the snapshot until its licence is reviewed; the <span class="mono">held</span> field says so on every response. The code that serves all of this is AGPL.</p>
+</section>
+
+<section>
+  <h2 id="stability">What is stable</h2>
+  <ul>
+    <li><strong>Addresses are permanent.</strong> A docket, filing, decision, party or document address, once served, answers forever — the same record, or a 301 to where it now lives (never a 404 for something that existed). This is a written commitment, not a habit: <a href="https://github.com/RMI-Valuation/docket-yard/blob/main/docs/adr/0013-permanent-urls.md" rel="noopener">ADR 0013</a>.</li>
+    <li><strong>Shapes are versioned.</strong> Every JSON response carries <span class="mono">shape_version</span> (now {{ shape_version }}). It is raised — and announced on the <a href="/data">data page</a> — when a field changes name or meaning. New fields may appear without a bump; read by name, not by position.</li>
+    <li><strong>Releases are dated.</strong> The software is released as <span class="mono">vYYYY.MM.N</span>; this response came from <span class="mono">{{ version }}</span>. Nothing about a release is a promise beyond the two lines above.</li>
+    <li><strong>Blanks are blanks.</strong> A date is the one the Board printed, in ISO form beside the printed form; nothing is computed from context. Nothing here says what any party's position is.</li>
+  </ul>
+</section>
+
+<section>
+  <h2 id="pace">What is asked of a client</h2>
+  <ul>
+    <li>Send a <span class="mono">User-Agent</span> that names your tool and a way to reach you.</li>
+    <li>Honour <span class="mono">Cache-Control</span> and <span class="mono">ETag</span>: pages are good for five minutes, JSON for thirty, a document for a year; a matching <span class="mono">If-None-Match</span> is a 304 and costs nothing.</li>
+    <li>For anything that walks the whole record, take the <a href="/data">nightly snapshot</a> instead of a hundred thousand requests. For what changed, take a <a href="/feed">feed</a>.</li>
+    <li>Reading is anonymous by design (<a href="/privacy">privacy</a>): no cookie is set, no address is logged, only counts by kind of page are kept. There is nothing to sign up for and nothing to authenticate.</li>
+    <li>Quote the caveats with the data. What this record covers and when it began is on the <a href="/coverage">coverage page</a>; how it is made is in the <a href="/methodology">methodology</a>. Every record links the Board's own file, which remains the authority.</li>
+  </ul>
+  <p class="small muted">Something wrong in the data? <a href="/corrections">Corrections</a>. Something missing from this surface? <a href="/contribute">Contribute</a>.</p>
+</section>
+{% endblock %}

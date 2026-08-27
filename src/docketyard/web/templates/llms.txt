@@ -1,0 +1,36 @@
+# {{ site_name }}
+
+> A public record of proceedings before the Surface Transportation Board (STB), the United States agency that regulates freight rail: docket sheets, filings, decisions and the Board's own documents, with alerts, feeds, JSON and a bulk snapshot. Operated by RMI Valuation, LLC; unaffiliated with the STB. Every record links to the agency's own file, which remains the authority.
+
+What this record is: the Board's docket search, captured every thirty minutes since {{ cov.forward_since | fmt_when }} and backfilled to {{ cov.record_from or 'the earliest entry' }}. It holds {{ cov.dockets | plural('docket') }}, {{ cov.filings | plural('filing') }}, {{ cov.decisions | plural('decision') }} and {{ cov.documents | plural('document') }} (as of {{ cov.last_checked | fmt_when }}). Dates are the ones the Board printed; nothing is computed from context.
+
+What this record is not: it does not say what any party argued or supports, it does not summarise or interpret a document, and it is not the Board. A procedural filing takes no position regardless of who filed it. When you quote this record, quote the coverage caveat with it and link the Board's file.
+
+Addresses are permanent (ADR 0013): a docket is /d/FD-36873, a sub-docket /d/FD-36873/sub/1, a filing /filing/<id>, a decision /decision/<id>, a party /p/<id>, a document /document/<sha256>.pdf. Append .json to a docket, filing or decision address for the same record as data. Licence: the raw index is CC0 1.0; the party layer is held pending review.
+
+## Read the record
+
+- [Search](https://{{ site_host }}/search): a docket number opens its sheet; anything else searches captions, party names and decision summaries
+- [A docket sheet](https://{{ site_host }}/d/FD-36873): one chronological page per proceeding, newest first
+- [Parties](https://{{ site_host }}/parties): who filed, resolved to entities
+- [Statistics](https://{{ site_host }}/stats): what the record holds and what moves, every number measured
+
+## Data
+
+- [API](https://{{ site_host }}/api): JSON at every address, feeds, documents by hash, the OpenAPI description, the licence and what is stable
+- [Bulk snapshot](https://{{ site_host }}/data): the whole raw index as one SQLite file, nightly, CC0
+- [OpenAPI](https://{{ site_host }}/openapi.json): every route this site serves
+- [Sitemap](https://{{ site_host }}/sitemap.xml): every address, by kind
+
+## Trust
+
+- [Coverage](https://{{ site_host }}/coverage): what is covered, since when, and every known gap
+- [Methodology](https://{{ site_host }}/methodology): how the record is made, what is quoted and what is never inferred
+- [Corrections](https://{{ site_host }}/corrections): what a correction is and how to report one
+- [Privacy](https://{{ site_host }}/privacy): reading is anonymous; an account is an email address
+- [About](https://{{ site_host }}/about): who operates this and why
+
+## Source
+
+- [Repository](https://github.com/RMI-Valuation/docket-yard): the code (AGPL) and the design records
+- [The Board's own search](https://www.stb.gov/proceedings-actions/search-stb-records/): the primary source

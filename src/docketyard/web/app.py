@@ -163,7 +163,13 @@ def create_app(
         traffic.flush(counter, traffic_path, datetime.now(UTC))
 
     app = FastAPI(
-        title=site_name, version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan
+        title=site_name,
+        version=__version__,
+        description="Every route this site serves, pages included: the pages are the API."
+        " The human account — licence, stability, what is asked of a client — is /api.",
+        docs_url=None,
+        redoc_url=None,
+        lifespan=lifespan,
     )
     app.state.traffic = counter  # tests read it; nothing else does
     templates = Jinja2Templates(directory=str(_PKG / "templates"))
@@ -677,6 +683,28 @@ def create_app(
     @app.get("/data")
     def data_page(request: Request):
         return render(request, "data.html", manifest=dump.read_manifest(public_dir))
+
+    @app.get("/api")
+    def api_page(request: Request):
+        """The record for programs: what answers, an example, the licence, what is stable,
+        what is asked of a client (docs/data.md § /api). The OpenAPI document is FastAPI's
+        own, at /openapi.json; this page is the human account of it."""
+        return render(request, "api.html", shape_version=JSON_SHAPE, version=__version__)
+
+    @app.get("/llms.txt")
+    def llms_txt(request: Request):
+        """What this record is and is not, for an assistant that reads it: the trust
+        pages' own caveats and the coverage numbers, in the llms.txt form, from the same
+        source as the pages (docs/data.md § /llms.txt)."""
+        con = _connect(db_path)
+        try:
+            cov = coverage.coverage(con)
+        finally:
+            con.close()
+        body = templates.get_template("llms.txt").render(
+            site_name=site_name, site_host=site_host, cov=cov
+        )
+        return public(body, "text/plain; charset=utf-8", max_age=PAGE_CACHE)
 
     @app.get("/d")
     def lookup(request: Request, q: str = ""):

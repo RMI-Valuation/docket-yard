@@ -49,13 +49,31 @@ Shapes are the dataclasses in `store/sheet.py`; a blank in the Board's record is
 `web.app.JSON_SHAPE` is raised, and the change announced on `/data`, when a field changes
 name or meaning; `tests/test_data.py` pins the key set so a rename cannot pass unnoticed.
 
-## Not built, deliberately
-
 **Document bytes** have a permanent address, `/document/<sha256>.<ext>` (ADR 0013 addendum,
 2026-08-27; the suffix is the document's `media_type`, `bin` when unknown): exactly the
 bytes that hash to that name, inline for a PDF or image, fetched from the store if the
 instance has pruned them. The snapshot's `document` and `document_source`
 tables carry the hashes, so every row there resolves to its file.
+
+## `/api` and `/llms.txt`
+
+`/api` (2026-08-27) is the human account of the machine surface: what answers (the JSON
+twins, documents by hash, feeds, `/suggest`, the sitemap, `/health`, `/openapi.json`), an
+illustrative example, the licence, what is stable (permanent addresses per ADR 0013;
+`shape_version`; CalVer releases; blanks are blanks) and what is asked of a client
+(a `User-Agent`, honour the cache headers, take the snapshot for a walk, quote the
+caveats). `/openapi.json` stays FastAPI's own description of every route, pages included —
+there is no separate API; the pages are the API — with a description that points here.
+
+`/llms.txt` follows the llms.txt convention: a one-paragraph summary, what the record is
+(with the coverage numbers, rendered from `store/coverage.py` like `/coverage`), what it is
+not (no positions, no summaries, not the Board), the address scheme and licence, then
+linked sections. It is a template (`templates/llms.txt`) so it cannot drift from the pages
+in a way the tests would not see; `tests/test_data.py` pins its sections and caveats.
+Both are counted in the `data` traffic class. An AI-crawler policy in `robots.txt` is a
+separate decision (capability F7), not taken here.
+
+## Not built, deliberately
 
 The search index (`search_doc`, `search_fts`; migration 0010) — derived, rebuilt from the
 record when it changes, and it carries party names, so the snapshot ships the tables empty;
