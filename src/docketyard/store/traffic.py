@@ -27,6 +27,7 @@ ROUTE_CLASSES = (
     "search",
     "week",
     "stats",
+    "register",
     "feed",
     "json",
     "sitemap",

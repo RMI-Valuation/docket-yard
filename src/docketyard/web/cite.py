@@ -1,7 +1,7 @@
 """The citation resolver (capability F2's second half): a docket or decision citation in
 any of the Board's printed forms resolves to its permanent address with no search step.
 
-Forms understood — every one is normalised into the one docket identity (`urls.lookup`):
+Forms understood — every docket spelling `urls.lookup` takes (the one definition):
 `FD 36873`, `FD_36873_1`, `FD 36873 (Sub-No. 1)`, `STB Finance Docket No. 36873`,
 `STB Docket No. AB 55 (Sub-No. 785X)`, `Ex Parte No. 711`, `STB Ex Parte 711`, `Docket
 No. NOR 42130`. A decision is the docket plus its service date — `FD 36873 (STB served
@@ -18,22 +18,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from sqlite3 import Connection
 
-from docketyard.ingest.dockets import ParsedDocket, find_docket
+from docketyard.ingest.dockets import find_docket
 from docketyard.web import urls
 
-_LONG_FORMS = (  # the Board's long names, to the prefix the registry uses
-    (re.compile(r"\bfinance\s+docket\b", re.I), "FD"),
-    (re.compile(r"\bex\s+parte\b", re.I), "EP"),
-)
-_NOISE_RE = re.compile(  # the words around a number; "Sub-No." is the sub-number's own, kept
-    r"\bSTB\b|\bSurface Transportation Board\b|\bDocket\b|(?<!sub-)(?<!sub )\bNos?\.?(?=\s)|[,;]",
-    re.I,
-)
 _DATE = r"[A-Za-z]+\.?\s+\d{1,2},?\s+\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}"
 _SERVED_RE = re.compile(
     r"\(?\s*(?:STB\s+)?(?:served|decided|service date)\s*:?\s*(" + _DATE + r")\s*\)?", re.I
 )
-_RECORD_RE = re.compile(r"^\s*(decision|filing)\s*(?:no\.?|#)?\s*(\d+)\s*$", re.I)
+# the Board's own record ids, in the bare form the sheets print (`Decision 53210`); never
+# `Decision No. n`, which is a number printed inside the document, and never a year
+_RECORD_RE = re.compile(r"^\s*(decision|filing)\s+#?(\d{5,})\s*$", re.I)
 _MONTH_NAMES = (
     "january february march april may june july august september october november december"
 ).split()
@@ -76,15 +70,6 @@ def parse_date(text: str) -> str | None:
     return None
 
 
-def docket_of(text: str) -> ParsedDocket | None:
-    """The docket identity a citation names, in any printed form."""
-    t = text
-    for pattern, prefix in _LONG_FORMS:
-        t = pattern.sub(prefix, t)
-    t = _NOISE_RE.sub(" ", t)
-    return urls.lookup(t)
-
-
 def resolve(con: Connection, text: str) -> Resolution | None:
     text = text.strip()
     if not text:
@@ -101,7 +86,7 @@ def resolve(con: Connection, text: str) -> Resolution | None:
             return Resolution(kind, urls.record_path(kind, stb_id), f"{kind.title()} {stb_id}")
         return None
     served = _SERVED_RE.search(text)
-    identity = docket_of(_SERVED_RE.sub(" ", text) if served else text)
+    identity = urls.lookup(_SERVED_RE.sub(" ", text) if served else text)
     if identity is None:
         return None
     docket_id = find_docket(con, identity)

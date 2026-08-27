@@ -15,7 +15,15 @@ from docketyard.ingest.dockets import ParsedDocket, parse_docket_id
 # suffixes are letters-led (X, A, L, M, C observed); an all-digit third part is a sub-number
 _PARENT_RE = re.compile(r"^([A-Za-z][A-Za-z0-9]*)-(\d+)(?:-([A-Za-z][A-Za-z0-9]*))?$")
 _SUB_RE = re.compile(r"^(\d+)([A-Za-z][A-Za-z0-9]*)?$")
-_LOOKUP_NOISE_RE = re.compile(r"\(|\)|sub\.?\s*-?\s*no\.?|no\.", re.I)
+# the words a citation wraps a number in; "Sub-No." is the sub-number's own and is folded first
+_LOOKUP_NOISE_RE = re.compile(
+    r"\(|\)|sub\.?\s*-?\s*no\.?|\bnos?\.|\bSTB\b|\bSurface Transportation Board\b|\bDocket\b|[,;]",
+    re.I,
+)
+_LONG_FORMS = (  # the Board's long names, to the prefix the registry uses
+    (re.compile(r"\bfinance\s+docket\b", re.I), "FD"),
+    (re.compile(r"\bex\s+parte\b", re.I), "EP"),
+)
 _SEP_RE = re.compile(r"[\s_\-.]+")
 
 _CITE_LONG = {"FD": "STB Finance Docket No.", "EP": "STB Ex Parte No."}
@@ -48,8 +56,13 @@ def parse_docket_path(ident: str, sub: str | None = None) -> ParsedDocket | None
 
 
 def lookup(text: str) -> ParsedDocket | None:
-    """Normalise anything a person might type into the ingest parser's grammar."""
-    cleaned = _LOOKUP_NOISE_RE.sub(" ", text.strip())
+    """Normalise anything a person might type — or cite — into the ingest parser's grammar:
+    `fd 36873`, `FD_36873_1`, `FD 36873 (Sub-No. 1)`, `STB Finance Docket No. 36873`,
+    `Ex Parte No. 711`, `Docket No. NOR 42130`."""
+    cleaned = text.strip()
+    for pattern, prefix in _LONG_FORMS:
+        cleaned = pattern.sub(prefix, cleaned)
+    cleaned = _LOOKUP_NOISE_RE.sub(" ", cleaned)
     tokens = [t for t in _SEP_RE.split(cleaned) if t]
     if not tokens:
         return None
