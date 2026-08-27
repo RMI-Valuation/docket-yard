@@ -73,7 +73,7 @@
   <h2 id="pace">What is asked of a client</h2>
   <ul>
     <li>Send a <span class="mono">User-Agent</span> that names your tool and a way to reach you.</li>
-    <li>Honour <span class="mono">Cache-Control</span> and <span class="mono">ETag</span>: pages are good for five minutes, JSON for thirty, a document for a year; a matching <span class="mono">If-None-Match</span> is a 304 and costs nothing.</li>
+    <li>Honour <span class="mono">Cache-Control</span> and <span class="mono">ETag</span>: pages are good for {{ page_cache // 60 }} minutes, JSON for {{ json_cache // 60 }}, a document for {{ document_cache // 86400 }} days; a matching <span class="mono">If-None-Match</span> is a 304 and costs nothing.</li>
     <li>For anything that walks the whole record, take the <a href="/data">nightly snapshot</a> instead of a hundred thousand requests. For what changed, take a <a href="/feed">feed</a>.</li>
     <li>Reading is anonymous by design (<a href="/privacy">privacy</a>): no cookie is set, no address is logged, only counts by kind of page are kept. There is nothing to sign up for and nothing to authenticate.</li>
     <li>Quote the caveats with the data. What this record covers and when it began is on the <a href="/coverage">coverage page</a>; how it is made is in the <a href="/methodology">methodology</a>. Every record links the Board's own file, which remains the authority.</li>

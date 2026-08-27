@@ -689,7 +689,15 @@ def create_app(
         """The record for programs: what answers, an example, the licence, what is stable,
         what is asked of a client (docs/data.md § /api). The OpenAPI document is FastAPI's
         own, at /openapi.json; this page is the human account of it."""
-        return render(request, "api.html", shape_version=JSON_SHAPE, version=__version__)
+        return render(
+            request,
+            "api.html",
+            shape_version=JSON_SHAPE,
+            version=__version__,
+            page_cache=PAGE_CACHE,
+            json_cache=int(PUBLIC_CACHE["Cache-Control"].split("=")[1]),
+            document_cache=int(documents.CACHE.split("max-age=")[1].split(",")[0]),
+        )
 
     @app.get("/llms.txt")
     def llms_txt(request: Request):
