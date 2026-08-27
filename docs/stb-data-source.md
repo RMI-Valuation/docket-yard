@@ -202,3 +202,23 @@ most are under a megabyte, but the record holds files of 22 MB, 56 MB and **1.07
 body whole (`resp.read()`) took the wave process to 1.4 GB RSS and the kernel killed it on
 the 2 GB instance, twice. Documents are therefore streamed to disk in 1 MB chunks
 (`StbClient.download`) and hashed by chunks; nothing about a file's size is assumed.
+
+## Measured 2026-08-27: the 41 "partial" months of 1996–2000 are empty
+
+Waves 2–3 left 41 month slices `partial` (33 filings, 8 decisions, all 1996-01 → 2000-07):
+each answered the no-results envelope on its first page, which the walker refuses to trust
+as empty because the same envelope is what a wrong criterion returns. A month slice has no
+census (only docket-prefix slices carry `expected_empty`), so the note "the census says
+non-empty" over-states it — the walker simply cannot tell.
+
+Neighbour-window reconciliation settles it: a window spanning a `done` month and the
+doubted month returns exactly the done month's total, so the doubted month adds nothing.
+`filingStartDate` 09/01–10/31/1996 → total 1 = September alone; 06/01–07/31/2000 → 56 =
+June alone, while 06/01–08/31 → 70; `serviceStartDate` 01/01–08/31/1996 → 38 = August
+alone. Both date-criteria pairs answer the envelope for the doubted months. The earliest
+record the endpoint returns is dated 25 Jan 1996; 1995 answers the envelope outright.
+
+What follows: the walker can mark a month `empty` when a window over it and an adjacent
+`done` month reconciles to the done month's total (two extra requests per doubted month),
+and the coverage page can then say "empty" rather than "partial" for those months — a
+change to `capture/walk.py`, reviewed by the ingest specialist, recorded in `TODO.md`.

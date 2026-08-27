@@ -9,9 +9,12 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- Backfill: documents done 2026-08-27 (77,565 held; one legacy `/MPD/` URL 403s). Next: re-walk
-  the 41 `partial` table months (8 decisions, 33 filings), then `/coverage`; then pull the
-  new blobs to RMI-AI-MACHINE and re-run the text layer (needs Cameron's Tailscale approval)
+- Backfill: documents done 2026-08-27 (77,565 held; one legacy `/MPD/` URL 403s). The 41
+  `partial` months (1996–2000) are **proven empty** by neighbour-window reconciliation
+  (`stb-data-source.md` § Measured 2026-08-27); a re-walk cannot clear them. Next: teach
+  `walk.py` that proof (two requests per doubted month; ingest-specialist review) so
+  `/coverage` says empty, not partial; then pull the new blobs to RMI-AI-MACHINE and re-run
+  the text layer (needs Cameron's Tailscale approval)
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
 - RMI-AI-MACHINE (2026-08-26 19:46 UTC): tmux `extract` pulls the blob store from S3 with
