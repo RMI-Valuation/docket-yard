@@ -71,8 +71,12 @@ def from_env() -> Callable | None:
     bucket = os.environ.get("DY_S3_BUCKET")
     access = os.environ.get("AWS_ACCESS_KEY_ID")
     secret = os.environ.get("AWS_SECRET_ACCESS_KEY")
-    if not (bucket and access and secret):
+    if not bucket:
         return None
+    if not (access and secret):  # a store named but unreachable: refuse to start quietly
+        raise RuntimeError(
+            "DY_S3_BUCKET is set but AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY are not"
+        )
     return functools.partial(
         signed_get,
         bucket,

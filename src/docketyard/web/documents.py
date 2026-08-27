@@ -12,6 +12,7 @@ import hashlib
 import os
 import re
 import tempfile
+import threading
 from pathlib import Path
 from sqlite3 import Connection
 
@@ -32,6 +33,15 @@ CACHE = "public, max-age=31536000, immutable"  # the bytes at a hash never chang
 
 class StoreMismatch(RuntimeError):
     """The store answered a hash with other bytes: the loudest thing this path can say."""
+
+
+_in_flight: dict[str, threading.Lock] = {}  # sha -> the lock of the fetch under way
+_in_flight_guard = threading.Lock()
+
+
+def _fetch_lock(sha256: str) -> threading.Lock:
+    with _in_flight_guard:
+        return _in_flight.setdefault(sha256, threading.Lock())
 
 
 def is_sha(text: str) -> bool:
@@ -67,6 +77,13 @@ def local_file(data_dir, sha256: str, *, fetch=None) -> Path | None:
         return path
     if fetch is None:
         return None
+    with _fetch_lock(sha256):  # a browser's parallel Range requests: one fetch, the rest wait
+        if path.exists():
+            return path
+        return _fetch_into_place(data_dir, sha256, path, fetch)
+
+
+def _fetch_into_place(data_dir, sha256: str, path: Path, fetch) -> Path:
     fd, name = tempfile.mkstemp(dir=records.staging_dir(data_dir), prefix="ws-")
     tmp = Path(name)
     digest = hashlib.sha256()

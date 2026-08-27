@@ -1075,9 +1075,11 @@ def create_app(
             raise HTTPException(503, "the document store answered with the wrong bytes") from e
         except Exception as e:  # noqa: BLE001 — the store did not answer: say so, serve nothing
             print(f"document store fetch failed for {sha} ({type(e).__name__}: {e})")
-            raise HTTPException(503, "the document store did not answer") from e
-        if path is None:
-            raise HTTPException(503, "the document is not on hand right now")
+            raise HTTPException(
+                503, "the document store did not answer", headers={"Retry-After": "60"}
+            ) from e
+        if path is None:  # no store configured: not transient, so no Retry-After
+            raise HTTPException(503, "the document is not on hand on this instance")
         mime, headers = documents.headers_for(sha, kind)
         try:  # the prune timer may take the file between the check and the send
             stat = path.stat()

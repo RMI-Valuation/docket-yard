@@ -47,20 +47,12 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   class could not reach the site's origin). Not shipped because a `sandbox`ed PDF's
   rendering in Chrome's viewer must be checked in a browser first; the site sets no cookie
   and holds no per-user state, so the exposure today is small.
-- **A miss fetched twice.** Two concurrent requests for one pruned hash each stream it from
-  the store (the second rename is a no-op); a browser viewer's parallel Range requests can
-  do this. A per-hash in-flight lock, or streaming the store's body through while teeing to
-  disk, if the traffic counts ever show it.
 - **The sitemap advertises pruned documents.** A crawler walking every document address
   pulls every pruned file back from S3 (egress at ~$0.09/GB; the prune re-bounds the disk).
   Watch the `document` class on `docketyard traffic`; drop the section or add `crawl-delay`
   if it costs.
-- **Template triplication.** The follow form lives in `sheet.html`, `party.html` and
-  `viewer.html`; an `_follow_form.html` include when it next changes. The S3 key layout
-  `blobs/aa/<sha>` is spelled in `web/documents.py`, `prune_blobs.py` and the sync unit.
-- **One 503, three states.** No store configured, the store did not answer, and the store
-  answered wrong bytes are logged apart but all answer 503; a `Retry-After` on the
-  transient one, and a startup refusal when `DY_S3_BUCKET` is set without keys.
+- **The S3 key layout** `blobs/aa/<sha>` is spelled in `web/documents.py`, `prune_blobs.py`
+  and the sync unit; one `records.blob_key(sha)` when any of them next changes.
 
 ## Store and operations
 

@@ -95,7 +95,7 @@ def test_viewer_page_shows_the_file_beside_the_record(tmp_path):
     assert "FD 36873" in r.text and "UP/NS CONTROL" in r.text and "Motion" in r.text
     assert 'href="/p/' in r.text  # the resolved party links to its page
     assert f"docketyard.org/document/{sha}.pdf" in r.text  # the cite box carries the file
-    assert 'action="/subscribe"' in r.text and 'value="FD 36873"' in r.text
+    assert 'action="/subscribe"' in r.text and 'name="docket" value="FD 36873"' in r.text
     # the neighbour on the sheet (its file is held too: the fixture shares one URL)
     assert "On this sheet" in r.text and 'href="/filing/311900/view"' in r.text
     assert '<link rel="canonical" href="https://docketyard.org/filing/311981/view">' in r.text
@@ -204,4 +204,45 @@ def test_the_store_read_is_a_get_of_one_key(monkeypatch):
     assert sent["X-amz-security-token"] == "tok" and "secret" not in sent["Authorization"]
     assert "x-amz-security-token" in sent["Authorization"]  # the token is signed
     monkeypatch.delenv("AWS_SECRET_ACCESS_KEY")
+    with pytest.raises(RuntimeError):  # a bucket without keys is a misconfiguration
+        s3.from_env()
+    monkeypatch.delenv("DY_S3_BUCKET")
     assert s3.from_env() is None
+
+
+def test_one_fetch_per_hash_however_many_ask(tmp_path):
+    import threading
+    import time
+
+    path, sha = _store_with_document(tmp_path)
+    records.blob_path(tmp_path, sha).unlink()
+    fetched = []
+
+    def slow_store(key):
+        fetched.append(key)
+        time.sleep(0.2)
+        return io.BytesIO(PDF)
+
+    client = TestClient(create_app(path, store_fetch=slow_store))
+    results = []
+
+    def ask(i):
+        r = client.get(f"/document/{sha}.pdf", headers={"Range": f"bytes={i}-{i + 9}"})
+        results.append(r.status_code)
+
+    threads = [threading.Thread(target=ask, args=(i,)) for i in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert results == [206] * 4 and len(fetched) == 1
+    # the transient failure says when to try again; a missing store does not
+    records.blob_path(tmp_path, sha).unlink()
+
+    def down(key):
+        raise ConnectionError("no route")
+
+    r = TestClient(create_app(path, store_fetch=down)).get(f"/document/{sha}.pdf")
+    assert r.status_code == 503 and r.headers["retry-after"] == "60"
+    r = TestClient(create_app(path)).get(f"/document/{sha}.pdf")
+    assert r.status_code == 503 and "retry-after" not in r.headers
