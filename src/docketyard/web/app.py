@@ -750,14 +750,19 @@ def create_app(
         con = _connect(db_path)
         try:
             found = cite.resolve(con, q)
+            identity = None if found else urls.lookup(q)
+            known = identity is not None and bool(
+                con.execute(
+                    "SELECT 1 FROM docket WHERE prefix = ? LIMIT 1", (identity.prefix,)
+                ).fetchone()
+            )
         finally:
             con.close()
-        if found is None:
-            identity = urls.lookup(q)
-            if identity is not None:  # a well-formed number the record does not hold
-                return RedirectResponse(urls.docket_path(identity), status_code=303)
-            return RedirectResponse(f"/search?{urlencode({'q': q.strip()})}", status_code=303)
-        return RedirectResponse(found.path, status_code=303)
+        if found is not None:
+            return RedirectResponse(found.path, status_code=303)
+        if known:  # a well-formed number under a real prefix that the record does not hold
+            return RedirectResponse(urls.docket_path(identity), status_code=303)
+        return RedirectResponse(f"/search?{urlencode({'q': q.strip()})}", status_code=303)
 
     @app.get("/cite")
     def cite_json(q: str = ""):
@@ -786,7 +791,8 @@ def create_app(
             request,
             template,
             groups=reg.groups,
-            total=sum(len(g.entries) for g in reg.groups),
+            total=len({e.record_id for g in reg.groups for e in g.entries}),
+            entries=sum(len(g.entries) for g in reg.groups),
             party_name=reg.names.get,
         )
         response.headers.update(PUBLIC_CACHE)

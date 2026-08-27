@@ -106,7 +106,7 @@ def resolve(con: Connection, text: str) -> Resolution | None:
     ids = [
         r[0]
         for r in con.execute(
-            "SELECT r.stb_decision_id FROM decision_record r"
+            "SELECT DISTINCT r.stb_decision_id FROM decision_record r"
             " JOIN docket d ON d.docket_id = r.docket_id"
             " WHERE (d.docket_id = ? OR d.parent_docket_id = ?"
             " OR d.docket_id = (SELECT parent_docket_id FROM docket WHERE docket_id = ?))"

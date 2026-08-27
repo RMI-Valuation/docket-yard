@@ -13,9 +13,11 @@ rebuildable, never a source of truth (ADR 0006) — and it infers nothing:
 | Court actions | `/court` | `decision_record` | `LOWER(decision_type) = 'notice of court action'` |
 | Protective orders | `/protective` | `filing` | `LOWER(filing_type) LIKE '%protective order%'` |
 
-Measured 2026-08-27 on the whole record: 491 court-action notices (12 distinct decision
-types in all); 695 filings typed `Motion For Protective Order` (the only filing type naming
-one, of 122). The sheet marks a protective-order entry with a link to the register.
+Measured 2026-08-27 on the whole record: 341 court-action notices, listed as 491 entries
+because a notice served in several family dockets is one record entered under each (12
+distinct decision types in all); 683 filings typed `Motion For Protective Order`, 695
+entries (the only filing type naming one, of 122). The headline counts records; the page
+says when entries exceed them. The sheet marks a protective-order entry with a link to the register.
 
 What a register does **not** say, and its page says so: what the court did (D4's status,
 "vacated or withdrawn", is human coding on the document); whether the Board granted the

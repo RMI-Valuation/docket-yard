@@ -23,7 +23,7 @@ One row per hour per (route class, status class, bot flag):
 | `bytes` | sum of response sizes, each **rounded up to 64 KB** first | transfer volume — never a page: an exact length would identify a sheet in an hour with one reader (security review, 2026-08-26) |
 | `latency_ms` | four buckets: `<100`, `<500`, `<2000`, `≥2000`, as counts | slow pages are visible; no per-request timing survives |
 
-Seventeen route classes × four status classes × two bot flags = at most 136 rows an hour,
+Eighteen route classes × four status classes × two bot flags = at most 144 rows an hour,
 and in practice a handful. A month is a few thousand rows.
 
 **What is never in it:** IP address, any hash of one, User-Agent, referrer, query string,

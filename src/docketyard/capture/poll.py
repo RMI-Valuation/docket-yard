@@ -26,6 +26,7 @@ WINDOW_DAYS = 7
 MIN_WINDOW_DAYS = 3  # below this a quiet weekend makes the page-1 envelope a false alarm
 PAGES = 20  # 1,000 rows: an order of magnitude over a week's activity; loud if ever hit
 FETCH_LIMIT = 200  # ~7 minutes at the polite interval: a backlog drains across passes
+RECHECK_BUDGET_SECONDS = 300  # a hung document host must not hold the next forward pass
 RECHECK_LIMIT = 40  # held files re-fetched per pass, oldest-checked first: ~1,900 a day,
 # the whole record (~78k files) about every six weeks; a replaced file is an erratum event
 
@@ -151,22 +152,27 @@ def forward_pass(
             con.rollback()
             summary["problems"].append(f"alerts failed ({type(e).__name__}: {e})")
     # errata, after the alerts so a pass's own entries never wait on it: a slice of
-    # the held files, the longest-unchecked first (ADR 0002)
-    try:
-        summary["rechecked"] = documents.fetch_attachments(
-            con,
-            data_dir,
-            client.fetcher(data_dir),
-            limit=recheck_limit,
-            refresh=True,
-            recheck_after_days=observations.RECHECK_AFTER_DAYS,
-            recheck_max_bytes=observations.RECHECK_MAX_BYTES,
-            ingest_mode="forward",
-        )
-    except Exception as e:  # noqa: BLE001
-        con.rollback()
-        summary["rechecked"] = {"failed": -1}
-        summary["problems"].append(f"re-check aborted ({type(e).__name__}: {e})")
+    # the held files, the longest-unchecked first (ADR 0002), under a time budget; skipped
+    # when this pass's own fetch aborted (the host is the same)
+    if fetched.get("failed") == -1:
+        summary["rechecked"] = {"skipped": "fetch aborted"}
+    else:
+        try:
+            summary["rechecked"] = documents.fetch_attachments(
+                con,
+                data_dir,
+                client.fetcher(data_dir),
+                limit=recheck_limit,
+                refresh=True,
+                recheck_after_days=observations.RECHECK_AFTER_DAYS,
+                recheck_max_bytes=observations.RECHECK_MAX_BYTES,
+                ingest_mode="forward",
+                budget_seconds=RECHECK_BUDGET_SECONDS,
+            )
+        except Exception as e:  # noqa: BLE001
+            con.rollback()
+            summary["rechecked"] = {"failed": -1}
+            summary["problems"].append(f"re-check aborted ({type(e).__name__}: {e})")
     if summary["rechecked"].get("failed", 0) > 0:  # a held file the host no longer serves
         summary["problems"].append(f"re-check refused: {summary['rechecked']['failed']}")
     summary["search"] = search.rebuild_or_report(con, summary["problems"])

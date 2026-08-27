@@ -53,6 +53,7 @@ def test_registers_list_what_the_board_typed_and_nothing_else(tmp_path):
     client = TestClient(create_app(path))
     page = client.get("/court").text
     assert "1 notice in 1 docket" in page and 'href="/decision/60001"' in page and "EP 711" in page
+    assert "listed under each" not in page
     page = client.get("/protective").text
     assert (
         "1 motion in 1 docket" in page and 'href="/filing/400001"' in page and 'href="/p/' in page
@@ -80,6 +81,19 @@ def test_the_resolver_reads_every_printed_form_and_never_guesses(tmp_path):
     ):
         assert r(q).path == "/decision/60001", q
     # two decisions on one day: the sheet, and why
+    # one decision entered under a docket and its sub-docket is one decision, not two
+    ingest(
+        con,
+        tmp_path,
+        decision_row(
+            docket="EP_711_1", did="60001", date="8/26/2026", dtype="Notice Of Court Action"
+        ),
+        action=DECISIONS,
+    )
+    assert r("EP 711 (STB served Aug. 26, 2026)").path == "/decision/60001"
+    assert registers.court_actions(con).groups and (
+        len({e.record_id for g in registers.court_actions(con).groups for e in g.entries}) == 1
+    )
     two = r("EP 711 (STB served Aug. 20, 2026)")
     assert two.kind == "sheet" and two.path == "/d/EP-711" and "2 decisions" in two.note
     none = r("EP 711 (served Aug. 21, 2026)")

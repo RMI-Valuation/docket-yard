@@ -13,6 +13,7 @@ appears under a docket and its sub-docket — measured), and every sharing recor
 own document_source association.
 """
 
+import time
 from collections.abc import Callable
 from pathlib import Path
 from sqlite3 import Connection
@@ -58,6 +59,7 @@ def fetch_attachments(
     recheck_max_bytes: int | None = None,  # ... and no larger than this (None: any size)
     observed_in: str | None = None,
     ingest_mode: str = "forward",
+    budget_seconds: float | None = None,  # stop starting fetches after this long
 ) -> dict:
     """Fetch attachments into the store. `fetch` is injected — in production a
     `StbClient.download` bound to the data directory, which streams each file to disk;
@@ -70,7 +72,11 @@ def fetch_attachments(
         urls = observations.recheck_urls(
             con, limit=limit, after_days=recheck_after_days, max_bytes=recheck_max_bytes
         )
-        refs = observations.attachments(con, unfetched_only=False, urls=urls) if urls else []
+        refs = [  # bound in chunks: SQLite takes at most 32,766 variables in one statement
+            r
+            for i in range(0, len(urls), 500)
+            for r in observations.attachments(con, unfetched_only=False, urls=urls[i : i + 500])
+        ]
     else:
         refs = observations.attachments(
             con, unfetched_only=True, limit=limit, observed_in=observed_in
@@ -78,7 +84,11 @@ def fetch_attachments(
     for ref in refs:
         by_url.setdefault(ref.url, []).append(ref)
     stats = {"fetched": 0, "unchanged": 0, "new_documents": 0, "replaced": 0, "failed": 0}
+    started = time.monotonic()
     for url, owners in by_url.items():
+        if budget_seconds is not None and time.monotonic() - started > budget_seconds:
+            stats["deferred"] = stats.get("deferred", 0) + 1  # left for the next pass
+            continue
         old_sha = _held_sha(con, url)  # any row holding this URL: the chain must not break
         body: bytes | Path = b""
         try:
