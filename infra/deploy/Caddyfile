@@ -13,6 +13,13 @@
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
 		-Server
 	}
+	handle /document/* {
+		# the bytes at a hash, shown inside the viewer's own frame: this one path may be
+		# framed by this site; it carries no script of ours and nothing else changes
+		header -X-Frame-Options
+		header Content-Security-Policy "frame-ancestors 'self'"
+		reverse_proxy web:8000
+	}
 	handle /static/* {
 		header Cache-Control "public, max-age=604800"
 		reverse_proxy web:8000

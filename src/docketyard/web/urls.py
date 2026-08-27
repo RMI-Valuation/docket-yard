@@ -127,9 +127,11 @@ def viewer_path(kind: str, record_id: str, index: int = 0) -> str:
     return record_path(kind, record_id) + "/view" + (f"?file={index}" if index else "")
 
 
-def document_path(sha256: str) -> str:
-    """A document's permanent address: its bytes by content hash (ADR 0013 addendum)."""
-    return f"/document/{sha256}.pdf"
+def document_path(sha256: str, media_type: str | None = None) -> str:
+    """A document's permanent address: its bytes by content hash (ADR 0013 addendum). The
+    suffix names what the bytes are (pdf, jpg, zip, xlsx, docx; bin when unknown) so a
+    saved file opens; any other suffix at the same hash answers 301 to this one."""
+    return f"/document/{sha256}.{media_type or 'bin'}"
 
 
 def decision_path(stb_decision_id: str) -> str:

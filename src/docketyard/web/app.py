@@ -41,7 +41,7 @@ _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
 NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/suggest")  # tokens, consent
-MOUNTS = ("/static/", "/data/files/", "/document/")  # streamed, validated by themselves
+MOUNTS = ("/static/", "/data/files/")  # StaticFiles: streams, validates and HEADs itself
 DISCOVERY_CACHE = 86400  # robots and sitemaps: a day
 PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move once a poll
 # outside intake is GitHub Issues (CLAUDE.md); the form template carries the fields
@@ -193,6 +193,7 @@ def create_app(
         record_path=urls.record_path,
         viewer_path=urls.viewer_path,
         document_path=urls.document_path,
+        viewable_index=documents.viewable_index,
         parse_docket_id=parse_docket_id,
         kind_label=labels.kind_label,
         filter_key=labels.filter_key,
@@ -283,7 +284,8 @@ def create_app(
         ]:
             return Response(status_code=304, headers={"ETag": etag})
         response = await call_next(request)
-        if response.status_code == 200:
+        if response.status_code == 200 and "etag" not in response.headers:
+            # a route that validates itself (a document, by its hash) keeps its own
             response.headers.setdefault("Cache-Control", f"public, max-age={PAGE_CACHE}")
             response.headers["ETag"] = etag
         return response
@@ -1007,49 +1009,61 @@ def create_app(
     # --- the document address and the viewer (ADR 0013 addendum, 2026-08-27) -----------
 
     data_dir = Path(db_path).parent
-    fetch = store_fetch
-    if fetch is None and (cfg := s3.from_env()):
-        fetch = lambda key: s3.signed_get(key=key, **cfg)  # noqa: E731
+    fetch = store_fetch if store_fetch is not None else s3.from_env()
+    print(f"document store: {'configured' if fetch else 'none — a pruned document is a miss'}")
 
     @app.get("/document/{name}")
     def document(request: Request, name: str):
-        """The bytes at a hash, inline, with Range: what a browser needs to show a PDF. A
-        file the instance pruned is fetched from the store and hashed before it is served."""
-        sha = name[:-4] if name.endswith(".pdf") else name
-        if not documents.is_sha(sha):
+        """The bytes at a hash, with Range — inline for what a browser shows. A file the
+        instance pruned is fetched from the store and hashed before it is served. The
+        hash is the validator: a matching If-None-Match is a 304 before anything opens."""
+        parts = documents.address_parts(name)
+        if parts is None:
             raise HTTPException(404)
-        if name != f"{sha}.pdf":  # one spelling of the address
-            return RedirectResponse(urls.document_path(sha), status_code=301)
+        sha, ext = parts
+        if f'"{sha}"' in [v.strip() for v in request.headers.get("if-none-match", "").split(",")]:
+            return Response(status_code=304, headers={"ETag": f'"{sha}"'})
         con = _connect(db_path)
         try:
-            row = documents.held(con, sha)
+            kind = documents.held(con, sha)
         finally:
             con.close()
-        if row is None:
+        if kind is None:
             raise HTTPException(404)
+        if ext != kind:  # one spelling of the address: the hash and what the bytes are
+            return RedirectResponse(urls.document_path(sha, kind), status_code=301)
         try:
             path = documents.local_file(data_dir, sha, fetch=fetch)
+        except documents.StoreMismatch as e:  # ADR 0002: never served, never quiet
+            print(f"DOCUMENT STORE MISMATCH {sha}: {e}")
+            raise HTTPException(503, "the document store answered with the wrong bytes") from e
         except Exception as e:  # noqa: BLE001 — the store did not answer: say so, serve nothing
+            print(f"document store fetch failed for {sha} ({type(e).__name__}: {e})")
             raise HTTPException(503, "the document store did not answer") from e
         if path is None:
             raise HTTPException(503, "the document is not on hand right now")
-        mime, headers = documents.headers_for(sha, row[1])
-        return FileResponse(path, media_type=mime, headers=headers)
+        mime, headers = documents.headers_for(sha, kind)
+        try:  # the prune timer may take the file between the check and the send
+            stat = path.stat()
+        except FileNotFoundError as e:
+            raise HTTPException(503, "the document is not on hand right now") from e
+        return FileResponse(path, media_type=mime, headers=headers, stat_result=stat)
 
     def viewer(request: Request, kind: str, stb_id: str, file: int):
         s, entry = _record_entry(db_path, kind, stb_id)
-        files = documents.viewable(entry)
+        first = documents.viewable_index(entry)
         current = None
-        if files:
-            wanted = entry.attachments[file] if 0 <= file < len(entry.attachments) else None
-            current = wanted if wanted in files else files[0]
-        i = s.entries.index(entry)
-        con = _connect(db_path)
-        try:
-            names = resolve.Components(con)
-            parties = [{"party_id": p, "name": names.display_name(p)} for p in entry.parties]
-        finally:
-            con.close()
+        if first is not None:
+            pick = entry.attachments[file] if 0 <= file < len(entry.attachments) else None
+            asked = (
+                pick
+                if pick and pick.document_sha256 and pick.media_type in documents.INLINE
+                else None
+            )
+            current = asked or entry.attachments[first]
+        i = next(i for i, e in enumerate(s.entries) if e is entry)
+        names = {p["party_id"]: p["name"] for p in s.parties}  # the sheet's own Parties block
+        parties = [{"party_id": p, "name": names[p]} for p in entry.parties if p in names]
         return render(
             request,
             "viewer.html",

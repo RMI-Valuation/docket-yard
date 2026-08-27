@@ -418,11 +418,58 @@ def test_a_body_cut_short_is_retried_and_leaves_no_staging_file(tmp_path, monkey
     assert stats["failed"] == 1 and stats["fetched"] == 0 and not orphan.exists()
 
 
-def test_a_non_200_answer_is_never_stored_as_the_document(con, tmp_path):
+def test_a_refused_answer_is_recorded_not_stored_and_rested_a_week(con, tmp_path):
+    """Capture-first still: the refusal is a capture with its status. But it is not a
+    document, the attachment stays unfetched, and the host is not asked again for a week
+    (the Board's bucket refuses one legacy /MPD/ path forever, measured 2026-08-27)."""
+    from docketyard.ingest import observations
+
     ingest(con, tmp_path, filing_row())
-    stats = documents.fetch_attachments(con, tmp_path, lambda u: (404, b"<html>gone</html>"))
-    assert stats["failed"] == 1 and stats["fetched"] == 0
+    asked = []
+
+    def refuse(u):
+        asked.append(u)
+        return (404, b"<html>gone</html>")
+
+    stats = documents.fetch_attachments(con, tmp_path, refuse)
+    assert stats["failed"] == 1 and stats["fetched"] == 0 and len(asked) == 1
     assert con.execute("SELECT COUNT(*) FROM document").fetchone()[0] == 0
+    status, processed = con.execute(
+        "SELECT http_status, processed_at FROM capture WHERE table_action = ?",
+        (documents.FETCH_ACTION,),
+    ).fetchone()
+    assert status == 404 and processed  # on record, and never pending work
+    assert observations.attachments(con, unfetched_only=True) == []  # resting
+    assert documents.fetch_attachments(con, tmp_path, refuse)["failed"] == 0 and len(asked) == 1
+    assert len(observations.attachments(con, unfetched_only=False)) == 1  # a refresh may
+    con.execute("UPDATE capture SET captured_at = '2026-01-01T00:00:00+00:00'")
+    assert len(observations.attachments(con, unfetched_only=True)) == 1  # a week on: again
+    # a 200 with nothing in it is a refusal by another door
+    stats = documents.fetch_attachments(con, tmp_path, lambda u: (200, b""))
+    assert stats["failed"] == 1
+    assert con.execute("SELECT COUNT(*) FROM document").fetchone()[0] == 0
+
+
+def test_the_client_hands_a_document_hosts_refusal_back_as_the_answer(tmp_path, monkeypatch):
+    """A 404/403 from the Board's bucket for one object is an answer to record, not a
+    stop; the same code from stb.gov itself is still the WAF diagnosis."""
+    import io
+    import urllib.error
+    import urllib.request
+
+    from docketyard.capture import stb
+
+    def refuse(req, timeout=None):
+        raise urllib.error.HTTPError(
+            req.full_url, 404, "Not Found", {}, io.BytesIO(b"<Error>NoSuchKey</Error>")
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", refuse)
+    client = stb.StbClient(min_interval=0)
+    status, path = client.download("https://dcms-external.s3.amazonaws.com/x/1.pdf", tmp_path)
+    assert status == 404 and path.read_bytes() == b"<Error>NoSuchKey</Error>"
+    with pytest.raises(urllib.error.HTTPError):  # the agency's own host: still an error
+        client.get("https://www.stb.gov/x")
 
 
 def test_limit_zero_fetches_nothing(con, tmp_path):

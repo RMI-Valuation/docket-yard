@@ -72,8 +72,6 @@ def fetch_attachments(
         body: bytes | Path = b""
         try:
             status, body = fetch(url)
-            if status != 200:  # an error page is not the document, whatever the client did
-                raise RuntimeError(f"HTTP {status}")
             # what the document table needs, read before save_capture moves a streamed file
             if isinstance(body, Path):
                 size = body.stat().st_size
@@ -105,6 +103,14 @@ def fetch_attachments(
             "UPDATE capture SET filter_asserted = 1, processed_at = ? WHERE capture_id = ?",
             (now, capture_id),
         )
+        if status != 200 or size == 0:
+            # an error page, or nothing, is not the document: the attempt is on record
+            # (capture-first) and the attachment stays unfetched — left alone for
+            # REFUSAL_REST_DAYS, then asked for again (observations.attachments)
+            print(f"  REFUSED {url} (HTTP {status}, {size} bytes)")
+            stats["failed"] += 1
+            con.commit()
+            continue
         sha256 = con.execute(
             "SELECT response_sha256 FROM capture WHERE capture_id = ?", (capture_id,)
         ).fetchone()[0]

@@ -5,6 +5,7 @@ the viewer page beside the record with its neighbours, parties, files and cite l
 import hashlib
 import io
 
+import pytest
 from fastapi.testclient import TestClient
 
 from docketyard.capture import documents as fetcher
@@ -16,6 +17,15 @@ from docketyard.web.app import create_app
 from tests.test_web import build_store
 
 PDF = b"%PDF-1.4 " + bytes(range(256)) * 300  # ~77 KB, well past one range
+JPG = b"\xff\xd8\xff\xe0 not really a picture"
+
+
+@pytest.fixture(autouse=True)
+def no_store_in_the_environment(monkeypatch):
+    """`create_app` falls back to the environment's store: the tests never reach a real
+    bucket, whatever the developer's shell exports."""
+    for name in ("DY_S3_BUCKET", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
+        monkeypatch.delenv(name, raising=False)
 
 
 def _store_with_document(tmp_path):
@@ -25,6 +35,7 @@ def _store_with_document(tmp_path):
     url = con.execute("SELECT source_url FROM filing_attachment LIMIT 1").fetchone()[0]
     fetcher.fetch_attachments(con, tmp_path, lambda u: (200, PDF) if u == url else (404, b""))
     sha = con.execute("SELECT document_sha256 FROM document").fetchone()[0]
+    assert con.execute("SELECT COUNT(*) FROM document").fetchone()[0] == 1  # the 404 refused
     resolve.run(con, log=lambda _: 0)  # the filing's party, for the sidebar
     con.close()
     assert sha == hashlib.sha256(PDF).hexdigest()
@@ -104,3 +115,93 @@ def test_viewer_page_shows_the_file_beside_the_record(tmp_path):
     assert f"/document/{sha}.pdf<" in sitemaps.section(con, "docketyard.org", "documents", 1, "t")
     con.close()
     assert "sitemap-documents-1.xml" in client.get("/sitemap.xml").text
+
+
+def test_the_suffix_says_what_the_bytes_are_and_the_hash_validates(tmp_path):
+    path, sha = _store_with_document(tmp_path)
+    con = db.connect(path)
+    # the decision's file, refused above, is a picture on a second try (a week later)
+    con.execute("DELETE FROM capture WHERE http_status != 200")
+    con.commit()
+    fetcher.fetch_attachments(con, tmp_path, lambda u: (200, JPG))
+    jpg = hashlib.sha256(JPG).hexdigest()
+    assert (
+        con.execute("SELECT media_type FROM document WHERE document_sha256 = ?", (jpg,)).fetchone()[
+            0
+        ]
+        == "jpg"
+    )
+    # a kind nothing sniffed is held too, as an opaque download
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 3, NULL, '2026-08-27T00:00:00+00:00')",
+        ("f" * 64,),
+    )
+    con.commit()
+    con.close()
+    opaque = records.blob_path(tmp_path, "f" * 64)
+    opaque.parent.mkdir(parents=True)
+    opaque.write_bytes(b"???")
+    client = TestClient(create_app(path))
+    r = client.get(f"/document/{jpg}.jpg")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+    assert r.headers["content-disposition"] == f'inline; filename="{jpg}.jpg"'
+    r = client.get(f"/document/{jpg}.pdf", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == f"/document/{jpg}.jpg"
+    r = client.get("/document/" + "f" * 64 + ".bin")
+    assert r.status_code == 200 and r.headers["content-type"] == "application/octet-stream"
+    assert r.headers["content-disposition"].startswith("attachment")
+    # the hash is the validator: a revalidation never opens the file
+    r = client.get(f"/document/{sha}.pdf", headers={"If-None-Match": f'"{sha}"'})
+    assert r.status_code == 304 and r.headers["etag"] == f'"{sha}"'
+    r = client.get(f"/document/{sha}.pdf", headers={"If-None-Match": '"other"'})
+    assert r.status_code == 200 and r.headers["etag"] == f'"{sha}"'  # not the page stamp
+    # the viewer shows a picture; the sitemap lists every kind at its own suffix
+    assert "<iframe" in client.get("/decision/53210/view").text
+    con = db.connect(path)
+    listed = sitemaps.section(
+        con, "docketyard.org", "documents", 1, "t2"
+    )  # a fresh stamp: memoised
+    con.close()
+    assert f"/document/{jpg}.jpg<" in listed and "/document/" + "f" * 64 + ".bin<" in listed
+
+
+def test_viewable_is_the_first_held_file_a_browser_shows():
+    class A:
+        def __init__(self, sha, kind):
+            self.document_sha256, self.media_type = sha, kind
+
+    class E:
+        def __init__(self, *a):
+            self.attachments = list(a)
+
+    assert documents.viewable_index(E(A(None, None), A("x", "pdf"))) == 1
+    assert documents.viewable_index(E(A("x", "zip"), A("y", "jpg"))) == 1
+    assert documents.viewable_index(E(A("x", "zip"), A(None, None))) is None
+    assert set(fetcher._EXTENSION_TYPES.values()) <= set(documents.MEDIA)
+
+
+def test_the_store_read_is_a_get_of_one_key(monkeypatch):
+    from docketyard.capture import s3
+
+    with pytest.raises(ValueError):
+        s3.signed_get("b", "", region="us-east-2", access_key="k", secret_key="s")
+    sent = {}
+
+    def fake_urlopen(req, timeout=None):
+        sent.update(req.headers, url=req.full_url, method=req.get_method())
+        return io.BytesIO(b"")
+
+    monkeypatch.setattr(s3.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setenv("DY_S3_BUCKET", "docketyard-test")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIA")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "tok")
+    fetch = s3.from_env()
+    fetch("blobs/ab/abc")
+    assert sent["method"] == "GET"
+    assert sent["url"] == "https://docketyard-test.s3.us-east-2.amazonaws.com/blobs/ab/abc"
+    assert sent["X-amz-security-token"] == "tok" and "secret" not in sent["Authorization"]
+    assert "x-amz-security-token" in sent["Authorization"]  # the token is signed
+    monkeypatch.delenv("AWS_SECRET_ACCESS_KEY")
+    assert s3.from_env() is None

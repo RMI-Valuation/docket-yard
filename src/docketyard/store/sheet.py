@@ -18,6 +18,7 @@ class Attachment:
     url: str
     label: str | None
     document_sha256: str | None  # None until fetched
+    media_type: str | None = None  # the document table's kind, once fetched
 
 
 @dataclass(frozen=True)
@@ -63,10 +64,11 @@ def _family(con: Connection, docket_id: int) -> list[tuple[int, str, str | None]
 
 def _attachments(con: Connection, table: str, pk_col: str, pk: int) -> list[Attachment]:
     return [
-        Attachment(url, label, sha)
-        for url, label, sha in con.execute(
-            f"SELECT source_url, label, document_sha256 FROM {table} WHERE {pk_col} = ?"
-            " ORDER BY source_url",
+        Attachment(url, label, sha, kind)
+        for url, label, sha, kind in con.execute(
+            f"SELECT a.source_url, a.label, a.document_sha256, d.media_type FROM {table} a"
+            " LEFT JOIN document d ON d.document_sha256 = a.document_sha256"
+            f" WHERE a.{pk_col} = ? ORDER BY a.source_url",
             (pk,),
         )
     ]
