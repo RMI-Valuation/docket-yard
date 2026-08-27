@@ -15,10 +15,9 @@ by pre-commit: when it fires, prune.
   304) and `/filing/<id>/view` from outside → `docs/milestones.md`. **Cameron, in a
   browser:** does the frame render (Chrome, Firefox, a phone)? Then decide the two key
   questions in `docs/deferred.md` § Document viewer (a read-only key pair for the web tier)
-- Backfill: documents done 2026-08-27 (77,565 held; one legacy `/MPD/` URL 403s). The 41
-  `partial` months (1996–2000) are **proven empty** by neighbour-window reconciliation
-  (`stb-data-source.md` § Measured 2026-08-27); the walker now proves that itself. After
-  v2026.08.30 deploys, re-walk 1996–2000 so they record `empty` and `/coverage` drops them
+- Backfill complete 2026-08-27: 77,565 documents held; the 41 partial months re-walked and
+  recorded `empty` (13:58 UTC), `/coverage` lists none. One legacy `/MPD/` URL 403s (rests
+  a week from PR #10). Record the waves' close in `docs/milestones.md` with the viewer
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
 - RMI-AI-MACHINE: qwen3:14b step-2 run done 2026-08-26 (60/60, `benchmark/runs/`); text
