@@ -57,6 +57,18 @@ def test_canonical_and_open_graph_on_a_docket_page(tmp_path):
     assert 'rel="canonical"' not in client.get("/d/FD-99999").text  # a 404 has no address
 
 
+def test_dockets_sitemap_lists_sub_dockets_too(tmp_path):
+    """A sub-docket page is a real page with its own canonical (ADR 0013); the sitemap
+    left the 10,798 of them out until 2026-08-27."""
+    from tests.test_web import build_store
+
+    client = TestClient(create_app(build_store(tmp_path)))
+    body = client.get("/sitemap-dockets-1.xml").text
+    assert "/d/FD-36873<" in body and "/d/FD-36873/sub/1<" in body
+    assert body.count("<url>") == 2 and body.count("<lastmod>") == 2
+    assert "sitemap-dockets-1.xml" in client.get("/sitemap.xml").text
+
+
 def test_robots_and_sitemaps(tmp_path):
     client = TestClient(create_app(build_store(tmp_path)))
     robots = client.get("/robots.txt")
@@ -71,7 +83,7 @@ def test_robots_and_sitemaps(tmp_path):
     dockets = client.get("/sitemap-dockets-1.xml")
     xml.dom.minidom.parseString(dockets.text)
     assert "<loc>https://docketyard.org/d/FD-36873</loc>" in dockets.text
-    assert "/sub/" not in dockets.text  # a family is addressed by its parent
+    assert "/sub/1</loc>" in dockets.text  # a sub-docket page is its own address
     assert "<lastmod>20" in dockets.text
     # a token page carries no canonical or og:url: a scanner must not learn the address
     assert 'rel="canonical"' not in client.get("/s/confirm/nope").text

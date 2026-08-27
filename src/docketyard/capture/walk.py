@@ -59,6 +59,7 @@ class Slice:
     key: str
     criteria: list[tuple[str, str]]
     expected_empty: bool = False
+    month: str | None = None  # YYYY-MM for a month slice: what reconciliation keys on
 
 
 def capture_slice(
@@ -183,6 +184,101 @@ def slice_status(con: Connection, slice_key: str) -> str | None:
     return row[0] if row else None
 
 
+def _month_bounds(ym: str) -> tuple[date, date]:
+    y, m = (int(x) for x in ym.split("-"))
+    lo = date(y, m, 1)
+    return lo, (lo.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+
+
+def _step(ym: str, delta: int) -> str:
+    y, m = (int(x) for x in ym.split("-"))
+    m += delta
+    return f"{y + (m - 1) // 12}-{(m - 1) % 12 + 1:02d}"
+
+
+def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, data_dir, log):
+    """The one way a month slice that answered the envelope can be called empty: walk
+    outward past any doubted months to the nearest `done` month, then ask for one window
+    from that month across the doubted run. If the window's total is the done month's own
+    total, nothing in between exists at the endpoint — the same envelope answered by a
+    wrong criterion would not reconcile, because the window would answer it too. Two
+    requests, both captured (mode backfill) so the proof is on record. Returns the proof
+    as text, or None."""
+    spec = observations.SPECS[action]
+    first, last = spec.date_criteria
+    done = set()
+    for (key,) in con.execute(
+        "SELECT slice_key FROM walk_slice WHERE table_action = ? AND status = 'done'", (action,)
+    ):
+        rest = key.split(":", 1)[1]
+        if len(rest) == 7:  # a whole month; a partial-range key would not have been ingested
+            done.add(rest)
+    for delta in (1, -1):
+        ym = s.month
+        for _ in range(12):  # a run of doubted months is bounded; a year is plenty
+            ym = _step(ym, delta)
+            if ym in done:
+                break
+        else:
+            continue
+        neighbour = ym
+        lo = _month_bounds(s.month if delta == 1 else neighbour)[0]
+        hi = _month_bounds(neighbour if delta == 1 else s.month)[1]
+        totals = []
+        for a, b in ((_month_bounds(neighbour)), (lo, hi)):
+            criteria = [(first, a.strftime("%m/%d/%Y")), (last, b.strftime("%m/%d/%Y"))]
+            sort_by, sort_order = TABLE_SORT[action]
+            status, body, fields = client.query_table(
+                action,
+                criteria,
+                page=1,
+                per_page=PAGE_CLAMP,
+                sort_by=sort_by,
+                sort_order=sort_order,
+            )
+            capture_id = records.save_capture(
+                con,
+                data_dir,
+                source_system=dockets.SOURCE_SYSTEM,
+                endpoint=AJAX,
+                table_action=action,
+                request_params=fields,
+                body=body,
+                http_status=status,
+                ingest_mode="backfill",
+            )
+            try:
+                parsed = observations.parse_response(spec, body)
+                asserted = observations.assert_filter(spec, criteria, parsed)
+                records.set_verdict(
+                    con,
+                    capture_id,
+                    filter_asserted=asserted,
+                    row_count=len(parsed.rows),
+                    reported_total=parsed.total,
+                )
+                # a total counts only when the filter demonstrably applied and the cap was
+                # not hit: an equal unfiltered pair is exactly what a trap looks like
+                totals.append(
+                    parsed.total if asserted and not dockets.hit_display_cap(parsed.total) else None
+                )
+            except ValueError:
+                records.set_verdict(
+                    con, capture_id, filter_asserted=False, row_count=0, reported_total=0
+                )
+                totals.append(None)
+            records.mark_processed(con, capture_id)  # a proof, never rows to ingest
+        if totals[0] is not None and totals[0] == totals[1]:
+            proof = (
+                f"a window {lo.isoformat()}..{hi.isoformat()} totals {totals[1]}, exactly"
+                f" the done month {neighbour}'s {totals[0]}"
+            )
+            log(f"   {s.key}: {proof}")
+            return proof
+        log(f"   {s.key}: window against {neighbour} did not reconcile ({totals})")
+    return None
+
+
 def record_slice(
     con: Connection, slice_key: str, action: str, criteria, result: SliceResult
 ) -> str:
@@ -257,11 +353,24 @@ def walk(
                 con.rollback()
                 result = SliceResult(quarantined=True)
                 log(f"   {s.key}: FAILED again ({type(e2).__name__}: {e2})")
+        note = ""
+        if result.envelope_on_first_page and not result.expected_empty and s.month:
+            try:
+                proof = reconcile_empty_month(con, client, action, s, data_dir=data_dir, log=log)
+            except Exception as e:  # noqa: BLE001 — a failed proof is a partial month, not a dead wave
+                con.rollback()
+                log(f"   {s.key}: proof FAILED ({type(e).__name__}: {e})")
+                proof = None
+            if proof:
+                result.expected_empty = True  # proven, not declared: the status becomes empty
+                note = f" — proven empty: {proof}"
+            else:
+                note = (
+                    " — no-results envelope on the first page: a trap or a truly empty slice,"
+                    " and no done neighbour month reconciled it (the criterion may be wrong)"
+                )
         status = record_slice(con, key, action, s.criteria, result)
         summary[status] += 1
-        note = ""
-        if result.envelope_on_first_page and not result.expected_empty:
-            note = " — TRAP: no-results envelope on a slice the census says is non-empty"
         if result.capped:
             note = " — display cap: this slice needs sub-slicing"
         log(f"   {s.key}: {status} ({result.rows} rows, {result.captures} captures){note}")
@@ -312,6 +421,7 @@ def month_slices(action: str, start: date, end: date) -> list[Slice]:
                 key=key,
                 criteria=[(first, lo.strftime("%m/%d/%Y")), (last, hi.strftime("%m/%d/%Y"))],
                 expected_empty=cursor.strftime("%Y-%m") in EXPECTED_EMPTY_MONTHS.get(action, {}),
+                month=cursor.strftime("%Y-%m"),
             )
         )
         cursor = nxt
