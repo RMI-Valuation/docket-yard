@@ -17,10 +17,10 @@ Nothing else works without these.
 | | Capability | Effort | Status |
 | --- | --- | --- | --- |
 | `F1` | **The unified docket sheet** | Low | Exists nowhere |
-| `F2` | **Permanent, guessable URLs** | Low | Adjacent art |
+| `F2` | **Permanent, guessable URLs** | Low | Addresses shipped (ADR 0013); the citation resolver chosen 2026-08-27 |
 | `F3` | **A carrier and party registry** | High | Exists nowhere |
 | `F4` | **Fielded search that respects sub-dockets** | Medium | Partial |
-| `F5` | **Free API, bulk dumps, coverage page** | Medium | Exists nowhere |
+| `F5` | **Free API, bulk dumps, coverage page** | Medium | Shipped (M9, `/api` 2026-08-27) |
 | `F6` | **The cross-agency join** | Medium | Exists nowhere |
 | `F7` | **A machine-agent surface** | Low | Exists nowhere |
 
@@ -36,7 +36,7 @@ Nothing else works without these.
 
 **F6 — The cross-agency join.** A shared key linking STB proceedings to Federal Register notices and regulations.gov documents. *Verified: FR returns empty docket IDs on 6,400+ STB documents; regulations.gov holds zero STB comments.*
 
-**F7 — A machine-agent surface.** A read-only MCP server over the endpoints that already exist (search, suggest, docket, decision, filing, party), `/.well-known/mcp.json`, and an explicit crawler and AI-training policy in `robots.txt` and on `/data` in place of today's silence. The audience already puts regulatory questions to assistants, which answer from training data and invent docket numbers and dates; being the grounded source they reach instead is a distribution channel. *Measured 2026-08-26: `/openapi.json` 200 (37 paths); `/llms.txt`, `/api` and `/.well-known/mcp.json` 404; `robots.txt` says nothing about AI crawlers either way.* Effort is Low **because** F5 shipped — a wrapper over existing endpoints, not new retrieval; the `/api` page and `/llms.txt` are F5's unfinished edge and sit in TODO, not here. "Exists nowhere" means no grounded STB source for assistants was found, not that MCP servers over legal corpora are novel. Two constraints travel with it: the surface is **read-only** — no capability may write, subscribe or spend on a reader's behalf — and anything an assistant is handed carries the same provenance and coverage caveats a human page carries; an assistant quoting this record without its caveats is worse than no source. Proposed 2026-08-26; not chosen.
+**F7 — A machine-agent surface.** A read-only MCP server over the endpoints that already exist (search, suggest, docket, decision, filing, party), `/.well-known/mcp.json`, and an explicit crawler and AI-training policy in `robots.txt` and on `/data` in place of today's silence. The audience already puts regulatory questions to assistants, which answer from training data and invent docket numbers and dates; being the grounded source they reach instead is a distribution channel. *Measured 2026-08-26: `/openapi.json` 200 (37 paths); `/llms.txt`, `/api` and `/.well-known/mcp.json` 404; `robots.txt` says nothing about AI crawlers either way. Re-measured 2026-08-27: `/api` and `/llms.txt` answer (v2026.08.32); `/.well-known/mcp.json` and the robots line remain.* Effort is Low **because** F5 shipped — a wrapper over existing endpoints, not new retrieval. "Exists nowhere" means no grounded STB source for assistants was found, not that MCP servers over legal corpora are novel. Two constraints travel with it: the surface is **read-only** — no capability may write, subscribe or spend on a reader's behalf — and anything an assistant is handed carries the same provenance and coverage caveats a human page carries; an assistant quoting this record without its caveats is worse than no source. Proposed 2026-08-26; not chosen.
 
 ## Tier 1 — The four that make it indispensable
 
@@ -66,10 +66,10 @@ Public, mandated or routinely published, never collected in one place.
 | `D1` | **Trail-use and railbanking register** | Medium | Exists nowhere |
 | `D2` | **System diagram maps, aggregated** | Medium | Exists nowhere |
 | `D3` | **Reference-data time series** | Medium | Exists nowhere |
-| `D4` | **Rule-status tracker** | Low | Exists nowhere |
+| `D4` | **Rule-status tracker** | Low | Exists nowhere — first slice (court-action index from 491 held notices) chosen 2026-08-27 |
 | `D5` | **Rate-case casebook** | Low | Exists nowhere |
 | `D6` | **Service-metrics warehouse** | Low | Partial |
-| `D7` | **Confidentiality and designation tracking** | Low | Exists nowhere |
+| `D7` | **Confidentiality and designation tracking** | Low | Exists nowhere — first slice (695 held protective-order motions) chosen 2026-08-27 |
 
 **D1 — Trail-use and railbanking register.** Every interim trail use certificate and notice: docket, railroad, mileposts, counties, issue date, extensions, expiration, outcome. *Notice issuance is the date of taking in Court of Federal Claims litigation. Dispositive, and only in scattered PDFs.*
 
