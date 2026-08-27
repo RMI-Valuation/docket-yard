@@ -16,14 +16,14 @@ One row per hour per (route class, status class, bot flag):
 | Column | Values | Why |
 | --- | --- | --- |
 | `hour` | ISO hour, UTC | the grain |
-| `route_class` | `home`, `sheet`, `record`, `party`, `parties`, `search` (`/search` and `/suggest`), `week`, `stats`, `feed`, `json`, `sitemap` (and robots), `data`, `trust` (about/contribute/coverage/methodology/corrections/privacy), `subscribe` (and the token and SES paths), `static`, `other` — `ROUTE_CLASSES` in `store/traffic.py` | the page kind, never the page: no docket, no party, no record id |
+| `route_class` | `home`, `sheet`, `record`, `document`, `party`, `parties`, `search` (`/search` and `/suggest`), `week`, `stats`, `feed`, `json`, `sitemap` (and robots), `data`, `trust` (about/contribute/coverage/methodology/corrections/privacy), `subscribe` (and the token and SES paths), `static`, `other` — `ROUTE_CLASSES` in `store/traffic.py` | the page kind, never the page: no docket, no party, no record id |
 | `status_class` | `2xx`, `3xx`, `4xx`, `5xx` | health |
 | `bot` | 0/1 | a fixed list of substrings matched against the User-Agent *in memory* (`_BOT_MARKS`; the compose healthcheck's `Python-urllib` is one); a missing User-Agent is a reader; the string itself is never written |
 | `requests` | count | |
 | `bytes` | sum of response sizes, each **rounded up to 64 KB** first | transfer volume — never a page: an exact length would identify a sheet in an hour with one reader (security review, 2026-08-26) |
 | `latency_ms` | four buckets: `<100`, `<500`, `<2000`, `≥2000`, as counts | slow pages are visible; no per-request timing survives |
 
-Sixteen route classes × four status classes × two bot flags = at most 128 rows an hour,
+Seventeen route classes × four status classes × two bot flags = at most 136 rows an hour,
 and in practice a handful. A month is a few thousand rows.
 
 **What is never in it:** IP address, any hash of one, User-Agent, referrer, query string,

@@ -418,6 +418,13 @@ def test_a_body_cut_short_is_retried_and_leaves_no_staging_file(tmp_path, monkey
     assert stats["failed"] == 1 and stats["fetched"] == 0 and not orphan.exists()
 
 
+def test_a_non_200_answer_is_never_stored_as_the_document(con, tmp_path):
+    ingest(con, tmp_path, filing_row())
+    stats = documents.fetch_attachments(con, tmp_path, lambda u: (404, b"<html>gone</html>"))
+    assert stats["failed"] == 1 and stats["fetched"] == 0
+    assert con.execute("SELECT COUNT(*) FROM document").fetchone()[0] == 0
+
+
 def test_limit_zero_fetches_nothing(con, tmp_path):
     ingest(con, tmp_path, filing_row())
     fetch = fake_fetch({})

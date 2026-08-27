@@ -23,24 +23,25 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import Body, FastAPI, Form, HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from docketyard import __version__
 from docketyard.alerts import feedback, mail, subscriptions, vault, webhooks
+from docketyard.capture import s3
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
 from docketyard.store import coverage, dump, home, projections, search, sheet, stats, traffic
 from docketyard.store.db import MIGRATIONS, utcnow
-from docketyard.web import feeds, labels, sitemaps, urls
+from docketyard.web import documents, feeds, labels, sitemaps, urls
 
 _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
 NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/suggest")  # tokens, consent
-MOUNTS = ("/static/", "/data/files/")  # StaticFiles: streams, validates and HEADs itself
+MOUNTS = ("/static/", "/data/files/", "/document/")  # streamed, validated by themselves
 DISCOVERY_CACHE = 86400  # robots and sitemaps: a day
 PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move once a poll
 # outside intake is GitHub Issues (CLAUDE.md); the form template carries the fields
@@ -148,6 +149,7 @@ def create_app(
     feedback_topic: str | None = None,  # the SNS topic ARN SES feedback must come from
     public_dir: str | Path | None = None,  # where `docketyard dump` writes (M9)
     traffic_path: str | Path | None = None,  # hourly counts, no identifier (docs/traffic.md)
+    store_fetch=None,  # fetch(key) -> file-like from the blob store; None = no store
 ) -> FastAPI:
     _check_store(db_path)
     public_dir = Path(public_dir) if public_dir else Path(db_path).parent / "public"
@@ -188,6 +190,9 @@ def create_app(
         filing_path=urls.filing_path,
         party_path=urls.party_path,
         party_feed_path=urls.party_feed_path,
+        record_path=urls.record_path,
+        viewer_path=urls.viewer_path,
+        document_path=urls.document_path,
         parse_docket_id=parse_docket_id,
         kind_label=labels.kind_label,
         filter_key=labels.filter_key,
@@ -998,6 +1003,72 @@ def create_app(
     @app.get("/filing/{stb_id}")
     def filing_page(request: Request, stb_id: str):
         return _record_page(request, db_path, render, "filing", stb_id)
+
+    # --- the document address and the viewer (ADR 0013 addendum, 2026-08-27) -----------
+
+    data_dir = Path(db_path).parent
+    fetch = store_fetch
+    if fetch is None and (cfg := s3.from_env()):
+        fetch = lambda key: s3.signed_get(key=key, **cfg)  # noqa: E731
+
+    @app.get("/document/{name}")
+    def document(request: Request, name: str):
+        """The bytes at a hash, inline, with Range: what a browser needs to show a PDF. A
+        file the instance pruned is fetched from the store and hashed before it is served."""
+        sha = name[:-4] if name.endswith(".pdf") else name
+        if not documents.is_sha(sha):
+            raise HTTPException(404)
+        if name != f"{sha}.pdf":  # one spelling of the address
+            return RedirectResponse(urls.document_path(sha), status_code=301)
+        con = _connect(db_path)
+        try:
+            row = documents.held(con, sha)
+        finally:
+            con.close()
+        if row is None:
+            raise HTTPException(404)
+        try:
+            path = documents.local_file(data_dir, sha, fetch=fetch)
+        except Exception as e:  # noqa: BLE001 — the store did not answer: say so, serve nothing
+            raise HTTPException(503, "the document store did not answer") from e
+        if path is None:
+            raise HTTPException(503, "the document is not on hand right now")
+        mime, headers = documents.headers_for(sha, row[1])
+        return FileResponse(path, media_type=mime, headers=headers)
+
+    def viewer(request: Request, kind: str, stb_id: str, file: int):
+        s, entry = _record_entry(db_path, kind, stb_id)
+        files = documents.viewable(entry)
+        current = None
+        if files:
+            wanted = entry.attachments[file] if 0 <= file < len(entry.attachments) else None
+            current = wanted if wanted in files else files[0]
+        i = s.entries.index(entry)
+        con = _connect(db_path)
+        try:
+            names = resolve.Components(con)
+            parties = [{"party_id": p, "name": names.display_name(p)} for p in entry.parties]
+        finally:
+            con.close()
+        return render(
+            request,
+            "viewer.html",
+            sheet=s,
+            entry=entry,
+            current=current,
+            parties=parties,
+            prev=s.entries[i - 1] if i > 0 else None,
+            next=s.entries[i + 1] if i + 1 < len(s.entries) else None,
+            canonical=urls.viewer_path(kind, stb_id),
+        )
+
+    @app.get("/decision/{stb_id}/view")
+    def decision_viewer(request: Request, stb_id: str, file: int = 0):
+        return viewer(request, "decision", stb_id, file)
+
+    @app.get("/filing/{stb_id}/view")
+    def filing_viewer(request: Request, stb_id: str, file: int = 0):
+        return viewer(request, "filing", stb_id, file)
 
     for route in app.routes:  # HEAD answers as GET without a body, on every page
         if isinstance(route, APIRoute) and "GET" in route.methods:

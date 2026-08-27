@@ -21,6 +21,7 @@ ROUTE_CLASSES = (
     "home",
     "sheet",
     "record",
+    "document",
     "party",
     "parties",
     "search",
@@ -93,6 +94,8 @@ def route_class(path: str) -> str:
         return "json" if path.endswith(".json") else ("feed" if path.endswith("/feed") else "sheet")
     if path.startswith(("/filing/", "/decision/")):
         return "json" if path.endswith(".json") else "record"
+    if path.startswith("/document/"):
+        return "document"
     if path.startswith("/p/"):
         return "feed" if path.endswith("/feed") else "party"
     if path.startswith("/feed"):

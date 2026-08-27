@@ -72,6 +72,8 @@ def fetch_attachments(
         body: bytes | Path = b""
         try:
             status, body = fetch(url)
+            if status != 200:  # an error page is not the document, whatever the client did
+                raise RuntimeError(f"HTTP {status}")
             # what the document table needs, read before save_capture moves a streamed file
             if isinstance(body, Path):
                 size = body.stat().st_size
