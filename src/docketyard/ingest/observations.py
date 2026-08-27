@@ -14,8 +14,10 @@ error), so date criteria are positively verified against the printed date cells 
 date value the verifier cannot normalise quarantines rather than silently skipping.
 """
 
+import hashlib
 import html
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from sqlite3 import Connection
 
 from docketyard.capture import records
@@ -322,6 +324,24 @@ def _upsert_record(
     return cur.lastrowid, True
 
 
+REFUSAL_REST_DAYS = 7  # a URL the host refused is not asked for again this soon
+_EMPTY_SHA = hashlib.sha256(b"").hexdigest()
+
+
+def recently_refused(con: Connection, days: int = REFUSAL_REST_DAYS) -> set[str]:
+    """URLs whose latest fetch was refused (a non-200, or an empty body) within `days`:
+    the attempt is on record as a capture; asking again every pass is not politeness."""
+    since = (datetime.now(UTC) - timedelta(days=days)).isoformat(timespec="seconds")
+    latest: dict[str, bool] = {}
+    for url, status, sha in con.execute(
+        "SELECT endpoint, http_status, response_sha256 FROM capture"
+        " WHERE captured_at > ? ORDER BY capture_id",
+        (since,),
+    ):
+        latest[url] = status != 200 or sha == _EMPTY_SHA
+    return {url for url, refused in latest.items() if refused}
+
+
 @dataclass(frozen=True)
 class AttachmentRef:
     spec: TableSpec
@@ -341,6 +361,7 @@ def attachments(
     to records whose latest observation came from captures of that ingest mode — the
     poller fetches the watch's own files first; a backfill wave's backlog is the wave's."""
     out: list[AttachmentRef] = []
+    rest = recently_refused(con) if unfetched_only else set()
     for spec in SPECS.values():
         conds = []
         params: tuple = ()
@@ -361,5 +382,6 @@ def attachments(
                 f" FROM {spec.attachment_table} a{where} ORDER BY 1",
                 params,
             )
+            if r[1] not in rest
         ]
     return out[:limit] if limit is not None else out
