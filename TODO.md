@@ -11,10 +11,8 @@ by pre-commit: when it fires, prune.
 
 - Backfill: documents done 2026-08-27 (77,565 held; one legacy `/MPD/` URL 403s). The 41
   `partial` months (1996–2000) are **proven empty** by neighbour-window reconciliation
-  (`stb-data-source.md` § Measured 2026-08-27); a re-walk cannot clear them. Next: teach
-  `walk.py` that proof (two requests per doubted month; ingest-specialist review) so
-  `/coverage` says empty, not partial; then pull the new blobs to RMI-AI-MACHINE and re-run
-  the text layer (needs Cameron's Tailscale approval)
+  (`stb-data-source.md` § Measured 2026-08-27), declared in `EXPECTED_EMPTY_MONTHS`; after
+  v2026.08.30 deploys, re-walk 1996–2000 so they record `empty` and `/coverage` drops them
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
 - RMI-AI-MACHINE: qwen3:14b step-2 run done 2026-08-26 (60/60, `benchmark/runs/`); text
