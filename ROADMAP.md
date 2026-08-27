@@ -15,7 +15,7 @@ the milestones record. Nothing is chosen next; the Ripe list is the menu.
 
 | # | Milestone | Done means | Chosen | Status |
 | --- | --- | --- | --- | --- |
-| — | Backfill waves 2–3 (2020 → 2024-07, then 1996 → 2019) | Every month `done` or declared `empty` on the coverage page; documents in S3; extraction re-run per wave | 2026-08-26 | Running unattended on the instance (TODO § Now) |
+| — | Backfill waves 2–3 (2020 → 2024-07, then 1996 → 2019) | Every month `done` or declared `empty` on the coverage page; documents in S3; extraction re-run per wave | 2026-08-26 | Tables and documents landed 2026-08-27 (77,565 documents); 41 `partial` months to re-walk, then extraction on RMI-AI-MACHINE (TODO § Now) |
 | — | Extraction benchmark (background) | Local LLM on RMI-AI-MACHINE vs API on a hand-labelled sample, before any extraction commits to local output; unblocks the citator | 2026-08-26 | Step 0 done; step 1 (60-decision labelled sample) awaits the operator's labels |
 
 ## Ripe — awaiting a decision
