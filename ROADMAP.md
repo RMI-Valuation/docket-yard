@@ -16,21 +16,31 @@ the milestones record, and the document viewer (2026-08-27). The Ripe list is th
 | # | Milestone | Done means | Chosen | Status |
 | --- | --- | --- | --- | --- |
 | — | Extraction benchmark (background) | Local LLM on RMI-AI-MACHINE vs API on a hand-labelled sample, before any extraction commits to local output; unblocks the citator | 2026-08-26 | Step 0 done; step 1 (60-decision labelled sample) awaits the operator's labels |
+| — | Three held-metadata slices, chosen by delegation ("proceed with whatever you see fit", 2026-08-27) | The citation resolver (F2's second half: a docket or decision citation in any of the Board's printed forms resolves to its address with no search step); a court-action index (D4's first slice: the 491 `Notice Of Court Action` decisions by rulemaking, quoted); a protective-order register (D7's first slice: the 695 `Motion For Protective Order` filings on one page and marked on the sheet). No inference, no extraction — projections of held rows | 2026-08-27 | In progress |
 
 ## Ripe — awaiting a decision
 
-Candidates the record can support now, in the order recommended 2026-08-26. None is chosen.
+Candidates the record can support now, in the order recommended 2026-08-27 (reviewed against
+the capability map with the whole record held). None is chosen.
 
 1. **Docket-type explainers** (P2) — writing, not engineering; the operator's.
 2. **The citation graph** — the first slice of the citator (C2): edges only (this decision
    cites that decision, docket or document) against the validated registry, shipped as "cited
-   by" lists and search ranking; treatment classification lands later on the same edges. The
-   precondition moved 2026-08-26 (decisions 2,815 → 19,829, the record reaching 1996); still
-   gated on wave 3, the labelled sample, and the schema check in TODO § Next.
-3. **A machine-agent surface** (F7, proposed 2026-08-26) — read-only MCP over what exists;
-   Low effort because F5 shipped. On the menu, not chosen.
+   by" lists and search ranking; treatment classification lands later on the same edges.
+   Wave 3 is done (19,829 decisions, 1996 →); gated on the labelled sample and the schema
+   check in TODO § Next. The citation resolver (Chosen) is its front door.
+3. **A machine-agent surface** (F7, proposed 2026-08-26) — read-only MCP over what exists
+   plus the AI-crawler line in `robots.txt`; Low effort because F5, `/api` and `/llms.txt`
+   shipped. On the menu, not chosen.
 4. **Fielded search** (F4) — the one box shipped 2026-08-26 (captions, parties, summaries);
    fields, boolean and proximity wait for the extracted text.
+5. **Rate-case index** (D5's first slice) — the 3,952 NOR dockets with parties and quoted
+   spans; only 136 carry held filings, so thin until the ICC-era gap closes. The casebook
+   proper (methodology, outcome) is human coding.
+
+Measured not ripe 2026-08-27: trail-use (D1: no decision type names it; inside `Decision`
+bodies, extraction), deadlines (C4), service metrics and reference data (D6/D3: other
+sources), maps and geography (D2/C3: no geography rows yet), the public on-ramp (P1/P3–P5).
 
 Later, each waiting for a decision rather than capacity: the geographic index (C3/D2), the
 deadline engine (C4 — needs counsel's review before it ships; a hand-checked fixture of dated
