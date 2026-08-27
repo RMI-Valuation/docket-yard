@@ -537,6 +537,12 @@ def test_the_recheck_walks_the_longest_unchecked_first_within_its_bounds(con, tm
     assert con.execute("SELECT document_sha256 FROM filing_attachment").fetchone()[0]  # kept
     with pytest.raises(ValueError):
         documents.fetch_attachments(con, tmp_path, boom, refresh=True, observed_in="forward")
+    # a time budget: what the slice cannot start in time is left for the next pass
+    con.execute("UPDATE capture SET captured_at = '2026-01-01T00:00:00+00:00'")
+    stats = documents.fetch_attachments(
+        con, tmp_path, fake_fetch({url: b"%PDF-1"}), refresh=True, budget_seconds=-1
+    )
+    assert stats["fetched"] == 0 and stats["deferred"] == 1
 
 
 def test_limit_zero_fetches_nothing(con, tmp_path):

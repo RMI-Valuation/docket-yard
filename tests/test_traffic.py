@@ -114,6 +114,14 @@ def test_the_store_never_holds_counts(tmp_path):
     con.close()
 
 
+def test_the_traffic_doc_states_the_row_bound_the_code_has():
+    from pathlib import Path
+
+    doc = (Path(__file__).resolve().parents[1] / "docs" / "traffic.md").read_text(encoding="utf-8")
+    bound = len(traffic.ROUTE_CLASSES) * 4 * 2
+    assert f"at most {bound} rows an hour" in doc
+
+
 def test_the_weekly_digest_goes_once_on_monday_with_the_table(tmp_path):
     from datetime import UTC, datetime
 

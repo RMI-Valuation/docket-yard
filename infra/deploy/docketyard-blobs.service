@@ -9,4 +9,4 @@ After=network-online.target
 Type=oneshot
 ExecStartPost=/bin/systemctl start --no-block docketyard-prune.service
 EnvironmentFile=/srv/docketyard/.env
-ExecStart=/usr/local/bin/aws s3 sync /srv/docketyard/data/blobs s3://${DY_S3_BUCKET}/blobs --exclude "*.tmp" --exclude ".tmp/*" --no-progress --only-show-errors
+ExecStart=/usr/local/bin/aws s3 sync /srv/docketyard/data/blobs s3://${DY_S3_BUCKET}/blobs --size-only --exclude "*.tmp" --exclude ".tmp/*" --no-progress --only-show-errors
