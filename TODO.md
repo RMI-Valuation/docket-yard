@@ -17,11 +17,10 @@ by pre-commit: when it fires, prune.
   the text layer (needs Cameron's Tailscale approval)
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
-- RMI-AI-MACHINE (2026-08-26 19:46 UTC): tmux `extract` pulls the blob store from S3 with
-  `pull_blobs.py` and re-runs the text layer incrementally (re-run again after the wave
-  ends); tmux `bench` runs qwen3:14b over the 60 decisions (`benchmark/runs/`, log
-  `bench-qwen3-14b.log`). Scoring waits on Cameron's check of the model-drafted `labels.csv`
-  (README § Provenance); the API candidate waits on his go (it spends money)
+- RMI-AI-MACHINE: qwen3:14b step-2 run done 2026-08-26 (60/60, `benchmark/runs/`); text
+  layer over the first 9,663 wave 2–3 files done (1,480 image-only — 15%); the full-record
+  pull + extraction started 2026-08-27 13:45 UTC in tmux `extract`. Scoring waits on
+  Cameron's check of `labels.csv`; the API candidate waits on his go (it spends money)
 - Explainers draft (`docs/explainers.md`): Cameron reviews; [?] rows need the Board's
   records staff; then a page per prefix. Whether/how to announce the wedge — his call
 
