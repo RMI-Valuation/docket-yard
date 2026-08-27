@@ -1,0 +1,14 @@
+{#- The email follow form, one copy for the sheet, the party page and the viewer.
+    Context: follow_field ('docket' | 'party'), follow_value, follow_note (may be empty). -#}
+<form class="follow" method="post" action="/subscribe">
+  <input type="hidden" name="{{ follow_field }}" value="{{ follow_value }}">
+  <label class="small muted" for="follow-email">Email address</label>
+  <input id="follow-email" name="email" type="email" required autocomplete="email" placeholder="you@example.org">
+  <fieldset class="follow-cadence">
+    <legend class="vh">How often</legend>
+    <label><input type="radio" name="cadence" value="pass" checked> As it happens</label>
+    <label><input type="radio" name="cadence" value="daily"> One email a day</label>
+  </fieldset>
+  <button class="btn" type="submit">Send confirmation</button>
+  {% if follow_note %}<p class="small muted">{{ follow_note }}</p>{% endif %}
+</form>
