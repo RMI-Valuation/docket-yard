@@ -9,9 +9,8 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- **Document viewer live v2026.08.31** (2026-08-27, PR #10). **Cameron, in a browser:** does
-  the frame render at `/filing/<id>/view` (Chrome, Firefox, a phone)? Then the two key
-  questions in `docs/deferred.md` § Document viewer (a read-only key pair for the web tier)
+- Document viewer: frame confirmed rendering by Cameron 2026-08-27. Open: the read-only S3 key
+  pair for the web tier and the `sandbox` CSP test (`docs/deferred.md` § Document viewer)
 - Backfill complete 2026-08-27: 77,565 documents held; the 41 partial months re-walked and
   recorded `empty` (13:58 UTC), `/coverage` lists none. One legacy `/MPD/` URL 403s (rests
   a week from PR #10)
