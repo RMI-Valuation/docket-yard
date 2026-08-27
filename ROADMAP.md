@@ -16,7 +16,6 @@ the milestones record. The document viewer is chosen (2026-08-27); the Ripe list
 | # | Milestone | Done means | Chosen | Status |
 | --- | --- | --- | --- | --- |
 | — | Backfill waves 2–3 (2020 → 2024-07, then 1996 → 2019) | Every month `done` or declared `empty` on the coverage page; documents in S3; extraction re-run per wave | 2026-08-26 | Tables and documents landed 2026-08-27 (77,565 documents); 41 `partial` months to re-walk, then extraction on RMI-AI-MACHINE (TODO § Now) |
-| — | Document viewer | A record's PDF shown beside its docket and entry (`/filing/{id}/view`, `/decision/{id}/view`) with cite line, neighbours and the follow form; `/document/{sha256}.pdf` served inline, permanent by hash (ADR 0013 addendum 2026-08-27); a pruned file fetched from S3 on demand | 2026-08-27 | In progress on a branch |
 | — | Extraction benchmark (background) | Local LLM on RMI-AI-MACHINE vs API on a hand-labelled sample, before any extraction commits to local output; unblocks the citator | 2026-08-26 | Step 0 done; step 1 (60-decision labelled sample) awaits the operator's labels |
 
 ## Ripe — awaiting a decision

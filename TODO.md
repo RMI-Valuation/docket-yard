@@ -9,15 +9,12 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- **Document viewer, PR #10** (branch `document-viewer`, 2026-08-27): reviews answered; CI →
-  merge → v2026.08.31 → deploy with the new `Caddyfile` (a `/document/*` handle block) and
-  `compose.yaml` (`DY_S3_BUCKET` in the web env) → verify `/document/<sha>.pdf` (200, 206,
-  304) and `/filing/<id>/view` from outside → `docs/milestones.md`. **Cameron, in a
-  browser:** does the frame render (Chrome, Firefox, a phone)? Then decide the two key
+- **Document viewer live v2026.08.31** (2026-08-27, PR #10). **Cameron, in a browser:** does
+  the frame render at `/filing/<id>/view` (Chrome, Firefox, a phone)? Then the two key
   questions in `docs/deferred.md` § Document viewer (a read-only key pair for the web tier)
 - Backfill complete 2026-08-27: 77,565 documents held; the 41 partial months re-walked and
   recorded `empty` (13:58 UTC), `/coverage` lists none. One legacy `/MPD/` URL 403s (rests
-  a week from PR #10). Record the waves' close in `docs/milestones.md` with the viewer
+  a week from PR #10)
 - Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
   (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
 - RMI-AI-MACHINE: qwen3:14b step-2 run done 2026-08-26 (60/60, `benchmark/runs/`); text
