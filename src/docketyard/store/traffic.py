@@ -275,6 +275,78 @@ def report(path: str | Path, days: int = 1) -> list[tuple]:
         con.close()
 
 
+DIGEST_DAY = 0  # Monday, UTC
+DIGEST_HOUR = 6  # after the last hourly flush of the week has landed
+DIGEST_GAP_DAYS = 6  # never twice in a week, however many passes run on a Monday
+
+
+def digest_text(path: str | Path, days: int = 7) -> str:
+    """The weekly summary the operator reads by email: the same table `docketyard traffic`
+    prints, over the last `days`, and the totals. Numbers by kind of page only — nothing
+    in it names a reader, a page or a docket (docs/traffic.md)."""
+    rows = report(path, days=days)
+    lines = [
+        f"Docket Yard traffic, last {days} days (readers = no crawler User-Agent; probes and",
+        "monitors count as readers). No identifiers are kept, so this is all there is.",
+        "",
+        f"{'route':10s} {'readers':>8s} {'crawlers':>9s} {'MB':>8s} {'5xx':>5s} {'<500ms':>7s}",
+    ]
+    readers = crawlers = errors = 0
+    size = 0.0
+    for route, r, c, b, e, fast in rows:
+        lines.append(f"{route:10s} {r:8d} {c:9d} {b / 1e6:8.1f} {e:5d} {fast:6.0f}%")
+        readers, crawlers, errors, size = readers + r, crawlers + c, errors + e, size + b
+    lines += [
+        "",
+        f"total      {readers:8d} {crawlers:9d} {size / 1e6:8.1f} {errors:5d}",
+        "",
+        "Sent by the poller once a week (docs/traffic.md § The weekly digest). Nothing is",
+        "published; the counts stay on the instance.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _digest_state(con: sqlite3.Connection) -> str | None:
+    con.execute("CREATE TABLE IF NOT EXISTS traffic_digest (sent_at TEXT NOT NULL)")
+    row = con.execute("SELECT MAX(sent_at) FROM traffic_digest").fetchone()
+    return row[0] if row else None
+
+
+def digest_due(path: str | Path, now: datetime) -> bool:
+    """Monday from DIGEST_HOUR UTC, once: the poller asks after every pass, so a pass that
+    misses the hour still sends that day, and a Monday with many passes sends one."""
+    if now.weekday() != DIGEST_DAY or now.hour < DIGEST_HOUR:
+        return False
+    con = connect(path)
+    try:
+        last = _digest_state(con)
+    finally:
+        con.close()
+    if last is None:
+        return True
+    return datetime.fromisoformat(last) <= now - timedelta(days=DIGEST_GAP_DAYS)
+
+
+def send_digest(path: str | Path, sender, to: str, now: datetime, log=print) -> bool:
+    """The digest by email if it is due and can be sent; True when one went out. The mark
+    is written only after the provider accepted it, so a failed send is retried next pass."""
+    if not to or sender is None or not Path(path).exists() or not digest_due(path, now):
+        return False
+    from docketyard.alerts.mail import Outbound  # the mail module imports nothing from here
+
+    subject = f"Docket Yard traffic, week to {now.date().isoformat()}"
+    sender.send(Outbound(to=to, subject=subject, text=digest_text(path)))
+    con = connect(path)
+    try:
+        _digest_state(con)
+        con.execute("INSERT INTO traffic_digest (sent_at) VALUES (?)", (now.isoformat(),))
+        con.commit()
+    finally:
+        con.close()
+    log(f"traffic digest sent ({subject})")
+    return True
+
+
 def seconds_to_next_hour(now: datetime) -> float:
     nxt = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     return (nxt - now).total_seconds() + 5  # a few seconds past the boundary

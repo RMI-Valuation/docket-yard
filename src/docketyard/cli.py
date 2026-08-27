@@ -3,7 +3,7 @@
 import argparse
 import os
 import sys
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from docketyard.alerts import build, mail, vault
@@ -127,8 +127,19 @@ def _poll(args: argparse.Namespace) -> int:
     def alerts():
         return build.run_after_pass(con, sender, site)
 
+    operator = os.environ.get("DY_OPERATOR_EMAIL") or None
+    if operator is None:
+        print("DY_OPERATOR_EMAIL not set: no weekly traffic digest")
+
     def one_pass():
-        return poll.forward_pass(con, client, args.data_dir, days=args.days, alerts=alerts)
+        summary = poll.forward_pass(con, client, args.data_dir, days=args.days, alerts=alerts)
+        try:  # the operator's weekly digest (docs/traffic.md); never costs the pass
+            traffic.send_digest(
+                Path(args.db).parent / "traffic.sqlite", sender, operator, datetime.now(UTC)
+            )
+        except Exception as e:  # noqa: BLE001
+            print(f"traffic digest failed ({type(e).__name__}: {e})")
+        return summary
 
     if args.every is not None:
         poll.run_forever(one_pass, args.every)
