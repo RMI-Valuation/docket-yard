@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from docketyard.store import traffic
 from docketyard.web.app import create_app
+from tests.test_alerts import FakeSender
 from tests.test_web import build_store
 
 
@@ -111,3 +112,31 @@ def test_the_store_never_holds_counts(tmp_path):
     names = {r[0] for r in con.execute("SELECT name FROM sqlite_master")}
     assert not {n for n in names if n.startswith("traffic")}
     con.close()
+
+
+def test_the_weekly_digest_goes_once_on_monday_with_the_table(tmp_path):
+    from datetime import UTC, datetime
+
+    path = tmp_path / "traffic.sqlite"
+    counter = traffic.Counter()
+    when = datetime(2026, 8, 25, 10, 0, tzinfo=UTC)  # a Tuesday
+    counter.record("/d/FD-36873", 200, 70_000, 120.0, "Mozilla/5.0", when)
+    counter.record("/d/FD-36873", 200, 70_000, 40.0, "Googlebot/2.1", when)
+    counter.record("/nope", 404, 0, 5.0, None, when)
+    traffic.flush(counter, path, when)
+    text = traffic.digest_text(path)
+    assert "sheet" in text and "total" in text and "FD-36873" not in text  # kinds, never pages
+    sender = FakeSender()
+    monday_early = datetime(2026, 8, 31, 5, 30, tzinfo=UTC)
+    monday = datetime(2026, 8, 31, 6, 30, tzinfo=UTC)
+    assert not traffic.digest_due(path, when) and not traffic.digest_due(path, monday_early)
+    assert traffic.digest_due(path, monday)
+    assert traffic.send_digest(path, sender, "", monday) is False  # no recipient: nothing
+    assert traffic.send_digest(path, None, "op@example.org", monday) is False  # no mail
+    assert traffic.send_digest(path, sender, "op@example.org", monday) is True
+    out = sender.sent[-1]
+    assert out.to == "op@example.org" and "week to 2026-08-31" in out.subject
+    assert "readers" in out.text and "sheet" in out.text
+    # once: a later pass the same Monday sends nothing; next Monday it does again
+    assert traffic.send_digest(path, sender, "op@example.org", monday.replace(hour=23)) is False
+    assert traffic.digest_due(path, datetime(2026, 9, 7, 6, 5, tzinfo=UTC))

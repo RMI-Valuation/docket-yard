@@ -49,10 +49,21 @@ the snapshot (`/data`) and the JSON never see the counts.
 
 ## What is published
 
-Nothing, at first. `/stats` says "nothing about readers" and keeps saying it; the counts are
-for the operator (a `docketyard traffic` command printing the last day/week). Publishing an
+Nothing. `/stats` says "nothing about readers" and keeps saying it; the counts are for the
+operator (a `docketyard traffic` command printing the last day/week). Publishing an
 aggregate later — "requests per day, all readers" — is a separate decision with its own
 sentence on `/privacy`.
+
+## The weekly digest (2026-08-27)
+
+Once a week the poller emails the operator the same table the command prints, over the
+last seven days, with totals (`traffic.send_digest`): on Monday from 06:00 UTC, once, after
+whichever pass first finds it due; the mark (`traffic_digest.sent_at`, in `traffic.sqlite`)
+is written only after SES accepted the message, so a failed send is retried on the next
+pass. The recipient is `DY_OPERATOR_EMAIL` in the instance environment; unset, nothing is
+sent and the poller says so at startup. The digest carries what the table carries — counts
+by kind of page — and nothing else; it does not change what is kept or published, so the
+signed sentence on `/privacy` stands as written.
 
 ## Retention
 

@@ -14,6 +14,11 @@ What is promised about delivery, and how silent failure is detected.
 A monitoring requirement. Alerts are cheap to launch and expensive to keep correct — upstream
 changes break them quietly.
 
+## The operator's weekly digest
+
+Not an alert and not the heartbeat: once a week the poller emails the operator the traffic
+table (`docs/traffic.md` § The weekly digest). It shares the SES sender and nothing else.
+
 ## The heartbeat
 
 **A dead box cannot report its own death** (ADR 0012), so the check runs off-box: the
