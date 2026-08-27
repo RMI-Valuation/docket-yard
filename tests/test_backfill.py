@@ -259,6 +259,27 @@ def test_a_window_that_does_not_reconcile_leaves_the_month_partial(tmp_path):
     assert out["empty"] == 0 and out["partial"] == 1
     assert any("did not reconcile" in n for n in notes)
     assert any("criterion may be wrong" in n for n in notes)
+    # both proof requests answering the envelope (a dead criterion) with a done neighbour
+    # present: two requests, no proof, partial
+    con3 = db.connect(tmp_path / "u.sqlite")
+    client3 = WindowStb({(FILINGS, "05/01/1996", "05/31/1996"): _month_body(2, 5)})
+    out3 = walk.walk_observations(
+        con3, client3, FILINGS, d(1996, 5, 1), d(1996, 6, 30), data_dir=tmp_path, log=lambda _: 0
+    )
+    assert out3["partial"] == 1 and client3.requests == 4
+    # a proof whose responses parse but do not pass the filter assertion (rows outside the
+    # window) proves nothing
+    con4 = db.connect(tmp_path / "v.sqlite")
+    client4 = WindowStb(
+        {
+            (FILINGS, "05/01/1996", "05/31/1996"): _month_body(2, 5),
+            (FILINGS, "05/01/1996", "06/30/1996"): _month_body(2, 9),  # September rows
+        }
+    )
+    out4 = walk.walk_observations(
+        con4, client4, FILINGS, d(1996, 5, 1), d(1996, 6, 30), data_dir=tmp_path, log=lambda _: 0
+    )
+    assert out4["partial"] == 1
     # and with no done neighbour at all, nothing is asked and the month stays partial
     con2 = db.connect(tmp_path / "t.sqlite")
     client2 = WindowStb({})

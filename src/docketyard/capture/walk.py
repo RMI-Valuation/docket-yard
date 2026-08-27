@@ -206,12 +206,13 @@ def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, dat
     as text, or None."""
     spec = observations.SPECS[action]
     first, last = spec.date_criteria
-    done = {}
-    for key, rows in con.execute(
-        "SELECT slice_key, rows FROM walk_slice WHERE table_action = ? AND status = 'done'",
-        (action,),
+    done = set()
+    for (key,) in con.execute(
+        "SELECT slice_key FROM walk_slice WHERE table_action = ? AND status = 'done'", (action,)
     ):
-        done[key.split(":", 1)[1][:7]] = rows
+        rest = key.split(":", 1)[1]
+        if len(rest) == 7:  # a whole month; a partial-range key would not have been ingested
+            done.add(rest)
     for delta in (1, -1):
         ym = s.month
         for _ in range(12):  # a run of doubted months is bounded; a year is plenty
@@ -248,14 +249,19 @@ def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, dat
             )
             try:
                 parsed = observations.parse_response(spec, body)
+                asserted = observations.assert_filter(spec, criteria, parsed)
                 records.set_verdict(
                     con,
                     capture_id,
-                    filter_asserted=observations.assert_filter(spec, criteria, parsed),
+                    filter_asserted=asserted,
                     row_count=len(parsed.rows),
                     reported_total=parsed.total,
                 )
-                totals.append(parsed.total)
+                # a total counts only when the filter demonstrably applied and the cap was
+                # not hit: an equal unfiltered pair is exactly what a trap looks like
+                totals.append(
+                    parsed.total if asserted and not dockets.hit_display_cap(parsed.total) else None
+                )
             except ValueError:
                 records.set_verdict(
                     con, capture_id, filter_asserted=False, row_count=0, reported_total=0
@@ -349,7 +355,12 @@ def walk(
                 log(f"   {s.key}: FAILED again ({type(e2).__name__}: {e2})")
         note = ""
         if result.envelope_on_first_page and not result.expected_empty and s.month:
-            proof = reconcile_empty_month(con, client, action, s, data_dir=data_dir, log=log)
+            try:
+                proof = reconcile_empty_month(con, client, action, s, data_dir=data_dir, log=log)
+            except Exception as e:  # noqa: BLE001 — a failed proof is a partial month, not a dead wave
+                con.rollback()
+                log(f"   {s.key}: proof FAILED ({type(e).__name__}: {e})")
+                proof = None
             if proof:
                 result.expected_empty = True  # proven, not declared: the status becomes empty
                 note = f" — proven empty: {proof}"
