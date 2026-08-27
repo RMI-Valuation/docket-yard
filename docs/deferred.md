@@ -65,8 +65,6 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   item that is permanently bad for another reason still has no attempt counter.
 - **ADR 0012 addendum** recording the blob cache design (S3 the store, the instance a cache;
   sync + prune) once wave 3 proves it.
-- **`docketyard gap open/close`** so a recorded outage has a `coverage_gap` row for the
-  coverage page and the late-delivery marking to cite (today nothing writes that table).
 - **Streamed downloads** (2026-08-26, v2026.08.25): no Range-resume on a mid-body failure;
   the file is written, hashed and sniffed in three passes rather than one; one commit per
   document is the dominant DB cost of a wave.

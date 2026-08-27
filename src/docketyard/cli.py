@@ -11,7 +11,7 @@ from docketyard.capture import backfill, documents, poll, walk
 from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS, PAGE_CLAMP, StbClient
 from docketyard.ingest import dockets, observations
 from docketyard.parties import resolve
-from docketyard.store import db, projections, search, traffic
+from docketyard.store import db, gaps, projections, search, traffic
 
 INGESTERS = {
     DOCKETS: dockets.ingest_capture,
@@ -173,6 +173,27 @@ def _parties(args: argparse.Namespace) -> int:
     else:
         print(resolve.run(con))
     print(f"search index: {search.rebuild(con)}")  # names or edges moved; the index follows
+    return 0
+
+
+def _gap(args: argparse.Namespace) -> int:
+    """The operator's record of an outage (docs/alerts.md § gaps): the coverage page and
+    the late-delivery citation are generated from these rows."""
+    con = db.connect(args.db)
+    try:
+        if args.what == "open":
+            gap_id = gaps.open_gap(con, args.failure, since=args.since, note=args.note)
+            print(f"gap {gap_id} open: {args.failure} since {gaps.get(con, gap_id).started_at}")
+        elif args.what == "close":
+            row = gaps.close_gap(con, args.gap_id, at=args.at)
+            print(f"gap {row.gap_id} closed: {row.failure} {row.started_at} → {row.ended_at}")
+    except ValueError as e:
+        print(f"refused: {e}")
+        return 1
+    for g in gaps.list_gaps(con):
+        print(
+            f"{g.gap_id:4d} {g.failure:10s} {g.started_at} → {g.ended_at or 'open'} {g.note or ''}"
+        )
     return 0
 
 
@@ -350,6 +371,18 @@ def main(argv: list[str] | None = None) -> int:
         func=_search_rebuild
     )
 
+    gp = sub.add_parser("gap", help="record an outage window for /coverage (docs/alerts.md)")
+    gp_sub = gp.add_subparsers(dest="what", required=True)
+    go = gp_sub.add_parser("open", help="a gap began (now, or --since)")
+    go.add_argument("failure", choices=gaps.FAILURES)
+    go.add_argument("--since", help="ISO-8601 instant; naive means UTC")
+    go.add_argument("--note", help="published on /coverage — never an address")
+    go.set_defaults(func=_gap)
+    gc = gp_sub.add_parser("close", help="a gap ended (now, or --at)")
+    gc.add_argument("gap_id", type=int)
+    gc.add_argument("--at", help="ISO-8601 instant; naive means UTC")
+    gc.set_defaults(func=_gap)
+    gp_sub.add_parser("list", help="every recorded gap").set_defaults(func=_gap)
     tr = sub.add_parser("traffic", help="hourly request counts, no identifier (docs/traffic.md)")
     tr.add_argument("--days", type=int, default=1)
     tr.set_defaults(func=_traffic)

@@ -246,6 +246,7 @@ def test_display_helpers():
     two_parties = "Norfolk Southern Corporation, Union Pacific Corporation"
     assert labels.display_filed_for(two_parties) == two_parties  # different parties stay
     assert labels.plural(1, "filing") == "1 filing" and labels.plural(2, "filing") == "2 filings"
+    assert labels.plural(53130, "filing") == "53,130 filings"
     assert labels.kind_label("filing", "Support Statem") == "Statement"
     assert (
         labels.prefix_name("FD") == "Finance Docket" and labels.prefix_name("NOR") == "NOR docket"
