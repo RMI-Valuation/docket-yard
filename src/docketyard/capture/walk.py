@@ -20,6 +20,7 @@ from sqlite3 import Connection
 from docketyard.capture import records
 from docketyard.capture.stb import (
     AJAX,
+    DECISIONS,
     DOCKET_PREFIXES,
     DOCKETS,
     EXPECTED_EMPTY_PREFIXES,
@@ -261,7 +262,11 @@ def walk(
         summary[status] += 1
         note = ""
         if result.envelope_on_first_page and not result.expected_empty:
-            note = " — TRAP: no-results envelope on a slice the census says is non-empty"
+            note = (
+                " — no-results envelope on the first page: a trap or a truly empty slice, and"
+                " the walker cannot tell which (prove it by a neighbour window and declare it"
+                " in EXPECTED_EMPTY_MONTHS, or find the criterion that was wrong)"
+            )
         if result.capped:
             note = " — display cap: this slice needs sub-slicing"
         log(f"   {s.key}: {status} ({result.rows} rows, {result.captures} captures){note}")
@@ -282,10 +287,67 @@ def walk_dockets(con: Connection, client, *, data_dir, redo: bool = False, log=p
 # Months the operator has measured to be genuinely empty on a table, with why. A page-1
 # no-results envelope is the trap everywhere else; here it is the truth, and the slice
 # records `empty`. Add a month only after probing the endpoint (stb-data-source.md).
+# The thin early years: 41 months of 1996–2000 that answer the envelope on their first
+# page and add nothing to a window shared with a done neighbour (stb-data-source.md
+# § Measured 2026-08-27). The walker has no census for a month slice, so this list is
+# the measurement, kept as data.
+_EARLY_FILINGS = (
+    "no filings the endpoint will return: a window over this month and an adjacent done"
+    " month reconciles to the done month's total alone (measured 2026-08-27,"
+    " stb-data-source.md)"
+)
+_EARLY_DECISIONS = (
+    "no decisions the endpoint will return: a window over this month and an adjacent done"
+    " month reconciles to the done month's total alone (measured 2026-08-27,"
+    " stb-data-source.md)"
+)
 EXPECTED_EMPTY_MONTHS: dict[str, dict[str, str]] = {
     FILINGS: {
         "2025-10": "federal shutdown: filings stop 2025-09-30 and resume 2025-11-13"
         " (measured 2026-08-26, stb-data-source.md)",
+        "1996-02": _EARLY_FILINGS,
+        "1996-03": _EARLY_FILINGS,
+        "1996-04": _EARLY_FILINGS,
+        "1996-05": _EARLY_FILINGS,
+        "1996-06": _EARLY_FILINGS,
+        "1996-07": _EARLY_FILINGS,
+        "1996-08": _EARLY_FILINGS,
+        "1996-10": _EARLY_FILINGS,
+        "1996-11": _EARLY_FILINGS,
+        "1997-02": _EARLY_FILINGS,
+        "1997-03": _EARLY_FILINGS,
+        "1997-04": _EARLY_FILINGS,
+        "1997-07": _EARLY_FILINGS,
+        "1997-08": _EARLY_FILINGS,
+        "1997-09": _EARLY_FILINGS,
+        "1997-10": _EARLY_FILINGS,
+        "1997-11": _EARLY_FILINGS,
+        "1997-12": _EARLY_FILINGS,
+        "1998-01": _EARLY_FILINGS,
+        "1998-02": _EARLY_FILINGS,
+        "1998-08": _EARLY_FILINGS,
+        "1998-10": _EARLY_FILINGS,
+        "1998-12": _EARLY_FILINGS,
+        "1999-01": _EARLY_FILINGS,
+        "1999-06": _EARLY_FILINGS,
+        "1999-07": _EARLY_FILINGS,
+        "1999-08": _EARLY_FILINGS,
+        "1999-09": _EARLY_FILINGS,
+        "1999-10": _EARLY_FILINGS,
+        "1999-11": _EARLY_FILINGS,
+        "1999-12": _EARLY_FILINGS,
+        "2000-01": _EARLY_FILINGS,
+        "2000-07": _EARLY_FILINGS,
+    },
+    DECISIONS: {
+        "1996-01": _EARLY_DECISIONS,
+        "1996-02": _EARLY_DECISIONS,
+        "1996-03": _EARLY_DECISIONS,
+        "1996-04": _EARLY_DECISIONS,
+        "1996-05": _EARLY_DECISIONS,
+        "1996-06": _EARLY_DECISIONS,
+        "1996-07": _EARLY_DECISIONS,
+        "1996-09": _EARLY_DECISIONS,
     },
 }
 

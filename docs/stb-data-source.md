@@ -218,7 +218,7 @@ June alone, while 06/01–08/31 → 70; `serviceStartDate` 01/01–08/31/1996 �
 alone. Both date-criteria pairs answer the envelope for the doubted months. The earliest
 record the endpoint returns is dated 25 Jan 1996; 1995 answers the envelope outright.
 
-What follows: the walker can mark a month `empty` when a window over it and an adjacent
-`done` month reconciles to the done month's total (two extra requests per doubted month),
-and the coverage page can then say "empty" rather than "partial" for those months — a
-change to `capture/walk.py`, reviewed by the ingest specialist, recorded in `TODO.md`.
+What follows: the 41 months are declared in `EXPECTED_EMPTY_MONTHS` with this
+measurement as their reason, so a re-walk records them `empty` and the coverage page stops
+listing them as incomplete. Automating the proof (two neighbour-window requests per doubted
+month) is recorded in `docs/deferred.md`; the walker's note now says what it knows.

@@ -42,9 +42,7 @@ def _count(con: Connection, name: str, stamp: str) -> int:
     if name == "pages":
         return len(STATIC_PAGES)
     if name == "dockets":
-        return con.execute("SELECT COUNT(*) FROM docket WHERE parent_docket_id IS NULL").fetchone()[
-            0
-        ]
+        return con.execute("SELECT COUNT(*) FROM docket").fetchone()[0]
     if name == "parties":
         return len(_party_entries(con, stamp))
     table, col, _ = _RECORDS[name]
@@ -122,25 +120,30 @@ def section(con: Connection, site: str, name: str, page: int, stamp: str) -> str
     if name == "pages":
         entries = [(f"{base}{p}", None) for p in STATIC_PAGES[offset : offset + PAGE]]
     elif name == "dockets":
-        # the family fold as one grouped pass over events into a dict, then the parents in
-        # address order — never a self-join on parent_docket_id (unindexed: the OR form
-        # scanned docket × docket and hung; a joined subquery still scanned it per parent)
-        touched = dict(
-            con.execute(
-                """
-                SELECT COALESCE(x.parent_docket_id, x.docket_id), MAX(c.captured_at)
-                  FROM docket x
-                  JOIN event e ON e.docket_id = x.docket_id
-                  JOIN capture c ON c.capture_id = e.capture_id
-                 GROUP BY 1
-                """
-            )
-        )
+        # every docket address (ADR 0013): a parent's lastmod is the newest capture that
+        # touched its family, a sub-docket's the newest that touched it. One grouped pass
+        # into a dict — never a self-join on parent_docket_id (unindexed: the OR form
+        # scanned docket × docket and hung). Sub-docket pages were left out until
+        # 2026-08-27 (10,798 real pages invisible to crawlers; TODO's sitemap defect).
+        touched: dict[int, str] = {}
+        for docket_id, parent, mod in con.execute(
+            """
+            SELECT x.docket_id, x.parent_docket_id, MAX(c.captured_at)
+              FROM docket x
+              JOIN event e ON e.docket_id = x.docket_id
+              JOIN capture c ON c.capture_id = e.capture_id
+             GROUP BY x.docket_id
+            """
+        ):
+            touched[docket_id] = max(touched.get(docket_id) or "", mod)
+            if parent is not None:
+                touched[parent] = max(touched.get(parent) or "", mod)
         rows = [
             (raw, touched.get(docket_id))
             for docket_id, raw in con.execute(
-                "SELECT docket_id, raw_docket FROM docket WHERE parent_docket_id IS NULL"
-                " ORDER BY prefix, sequence LIMIT ? OFFSET ?",
+                "SELECT docket_id, raw_docket FROM docket"
+                " ORDER BY prefix, sequence, COALESCE(sub_sequence, -1), COALESCE(suffix, '')"
+                " LIMIT ? OFFSET ?",
                 (PAGE, offset),
             )
         ]

@@ -15,7 +15,8 @@
   <h2>What is not here</h2>
   <ul>
     {% if cov.backfill_from %}
-    <li><strong>History before {{ cov.backfill_from | fmt_date }}.</strong> Filings and decisions dated from {{ cov.backfill_from | fmt_date }} onward are being added in dated waves ({{ cov.backfill_filings | plural('filing') }} and {{ cov.backfill_decisions | plural('decision') }} so far{% if cov.backfill_incomplete %}; months not yet complete: {{ cov.backfill_incomplete | join(', ') }}{% endif %}); before that date a sheet is not the docket's complete history and does not claim to be. Entries added by a wave never trigger an alert.</li>
+    <li><strong>History before {{ cov.backfill_from | fmt_date }}.</strong> Filings and decisions dated from {{ cov.backfill_from | fmt_date }} onward are being added in dated waves ({{ cov.backfill_filings | plural('filing') }} and {{ cov.backfill_decisions | plural('decision') }} so far — counted once per docket they were entered in, so a filing entered in a docket and its sub-docket counts twice here and once on <a href="/stats">the statistics page</a>{% if cov.backfill_incomplete %}; months not yet complete: {{ cov.backfill_incomplete | join(', ') }}{% endif %}); before that date a sheet is not the docket's complete history and does not claim to be. Entries added by a wave never trigger an alert.</li>
+    <li><strong>What crawlers are told.</strong> The sitemap lists every docket address — families and sub-dockets — every filing and decision, and every party page; it is regenerated from the record as it moves.</li>
     {% else %}
     <li><strong>History before the watch began.</strong> A docket's sheet shows what the Board has posted since {{ cov.forward_since | fmt_date }}, plus anything observed while building the registry. Older filings and decisions are real and will be added in dated waves; until then a sheet is not the docket's complete history and does not claim to be.</li>
     {% endif %}

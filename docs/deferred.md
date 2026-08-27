@@ -37,6 +37,11 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 
 ## Store and operations
 
+- **Prove an empty month automatically** (2026-08-27): a month slice that answers the
+  envelope on its first page could be settled by two requests — a window over it and an
+  adjacent `done` month, reconciled to the done month's total — instead of a hand-measured
+  entry in `EXPECTED_EMPTY_MONTHS`. Worth it before the next thin era is walked (ICC years,
+  if ever).
 - **A 403 on one document reads as a WAF rule change** (2026-08-27, v2026.08.29): `StbClient`
   diagnoses every 403 as "the WAF likely changed its User-Agent rules". A single legacy
   `dcms-external.s3.amazonaws.com/MPD/…` attachment (double-encoded old-DCMS path) returned
