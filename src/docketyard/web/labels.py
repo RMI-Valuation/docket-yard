@@ -67,4 +67,4 @@ def display_filed_for(raw: str) -> str:
 
 def plural(n: int, noun: str, plural_form: str | None = None) -> str:
     word = noun if n == 1 else (plural_form or noun + "s")
-    return f"{n} {word}"
+    return f"{n:,} {word}"

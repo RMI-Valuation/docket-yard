@@ -145,8 +145,13 @@ two things happen:
 
 1. **The coverage page records the window.** The heartbeat runs off-box and cannot write
    the store, so the operator, once paged, records the gap (start, end, what failed in the
-   decomposition's terms) as a `coverage_gap` row; the coverage page is generated from
-   those rows and from the capture ledger, so it can never claim more than was recorded.
+   decomposition's terms) as a `coverage_gap` row — `docketyard gap open <failure>
+   [--since] [--note]`, then `docketyard gap close <id> [--at]` (`store/gaps.py`; one open
+   gap per failure; a note is public and may not carry an address); the coverage page is
+   generated from those rows and from the capture ledger, so it can never claim more than
+   was recorded. Recording a `captures`/`events` gap also points every late alert entry it
+   covers at it, so a catch-up alert built before the operator got to the keyboard is
+   cited in the record too (the email already sent is not changed).
 2. **The catch-up is marked, automatically.** Lateness is derived from the capture ledger
    itself — an entry is late when the forward captures around it are further apart than
    the heartbeat threshold — so it does not wait on the operator. Once the poller

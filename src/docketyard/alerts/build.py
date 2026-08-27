@@ -23,6 +23,7 @@ from docketyard.alerts.summary import event_summary
 from docketyard.capture.stb import DECISIONS, FILINGS
 from docketyard.ingest.dockets import parse_docket_id
 from docketyard.parties import resolve
+from docketyard.store import gaps
 from docketyard.store.db import utcnow
 from docketyard.web import urls
 
@@ -232,11 +233,11 @@ def build(
 
 def _gap_covering(con: Connection, captured_at: str) -> int | None:
     """The operator-recorded capture gap the late capture falls in, if one exists yet."""
-    row = con.execute(
+    row = con.execute(  # the same window as store/gaps.py: a catch-up runs after the end
         "SELECT gap_id FROM coverage_gap WHERE failure IN ('captures', 'events')"
-        " AND started_at <= ? AND (ended_at IS NULL OR ended_at >= ?)"
+        " AND started_at <= ? AND (ended_at IS NULL OR datetime(ended_at, ?) >= datetime(?))"
         " ORDER BY started_at DESC LIMIT 1",
-        (captured_at, captured_at),
+        (captured_at, gaps.CATCH_UP, captured_at),
     ).fetchone()
     return row[0] if row else None
 
