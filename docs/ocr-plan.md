@@ -1,6 +1,6 @@
 # OCR of the image-only record — plan
 
-**Status:** proposed 2026-08-27, not chosen. The operator's requirement, stated the same day:
+**Status:** chosen by the operator 2026-08-28 (decisions: measure the API candidate on the 90 sample pages; a review budget of about 50 pages a week; the contributor path designed in from the start — reviewer identity and a `/contribute` sentence ship with the queue). Step 1 (the sample) begins; nothing reads into the store before step 3. The operator's requirement, stated the same day:
 *whatever engine is used, make it as accurate as possible, with a review layer.* This
 document is the plan that meets it; the decision points at the end are the operator's.
 

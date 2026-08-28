@@ -9,6 +9,9 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
+- **OCR (M3 slice, chosen 2026-08-28):** step 1 — draw the 90-page sample on RMI-AI-MACHINE
+  (`tools/rmi-ai-machine/ocr_sample.py`), draft transcriptions, Cameron checks against the
+  page images; then step 2 (Tesseract, docTR/Paddle, a 7B VLM, the API model on the 90)
 - Document viewer: confirmed in a browser; the web tier runs on its own read-only key since
   2026-08-27. Open: the `sandbox` CSP test (`docs/deferred.md` § Document viewer)
 - Keys rotated 2026-08-28: `docketyard-instance` has a new key (ingest, Litestream, host units
