@@ -29,14 +29,17 @@ weakened by it — the door that must stay shut is the one between reading and i
 - **A reviewer is an account with a role.** The account is the one ADR 0011 already
   defines — an email address, passwordless magic-link sign-in, address ciphertext at rest
   (ADR 0014) — plus a `reviewer` grant the operator gives by hand and can withdraw. No
-  self-service sign-up as a reviewer; no profile beyond a **credit name** the reviewer
-  chooses (how they wish to be shown, or "anonymous reviewer").
+  self-service sign-up as a reviewer; no profile beyond a **credit name**, which is
+  **mandatory** (the operator's amendment on acceptance, 2026-08-28): a reviewer chooses
+  how they are shown, but is always shown. There is no anonymous review — a review is an
+  assertion into the record, and an assertion has an author.
 - **Every review action is a provenance row.** Method `human`, method detail the reviewer's
   id, the timestamp, what was reviewed and what was decided (accepted reading A, typed a
   correction, rejected edge, confirmed label). It is append-only: a later review supersedes,
   never overwrites; a withdrawn grant leaves past rows intact and attributed.
-- **What is published:** the credit name beside a reviewed assertion where the page shows
-  provenance; counts of reviews per reviewer only if the reviewer opts in. Never the email.
+- **What is published:** the credit name beside every reviewed assertion where the page
+  shows provenance; counts of reviews per reviewer only if the reviewer opts in. Never the
+  email address.
 - **What is not stored:** nothing about what a reviewer *reads*. The review surfaces log
   the actions above and nothing else; no page views, no timing beyond the action's own
   timestamp, no IP joined to the account (ADR 0011's log rule stands). Signing in as a
@@ -59,7 +62,7 @@ subscription-style account with a grant, not a new identity model — so no pass
 no profile, no analytics appear. `/contribute` gains one sentence (how to become a
 reviewer: ask the operator) and `/privacy` gains one paragraph (what a reviewer account
 stores, and that reading is unchanged). The costs: a small table for grants and credit
-names, a `review_action` table (schema-critic before it exists; ADR 0007's shape), the
+names, a `review_action` table (schema-critic before it exists; ADR 0007's shape, with the credit name NOT NULL), the
 sign-in flow must be built out beyond confirmation links (magic-link sign-in exists in
 ADR 0011's decision but not yet in code), and a role that can be withdrawn needs a way to
 be withdrawn.
