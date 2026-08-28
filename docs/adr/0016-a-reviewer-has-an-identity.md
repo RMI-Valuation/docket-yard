@@ -1,7 +1,8 @@
 # ADR 0016 — A reviewer has an identity; reading stays anonymous
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-28
+- **Accepted:** 2026-08-28 (the operator: "ADR 0016 Approved"; credit names mandatory)
 
 ## Context
 
