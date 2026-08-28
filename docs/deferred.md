@@ -53,12 +53,6 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 
 - **Key rotation** for `DY_EMAIL_KEY` (decrypt under old, seal under new; four sealed columns
   across three tables since 0008) — unwritten; ADR 0014 records the gap.
-- **Bucket versioning has no lifecycle rule** (found 2026-08-27 by the multi-agent review):
-  `docketyard-prod` has versioning on and no lifecycle configuration, so any re-upload of a
-  key keeps the old copy as a noncurrent version forever. The blob sync now compares by size
-  (`--size-only`; the store is content-addressed), which stops the errata re-check from
-  re-uploading unchanged blobs; a rule expiring noncurrent versions after ~30 days would
-  bound the cost of anything else. Cameron's (a bucket policy change).
 - **Credentials**: Lightsail has no instance profile, so production runs on a bucket-scoped
   IAM user's keys; decide EC2 t4g / Roles Anywhere / accept (ADR 0012 gap).
 - **Schema chore**: a poll item that is permanently bad for a reason other than a refused

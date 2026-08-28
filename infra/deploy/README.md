@@ -98,3 +98,9 @@ address, nothing that writes, deletes or lists. The internet-facing process can 
 read a pruned document and send a confirmation email, and nothing else; the read/write pair
 (`docketyard-instance`) stays with `ingest` and Litestream. Compose refuses to start `web`
 without the web key.
+
+The bucket has versioning on and, since 2026-08-28, a lifecycle rule
+(`expire-noncurrent-versions-30d`): noncurrent versions expire after 30 days, expired
+delete markers are removed, and incomplete multipart uploads are aborted after 7 days. The
+store is content-addressed and the blob sync compares by size, so a noncurrent version only
+arises from a deliberate overwrite or delete; 30 days is the window to undo one.
