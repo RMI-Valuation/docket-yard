@@ -1,0 +1,235 @@
+[graphic page]
+Wheaton
+Chicago
+Cicero
+Naperville
+Oak Lawn
+Romeoville
+43
+Joliet
+Hammond
+East Chicago
+Chicago Heights
+57
+52
+50
+17
+41
+Michigan City
+South Bend
+La Porte
+Niles
+Cassopolis
+Sturgis
+Hillsdale
+Adrian
+127
+Elkhart
+Goshen
+Lagrange
+Angola
+Wauseon
+Bryan
+31
+Nappanee
+Albion
+Auburn
+Napoleon
+Crown Point
+Knox
+Plymouth
+Warsaw
+33
+Defiance
+Kankakee
+Winamac
+Columbia City
+Ft Wayne
+Paulding
+Rochester
+114
+24
+New Haven
+Ottawa
+Rensselaer
+Tippecanoe River
+Huntington
+Van Wert
+65
+Watseka
+Monticello
+Logansport
+Wabash
+Decatur
+224
+Lima
+24
+Bluffton
+Fowler
+Delphi
+35
+Mississinewa River
+Wapakoneta
+54
+231
+18
+Kokomo
+Marion
+Celina
+Paxton
+West Lafayette
+Hartford City
+Portland
+Rantoul
+Williamsport
+Frankfort
+Tipton
+Alexandria
+Sidney
+13
+Muncie
+Winchester
+Champaign
+Danville
+52
+Greenville
+Crawfordsville
+Lebanon
+Anderson
+Troy
+Noblesville
+Carmel
+New Castle
+Newport
+Brownsburg
+465
+Vandalia
+Tuscola
+Rockville
+Danville
+Indianapolis
+Richmond
+Dayton
+Greenfield
+Eaton
+Paris
+Clinton
+Greencastle
+Greenwood
+Connersville
+Miamisburg
+Mooresville
+Shelbyville
+Middletown
+Franklin
+Charleston
+Terre Haute
+Franklin
+Brookville
+Hamilton
+Marshall
+46
+Martinsville
+Mason
+Toledo
+Wabash River
+Spencer
+Greensburg
+127
+42
+Bloomington
+Cincinnati
+Sullivan
+Lawrenceburg
+3
+Newton
+Robinson
+Bloomfield
+Versailles
+Burlington
+Florence
+Seymour
+Rising Sun
+Alexandria
+Bedford
+Brownstown
+Wabash River
+231
+Madison
+Warsaw
+Olney
+50
+Carrollton
+Brooksville
+Vincennes
+Washington
+Paoli
+Salem
+Scottsburg
+Bedford
+Williamstown
+Mt Olivet
+62
+130
+Petersburg
+Owenton
+Albion
+Princeton
+Jasper
+English
+La Grange
+New Castle
+Cynthiana
+421
+64
+New Albany
+Louisville
+Frankfort
+Paris
+Carmi
+Corydon
+Shelbyville
+Georgetown
+Lexington
+Wabash River
+66
+41
+Valley Station
+Okolona
+Fern Creek
+Versailles
+Mt Vernon
+Evansville
+Cannelton
+Brandenburg
+Lawrenceburg
+Winchester
+Henderson
+Shepherdsville
+Nicholasville
+Wabash River
+Owensboro
+60
+Radcliff
+Shawneetown
+Hardinsburg
+Bardstown
+Harrodsburg
+Richmond
+56
+Morganfield
+431
+79
+Elizabethtown
+Springfield
+127
+DELORME
+Scale 1 : 2,000,000
+1" = 31.6 mi
+© 2002 DeLorme. Topo USA ®. Data copyright of content owner.
+www.delorme.com
+mi
+km
+MN
+3.8°W
+TM

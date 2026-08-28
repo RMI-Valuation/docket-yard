@@ -1,0 +1,23 @@
+The Honorable Vernon A. Williams
+December 20, 2002
+
+Page/Line	Current Text	Corrected Text
+III-F-14/line 10	domain and are unreliable	domain are unreliable
+III-F-26/line 8	While, some trees	While some trees
+III-F-57/line 10	1,101 acres	1,200 acres
+III-F-57/line 13	1.10 acres	1,101 acres
+III-F-60/line 9	rational	rationale
+III-F-67/line 14	Although, Duke	Although Duke
+III-F-90/line 16	rather 24 inches	rather than 24 inches
+III-F-98/line 5	Wingate	Windgate
+III-F-98/line 15	Wingate	Windgate
+III-F-98/line 19	Wingate	Windgate
+III-F-99/line 1	Wingate	Windgate
+III-F-99/line 2	Wingate	Windgate
+III-F-99/line 9	Contractor	contractor
+III-F-99/line 14	Contractor	contractor
+III-F-99/fn. 68/ line 2	Wingate	Windgate
+III-F-111/line 11	Duke piles,	Duke\u2019s piles,
+III-F-121/line 12	crane	cranes
+
+-3-

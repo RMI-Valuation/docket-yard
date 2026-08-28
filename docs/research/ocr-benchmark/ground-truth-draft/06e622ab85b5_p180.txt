@@ -1,0 +1,14 @@
+[rotated page]
+Appendix A: Technical Information	Final Environmental Assessment
+
+TABLE A.3-1
+RATIONALE FOR BOARD'S THRESHOLDS AND CRITERIA
+
+Activities Evaluated for Potential Environmental Effects
+Environmental Impact Category	Threshold for Environmental Analysis	Rationale for Threshold	Criteria of Significance	Rationale for Criteria
+Hazardous Materials Transport Safety (continued)	2. FACILITIES: All intermodal facilities and rail yards with an increase in railcar activity.	FACILITIES: Examining all intermodal and rail yard facilities with increased activity is a very conservative approach that captures all activities with any potential for adverse effect.	Qualitative	Evaluation qualitative because risk of release because risk rates were extremely low (i.e., no risk of release greater than once every 24 years in the CN/IC Acquisition).
+Passenger Rail Operations Safety	Rail line segments with existing passenger rail traffic and an average increase of one or more freight trains per day.	Very conservative threshold to capture all increases in train traffic where passenger trains operate.	A 25% increase in the projected accident rate and interval of less than 150 years between accidents.	National accident rate varies by 30% annually; 25% is a conservative measure for identifying all acquisition-related changes outside normal variation. Second criteria based on average annual accident rate for various passenger service providers.
+Highway/Rail At-grade Crossing Safety	All highway/rail at-grade crossings on rail line segments with an average increase of eight or more trains per day. Highway/rail at-grade crossings created by proposed constructions on rail line segments with an average increase of eight or more trains per day.	Focuses analysis on areas where impacts are likely to occur. Experience in other acquisitions has shown increases of less than eight not likely to exceed criteria of significance.	Increase of 0.05 accidents per year (1 in 20 years) considered significant, except at "high-risk" intersections (in the state "top 50" or with more than 1 accident in seven years) where a smaller increase of 0.01 accident per year (1 in 100 years) is considered significant.	Criteria based on reasonable estimate of acceptable accident risk at grade crossings. The dual criteria addresses concern that small increase in risky area is more significant than a larger increase in a less risky area.
+
+Proposed CN/IC Acquisition	March 1999
+A-38
