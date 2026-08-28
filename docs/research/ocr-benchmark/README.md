@@ -60,9 +60,17 @@ working machine, and any page can be re-rendered from its hash with `ocr_sample.
 
 ## How to check
 
-Open `check.html` in a browser (it reads the page images from `data/ocr/pages/`, which are
-not committed — re-render with `ocr_sample.py` if the working copy lacks them): every page
-image beside its drafted transcription, in tier order, with the file name to edit. Edit the
+**From anywhere**, the queue at
+<https://claude.ai/code/artifact/664789dc-93ce-42b2-b23e-fe56c6c7d8f7> (private to the
+operator, published 2026-08-28): one page at a time, a thumbnail and the transcript, with
+the Board's own file one click away at `docketyard.org/document/<sha>.pdf#page=N` — every
+sampled document already answers at its permanent address, so no local copy is needed.
+Verdicts and notes stay in that browser; **Copy corrections** hands them back in one block,
+which is then applied to the `.txt` files here. This is a stand-in for the `/review` queue
+ADR 0016 accepts; the real queue records each check as a provenance row instead.
+
+**At the workstation**, `check.html` in this directory does the same from the local
+renders in `data/ocr/pages/` (not committed — re-render with `ocr_sample.py`). Edit the
 `.txt` in place; the whitespace hooks skip this directory, so a transcription's own spacing
 survives a commit.
 
