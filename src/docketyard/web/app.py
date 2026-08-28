@@ -560,7 +560,8 @@ def create_app(
             return render(
                 request, f"explain_{canonical}.html", f=facts(), page_path=f"/about/{canonical}"
             )
-        if canonical in facts().prefixes or canonical in explainers.EMPTY_PREFIXES:
+        known = {p for p, _, _ in explainers.OTHERS} | set(explainers.EMPTY_PREFIXES)
+        if canonical in known or canonical in facts().prefixes:  # its row on the index
             return RedirectResponse(urls.explainer_path(canonical), status_code=302)
         raise HTTPException(404)
 
