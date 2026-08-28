@@ -1,0 +1,24 @@
+{% extends "_explain_layout.html" %}
+{% from "_explain_layout.html" import g %}
+{% set pf = f.prefix('EP') %}
+{% block title %}EP — Ex Parte, explained — {{ site_name }}{% endblock %}
+{% block description %}What an STB Ex Parte (EP) proceeding is: rulemakings, policy statements, annual determinations and hearings the Board opens itself; what happens next.{% endblock %}
+{% block heading %}EP — Ex Parte{% endblock %}
+{% block body %}
+<section>
+  <h2>What it is</h2>
+  <p>“Rulemaking or information gathering proceedings.”{{ g('B') }} <em>Ex parte</em> here means the Board opened the docket itself, not on a party’s complaint or application. The registry holds {{ pf.dockets | commas }} EP dockets, {{ pf.subs | commas }} of them sub-numbers.{{ g('C') }}</p>
+</section>
+<section>
+  <h2>What is being asked for</h2>
+  <p>Usually nothing by a party: the Board proposes a rule, sets a policy, holds a hearing, or makes an annual determination, and the public comments. The record’s EP dockets include the yearly <strong>revenue adequacy</strong> determinations (<a href="/d/EP-552">EP 552</a> and its sub-numbers), the <strong>cost of capital</strong> (<a href="/d/EP-558">EP 558</a>), fee schedules (<a href="/d/EP-542">EP 542</a>), the review of commodity exemptions (<a href="/d/EP-704">EP 704</a>), and procedural rules such as filing deadlines during a shutdown (<a href="/d/EP-721">EP 721</a>).{{ g('C') }} Sub-numbers track the years or phases.</p>
+</section>
+<section>
+  <h2>What the Board can and cannot do</h2>
+  <p>Adopt rules within 49 U.S.C. subtitle IV, issue policy statements, set the reference numbers the rest of its work depends on. A rule can be challenged in a court of appeals — hence <em>Notice of Court Action</em> entries ({{ pf.decision_count('Notice Of Court Action') | commas }} in EP dockets; all on the <a href="/court">court-action register</a>).{{ g('C') }}</p>
+</section>
+<section>
+  <h2>What happens next, typically</h2>
+  <p>Notice of proposed rulemaking → comments and replies → final rule, effective on a stated date; or a hearing notice → the hearing → a decision or report. EP dockets carry the record’s <em>ex parte meeting summaries</em> ({{ pf.filings_like('meeting summar') | commas }}) and most of its <em>status reports</em> ({{ pf.filings_like('status report') | commas }}), because the Board requires parties who meet it informally to file a summary. In the record: {{ pf.decision_count('Decision') | plural('decision', 'decisions') }} and {{ pf.decision_count('Notice') | plural('notice', 'notices') }}.{{ g('C') }}</p>
+</section>
+{% endblock %}

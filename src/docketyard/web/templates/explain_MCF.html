@@ -1,0 +1,20 @@
+{% extends "_explain_layout.html" %}
+{% from "_explain_layout.html" import g %}
+{% set pf = f.prefix('MCF') %}
+{% block title %}MCF — motor carrier (passenger) finance, explained — {{ site_name }}{% endblock %}
+{% block description %}What an STB MCF proceeding is: control and mergers among intercity bus companies, and the ICC-era trucking and bus transactions the series inherited.{% endblock %}
+{% block heading %}MCF — motor carrier (passenger) finance{% endblock %}
+{% block body %}
+<section>
+  <h2>What it is</h2>
+  <p>“Motor carrier passenger proceedings.”{{ g('B') }} The Board keeps the ICC’s authority over mergers and control among <strong>intercity bus</strong> companies (49 U.S.C. §14303) — “the intercity bus industry” is on the Board’s own list of what it regulates.{{ g('B') }}</p>
+</section>
+<section>
+  <h2>What is being asked for</h2>
+  <p>Approval, or an exemption, for one bus company to acquire another or to be brought under common control: “Flixbus … and Greyhound Lines — Control — Greyhound Central” (<a href="/d/MCF-21155">MCF 21155</a>), “First Student — Acquisition of Control” (<a href="/d/MCF-21154">MCF 21154</a>).{{ g('C') }} The registry’s {{ pf.dockets | commas }} MCF dockets are overwhelmingly ICC-era trucking and bus transactions — the “(T1)/(T2)/(EX-NR)” caption codes are the ICC’s own{{ g('C') }} — of which {{ f.suffix_count('TA', 'MCF') | commas }} carry the <span class="mono">TA</span> suffix, which in this series appears to mark the ICC’s <em>temporary authority</em> grants; that reading is unconfirmed.{{ g('?') }} Since 1996 the live MCF work is bus control transactions only.{{ g('C') }}</p>
+</section>
+<section>
+  <h2>What happens next</h2>
+  <p>Application → Federal Register notice → comments → decision ({{ pf.decision_count('Decision') | plural('decision', 'decisions') }} in the record; the commonest filings are {% for t, n in pf.top_filing_types[:3] %}{{ t | lower }} ({{ n | commas }}){{ ', ' if not loop.last else ').' }}{% endfor %}{{ g('C') }}</p>
+</section>
+{% endblock %}

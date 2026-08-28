@@ -100,6 +100,15 @@ def cite_docket(identity: ParsedDocket) -> str:
     return f"{head} (Sub-No. {identity.sub_sequence}{identity.suffix or ''})"
 
 
+EXPLAINED = ("FD", "AB", "NOR", "EP", "MCF")  # prefixes with an explainer page of their own
+
+
+def explainer_path(prefix: str) -> str:
+    """The explainer for a docket prefix: its own page, or its row on the index (P2)."""
+    p = prefix.upper()
+    return f"/about/{p}" if p in EXPLAINED else f"/about/prefixes#{p}"
+
+
 def party_path(party_id: int) -> str:
     """A party's permanent address (ADR 0015): its id, never a slug. /p/1234"""
     return f"/p/{party_id}"

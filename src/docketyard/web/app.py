@@ -37,6 +37,7 @@ from docketyard.parties import resolve
 from docketyard.store import (
     coverage,
     dump,
+    explainers,
     home,
     projections,
     registers,
@@ -212,6 +213,7 @@ def create_app(
         viewer_path=urls.viewer_path,
         document_path=urls.document_path,
         viewable_index=documents.viewable_index,
+        explainer_path=urls.explainer_path,
         parse_docket_id=parse_docket_id,
         kind_label=labels.kind_label,
         filter_key=labels.filter_key,
@@ -520,6 +522,47 @@ def create_app(
     @app.get("/about")
     def about_page(request: Request):
         return render(request, "about.html")
+
+    # --- the docket-type explainers (docs/explainers.md, P2): one page per living prefix,
+    # one for the rest; every figure measured on request, memoised per store stamp ---------
+    _facts: dict[str, explainers.Facts] = {}
+
+    def facts() -> explainers.Facts:
+        key = stamp()
+        if key not in _facts:
+            con = _connect(db_path)
+            try:
+                _facts.clear()
+                _facts[key] = explainers.measure(con)
+            finally:
+                con.close()
+        return _facts[key]
+
+    @app.get("/about/prefixes")
+    def explain_index(request: Request):
+        return render(
+            request,
+            "explain_index.html",
+            f=facts(),
+            page_path="/about/prefixes",
+            pages=explainers.PAGES,
+            others=explainers.OTHERS,
+            live=explainers.LIVE,
+            empty=explainers.EMPTY_PREFIXES,
+        )
+
+    @app.get("/about/{prefix}")
+    def explain_prefix(request: Request, prefix: str):
+        canonical = prefix.upper()
+        if canonical != prefix:
+            return RedirectResponse(urls.explainer_path(canonical), status_code=301)
+        if canonical in explainers.PAGES:
+            return render(
+                request, f"explain_{canonical}.html", f=facts(), page_path=f"/about/{canonical}"
+            )
+        if canonical in facts().prefixes or canonical in explainers.EMPTY_PREFIXES:
+            return RedirectResponse(urls.explainer_path(canonical), status_code=302)
+        raise HTTPException(404)
 
     @app.get("/contribute")
     def contribute_page(request: Request):

@@ -1,0 +1,25 @@
+{% extends "_explain_layout.html" %}
+{% from "_explain_layout.html" import g %}
+{% set pf = f.prefix('NOR') %}
+{% block title %}NOR — formal complaints and rate cases, explained — {{ site_name }}{% endblock %}
+{% block description %}What an STB NOR proceeding is: formal complaints including rate cases, unreasonable-practice cases and the common carrier obligation; the rate-case methods; what the Board can order.{% endblock %}
+{% block heading %}NOR — formal complaints, including rate cases{% endblock %}
+{% block body %}
+<section>
+  <h2>What it is</h2>
+  <p>“Formal complaint proceedings (including rate cases, unreasonable practice cases, and violations of the common carrier obligation).”{{ g('B') }} The caption is always <em>complainant v. carrier</em>.{{ g('C') }} The registry holds {{ pf.dockets | commas }} NOR dockets.{{ g('C') }}</p>
+</section>
+<section>
+  <h2>What is being asked for</h2>
+  <p>A finding that a railroad’s rate, rule or practice is unlawful, and an order to fix it — most famously that a rate is unreasonable, which the Board may only decide where the carrier has <em>market dominance</em> over the traffic. Complaints are filed under 49 CFR Part 1111; the Board may also open an investigation on its own.{{ g('R') }}</p>
+  <p><strong>The rate-case methods</strong>, in the Board’s words: <strong>stand-alone cost (SAC)</strong> — “a railroad may not charge a shipper more than it would cost to build and operate a hypothetical new, optimally efficient railroad … tailored to serve a selected traffic group that includes the complainant’s traffic”; the <strong>Three-Benchmark</strong> method for smaller cases, which “examines the R/VC ratio produced by the challenged rate in relation to three benchmark figures”; and, since 2022, <strong>Final Offer Rate Review</strong>, where “the Board will decide the rate by selecting either the complainant’s or the defendant’s final offer”, and a voluntary <strong>arbitration</strong> program, both “limited to rate disputes worth up to $4 million in relief over two years.”{{ g('B') }} (Ex Parte 646 (Sub-No. 1), Ex Parte 755, Ex Parte 765.)</p>
+</section>
+<section>
+  <h2>What the Board can and cannot do</h2>
+  <p>Prescribe a maximum reasonable rate, order reparations for past overcharges, order a practice stopped, order service under the common carrier obligation (49 U.S.C. §11101). It cannot award damages for things outside its statute, and it does not hear personal-injury, crossing or property claims. Amtrak’s on-time-performance complaints under 49 U.S.C. §24308(f) are also NOR cases (<a href="/d/NOR-42175">NOR 42175</a>, the Sunset Limited).{{ g('C') }}</p>
+</section>
+<section>
+  <h2>What happens next, typically</h2>
+  <p>Complaint → answer → procedural schedule → discovery and evidence (much of it under protective order: {{ pf.filings_like('protective order') | commas }} motions for a protective order in NOR dockets, every one on the <a href="/protective">register</a>) → decision. Rate cases take years under SAC and months under the smaller-case methods. In the record: {{ pf.decision_count('Decision') | plural('decision', 'decisions') }}; {% for t, n in pf.top_filing_types %}{{ t | lower }} ({{ n | commas }}){{ ', ' if not loop.last else '' }}{% endfor %} dominate the filings.{{ g('C') }}</p>
+</section>
+{% endblock %}

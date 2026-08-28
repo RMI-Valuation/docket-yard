@@ -89,7 +89,7 @@
       <table class="moved">
         <thead><tr><th scope="col">Prefix</th><th scope="col" class="num">Dockets</th><th scope="col" class="num">Filings held</th></tr></thead>
         <tbody>
-        {% for prefix, dockets, filings in s.by_prefix %}<tr><td class="title mono">{{ prefix }}{% if prefix_name(prefix) != prefix ~ ' docket' %} <span class="muted small">{{ prefix_name(prefix) }}</span>{% endif %}</td><td class="num">{{ dockets | commas }} dockets</td><td class="num">{{ filings | commas }} filings</td></tr>{% endfor %}
+        {% for prefix, dockets, filings in s.by_prefix %}<tr><td class="title mono"><a href="{{ explainer_path(prefix) }}">{{ prefix }}</a>{% if prefix_name(prefix) != prefix ~ ' docket' %} <span class="muted small">{{ prefix_name(prefix) }}</span>{% endif %}</td><td class="num">{{ dockets | commas }} dockets</td><td class="num">{{ filings | commas }} filings</td></tr>{% endfor %}
         </tbody>
       </table>
     </div>

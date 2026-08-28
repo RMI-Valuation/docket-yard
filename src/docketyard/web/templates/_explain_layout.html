@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{#- A docket-type explainer (docs/explainers.md, capability P2). Every figure is measured on
+    request (store/explainers.py); every statement carries its grade: B the Board's own
+    words, R the regulation or statute, N the National Archives' description of the series,
+    C read off the record itself, ? unconfirmed. -#}
+{% macro g(grade) -%}<sup class="grade" title="{{ {'B': 'The Board’s own words (stb.gov or a Board document)', 'R': 'The regulation or statute', 'N': 'The National Archives’ description of the ICC/STB docket series', 'C': 'Read off the record itself: measured, not authority', '?': 'Unconfirmed: an inference awaiting the Board’s records staff'}[grade] }}">[{{ grade }}]</sup>{%- endmacro %}
+{% block main %}
+<section class="caption">
+  <div class="caption-meta"><span class="label">Explainer</span><span><a href="/about/prefixes">Every docket prefix</a></span></div>
+  <h1 class="serif">{% block heading %}{% endblock %}</h1>
+  <p class="small muted">A reading aid, not legal advice, and not a substitute for the record. Every statement carries a grade — <span class="grade">[B]</span> the Board’s own words, <span class="grade">[R]</span> the rule or statute, <span class="grade">[N]</span> the National Archives’ description of the series, <span class="grade">[C]</span> measured from this record, <span class="grade">[?]</span> unconfirmed. Nothing here says what any party argued or which side it is on. Figures are counted from the record as it stands.</p>
+</section>
+{% block body %}{% endblock %}
+<section class="caption">
+  <p class="small muted">Sources (all read 2026-08-26): the Board’s <a href="https://www.stb.gov/proceedings-actions/search-stb-records/tips-for-searching-stb-records/" rel="noopener">Tips for Searching STB Records</a> (the one page on stb.gov that defines prefixes), <a href="https://www.stb.gov/about-stb/" rel="noopener">About STB</a>, <a href="https://www.stb.gov/resources/rail-consumers/litigation-alternatives/" rel="noopener">Litigation Alternatives</a>, <a href="https://www.stb.gov/resources/rail-consumers/need-assistance/" rel="noopener">Need Assistance?</a>, <a href="https://www.stb.gov/environmental-review/" rel="noopener">Environmental Overview</a>, <a href="https://www.stb.gov/resources/household-goods/" rel="noopener">Household Goods Tariff Guidance</a>, <a href="https://www.stb.gov/resources/legal-resources/" rel="noopener">Legal Resources</a>, <a href="https://www.stb.gov/proceedings-actions/major-railroad-mergers-faqs/" rel="noopener">Major Railroad Mergers FAQs</a>, press release PR-22-55; 49 CFR §1152.50, §1180.2, Parts 1150 and 1111; NARA records schedules N1-134-99-002 and DAA-0134-2013-0017; the search form’s own prefix and suffix lists. Permanent address <span class="mono">docketyard.org{{ page_path }}</span>. Something wrong? <a href="/corrections">Corrections</a>.</p>
+</section>
+{% endblock %}

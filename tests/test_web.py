@@ -248,9 +248,7 @@ def test_display_helpers():
     assert labels.plural(1, "filing") == "1 filing" and labels.plural(2, "filing") == "2 filings"
     assert labels.plural(53130, "filing") == "53,130 filings"
     assert labels.kind_label("filing", "Support Statem") == "Statement"
-    assert (
-        labels.prefix_name("FD") == "Finance Docket" and labels.prefix_name("NOR") == "NOR docket"
-    )
+    assert labels.prefix_name("FD") == "Finance Docket" and labels.prefix_name("ZZ") == "ZZ docket"
     assert fmt_range("2026-08-18", "2026-08-25") == "18–25 August 2026"
     assert fmt_range("2026-07-28", "2026-08-03") == "28 July – 3 August 2026"
 
