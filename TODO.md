@@ -11,6 +11,9 @@ by pre-commit: when it fires, prune.
 
 - Document viewer: confirmed in a browser; the web tier runs on its own read-only key since
   2026-08-27. Open: the `sandbox` CSP test (`docs/deferred.md` § Document viewer)
+- Keys rotated 2026-08-28: `docketyard-instance` has a new key (ingest, Litestream, host units
+  verified); the old one is **Inactive, not deleted** — delete it after a clean day
+  (`aws iam delete-access-key`). Cameron stores both new secrets from the session scratchpad
 - Backfill complete 2026-08-27: 77,565 documents held; the 41 partial months re-walked and
   recorded `empty` (13:58 UTC), `/coverage` lists none. One legacy `/MPD/` URL 403s (rests
   a week from PR #10)
