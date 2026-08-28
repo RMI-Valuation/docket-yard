@@ -10,6 +10,8 @@ larger than ninety so that each tier can reach thirty.
 
     python ocr_sample.py --text /data/docketyard/text --blobs /data/docketyard/blobs \\
         --docs ocr_docs.csv --out /data/docketyard/ocr/sample --per-era 50 --seed 20260828
+
+Then `contact_sheets(out)` (below) tiles the renders twelve to a sheet for the tier pass.
 """
 
 import argparse
@@ -19,7 +21,11 @@ import random
 import time
 from pathlib import Path
 
-ERAS = (("to-1995", None, 1995), ("1996-2005", 1996, 2005), ("2006-on", 2006, None))
+ERAS = (
+    ("1996-1999", 1996, 1999),
+    ("2000-2005", 2000, 2005),
+    ("2006-on", 2006, None),
+)  # the record begins 1996
 DPI = 150
 
 
@@ -125,5 +131,38 @@ def main() -> None:
     print(f"drawn {len(drawn)}, rendered {rendered}")
 
 
+def contact_sheets(out: Path, per_sheet: int = 12) -> int:
+    """Tile the rendered pages, twelve to a sheet with their names, for assigning tiers by
+    eye without opening 150 files. Returns the number of sheets."""
+    from PIL import Image, ImageDraw
+
+    sample = json.loads((out / "sample.json").read_text(encoding="utf-8"))
+    pages = [p for p in sample["pages"] if not p.get("render_error")]
+    (out / "sheets").mkdir(exist_ok=True)
+    thumb_w, thumb_h, cols = 400, 520, 4
+    n = 0
+    for i in range(0, len(pages), per_sheet):
+        batch = pages[i : i + per_sheet]
+        rows = -(-len(batch) // cols)
+        sheet = Image.new("RGB", (cols * thumb_w, rows * (thumb_h + 24)), "white")
+        draw = ImageDraw.Draw(sheet)
+        for j, p in enumerate(batch):
+            im = Image.open(out / "pages" / p["png"]).convert("RGB")
+            im.thumbnail((thumb_w - 8, thumb_h - 8))
+            x, y = (j % cols) * thumb_w + 4, (j // cols) * (thumb_h + 24) + 20
+            sheet.paste(im, (x, y))
+            draw.text(
+                (x, y - 16), f"#{i + j:03d} {p['png']} {p['date']} {p['raw_docket']}", fill="black"
+            )
+        n += 1
+        sheet.save(out / "sheets" / f"sheet-{n:02d}.png")
+    return n
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+
+    if len(sys.argv) > 2 and sys.argv[1] == "sheets":
+        print(contact_sheets(Path(sys.argv[2])), "sheets")
+    else:
+        main()
