@@ -1,0 +1,35 @@
+{% extends "_explain_layout.html" %}
+{% from "_explain_layout.html" import g %}
+{% set pf = f.prefix('FD') %}
+{% block title %}FD — Finance Docket, explained — {{ site_name }}{% endblock %}
+{% block description %}What an STB Finance Docket (FD) proceeding is: line sales, trackage rights, control and mergers, declaratory orders; what is asked for, what the Board can do, what happens next.{% endblock %}
+{% block heading %}FD — Finance Docket{% endblock %}
+{% block body %}
+<section>
+  <h2>What it is</h2>
+  <p>The Board’s own definition: “Rail line sales and leases, operating rights, trackage rights, acquisitions of control (mergers), petitions for declaratory order, rail line constructions, and modified certificates.”{{ g('B') }} The ICC’s Finance Dockets, which FD continues, “concern railroad pooling or division of traffic, the purchase, control, merger, lease, or consolidation of operating rights by railroads”, and before 1972 held abandonments too.{{ g('N') }} The registry holds {{ pf.dockets | commas }} FD dockets, {{ pf.seq_min | commas }} to {{ pf.seq_max | commas }}, {{ pf.subs | commas }} of them sub-numbers.{{ g('C') }}</p>
+</section>
+<section>
+  <h2>What is being asked for</h2>
+  <p>Permission — or, more often, an <em>exemption</em> from having to ask for permission — to change who owns, controls or operates a piece of railroad. Under 49 U.S.C. §11323 “any proposed merger or acquisition of control of a railroad by another railroad may be carried out only with the approval of the Board.”{{ g('B') }} Transactions come in four sizes:{{ g('R') }}{{ g('B') }}</p>
+  <ul>
+    <li><strong>Major</strong> — “the control or merger of two or more Class I railroads.” Full application, prefiling notice three to six months ahead, public interest test, at least five years of oversight after approval.{{ g('B') }}</li>
+    <li><strong>Significant</strong> — not two Class I’s, but “of regional or national transportation significance.” (49 CFR §1180.2(b)){{ g('R') }}</li>
+    <li><strong>Minor</strong> — more than one railroad, and neither of the above. (§1180.2(c)){{ g('R') }}</li>
+    <li><strong>Exempt</strong> — one of nine categories where “prior review and approval … is not necessary”, e.g. trackage rights under a written agreement, temporary trackage rights up to a year, corporate-family transactions, acquiring a line whose abandonment has been permitted. (§1180.2(d)){{ g('R') }}{{ g('B') }} These proceed by <em>notice of exemption</em>: the carrier files, the Board publishes, and the exemption takes effect on a fixed timetable unless someone petitions to revoke it.</li>
+  </ul>
+  <p>Also here: a non-carrier acquiring or operating a line (49 U.S.C. §10901 and the class exemption at 49 CFR Part 1150 Subpart D), a Class III carrier doing the same (§10902, Subpart E), building a new line, modified certificates (Part 1150 Subpart C), and <strong>petitions for declaratory order</strong> — a request that the Board say what the law is on a disputed question, typically whether federal rail law preempts a state or local rule.{{ g('B') }}{{ g('R') }}</p>
+</section>
+<section>
+  <h2>What the Board can and cannot do</h2>
+  <p>It approves, denies, or approves with <strong>conditions</strong> to “mitigate or offset harm to the public interest” — competitive conditions, employee protection, environmental mitigation, service assurances.{{ g('B') }} It does not regulate safety (that is the Federal Railroad Administration; a major merger’s Safety Integration Plan is worked out “with the Federal Railroad Administration”).{{ g('B') }}</p>
+</section>
+<section>
+  <h2>What happens next, typically</h2>
+  <p>For an exemption: notice filed → Federal Register notice → effective on the timetable in the rule → <em>consummation notice</em> when the deal closes ({{ pf.filings_like('consummation') | commas }} in the record). For an application: filing → comments and replies → decision, with environmental review by the Office of Environmental Analysis where a construction or a line acquisition above the threshold is involved.{{ g('B') }} In the record, FD dockets hold {{ pf.decision_count('Decision') | plural('decision', 'decisions') }}, {{ pf.decision_count('Notice of Exemption') | plural('notice of exemption', 'notices of exemption') }} and {{ pf.decision_count('Environmental Review') | plural('environmental review', 'environmental reviews') }}; the commonest filings are {% for t, n in pf.top_filing_types %}{{ t | lower }} ({{ n | commas }}){{ ', ' if not loop.last else '.' }}{% endfor %}{{ g('C') }}</p>
+</section>
+<section>
+  <h2>Examples in the record</h2>
+  <p><a href="/d/FD-36873">FD 36873</a> (the current Class I control proceeding), <a href="/d/FD-36500">FD 36500</a> (Canadian Pacific—Control—Kansas City Southern, decided 2023{{ g('B') }}), <a href="/d/FD-36947">FD 36947</a> (a town acquiring a line by exemption), <a href="/d/FD-36948">FD 36948</a> (a control exemption).{{ g('C') }}</p>
+</section>
+{% endblock %}

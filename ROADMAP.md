@@ -23,7 +23,7 @@ the milestones record, and the document viewer (2026-08-27). The Ripe list is th
 Candidates the record can support now, in the order recommended 2026-08-27 (reviewed against
 the capability map with the whole record held). None is chosen.
 
-1. **Docket-type explainers** (P2) — writing, not engineering; the operator's.
+1. ~~Docket-type explainers (P2)~~ — reviewed and published 2026-08-28 (milestones).
 2. **The citation graph** — the first slice of the citator (C2): edges only (this decision
    cites that decision, docket or document) against the validated registry, shipped as "cited
    by" lists and search ranking; treatment classification lands later on the same edges.

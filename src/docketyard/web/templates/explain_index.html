@@ -1,0 +1,85 @@
+{% extends "_explain_layout.html" %}
+{% from "_explain_layout.html" import g %}
+{% block title %}Docket prefixes explained — {{ site_name }}{% endblock %}
+{% block description %}What each STB docket prefix and suffix means, what is being asked for, what the Board can and cannot do, and what happens next — with the record's own counts.{% endblock %}
+{% block heading %}Reading a docket number{% endblock %}
+{% block body %}
+{% set fd = f.prefix('FD') %}{% set ab = f.prefix('AB') %}{% set ep = f.prefix('EP') %}
+<section>
+  <p><span class="mono">FD 36873</span>, <span class="mono">AB 55 (Sub-No. 785X)</span>, <span class="mono">EP 711 (Sub-No. 1)</span>, <span class="mono">NOR 42175</span>, <span class="mono">MCF 21155</span>.</p>
+  <ul>
+    <li>The <strong>prefix</strong> says what kind of proceeding it is. “Board proceedings are assigned a docket prefix based on the type of case.”{{ g('B') }}</li>
+    <li>The <strong>number</strong> is a sequence within the prefix. The count runs from the ICC era: the record holds Finance Dockets from {{ fd.seq_min | commas }} to {{ fd.seq_max | commas }} and AB dockets {{ ab.seq_min }} to {{ ab.seq_max | commas }}.{{ g('C') }}</li>
+    <li>A <strong>Sub-No.</strong> is a proceeding filed under an existing docket — a related transaction, a later phase, or, for the big abandonment dockets, each line a carrier abandons. AB 55 is CSX Transportation’s abandonment docket; its sub-numbers pass 1,000. Sub-numbers are the norm for AB ({{ ab.subs | commas }} of {{ ab.dockets | commas }} in the registry) and common for EP ({{ ep.subs | commas }} of {{ ep.dockets | commas }}) and FD ({{ fd.subs | commas }} of {{ fd.dockets | commas }}); rare elsewhere.{{ g('C') }}</li>
+    <li>A <strong>suffix letter</strong> qualifies the proceeding. <span class="mono">X</span> marks an exemption (below).{{ g('C') }}</li>
+    <li>{{ site_name }} folds a docket and its sub-numbers into one sheet, because the Board’s own search treats a sub-docket as risky to find on its own.</li>
+  </ul>
+  <p>The Board’s search form offers 35 prefixes and 20 suffix letters and defines none of them; its tips page defines five.{{ g('B') }} What follows covers all 35.</p>
+</section>
+
+<section>
+  <h2>The five prefixes that carry the living record</h2>
+  <p>Together these hold {{ f.dockets_in(pages) | commas }} of the registry’s {{ f.total_dockets | commas }} dockets and nearly every filing since the watch began.{{ g('C') }} Each has its own page.</p>
+  <table class="moved">
+    <thead><tr><th scope="col">Prefix</th><th scope="col">What it is</th><th scope="col" class="num">Dockets</th><th scope="col" class="num">Filings held</th></tr></thead>
+    <tbody>
+    {% for p, name, what in [('FD', 'Finance Docket', 'Line sales and leases, trackage rights, control and mergers, declaratory orders, constructions'), ('AB', 'Abandonment', 'Abandonments and discontinuances of service, including trail use'), ('NOR', 'Formal complaint', 'Complaints, including rate cases, unreasonable-practice cases and the common carrier obligation'), ('EP', 'Ex Parte', 'Rulemaking and information-gathering proceedings the Board opens itself'), ('MCF', 'Motor carrier finance', 'Control and mergers among intercity bus companies')] %}
+    {% set pf = f.prefix(p) %}
+    <tr><td class="title mono"><a href="/about/{{ p }}">{{ p }}</a> <span class="muted small">{{ name }}</span></td><td class="title">{{ what }}</td><td class="num">{{ pf.dockets | commas }}</td><td class="num">{{ pf.filings | commas }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2 id="other">Prefixes with a smaller or older record</h2>
+  <p>A few hold a live, small stream today; most of the rest are ICC-era series the Board inherited and keeps searchable. The record column is what the registry holds.{{ g('C') }} A row graded <span class="grade">[?]</span> is a reading of the captions that the Board’s records staff have not yet confirmed; it is shown so the gap is public.</p>
+  <table class="moved">
+    <thead><tr><th scope="col">Prefix</th><th scope="col" class="num">Record</th><th scope="col">What it is</th></tr></thead>
+    <tbody>
+    {% for p, what, grades in others %}{% set pf = f.prefix(p) %}
+    <tr id="{{ p }}"><td class="title mono">{{ p }}{% if p in live %} <span class="muted small">live</span>{% endif %}</td><td class="num">{{ pf.dockets | commas }}{% if pf.filings %}<br><span class="small muted">{{ pf.filings | commas }} filings</span>{% endif %}</td><td class="title">{{ what | safe }} {% for gr in grades %}{{ g(gr) }}{% endfor %}</td></tr>
+    {% endfor %}
+    <tr id="empty"><td class="title mono">{{ empty | join(', ') }}</td><td class="num">0</td><td class="title">Offered by the search form; nothing in the record. Likely: <strong>ARB</strong> arbitration; <strong>S5A</strong> Section 5a agreements (rail); <strong>SUS</strong> suspension; <strong>DSO</strong> directed service orders; <strong>ASC</strong>, <strong>RER</strong> unknown. {{ g('B') }}{{ g('?') }}</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2 id="suffixes">Suffixes</h2>
+  <p>The form offers twenty letters; the record uses them unevenly.{{ g('B') }}{{ g('C') }}</p>
+  <table class="moved">
+    <thead><tr><th scope="col">Suffix</th><th scope="col">Where</th><th scope="col">Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="title mono">X</td><td>AB ({{ f.suffix_count('X', 'AB') | commas }})</td><td class="title"><strong>Exemption</strong> — the sub-docket proceeds by notice or petition for exemption rather than application. Every <span class="mono">X</span> caption reads “…Abandonment Exemption…” or “…Discontinuance of Service Exemption…”. {{ g('C') }}</td></tr>
+      <tr><td class="title mono">TA</td><td>MCF ({{ f.suffix_count('TA', 'MCF') | commas }}){% if f.suffix_count('TA', 'FD') %}, FD ({{ f.suffix_count('TA', 'FD') }}){% endif %}</td><td class="title">ICC <strong>temporary authority</strong> — provisional approval pending a decision (the MCF captions carry the ICC’s “(T1)/(T2)” transaction codes). Meaning unconfirmed. {{ g('?') }}</td></tr>
+      <tr><td class="title mono">S</td><td>NOR ({{ f.suffix_count('S', 'NOR') | commas }})</td><td class="title">Attached to ICC-era rate complaints of the late 1970s–80s (“…v. Burlington Northern”). Meaning unconfirmed; candidates: <em>suspended</em>, <em>small</em>, or the ICC’s “S” docket sub-series. {{ g('?') }}</td></tr>
+      <tr><td class="title mono">N</td><td>AB ({{ f.suffix_count('N', 'AB') | commas }})</td><td class="title">Attached to Conrail’s abandonment sub-dockets (AB 167 is Conrail’s docket) around the 1980s. Meaning unconfirmed; candidate: <em>notice</em> under the then-new class exemption. {{ g('?') }}</td></tr>
+      <tr><td class="title mono">A, B, C … U</td><td>FD, SUB, S5M, EP, SO</td><td class="title">Successive related proceedings under one sub-docket — FD 28640 (Sub-No. 9) A–M are the Milwaukee Road reorganisation’s many pieces; SUB 851 C–F are successive depreciation prescriptions; S5M …A are amended agreements. {{ g('C') }}</td></tr>
+      <tr><td class="title mono">0</td><td>FD, EP ({{ f.suffix_count('0') }})</td><td class="title">A literal zero, appearing on a few captions; probably an entry artefact. {{ g('?') }}</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2 id="decisions">Decision types, as the Board labels them</h2>
+  <p>The Board’s search offers nine;{{ g('B') }} the record holds them in this proportion:{{ g('C') }} {% for t, n in f.decision_types if t %}<strong>{{ t }}</strong> ({{ n | commas }}){{ ', ' if not loop.last else '.' }}{% endfor %} A <em>Decision</em> is the Board’s or a delegated official’s ruling; a <em>Notice of Exemption</em> a class exemption taking effect on notice; an <em>Environmental Review</em> the Office of Environmental Analysis’s assessment (AB and FD only); a <em>Notice</em> a procedural, hearing or Federal Register notice; a <em>Notice of Court Action</em> a court ruling on a Board decision (every one is on the <a href="/court">court-action register</a>); a <em>Corrected</em> decision or notice an errata reissue — {{ site_name }} records both versions.</p>
+</section>
+
+<section>
+  <h2 id="not-the-board">Not the Board — where a reader with a rail problem should look</h2>
+  <p>A large share of people who reach the Board are at the wrong agency. From the Board’s own material:{{ g('B') }}</p>
+  <table class="moved">
+    <thead><tr><th scope="col">Concern</th><th scope="col">Who handles it</th></tr></thead>
+    <tbody>
+      <tr><td class="title">A train blocking a crossing; crossing signals; horn noise; track and equipment safety; hazardous materials; derailments</td><td class="title">The <strong>Federal Railroad Administration</strong> (safety, 49 U.S.C. chapter 201) and state agencies. The Board hears crossing evidence only inside a merger case.</td></tr>
+      <tr><td class="title">A household-goods mover’s conduct, damage claims, licensing</td><td class="title"><strong>FMCSA</strong>; the Board only “oversees tariff requirements”.</td></tr>
+      <tr><td class="title">Trucking authority, MC numbers, insurance</td><td class="title"><strong>FMCSA</strong> (since 1996).</td></tr>
+      <tr><td class="title">Amtrak on-time performance</td><td class="title">The Board, on complaint (49 U.S.C. §24308(f); a NOR docket).</td></tr>
+      <tr><td class="title">Rail rates, car supply, service failures, interchange, a community concern about a railroad’s activities</td><td class="title">The Board — start with <strong>Rail Customer and Public Assistance</strong>, “a free service” whose staff “informally advise disputing parties” but “cannot order a specific resolution”.</td></tr>
+      <tr><td class="title">A pipeline (non-energy) or a water carrier in the domestic offshore trades</td><td class="title">The Board.</td></tr>
+      <tr><td class="title">Energy pipelines, ports, ocean shipping</td><td class="title"><strong>FERC</strong>, the <strong>FMC</strong>.</td></tr>
+    </tbody>
+  </table>
+</section>
+{% endblock %}

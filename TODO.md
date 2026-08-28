@@ -23,8 +23,9 @@ by pre-commit: when it fires, prune.
   layer over the first 9,663 wave 2–3 files done (1,480 image-only — 15%); the full-record
   pull + extraction started 2026-08-27 13:45 UTC in tmux `extract`. Scoring waits on
   Cameron's check of `labels.csv`; the API candidate waits on his go (it spends money)
-- Explainers draft (`docs/explainers.md`): Cameron reviews; [?] rows need the Board's
-  records staff; then a page per prefix. Whether/how to announce the wedge — his call
+- Explainers published 2026-08-28; the [?] rows (TA, S, N suffixes; PTO, SAI, MXC, CNO; the six
+  empty prefixes) await one email to the Board's records staff — Cameron's to send. Whether/how
+  to announce the wedge — his call
 
 ## Next
 

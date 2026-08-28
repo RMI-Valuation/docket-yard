@@ -1,9 +1,15 @@
 # Docket-type explainers — draft for review
 
-**Status: draft, 2026-08-26, not published.** Capability P2: what each prefix and suffix means,
-what is being asked for, what the Board can and cannot do, and what happens next. Written to
-be published one page per prefix (linked from every sheet's "About this record" block and from
-the registry-by-prefix table on `/stats`), once the operator has reviewed it.
+**Status: reviewed by the operator 2026-08-28 and published** as `/about/prefixes` (the index:
+reading a number, the other prefixes, suffixes, decision types, not-the-Board) and
+`/about/FD`, `/about/AB`, `/about/NOR`, `/about/EP`, `/about/MCF`, linked from every sheet's
+"About this record" block and from the registry-by-prefix table on `/stats`. The pages are
+templates (`web/templates/explain_*.html`) carrying this text; every figure is measured on
+request (`store/explainers.py`), so the numbers below are the draft's and the pages' are
+live. The operator's decisions on the open questions: rows graded [?] publish, marked
+unconfirmed, so the gap is public; the ICC-era prefixes share one page; counts render live;
+the address is `/about/<PREFIX>`. Capability P2: what each prefix and suffix means, what is
+being asked for, what the Board can and cannot do, and what happens next.
 
 **How this was written, and how far to trust each part.** Every statement is graded:
 
@@ -13,7 +19,8 @@ the registry-by-prefix table on `/stats`), once the operator has reviewed it.
   N1-134-99-002 and DAA-0134-2013-0017).
 - **[C]** — read off the record itself: what the captions in Docket Yard's registry say a series
   contains. This is evidence, not authority; the figures are measured from the store.
-- **[?]** — inferred and **needing verification** before publication. Nothing marked [?] ships.
+- **[?]** — inferred and **unconfirmed**; published marked as such (the operator's decision,
+  2026-08-28), so the gap is public rather than hidden.
 
 Never inferred here: what any filing argues, or which side a party is on. The explainers
 describe kinds of proceeding, never the merits of one.

@@ -117,7 +117,7 @@ def route_class(path: str) -> str:
         return "sitemap"
     if path.startswith("/data") or path in ("/api", "/llms.txt", "/openapi.json"):
         return "data"
-    if path in TRUST:
+    if path in TRUST or path.startswith("/about/"):
         return "trust"
     if path.startswith(("/subscribe", "/s/", "/ses/")):
         return "subscribe"

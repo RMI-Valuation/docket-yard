@@ -1,0 +1,33 @@
+{% extends "_explain_layout.html" %}
+{% from "_explain_layout.html" import g %}
+{% set pf = f.prefix('AB') %}
+{% block title %}AB — Abandonment, explained — {{ site_name }}{% endblock %}
+{% block description %}What an STB abandonment (AB) proceeding is: abandonments and discontinuances of service, exemptions, offers of financial assistance, trail use; what the Board can do and what happens next.{% endblock %}
+{% block heading %}AB — Abandonment{% endblock %}
+{% block body %}
+<section>
+  <h2>What it is</h2>
+  <p>“Rail line abandonments and discontinuances of services. This would also include proceedings in which there is trail use (i.e., rail banking).”{{ g('B') }} The series began in 1972 when the ICC separated abandonments from Finance Dockets.{{ g('N') }} The registry holds {{ pf.dockets | commas }} AB dockets, {{ pf.subs | commas }} of them sub-numbers — one per line a carrier abandons.{{ g('C') }}</p>
+</section>
+<section>
+  <h2>What is being asked for</h2>
+  <p>Permission to stop: to <em>abandon</em> a line (remove it from the rail network) or to <em>discontinue</em> service over it (stop operating, leaving the line and the obligation intact — often a lessee’s or trackage-rights operator’s request). Three routes:</p>
+  <ul>
+    <li><strong>Application</strong> for a certificate under 49 U.S.C. §10903 — the full case, with a showing that the public convenience and necessity permit abandonment.{{ g('N') }}{{ g('R') }}</li>
+    <li><strong>Petition for exemption</strong> — an individual request to skip the full case. (49 CFR §1152.50 notes the difference){{ g('R') }}</li>
+    <li><strong>Notice of exemption</strong> under the class exemption for out-of-service lines, 49 CFR §1152.50 — the carrier certifies “no local traffic has moved over the line for at least 2 years” and overhead traffic can be rerouted; the notice is filed at least 50 days before the planned abandonment and is “effective 30 days after publication, unless stayed.”{{ g('R') }} This is the route most AB sub-dockets take — the <span class="mono">X</span> suffix, on {{ f.suffix_count('X', 'AB') | commas }} of them.{{ g('C') }}</li>
+  </ul>
+</section>
+<section>
+  <h2>What the Board can and cannot do</h2>
+  <p>Grant, deny, or grant subject to conditions; and hold the door open for someone else to keep the line alive. An <strong>offer of financial assistance</strong> (OFA) lets a party offer to buy or subsidise the line (49 U.S.C. §10904); a <strong>public use condition</strong> (§10905) and a <strong>trail use / rail banking</strong> request under 16 U.S.C. §1247(d) can stay an abandonment so the corridor is preserved as a trail with the possibility of future rail use.{{ g('R') }} The Board does not decide who owns the land afterwards, or what a state or town may do with a crossing; those are matters of property law and of other agencies.</p>
+</section>
+<section>
+  <h2>What happens next, typically</h2>
+  <p>Notice or application → environmental and historic review (an Environmental Assessment is required for “line abandonment, service discontinuance”{{ g('B') }}) → decision or effective date → OFA, public-use or trail-use requests if any → the carrier’s <em>consummation notice</em>, or its lapse. In the record: {{ pf.decision_count('Decision') | plural('decision', 'decisions') }}, {{ pf.decision_count('Environmental Review') | plural('environmental review', 'environmental reviews') }}, {{ pf.decision_count('Notice of Exemption') | plural('notice of exemption', 'notices of exemption') }}; the commonest filings are {% for t, n in pf.top_filing_types %}{{ t | lower }} ({{ n | commas }}){{ ', ' if not loop.last else '.' }}{% endfor %}{{ g('C') }}</p>
+</section>
+<section>
+  <h2>Examples in the record</h2>
+  <p><a href="/d/AB-55">AB 55</a> (CSX Transportation’s abandonment docket, with more than a thousand sub-numbers), <a href="/d/AB-167">AB 167</a> (Conrail’s).{{ g('C') }}</p>
+</section>
+{% endblock %}

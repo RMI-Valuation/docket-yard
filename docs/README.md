@@ -8,6 +8,7 @@
 | [`research/comparable-platforms.md`](research/comparable-platforms.md) | The evidence base — what CourtListener, FERC, the Federal Register and the paid products solved, what failed, and what sustains these projects. |
 | [`stb-data-source.md`](stb-data-source.md) | The AJAX endpoint, its traps, and everything measured about the corpus. |
 | [`ocr-plan.md`](ocr-plan.md) | OCR of the image-only record (M3): ground truth, measured candidates, the review layer. Proposed 2026-08-27, not chosen. |
+| [`explainers.md`](explainers.md) | The docket-type explainers (P2): the reviewed text behind `/about/prefixes` and `/about/<PREFIX>`, graded by source. Published 2026-08-28. |
 | [`registers.md`](registers.md) | The registers (court actions, protective orders) and the citation resolver: rule, measurements, what they do not say. Published 2026-08-27. |
 | [`validation-queries.md`](validation-queries.md) | The five queries the schema must answer on paper before pipeline code exists. |
 

@@ -227,3 +227,6 @@ table.months { width: 100%; max-width: 420px; border-collapse: collapse; }
 .months th { border-top: 0; padding-top: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted); }
 .months .num { text-align: right; white-space: nowrap; }
 .months td:last-child, .months th:last-child { padding-right: 0; }
+
+/* explainers: the grade of each statement, small and quiet */
+.grade { font-size: 0.7em; color: var(--muted, #666); margin-left: 0.15em; }

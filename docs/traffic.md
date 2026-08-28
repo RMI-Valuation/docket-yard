@@ -16,7 +16,7 @@ One row per hour per (route class, status class, bot flag):
 | Column | Values | Why |
 | --- | --- | --- |
 | `hour` | ISO hour, UTC | the grain |
-| `route_class` | `home`, `sheet`, `record`, `document`, `party`, `parties`, `search` (`/search`, `/suggest` and `/cite`), `week`, `stats`, `register` (`/court`, `/protective`), `feed`, `json`, `sitemap` (and robots), `data` (`/data`, `/api`, `/llms.txt`, `/openapi.json`), `trust` (about/contribute/coverage/methodology/corrections/privacy), `subscribe` (and the token and SES paths), `static`, `other` — `ROUTE_CLASSES` in `store/traffic.py` | the page kind, never the page: no docket, no party, no record id |
+| `route_class` | `home`, `sheet`, `record`, `document`, `party`, `parties`, `search` (`/search`, `/suggest` and `/cite`), `week`, `stats`, `register` (`/court`, `/protective`), `feed`, `json`, `sitemap` (and robots), `data` (`/data`, `/api`, `/llms.txt`, `/openapi.json`), `trust` (about and the explainers under it, contribute, coverage, methodology, corrections, privacy), `subscribe` (and the token and SES paths), `static`, `other` — `ROUTE_CLASSES` in `store/traffic.py` | the page kind, never the page: no docket, no party, no record id |
 | `status_class` | `2xx`, `3xx`, `4xx`, `5xx` | health |
 | `bot` | 0/1 | a fixed list of substrings matched against the User-Agent *in memory* (`_BOT_MARKS`; the compose healthcheck's `Python-urllib` is one); a missing User-Agent is a reader; the string itself is never written |
 | `requests` | count | |

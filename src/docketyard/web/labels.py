@@ -30,7 +30,16 @@ _RULES: tuple[tuple[str, str], ...] = (
 )
 
 # the Board's docket-prefix names, only the ones its own materials spell out
-PREFIX_NAMES = {"FD": "Finance Docket", "AB": "Abandonment", "EP": "Ex Parte"}
+PREFIX_NAMES = {
+    "FD": "Finance Docket",
+    "AB": "Abandonment",
+    "EP": "Ex Parte",
+    "NOR": "Formal Complaint",
+    "MCF": "Motor Carrier Finance",
+    "WB": "Waybill Data",
+    "SO": "Service Order",
+    "SDM": "System Diagram Map",
+}
 
 
 def kind_label(kind: str, filing_type: str | None) -> str:
