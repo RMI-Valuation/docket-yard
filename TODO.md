@@ -32,6 +32,9 @@ by pre-commit: when it fires, prune.
 
 ## Next
 
+- **ADR 0016** (proposed 2026-08-28, Cameron's ask): a reviewer has an identity, reading stays
+  anonymous — the review area `/review` for OCR pages, citation edges, labels, corrections.
+  Cameron accepts or amends; then schema-critic on `reviewer`/`review_action`, then build
 - Citator schema gate, before C2 is chosen: the citation-edge shape against
   `validation-queries.md` (negative treatment, segment history), ADR 0006 and 0007 — a new ADR
   if needed; an unresolvable citation string is data, record the span; re-measure ~22% density
