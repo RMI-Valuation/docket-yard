@@ -33,8 +33,11 @@ reason to hold the rest.
 
 ## The transcriptions (drafted, awaiting the operator's check)
 
-`ground-truth-draft/<png>.txt` — one file per selected page, drafted 2026-08-28 by a model
-(Claude Fable 5, one pass per page under the rules below) from the rendered page image.
+`ground-truth-draft/<png>.txt` — one file per selected page, **90 files, 137,096 characters**,
+drafted 2026-08-28 by a model (Claude Fable 5, one pass per page, one agent per page) from
+the rendered page image. Density by tier: clean ~1,370 characters a page with 4 `[illegible]`
+marks in all; degraded ~1,890 with 72; tabular ~1,130 with 1; graphic ~1,130 with 15; the
+blank page is `[blank page]`.
 **They are ground truth only after the operator checks each against the page image**, as
 `benchmark/labels.csv` was for extraction. Rules the drafter followed, which the checker
 applies too:
@@ -54,6 +57,18 @@ applies too:
 The rendered pages themselves (37 MB) are not committed; they are at
 `/data/docketyard/ocr/sample/pages/` on RMI-AI-MACHINE and `data/ocr/pages/` on the
 working machine, and any page can be re-rendered from its hash with `ocr_sample.py`.
+
+## How to check
+
+Open `check.html` in a browser (it reads the page images from `data/ocr/pages/`, which are
+not committed — re-render with `ocr_sample.py` if the working copy lacks them): every page
+image beside its drafted transcription, in tier order, with the file name to edit. Edit the
+`.txt` in place; the whitespace hooks skip this directory, so a transcription's own spacing
+survives a commit.
+
+What matters most, in order: a **docket number or date** read wrongly or invented (the two
+errors the benchmark scores separately); text asserted that is not on the page; text on the
+page that is missing; then the bracket conventions.
 
 ## What the check produces
 
