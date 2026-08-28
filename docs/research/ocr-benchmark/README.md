@@ -78,6 +78,38 @@ What matters most, in order: a **docket number or date** read wrongly or invente
 errors the benchmark scores separately); text asserted that is not on the page; text on the
 page that is missing; then the bracket conventions.
 
+## How a transcription is scored, and what therefore matters in the check
+
+Decided 2026-08-28, when the operator asked whether line breaks need marking. **They do
+not**, because both the ground truth and every engine's output pass through the same
+normaliser before CER and WER are computed, and its imperfections cancel:
+
+- runs of whitespace, newlines included, collapse to one space — an engine that preserves
+  the printed lines (Tesseract) and one that reflows into paragraphs (a vision model) are
+  reading equally well, and neither may be scored for the difference;
+- a line-final hyphen joins to the next line with the hyphen removed (`irresponsi-` +
+  `ble` → `irresponsible`). This mangles a genuine compound broken at a line end
+  (`party-of-` + `record` → `party-ofrecord`) — which is harmless, because the ground
+  truth is mangled identically;
+- bracket annotations are unwrapped to their content before scoring, so
+  `[stamp: RECEIVED AUG 17 2004]` scores as `RECEIVED AUG 17 2004` and an engine that
+  reads the stamp is neither rewarded nor punished for not knowing it was a stamp;
+  `[illegible]` marks a span excluded from CER, since no reading of it can be called wrong.
+
+What **is** scored, and therefore what the check must catch:
+
+| Scored | What a mistake looks like |
+| --- | --- |
+| Characters and words (CER, WER) | A word misread, invented, or missing; two words run together *within* a line |
+| **Docket numbers** (separately) | `FD 32760` read as `FD 32780`; a number invented where the page has none |
+| **Dates** (separately) | `February 26, 1997` read as `February 28, 1997`; a date assembled from two |
+| **Reading order** | A two-column page read straight across; a stamp or margin note spliced into the middle of a sentence — normalisation cannot repair a scrambled sequence |
+| **Table grid** (tabular tier) | Rows merged into one line, or cells not separated by tabs; a table's grid is meaning, not layout preference, so it is compared cell by cell as well as flowed |
+| **False text** (graphic and blank tiers) | Any prose asserted on a page that carries only labels, or on a blank page |
+
+So: an ordinary line break in running prose is not worth a mark. A break that scrambles
+the order, breaks a table's rows, or falls inside a docket number or a date is.
+
 ## What the check produces
 
 A checked file replaces the draft in place; the operator's changes are the interesting

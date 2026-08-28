@@ -29,6 +29,11 @@ follows it step for step, and adds the review layer the operator asked for.
    character error rate (CER) and word error rate (WER) per tier, plus the two errors that
    matter most to this record and are scored separately: **docket numbers** and **dates**
    read wrongly (a transposed digit in "FD 32760" is worse than a hundred misread commas).
+   Ground truth and output pass through one normaliser first — whitespace collapsed, line-end
+   hyphens joined, bracket annotations unwrapped — so that no engine is scored for preserving
+   or reflowing the printed lines; reading order, the table grid and false text on a graphic
+   page are scored on top of it (`research/ocr-benchmark/README.md` § How a transcription is
+   scored).
    Candidates the box can run: Tesseract 5 (the baseline every study reports against);
    a document-OCR model (docTR or PaddleOCR-class); a vision-language model that fits 12 GB
    (a 7B-class VLM, quantised). An API candidate (a frontier model with vision) is measured
