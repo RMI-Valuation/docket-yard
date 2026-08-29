@@ -11,6 +11,37 @@ per-page text of each decision is on RMI-AI-MACHINE at `/data/docketyard/benchma
 and mirrored to `data/benchmark/text/` on the working machine (disposable, not committed)
 — but **label from the Board's PDF**, linked below; the text layer is what is being tested.
 
+## How to check the labels (2026-08-29)
+
+A queue, as the OCR ground truth has:
+<https://claude.ai/code/artifact/2b0e5a2a-labels> — built by
+`tools/rmi-ai-machine/labels_check_page.py`, private to the operator. One decision at a
+time: its **text on the left with every labelled passage highlighted in place**, its labels
+on the right, each marked right or wrong, with a sweep for a whole decision. Judgements stay
+in the browser; **Copy findings** hands them back in one block.
+
+The highlighting is the point, and it is why this queue differs from the OCR one. An OCR
+transcription is judged on what it says; a label set is also judged on **what it missed**,
+and an unhighlighted citation sitting in the running text is the only way to see one. Each
+decision therefore carries a box for what the drafter passed over.
+
+**Four questions are asked once, up front**, because they settle about 130 rows between
+them and are conventions rather than judgements about a passage: is a decision's own caption
+docket a citation (about 35 rows noted *self*); is a repeated short-form reference its own
+citation (54 rows); are citations to courts in scope (about 62 rows); and is "effective on
+its service date" a deadline with no date to quote (45 deadline rows carry no target).
+
+**Twenty labels quote a passage that is not in the decision's text**, and the queue flags
+each one — a filter shows only those. Locating a quote ignores whitespace entirely, because
+a PDF wraps lines wherever it likes and extraction turns a wrap inside a caption into a
+space: the text holds `Inc.— Discontinuance` where the label, read off the page, quotes
+`Inc.—Discontinuance`. That accounted for 38 of an original 58. Of the 20 that remain, five
+diverge only near the end — a **wrong pin cite**, such as `slip op. at 10-11` where the text
+reads `at 13`, or `1 I.C.C.2d at 825` where it reads `at 824-31` — and fifteen diverge
+early, where two citations appear to have been conflated into one, or where the passage is
+split by a running page header. For a citator a wrong pin cite is the most damaging error
+there is, so this set is the highest-yield thing in the check.
+
 ## Provenance of the labels (2026-08-26)
 
 `labels.csv` was **drafted by a model** (Claude Fable 5, four passes over the Board's PDFs,
