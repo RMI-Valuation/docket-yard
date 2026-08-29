@@ -1,5 +1,6 @@
 [rotated page]
 CN-WC Integration reporting
+
 Date submitted: May 1st, 2002
 
 AVERAGE TERMINAL DWELL TIME
@@ -16,11 +17,13 @@ their departure from the operating yard.
 
 The figures below are expressed in hours.
 
-Terminal\tHistorical Average\t\tWeek Ending\t\t\t
-\tFeb, 2002*\tMar, 2002*\t7-Apr-02\t14-Apr-02\t21-Apr-02\t28-Apr-02
-Fond du Lac, WI\t15.7\t15.2\t12.8\t14.6\t14.6\t15.1
-Stevens Point, WI\t10.6\t10.7\t7.8\t8.6\t10.2\t9.1
-Neenah, WI\t3.6\t3.0\t2.7\t2.8\t2.8\t3.4
-Pokegama, WI\t11.1\t11.2\t8.8\t9.1\t9.8\t9.8
+[table]
+Terminal	Historical Average		Week Ending			
+	Feb, 2002*	Mar, 2002*	7-Apr-02	14-Apr-02	21-Apr-02	28-Apr-02
+Fond du Lac, WI	15.7	15.2	12.8	14.6	14.6	15.1
+Stevens Point, WI	10.6	10.7	7.8	8.6	10.2	9.1
+Neenah, WI	3.6	3.0	2.7	2.8	2.8	3.4
+Pokegama, WI	11.1	11.2	8.8	9.1	9.8	9.8
+[end table]
 
 *The statistics for February and March cover from the first to the last day of each month.

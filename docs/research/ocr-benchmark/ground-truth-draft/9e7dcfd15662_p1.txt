@@ -4,8 +4,9 @@ Red River Valley & Western
 Railroad Company
 CONNECTIONS
 Minnesota
-Breckenridge	BN	Burlington Northern
+Breckenridge   BN   Burlington Northern
 North Dakota
+[table]
 Carrington	SOO	Soo Line
 Casselton	BN	Burlington Northern
 Jamestown	BN	Burlington Northern
@@ -13,6 +14,7 @@ Lucca	SOO	Soo Line
 New Rockford	BN	Burlington Northern
 Oakes	SOO	Soo Line
 Oakes	DM&E	Dakota, Minnesota & Eastern
+[end table]
 [handwritten: Subject Line]
 [handwritten: arrow]
 MINOT

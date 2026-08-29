@@ -1,32 +1,46 @@
 F M C S A
 [illegible]
+
 FMCSA
 Federal Motor Carrier
 Safety Administration
-Menu	Choose Menu Option	Go
+
+Menu Choose Menu Option Go
 
 Motor Carrier Details
 
+[table]
 US DOT:	982739	Docket Number:	MC415708
-Legal Name:	B & K CO., L.L.C.
+Legal Name:	B & K CO., L.L.C.		
+[end table]
 
+[table]
 Doing-Business-As Name:	3B'S MOVING & STORAGE
+[end table]
 
+[table]
 Business Address	Business Telephone and Fax	Mail Address	Mail Telephone and Fax	Undeliverable Mail
 1392 PORT DR CLARKSTON WA 99403	(509) 751-1964 Fax: (509) 751-1966	PO BOX 1163 LEWISTON ID 83501		NO
+[end table]
 
+[table]
 Authority Type	Authority Status	Application Pending
 Common	ACTIVE	NO
 Contract	NONE	NO
 Broker	NONE	NO
+[end table]
 
+[table]
 Property	Passenger	Household Goods	Private	Enterprise
 YES	NO	YES	NO	NO
+[end table]
 
+[table]
 Insurance Type	Insurance Required	Insurance on File
 BIPD	$750,000	$1,000,000
 Cargo	YES	YES
 Bond	NO	NO
+[end table]
 
 BOC-3: YES
 Blanket Company: ALL AMERICAN AGENTS OF PROCESS
@@ -34,6 +48,7 @@ Blanket Company: ALL AMERICAN AGENTS OF PROCESS
 | Active/Pending Insurance | Rejected Insurance | Insurance History | Authority History | Pending Application | Revocation |
 
 Monday , October 02, 2006 at 12:48:44
+
 . FMCSA Home | DOT Home | Privacy Policy/Disclaimer | Accessibility | Related Sites | Help
 
 United States Department of Transportation - Federal Motor Carrier Safety Administration

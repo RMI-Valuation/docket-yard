@@ -1,6 +1,7 @@
 The Honorable Vernon A. Williams
 December 20, 2002
 
+[table]
 Page/Line	Current Text	Corrected Text
 III-F-14/line 10	domain and are unreliable	domain are unreliable
 III-F-26/line 8	While, some trees	While some trees
@@ -17,7 +18,8 @@ III-F-99/line 2	Wingate	Windgate
 III-F-99/line 9	Contractor	contractor
 III-F-99/line 14	Contractor	contractor
 III-F-99/fn. 68/ line 2	Wingate	Windgate
-III-F-111/line 11	Duke piles,	Duke\u2019s piles,
+III-F-111/line 11	Duke piles,	Duke’s piles,
 III-F-121/line 12	crane	cranes
+[end table]
 
 -3-

@@ -72,6 +72,8 @@ applies too:
   edge. `[cut]` is a different fact from `[illegible]`: the text is not unreadable, it is
   *not on this page*. **A cut line is never completed**, however obvious the ending;
   `[cut]` also marks this page's own text where the scan lost it at an edge or a tear;
+- a **tab means a cell**, so tabs appear only inside a `[table]` block; indentation
+  elsewhere is spaces;
 - stamps, seals, handwriting, signatures in square brackets with a label
   (`[stamp: RECEIVED AUG 17 2004 OFFICE OF PROCEEDINGS]`, `[handwritten: 211823]`,
   `[signature]`); a handwritten page transcribed under a first line `[handwritten page]`;
@@ -209,5 +211,17 @@ the order, breaks a table's rows, or falls inside a docket number or a date is.
 
 A checked file replaces the draft in place; the operator's changes are the interesting
 rows and are worth a note in `CHECK-NOTES.md` (what kind of thing the drafter got wrong).
+`tools/rmi-ai-machine/check_ground_truth.py` holds the conventions to account — real tabs,
+a square grid per `[table]`, balanced blocks, nothing after a `[cut]`, a well-formed marker —
+and every rule in it is there because a draft broke it. Run it after any re-draft; the 90
+drafts pass. It judges a bracketed line only when the line opens with one of its own
+keywords, because a page prints brackets of its own: the Federal Register sets its docket
+line as `[STB Finance Docket No. 33700]`.
+
+The marker vocabulary grew from the drafting, not from the plan: `[logo: …]`,
+`[struck through: …]` (a caption amended by hand, whose status matters), `[handwritten page]`,
+`[graphic: …]` for an inline icon, and `[stamp, rotated: …]` were all invented by the drafter
+against pages the rules had not anticipated, and were adopted rather than rejected.
+
 Step 2 — every candidate engine over the same 90 pages, scored by CER, WER and by
 docket-number and date errors per tier — starts when the check is done.

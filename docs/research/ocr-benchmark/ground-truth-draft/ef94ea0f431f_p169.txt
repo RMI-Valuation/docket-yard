@@ -3,10 +3,10 @@ Appendix D: Transportation Analysis Methods and Results
 costs include pavement maintenance, congestion reduction, accident costs (property damage,
 medical costs, etc.), and noise abatement. SEA used the following assumptions in its analysis:
 
-•	A 60,000-pound, five-axle semi-trailer represents the type of truck removed from the
+•   A 60,000-pound, five-axle semi-trailer represents the type of truck removed from the
 highway system.
 
-•	Traffic reduction on a highway mix consists of 90 percent rural interstate roads and
+•   Traffic reduction on a highway mix consists of 90 percent rural interstate roads and
 10 percent urban interstate roads.
 
 SEA used the Federal Highway Administration's estimates of marginal costs for various
@@ -21,16 +21,16 @@ projected truck-to-rail diversions. Chapter 4, "Environmental Consequences—Ope
 Changes," presents the estimated reductions in highway accidents (see Section 4.1, "Freight Rail
 Operations Safety") and fuel consumption savings (see Section 4.10, "Energy").
 
-D.5.6	Navigation Effects
+D.5.6   Navigation Effects
 
 SEA reviewed the following changes in the operations and facilities to estimate potential effects
 on navigation:
 
-•	Proposed changes in freight train activity on rail line segments, based on the Applicants'
+•   Proposed changes in freight train activity on rail line segments, based on the Applicants'
 Operating Plan. These changes could affect the operation of movable bridges on that rail
 line segment and thus be subject to U.S. Coast Guard regulations.
 
-•	Proposed new bridges or alterations to existing bridges that would be subject to U.S.
+•   Proposed new bridges or alterations to existing bridges that would be subject to U.S.
 Coast Guard approval and U.S. Army Corps of Engineers approvals for dredge and fill
 activities.
 
@@ -40,7 +40,7 @@ provides data regarding the movable bridges in the CN/IC system.
 The Applicants currently use four of the six bridges for freight rail operations. The two bridges
 not used for freight rail operations are:
 
-8	Federal Highway Administration. Federal Highway Cost Allocation Study. 1997.
+8   Federal Highway Administration. Federal Highway Cost Allocation Study. 1997.
 
-Proposed CN/IC Acquisition	November 1998	Draft Environmental Assessment
+Proposed CN/IC Acquisition   November 1998   Draft Environmental Assessment
 D-13

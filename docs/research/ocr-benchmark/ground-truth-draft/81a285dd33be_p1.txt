@@ -7,33 +7,36 @@
 BEFORE THE
 SURFACE TRANSPORTATION BOARD
 
-AEP TEXAS NORTH COMPANY
-)
-Complainant,
-)
-v.
-)
-Docket No. 41191 (Sub-No. 1)
-)
-THE BURLINGTON NORTHERN AND
-SANTA FE RAILWAY COMPANY
-)
-Defendant.
-)
+[table]
+	)	
+AEP TEXAS NORTH COMPANY	)	
+	)	
+Complainant,	)	
+	)	
+v.	)	Docket No. 41191 (Sub-No. 1)
+	)	
+THE BURLINGTON NORTHERN AND	)	
+SANTA FE RAILWAY COMPANY	)	
+	)	
+Defendant.	)	
+[end table]
 
-[stamp: ENTERED Office of Proceedings AUG 1 8 2004 Part of Public Record]
+[stamp: ENTERED Office of Proceedings AUG 18 2004 Part of Public Record]
 
 ERRATA TO REBUTTAL EVIDENCE OF COMPLAINANT
 AEP TEXAS NORTH COMPANY
 
-AEP Texas North Company ("AEP Texas") submits the following errata to
+AEP Texas North Company (“AEP Texas”) submits the following errata to
+
 its Rebuttal Evidence filed in this proceeding on July 27, 2004.
 
 Narrative
 
+[table]
 Page	Line(s)/Location	Change
-I-17	Line 10	Strike "II." and insert "pp."
-I-41	Line 14	Insert "[sic]" between "is" and "was"
+I-17	Line 10	Strike “II.” and insert “pp.”
+I-41	Line 14	Insert “[sic]” between “is” and “was”
 I-41	Insert after block quote	See U.S. ex. rel. Louisville Cement Co. v. I.C.C., 246 U.S. 638, 642 (1918)
+[end table]
 
 -3-

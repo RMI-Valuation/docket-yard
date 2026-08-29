@@ -1,4 +1,4 @@
-Sep-05-2003 17:01	From-FLETCHER & SIPPEL LLC	312-252-2400	T-471	P.022/027	F-812
+Sep-05-2003 17:01   From-FLETCHER & SIPPEL LLC   312-252-2400   T-471   P.022/027   F-812
 
 [logo: TFM]
 TRANSPORTACION
@@ -14,7 +14,7 @@ Kansas City Southern
 P.O. Box 219335
 Kansas City, Missouri 64105
 
-Re:	Exercise of the Mexrail Repurchase Right
+Re:   Exercise of the Mexrail Repurchase Right
 
 Dear Mr. Haverty:
 
@@ -36,10 +36,12 @@ Manhattan Plaza, New York, New York, 10005, if KCS so agrees in writing. TFM sha
 pay to KCS $32,680,000 in consideration of the Repurchase. Unless otherwise instructed
 by KCS, TFM shall make such payment by wire transfer as follows:
 
+[table]
 Bank:	UMB Bank NA (Formerly: United Missouri Bank)
 Beneficiary:	Kansas City Southern Railway
 Account:	980 104 9135
 ABA:	101 000 695
+[end table]
 
 At the Repurchase Closing, in addition to such other requirements as are set out in
 the Stock Purchase Agreement, KCS shall deliver to TFM stock certificates representing

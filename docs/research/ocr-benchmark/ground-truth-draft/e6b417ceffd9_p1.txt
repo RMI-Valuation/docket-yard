@@ -45,8 +45,10 @@ Mayor
 
 RJS/gs
 
+[table]
 Copies to:	Linda Baburek
 	Mack H. Shumate
+[end table]
 
 Phone (402) 461-2317   •   Fax (402) 461-2323
 E-mail: rsheehy@tcgcs.com
