@@ -55,7 +55,15 @@ applies too:
 - verbatim — spelling, capitals, punctuation, numbers, one printed line per line, a blank
   line between paragraphs; nothing corrected, expanded or summarised; docket numbers and
   dates character-exact;
-- tables: one row per line, cells separated by a tab;
+- **tables** are wrapped in `[table]` … `[end table]`, one row per line, cells separated by
+  a **real tab character** (never the two characters `	` — one draft wrote the escape,
+  caught 2026-08-29). Every row inside a block carries the **same number of cells**, padded
+  with empty ones, so the grid is unambiguous: a header spanning several columns keeps its
+  text in the first and leaves the rest empty. A page holding several grids — a form of
+  stacked panels, like the FMCSA carrier detail in the sample — gets a block each, which is
+  what tells a reader that the differing widths are separate tables rather than a ragged
+  one. A cell whose text wraps in the original is joined with a single space, as running
+  prose is;
 - `[illegible]` for a word, `[illegible: N words]` for a run — never a guessed docket
   number or date;
 - **a fragment of another page** caught in the scan — a facing page whose margin the
@@ -161,7 +169,7 @@ What **is** scored, and therefore what the check must catch:
 | **Docket numbers** (separately) | `FD 32760` read as `FD 32780`; a number invented where the page has none |
 | **Dates** (separately) | `February 26, 1997` read as `February 28, 1997`; a date assembled from two |
 | **Reading order** | A two-column page read straight across; a stamp or margin note spliced into the middle of a sentence — normalisation cannot repair a scrambled sequence |
-| **Table grid** (tabular tier) | Rows merged into one line, or cells not separated by tabs; a table's grid is meaning, not layout preference, so it is compared cell by cell as well as flowed |
+| **Table grid** (tabular tier) | Rows merged into one line, cells not tab-separated, or a row with the wrong number of cells; inside `[table]` the grid is compared **cell by cell** (the block markers unwrap like any other bracket for the flowed comparison), because a grid is meaning, not layout preference |
 | **False text** (graphic and blank tiers) | Any prose asserted on a page that carries only labels, or on a blank page |
 
 **A fragment of an adjacent page is excluded from the page's CER and WER** — an engine
@@ -181,6 +189,12 @@ The same rule governs the pipeline, not just the benchmark: text inside an
 almost always scanned in full elsewhere in the same PDF, so indexing the fragment here
 would duplicate content under the wrong page — and let an extractor read a fragmentary
 docket number (`33698, Union [cut]`) and attribute it to the wrong proceeding.
+
+What the table convention deliberately does **not** carry: column spans as syntax, header
+flags, cell types, alignment. Those are the shape of *structured extraction* — capability
+D3's reference-data series is exactly a pile of tables — and they need a schema and a
+schema-critic pass, not a notation invented for ground truth. The rule here is only what a
+scorer needs to compare two grids.
 
 A **graphic page is scored as a set, not a sequence**: labels are scattered across a map and
 have no reading order, so an engine is scored on which labels it recovered and which it
