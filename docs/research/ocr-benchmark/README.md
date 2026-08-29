@@ -21,11 +21,21 @@ by the drafting model — the operator's check of the transcriptions is also a c
 
 | Tier | In the 122 | Selected | What it holds |
 | --- | --- | --- | --- |
-| clean | 62 | 35 | Typescript or laser print, level, good contrast |
+| clean | 63 | 36 | Typescript or laser print, level, good contrast |
 | degraded | 40 | 37 | Fax headers, RECEIVED stamps over text, faint or skewed copies, dense small print, two handwritten letters, a photocopied form |
 | tabular | 7 | 7 | True tables and forms (a rotated dwell-time table, an errata table, a corrections list, a motor-carrier detail form, an e-mail header block) |
-| graphic | 12 | 10 | Maps and exhibits with labels only — kept to measure *false text*, which the plan did not foresee |
+| graphic | 11 | 9 | Maps and exhibits with labels only — kept to measure *false text*, which the plan did not foresee |
 | blank | 1 | 1 | A near-blank scan |
+
+**The tier is an assertion too, and it is the one most likely to be wrong**, because it was
+assigned from contact-sheet thumbnails. The check page carries a Tier row so a mis-tier is
+one click, reported separately from a transcription fix. First correction, by the operator
+2026-08-29: `471668e9328e_p7` (AB 167 (Sub-No. 1094A)) was drawn as *graphic* and is clean
+typescript — the scan's heavy black edges dominated the thumbnail. A cross-check of every
+tier against the drafter's own `[graphic page]` / `[blank page]` marker — which it wrote
+from the full-resolution page, independently of the tiering — found no other disagreement;
+clean-versus-degraded and a missed table cannot be cross-checked that way and rest on the
+operator's eye.
 
 Tables are scarce in a random draw of pages (7 of 122). The plan asked for thirty; the
 seven are kept and a **targeted top-up** of tabular pages is a step-1 follow-up, not a

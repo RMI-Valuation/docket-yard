@@ -890,10 +890,16 @@
    "raw_docket": "AB_167_1094_A",
    "date": "2003-01-29",
    "type": "Motion/Petition/Request",
-   "tier": "graphic",
+   "tier": "clean",
    "png": "471668e9328e_p7.png",
    "index": 58,
-   "selected": true
+   "selected": true,
+   "tier_corrected": {
+    "from": "graphic",
+    "at": "2026-08-29",
+    "by": "operator",
+    "why": "clean typescript; the scan's heavy black edges read as a graphic at contact-sheet size"
+   }
   },
   {
    "sha256": "9ff134270451d3ded235206dba8786b434ae259c3186d5ee7bc3f6c15425fd17",
@@ -1844,6 +1850,7 @@
  "tiering": {
   "assigned_at": "2026-08-28",
   "by": "model (Claude Fable 5), from the contact sheets",
-  "note": "tables are scarce in a random draw of pages (7 of 122); maps/exhibits and near-blank scans are a class the plan did not foresee and are kept to measure false text"
+  "note": "tables are scarce in a random draw of pages (7 of 122); maps/exhibits and near-blank scans are a class the plan did not foresee and are kept to measure false text",
+  "corrections": "471668e9328e_p7 graphic\u2192clean (operator, 2026-08-29). A cross-check of every tier against the drafter's own [graphic page]/[blank page] marker found no other disagreement; clean-vs-degraded and missed tables cannot be cross-checked and rest on the operator's eye."
  }
 }
