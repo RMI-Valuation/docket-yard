@@ -7,19 +7,17 @@
 BEFORE THE
 SURFACE TRANSPORTATION BOARD
 
-[table]
-	)	
-AEP TEXAS NORTH COMPANY	)	
-	)	
-Complainant,	)	
-	)	
-v.	)	Docket No. 41191 (Sub-No. 1)
-	)	
-THE BURLINGTON NORTHERN AND	)	
-SANTA FE RAILWAY COMPANY	)	
-	)	
-Defendant.	)	
-[end table]
+)
+AEP TEXAS NORTH COMPANY   )
+)
+Complainant,   )
+)
+v.   )   Docket No. 41191 (Sub-No. 1)
+)
+THE BURLINGTON NORTHERN AND   )
+SANTA FE RAILWAY COMPANY   )
+)
+Defendant.   )
 
 [stamp: ENTERED Office of Proceedings AUG 18 2004 Part of Public Record]
 

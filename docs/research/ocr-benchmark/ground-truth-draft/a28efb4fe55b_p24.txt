@@ -36,12 +36,13 @@ Manhattan Plaza, New York, New York, 10005, if KCS so agrees in writing. TFM sha
 pay to KCS $32,680,000 in consideration of the Repurchase. Unless otherwise instructed
 by KCS, TFM shall make such payment by wire transfer as follows:
 
-[table]
-Bank:	UMB Bank NA (Formerly: United Missouri Bank)
-Beneficiary:	Kansas City Southern Railway
-Account:	980 104 9135
-ABA:	101 000 695
-[end table]
+Bank:   UMB Bank NA (Formerly: United Missouri Bank)
+
+Beneficiary:   Kansas City Southern Railway
+
+Account:   980 104 9135
+
+ABA:   101 000 695
 
 At the Repurchase Closing, in addition to such other requirements as are set out in
 the Stock Purchase Agreement, KCS shall deliver to TFM stock certificates representing
@@ -50,7 +51,7 @@ documents or, if the Transferred Shares are being held by Thomas F. Power Jr. (t
 
 TFM, S.A. de C.V.
 Av. Periférico Sur 4829, 4° Piso, Col. Parques del Pedregal C.P. 14010,
-Delegación Tlalpan, México. D.F., Tel. (55) 5447 5836 Fax (55) 5447 5830
+Delegación Tlalpan, México. D.F., Tel. (55) 5447 5836  Fax (55) 5447 5830
 
 Av. Manuel Barragán 4850 Norte, Col. Hidalgo C.P. 64290 Monterrey, N.L.
 Tel. Conmutador (81) 8305 7900, 8305 7836

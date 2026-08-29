@@ -21,11 +21,16 @@ by the drafting model — the operator's check of the transcriptions is also a c
 
 | Tier | In the 122 | Selected | What it holds |
 | --- | --- | --- | --- |
-| clean | 63 | 36 | Typescript or laser print, level, good contrast |
+| clean | 65 | 38 | Typescript or laser print, level, good contrast |
 | degraded | 40 | 37 | Fax headers, RECEIVED stamps over text, faint or skewed copies, dense small print, two handwritten letters, a photocopied form |
-| tabular | 7 | 7 | True tables and forms (a rotated dwell-time table, an errata table, a corrections list, a motor-carrier detail form, an e-mail header block) |
+| tabular | 5 | 5 | Pages carrying a true grid: the rotated dwell-time table, an environmental criteria matrix, an errata table, a rate-case corrections list, the FMCSA carrier detail panels — 12 grids in all, plus the station, bridge and connections tables drawn on two of the maps |
 | graphic | 11 | 9 | Maps and exhibits with labels only — kept to measure *false text*, which the plan did not foresee |
 | blank | 1 | 1 | A near-blank scan |
+
+The tabular tier shrank from seven to five when the grid test was applied (below): a web
+comment form and a printed e-mail are label/value blocks, not grids. Five of ninety makes
+the **targeted top-up of tabular pages** the most useful step-1 follow-up — the plan asked
+for thirty, and a random draw of pages will not find them.
 
 **The tier is an assertion too, and it is the one most likely to be wrong**, because it was
 assigned from contact-sheet thumbnails. The check page carries a Tier row so a mis-tier is

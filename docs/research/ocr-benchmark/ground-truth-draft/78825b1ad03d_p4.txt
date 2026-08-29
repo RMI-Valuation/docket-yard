@@ -5,20 +5,18 @@ number, please leave it blank and we will fill it out for you.
 
 Please fill out the following information to help us complete your filing:
 
-[table]
-Docket #:	-	- -
-[end table]
+Docket #:   -   - -
 
-[table]
-Subject: *	STB Ex Parte No. 658
-First Name: *	Michael
-Middle Name:	
-Last Name: *	Sussman
-Address: *	709 S. 17th Street
-City: *	Philadelphia
-State: *	PA
-Zip Code: *	19146-
-Email Address: *	msussman@strategicrail.com
-Group/Affiliation:	Strategic Rail Finance
-Message:	I have previously requested time to speak at the October 19 hearing on the 25th anniversary of the Staggers Act.
-[end table]
+Subject: *   STB Ex Parte No. 658
+First Name: *   Michael
+Middle Name:
+Last Name: *   Sussman
+Address: *   709 S. 17th Street
+
+City: *   Philadelphia
+State: *   PA
+Zip Code: *   19146-
+Email Address: *   msussman@strategicrail.com
+Group/Affiliation:   Strategic Rail Finance
+Message:   I have previously requested time to speak at the October 19 hearing on the 25th
+anniversary of the Staggers Act.

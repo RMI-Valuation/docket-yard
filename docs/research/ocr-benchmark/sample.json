@@ -986,10 +986,16 @@
    "raw_docket": "EP_658_0",
    "date": "2005-10-12",
    "type": "Oral Argument Exhibits",
-   "tier": "tabular",
+   "tier": "clean",
    "png": "78825b1ad03d_p4.png",
    "index": 64,
-   "selected": true
+   "selected": true,
+   "tier_corrected": {
+    "from": "tabular",
+    "at": "2026-08-29",
+    "by": "operator",
+    "why": "a web comment form of label/value fields, no grid"
+   }
   },
   {
    "sha256": "69e1780fd3b911520b018291c4c99437003c0714db1e53fedb2e03798481f641",
@@ -1511,10 +1517,16 @@
    "raw_docket": "FD_34890_0",
    "date": "2006-10-13",
    "type": "Reply",
-   "tier": "tabular",
+   "tier": "clean",
    "png": "9b00fb3fd0d3_p13.png",
    "index": 99,
-   "selected": true
+   "selected": true,
+   "tier_corrected": {
+    "from": "tabular",
+    "at": "2026-08-29",
+    "by": "operator",
+    "why": "a printed e-mail; its To/cc/bcc/Subject header is label/value, no grid"
+   }
   },
   {
    "sha256": "5f40ba3f2fcad37a44008f5619611c9f8c7d1d3e0c3d1efa0f61fc9219a9d8e1",
@@ -1851,6 +1863,6 @@
   "assigned_at": "2026-08-28",
   "by": "model (Claude Fable 5), from the contact sheets",
   "note": "tables are scarce in a random draw of pages (7 of 122); maps/exhibits and near-blank scans are a class the plan did not foresee and are kept to measure false text",
-  "corrections": "471668e9328e_p7 graphic\u2192clean (operator, 2026-08-29). A cross-check of every tier against the drafter's own [graphic page]/[blank page] marker found no other disagreement; clean-vs-degraded and missed tables cannot be cross-checked and rest on the operator's eye."
+  "corrections": "471668e9328e_p7 graphic\u2192clean (operator, 2026-08-29). A cross-check of every tier against the drafter's own [graphic page]/[blank page] marker found no other disagreement; clean-vs-degraded and missed tables cannot be cross-checked and rest on the operator's eye. 78825b1ad03d_p4 and 9b00fb3fd0d3_p13 tabular\u2192clean (operator, 2026-08-29): a form and an e-mail header are label/value blocks, not grids."
  }
 }

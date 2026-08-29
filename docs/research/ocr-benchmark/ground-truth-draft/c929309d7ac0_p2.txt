@@ -9,12 +9,10 @@ STOP 1580
 1400 Douglas Street
 Omaha, NE 68179
 
-[table]
-Deliver to:	Ernestine Hedgepeth	Co./Dept:	STB
-	202-565-9002		
-From:	Bob Opal	Phone:	(402) 544-3072
-Date:	April 5, 2005	Fax:	(402) 501-0132
-[end table]
+Deliver to:  Ernestine Hedgepeth   Co./Dept:  STB
+202-565-9002
+From:  Bob Opal   Phone:  (402) 544-3072
+Date:  April 5, 2005   Fax:  (402) 501-0132
 
 No. of Pages Transmitted: 1 + Cover
 
