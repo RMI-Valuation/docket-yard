@@ -55,6 +55,17 @@ applies too:
 - verbatim — spelling, capitals, punctuation, numbers, one printed line per line, a blank
   line between paragraphs; nothing corrected, expanded or summarised; docket numbers and
   dates character-exact;
+- **a table is a grid**, and the test is whether a cell's *column* tells you what the cell
+  means: flatten the rows into prose, and if you lose which value belongs to which column,
+  it is a table. A **label/value block** — an e-mail's To/cc/bcc/Subject, a fax cover's
+  Deliver to/From/Date, a letterhead, `US DOT: 982739  Docket Number: MC415708`, a
+  signature block, an address — carries its label on the same line as its value, so the
+  column adds nothing and it is transcribed as ordinary lines. The distinction matters
+  because reading alignment as a grid *invents* relationships: on FD 34890 a first pass
+  paired the sender's name with `To` and the timestamp with `cc` purely because they sat at
+  the same height on the page (caught by the operator 2026-08-29). One page may hold both:
+  the FMCSA carrier detail has real grids for authority and insurance and label/value lines
+  for the carrier's own particulars;
 - **tables** are wrapped in `[table]` … `[end table]`, one row per line, cells separated by
   a **real tab character** (never the two characters `	` — one draft wrote the escape,
   caught 2026-08-29). Every row inside a block carries the **same number of cells**, padded
