@@ -46,16 +46,33 @@ Tables are scarce in a random draw of pages (7 of 122). The plan asked for thirt
 seven are kept and a **targeted top-up** of tabular pages is a step-1 follow-up, not a
 reason to hold the rest.
 
-## The transcriptions (drafted, awaiting the operator's check)
+## The transcriptions — checked, and now ground truth
 
-`ground-truth-draft/<png>.txt` — one file per selected page, **90 files, 137,096 characters**,
+`ground-truth/<png>.txt` — one file per selected page, **90 files, 137,096 characters**,
 drafted 2026-08-28 by a model (Claude Fable 5, one pass per page, one agent per page) from
 the rendered page image. Density by tier: clean ~1,370 characters a page with 4 `[illegible]`
 marks in all; degraded ~1,890 with 72; tabular ~1,130 with 1; graphic ~1,130 with 15; the
 blank page is `[blank page]`.
-**They are ground truth only after the operator checks each against the page image**, as
-`benchmark/labels.csv` was for extraction. Rules the drafter followed, which the checker
-applies too:
+**Checked by the operator 2026-08-29**, every page against its scan, and accepted: one
+correction was found — a table wrongly marked on FD 34890 — and it had already been fixed
+during the pass. The directory is `ground-truth/`, no longer a draft.
+
+**How it was checked, because it bounds what may be claimed.** The pass was made at reading
+speed, comparing each transcription against its page, rather than word by word. That is
+sound for what the benchmark decides and it is why the check was possible at all; but it
+puts a floor under character error rate, since an engine's residual error at a few tenths of
+a percent cannot be told apart from the reference's own. So:
+
+- **ranking the candidates is unaffected** — every engine is measured against the same
+  reference, and the comparison is what chooses one;
+- **docket numbers, dates, false text on a graphic or blank page, and the table grids** are
+  scored separately, are few per page, and survive a reading-speed check;
+- **no absolute accuracy figure may be published** from this reference — "99.4% character
+  accuracy" would assert a precision the ground truth does not have. A second independent
+  transcription pass, with the operator arbitrating only where the two disagree, is what
+  would earn one, and is not needed to run step 2.
+
+Rules the drafter followed, which the checker applied too:
 
 - verbatim — spelling, capitals, punctuation, numbers, one printed line per line, a blank
   line between paragraphs; nothing corrected, expanded or summarised; docket numbers and

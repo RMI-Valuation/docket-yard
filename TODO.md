@@ -9,9 +9,11 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- **OCR (M3 slice, chosen 2026-08-28):** step 1 — draw the 90-page sample on RMI-AI-MACHINE
-  (`tools/rmi-ai-machine/ocr_sample.py`), draft transcriptions, Cameron checks against the
-  page images; then step 2 (Tesseract, docTR/Paddle, a 7B VLM, the API model on the 90)
+- **OCR (M3 slice):** step 1 **done** — 90-page ground truth checked and accepted by Cameron
+  2026-08-29 (`docs/research/ocr-benchmark/ground-truth/`). Step 2 next: Tesseract, a
+  document-OCR model and a 7B VLM on the box, scored by CER/WER per tier plus docket
+  numbers, dates, false text and table grids. **Waiting on Cameron: the API candidate (it
+  spends money)** — local-only can start without it
 - Document viewer: confirmed in a browser; the web tier runs on its own read-only key since
   2026-08-27. Open: the `sandbox` CSP test (`docs/deferred.md` § Document viewer)
 - Keys rotated 2026-08-28: `docketyard-instance` has a new key (ingest, Litestream, host units
@@ -26,9 +28,8 @@ by pre-commit: when it fires, prune.
   layer over the first 9,663 wave 2–3 files done (1,480 image-only — 15%); the full-record
   pull + extraction started 2026-08-27 13:45 UTC in tmux `extract`. Scoring waits on
   Cameron's check of `labels.csv`; the API candidate waits on his go (it spends money)
-- Explainers published 2026-08-28; the [?] rows (TA, S, N suffixes; PTO, SAI, MXC, CNO; the six
-  empty prefixes) await one email to the Board's records staff — Cameron's to send. Whether/how
-  to announce the wedge — his call
+- Explainers' [?] rows await one email to the Board's records staff — Cameron's. Announcing
+  the wedge: his call
 
 ## Next
 

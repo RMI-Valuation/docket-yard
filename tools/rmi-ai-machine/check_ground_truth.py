@@ -4,7 +4,7 @@ The rules a transcription must keep are few, and every one of them exists becaus
 broke it: real tabs inside a `[table]` block, a square grid per block, no completed `[cut]`
 line, brackets that close. Run before a scoring pass, and after any re-draft.
 
-    python check_ground_truth.py docs/research/ocr-benchmark/ground-truth-draft
+    python check_ground_truth.py docs/research/ocr-benchmark/ground-truth
 """
 
 import re

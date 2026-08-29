@@ -6,7 +6,7 @@ one click away at its permanent address. Verdicts, notes, tier corrections and t
 kept in the reader's browser; "Copy corrections" hands them back in one block.
 
 Needs `data/ocr/pageimg.json` from `ocr_page_images.py` and the drafts in
-`docs/research/ocr-benchmark/ground-truth-draft`. This is a stand-in for the `/review` queue
+`docs/research/ocr-benchmark/ground-truth`. This is a stand-in for the `/review` queue
 ADR 0016 accepts, and a paper prototype of it: the real one shows the document at
 `/document/<sha>.pdf` and records each check as a provenance row.
 """
@@ -25,7 +25,7 @@ OUT = Path(
 
 sample = json.loads((ROOT / "data/ocr/sample.json").read_text(encoding="utf-8"))
 pageimg = json.loads((ROOT / "data/ocr/pageimg.json").read_text(encoding="utf-8"))
-draft = ROOT / "docs/research/ocr-benchmark/ground-truth-draft"
+draft = ROOT / "docs/research/ocr-benchmark/ground-truth"
 
 order = {"clean": 0, "degraded": 1, "tabular": 2, "graphic": 3, "blank": 4}
 items = []

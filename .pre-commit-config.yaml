@@ -12,9 +12,9 @@ repos:
     hooks:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
-        exclude: ^docs/research/ocr-benchmark/ground-truth-draft/
+        exclude: ^docs/research/ocr-benchmark/ground-truth/
       - id: end-of-file-fixer
-        exclude: ^docs/research/ocr-benchmark/ground-truth-draft/
+        exclude: ^docs/research/ocr-benchmark/ground-truth/
       - id: mixed-line-ending
         args: [--fix=lf]
       - id: check-merge-conflict
