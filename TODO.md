@@ -9,46 +9,45 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- **OCR (M3 slice):** step 1 **done** — 90-page ground truth checked and accepted by Cameron
-  2026-08-29 (`docs/research/ocr-benchmark/ground-truth/`). Step 2 next: Tesseract, a
-  document-OCR model and a 7B VLM on the box, scored by CER/WER per tier plus docket
-  numbers, dates, false text and table grids. **Waiting on Cameron: the API candidate (it
-  spends money)** — local-only can start without it
-- Document viewer: confirmed in a browser; the web tier runs on its own read-only key since
-  2026-08-27. Open: the `sandbox` CSP test (`docs/deferred.md` § Document viewer)
-- Keys rotated 2026-08-28: `docketyard-instance` has a new key (ingest, Litestream, host units
-  verified); the old one is **Inactive, not deleted** — delete it after a clean day
-  (`aws iam delete-access-key`). Cameron stores both new secrets from the session scratchpad
-- Backfill complete 2026-08-27: 77,565 documents held; the 41 partial months re-walked and
-  recorded `empty` (13:58 UTC), `/coverage` lists none. One legacy `/MPD/` URL 403s (rests
-  a week from PR #10)
-- Seed wave 2 (after wave 3 tables): most frequent unresolved spans; pre-2020 roads
-  (Conrail, SP, BN/ATSF, IC, WC, KCS) and dated successions
-- RMI-AI-MACHINE: qwen3:14b step-2 run done 2026-08-26 (60/60, `benchmark/runs/`); text
-  layer over the first 9,663 wave 2–3 files done (1,480 image-only — 15%); the full-record
-  pull + extraction started 2026-08-27 13:45 UTC in tmux `extract`. Scoring waits on
-  Cameron's check of `labels.csv`; the API candidate waits on his go (it spends money)
-- Explainers' [?] rows await one email to the Board's records staff — Cameron's. Announcing
-  the wedge: his call
+- **Labels (extraction benchmark):** four conventions settled 2026-08-29, applied and
+  corrected after review — `target_kind` on every row; 727 citations, 86 captions, 164
+  deadlines. The test is document vs proceeding: a prior decision is a citation even in the
+  decision's own docket. **Cameron's row check remains** (884 cards) — start with the 20
+  whose quote is not in the text (5 are wrong pin cites). No scorer yet: it must compare
+  *sets* of (decision, target), scoring each `target_kind` apart
+- RMI-AI-MACHINE **offline on the tailnet since ~2026-08-29 06:00** (the workstation is not on
+  its LAN) — Cameron fixes it physically; then OCR step 2, and check `systemctl is-enabled
+  tailscaled`, `journalctl -b -1 -e`, mask the sleep targets
+- **OCR (M3 slice):** step 1 accepted 2026-08-29. Step 2 **cloud half done 2026-08-29**
+  without the box: Textract and Claude Sonnet 5 over the 90 pages (`ocr_run.py` gained both
+  engines; Textract records per-word confidence). Claude leads on every tier; Textract is
+  within a point on clean pages at 1/11th the cost, and is redundant-preprocessed — greyscale
+  and 1-bit score identically. Local engines still unrun (box down). **Note the ground
+  truth's own bound: ranking may be published, absolute character accuracy may not**
+- Delete the Inactive `docketyard-instance` key after a clean day (`aws iam delete-access-key`);
+  Cameron stores both new secrets from the session scratchpad
+- **Revoke the Anthropic API key** pasted 2026-08-29 (it is in this session's transcript);
+  it lives at `~/.anthropic-key`. Cost so far ~$5. Next: OCR→citation compound measurement
+- Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
+- Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
 
 ## Next
 
-- **ADR 0016** (proposed 2026-08-28, Cameron's ask): a reviewer has an identity, reading stays
-  anonymous — the review area `/review` for OCR pages, citation edges, labels, corrections.
-  Cameron accepts or amends; then schema-critic on `reviewer`/`review_action`, then build
+- **ADR 0016** accepted 2026-08-28: a reviewer has an identity, reading stays anonymous;
+  `/review` for OCR pages, citation edges, labels, corrections. Next: schema-critic on
+  `reviewer`/`review_action`, then build
 - Citator schema gate, before C2 is chosen: the citation-edge shape against
-  `validation-queries.md` (negative treatment, segment history), ADR 0006 and 0007 — a new ADR
-  if needed; an unresolvable citation string is data, record the span; re-measure ~22% density
+  `validation-queries.md`, ADR 0006 and 0007 — a new ADR if needed; an unresolvable citation
+  string is data, record the span. **Its first four answers are settled** in
+  `docs/research/benchmark/README.md`
 - Deadline engine (C4) evidence: decision JSON carries no extracted obligations (verified
-  2026-08-26); F1's "computed next deadline" presupposes it; a hand-checked fixture of 8 dated
-  obligations for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only;
-  what else to take from that project: `docs/upns-tracker-inheritance.md`).
-  Hard rule: dates quoted, never computed; a reset schedule supersedes (ADR 0006)
+  2026-08-26); a hand-checked fixture of 8 dated obligations for FD 36873 is in
+  `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only; see
+  `docs/upns-tracker-inheritance.md`). Dates quoted, never computed (ADR 0006)
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
-- **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md` —
-  ground truth the operator checks, engines measured by CER and by docket-number/date errors,
-  a review layer (agreement → confidence, registry checks, an operator queue). Four
-  decisions at the end of the plan are Cameron's; nothing reads into the store before step 3
+- **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md`.
+  Shape now measured: Textract bulk + Claude on graphic/tabular/low-confidence, ~$700 for
+  the backfill; nothing reads into the store before step 3
 - Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
 - When this list runs short or a decision makes one of them near-term, pull the next item
   from `docs/deferred.md` (review findings and known gaps, dated, with their context)
