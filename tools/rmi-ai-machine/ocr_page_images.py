@@ -1,15 +1,17 @@
-"""Encode the sampled pages for the check queue: trim the render down to the scan itself,
-threshold per page, and embed at full resolution.
+"""Encode the sampled pages for the check queue: the page as the Board's PDF has it, at
+full resolution, thresholded per page.
 
-A 150 dpi render is the whole PDF page, which is often legal-size or oversized with the
-scan sitting in one corner — measured 2026-08-29, the content is 55-76% of the render on
-half the sample. Fitting the *page* therefore fits mostly white and the type comes out
-small. Both the blank margins and the scanner's solid black bars are trimmed from the
-edges inward, never from the middle.
+**The page is not cropped.** A reviewer checking a transcription against a page must see
+the page, margins and all; altering the image to suit the display would put them at one
+remove from the source. The white margin is measured and reported here because it is a real
+property of the renders — a 150 dpi render is the whole PDF page, often legal-size or
+oversized with the scan in one corner, and the content is 55-76% of the render on half the
+sample — but whether to trim before handing a page to an OCR engine is a **step 2
+preprocessing variable to measure**, not something to do to the reviewer's copy.
 
-The trim counts ink on the *thresholded* image, not brightness on the grey one: a column
-holding a few faint glyphs still averages near-white, and trimming on the mean clipped the
-right-hand edge off a light-toner letter (caught 2026-08-29).
+The threshold is Otsu per page: these are black type on white paper, so dropping the
+scanner's grey costs nothing, compresses enormously, and reads more clearly than the
+greyscale original on a faint page.
 """
 
 import base64
@@ -20,7 +22,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path("e:/DevProjects/docket-yard")
-BLANK, BAR, PAD = 0.0012, 0.90, 12  # ink fraction: an empty line, a solid bar, padding kept
+BLANK, BAR, PAD = 0.0012, 0.90, 12  # ink fraction: an empty line, a solid bar, padding
 
 
 def otsu(hist):
@@ -59,31 +61,25 @@ def edge_trim(profile):
 
 
 def content_box(mask, size):
+    """Where the ink actually is. Measured and reported; not applied to the image."""
     w, h = size
     y0, y1 = edge_trim(ink_profile(mask, size, 0))
     x0, x1 = edge_trim(ink_profile(mask, size, 1))
-    box = (max(0, x0 - PAD), max(0, y0 - PAD), min(w, x1 + 1 + PAD), min(h, y1 + 1 + PAD))
-    cw, ch = box[2] - box[0], box[3] - box[1]
-    if cw < w * 0.2 or ch < h * 0.2:  # a near-empty page: trust the render, not the trim
-        return (0, 0, w, h)
-    return box
+    return (max(0, x0 - PAD), max(0, y0 - PAD), min(w, x1 + 1 + PAD), min(h, y1 + 1 + PAD))
 
 
 def main():
     sel = json.loads((ROOT / "data/ocr/selected.json").read_text(encoding="utf-8"))
-    out, total, kept, lost, fallback = {}, 0, [], [], []
+    out, total, content, fallback = {}, 0, [], []
     for p in sel:
         g = Image.open(ROOT / "data/ocr/pages" / p["png"]).convert("L")
-        full = g.size
+        w, h = g.size
         t = otsu(g.histogram())
-        mask = g.point(lambda v, t=t: 255 if v > t else 0).convert("L")  # 0 = ink
-        box = content_box(mask, full)
-        ink_all = mask.histogram()[0]
-        ink_kept = mask.crop(box).histogram()[0]
-        lost.append(0.0 if ink_all == 0 else 1 - ink_kept / ink_all)
-        g = g.crop(box)
+        mask = g.point(lambda v, t=t: 255 if v > t else 0).convert("L")
+        box = content_box(mask, g.size)
+        content.append(((box[2] - box[0]) * (box[3] - box[1])) / (w * h))
         bw = g.point(lambda v, t=t: 255 if v > t else 0, mode="1")
-        ink = bw.histogram()[0] / (bw.size[0] * bw.size[1])
+        ink = bw.histogram()[0] / (w * h)
         b = io.BytesIO()
         if 0.002 < ink < 0.45:
             bw.save(b, "PNG", optimize=True)
@@ -95,15 +91,19 @@ def main():
         out[p["png"]] = {
             "m": mime,
             "d": base64.b64encode(b.getvalue()).decode(),
-            "w": g.size[0],
-            "h": g.size[1],
+            "w": w,
+            "h": h,
+            # where the ink is, for a reader who wants to fill the frame with it; the
+            # image itself is the whole page
+            "c": [box[0], box[1], box[2] - box[0], box[3] - box[1]],
         }
         total += len(b.getvalue())
-        kept.append((g.size[0] * g.size[1]) / (full[0] * full[1]))
     (ROOT / "data/ocr/pageimg.json").write_text(json.dumps(out), encoding="utf-8")
-    print(f"{len(out)} pages, {total // 1024} KB raw ({int(total * 1.34) // 1024} KB base64)")
-    print(f"area kept: {min(kept):.0%} smallest, {sum(kept) / len(kept):.0%} mean")
-    print(f"ink lost to the trim: {max(lost):.4%} worst, {sum(lost) / len(lost):.4%} mean")
+    print(
+        f"{len(out)} pages, whole, {total // 1024} KB raw ({int(total * 1.34) // 1024} KB base64)"
+    )
+    mean = sum(content) / len(content)
+    print(f"ink occupies {mean:.0%} of the render on average, {min(content):.0%} at least")
     print("greyscale fallbacks:", fallback)
 
 
