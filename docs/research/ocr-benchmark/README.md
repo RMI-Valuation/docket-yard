@@ -108,10 +108,18 @@ operator, published 2026-08-28): one page at a time, the scan at **full
 resolution beside the transcript** — scroll to zoom, drag to pan, double-click for one
 screen pixel per scan pixel, `w` to give the page the full width — with the Board's own
 file one click away at `docketyard.org/document/<sha>.pdf#page=N`, since every sampled
-document already answers at its permanent address. The pages are embedded as 1-bit PNGs at
-the render's own 150 dpi: a per-page Otsu threshold drops the scanner's grey and leaves the
-type crisper than the greyscale original, at 2.4 MB for all ninety (the one blank page,
-which has no ink to threshold, keeps its greys).
+document already answers at its permanent address. The pages are embedded by
+`tools/rmi-ai-machine/ocr_page_images.py` as 1-bit PNGs at the render's own 150 dpi — 2.3 MB
+for all ninety — and **trimmed to the scan itself**. A 150 dpi render is the whole PDF page,
+often legal-size or oversized with the scan in one corner: measured 2026-08-29, the content
+is 55–76% of the render on half the sample, so fitting the page fitted mostly white and the
+type came out small (reported by the operator the same day). Blank margins and the scanner's
+solid black bars are trimmed from the edges inward, never from the middle, counting ink on
+the thresholded image rather than brightness on the grey one — trimming on brightness clipped
+the right edge off a light-toner letter, since a column of faint glyphs still averages
+near-white. Measured after the fix: 0.2% of ink lost on average, and the worst case (15%) is
+a solid black scanner bar, not text. With the trim and a wider column the type is about
+twice the size it was.
 Verdicts and notes stay in that browser; **Copy corrections** hands them back in one block,
 which is then applied to the `.txt` files here. This is a stand-in for the `/review` queue
 ADR 0016 accepts; the real queue records each check as a provenance row instead.
