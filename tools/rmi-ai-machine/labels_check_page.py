@@ -5,10 +5,10 @@ passage highlighted in place, its labels on the other. Highlighting is the point
 the check is whether what is written is right, but a label set is also judged on what is
 **missing**, and an unhighlighted citation in the running text is the only way to see one.
 
-Four recurring judgement calls (a decision's own caption docket, a repeated short-form
-reference, a citation to a court, and "effective on its service date" as a deadline)
-account for about 130 of the 977 rows, so the queue asks those once, up front, rather than
-row by row.
+Four recurring judgement calls (a reference to the decision's own docket, a repeated
+short-form reference, a citation to a court, and "effective on its service date" as a
+deadline) were settled on 2026-08-29 and applied to every row; the queue records them at
+the top rather than asking, and `target_kind` carries the answer.
 
     python tools/rmi-ai-machine/labels_check_page.py
 
@@ -22,7 +22,7 @@ import csv
 import html
 import json
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path("e:/DevProjects/docket-yard")
@@ -31,38 +31,44 @@ OUT = Path(
     "96fc75d7-5d5a-4c59-a069-310fcbb7766b/scratchpad/labels-check.html"
 )
 
-CONVENTIONS = [
+SETTLED = [
     {
-        "id": "self",
-        "q": "Is a decision's own caption docket a citation?",
-        "detail": "The drafter labelled the docket numbers in a decision's own caption "
-        "(noted <em>self</em>). They are the proceeding the decision is in, not a reference "
-        "to another one.",
-        "count": "about 35 rows noted <em>self</em>",
+        "q": "Is a decision&rsquo;s own docket a citation?",
+        "a": "No &mdash; those rows are now <b>caption</b>",
+        "detail": "The record already knows which docket a decision belongs to, so an edge "
+        "there is a self-loop. They are kept rather than deleted: telling a caption from a "
+        "citation is the skill being tested, and these are the only negative examples the "
+        "sheet has. The test is whether the text names a <b>document</b> or only the "
+        "<b>proceeding</b>: <em>Docket No. EP 787</em> is a caption, <em>NPRM, EP 787, slip "
+        "op. at 4</em> is a citation to a prior decision even though the docket is this "
+        "decision&rsquo;s own. Twelve more are <b>record</b> cites &mdash; a filing in this "
+        "proceeding, where the docket number is an address, not the target.",
     },
     {
-        "id": "shortform",
-        "q": "Is a repeated short-form reference its own citation?",
-        "detail": "Where a decision cites a docket in full and then refers to it again in "
-        "short form, the drafter labelled each occurrence (noted <em>short form</em>). The "
-        "alternative is to label the first full citation only.",
-        "count": "54 rows noted <em>short form</em>",
+        "q": "Is a repeated short-form its own citation?",
+        "a": "Neither required nor penalised",
+        "detail": "A repeat adds no edge, so scoring compares <em>sets</em> of "
+        "(decision, target) pairs. Identical repeats are collapsed into one card below, with "
+        "their pages listed; a repeat whose wording differs stays its own card, because that "
+        "is where a wrong pin cite hides.",
     },
     {
-        "id": "court",
         "q": "Are citations to court decisions in scope?",
-        "detail": "The drafter labelled references to court opinions (noted <em>court</em>). "
-        "The citator is an STB and ICC citator; a court citation may belong to a later "
-        "capability, or may be worth capturing now as negative treatment.",
-        "count": "about 62 rows noted <em>court</em>",
+        "a": "Yes &mdash; typed <b>court</b>, scored apart",
+        "detail": "They cannot be validated against the docket registry, so they stay out of "
+        "the citator&rsquo;s first slice. But a court vacating a Board decision is the "
+        "strongest negative-treatment signal there is, and re-labelling them later would be "
+        "expensive.",
     },
     {
-        "id": "effective",
-        "q": "Is “effective on its service date” a deadline?",
-        "detail": "The drafter labelled ordering-paragraph sentences that make a decision "
-        "effective on the day it is served as deadlines with a blank target, since no date "
-        "is quoted. The alternative is that a deadline needs a date on the page.",
-        "count": "45 deadline rows carry no target",
+        "q": "Is &ldquo;effective on its service date&rdquo; a deadline?",
+        "a": "Yes &mdash; with the target named, never blank",
+        "detail": "The Board stated both the rule and the service date; joining two published "
+        "facts is quotation, not computation. The blank target was the actual defect. The "
+        "blank rows were three different things: <b>reference</b> (the service date), "
+        "<b>period</b> (only a period is printed, so the quoted sentence is the whole "
+        "answer), and <b>indefinite</b> (until further order, or tolled by a lapse in "
+        "appropriations).",
     },
 ]
 
@@ -143,6 +149,46 @@ def main() -> None:
         text = f.read_text(encoding="utf-8", errors="replace") if f else ""
         rs.sort(key=lambda r: (int(r["page"] or 0), rows.index(r)))
         marked, found = mark_up(text, rs)
+        # Identical passages collapse into one card. Only an exact match on the quoted text
+        # collapses: a repeat worded differently keeps its own card, because a wrong pin cite
+        # is precisely a difference in the wording.
+        groups: dict[tuple, dict] = {}
+        of_row = []
+        for i, r in enumerate(rs):
+            k = (r["kind"], r["target_kind"], r["target"], r["quoted"])
+            g = groups.get(k)
+            if g is None:
+                g = groups[k] = {
+                    "k": r["kind"],
+                    "tk": r["target_kind"],
+                    "p": r["page"],
+                    "pages": [r["page"]],
+                    "q": r["quoted"],
+                    "tg": r["target"],
+                    "n": r["note"],
+                    "_notes": [r["note"]] if r["note"] else [],
+                    "f": found[i] if i < len(found) else False,
+                    "c": 0,
+                    "_at": len(groups),
+                }
+            else:
+                g["pages"].append(r["page"])
+                # one occurrence not located is a finding, even if a sibling was found
+                g["f"] = g["f"] and (found[i] if i < len(found) else False)
+                if r["note"] and r["note"] not in g["_notes"]:
+                    g["_notes"].append(r["note"])
+            g["c"] += 1
+            of_row.append(g["_at"])
+        marked = re.sub(
+            r'data-row="(\d+)"',
+            lambda m, _of=of_row: f'data-row="{_of[int(m.group(1))]}"',
+            marked,
+        )
+        grouped = list(groups.values())
+        for g in grouped:
+            g["p"] = ", ".join(dict.fromkeys(g.pop("pages")))
+            g["n"] = "; ".join(g.pop("_notes"))  # every member's note, not just the first
+            g.pop("_at")
         head = rs[0]
         items.append(
             {
@@ -152,30 +198,27 @@ def main() -> None:
                 "dt": head["date"],
                 "url": head["board_url"],
                 "t": marked,
-                "rows": [
-                    {
-                        "k": r["kind"],
-                        "p": r["page"],
-                        "q": r["quoted"],
-                        "tg": r["target"],
-                        "n": r["note"],
-                        "f": found[i] if i < len(found) else False,
-                    }
-                    for i, r in enumerate(rs)
-                ],
+                "rows": grouped,
             }
         )
 
     data = (
         json.dumps(items, ensure_ascii=False).replace("<", "\\u003c").replace("\u2028", "\\u2028")
     )
-    conv = json.dumps(CONVENTIONS, ensure_ascii=False).replace("<", "\\u003c")
-    total = len(rows)
+    conv = json.dumps(SETTLED, ensure_ascii=False).replace("<", "\\u003c")
+    total = sum(len(it["rows"]) for it in items)
+    kinds = Counter(r["kind"] for r in rows)
+    counts = (
+        f"<b>{kinds['citation']} citations</b>, <b>{kinds['caption']} captions</b> and "
+        f"<b>{kinds['deadline']} deadlines</b>, shown as {total} cards once identical "
+        "repeats are collapsed"
+    )
     missing = sum(1 for it in items for r in it["rows"] if not r["f"])
     html_out = (
         TEMPLATE.replace("__DATA__", data)
         .replace("__CONV__", conv)
         .replace("__TOTAL__", str(total))
+        .replace("__COUNTS__", counts)
     )
     OUT.write_text(html_out, encoding="utf-8", newline="\n")
     print(f"wrote {OUT} {OUT.stat().st_size / 1e6:.2f} MB")
@@ -194,6 +237,7 @@ TEMPLATE = """<title>Label Ledger</title>
     --rule: #dcd9d3; --rule-firm: #c3bfb6; --accent: #3a3f7d; --accent-soft: #ececf6;
     --alert: #9d3a30; --alert-soft: #f7ebe8; --ok: #2f6b46;
     --cite: #2c5f8a; --cite-soft: #dcebf6; --dead: #8a5a1f; --dead-soft: #f8eeda;
+    --cap: #6b6f76; --cap-soft: #e9eaec;
     --heavy: #6b4478; --routine: #2c6b66; --short: #5b6b7a;
     --shadow: 0 1px 2px rgba(26,28,32,.06), 0 8px 24px -16px rgba(26,28,32,.28);
   }
@@ -203,6 +247,7 @@ TEMPLATE = """<title>Label Ledger</title>
       --rule: #2e3037; --rule-firm: #3d4048; --accent: #9aa1e4; --accent-soft: #23263a;
       --alert: #e0897b; --alert-soft: #33231f; --ok: #7fbf9a;
       --cite: #8ec3ea; --cite-soft: #1d3040; --dead: #e0b877; --dead-soft: #35291a;
+    --cap: #9aa0a8; --cap-soft: #2b2d31;
       --heavy: #b291c4; --routine: #6fb5ad; --short: #9fb0c0;
       --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 30px -18px rgba(0,0,0,.8);
     }
@@ -212,6 +257,7 @@ TEMPLATE = """<title>Label Ledger</title>
     --rule: #2e3037; --rule-firm: #3d4048; --accent: #9aa1e4; --accent-soft: #23263a;
     --alert: #e0897b; --alert-soft: #33231f; --ok: #7fbf9a;
     --cite: #8ec3ea; --cite-soft: #1d3040; --dead: #e0b877; --dead-soft: #35291a;
+    --cap: #9aa0a8; --cap-soft: #2b2d31;
     --heavy: #b291c4; --routine: #6fb5ad; --short: #9fb0c0;
     --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 30px -18px rgba(0,0,0,.8);
   }
@@ -273,6 +319,7 @@ TEMPLATE = """<title>Label Ledger</title>
   mark { padding: 0 1px; border-radius: 2px; cursor: pointer; }
   mark.citation { background: var(--cite-soft); box-shadow: inset 0 -2px 0 var(--cite); }
   mark.deadline { background: var(--dead-soft); box-shadow: inset 0 -2px 0 var(--dead); }
+  mark.caption { background: var(--cap-soft); box-shadow: inset 0 -2px 0 var(--cap); }
   mark.on { outline: 2px solid var(--accent); }
   .pagebreak { color: var(--faint); }
 
@@ -283,6 +330,11 @@ TEMPLATE = """<title>Label Ledger</title>
   .kind { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; padding: 1px 6px; border-radius: 3px; }
   .kind.citation { background: var(--cite-soft); color: var(--cite); }
   .kind.deadline { background: var(--dead-soft); color: var(--dead); }
+  .kind.caption { background: var(--cap-soft); color: var(--cap); }
+  .tk { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--rule-firm); color: var(--soft); }
+  .reps { font-size: 12px; color: var(--faint); }
+  .settled { display: grid; gap: 13px; }
+  .settled .a { font-weight: 600; color: var(--accent); }
   .quoted { font: 13px/1.5 ui-monospace, Consolas, monospace; margin: 0 0 5px; }
   .target { font-size: 14px; margin: 0 0 4px; }
   .target b { font-weight: 600; }
@@ -327,16 +379,16 @@ TEMPLATE = """<title>Label Ledger</title>
   <main>
     <div class="intro">
       <h1>Check what the drafter labelled</h1>
-      <p>977 citations and deadlines drawn from 60 decisions by a model, against the decisions&rsquo;
-      own text. Each is ground truth only once you have judged it. The text is on the left with every
+      <p>Drawn from 60 decisions by a model, against the decisions&rsquo; own text:
+      __COUNTS__. Each is ground truth only once you have judged it. The text is on the left with every
       labelled passage <mark class="citation">highlighted</mark> in place &mdash; which is the point:
       a label set is judged on <strong>what is missing</strong> as well as what is wrong, and an
       unhighlighted citation in the running text is the only way to see one. Mark a label
       <strong>right</strong> or <strong>wrong</strong>, or sweep a whole decision. Everything stays in
       this browser; <strong>Copy findings</strong> hands it back in one block.</p>
-      <details class="conv" id="conv" open>
-        <summary>Four questions worth answering first <span class="hintline">they settle about 130 rows between them</span></summary>
-        <div class="body" id="convbody"></div>
+      <details class="conv" id="conv">
+        <summary>The four conventions, settled 29 August <span class="hintline">already applied to every row below</span></summary>
+        <div class="body settled" id="convbody"></div>
       </details>
     </div>
 
@@ -377,12 +429,11 @@ TEMPLATE = """<title>Label Ledger</title>
   var DEC = JSON.parse(document.getElementById("data").textContent);
   var CONV = JSON.parse(document.getElementById("conventions").textContent);
   var TOTAL = DEC.reduce(function (n, d) { return n + d.rows.length; }, 0);
-  var KEY = "dy-labels-check-v1";
+  var KEY = "dy-labels-check-v2";
   var state = {};
   try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { state = {}; }
   if (!state.rows) { state.rows = {}; }
   if (!state.miss) { state.miss = {}; }
-  if (!state.conv) { state.conv = {}; }
   var filter = "all", at = 0, view = DEC.map(function (_, i) { return i; });
 
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
@@ -434,6 +485,9 @@ TEMPLATE = """<title>Label Ledger</title>
     el("status").textContent = c.done === 0 ? "Nothing marked yet." : c.done + " judged, " + c.wrong + " wrong.";
   }
 
+  function marksOf(n) {
+    return [].slice.call(el("text").querySelectorAll('mark[data-row="' + n + '"]'));
+  }
   function paintRow(card, d, n) {
     var v = state.rows[key(d, n)] || "";
     [].forEach.call(card.querySelectorAll(".verd button"), function (b) {
@@ -462,9 +516,16 @@ TEMPLATE = """<title>Label Ledger</title>
       card.className = "row";
       card.id = "row" + n;
       card.innerHTML =
-        '<div class="top"><span class="kind ' + r.k + '">' + r.k + "</span><span>page " + r.p + "</span></div>" +
+        '<div class="top"><span class="kind ' + r.k + '">' + r.k + "</span>" +
+          (r.tk ? '<span class="tk">' + r.tk + "</span>" : "") +
+          "<span>page " + r.p + "</span>" +
+          (r.c > 1 ? '<span class="reps">&times;' + r.c + " occurrences</span>" : "") + "</div>" +
         '<p class="quoted">&ldquo;' + esc(r.q) + "&rdquo;</p>" +
-        (r.tg ? '<p class="target"><b>' + esc(r.tg) + "</b></p>" : '<p class="target"><span style="color:var(--faint)">no target</span></p>') +
+        (r.tg ? '<p class="target"><b>' + esc(r.tg) + "</b></p>"
+              : '<p class="target"><span style="color:var(--faint)">' +
+                (r.tk === "period" || r.tk === "indefinite"
+                  ? "no date to quote &mdash; the sentence is the whole answer"
+                  : "no target") + "</span></p>") +
         (r.n ? '<p class="note">' + esc(r.n) + "</p>" : "") +
         (r.f ? "" : '<p class="lost">This passage was not found in the decision&rsquo;s text.</p>') +
         '<div class="verd"><button data-v="ok">Right</button><button data-v="no">Wrong</button></div>';
@@ -477,12 +538,10 @@ TEMPLATE = """<title>Label Ledger</title>
         });
       });
       card.addEventListener("mouseenter", function () {
-        var m = el("text").querySelector('mark[data-row="' + n + '"]');
-        if (m) { m.classList.add("on"); }
+        marksOf(n).forEach(function (m) { m.classList.add("on"); });
       });
       card.addEventListener("mouseleave", function () {
-        var m = el("text").querySelector('mark[data-row="' + n + '"]');
-        if (m) { m.classList.remove("on"); }
+        marksOf(n).forEach(function (m) { m.classList.remove("on"); });
       });
       host.appendChild(card);
       paintRow(card, d, n);
@@ -532,40 +591,18 @@ TEMPLATE = """<title>Label Ledger</title>
     CONV.forEach(function (c) {
       var box = document.createElement("div");
       box.className = "cq";
-      box.innerHTML = "<h3>" + c.q + '</h3><p>' + c.detail + ' <span class="count">(' + c.count + ")</span></p>" +
-        '<div class="opts"><button data-a="yes">Yes, keep them</button><button data-a="no">No, drop them</button><button data-a="later">Decide later</button></div>';
-      [].forEach.call(box.querySelectorAll("button"), function (b) {
-        b.addEventListener("click", function () {
-          state.conv[c.id] = state.conv[c.id] === b.dataset.a ? "" : b.dataset.a;
-          save(); paintConv();
-        });
-      });
+      box.innerHTML = "<h3>" + c.q + '</h3><p class="a">' + c.a + "</p><p>" + c.detail + "</p>";
       host.appendChild(box);
-      box.dataset.id = c.id;
     });
-    paintConv();
   })();
-  function paintConv() {
-    [].forEach.call(el("convbody").children, function (box) {
-      [].forEach.call(box.querySelectorAll("button"), function (b) {
-        b.setAttribute("aria-pressed", String(state.conv[box.dataset.id] === b.dataset.a));
-      });
-    });
-  }
 
   el("copy").addEventListener("click", function () {
     var out = ["Extraction labels — findings", ""];
-    var answered = CONV.filter(function (c) { return state.conv[c.id]; });
-    if (answered.length) {
-      out.push("Conventions:");
-      answered.forEach(function (c) { out.push("  " + c.id + ": " + state.conv[c.id] + "  (" + c.q + ")"); });
-      out.push("");
-    }
     var wrong = 0;
     DEC.forEach(function (d) {
       var bad = [];
       d.rows.forEach(function (r, n) {
-        if (state.rows[key(d, n)] === "no") { bad.push('    [' + r.k + ' p.' + r.p + '] "' + r.q + '" -> ' + (r.tg || "(no target)")); }
+        if (state.rows[key(d, n)] === "no") { bad.push('    [' + r.k + "/" + r.tk + ' p.' + r.p + '] "' + r.q + '" -> ' + (r.tg || "(no target)")); }
       });
       var miss = (state.miss[d.id] || "").trim();
       if (!bad.length && !miss) { return; }

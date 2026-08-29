@@ -25,11 +25,37 @@ transcription is judged on what it says; a label set is also judged on **what it
 and an unhighlighted citation sitting in the running text is the only way to see one. Each
 decision therefore carries a box for what the drafter passed over.
 
-**Four questions are asked once, up front**, because they settle about 130 rows between
-them and are conventions rather than judgements about a passage: is a decision's own caption
-docket a citation (about 35 rows noted *self*); is a repeated short-form reference its own
-citation (54 rows); are citations to courts in scope (about 62 rows); and is "effective on
-its service date" a deadline with no date to quote (45 deadline rows carry no target).
+**The four conventions were settled 2026-08-29** and are now applied in `labels.csv`,
+so the queue no longer asks them — 287 of the 977 rows changed. They are recorded here
+because they are the shape of the citation edge itself, and the citator's schema gate will
+have to answer them again:
+
+| Question | Settled | Why |
+|---|---|---|
+| Is a decision's own docket a citation? | **No, where the text names only the proceeding** — those rows are `kind: caption` | The record already knows which docket a decision belongs to; an edge there is a self-loop. They are kept, not deleted, because telling a caption from a citation is the skill being tested, and they are the only negative examples the sheet has. But a *prior decision* in that same docket is a different document, and citing it is a real edge — see below. |
+| Is a repeated short-form its own citation? | **Neither required nor penalised** | A repeat adds no edge. Scoring compares *sets* of `(decision, target)` pairs, so an engine is neither rewarded for thoroughness nor punished for it. |
+| Are court citations in scope? | **Yes, typed `court`, scored apart** | They cannot be validated against the docket registry, so they stay out of the citator's first slice — but a court vacating a Board decision is the strongest negative-treatment signal there is, and re-labelling them later would be expensive. |
+| Is "effective on its service date" a deadline? | **Yes, with the target named, never blank** | The Board stated both the rule and the service date; joining two published facts is quotation, not computation. A blank target read as missing data, which was the actual defect. |
+
+Two things surfaced while applying them that the binary questions had not anticipated:
+
+- **"self" did not mean "caption", and a first pass got this wrong.** The note marks *the
+  target docket is this decision's own*, wherever it appears and whatever it points at — so
+  reclassifying every self-noted row as a caption swept in 90 rows that cite a **prior
+  decision** (`Decision No. 1, FD 36732 et al., slip op. at 6`, `NPRM, EP 787, slip op. at
+  4`, `By decision served March 12, 2024, the Board vacated the NITU`). Those are genuine
+  edges: a prior decision is a different document, whatever docket it sits in. The test that
+  separates them is whether the text names a **document** or only the **proceeding** —
+  `slip op.`, `Decision No.`, `served`, `NPRM`, `order` mean a document. Twelve more are
+  **record cites** (`IANR Reply 2, Aug. 14, 2024, FD 36798`), which cite a *filing* and
+  carry the docket only as an address. Of the 188 self-noted rows: 90 are citations to prior
+  decisions, 12 are record cites, and **86 are true captions**.
+- **Blank deadline targets were three different things**, not one. Twenty are the service-date
+  reference; nineteen quote only a period ("15 days after the draft EA is available"), where
+  the quoted sentence is the whole answer and there is no separate date to hold; six are
+  indefinite (until further order, or every deadline tolled by a lapse in appropriations).
+  Naming all three was the same decision applied consistently — leaving twenty of them blank
+  would have recreated the defect.
 
 **Twenty labels quote a passage that is not in the decision's text**, and the queue flags
 each one — a filter shows only those. Locating a quote ignores whitespace entirely, because
@@ -55,11 +81,15 @@ are the ones worth keeping notes on. Two things to hold in view when reading it:
 - The drafting passes were told to be exhaustive on the heavy tier and to label every
   short-form and repeated citation on its page; they also labelled ordering-paragraph
   "effective on its service date" sentences as deadlines with a blank `target`, and the
-  Board's stamp text on granted letters. Whether those conventions stand is the operator's
-  call; the notes column says which rows they are.
+  Board's stamp text on granted letters. Those conventions were settled on 2026-08-29
+  (above) and `target_kind` now carries the answer on every row.
 
-Assembled 2026-08-26: 977 rows over the sixty decisions — 813 citations, 164 deadlines;
-every row passed the page-range check. Court cases carry `court`; self-references `self`.
+Assembled 2026-08-26, conventions applied 2026-08-29: 977 rows over the sixty decisions —
+**727 citations** (599 `stb`, 116 `court`, 12 `record`), **86 captions**, **164 deadlines**
+(119 `date`, 21 `reference`, 18 `period`, 6 `indefinite`). Every row passed the page-range
+check, and no row is left without a `target_kind` or an unexplained empty `target`.
+Deduplicated to the pairs a citator would consume, the citation set is **360 STB edges**,
+86 court and 7 record.
 
 ## How to label
 
@@ -67,18 +97,33 @@ One row per thing found. Copy the decision's first five columns down for each ro
 
 | Column | Put |
 |---|---|
-| `kind` | `citation`, `deadline`, or `none` (one row, when a decision contains neither) |
+| `kind` | `citation`, `caption`, or `deadline` |
 | `page` | The 1-based page of the Board's PDF where it appears |
-| `quoted` | **citation:** the citation exactly as printed (`Docket No. FD 36500`, `Union Pacific—Control—Southern Pacific, 1 S.T.B. 233 (1996)`, `Ex Parte No. 711 (Sub-No. 1)`). **deadline:** the whole sentence that sets it, as printed |
-| `target` | **citation:** the docket or decision cited, as printed (the part a citator would resolve). **deadline:** the date as printed (`October 15, 2024`), never computed — a deadline expressed only as "30 days after service" is still labelled, with `target` left blank and a note |
-| `note` | Anything a checker would need: a citation to a court case rather than the Board (label it, note `court`), a date that is a past event not a deadline (do not label), a self-citation to the same docket (label it, note `self`) |
+| `quoted` | **citation / caption:** the reference exactly as printed (`Docket No. FD 36500`, `Union Pacific—Control—Southern Pacific, 1 S.T.B. 233 (1996)`, `Ex Parte No. 711 (Sub-No. 1)`). **deadline:** the whole sentence that sets it, as printed |
+| `target` | What a citator would resolve, or the date a deadline sets — always as printed, never computed. Left empty only where `target_kind` says the quoted text is the whole answer (`period`, `indefinite`) |
+| `target_kind` | **citation:** `stb`, `court`, or `record`. **caption:** `self`. **deadline:** `date`, `reference`, `period`, or `indefinite`. Never blank |
+| `note` | Anything a checker would need: where on the page it sits, an ambiguity, why a nearby string was passed over |
 
-What counts as a **citation**: any reference to a Board (or ICC) decision or docket other
-than the caption of the decision itself — including "this proceeding" references by number,
-prior decisions in the same docket, and Ex Parte rulemakings relied on. Court cases are
-labelled with note `court` so the citator can decide later. What counts as a **deadline**:
-a date, or a period, that the decision itself sets for someone to act by — replies due,
-effective dates, comment periods, filing windows. A date recited as history is not one.
+What counts as a **citation**: a reference to a Board or ICC decision or docket other than
+this decision's own — including prior decisions in another docket given by date alone, Ex
+Parte rulemakings relied on, and short forms. A court case is a citation too, typed `court`.
+A **record cite** — a filing in this proceeding, given as party, document and date — is a
+citation typed `record`; the docket number in it is an address, not the target. Statutes and
+CFR sections are not citations.
+
+What counts as a **caption**: this decision's own proceeding named as *itself*, naming no
+document — the caption, a section heading, a table header, a bare `Docket No. X`, the "All
+pleadings, referring to Docket No. X, should be filed" paragraph. Label it, typed `self`.
+It is not an edge in the citation graph; it is here so that an engine which cannot tell it
+from a citation is caught. **The test is document versus proceeding**: `Docket No. EP 787`
+is a caption, `NPRM, EP 787, slip op. at 4` is a citation, because it points at a specific
+decision — and that holds even though both name the decision's own docket.
+
+What counts as a **deadline**: a date, or a period, that the decision itself sets for someone
+to act by — replies due, effective dates, comment periods, filing windows. A date recited as
+history is not one. Where the sentence gives only a period, or fixes no end at all, the
+`target` stays empty and `target_kind` says which; where the effective date is another known
+date ("effective on its service date"), `target` names that reference rather than a date.
 
 Time: the routine and short tiers are a minute or two each; the heavy tier is where the
 hour goes. Labels are the truth for step 2 — a model that finds more than the labels is

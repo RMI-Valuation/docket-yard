@@ -84,7 +84,7 @@ def main(csv_path: Path, out_dir: Path) -> int:
         encoding="utf-8",
     )
     with open(out_dir / "labels.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator="\n")  # .gitattributes pins LF
         w.writerow(
             [
                 "decision_id",
@@ -92,15 +92,18 @@ def main(csv_path: Path, out_dir: Path) -> int:
                 "docket",
                 "date",
                 "board_url",
-                "kind",  # citation | deadline | none (a decision with nothing to label)
+                "kind",  # citation | caption | deadline
                 "page",  # 1-based page of the Board's PDF
-                "quoted",  # the citation as printed, or the sentence that sets the deadline
-                "target",  # the docket/decision cited (as printed), or the deadline date as printed
+                "quoted",  # the reference as printed, or the sentence that sets the deadline
+                "target",  # what a citator resolves, or the deadline date, as printed
+                # citation: stb | court | record   caption: self
+                # deadline: date | reference | period | indefinite
+                "target_kind",
                 "note",
             ]
         )
         for m in sample:
-            w.writerow([m["id"], m["stratum"], m["docket"], m["date"], m["url"]] + [""] * 5)
+            w.writerow([m["id"], m["stratum"], m["docket"], m["date"], m["url"]] + [""] * 6)
     # the text of each sampled decision, per page, for labelling without leaving the box
     for m in sample:
         doc = text_of(m["sha"])
