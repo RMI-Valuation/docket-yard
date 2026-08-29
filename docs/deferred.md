@@ -49,6 +49,13 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 - **The S3 key layout** `blobs/aa/<sha>` is spelled in `web/documents.py`, `prune_blobs.py`
   and the sync unit; one `records.blob_key(sha)` when any of them next changes.
 
+- **A description of a page, as a derived assertion** (raised 2026-08-28, when the operator
+  asked whether map pages should be described rather than transcribed): alt text for a
+  scanned exhibit, or a one-line "what is on this page", would help accessibility and
+  search. It is not ground truth and never replaces the labels — it would be a derived
+  assertion carrying method, model, version and confidence (ADR 0007), published only above
+  a measured threshold, like any other. Wait until the OCR text layer exists.
+
 ## Store and operations
 
 - **Key rotation** for `DY_EMAIL_KEY` (decrypt under old, seal under new; four sealed columns

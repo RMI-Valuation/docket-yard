@@ -51,8 +51,34 @@ applies too:
 - stamps, seals, handwriting, signatures in square brackets with a label
   (`[stamp: RECEIVED AUG 17 2004 OFFICE OF PROCEEDINGS]`, `[handwritten: 211823]`,
   `[signature]`); a handwritten page transcribed under a first line `[handwritten page]`;
-- a map or exhibit: every legible label, one per line, under `[graphic page]`; a page with
-  no text: exactly `[blank page]`; rotated text under `[rotated page]`, in reading order.
+- a map or exhibit: **every legible label, verbatim, one per line**, under `[graphic page]`
+  — never a description of the map (see below); a callout stays whole on its line
+  (`BEGIN ABANDONMENT`, `M.P. 54.3`, `IN GUTHRIE COUNTY, IOWA`), and a table drawn on the
+  map is transcribed as a table;
+- a page with no text: exactly `[blank page]`; rotated text under `[rotated page]`, in
+  reading order.
+
+### Why a map is transcribed, never described
+
+Asked by the operator 2026-08-28. Three reasons, in order of force:
+
+1. **A description cannot be scored.** An OCR engine emits text it read; it never emits a
+   description. Ground truth written as prose about the map would score every engine at
+   near-total error on these ten pages, and the tier would measure nothing.
+2. **A description is an inference, and this record quotes.** Every derived assertion here
+   carries method, version and confidence (ADR 0007); a sentence about what a map *shows*
+   is the record speaking in its own voice. Labels are quotation.
+3. **The labels are the payload.** Measured on the drawn sample: an abandonment map carries
+   the begin and end **mileposts** (`MP 54.3 TO MP 48.1`), the **counties**
+   (`IN GUTHRIE COUNTY, IOWA`), the **mileage** (`A TOTAL OF 6.2 MILES`), the connecting
+   **carriers** (UP, BN, SOO, DM&E, IAIS, BNSF), dozens of **place names**, and often a
+   station/milepost/agency **table**. That is the raw material for geography as structured
+   rows (ADR 0008) and for capabilities C3 (address to docket), D1 (trail use) and D2
+   (system diagram maps). A description discards all of it.
+
+A page description has a legitimate home later — alt text for the image, or a
+"what is on this page" summary — but as a **derived assertion** with its method and
+confidence, never as ground truth (`docs/deferred.md`).
 
 The rendered pages themselves (37 MB) are not committed; they are at
 `/data/docketyard/ocr/sample/pages/` on RMI-AI-MACHINE and `data/ocr/pages/` on the
@@ -106,6 +132,12 @@ What **is** scored, and therefore what the check must catch:
 | **Reading order** | A two-column page read straight across; a stamp or margin note spliced into the middle of a sentence — normalisation cannot repair a scrambled sequence |
 | **Table grid** (tabular tier) | Rows merged into one line, or cells not separated by tabs; a table's grid is meaning, not layout preference, so it is compared cell by cell as well as flowed |
 | **False text** (graphic and blank tiers) | Any prose asserted on a page that carries only labels, or on a blank page |
+
+A **graphic page is scored as a set, not a sequence**: labels are scattered across a map and
+have no reading order, so an engine is scored on which labels it recovered and which it
+invented (recall and precision over the label set, with mileposts and county names counted
+separately), never on the order it listed them in. Sequence scoring applies to the prose
+tiers.
 
 So: an ordinary line break in running prose is not worth a mark. A break that scrambles
 the order, breaks a table's rows, or falls inside a docket number or a date is.
