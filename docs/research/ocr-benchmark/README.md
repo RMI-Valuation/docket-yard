@@ -104,9 +104,14 @@ working machine, and any page can be re-rendered from its hash with `ocr_sample.
 
 **From anywhere**, the queue at
 <https://claude.ai/code/artifact/664789dc-93ce-42b2-b23e-fe56c6c7d8f7> (private to the
-operator, published 2026-08-28): one page at a time, a thumbnail and the transcript, with
-the Board's own file one click away at `docketyard.org/document/<sha>.pdf#page=N` — every
-sampled document already answers at its permanent address, so no local copy is needed.
+operator, published 2026-08-28): one page at a time, the scan at **full
+resolution beside the transcript** — scroll to zoom, drag to pan, double-click for one
+screen pixel per scan pixel, `w` to give the page the full width — with the Board's own
+file one click away at `docketyard.org/document/<sha>.pdf#page=N`, since every sampled
+document already answers at its permanent address. The pages are embedded as 1-bit PNGs at
+the render's own 150 dpi: a per-page Otsu threshold drops the scanner's grey and leaves the
+type crisper than the greyscale original, at 2.4 MB for all ninety (the one blank page,
+which has no ink to threshold, keeps its greys).
 Verdicts and notes stay in that browser; **Copy corrections** hands them back in one block,
 which is then applied to the `.txt` files here. This is a stand-in for the `/review` queue
 ADR 0016 accepts; the real queue records each check as a provenance row instead.
