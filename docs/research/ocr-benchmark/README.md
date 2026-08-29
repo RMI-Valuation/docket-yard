@@ -256,5 +256,33 @@ The marker vocabulary grew from the drafting, not from the plan: `[logo: …]`,
 `[graphic: …]` for an inline icon, and `[stamp, rotated: …]` were all invented by the drafter
 against pages the rules had not anticipated, and were adopted rather than rejected.
 
-Step 2 — every candidate engine over the same 90 pages, scored by CER, WER and by
-docket-number and date errors per tier — starts when the check is done.
+## Step 2 — the scorer
+
+`tools/rmi-ai-machine/ocr_score.py` scores an engine's output against this ground truth and
+enforces every rule settled while the ground truth was built: one normaliser on both sides,
+`[illegible]` excluded, `[adjacent page]` excluded, bracket annotations unwrapped to their
+content, docket numbers and dates as their own sets, a graphic page as a label set rather
+than a sequence, a table cell by cell, and false text on a page carrying only labels.
+
+    python tools/rmi-ai-machine/ocr_score.py --engine tesseract --dir data/ocr/runs/tesseract
+
+It was validated before any engine existed, against three fixtures made from the ground
+truth itself (2026-08-29):
+
+| Fixture | CER | WER | Docket recall | What it proves |
+| --- | --- | --- | --- | --- |
+| identical | 0.0% | 0.0% | 100% | nothing is penalised that is not an error |
+| **reflowed** — every line break turned into a space | **0.0%** | **0.1%** | 100% | an engine that reflows into paragraphs scores like one that keeps the printed lines. This is the property the whole normaliser exists for |
+| noisy — 2% of letters corrupted, every docket number's first digits transposed | 1.8% | 9.0% | **79.4%** | a transposed digit is nearly invisible in CER and unmistakable in docket recall, which is why the two are scored apart |
+
+The noisy fixture also moved table cell recall to 76% and graphic label recall to 87% while
+CER stayed near the injected 2%, which is the point of scoring those tiers on their own.
+
+**A known limit.** An engine emits no brackets, so where the ground truth excludes a
+facing-page fragment the engine's rendering of that margin cannot be excluded from its
+output, and its CER carries it. One page of the ninety has such a block, and the invention
+probe ignores any fragment that also appears in the page's own body — the facing page of
+FD 33700 opens "Burlington Nor" and page one says "Burlington Northern" in its own right,
+so a continuation there proves nothing.
+
+Step 2 proper — the candidate engines over these 90 pages — needs RMI-AI-MACHINE.
