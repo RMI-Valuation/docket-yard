@@ -58,6 +58,12 @@ applies too:
 - tables: one row per line, cells separated by a tab;
 - `[illegible]` for a word, `[illegible: N words]` for a run — never a guessed docket
   number or date;
+- **a fragment of another page** caught in the scan — a facing page whose margin the
+  scanner captured, cut off at the edge — is transcribed verbatim inside
+  `[adjacent page]` … `[end adjacent page]`, with `[cut]` where each line runs off the
+  edge. `[cut]` is a different fact from `[illegible]`: the text is not unreadable, it is
+  *not on this page*. **A cut line is never completed**, however obvious the ending;
+  `[cut]` also marks this page's own text where the scan lost it at an edge or a tear;
 - stamps, seals, handwriting, signatures in square brackets with a label
   (`[stamp: RECEIVED AUG 17 2004 OFFICE OF PROCEEDINGS]`, `[handwritten: 211823]`,
   `[signature]`); a handwritten page transcribed under a first line `[handwritten page]`;
@@ -142,6 +148,24 @@ What **is** scored, and therefore what the check must catch:
 | **Reading order** | A two-column page read straight across; a stamp or margin note spliced into the middle of a sentence — normalisation cannot repair a scrambled sequence |
 | **Table grid** (tabular tier) | Rows merged into one line, or cells not separated by tabs; a table's grid is meaning, not layout preference, so it is compared cell by cell as well as flowed |
 | **False text** (graphic and blank tiers) | Any prose asserted on a page that carries only labels, or on a blank page |
+
+**A fragment of an adjacent page is excluded from the page's CER and WER** — an engine
+that reads the facing page's margin and one that ignores it are both behaving sensibly, and
+neither may be scored for the choice. But the block gets a check of its own, and it is the
+sharpest one in the benchmark: **an engine that emits a completed form of a cut line is
+scored as invention.** A truncated line is exactly where a language model is tempted to
+finish the sentence from boilerplate it knows — `initio.  Petitions[cut]` becomes
+"Petitions to revoke the exemption under 49 U.S.C. 10502(d) may be filed at any time" — and
+plausible invention is the failure mode this record can least afford. Measured on the draw:
+one page of the ninety (`80507f745410_p1`, FD 33700, found by the operator 2026-08-29) is a
+two-page spread; the other page carrying many `[illegible]` marks
+(`aa59bdafb508_p46`) is a genuinely faint Federal Register page, not a spread.
+
+The same rule governs the pipeline, not just the benchmark: text inside an
+`[adjacent page]` block is **stored but never indexed as this page's**. The facing page is
+almost always scanned in full elsewhere in the same PDF, so indexing the fragment here
+would duplicate content under the wrong page — and let an extractor read a fragmentary
+docket number (`33698, Union [cut]`) and attribute it to the wrong proceeding.
 
 A **graphic page is scored as a set, not a sequence**: labels are scattered across a map and
 have no reading order, so an engine is scored on which labels it recovered and which it
