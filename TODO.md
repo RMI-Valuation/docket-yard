@@ -21,8 +21,8 @@ by pre-commit: when it fires, prune.
   needs a browser check per session — Cameron's click
 - **OCR/extraction (M3):** step 2 **done 2026-08-29**, ~$16. Five engines scored; the
   finding is that OCR costs the citator nothing measurable (91.9% of STB edges from
-  Textract's OCR vs 89.2% from the publisher's text) while the extractor moves recall 29
-  points (qwen3:14b 60.2%, Claude 89.2%). Budget belongs at extraction: ~$260 Textract +
+  Textract's OCR vs 89.2% from the publisher's text) while the extractor moves recall 16
+  points (qwen3:14b 73.5%, Claude 89.2%). Budget belongs at extraction: ~$260 Textract +
   ~$1,075 Claude batched for the backfill. GPU rental rejected. Written into `ocr-plan.md`
   and `extraction-benchmark.md`. **Ground truth's bound: ranking publishable, absolute
   character accuracy not.** Next: step 3, an ADR recording what ships at what confidence

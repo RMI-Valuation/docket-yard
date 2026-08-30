@@ -7,8 +7,9 @@ over Textract's OCR of a page recovers **as many citations as extraction over th
 publisher's own text layer** — 91.9% of STB edges against 89.2%, and identical on courts,
 captions and dated deadlines. A 10.8% character error rate costs approximately zero
 citation edges, because a citation is a long, redundant, structured string that survives a
-wrong character. Meanwhile the *extractor* choice moves citation recall by 29 points
-(qwen3:14b 60.2%, Claude Sonnet 5 89.2%) on identical clean text.
+wrong character. Meanwhile the *extractor* choice moves citation recall by nearly
+16 points (qwen3:14b 73.5%, Claude Sonnet 5 89.2%) on identical clean text — still five
+times the spread between the best and worst OCR engines.
 
 So the money belongs at the extraction stage and the OCR stage should be as cheap as is
 adequate. The engine comparison is in `docs/research/ocr-benchmark/runs/`; the two
@@ -107,7 +108,7 @@ at 8.2 s a page on the box. Over ~175k pages:
 | **Backfill total** | | **~$1,335** |
 
 The shape of that table is the finding: OCR is a fifth of the bill and buys nothing more if
-you spend on it, while extraction is the rest and buys 29 points of citation recall. A GPU
+you spend on it, while extraction is the rest and buys 16 points of citation recall. A GPU
 rental was costed and rejected — it competes only on the OCR line, where the saving is at
 most ~$140 against a managed service that needs no instance, no driver and no spot
 interruption handling.

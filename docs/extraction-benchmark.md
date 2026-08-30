@@ -79,16 +79,21 @@ settled conventions — citations as sets of `(decision, target)`, each `target_
 
 | extractor | input | STB citations | courts | dated deadlines |
 |---|---|---|---|---|
-| qwen3:14b (local, free) | text layer | 60.2% | 29.1% | 96.7% |
+| qwen3:14b (local, free) | text layer | 73.5% | 29.1% | 96.7% |
 | Claude Sonnet 5 | text layer | **89.2%** | 97.7% | 98.9% |
 | Claude Sonnet 5 | **OCR of the same pages** | **91.9%** | 97.7% | 98.9% |
 
 Two things follow, and the second was not expected.
 
-**The extractor is the whole game.** 29 points of citation recall separate a local 14B from
-a frontier model on identical clean text — ten times the spread between the best and worst
-OCR engines. A citator that misses 30% of its edges is not a lower-quality citator; it is a
-different product.
+**The extractor is the whole game.** Nearly 16 points of citation recall separate a local
+14B from a frontier model on identical clean text — five times the spread between the best
+and worst OCR engines. A citator that misses a quarter of its edges is not a lower-quality
+citator; it is a different product.
+
+*(Corrected 2026-08-30. qwen3's figure first read 60.2%, and a 29-point gap was published
+here and in `ocr-plan.md` on the strength of it. The scorer's fallback for a run made before
+`target_kind` existed was routing prior-decision citations into captions — the very
+misclassification the conventions had just reversed. A third of the gap was the instrument.)
 
 **OCR costs the citator nothing measurable.** Extraction over Textract's output recovers as
 many citations as extraction over the publisher's own text layer. A citation is a long,
