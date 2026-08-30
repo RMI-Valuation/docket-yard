@@ -132,18 +132,47 @@ def stripped(text: str) -> tuple[str, list[int]]:
     return flat, idx
 
 
+def page_bounds(text: str, idx: list[int], flat_len: int) -> dict:
+    """Each page's span in the whitespace-stripped text, so a quote can be looked for on
+    the page its label names before anywhere else."""
+    marks = [(int(m.group(1)), m.end()) for m in re.finditer(r"(?m)^===== page (\d+) =====$", text)]
+    out, at = {}, 0
+    for i, (page, orig_end) in enumerate(marks):
+        while at < len(idx) and idx[at] < orig_end:
+            at += 1
+        start = at
+        if i + 1 < len(marks):
+            nxt = marks[i + 1][1]
+            end = start
+            while end < len(idx) and idx[end] < nxt:
+                end += 1
+        else:
+            end = flat_len
+        out[page] = (start, end)
+    return out
+
+
 def mark_up(text: str, rows: list[dict]) -> tuple[str, list[bool]]:
     """The decision's text as HTML, with each row's quoted passage highlighted where it is
     found. Returns the HTML and, per row, whether its passage was located at all — a quote
     that is nowhere in the text is itself a finding."""
     flat, idx = stripped(text)
+    bounds = page_bounds(text, idx, len(flat))
     spans, found, cursor = [], [], 0
     for n, r in enumerate(rows):
         q = stripped(r["quoted"])[0]
         if not q:
             found.append(False)
             continue
-        at = flat.find(q, cursor)
+        # The label records the page it was read from, and that is what disambiguates a
+        # quote printed more than once. A cursor alone cannot: once an earlier row matches
+        # late in the document it never comes back, so a passage appearing on page 4 and
+        # again on page 32 binds to page 32 and the page-32 label is left with nothing
+        # (found 2026-08-30 on EP 328 (Sub-No. 2), "modified 7 I.C.C.2d 645 (1991)").
+        lo, hi = bounds.get(int(r["page"] or 0), (0, len(flat)))
+        at = flat.find(q, lo, hi)
+        if at < 0:
+            at = flat.find(q, cursor)  # not on the page claimed: take the next one
         if at < 0:
             at = flat.find(q)  # an out-of-order quote still counts as located
         if at < 0:
