@@ -111,3 +111,11 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 - **Credit-name history is current-state debt, accepted with eyes open**: an archived page
   shows a name the store cannot reconstruct after a rename. Revisit if the trust pages
   ever need "as shown at the time".
+
+## Docket sheet (code review 2026-08-30, v2026.08.39)
+
+- **A series sheet still builds the merged entry list it does not render**: `docket_sheet`
+  assembles every filing and decision of the family (AB 167: 996 dockets, 866 records,
+  with a payload and attachment query per entry) and the template then shows none of it.
+  The JSON twin still publishes those entries, so skipping the build means deciding what a
+  series carries in shape 1 — worth doing together, not piecemeal.

@@ -62,7 +62,14 @@ def test_sheet_merges_family_newest_first(con, tmp_path):
     s = sheet.docket_sheet(con, parent)
     assert s is not None
     assert s.title == "UP/NS CONTROL"
-    assert [r for _, r, _ in s.sub_dockets] == ["FD_36873_1"]
+    assert [m.raw_docket for m in s.sub_dockets] == ["FD_36873_1"]
+    # the index carries what the record holds for each proceeding on its own: the
+    # sub-docket has one filing and no decision of its own, while the parent holds two
+    # filings and a decision — so this page is a case with phases, not a series index
+    assert [(m.filings, m.decisions, m.last_activity) for m in s.sub_dockets] == [
+        (1, 0, "2026-08-24")
+    ]
+    assert s.is_index is False
     assert (s.filings, s.decisions) == (3, 1)
     assert [(e.kind, e.date, e.record_id) for e in s.entries] == [
         ("filing", "2026-08-25", "311981"),

@@ -9,9 +9,14 @@
   <h1 class="serif docket-number">{{ printed }}</h1>
   <p class="print-only small muted">{{ site_name }} · docketyard.org{{ docket_path(identity) }} · entries shown: <span id="print-state">all, {{ 'oldest' if order == 'oldest' else 'newest' }} first</span></p>
   {% if sheet.title %}<p class="serif caption-title as-printed">{{ sheet.title }}</p>{% else %}<p class="caption-note muted">This docket has not yet been observed directly in the Board’s dockets table; its entries below come from filings and decisions that name it.</p>{% endif %}
-  {% if sheet.sub_dockets %}
+  {% if sheet.is_index %}
+  <p class="caption-note muted">This number is a series: each proceeding under it has its own
+    sub-docket, and <strong>this record holds nothing against the number itself</strong> — what
+    the Board holds is its own to say, and the backfill is still running (<a href="/coverage">coverage</a>).
+    The {{ sheet.sub_dockets | length }} proceedings held here are indexed below.</p>
+  {% elif sheet.sub_dockets %}
   <p class="caption-note muted">Caption from the Board’s record. Sub-dockets, included below:
-    {% for did, raw, title in sheet.sub_dockets %}<a href="{{ docket_path(parse_docket_id(raw)) }}">{{ printed_docket(parse_docket_id(raw)) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+    {% for m in sheet.sub_dockets %}<a href="{{ docket_path(parse_docket_id(m.raw_docket)) }}">{{ printed_docket(parse_docket_id(m.raw_docket)) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
   </p>
   {% elif sheet.title %}<p class="caption-note muted">Caption from the Board’s record.</p>{% endif %}
   <p class="serif record-summary muted">{{ sheet.filings | plural('filing') }} and {{ sheet.decisions | plural('decision') }} observed here{% if sheet.last_checked %}; last checked {{ sheet.last_checked | fmt_when }}{% endif %}.</p>
@@ -22,8 +27,58 @@
   </div>
 </section>
 
+{% if sheet.is_index %}
+{% set active = sheet.sub_dockets | selectattr('last_activity') | sort(attribute='last_activity', reverse=true) | list %}
+<section class="sub-index">
+  {% if active %}
+  <h2>Most recently active</h2>
+  <p class="small muted">The ten most recent of {{ active | length }} proceedings with anything
+    held; all {{ sheet.sub_dockets | length }} are <a href="#index">indexed below</a>.</p>
+  <table class="moved sub-index-t">
+    <thead><tr><th scope="col">Docket</th><th scope="col">Proceeding</th><th scope="col" class="num">Records</th><th scope="col" class="num">Last activity</th></tr></thead>
+    <tbody>
+    {% for m in active[:10] %}
+    <tr>
+      <td class="dk"><a href="{{ docket_path(parse_docket_id(m.raw_docket)) }}">{{ printed_docket(parse_docket_id(m.raw_docket)) }}</a></td>
+      <td class="title as-printed">{{ m.title or '(caption not yet observed)' }}</td>
+      <td class="num held">{{ m.filings + m.decisions }} held</td>
+      <td class="num last"><time datetime="{{ m.last_activity }}">{{ m.last_activity | fmt_date }}</time></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <h2 id="index">All {{ sheet.sub_dockets | length }} proceedings under {{ printed }}</h2>
+  <p class="small muted">In the Board’s own order. A proceeding with nothing held is listed all
+    the same — the Board opened it, and its number is the answer even where this record cannot
+    show the documents (the record begins in 1996; see <a href="/coverage">coverage</a>).</p>
+  <table class="moved sub-index-t sub-index-all">
+    <thead><tr><th scope="col">Docket</th><th scope="col">Proceeding</th><th scope="col" class="num">Filings</th><th scope="col" class="num">Decisions</th><th scope="col" class="num">Last activity</th></tr></thead>
+    <tbody>
+    {% for m in sheet.sub_dockets %}
+    <tr{% if not m.last_activity %} class="dormant"{% endif %}>
+      <td class="dk"><a href="{{ docket_path(parse_docket_id(m.raw_docket)) }}">{{ printed_docket(parse_docket_id(m.raw_docket)) }}</a></td>
+      <td class="title as-printed">{{ m.title or '(caption not yet observed)' }}</td>
+      <td class="num held">{{ m.filings or '—' }}</td>
+      <td class="num held2">{{ m.decisions or '—' }}</td>
+      <td class="num last">{% if m.last_activity %}<time datetime="{{ m.last_activity }}">{{ m.last_activity | fmt_date }}</time>{% else %}<span class="muted">none held</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
 <section class="two-col">
   <div>
+  {% if sheet.is_index %}
+    <h2>Entries</h2>
+    <p class="muted">Each proceeding keeps its own entries, on its own sheet. The
+      {{ sheet.filings }} filings and {{ sheet.decisions }} decisions held across this series
+      belong to the {{ sheet.sub_dockets | length }} proceedings indexed above, not to
+      {{ printed }} itself — <a href="#index">the index</a> is the way in.</p>
+  {% else %}
     <h2 class="vh">Entries</h2>
     <div class="toolbar no-print">
       <div class="chips" id="filters" role="group" aria-label="Show">
@@ -61,9 +116,10 @@
     {% endfor %}
     </ol>
     <p class="muted small no-print" id="empty-note" aria-live="polite" hidden>Nothing of that kind in this docket.</p>
+  {% endif %}
   </div>
   <aside class="rail">
-    {% if sheet.parties %}
+    {% if sheet.parties and not sheet.is_index %}
     <div>
       <h2>Parties on record</h2>
       <p class="small muted">Who filed, from the Board’s “Filed For” cells, resolved by rule (<a href="/methodology">how</a>). Nothing here says what anyone argued. Click a name to filter; “page” opens the party’s record.</p>
@@ -74,13 +130,16 @@
       </ul>
     </div>
     {% endif %}
-    {% if sheet.sub_dockets %}
+    {% if sheet.sub_dockets and not sheet.is_index %}
     <div>
       <h2>Related proceedings</h2>
-      {% for did, raw, title in sheet.sub_dockets %}
-      <p><a href="{{ docket_path(parse_docket_id(raw)) }}" style="font-weight: 500;">{{ printed_docket(parse_docket_id(raw)) }}</a>{% if title %}<br><span class="small muted as-printed">{{ title }}</span>{% endif %}</p>
+      {% for m in sheet.sub_dockets %}
+      <p><a href="{{ docket_path(parse_docket_id(m.raw_docket)) }}" style="font-weight: 500;">{{ printed_docket(parse_docket_id(m.raw_docket)) }}</a>{% if m.title %}<br><span class="small muted as-printed">{{ m.title }}</span>{% endif %}</p>
       {% endfor %}
     </div>
+    {% elif sheet.is_index %}
+    <div><h2>Proceedings</h2><p class="small muted"><a href="#index">Index of all
+      {{ sheet.sub_dockets | length }}</a> under this number.</p></div>
     {% endif %}
     <div class="no-print">
       <h2 id="follow">Follow this docket</h2>

@@ -710,8 +710,18 @@ def create_app(
         d = asdict(s)
         d.pop("parties", None)  # the enriched layer is held (dump.HELD_REASON)
         d.update(docket_ref(s))
+        # each proceeding in the family with what the record holds for it — additive to
+        # shape 1: the three original fields keep their names and meaning (docs/data.md)
         d["sub_dockets"] = [
-            {"docket_id": i, "raw_docket": raw, "title": title} for i, raw, title in s.sub_dockets
+            {
+                "docket_id": m.docket_id,
+                "raw_docket": m.raw_docket,
+                "title": m.title,
+                "filings": m.filings,
+                "decisions": m.decisions,
+                "last_activity": m.last_activity,
+            }
+            for m in s.sub_dockets
         ]
         d["entries"] = [entry_json(e) for e in s.entries]
         body = {"docket": d}

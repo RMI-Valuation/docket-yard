@@ -9,7 +9,7 @@ from docketyard.capture import records
 from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS
 from docketyard.ingest import dockets, observations
 from docketyard.ingest.dockets import ParsedDocket
-from docketyard.store import db, home
+from docketyard.store import db, home, sheet
 from docketyard.web import urls
 from docketyard.web.app import create_app
 from tests.test_dockets_parse import make_body
@@ -166,6 +166,89 @@ def test_home_lists_the_week_once_per_record(client):
     assert '<td class="dk"><a href="/d/FD-36873/sub/1">FD 36873 (Sub-No. 1)</a></td>' in r.text
     assert "<table" in r.text and '<th scope="col">Docket</th>' in r.text
     assert "19–25 August 2026" in r.text
+
+
+def test_a_series_docket_leads_with_its_index(tmp_path):
+    """AB 290 is Norfolk Southern's abandonment series: the Board opens a sub-docket per
+    line and holds nothing against the number itself (measured 2026-08-30 — every one of
+    the fourteen largest families holds zero records of its own). So the page leads with
+    the index of proceedings, and lists a proceeding the record holds nothing for: the
+    Board opened it, and its number is the answer for a pre-1996 abandonment nobody can
+    otherwise find (the operator, 2026-08-30)."""
+    db_path = tmp_path / "series.sqlite"
+    con = db.connect(db_path)
+
+    def save(body, action):
+        cid = records.save_capture(
+            con,
+            tmp_path,
+            source_system="stb-ajax",
+            endpoint="test",
+            table_action=action,
+            request_params=[],
+            body=body,
+            http_status=200,
+            ingest_mode="forward",
+        )
+        records.set_verdict(con, cid, filter_asserted=True, row_count=0, reported_total=0)
+        return cid
+
+    # only sub-dockets are published by the Board; the parent is minted from them
+    dockets.ingest_capture(
+        con,
+        tmp_path,
+        save(
+            make_body(
+                [
+                    ("AB_290_1_X", "CAROLINA AND NORTHWESTERN RAILWAY - ABANDONMENT"),
+                    ("AB_290_2_X", "SOUTHERN RAILWAY - DISCONTINUANCE"),
+                    ("AB_290_3_X", "NORFOLK SOUTHERN - ABANDONMENT - YORK COUNTY"),
+                    ("AB_290_4_X", "NORFOLK SOUTHERN - ABANDONMENT - GASTON COUNTY"),
+                    ("AB_290_5_X", "NORFOLK SOUTHERN - DISCONTINUANCE - MECKLENBURG"),
+                    ("AB_290_6_X", "NORFOLK SOUTHERN - ABANDONMENT - UNION COUNTY"),
+                ],
+                total=6,
+            ),
+            DOCKETS,
+        ),
+    )
+    observations.ingest_capture(
+        con,
+        tmp_path,
+        save(
+            body_of(
+                filing_row(docket="AB_290_1_X", fid="311981", date="8/25/2026", filed_for="NS"), 1
+            ),
+            FILINGS,
+        ),
+    )
+    con.close()
+    sheet = TestClient(create_app(db_path))
+    r = sheet.get("/d/AB-290")
+    assert r.status_code == 200
+    assert "This number is a series" in r.text
+    assert "6 proceedings held here are indexed below" in r.text
+    assert "All 6 proceedings under AB 290" in r.text
+    assert "this record holds nothing against the number itself" in r.text  # never the Board's
+    assert "The ten most recent of 1 proceedings" in r.text  # the cap is stated
+    assert "Most recently active" in r.text
+    # the proceeding with records, and the one without — both listed, the second marked
+    assert 'href="/d/AB-290/sub/1X"' in r.text and 'href="/d/AB-290/sub/2X"' in r.text
+    assert "CAROLINA AND NORTHWESTERN" in r.text and "SOUTHERN RAILWAY" in r.text
+    assert "none held" in r.text and 'class="dormant"' in r.text
+    assert "Related proceedings" not in r.text  # the rail is the index's job now
+    assert "2026" in r.text  # the index spans the record, so every date carries its year
+
+
+def test_a_two_member_family_is_a_case_not_a_series(tmp_path):
+    """The index leads only where the parent is a series. A docket with one sub-docket
+    holding all the records is still one case, and burying its entries under a one-row
+    index would lose them (code review, 2026-08-30)."""
+    con = db.connect(build_store(tmp_path))
+    parent = con.execute("SELECT docket_id FROM docket WHERE raw_docket='FD_36873'").fetchone()[0]
+    s = sheet.docket_sheet(con, parent)
+    con.close()
+    assert s is not None and s.is_index is False and len(s.sub_dockets) == 1
 
 
 def test_this_week_is_seven_days_and_never_in_the_future(tmp_path):
