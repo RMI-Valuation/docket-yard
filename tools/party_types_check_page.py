@@ -25,6 +25,7 @@ TYPES = [
     "port",
     "government",
     "association",
+    "labor-union",
     "individual",
     "law-firm",
     "elected-official",
