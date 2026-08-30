@@ -19,7 +19,7 @@ are quoted attributes — are recorded in `docs/party-types.md`.
 | law-firm | 12 | 15 | 80% |
 | association | 31 | 40 | 77.5% |
 | company | 28 | 40 | 70% |
-| government | 28 | 40 | 70% |
+| government | 29 | 40 | 72.5% |
 | railroad | 28 | 40 | 70% |
 | unmatched | 0 | 75 | — (that is what unmatched means) |
 
@@ -31,7 +31,7 @@ each to `association` and the new `port` row; `company` loses 6 to `railroad`
 (rail-named LLCs the company rule caught first).
 
 **The Wikidata tier**: 67 of 250 organisations linked; of the 31 whose `instance of`
-mapped to the vocabulary, **22 right, 9 wrong** (71%) — and the wrong ones are
+mapped to the vocabulary, **23 right, 8 wrong** (74%) — and the wrong ones are
 instructive: both law firms mapped `company` (the P31 map lacks a law-firm value), two
 utilities mapped `company`/`government` (same gap), `State Of Georgia` mapped
 `government` where the operator judged the party `railroad`, and one individual it
@@ -39,7 +39,7 @@ called `individual` the operator knows as an elected official. The link is evide
 a verdict.
 
 **The judged distribution** (what 300 parties actually are): association 49, individual
-48, company 44, railroad 39, government 36, elected-official 28, span-artefact 25,
+48, company 44, railroad 38, government 37, elected-official 28, span-artefact 25,
 law-firm 12, labor-union 7, port 4, utility 3, rail-holding 3, unknown 2.
 
 **Span artefacts are 25 of 300** — 8% of the sample is not one party, and the operator's

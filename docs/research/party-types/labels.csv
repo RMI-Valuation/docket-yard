@@ -110,7 +110,7 @@ party_id,as_filed,draft_type,type,method,evidence,dockets,note
 5995,Pennsylvania Department Of Conservation And Natural Resources,government,government,rule:party-type/2026-08-30,name,FD 35116; EP 690,
 6592,Port Of Miami,government,port,rule:party-type/2026-08-30,name,EP 705,
 666,Schuylkill River Passenger Rail Authority,government,railroad,rule:party-type/2026-08-30,name,FD 36873,
-4299,State Of Georgia,government,railroad,rule:party-type/2026-08-30,name,AB 389; FD 36873,
+4299,State Of Georgia,government,government,rule:party-type/2026-08-30,name,AB 389; FD 36873,corrected by the operator 2026-08-30 (first judged railroad in error)
 5175,State Of New Hampshire Department Of Transportation,government,government,rule:party-type/2026-08-30,name,AB 871; AB 848; AB 32; AB 1120,
 6277,State Of New York Office Of The Attorney General,government,government,rule:party-type/2026-08-30,name,MCF 21035; AB 1261,
 4948,State Of Washington,government,government,rule:party-type/2026-08-30,name,FD 34609,
