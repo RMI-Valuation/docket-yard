@@ -9,22 +9,20 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- **Labels: checked 2026-08-30** — all 884 judged, one row wrong, none missing. Precision
-  is readable at last: Claude 64.2% against 89.2% recall on STB edges, qwen3 23.6%/73.5%.
-  **One decision open, Cameron's:** 68 rows record a target as `FD 36744 et al.`; does the
-  `target` column hold what the page printed or what a citator resolves? Scoring is
-  unaffected either way. Then step 3 — the ADR naming what ships, at what confidence, and
-  what is left to a human
+- **ADR 0017 (Proposed 2026-08-30)** — the API extractor ships citation edges; local
+  does not write them; confidence is the measured precision of an edge's class; the
+  registry (rules 1–2) and the ADR 0016 queue sit between model and page. Drafted from the
+  checked sheet: docket-shaped targets 95.9%/95.5%, all ten extras self-references, six
+  unresolved targets identical to the sheet's. Schema-critic's seven findings are
+  folded in (§ Review); next: Cameron's acceptance in a later session. `target` column settled: what a citator
+  resolves (68 rows rewritten, truth sets identical)
 - RMI-AI-MACHINE back 2026-08-29 (a power-off, not a fault: `tailscaled` is enabled at boot,
   sleep targets inactive — nothing to harden). qwen2.5vl:7b pulled and scored. Tailscale SSH
   needs a browser check per session — Cameron's click
-- **OCR/extraction (M3):** step 2 **done 2026-08-29**, ~$16. Five engines scored; the
-  finding is that OCR costs the citator nothing measurable (91.9% of STB edges from
-  Textract's OCR vs 89.2% from the publisher's text) while the extractor moves recall 16
-  points (qwen3:14b 73.5%, Claude 89.2%). Budget belongs at extraction: ~$260 Textract +
-  ~$1,075 Claude batched for the backfill. GPU rental rejected. Written into `ocr-plan.md`
-  and `extraction-benchmark.md`. **Ground truth's bound: ranking publishable, absolute
-  character accuracy not.** Next: step 3, an ADR recording what ships at what confidence
+- **OCR/extraction (M3):** step 2 done 2026-08-29 (~$16); the finding — OCR costs the
+  citator nothing measurable, the extractor moves recall 16 points — is in `ocr-plan.md`,
+  `extraction-benchmark.md` and ADR 0017. **Ground truth's bound: ranking publishable,
+  absolute character accuracy not**
 - Keys: rotation closed 2026-08-30 — the superseded `docketyard-instance` key is deleted,
   one Active key remains, Litestream unaffected. The Anthropic key is revoked and its local
   copy gone; a further extraction run needs a new one (session spend was ~$16)
@@ -36,10 +34,8 @@ by pre-commit: when it fires, prune.
 - **ADR 0016** accepted 2026-08-28: a reviewer has an identity, reading stays anonymous;
   `/review` for OCR pages, citation edges, labels, corrections. Next: schema-critic on
   `reviewer`/`review_action`, then build
-- Citator schema gate, before C2 is chosen: **`docs/citator-gate.md`** now collects it —
-  four conventions settled, two docket-resolution rules from the footnote-fusion defect, and
-  what is still open (record cites, statutes, the decided date). Needs an ADR, and
-  schema-critic before it is accepted
+- Citator schema gate (`docs/citator-gate.md`) is drafted into ADR 0017; still open after
+  it: record cites' slice, statutes, the decided date's placement
 - Deadline engine (C4) evidence: decision JSON carries no extracted obligations (verified
   2026-08-26); a hand-checked fixture of 8 dated obligations for FD 36873 is in
   `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only; see

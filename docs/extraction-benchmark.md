@@ -102,14 +102,28 @@ a **lower bound** — the sixty are born-digital, so their renders are cleaner t
 scan — but it is a bound of *no measured damage*, which leaves headroom before degradation
 would begin to matter. `benchmark_ocr_text.py` builds that OCR side.
 
-Precision is not reported above because it cannot be read until the operator has checked
-the sheet: a real citation the drafter passed over scores as a false positive against it.
+Precision was not reported above until the operator had checked the sheet (2026-08-30): a
+real citation the drafter passed over scored as a false positive against it. Read after the
+check, over the text layer: STB citations **64.2%** (Claude) and 23.6% (qwen3:14b), and on
+docket-shaped STB targets alone **95.5%** at 95.9% recall — the split ADR 0017 is built on.
 
-## Step 3 — the decision
+## Step 3 — the decision (drafted 2026-08-30, ADR 0017 Proposed)
 
 Recorded as an ADR: which method ships, at what confidence, and what is left to a human.
 "Local is good enough" and "API for the hard tier, local for the routine tier" are both
 acceptable outcomes; "ship without measuring" is not.
+
+**Drafted:** `adr/0017-citation-edges-ship-from-the-api-extractor-at-measured-confidence.md`.
+The API extractor ships; the local model does not write edges. The figure that decides it
+was read only after the operator's check of the sheet (2026-08-30): on **docket-shaped
+targets** — what a citator resolves — Claude scores 95.9% recall and 95.5% precision, and
+all ten extras are the citing decision's own proceeding read as a citation; none is an edge
+to a docket the decision never touched. The 64.2% headline precision is mostly reporter
+cites, pin-cite short forms and `decision served …` phrases the sheet folds, not wrong
+dockets. Six of 166 distinct docket targets fail the registry — the same six the checked
+sheet holds — so the extractor invents none. Confidence is the measured precision of an
+edge's class, not the model's opinion; the review queue takes the short-sequence dockets,
+the in-range unresolved and the same-docket citations that do not resolve to a decision.
 
 > Step 1 note (2026-08-26): the tabled UP–NS tracker holds 988 hand-checked documents in FD 36873 — 33 decisions among them — with a tiering scheme (A/B/C) worth reading before designing routing here; see `upns-tracker-inheritance.md`. Its page-capped extraction makes labels from long exhibits weaker evidence.
 

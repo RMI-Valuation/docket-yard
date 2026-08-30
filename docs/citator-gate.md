@@ -1,6 +1,8 @@
 # The citator gate — what must be settled before C2 is chosen
 
-**Status: open questions, not decisions.** This collects what the extraction benchmark has
+**Status: open questions, not decisions — now drafted into ADR 0017 (Proposed,
+2026-08-30), which makes the conventions and the two rules below decisions and names what
+ships at what confidence.** This collects what the extraction benchmark has
 settled, what it has exposed, and what remains, so that the ADR recording the citation-edge
 shape can be written from evidence rather than from first principles. Nothing here is
 accepted; an accepted ADR supersedes any of it. Capability C2 is an **STB and ICC citator**
