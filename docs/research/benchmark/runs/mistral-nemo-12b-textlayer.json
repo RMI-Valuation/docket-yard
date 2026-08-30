@@ -1,0 +1,566 @@
+{
+ "run": "data\\benchmark\\runs-batch\\mistral-nemo-12b",
+ "label": "mistral-nemo-12b-textlayer",
+ "legacy_findings": 0,
+ "page_check": true,
+ "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
+ "unchecked_decisions": [],
+ "off_page_findings": 70,
+ "off_page": [
+  {
+   "decision": "51532",
+   "page": 5,
+   "kind": "citation",
+   "target": "872 F.2d 1048, 1054 n.12",
+   "quoted": "See Gen. Am. Transp. Corp. v. ICC (IHB Appeal), 872 F.2d 1048, 1054 n.12 (D.C. Cir. 1989) (\u201cThe 106% figure was designed to account for both empty-return mileag"
+  },
+  {
+   "decision": "51532",
+   "page": 17,
+   "kind": "citation",
+   "target": "3 I.C.C.2d at 610",
+   "quoted": "IHB II, 3 I.C.C.2d at 610."
+  },
+  {
+   "decision": "51532",
+   "page": 21,
+   "kind": "citation",
+   "target": "https://www.acus.gov/document/precedential-decision-making-agency-adjudication-final-report",
+   "quoted": "Christopher J. Walker, Melissa Wasserman & Matthew Lee Wiener, Precedential Decision Making in Agency Adjudication (Dec. 6, 2022)"
+  },
+  {
+   "decision": "51532",
+   "page": 24,
+   "kind": "citation",
+   "target": "7 I.C.C.2d at 25, 27-28",
+   "quoted": "Buffalo & Pittsburgh, 7 I.C.C.2d at 25, 27-28."
+  },
+  {
+   "decision": "52211",
+   "page": 1,
+   "kind": "deadline",
+   "target": "October 6, 2023",
+   "quoted": "On October 6, 2023, Canadian Pacific Kansas City Limited, on behalf of itself and its wholly owned subsidiary, The Kansas City Southern Railway Company (KCS) d/"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "deadline",
+   "target": "February 2, 2024",
+   "quoted": "On February 2, 2024, NSR filed a reply to Applicants rebuttal"
+  },
+  {
+   "decision": "52211",
+   "page": 6,
+   "kind": "citation",
+   "target": "Applicants Supplement",
+   "quoted": "(See Applicants Suppl. 4-5, Nov. 21, 2023 (discussing the three categories of traffic that CPKC expects would be attracted to Myrtlewood from other rail routing"
+  },
+  {
+   "decision": "52211",
+   "page": 8,
+   "kind": "deadline",
+   "target": "March 15, 2024",
+   "quoted": "The Board will issue its decision on the Application by March 15, 2024."
+  },
+  {
+   "decision": "52211",
+   "page": 12,
+   "kind": "deadline",
+   "target": "consummation of the Transaction",
+   "quoted": "According to Applicants, CPKC plans to get to work on eliminating deferrals as soon as the Transaction is consummated."
+  },
+  {
+   "decision": "52211",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "Applicants must conclude their reviews in a timely manner."
+  },
+  {
+   "decision": "52267",
+   "page": 3,
+   "kind": "citation",
+   "target": "Consol. Appropriations Act, 2024, Pub. L. No. 118-42",
+   "quoted": "see Consol. Appropriations Act, 2024, Pub. L. No. 118-42, 413, 138 Stat. 25, 391 (2023)"
+  },
+  {
+   "decision": "52267",
+   "page": 17,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "The deadline for filing a response is October 15, 2024."
+  },
+  {
+   "decision": "52280",
+   "page": 1,
+   "kind": "citation",
+   "target": "FD 36801",
+   "quoted": "Hondo Ry.\u2014Lease & Operation Exemption\u2014Rail Line of S. Tex. Liquid Terminal, Inc., FD 36801 (STB served Aug. 16, 2006)"
+  },
+  {
+   "decision": "52295",
+   "page": 16,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "Upon written request by a shipper submitted to the applicable CN/GTC account representative, Applicants will be required to provide a written response identifyi"
+  },
+  {
+   "decision": "52295",
+   "page": 17,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "NGFA states that the Board should adopt a five-year oversight period and retain jurisdiction to impose additional conditions and take other action as necessary."
+  },
+  {
+   "decision": "52295",
+   "page": 22,
+   "kind": "citation",
+   "target": "FD 36472 et al.",
+   "quoted": "(CPKC Comments 28-29 (citing CSX Corp.\u2014Control & Merger\u2014Pan Am Sys., Inc., FD 36472 et al., slip op. at 6-7, 14-15 (STB served Apr. 14, 2022)).)"
+  },
+  {
+   "decision": "52295",
+   "page": 22,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "According to CPKC, the Board should require Applicants to negotiate and enter into a binding haulage agreement that grants a carrier independent of CN the right"
+  },
+  {
+   "decision": "52295",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "Applicants state that they have no objection to CPKC\u2019s request that the Board impose as a condition the commitment to keep gateways open, \u201cincluding specificall"
+  },
+  {
+   "decision": "52295",
+   "page": 27,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "Applicants shall submit such initial plan and report to the Board and all shippers on the IANR system nine months from the effective date of the Board decision."
+  },
+  {
+   "decision": "52330",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The Board will deny UP\u2019s request to dismiss the Petition and (ii) set a procedural schedule for this proceeding."
+  },
+  {
+   "decision": "52347",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "As a condition to this exemption, any employee adversely affected by the abandonment shall be protected under Oregon Short Line Railroad\u2014Abandonment Portion Gos"
+  },
+  {
+   "decision": "52448",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The request is for an extension of the NITU negotiating period to October 21, 2025."
+  },
+  {
+   "decision": "52519",
+   "page": 1,
+   "kind": "deadline",
+   "target": "April 8, 2026",
+   "quoted": "The Ohio-Rail Development Commission (\u201cORDC\u201d) and the Muskingum Valley Park District (\u201cMVPD\u201d) hereby jointly petition the Surface Transportation Board (\u201cSTB\u201d) f"
+  },
+  {
+   "decision": "52526",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The Director of the Office of Proceedings will issue a summary ruling on the motion to compel discovery within 5 business days after a conference with the parti"
+  },
+  {
+   "decision": "52573",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "SNR certifies that its projected annual revenues as a result of this transaction are not expected to exceed those that would qualify it as a Class III rail carr"
+  },
+  {
+   "decision": "52602",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "OEA recommended that any Board decision granting abandonment authority include two conditions."
+  },
+  {
+   "decision": "52616",
+   "page": 2,
+   "kind": "caption",
+   "target": "FD 36732 et al.",
+   "quoted": "Docket No. FD 36732 et al."
+  },
+  {
+   "decision": "52616",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52616",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The requested protective order should be entered by the Board within 30 days of this submission."
+  },
+  {
+   "decision": "52616",
+   "page": 5,
+   "kind": "caption",
+   "target": "EP 787",
+   "quoted": "Docket No. EP 787"
+  },
+  {
+   "decision": "52616",
+   "page": 6,
+   "kind": "caption",
+   "target": "FD 36732",
+   "quoted": "Docket No. FD 36732"
+  },
+  {
+   "decision": "52616",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52616",
+   "page": 9,
+   "kind": "caption",
+   "target": "FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "52616",
+   "page": 9,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "The deadline for filing comments is October 15, 2024."
+  },
+  {
+   "decision": "52701",
+   "page": 2,
+   "kind": "caption",
+   "target": "FD 36732",
+   "quoted": "Docket No. FD 36732"
+  },
+  {
+   "decision": "52701",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "Any information or documents so designated or stamped as \u201cHIGHLY CONFIDENTIAL\u201d shall be handled as provided hereinafter."
+  },
+  {
+   "decision": "52701",
+   "page": 5,
+   "kind": "caption",
+   "target": "FD 36798",
+   "quoted": "Docket No. FD 36798"
+  },
+  {
+   "decision": "52748",
+   "page": 13,
+   "kind": "citation",
+   "target": "3 S.T.B. 937",
+   "quoted": "3 S.T.B. 937 (1998)"
+  },
+  {
+   "decision": "52748",
+   "page": 16,
+   "kind": "citation",
+   "target": "EP 748",
+   "quoted": "49 CFR 1201.1-1; Indexing the Ann. Operating Revenues of R.Rs., EP 748 (STB served June 29, 2023)."
+  },
+  {
+   "decision": "52757",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The meeting will be conducted in accordance with ... Board procedures."
+  },
+  {
+   "decision": "52807",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "If an interim trail use/rail banking agreement is reached, the parties shall jointly notify the Board within 10 days that an agreement has been reached."
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "citation",
+   "target": "Union Pac. R.R.\u2014Constr. & Operation Exemption\u2014in Maricopa Cnty., Ariz., FD 36501",
+   "quoted": "Union Pac. R.R.\u2014Constr. & Operation Exemption\u2014in Maricopa Cnty., Ariz., FD 36501, slip op. at 5 (STB served June 3, 2025)"
+  },
+  {
+   "decision": "52822",
+   "page": 6,
+   "kind": "citation",
+   "target": "145 S. Ct. at 1513",
+   "quoted": "Seven Cnty., 145 S. Ct. at 1513"
+  },
+  {
+   "decision": "52835",
+   "page": 2,
+   "kind": "citation",
+   "target": "16 U.S.C. \u00a7 1247(d)",
+   "quoted": "16 U.S.C. \u00a7 1247(d); Nat\u2019l Wildlife Fed\u2019n v. ICC, 850 F.2d 694, 699-702 (D.C. Cir. 1988)"
+  },
+  {
+   "decision": "52988",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The Board expects carriers to make reasonable efforts to pull released railcars from shipper facilities, pull or receive interchange traffic, and to promptly ge"
+  },
+  {
+   "decision": "52988",
+   "page": 12,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The Board will exclude bad order cars from OETA reporting."
+  },
+  {
+   "decision": "52988",
+   "page": 19,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The Board will encourage railroads to report extenuating circumstances that have led or may lead to reduced performance, including weather-related events, in co"
+  },
+  {
+   "decision": "52988",
+   "page": 27,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 18."
+  },
+  {
+   "decision": "53052",
+   "page": 10,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "Applicants expect adjustments will occur gradually over three years, primarily through natural attrition and phased implementation, with critical roles preserve"
+  },
+  {
+   "decision": "53052",
+   "page": 26,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "Applicants propose to \u2018have the right to cure the alleged failure to provide reasonable service\u2019 within a 30-day period."
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "citation",
+   "target": "91 Fed. Reg. 618",
+   "quoted": "91 Fed. Reg. 618 (Jan. 1, 2026)"
+  },
+  {
+   "decision": "53052",
+   "page": 37,
+   "kind": "citation",
+   "target": "49 CFR 1105.7(e)(5)(i)(A)",
+   "quoted": "49 CFR 1105.7(e)(5)(i)(A)."
+  },
+  {
+   "decision": "53052",
+   "page": 37,
+   "kind": "citation",
+   "target": "49 CFR 1105.7(e)(5)(i)(B), (C)",
+   "quoted": "49 CFR 1105.7(e)(5)(i)(B), (C)."
+  },
+  {
+   "decision": "53052",
+   "page": 37,
+   "kind": "citation",
+   "target": "49 CFR 1105.7(e)(5)(ii)(B), (C)",
+   "quoted": "49 CFR 1105.7(e)(5)(ii)(B), (C)."
+  },
+  {
+   "decision": "53052",
+   "page": 38,
+   "kind": "citation",
+   "target": "90 Fed. Reg. 10,610",
+   "quoted": "90 Fed. Reg. 10,610 (Feb. 25, 2025)."
+  },
+  {
+   "decision": "53052",
+   "page": 40,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The Board\u2019s environmental review will be completed within 90 days after the NOI is published."
+  },
+  {
+   "decision": "53052",
+   "page": 40,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The Board will publish the NOI within 30 days after the Revised Application is filed."
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "citation",
+   "target": "49 CFR 1106.2",
+   "quoted": "49 CFR 1106.2"
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "citation",
+   "target": "49 CFR 1180.8(a)(1)",
+   "quoted": "49 CFR 1180.8(a)(1)"
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The Board will serve copies of its decisions, orders, and notices on those persons who are designated on the official service list as of the date of this decisi"
+  },
+  {
+   "decision": "53072",
+   "page": 1,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "Docket No. FD 36849 (Sub-No. 1) is hereby set for decision on or before October 15, 2024."
+  },
+  {
+   "decision": "53072",
+   "page": 3,
+   "kind": "caption",
+   "target": "STB Finance Docket No. 53072",
+   "quoted": "STB Finance Docket No. 53072"
+  },
+  {
+   "decision": "53072",
+   "page": 4,
+   "kind": "caption",
+   "target": "FD 53072",
+   "quoted": "Docket No. FD 53072"
+  },
+  {
+   "decision": "53072",
+   "page": 4,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "This order is effective on its service date."
+  },
+  {
+   "decision": "53072",
+   "page": 6,
+   "kind": "caption",
+   "target": "FD 36732",
+   "quoted": "Docket No. FD 36732"
+  },
+  {
+   "decision": "53072",
+   "page": 8,
+   "kind": "caption",
+   "target": "FD 36732",
+   "quoted": "Docket No. FD 36732"
+  },
+  {
+   "decision": "53072",
+   "page": 8,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53072",
+   "page": 8,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53076",
+   "page": 1,
+   "kind": "deadline",
+   "target": "May 12, 2026",
+   "quoted": "On May 12, 2026, Channel Pacific Railroad (CHPR), a non-carrier, filed a verified notice of exemption under 49 C.F.R. \u00a7 1150.31 to operate a rail line located w"
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "deadline",
+   "target": "June 11, 2026",
+   "quoted": "CHPR\u2019s exemption will become effective on June 11, 2026, the effective date under the Board\u2019s rules absent the notice requirements."
+  }
+ ],
+ "by_kind": {
+  "citation/stb": {
+   "truth": 332,
+   "found": 315,
+   "hit": 196,
+   "recall": 0.5903614457831325,
+   "precision": 0.6222222222222222
+  },
+  "citation/court": {
+   "truth": 86,
+   "found": 58,
+   "hit": 40,
+   "recall": 0.46511627906976744,
+   "precision": 0.6896551724137931
+  },
+  "citation/record": {
+   "truth": 7,
+   "found": 130,
+   "hit": 1,
+   "recall": 0.14285714285714285,
+   "precision": 0.007692307692307693
+  },
+  "caption/self": {
+   "truth": 38,
+   "found": 91,
+   "hit": 25,
+   "recall": 0.6578947368421053,
+   "precision": 0.27472527472527475
+  },
+  "deadline/date": {
+   "truth": 90,
+   "found": 150,
+   "hit": 78,
+   "recall": 0.8666666666666667,
+   "precision": 0.52
+  },
+  "deadline/reference": {
+   "truth": 21,
+   "found": 21,
+   "hit": 15,
+   "recall": 0.7142857142857143,
+   "precision": 0.7142857142857143
+  },
+  "deadline/period": {
+   "truth": 18,
+   "found": 106,
+   "hit": 9,
+   "recall": 0.5,
+   "precision": 0.08490566037735849
+  },
+  "deadline/indefinite": {
+   "truth": 6,
+   "found": 78,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": 0.0
+  },
+  "citation/stb-docket": {
+   "truth": 225,
+   "found": 157,
+   "hit": 144,
+   "recall": 0.64,
+   "precision": 0.9171974522292994
+  }
+ }
+}

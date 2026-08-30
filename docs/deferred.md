@@ -119,3 +119,24 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   with a payload and attachment query per entry) and the template then shows none of it.
   The JSON twin still publishes those entries, so skipping the build means deciding what a
   series carries in shape 1 — worth doing together, not piecemeal.
+
+## AB sub-docket numbering (measured 2026-08-30, not yet explained)
+
+Raised while building the series index. Nothing here blocks anything; it is recorded so
+the next person does not re-derive it.
+
+- **Sub-numbers are per-parent, not a shared pool** (the operator's hypothesis, tested):
+  Sub-No. 1 is used by 337 different AB parents, and Sub-No. 552 exists under AB 55,
+  AB 167 and AB 290.
+- **AB 290's numbering is broadly chronological**: median earliest-record year by band —
+  subs 150–199 → 1997, 250–299 → 2006, 350–399 → 2015, 400–449 → 2021. The series is
+  current at 424 (2026), so the numbers above it are the future, not a gap in this record.
+- **Scattered single absences are the Board's own.** 413X, 416X and 423X are missing
+  between held neighbours; the operator searched the Board for **AB 290 (Sub-No. 416X)
+  on 2026-08-30 and it does not exist**. AB 55's longest absent run is 4, AB 167's 14 —
+  consistent with numbers assigned and never docketed.
+- **Two outliers remain unexplained**: AB 290 (Sub-No. 552X), whose 2011–12 decisions are
+  *also* entered in AB 55 (Sub-No. 710X) and AB 167 (Sub-No. 1191X) — a joint NS/CSX/
+  Conrail proceeding where all three numbers sit high in their own series — and
+  AB 290 (Sub-No. 553X), 2024, which our record shows entered nowhere else. A joint filing
+  drawing from a high range would explain the first and not the second.
