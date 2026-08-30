@@ -1,0 +1,63 @@
+{
+ "run": "data\\benchmark\\runs-ocr\\claude-sonnet-5",
+ "label": "claude-ocr",
+ "legacy_findings": 13,
+ "by_kind": {
+  "citation/stb": {
+   "truth": 332,
+   "found": 490,
+   "hit": 305,
+   "recall": 0.9186746987951807,
+   "precision": 0.6224489795918368
+  },
+  "citation/court": {
+   "truth": 86,
+   "found": 156,
+   "hit": 84,
+   "recall": 0.9767441860465116,
+   "precision": 0.5384615384615384
+  },
+  "citation/record": {
+   "truth": 7,
+   "found": 493,
+   "hit": 7,
+   "recall": 1.0,
+   "precision": 0.014198782961460446
+  },
+  "caption/self": {
+   "truth": 38,
+   "found": 82,
+   "hit": 35,
+   "recall": 0.9210526315789473,
+   "precision": 0.4268292682926829
+  },
+  "deadline/date": {
+   "truth": 90,
+   "found": 129,
+   "hit": 89,
+   "recall": 0.9888888888888889,
+   "precision": 0.689922480620155
+  },
+  "deadline/reference": {
+   "truth": 21,
+   "found": 34,
+   "hit": 16,
+   "recall": 0.7619047619047619,
+   "precision": 0.47058823529411764
+  },
+  "deadline/period": {
+   "truth": 18,
+   "found": 40,
+   "hit": 9,
+   "recall": 0.5,
+   "precision": 0.225
+  },
+  "deadline/indefinite": {
+   "truth": 6,
+   "found": 19,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": 0.0
+  }
+ }
+}

@@ -72,6 +72,34 @@ location is wrong. Three rules follow from the settled conventions:
   probe in the sheet: separating `Docket No. EP 787` from `NPRM, EP 787, slip op. at 4`
   is the distinction the citation graph is built on.
 
+## Step 2 results (2026-08-29)
+
+Two extractors over the sixty labelled decisions, scored by `benchmark_score.py` under the
+settled conventions — citations as sets of `(decision, target)`, each `target_kind` apart:
+
+| extractor | input | STB citations | courts | dated deadlines |
+|---|---|---|---|---|
+| qwen3:14b (local, free) | text layer | 60.2% | 29.1% | 96.7% |
+| Claude Sonnet 5 | text layer | **89.2%** | 97.7% | 98.9% |
+| Claude Sonnet 5 | **OCR of the same pages** | **91.9%** | 97.7% | 98.9% |
+
+Two things follow, and the second was not expected.
+
+**The extractor is the whole game.** 29 points of citation recall separate a local 14B from
+a frontier model on identical clean text — ten times the spread between the best and worst
+OCR engines. A citator that misses 30% of its edges is not a lower-quality citator; it is a
+different product.
+
+**OCR costs the citator nothing measurable.** Extraction over Textract's output recovers as
+many citations as extraction over the publisher's own text layer. A citation is a long,
+redundant, structured string, and a 10.8% character error rate rarely destroys one. This is
+a **lower bound** — the sixty are born-digital, so their renders are cleaner than a real
+scan — but it is a bound of *no measured damage*, which leaves headroom before degradation
+would begin to matter. `benchmark_ocr_text.py` builds that OCR side.
+
+Precision is not reported above because it cannot be read until the operator has checked
+the sheet: a real citation the drafter passed over scores as a false positive against it.
+
 ## Step 3 — the decision
 
 Recorded as an ADR: which method ships, at what confidence, and what is left to a human.

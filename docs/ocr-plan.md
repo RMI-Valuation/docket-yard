@@ -1,5 +1,23 @@
 # OCR of the image-only record — plan
 
+**Measured 2026-08-29 — read this first.** The plan below was written on the assumption
+that OCR accuracy propagates into everything downstream, so the engine choice mattered and
+was worth paying for. Measured against the labelled decisions, it does not. Extraction run
+over Textract's OCR of a page recovers **as many citations as extraction over the
+publisher's own text layer** — 91.9% of STB edges against 89.2%, and identical on courts,
+captions and dated deadlines. A 10.8% character error rate costs approximately zero
+citation edges, because a citation is a long, redundant, structured string that survives a
+wrong character. Meanwhile the *extractor* choice moves citation recall by 29 points
+(qwen3:14b 60.2%, Claude Sonnet 5 89.2%) on identical clean text.
+
+So the money belongs at the extraction stage and the OCR stage should be as cheap as is
+adequate. The engine comparison is in `docs/research/ocr-benchmark/runs/`; the two
+extraction runs either side of OCR are `claude-textlayer.json` and `claude-ocr.json` in
+`docs/research/benchmark/runs/`. Both caveats stand: the sixty labelled decisions are
+born-digital, so their renders are cleaner than a real scan and the figure is a lower bound
+on OCR damage; and precision cannot be read until the operator has checked the sheet, since
+a real citation the drafter missed scores as a false positive.
+
 **Status:** chosen by the operator 2026-08-28 (decisions: measure the API candidate on the 90 sample pages; a review budget of about 50 pages a week; the contributor path designed in from the start — reviewer identity and a `/contribute` sentence ship with the queue). Step 1 (the sample) begins; nothing reads into the store before step 3. The operator's requirement, stated the same day:
 *whatever engine is used, make it as accurate as possible, with a review layer.* This
 document is the plan that meets it; the decision points at the end are the operator's.
@@ -76,19 +94,38 @@ search index reads the view; the citation extractor reads the view; the viewer p
 the text beside the image with its confidence and a "report a misreading" link that lands
 in the queue.
 
-## Cost and time
+## Cost and time (measured 2026-08-29)
 
-The box: RTX 4070 (12 GB), 64 GB, 1.6 TB free. Tesseract over 13.6k documents (~150k pages
-at ~11 pages each) is hours; a VLM at a page every few seconds is days. Two engines plus a
-tie-breaker over the whole set is under a week of unattended GPU time. The operator's time
-is the real cost: the ninety-page ground truth (a few hours of checking) and the review
-queue at whatever weekly budget is set.
+Per page, on the benchmark's own pages: **Textract $0.0015**, **Claude Sonnet 5 $0.0171**
+(2,684 input and 605 output tokens a page, measured, not estimated), **qwen2.5vl:7b free**
+at 8.2 s a page on the box. Over ~175k pages:
+
+| stage | engine | cost |
+|---|---|---|
+| OCR | Textract | ~$260 |
+| Extraction | Claude, batched | ~$1,075 |
+| **Backfill total** | | **~$1,335** |
+
+The shape of that table is the finding: OCR is a fifth of the bill and buys nothing more if
+you spend on it, while extraction is the rest and buys 29 points of citation recall. A GPU
+rental was costed and rejected — it competes only on the OCR line, where the saving is at
+most ~$140 against a managed service that needs no instance, no driver and no spot
+interruption handling.
+
+The box keeps two jobs: it is free, so it is where anything gets tried first, and
+qwen2.5vl:7b is a usable bulk reader (9.2% CER, better than Textract's 10.8%) **provided
+graphic and tabular pages route elsewhere** — on nine graphic pages it emitted 3,920 false
+characters against Claude's 6. It does not read those pages, it invents prose about them.
+
+The operator's time remains the real cost: the ninety-page ground truth (checked
+2026-08-29) and the review queue at whatever weekly budget is set.
 
 ## Decisions for the operator
 
 1. Choose the plan (or not) — it starts with the sample, nothing is read into the store
    until step 3.
-2. The API candidate: measure it (spends money) or local-only.
+2. ~~The API candidate: measure it or local-only.~~ **Done 2026-08-29:** both measured,
+   for about $5. Textract, Claude Sonnet 5 and qwen2.5vl:7b are all in the benchmark.
 3. The weekly review budget (pages), which sets how fast the flagged tail clears.
 4. Whether a trusted contributor may sit at the queue later (`/contribute` says nothing
    about this today; it would need a sentence).

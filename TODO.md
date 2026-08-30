@@ -18,12 +18,13 @@ by pre-commit: when it fires, prune.
 - RMI-AI-MACHINE **offline on the tailnet since ~2026-08-29 06:00** (the workstation is not on
   its LAN) — Cameron fixes it physically; then OCR step 2, and check `systemctl is-enabled
   tailscaled`, `journalctl -b -1 -e`, mask the sleep targets
-- **OCR (M3 slice):** step 1 accepted 2026-08-29. Step 2 **cloud half done 2026-08-29**
-  without the box: Textract and Claude Sonnet 5 over the 90 pages (`ocr_run.py` gained both
-  engines; Textract records per-word confidence). Claude leads on every tier; Textract is
-  within a point on clean pages at 1/11th the cost, and is redundant-preprocessed — greyscale
-  and 1-bit score identically. Local engines still unrun (box down). **Note the ground
-  truth's own bound: ranking may be published, absolute character accuracy may not**
+- **OCR/extraction (M3):** step 2 **done 2026-08-29**, ~$16. Five engines scored; the
+  finding is that OCR costs the citator nothing measurable (91.9% of STB edges from
+  Textract's OCR vs 89.2% from the publisher's text) while the extractor moves recall 29
+  points (qwen3:14b 60.2%, Claude 89.2%). Budget belongs at extraction: ~$260 Textract +
+  ~$1,075 Claude batched for the backfill. GPU rental rejected. Written into `ocr-plan.md`
+  and `extraction-benchmark.md`. **Ground truth's bound: ranking publishable, absolute
+  character accuracy not.** Next: step 3, an ADR recording what ships at what confidence
 - Delete the Inactive `docketyard-instance` key after a clean day (`aws iam delete-access-key`);
   Cameron stores both new secrets from the session scratchpad
 - **Revoke the Anthropic API key** pasted 2026-08-29 (it is in this session's transcript);

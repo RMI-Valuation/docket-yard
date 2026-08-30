@@ -191,8 +191,26 @@ def ask_claude(model: str, prompt: str, timeout: float, cfg: dict) -> tuple[dict
     cfg["_out"] = cfg.get("_out", 0) + usage.get("output_tokens", 0)
     for block in answer.get("content", []):
         if block.get("type") == "tool_use":
-            return block.get("input") or {"findings": []}, time.monotonic() - t
+            return _findings(block.get("input")), time.monotonic() - t
     raise RuntimeError("no tool_use block in the answer")
+
+
+def _findings(payload) -> dict:
+    """A tool input is not always the shape its schema declares: on a small share of pages
+    `findings` comes back as the JSON *text* rather than the array. Left alone it reads as
+    a page with hundreds of findings, one per character."""
+    if not isinstance(payload, dict):
+        return {"findings": []}
+    got = payload.get("findings")
+    if isinstance(got, str):
+        try:
+            parsed = json.loads(got)
+        except json.JSONDecodeError:
+            return {"findings": []}
+        got = parsed.get("findings") if isinstance(parsed, dict) else parsed
+    if not isinstance(got, list):
+        return {"findings": []}
+    return {"findings": [x for x in got if isinstance(x, dict)]}
 
 
 def ask(host: str, model: str, prompt: str, timeout: float) -> tuple[dict, float]:
