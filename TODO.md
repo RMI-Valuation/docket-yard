@@ -27,18 +27,17 @@ by pre-commit: when it fires, prune.
   (vocabulary measured, three method tiers, ground truth before anything ships);
   critic's report folded in (evidence keys, additive vocab, pinned projection). The
   300-party sample is drawn, Wikidata evidence attached (67 links, 10 disagreements),
-  and **Cameron's check queue is live**:
-  <https://claude.ai/code/artifact/70be297e-340e-4875-b4e3-94a509f6fe7d> — judge, then
-  Copy findings back to a session to apply to `docs/research/party-types/labels.csv`
+  and **checked by Cameron 2026-08-30 — all 300** (figures in
+  `docs/research/party-types/README.md`: best rule type 87.5%, none publishable as
+  drafted; 8% span artefacts with SPLIT notes). Next: rules v2 from the confusion
+  table, then the model tier against the sheet (box after the batch, or a fresh key)
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
 
 ## Next
 
-- **ADR 0016** accepted 2026-08-28. `reviewer`/`review_action` drafted into
-  `schema-draft.md` § 7 and through schema-critic 2026-08-30 (report folded in: every
-  decision writes a human row, attribution of pre-table human rows is a rule not an
-  UPDATE, text target keys, no benchmark-label queue). Next: build, after ADR 0017
+- **ADR 0016** accepted 2026-08-28; `reviewer`/`review_action` drafted into
+  `schema-draft.md` § 7, schema-critic's report folded in 2026-08-30. Build after 0017
 - Citator schema gate (`docs/citator-gate.md`) is drafted into ADR 0017; still open after
   it: record cites' slice, statutes, the decided date's placement
 - Deadline engine (C4) evidence: decision JSON carries no extracted obligations (verified

@@ -96,10 +96,15 @@ project can make (the same rule that forbids inferring a position permits quotin
 The citator's extraction pass is the machinery; this tier grows as extraction runs, and
 where it exists it outranks every other machine tier.
 
-**Tier 1 — ground truth first.** A stratified sample (~300 parties: every draft type, the
-unmatched tail oversampled) is drafted by the tiers below and **checked by the operator**
-through the ADR 0016 queue machinery (or its interim equivalent, as the labels sheet
-was). No figure is published and no label ships before that check.
+**Tier 1 — ground truth first: done 2026-08-30.** The 300-party stratified sample was
+drafted by the tiers below and **checked by the operator, all 300, the same day**
+(`research/party-types/README.md` holds the figures). What it measured: the rule tier's
+best type is `individual` at 87.5% and none clears a publishable bar as drafted; the
+unmatched tail is mostly elected officials (28); **8% of the sample is span artefacts**
+(joined-pair names the leading-`And` rule cannot see, with the operator's SPLIT notes as
+the re-split's answer key); Wikidata's mapped links are 71% right — evidence, never a
+verdict. Rules v2 comes from the confusion table; every later tier is measured against
+this sheet.
 
 **Tier 2 — rules, `method = 'rule:party-type'`,** versioned, for what a name states on
 its face. The reporting-mark signal joins (a party with a held `mark` name is a
