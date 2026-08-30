@@ -48,6 +48,12 @@ the operator made 2026-08-30, before the check:
   Brotherhoods, SMART-TD, Teamsters), a distinct constituency in merger and
   labor-protective-condition cases; the `union|brotherhood|federation` signals move here
   from `association`, keeping the `Union Pacific`/`Union County` guards.
+- **An attorney is an `individual`; representation is a role, never a type** (the
+  operator's question, 2026-08-30). `law-firm` is the organisation filing in its own
+  name; a named lawyer is a person, whoever they appear for — "attorney for X" is a
+  relationship the record states (signature blocks, "on behalf of") and belongs to a
+  future representation layer, not to the type. The check note "counsel" flags the
+  population for that later work.
 - **Carrier status ("a noncarrier") is an attribute too** (the operator's question,
   2026-08-30, on `AJAK Rail, LLC`): the Board's word for an entity that has not yet
   consummated its authority — true on a date, false after consummation. An entity whose
