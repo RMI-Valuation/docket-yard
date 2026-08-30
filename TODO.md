@@ -9,10 +9,11 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- **ADR 0017 (Proposed 2026-08-30)**: the API extractor ships edges at measured class
-  confidence; schema-critic's findings folded in. Awaiting Cameron's acceptance with the
-  amendment candidates (regex-first docket class; on-page rule; the cite.py verb-gate
-  conflict). `target` column settled: what a citator resolves
+- **ADR 0017 (Proposed)**: acceptance **deferred to the batch's completion** (Cameron,
+  2026-08-30) — decision 1 turns on the full model table. The verb-gate conflict is
+  settled: the resolver changed, a `decided` date now resolves to the sheet, never to a
+  decision. Open amendments at acceptance: regex-first docket class; on-page rule in the
+  resolution pass
 - **Local candidates batch running** (status <http://10.180.20.12:8765/>; `ssh rmi-lan`):
   scored so far on docket-shaped — Claude 95.6/95.6, qwen3:14b 93.8/93.8, regex+registry
   94.7 with no model, qwen2.5 87.6/90.0. Roles classifier queued behind the batch

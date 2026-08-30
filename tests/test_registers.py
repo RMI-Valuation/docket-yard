@@ -76,16 +76,20 @@ def test_the_resolver_reads_every_printed_form_and_never_guesses(tmp_path):
     for q in (
         "EP 711 (STB served Aug. 26, 2026)",
         "Ex Parte No. 711, served August 26, 2026",
-        "EP 711 decided 8/26/2026",
         "EP 711 service date: 2026-08-26",
     ):
         assert r(q).path == "/decision/60001", q
-    # A decision is decided some days before it is served and the record holds the
-    # service date alone, so denying the decision would be false: it is held, under the
-    # date it was served. An unmatched decided date says which date the record keeps.
-    miss = r("EP 711 decided 3/25/2026")
-    assert miss.kind == "sheet" and "not the date it was decided" in miss.note
-    assert "no decision served" not in miss.note
+    # A decision is decided some days before it is served and the record holds the service
+    # date alone (they differ in 34 of the sixty benchmark decisions), so a decided date is
+    # never matched against it: a "match" would likelier be a sibling served that day than
+    # the decision named, and a citation resolving to the wrong document is worse than one
+    # resolving to nothing (ADR 0017 decision 3, taken for the resolver 2026-08-30). Both
+    # the date that would have matched and one that would not answer the same way.
+    for q in ("EP 711 decided 8/26/2026", "EP 711 decided 3/25/2026"):
+        miss = r(q)
+        assert miss.kind == "sheet" and miss.path == "/d/EP-711", q
+        assert "not the date it was decided" in miss.note, q
+        assert "no decision served" not in miss.note, q
     # two decisions on one day: the sheet, and why
     # one decision entered under a docket and its sub-docket is one decision, not two
     ingest(

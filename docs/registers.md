@@ -30,10 +30,13 @@ inside `Decision` bodies.
 `/d?q=<citation>` answers 303 to the permanent address a citation names; `/cite?q=` answers
 the same as JSON (`web/cite.py`). Forms: every docket spelling `urls.lookup` already took,
 plus the Board's long names (`STB Finance Docket No. 36873`, `Ex Parte No. 711`, `Docket
-No. NOR 42130`), a decision as docket + service date (`FD 36873 (STB served Aug. 25,
-2026)`, `… decided 8/25/2026`), and the Board's record ids (`Decision 53210`, `Filing
-311981`). A date that two held decisions share resolves to the sheet (which lists both), a date not
+No. NOR 42130`), a decision as docket + **service** date (`FD 36873 (STB served Aug. 25,
+2026)`, `… service date: 2026-08-25`), and the Board's record ids (`Decision 53210`,
+`Filing 311981`). A date that two held decisions share resolves to the sheet (which lists both), a date not
 held to the sheet — `/cite` carries the reason as `note`, `/d` just lands there; a number the record does not hold resolves to the
-sheet address anyway (which says it is not held). The Board's reporter form (`N S.T.B. n`)
+sheet address anyway (which says it is not held). A **decided** date always resolves to
+the sheet, never to a decision (revised 2026-08-30, ADR 0017 decision 3): `decision_record`
+holds the service date alone, the two differ in 34 of the sixty benchmark decisions, and a
+match on a decided date is likelier a sibling served that day than the decision named. The Board's reporter form (`N S.T.B. n`)
 and `Decision No. n` are not resolvable until extraction fills `decision_number`. The search
 box tries the resolver before the index, so a pasted citation never becomes a word search.

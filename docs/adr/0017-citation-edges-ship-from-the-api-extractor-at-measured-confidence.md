@@ -252,15 +252,17 @@ in at acceptance rather than rewritten silently:
   preserving it on paper. The migration that creates these tables must let resolutions
   follow the citation's **natural key** through supersession (or projections chase the
   chain); decide it before the first review-class edge, not after a ~$1,335 re-run.
-- **Decision 3's verb gate conflicts with the live resolver's tested behaviour.** The
-  citation resolver (`web/cite.py`, F2) resolves `EP 711 decided 8/26/2026` to a decision
-  when exactly one row in the family was *served* that day, and
-  `test_registers.py` pins it on purpose ("a decision is the docket plus its service
-  date, in any printed form"); only the zero-match note distinguishes the verbs. This
-  record says a decided date matches nothing until a decided-date assertion exists —
-  on the sixty, 34 of 52 printed decided dates differ from the service date, so a
-  "match" can be a sibling served that day. Acceptance must pick one; the loser changes
-  (the resolver's gate, or this decision's).
+- ~~Decision 3's verb gate conflicts with the live resolver's tested behaviour.~~
+  **Settled 2026-08-30: the resolver changed, so decision 3 stands as written.** The
+  citation resolver (`web/cite.py`, F2) had resolved `EP 711 decided 8/26/2026` to a
+  decision whenever exactly one row in the family was *served* that day, with
+  `test_registers.py` pinning it on purpose; on the sixty, 34 of 52 printed decided dates
+  differ from the service date, so that "match" could be a sibling rather than the
+  decision named — the wrong-edge failure `citator-gate.md` exists to prevent. `cite.py`
+  now gates on the phrase's own verb: a decided date resolves to the docket sheet with a
+  note, never to a decision, until a decided-date assertion exists. The test pins the new
+  behaviour on both a date that would have matched and one that would not; `registers.md`
+  and the module docstring carry the revised promise.
 
 ## Review (schema-critic, 2026-08-30)
 
@@ -274,6 +276,11 @@ self-reference test was docket-exact where the record is a family (5); errata an
 doubled counts (7). Two of the critic's readings were measured rather than assumed: a
 consolidated decision does carry a row per member docket, and the exposed class is 5 of
 220. What remains the operator's: acceptance, and the decided-date placement.
+
+**Acceptance deferred by the operator, 2026-08-30**: five local candidates and the role
+classifier are still running, and decision 1 (which extractor ships the docket class)
+turns on the complete table — the regex baseline's 94.7% recall on that class is so far
+unbeaten by any local model. Accept when the batch reports.
 
 *Proposed, not accepted. Accept only after this decision has been checked against
 `../validation-queries.md` — the check above is the drafter's, revised on the critic's

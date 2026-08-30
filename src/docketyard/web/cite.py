@@ -4,10 +4,13 @@ any of the Board's printed forms resolves to its permanent address with no searc
 Forms understood — every docket spelling `urls.lookup` takes (the one definition):
 `FD 36873`, `FD_36873_1`, `FD 36873 (Sub-No. 1)`, `STB Finance Docket No. 36873`,
 `STB Docket No. AB 55 (Sub-No. 785X)`, `Ex Parte No. 711`, `STB Ex Parte 711`, `Docket
-No. NOR 42130`. A decision is the docket plus its service date — `FD 36873 (STB served
-Aug. 25, 2026)`, `… served August 25, 2026`, `… decided 8/25/2026` — resolved against the
+No. NOR 42130`. A decision is the docket plus **its service date** — `FD 36873 (STB served
+Aug. 25, 2026)`, `… served August 25, 2026`, `… service date: 2026-08-25` — resolved against the
 family's decisions on that date; and `Decision 53210` / `Filing 311981` are the Board's own
-record ids. Nothing is guessed: an ambiguous date (two decisions served the same day)
+record ids. A **decided** date resolves to the sheet, never to a decision: the record
+holds service dates alone and the two differ in 34 of the sixty benchmark decisions, so
+a match on a decided date is likelier a sibling served that day than the decision named
+(ADR 0017 decision 3). Nothing is guessed: an ambiguous date (two decisions served the same day)
 resolves to the sheet, which lists both. The Board's own reporter form (`N S.T.B. n`) and
 `Decision No. n` cannot resolve yet — the record does not hold those numbers (they live
 inside the documents; extraction later).
@@ -103,6 +106,23 @@ def resolve(con: Connection, text: str) -> Resolution | None:
             printed,
             f"the date {served.group(2)!r} was not read",
         )
+    # The phrase's own verb gates which column may match (ADR 0017 decision 3, accepted
+    # for the resolver 2026-08-30). The Board decides a decision and serves it some days
+    # later -- on the sixty benchmark decisions the two dates differ in 34 -- and
+    # `decision_record` holds the service date alone. So a decided date must never be
+    # matched against `service_date`: where a sibling happens to have been SERVED on the
+    # named day, the "one match" is likelier the wrong decision than the named one, and an
+    # edge that resolves to the wrong document is worse than one that resolves to nothing
+    # (citator-gate.md). Until a decided-date assertion exists, a decided phrase resolves
+    # to the sheet and says why.
+    if served.group(1).lower() == "decided":
+        return Resolution(
+            "sheet",
+            urls.docket_path(identity),
+            printed,
+            "the record holds the date a decision was served, not the date it was decided;"
+            f" the sheet for {printed} lists its decisions by service date",
+        )
     ids = [
         r[0]
         for r in con.execute(
@@ -116,19 +136,8 @@ def resolve(con: Connection, text: str) -> Resolution | None:
     ]
     if len(ids) == 1:
         return Resolution("decision", urls.decision_path(ids[0]), f"{printed}, served {date}")
-    decided = served.group(1).lower() == "decided"
     note = (
-        (
-            # The Board decides a decision and serves it some days later -- on the sixty
-            # benchmark decisions the two dates differ in 34 -- and `decision_record` holds
-            # the service date alone. So "nothing was served that day" is true and useless
-            # here, while "no such decision is held" would be false: it is held, under its
-            # service date. Say which date the record keeps instead of denying the decision.
-            f"the record holds the date a decision was served, not the date it was decided;"
-            f" nothing was served {date} in {printed}"
-            if decided
-            else f"no decision served {date} is held in {printed}"
-        )
+        f"no decision served {date} is held in {printed}"
         if not ids
         else f"{len(ids)} decisions were served {date} in {printed}; the sheet lists them"
     )
