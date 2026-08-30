@@ -43,44 +43,89 @@ Measured cautions, from the same pass — why rules alone do not publish:
   list cells; a type asserted on a malformed name compounds the earlier defect. These
   route to review of the *span*, not classification of the name.
 
-## Method: three tiers, one discipline
+## Evidence, in rank order — one discipline
 
-1. **Ground truth first.** A stratified sample (~300 parties: every draft type, the
-   unmatched tail oversampled) is drafted by rule and model, then **checked by the
-   operator** through the ADR 0016 queue machinery (or its interim equivalent, as the
-   labels sheet was). No figure is published and no label ships before that check; the
-   sample is the truth the tiers are measured against.
-2. **Rules, `method = 'rule:party-type'`,** versioned, for what a name states on its face
-   — measured precision per type on the checked sample decides which types (if any) ship
-   unreviewed at rule confidence. The reporting-mark and succession signals join the
-   rules (a party with a held `mark` name is a `railroad` at high confidence).
-3. **A model for the tail,** `method = 'model:<name>'`, batched locally or via API —
-   *measured on the checked sample before it writes anything*, like every extractor.
-   Low-confidence and disagreeing classifications queue for review (ADR 0016;
-   `review_action.queue = 'party_type'` joins the vocabulary); a `human` row wins and is
-   never overwritten.
+**Tier 0 — the record's own words** (the operator's point, 2026-08-30). Filings and
+decisions state what a party is: *"a Class III rail carrier"*, *"a Delaware
+corporation"*, *"a trade association representing…"*. A type quoted from a document, with
+its page and span, is not an inference at all — it is the strongest assertion this
+project can make (the same rule that forbids inferring a position permits quoting one).
+The citator's extraction pass is the machinery; this tier grows as extraction runs, and
+where it exists it outranks every other machine tier.
 
-Every assertion: the ADR 0007 block, confidence = the tier's measured precision for that
-type (the benchmark's convention), supersession on re-runs. Re-classification at a higher
+**Tier 1 — ground truth first.** A stratified sample (~300 parties: every draft type, the
+unmatched tail oversampled) is drafted by the tiers below and **checked by the operator**
+through the ADR 0016 queue machinery (or its interim equivalent, as the labels sheet
+was). No figure is published and no label ships before that check.
+
+**Tier 2 — rules, `method = 'rule:party-type'`,** versioned, for what a name states on
+its face. The reporting-mark signal joins (a party with a held `mark` name is a
+`railroad` at high confidence); succession edges are **never** walked for typing — a
+holding company is a `company` however many railroads it owns, and `parent_of` must not
+leak a subsidiary's type upward (schema-critic).
+
+**Tier 3 — Wikidata, `method = 'link:wikidata'`, organisations only.** Probed 2026-08-30:
+9 of 12 names link once suffixes are normalised, and `instance of` maps cleanly (Union
+Pacific → *Class I railroad* Q249556; State of Ohio → *US state*; National Confectioners
+Ass'n → *trade organization*). CC0, so licence-clean. **Individuals are never linked**:
+the probe's `Sharon Williams` hit a lawyer of that name with full confidence — a wrong
+link about a person is both a data defect and a privacy harm. The link itself (the Q-id)
+is stored with the assertion, which seeds F3's fuller registry later.
+
+**Tier 4 — a model for the tail,** `method = 'model:<name>'`, measured on the checked
+sample before it writes anything, like every extractor.
+
+Low-confidence and disagreeing classifications queue for review (ADR 0016;
+`review_action.queue = 'party_type'`); a `human` row wins and is never overwritten. Every
+assertion: the ADR 0007 block; confidence = the tier's measured precision for that type
+on the checked sample, stamped from the **shared method registry** ADR 0017 decision 1
+establishes (method, version, benchmark date, score file) so a re-measured figure is
+traceable and a stale one is visible (schema-critic). Re-classification at a higher
 method version writes new rows; nothing rewrites.
 
-## Schema shape (to schema-critic before it exists)
+## Schema shape (revised on schema-critic's report, 2026-08-30; to the critic again with the migration)
 
 ```sql
-party_type (                       -- natural key: (party_id, method, method_version)
+party_type (                       -- natural key: (party_id, method, method_version, evidence_key)
   party_type_id     bigint PK,
   party_id          FK party,
-  type              text,          -- FK party_type_vocab
-  -- provenance + supersession block (§ 5): method, method_version, asserted_at,
-  -- confidence, superseded_by; asserted_from_* null for rule rows (the source is the
-  -- held name, named in source_location as {"name_id": …})
+  type              text,          -- FK party_type_vocab(key)
+  evidence_key      text NOT NULL, -- what this row is ABOUT: 'name:<name_id>' for a rule,
+                                   -- 'doc:<sha256>/<page>' for a document-stated type,
+                                   -- 'wikidata:<qid>' for a link, 'party' for a model or
+                                   -- human judgement of the whole party
+  -- provenance + supersession block (§ 5); unique is partial, WHERE superseded_by IS NULL
 )
-party_type_vocab (type text PK, note text)
+party_type_vocab (
+  key               text PK,       -- stable forever; ADDITIVE-ONLY — a rename is a new
+  shown_as          text,          -- key plus a re-classification pass, never an UPDATE
+  note              text           -- across assertion rows (break A2; schema-critic)
+)
 ```
 
-The projection reads one live row per party (highest-confidence live assertion; a `human`
-row outranks by the standing rule). A same_as join takes the component's representative's
-type; a disagreement inside a component queues for review rather than picking silently.
+The evidence key resolves the measured collision the critic found: SEPTA's *name* says
+`government` while its *mark* says `railroad`, and both assertions now exist as rows —
+the pick is the projection's, with both on the record. **The projection is a pinned view
+with a total order, not prose**: `method = 'human'` first, then the document-stated tier,
+then confidence descending, then `asserted_at DESC, party_type_id DESC` as the
+deterministic tail — tested the way `party_component` is. A human row's confidence is
+irrelevant to its rank, so ADR 0017's "NULL is never projected" rule does not hide it.
+
+**Components** (schema-critic's unjoin walk): a review's `human` row lands on the member
+whose evidence was judged — never on the representative as such — so an unjoin (ADR 0015:
+a split is a new party) takes the label with the evidence and nothing outlives the
+component on the wrong party. The projection shows the component the label of its
+highest-ranked live row across members; a cross-member disagreement queues on the member
+row that lost, not on the (unstable) representative id.
+
+**The Board**: one operator-established `human` row (`agency`), written when the table
+first exists — "never re-derived" then follows from human-wins instead of being a
+special case, and `resolve.py`'s render-time name match retires. Until that row exists
+the current display behaviour stands.
+
+**Licence** (schema-critic): `party_type` and `party_type_vocab` join `HELD_TABLES` in
+the same migration that creates them — classifications are enriched-layer work
+(`licensing.md`) and must not reach the CC0 snapshot by allowlist laziness.
 
 ## The page
 
@@ -88,8 +133,30 @@ type; a disagreement inside a component queues for review rather than picking si
 alphabetical within, **collapsed by default for types over ~200 parties** (`<details>`,
 no script), expanded for the small ones; each entry is the component's display name
 linking to `/p/<id>`. Unclassified parties are a visible section, not an absence — the
-coverage counts on the page come from the store, per the trust rules. The search keeps
-its behaviour and its URL.
+coverage counts on the page come from the store, per the trust rules; **each count names
+its class mix** (how many labels are document-stated, rule, linked, model, human), per
+ADR 0017's "no count without its class" (schema-critic). **The publishing gate, stated
+once**: a label ships when its tier's measured precision for that type clears the
+threshold the checked sample sets, review or no review; a party whose live rows disagree
+shows no label ("under review") until the queue resolves it. The search keeps its
+behaviour and its URL. A component whose founding span was superseded as malformed (the
+`And X` artefacts) is listed under unclassified with its span review linked — it cannot
+be un-minted (ADR 0015) and is not hidden.
+
+## Review (schema-critic, 2026-08-30)
+
+The first draft's four breaks, folded in above: the natural key collided on the seed's
+own commuter agencies (name says `government`, mark says `railroad`) — resolved by the
+`evidence_key`; a vocabulary rename had no lawful path — the vocab is additive-only with
+a stable key and a display word; the projection was prose and nondeterministic — now a
+pinned, totally-ordered view; a component-level human label outlived an unjoin on the
+wrong party — human rows land on the member whose evidence was judged. Also from the
+report: the `agency` label becomes an operator `human` row; both tables are HELD from the
+snapshot; the method registry is shared with ADR 0017's; the publishing gate is stated
+once; span-review products need § 7 to allow plural produced rows (recorded there when
+the queue is built). The critic's positive finding stands: because `party_id` is
+permanent (ADR 0015), a human type survives every re-classification — the stranding
+hazard the citation tables must design around does not exist here.
 
 ## What this does not decide
 
