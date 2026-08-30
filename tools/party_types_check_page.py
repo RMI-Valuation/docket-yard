@@ -123,7 +123,10 @@ body {{ font: 15px/1.5 "Public Sans", system-ui, sans-serif; max-width: 52rem;
 <button id="copy">Copy findings</button>
 <label><input type="checkbox" id="only-undone"> show unjudged only</label>
 <p class="ev">A boxed button is the machine's draft; click the correct type (clicking the draft
-confirms it). Judgements stay in this browser until copied.</p></div>
+confirms it). A name that is not one party — it starts with “And”, or joins two entities
+with “and” — is <b>span-artefact</b>, whatever the entities are: the split is the defect,
+and typing waits for the re-split. On a joined pair, a note naming the two parties tells
+the re-split what to do. Judgements stay in this browser until copied.</p></div>
 {"".join(cards)}
 <script>
 const KEY = "party-types-check-2026-08-30";

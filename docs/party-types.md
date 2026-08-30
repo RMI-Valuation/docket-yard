@@ -65,7 +65,12 @@ Measured cautions, from the same pass — why rules alone do not publish:
 - `Ace Federal Reporters` rule-matches `government` ("Federal"); it is a company.
 - Names beginning `And …` (`And Cargill;Incorporated`) are split artefacts of the Board's
   list cells; a type asserted on a malformed name compounds the earlier defect. These
-  route to review of the *span*, not classification of the name.
+  route to review of the *span*, not classification of the name. **The same rule covers a
+  name that joins two entities with `and`** (`Patriot Rail, Llc And Patriot Rail Corp.`,
+  two railroads as one record — the operator's observation while judging, 2026-08-30):
+  `span-artefact` whatever the halves are, with the check note naming the two parties so
+  the re-split knows its answer. The checked sample measures how common the joined-pair
+  case is; the draft rule only catches the leading-`And` form.
 
 ## Evidence, in rank order — one discipline
 
