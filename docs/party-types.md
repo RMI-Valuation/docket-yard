@@ -48,12 +48,14 @@ the operator made 2026-08-30, before the check:
   Brotherhoods, SMART-TD, Teamsters), a distinct constituency in merger and
   labor-protective-condition cases; the `union|brotherhood|federation` signals move here
   from `association`, keeping the `Union Pacific`/`Union County` guards.
-- **An attorney is an `individual`; representation is a role, never a type** (the
-  operator's question, 2026-08-30). `law-firm` is the organisation filing in its own
-  name; a named lawyer is a person, whoever they appear for — "attorney for X" is a
-  relationship the record states (signature blocks, "on behalf of") and belongs to a
-  future representation layer, not to the type. The check note "counsel" flags the
-  population for that later work.
+- **A role is never a type** (the operator's questions while judging, 2026-08-30). A
+  named person is `individual` whatever the proceeding casts them as — counsel for a
+  railroad, an individual in control of one, an arbitrator nominee; and the caster keeps
+  its own type (a commission nominating someone stays `government`). `law-firm` is the
+  organisation filing in its own name; a named lawyer is a person. Roles — "attorney
+  for", "continuance in control", "nominated by" — are relationships the record states
+  in its own words and belong to a future representation/control layer. A one-word check
+  note ("counsel", "controls X", "nominee") flags those populations for that later work.
 - **Carrier status ("a noncarrier") is an attribute too** (the operator's question,
   2026-08-30, on `AJAK Rail, LLC`): the Board's word for an entity that has not yet
   consummated its authority — true on a date, false after consummation. An entity whose
