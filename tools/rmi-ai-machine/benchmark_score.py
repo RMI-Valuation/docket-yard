@@ -42,6 +42,7 @@ DOCKET = re.compile(
 # the document-versus-proceeding test, for placing findings from a run made before
 # target_kind existed: a prior decision is a citation whatever docket it sits in
 DOC_NAMED = re.compile(r"slip op\.|decision|order|served|NPRM|NITU|CITU", re.I)
+DOCKET_KEY = re.compile(r"^[A-Z]{2,4} \d+")  # what norm_target emits for a docket
 SUBNO = re.compile(r"\(?\s*Sub[-\s]?No\.?\s*(\d+[A-Z]?)\s*\)?", re.I)
 REPORTER = re.compile(
     r"\b(\d{1,3})\s+(F\.?\s?\d?d|S\.?T\.?B\.?|I\.?C\.?C\.?(?:\.?2d)?|U\.?S\.?)\s+(\d{1,4})\b", re.I
@@ -185,6 +186,22 @@ def main() -> int:
     # the headline a citator cares about: STB edges, deduplicated
     stb = result["by_kind"]["citation/stb"]
     print(f"\n  STB edges: {stb['hit']}/{stb['truth']} found, {stb['found']} emitted")
+
+    # and the class a citator resolves (ADR 0017): targets whose key is a docket number,
+    # scored apart, because reporter cites and `decision served ...` phrases dominate the
+    # extras and none of them resolves to a docket
+    def docket_only(sets: dict) -> dict:
+        return {d: {k for k in v if DOCKET_KEY.match(k)} for d, v in sets.items()}
+
+    s = score(
+        docket_only(collect(t, "citation", "stb")), docket_only(collect(r, "citation", "stb"))
+    )
+    result["by_kind"]["citation/stb-docket"] = s
+    if s["truth"]:
+        print(
+            f"  docket-shaped: {s['hit']}/{s['truth']} found, {s['found']} emitted"
+            f"  recall {s['recall']:6.1%}  precision {s['precision']:6.1%}"
+        )
 
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / f"{name}.json"
