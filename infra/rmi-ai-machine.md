@@ -102,6 +102,13 @@ ssh <username>@rmi-ai-machine    # from anywhere on the tailnet, any network
 `--ssh` enables Tailscale SSH (auth via the tailnet, keys managed for you). The machine
 needs **no ports forwarded and nothing exposed to the internet** — do not create any.
 
+**On the same LAN, skip Tailscale** (set up 2026-08-30): the box has a fixed address in
+UniFi (`10.180.20.12`) and Ubuntu's socket-activated sshd answers on port 22 to LAN peers
+directly, so a key pair on the daily machine plus a `Host rmi-lan` entry in `~/.ssh/config`
+(`HostName 10.180.20.12`, `User camrex`, `IdentityFile ~/.ssh/id_ed25519_rmi`) gives
+`ssh rmi-lan` with no per-session check. Tailscale remains the route from anywhere else;
+its SSH rule is `action: check`, so it asks for a browser click per session.
+
 ## 6. The data disk (the 970 EVO Plus)
 
 ```sh
