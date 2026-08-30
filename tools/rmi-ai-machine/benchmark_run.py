@@ -265,7 +265,8 @@ def main() -> int:
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         cfg["_key"] = mod._api_key()  # fails now, not on page 1 of 443
-    out_dir = Path(args.out) / args.model.replace(":", "-")
+    # `hf.co/org/repo:Q8_0` (a Hugging Face GGUF) must not become nested directories
+    out_dir = Path(args.out) / args.model.replace(":", "-").replace("/", "-")
     out_dir.mkdir(parents=True, exist_ok=True)
     files = sorted(Path(args.text_dir).glob("*.txt"))
     for f in files:

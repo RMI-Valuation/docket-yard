@@ -25,7 +25,13 @@ MODELS=(
   llama3.1:8b
   qwen3:30b-a3b
   gpt-oss:20b
+  hf.co/numind/NuExtract3-GGUF:Q8_0
 )
+# The last entry is a Hugging Face GGUF pulled directly (NuExtract3, 4B, Qwen3.5-based,
+# built for JSON extraction). Added 2026-08-30 while the batch was running: the file was
+# replaced atomically (mv, not edit — a running bash script must not be edited in place)
+# and benchmark_batch_followup.sh re-runs the batch when this one exits; finished models
+# skip through in seconds because benchmark_run.py skips answered decisions.
 
 cd "$(dirname "$0")"
 for m in "${MODELS[@]}"; do

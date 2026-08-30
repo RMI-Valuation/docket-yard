@@ -56,6 +56,11 @@ def batch_alive() -> bool:
         return False
 
 
+def run_dir_name(model: str) -> str:
+    """benchmark_run.py's directory for a model: `hf.co/org/repo:Q8_0` → `hf.co-org-repo-Q8_0`."""
+    return model.replace(":", "-").replace("/", "-")
+
+
 def batch_models() -> list[str]:
     """The MODELS=( ... ) list in benchmark_batch.sh, in batch order; empty if unreadable."""
     try:
@@ -76,13 +81,13 @@ def runs() -> list[dict]:
     # directory the script does not name (an earlier run), oldest first
     queue = batch_models()
     dirs = {d.name: d for d in RUNS.iterdir() if d.is_dir()}
-    ordered = [m.replace(":", "-") for m in queue]
+    ordered = [run_dir_name(m) for m in queue]
     ordered += sorted((n for n in dirs if n not in ordered), key=lambda n: dirs[n].stat().st_mtime)
     out = []
     for model in ordered:
         d = dirs.get(model)
         files = sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime) if d else []
-        key = next((m for m in queue + list(started) if m.replace(":", "-") == model), model)
+        key = next((m for m in queue + list(started) if run_dir_name(m) == model), model)
         n = len(files)
         secs = 0.0
         pages = 0
