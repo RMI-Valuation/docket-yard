@@ -26,9 +26,9 @@ by pre-commit: when it fires, prune.
   ~$1,075 Claude batched for the backfill. GPU rental rejected. Written into `ocr-plan.md`
   and `extraction-benchmark.md`. **Ground truth's bound: ranking publishable, absolute
   character accuracy not.** Next: step 3, an ADR recording what ships at what confidence
-- Keys: delete the Inactive `docketyard-instance` key (`aws iam delete-access-key`), and
-  **revoke the Anthropic key** at `~/.anthropic-key` (it is in this session's transcript;
-  session spend ~$16)
+- Keys: delete the Inactive `docketyard-instance` key (`aws iam delete-access-key`). The
+  Anthropic key was revoked 2026-08-30 and the local copy removed; a further extraction run
+  needs a new one (session spend was ~$16)
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
 
