@@ -1,0 +1,258 @@
+{
+ "run": "data\\benchmark\\runs-batch\\qwen2.5-14b",
+ "label": "qwen2.5-14b-textlayer",
+ "legacy_findings": 0,
+ "page_check": true,
+ "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
+ "unchecked_decisions": [],
+ "off_page_findings": 26,
+ "off_page": [
+  {
+   "decision": "51532",
+   "page": 5,
+   "kind": "citation",
+   "target": "3 I.C.C.2d",
+   "quoted": "IHB II, 3 I.C.C.2d at 599, 613-16"
+  },
+  {
+   "decision": "51532",
+   "page": 18,
+   "kind": "citation",
+   "target": "IHB II, slip op.",
+   "quoted": "IHB II, slip op. at 1-2;"
+  },
+  {
+   "decision": "51532",
+   "page": 33,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52211",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36732 et al.",
+   "quoted": "Id. at 14, Dec. 11, 2023."
+  },
+  {
+   "decision": "52211",
+   "page": 6,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 10-11"
+  },
+  {
+   "decision": "52295",
+   "page": 31,
+   "kind": "citation",
+   "target": "687 F.2d 1047",
+   "quoted": "See Joint Brief for Respondents (1982 ICC Brief) at 14-16, Illinois v. ICC, 687 F.2d 1047 (7th Cir. 1982)"
+  },
+  {
+   "decision": "52332",
+   "page": 8,
+   "kind": "deadline",
+   "target": "September 29, 2025",
+   "quoted": "If BNSF files an amended petition, UP\u2019s reply will be due by September 29, 2025."
+  },
+  {
+   "decision": "52498",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52621",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "the Board will serve a decision within 60 days of the close of the record"
+  },
+  {
+   "decision": "52748",
+   "page": 9,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 2)",
+   "quoted": "Part 1145 Final Rule, EP 711 (Sub-No. 2), slip op. at 150-51;"
+  },
+  {
+   "decision": "52748",
+   "page": 9,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 2)",
+   "quoted": "Part 1145 Final Rule, EP 711 (Sub-No. 2), slip op. at 147-48 (describing affirmative defenses)."
+  },
+  {
+   "decision": "52822",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52822",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36500",
+   "quoted": "Decision No. 1, FD 36500, slip op. at 6"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "citation",
+   "target": "FD 36501",
+   "quoted": "Union Pac. R.R.\u2014Constr. & Operation Exemption\u2014in Maricopa Cnty., Ariz., FD 36501, slip op. at 5 (STB served June 3, 2025)."
+  },
+  {
+   "decision": "52835",
+   "page": 7,
+   "kind": "citation",
+   "target": "AB 857 (Sub-No. 2)",
+   "quoted": "Colo. Landowners, AB 857 (Sub-No. 2), slip op. at 6-7 (quoting Seminole Gulf Ry., AB 400 (Sub-No. 4), slip op. at 5)."
+  },
+  {
+   "decision": "52835",
+   "page": 8,
+   "kind": "citation",
+   "target": "AB 1014",
+   "quoted": "Denver & Rio Grande Railways Historical Foundation\u2014Adverse Abandonment\u2014in Mineral County, Colo., AB 1014 (STB served May 23, 2008)"
+  },
+  {
+   "decision": "52835",
+   "page": 9,
+   "kind": "citation",
+   "target": "GRTA Reply 2, Nov. 29, 2024",
+   "quoted": "GRTA Reply 2, Nov. 29, 2024"
+  },
+  {
+   "decision": "52835",
+   "page": 10,
+   "kind": "citation",
+   "target": "FD 32821",
+   "quoted": "See, e.g., Bar Ale, Inc. v. Cal. N. R.R., FD 32821, slip op. at 6-7 (STB served July 20, 2001)"
+  },
+  {
+   "decision": "52910",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "It is ordered: CERA\u2019s abandonment exemption will not become effective, and any relevant filing or Board deadlines on or after February 2, 2026, are postponed, u"
+  },
+  {
+   "decision": "52988",
+   "page": 27,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 18"
+  },
+  {
+   "decision": "53046",
+   "page": 6,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53046",
+   "page": 6,
+   "kind": "citation",
+   "target": "FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53046",
+   "page": 7,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53046",
+   "page": 7,
+   "kind": "citation",
+   "target": "FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53046",
+   "page": 7,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "53052",
+   "page": 3,
+   "kind": "citation",
+   "target": "CPKC Resp. 1-2, Apr. 28, 2026",
+   "quoted": "(CPKC Resp. 1-2, Apr. 28, 2026)"
+  }
+ ],
+ "by_kind": {
+  "citation/stb": {
+   "truth": 332,
+   "found": 362,
+   "hit": 269,
+   "recall": 0.8102409638554217,
+   "precision": 0.7430939226519337
+  },
+  "citation/court": {
+   "truth": 86,
+   "found": 98,
+   "hit": 64,
+   "recall": 0.7441860465116279,
+   "precision": 0.6530612244897959
+  },
+  "citation/record": {
+   "truth": 7,
+   "found": 186,
+   "hit": 5,
+   "recall": 0.7142857142857143,
+   "precision": 0.026881720430107527
+  },
+  "caption/self": {
+   "truth": 38,
+   "found": 81,
+   "hit": 30,
+   "recall": 0.7894736842105263,
+   "precision": 0.37037037037037035
+  },
+  "deadline/date": {
+   "truth": 90,
+   "found": 108,
+   "hit": 74,
+   "recall": 0.8222222222222222,
+   "precision": 0.6851851851851852
+  },
+  "deadline/reference": {
+   "truth": 21,
+   "found": 25,
+   "hit": 18,
+   "recall": 0.8571428571428571,
+   "precision": 0.72
+  },
+  "deadline/period": {
+   "truth": 18,
+   "found": 25,
+   "hit": 5,
+   "recall": 0.2777777777777778,
+   "precision": 0.2
+  },
+  "deadline/indefinite": {
+   "truth": 6,
+   "found": 17,
+   "hit": 1,
+   "recall": 0.16666666666666666,
+   "precision": 0.058823529411764705
+  },
+  "citation/stb-docket": {
+   "truth": 225,
+   "found": 219,
+   "hit": 197,
+   "recall": 0.8755555555555555,
+   "precision": 0.8995433789954338
+  }
+ }
+}
