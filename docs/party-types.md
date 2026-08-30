@@ -48,6 +48,12 @@ the operator made 2026-08-30, before the check:
   Brotherhoods, SMART-TD, Teamsters), a distinct constituency in merger and
   labor-protective-condition cases; the `union|brotherhood|federation` signals move here
   from `association`, keeping the `Union Pacific`/`Union County` guards.
+- **Carrier status ("a noncarrier") is an attribute too** (the operator's question,
+  2026-08-30, on `AJAK Rail, LLC`): the Board's word for an entity that has not yet
+  consummated its authority — true on a date, false after consummation. An entity whose
+  business is rail operation, including one formed to acquire a line, is judged
+  `railroad`; carrier-vs-noncarrier at a moment is tier 0's to quote, superseded when it
+  changes, exactly like class.
 - **Railroad class (I/II/III) is an attribute, not a type.** The Board's own
   revenue-based classification, time-varying and rarely knowable from a name — so it is
   never judged in the name queue. It lands as its own assertion on `railroad` parties,
