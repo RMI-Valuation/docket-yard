@@ -19,7 +19,9 @@ from pathlib import Path
 
 TYPES = [
     "railroad",
+    "rail-holding",
     "company",
+    "utility",
     "government",
     "association",
     "individual",

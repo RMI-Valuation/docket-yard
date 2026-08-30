@@ -30,10 +30,26 @@ Measured 2026-08-30 over the 10,058 live `as_filed` names with a first-draft rul
 | *(unmatched)* | 2,028 | `10th District of Ohio` | largely elected officials/districts (→ `government`), `And X` split artefacts, and the genuinely hard tail |
 
 The vocabulary is a table, extensible by INSERT (`elected-official` may deserve its own
-row rather than folding into `government`; the checked sample decides). One type per
-party at a time: a holding company that owns railroads is a `company`; the *railroad* is
-the subsidiary (the succession graph already relates them). A type is never a position
-and never affects how a filing is read (the non-negotiables stand).
+row rather than folding into `government`; the checked sample decides). Three additions
+the operator made 2026-08-30, before the check:
+
+- **`rail-holding`** — a company whose business is owning rail carriers (`Patriot Rail
+  Corp`, measured as ten-plus party records). Folding these into `company` was
+  unsatisfying and the graph cannot derive them yet (12 `parent_of` edges held in all);
+  name signals (221 holding-ish names), Wikidata, and — as the graph fills — a
+  `parent_of` a railroad corroborate.
+- **`utility`** — electric and power entities (204 candidate names, `Basin Electric
+  Power Cooperative`); the rate-case complainant constituency deserves its own row.
+- **Railroad class (I/II/III) is an attribute, not a type.** The Board's own
+  revenue-based classification, time-varying and rarely knowable from a name — so it is
+  never judged in the name queue. It lands as its own assertion on `railroad` parties,
+  fed by tier 0 quotes (*"a Class III rail carrier"*) and Wikidata's class typing, with
+  supersession carrying re-classifications; the browse can facet by it once it exists.
+
+One type per party at a time: a holding company that owns railroads is `rail-holding`,
+never `railroad`; the *railroad* is the subsidiary (the succession graph relates them).
+A type is never a position and never affects how a filing is read (the non-negotiables
+stand).
 
 Measured cautions, from the same pass — why rules alone do not publish:
 
