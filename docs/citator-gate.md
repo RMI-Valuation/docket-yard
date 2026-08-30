@@ -93,7 +93,17 @@ would never fire on a docket number. A docket needs its own rule, keyed on digit
   A class that leaves the sheet without that rule becomes a precision penalty against an
   engine that correctly finds it — which is how 12 record rows currently mis-measure.
 - **The decided date.** A decision carries two dates and `decision_record` holds one. On the
-  sixty, 52 print a `Decided:` line and 34 of those differ from the service date. Placement
+  sixty, **55 print a `Decided:` line** (re-measured 2026-08-30, line-anchored; the earlier
+  count of 52 was low) and 34 of 52 differ from the service date. Two further measurements
+  the same day settle what it is *for*: **0 of the sheet's 727 citations name a decided
+  date** and 240 name a served date, so this is not a citation-resolution question — the
+  resolver answers a decided-date query with the docket sheet (`web/cite.py`, revised
+  2026-08-30) because the ambiguity is irreducible while the store holds service dates
+  alone: 52.5% of the 22,702 held decisions have a sibling served within 21 days of their
+  own service date, so a decided date matched against `service_date` can confidently name
+  the wrong decision. The decided date is wanted for display, for reconciliation against
+  paper, and for the calendar. ADR 0017 now carries it as an amendment candidate: extract
+  it in the same pass, one field, or pay a re-run for it later. Placement
   is contested: a new `kind` in the sheet, an assertion carrying the full ADR 0007 block in
   the store, and **not** a `decision_record` column (that table mirrors the latest
   observation and would destroy the history) and **not** a ledger event (a decided date is a

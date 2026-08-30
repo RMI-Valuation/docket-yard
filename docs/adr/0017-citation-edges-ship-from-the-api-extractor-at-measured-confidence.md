@@ -264,6 +264,25 @@ in at acceptance rather than rewritten silently:
   behaviour on both a date that would have matched and one that would not; `registers.md`
   and the module docstring carry the revised promise.
 
+- **Extract each decision's own decided date in the same pass** (the operator, 2026-08-30).
+  A decision carries two dates and the record holds one. Measured that day on the sixty:
+  **55 print a `Decided:` line** (`citator-gate.md`'s count of 52 undercounts) and 34 of 52
+  differ from the service date — so our record and a paper copy of the same decision
+  disagree, with nothing on the page explaining why. Measured the same day, and the reason
+  this is *not* a citation-resolution question: **0 of the sheet's 727 citations name a
+  decided date**; 240 name a served date. The Board cites by service date, so the resolver
+  is right to answer a decided-date query with the docket sheet (`web/cite.py`, settled
+  above) — the decided date is wanted for display, for reconciliation against paper, and
+  for the docket calendar, not for edges. The pass is already reading the page and the line
+  sits in a fixed position under the caption, so the marginal cost now is one field and one
+  more assertion type; the cost of adding it after the backfill is the ~$1,335 re-run.
+  Stored as an assertion with the full ADR 0007 block — **not** a `decision_record` column
+  (that table mirrors the latest observation and would destroy the history) and **not** a
+  ledger event (a third clock would replay a decision as existing before the Board served
+  it), both fenced by schema-critic in `citator-gate.md`. Accepting this closes that
+  record's open question; declining it leaves the record permanently one date short of the
+  documents it publishes.
+
 ## Review (schema-critic, 2026-08-30)
 
 Seven defects were reported against the first draft and are folded in above: resolution,
