@@ -50,13 +50,12 @@ TOOL_TABLES = ("_litestream_lock", "_litestream_seq")
 # it carries party names — the held layer — so the snapshot ships it EMPTY: the tables stay
 # (a restored copy is at schema 10 and `docketyard search rebuild` remakes it), the rows go.
 DERIVED_TABLES = ("search_doc", "search_meta")
-SEARCH_SHADOWS = (
-    "search_fts",
-    "search_fts_config",
-    "search_fts_data",
-    "search_fts_docsize",
-    "search_fts_idx",
-)
+# The FTS index's tables are not listed by hand: SQLite names an FTS5 virtual table's
+# shadows `<name>_<suffix>` and may change the set between versions, so `scrub` derives
+# them from `PRAGMA table_list` instead — a renamed shadow would otherwise fail the
+# allowlist on the next SQLite upgrade (deferred 2026-08-26). Only rows SQLite itself
+# types `shadow` qualify: a hand-made `CREATE TABLE search_fts_anything`, or a second FTS
+# index over held data, is type `table`/`virtual` and still fails the dump loudly.
 # Derived work held back pending the enriched-layer licence review (docs/licensing.md).
 HELD_TABLES = (
     "filing_party_link",
@@ -73,7 +72,6 @@ HELD_REASON = (
 PUBLIC_TABLES = frozenset(
     {
         *DERIVED_TABLES,  # present and empty, see above
-        *SEARCH_SHADOWS,
         "capture",
         "event",
         "docket",
@@ -149,7 +147,16 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
             for r in q("SELECT name FROM sqlite_master WHERE type = 'table'")
             if not r[0].startswith("sqlite_")
         }
-        unknown = left - PUBLIC_TABLES
+        # the FTS index and its shadows (see the note above PUBLIC_TABLES): `search_fts`
+        # itself, plus rows PRAGMA table_list types `shadow` under its prefix — a type only
+        # SQLite mints. Anything else named into that namespace stays on the unknown list.
+        shadows = {"search_fts"} & left
+        shadows |= {
+            name
+            for _, name, kind, *_ in q("PRAGMA table_list")
+            if kind == "shadow" and name.startswith("search_fts_")
+        }
+        unknown = left - PUBLIC_TABLES - shadows
         if unknown:
             raise Unsafe(f"tables not on the public allowlist: {sorted(unknown)}")
         for table in sorted(left):

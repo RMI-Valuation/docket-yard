@@ -1,11 +1,11 @@
 {
  "run": "data\\benchmark\\runs\\qwen3-14b",
  "label": "qwen3-14b-textlayer-oldprompt",
- "legacy_findings": 2916,
+ "legacy_findings": 2915,
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],
- "off_page_findings": 204,
+ "off_page_findings": 205,
  "off_page": [
   {
    "decision": "51532",
@@ -1339,6 +1339,13 @@
   },
   {
    "decision": "53052",
+   "page": 36,
+   "kind": "citation",
+   "target": "91 Fed. Reg. 618",
+   "quoted": "91 Fed. Reg. 618 (Jan. 1, 2026)"
+  },
+  {
+   "decision": "53052",
    "page": 37,
    "kind": "citation",
    "target": "49 CFR 1105.7(e)(5)(i)(A)",
@@ -1446,10 +1453,10 @@
   },
   "citation/court": {
    "truth": 86,
-   "found": 185,
+   "found": 184,
    "hit": 25,
    "recall": 0.29069767441860467,
-   "precision": 0.13513513513513514
+   "precision": 0.1358695652173913
   },
   "citation/record": {
    "truth": 7,

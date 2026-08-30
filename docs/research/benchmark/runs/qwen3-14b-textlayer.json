@@ -5,7 +5,7 @@
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],
- "off_page_findings": 97,
+ "off_page_findings": 98,
  "off_page": [
   {
    "decision": "51532",
@@ -251,6 +251,13 @@
    "kind": "caption",
    "target": "FD 32760",
    "quoted": "All pleadings, referring to Docket No. FD 32760, should be filed"
+  },
+  {
+   "decision": "52332",
+   "page": 2,
+   "kind": "citation",
+   "target": "BNSF Pet., Ex. B, RASA, Ex. A at 49-50",
+   "quoted": "BNSF Pet., Ex. B, RASA, Ex. A at 49-50"
   },
   {
    "decision": "52332",
@@ -704,10 +711,10 @@
   },
   "citation/record": {
    "truth": 7,
-   "found": 337,
+   "found": 336,
    "hit": 3,
    "recall": 0.42857142857142855,
-   "precision": 0.008902077151335312
+   "precision": 0.008928571428571428
   },
   "caption/self": {
    "truth": 38,

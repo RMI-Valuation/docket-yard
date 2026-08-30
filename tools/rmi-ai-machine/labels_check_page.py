@@ -25,11 +25,11 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-ROOT = Path("e:/DevProjects/docket-yard")
-OUT = Path(
-    "C:/Users/CAMERO~1/AppData/Local/Temp/claude/e--DevProjects-docket-yard/"
-    "96fc75d7-5d5a-4c59-a069-310fcbb7766b/scratchpad/labels-check.html"
-)
+ROOT = Path(__file__).resolve().parents[2]
+# disposable, beside the mirrored text (data/ is gitignored); an earlier revision wrote
+# into one session's temp scratchpad, which made the queue unbuildable from a fresh
+# checkout once that directory was cleaned (code review, 2026-08-30)
+OUT = ROOT / "data" / "labels-check.html"
 
 SETTLED = [
     {

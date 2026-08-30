@@ -14,11 +14,10 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 - **Two curated "what changed" lists** (2026-08-26): the ETag stamp and the search signature
   each enumerate max ids; one store-level record version (a counter bumped by every writer)
   would make both correct by construction.
-- **Snapshot's FTS shadow-table list is by hand** (2026-08-26, `dump.SEARCH_SHADOWS`); derive
-  it from `sqlite_master` or drop the FTS table in the snapshot instead.
-- **`/parties` and `/search` cost at scale** (2026-08-26): `Components.members()` walks the
-  whole graph per call; `search()` loads a caption per row. Fine at 10k parties; re-measure
-  after wave 3's documents land.
+- **`/parties` and `/search`: re-measure after seed wave 2** multiplies the same_as edge
+  count. Measured healthy 2026-08-30 at wave-3 scale (10,110 parties, 15 live edges:
+  worst request path 31 ms; the ~6 s full `members()` sweep is per store version in the
+  sitemap memo, never per request).
 - **FD 36873 sheet** is 1.1 MB / 908 entries unpaginated; measure DOM cost on a low-end phone
   before changing anything (external review, 2026-08-26).
 
@@ -79,7 +78,7 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   on `/data`. Money on `/contribute` is omitted by decision until the same review and the
   entity question.
 
-## Benchmark scorer (code review 2026-08-30, on the on-page check)
+## Benchmark scorer (code review 2026-08-30, against v2026.08.39)
 
 - **Two definitions of "is this quote in the decision"**: `benchmark_score.flat()` and
   `labels_check_page.stripped()` each reduce text their own way (the queue also strips
@@ -95,7 +94,7 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   match the rest of the result's shape. The dropped quotes themselves are listed, so the
   drop is auditable.
 
-## Schema draft (schema-critic on § 7, 2026-08-30)
+## Schema draft (schema-critic on § 7, 2026-08-30, against v2026.08.39)
 
 - **`correction_target.target_pk bigint` carries § 7's original defect**: it cannot name a
   sha256-keyed or composite-keyed row (`document_page`, the planned `document_text`).

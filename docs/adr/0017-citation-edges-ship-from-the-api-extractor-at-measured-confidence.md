@@ -252,6 +252,15 @@ in at acceptance rather than rewritten silently:
   preserving it on paper. The migration that creates these tables must let resolutions
   follow the citation's **natural key** through supersession (or projections chase the
   chain); decide it before the first review-class edge, not after a ~$1,335 re-run.
+- **Decision 3's verb gate conflicts with the live resolver's tested behaviour.** The
+  citation resolver (`web/cite.py`, F2) resolves `EP 711 decided 8/26/2026` to a decision
+  when exactly one row in the family was *served* that day, and
+  `test_registers.py` pins it on purpose ("a decision is the docket plus its service
+  date, in any printed form"); only the zero-match note distinguishes the verbs. This
+  record says a decided date matches nothing until a decided-date assertion exists —
+  on the sixty, 34 of 52 printed decided dates differ from the service date, so a
+  "match" can be a sibling served that day. Acceptance must pick one; the loser changes
+  (the resolver's gate, or this decision's).
 
 ## Review (schema-critic, 2026-08-30)
 

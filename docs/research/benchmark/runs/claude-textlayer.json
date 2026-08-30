@@ -5,7 +5,7 @@
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],
- "off_page_findings": 2,
+ "off_page_findings": 3,
  "off_page": [
   {
    "decision": "52526",
@@ -13,6 +13,13 @@
    "kind": "citation",
    "target": "84 Fed. Reg. 48,872",
    "quoted": "84 Fed. Reg. 48,872 (Sept. 17, 2019)"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "citation",
+   "target": "91 Fed. Reg. 618",
+   "quoted": "91 Fed. Reg. 618 (Jan. 1, 2026)"
   },
   {
    "decision": "53052",

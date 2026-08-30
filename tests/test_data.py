@@ -118,6 +118,20 @@ def test_scrub_refuses_a_table_it_does_not_know(tmp_path):
     assert not (tmp_path / "public" / dump.LATEST).exists()  # nothing was offered
 
 
+def test_scrub_refuses_a_hand_made_table_in_the_fts_namespace(tmp_path):
+    """Shadow tables are exempt by SQLite's own `shadow` type, never by name: a table
+    someone minted into the `search_fts_` namespace must still fail the allowlist."""
+    import pytest
+
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    con.execute("CREATE TABLE search_fts_scratch (name TEXT)")
+    con.commit()
+    con.close()
+    with pytest.raises(dump.Unsafe):
+        dump.dump(path, tmp_path / "public")
+
+
 def test_data_page_and_files_follow_the_manifest(tmp_path):
     path = build_store(tmp_path)
     out = tmp_path / "public"

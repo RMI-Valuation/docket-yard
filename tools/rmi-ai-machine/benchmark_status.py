@@ -71,8 +71,28 @@ def batch_models() -> list[str]:
         return []
 
 
-def runs() -> list[dict]:
-    log = LOG.read_text(encoding="utf-8", errors="replace") if LOG.exists() else ""
+_stat_cache: dict = {}  # (path) -> (mtime, size, seconds, pages): a finished decision's
+# JSON never changes, so a browser tab refreshing every minute must not re-parse ~540
+# files per request for the whole batch (code review, 2026-08-30)
+
+
+def _decision_stats(f: Path) -> tuple[float, int]:
+    st = f.stat()
+    hit = _stat_cache.get(f)
+    if hit and hit[0] == st.st_mtime and hit[1] == st.st_size:
+        return hit[2], hit[3]
+    secs, pages = 0.0, 0
+    try:
+        doc = json.loads(f.read_text(encoding="utf-8"))
+        secs = float(doc.get("seconds") or sum(p.get("seconds", 0) for p in doc.get("pages", [])))
+        pages = len(doc.get("pages", []))
+    except Exception:  # noqa: BLE001 — a half-written file mid-run
+        return 0.0, 0  # not cached; retried next request
+    _stat_cache[f] = (st.st_mtime, st.st_size, secs, pages)
+    return secs, pages
+
+
+def runs(log: str, alive: bool) -> list[dict]:
     started = {m.group(1): m.group(2) for m in START_RE.finditer(log)}
     finished = {m.group(1): int(m.group(2)) for m in DONE_RE.finditer(log)}
     failed = {m.group(1): m.group(2) for m in FAIL_RE.finditer(log)}
@@ -81,42 +101,42 @@ def runs() -> list[dict]:
     # directory the script does not name (an earlier run), oldest first
     queue = batch_models()
     dirs = {d.name: d for d in RUNS.iterdir() if d.is_dir()}
+    keys = {run_dir_name(m): m for m in list(started) + queue}  # queue's spelling wins
     ordered = [run_dir_name(m) for m in queue]
     ordered += sorted((n for n in dirs if n not in ordered), key=lambda n: dirs[n].stat().st_mtime)
     out = []
     for model in ordered:
         d = dirs.get(model)
         files = sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime) if d else []
-        key = next((m for m in queue + list(started) if run_dir_name(m) == model), model)
+        key = keys.get(model, model)
         n = len(files)
         secs = 0.0
         pages = 0
         for f in files:
-            try:
-                doc = json.loads(f.read_text(encoding="utf-8"))
-                secs += float(
-                    doc.get("seconds") or sum(p.get("seconds", 0) for p in doc.get("pages", []))
-                )
-                pages += len(doc.get("pages", []))
-            except Exception:  # noqa: BLE001 — a half-written file mid-run
-                pass
-        first = datetime.fromtimestamp(files[0].stat().st_mtime) if files else None
+            fs, fp = _decision_stats(f)
+            secs += fs
+            pages += fp
         last = datetime.fromtimestamp(files[-1].stat().st_mtime) if files else None
         if key in finished:
             state = f"done in {finished[key]} min"
         elif key in failed:
             state = failed[key]
         elif key in started and n < total:
-            state = "running" if batch_alive() else "stalled (batch process gone)"
+            state = "running" if alive else "stalled (batch process gone)"
         elif n >= total:
             state = "complete"
         else:
-            state = "queued" if key not in started else "starting"
+            state = "queued"
         eta = ""
-        if state == "running" and n and n < total and first:
+        if state == "running" and n < total:
             now = datetime.now().astimezone()
-            per = (now - datetime.fromisoformat(started[key])).total_seconds() / n
-            eta = (now + timedelta(seconds=per * (total - n))).strftime("%H:%M")
+            start = datetime.fromisoformat(started[key])
+            # pace over THIS pass's files only: a resumed batch re-enters a model with
+            # most decisions already on disk, and counting them makes the ETA absurd
+            fresh = sum(1 for f in files if f.stat().st_mtime >= start.timestamp())
+            if fresh:
+                per = (now - start).total_seconds() / fresh
+                eta = (now + timedelta(seconds=per * (total - n))).strftime("%H:%M")
         out.append(
             dict(
                 model=model,
@@ -133,23 +153,32 @@ def runs() -> list[dict]:
     return out
 
 
+def log_text() -> str:
+    """The batch log, its tail only: pulls write progress bars endlessly, and the state
+    regexes and the visible tail both live in the recent end of the file."""
+    if not LOG.exists():
+        return ""
+    with LOG.open("rb") as f:
+        f.seek(0, 2)
+        f.seek(max(0, f.tell() - 262_144))
+        return f.read().decode("utf-8", errors="replace")
+
+
 def page() -> str:
+    alive = batch_alive()
+    log = log_text()
     try:
-        rows = runs()
+        rows = runs(log, alive)
         err = ""
     except Exception as e:  # noqa: BLE001 — show it on the page rather than serve nothing
         rows, err = [], f"{e.__class__.__name__}: {e}"
-    log_tail = ""
-    if LOG.exists():
-        raw = LOG.read_text(encoding="utf-8", errors="replace")
-        raw = ANSI_RE.sub("", raw).replace("\r", "\n")  # ollama pull's progress bars
-        lines = [
-            ln
-            for ln in raw.splitlines()
-            if ln.strip() and not re.match(r"^(pulling|verifying|writing|success)", ln)
-        ]
-        log_tail = "\n".join(lines[-12:])
-    alive = batch_alive()
+    raw = ANSI_RE.sub("", log).replace("\r", "\n")  # ollama pull's progress bars
+    lines = [
+        ln
+        for ln in raw.splitlines()
+        if ln.strip() and not re.match(r"^(pulling|verifying|writing|success)", ln)
+    ]
+    log_tail = "\n".join(lines[-12:])
     trs = "".join(
         "<tr>"
         f"<td>{html.escape(r['model'])}</td>"

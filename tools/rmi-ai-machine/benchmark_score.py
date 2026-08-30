@@ -36,10 +36,12 @@ LABELS = ROOT / "docs/research/benchmark/labels.csv"
 OUT = ROOT / "docs/research/benchmark/runs"
 
 # the suffix letter may be glued to the number (`AB 1296X`, an abandonment exemption) or sit
-# in the sub-docket parenthetical (`AB 55 (Sub-No. 814X)`); both key the same way
+# in the sub-docket parenthetical (`AB 55 (Sub-No. 814X)`); both key the same way. The
+# prefix is matched CASE-SENSITIVELY: `IS` and `SO` are English words, and a period
+# deadline's quoted sentence ("the exemption is 30 days after ...") must not normalise to
+# the docket key `IS 30` (code review, 2026-08-30).
 DOCKET = re.compile(
     r"\b(FD|AB|EP|NOR|MCF|MCC|NOM|ISM|IS|SDM|WB|SO|DOP|STA|WCC|SUB)\s*[-\s]?\s*(\d{1,6})([A-Z])?\b",
-    re.I,
 )
 # the document-versus-proceeding test, for placing findings from a run made before
 # target_kind existed: a prior decision is a citation whatever docket it sits in
@@ -148,7 +150,11 @@ def on_page(quoted: str, doc_text: str) -> bool:
     if len(words) >= 4:
         mid = len(words) // 2
         a, b = flat(" ".join(words[:mid])), flat(" ".join(words[mid:]))
-        return len(a) >= MIN_QUOTE and len(b) >= MIN_QUOTE and a in doc_text and b in doc_text
+        if len(a) >= MIN_QUOTE and len(b) >= MIN_QUOTE:
+            at = doc_text.find(a)
+            # the second half must follow the first — two unrelated fragments stitched
+            # into one "quote" must not pass just because each exists somewhere
+            return at >= 0 and doc_text.find(b, at + len(a)) >= 0
     return False
 
 

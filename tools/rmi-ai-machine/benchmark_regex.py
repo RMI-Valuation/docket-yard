@@ -129,8 +129,13 @@ def main() -> int:
     own = own_dockets(args.registry)
     out_dir = args.out / f"regex-{args.rule}"
     out_dir.mkdir(parents=True, exist_ok=True)
+    orphans = []
     for f in sorted(args.text_dir.glob("*.txt")):
         did = f.stem.rsplit("-", 1)[-1]
+        if did not in own:
+            # without the decision's own dockets the `own` rule calls every caption a
+            # citation — degrade loudly, not silently (code review, 2026-08-30)
+            orphans.append(did)
         parts = PAGE_RE.split(f.read_text(encoding="utf-8", errors="replace"))
         pages = [
             {
@@ -150,6 +155,12 @@ def main() -> int:
             json.dumps(record, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
         )
     print(f"{len(list(out_dir.glob('*.json')))} decisions -> {out_dir}")
+    if orphans and args.rule == "own":
+        print(
+            f"WARNING: {len(orphans)} decisions have no decision_record in the registry "
+            f"copy ({', '.join(orphans[:8])}{'…' if len(orphans) > 8 else ''}); the own "
+            "rule treated their every hit as a citation"
+        )
     return 0
 
 

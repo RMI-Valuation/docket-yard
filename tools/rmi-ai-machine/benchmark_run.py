@@ -294,8 +294,12 @@ def main() -> int:
                     parsed, elapsed = ask(args.host, args.model, prompt, args.timeout)
                 record["pages"].append({"page": page, "seconds": round(elapsed, 1), **parsed})
             except Fatal as e:
-                # nothing later will succeed either; keep what was answered and say why
-                target.write_text(
+                # nothing later will succeed either; keep what was answered for diagnosis —
+                # but NEVER at the resume path: a partial file at `target` would read as
+                # "done already" on the next run and the decision would stay truncated
+                # forever, scored as if complete (code review, 2026-08-30)
+                record["fatal"] = f"page {page}: {e}"
+                target.with_suffix(".fatal").write_text(
                     json.dumps(record, ensure_ascii=False, indent=1), encoding="utf-8"
                 )
                 print(f"{decision_id}: stopped at page {page} — {e}")
