@@ -13,11 +13,12 @@ by pre-commit: when it fires, prune.
   corrected after review — `target_kind` on every row; 727 citations, 86 captions, 164
   deadlines. The test is document vs proceeding: a prior decision is a citation even in the
   decision's own docket. **Cameron's row check remains** (884 cards) — start with the 20
-  whose quote is not in the text (5 are wrong pin cites). No scorer yet: it must compare
-  *sets* of (decision, target), scoring each `target_kind` apart
-- RMI-AI-MACHINE **offline on the tailnet since ~2026-08-29 06:00** (the workstation is not on
-  its LAN) — Cameron fixes it physically; then OCR step 2, and check `systemctl is-enabled
-  tailscaled`, `journalctl -b -1 -e`, mask the sleep targets
+  whose quote is not in the text (5 are wrong pin cites). Until it is checked **no
+  precision figure anywhere is readable** — a citation the drafter missed scores against
+  the model. `benchmark_score.py` scores a run against the sheet
+- RMI-AI-MACHINE back 2026-08-29 (a power-off, not a fault: `tailscaled` is enabled at boot,
+  sleep targets inactive — nothing to harden). qwen2.5vl:7b pulled and scored. Tailscale SSH
+  needs a browser check per session — Cameron's click
 - **OCR/extraction (M3):** step 2 **done 2026-08-29**, ~$16. Five engines scored; the
   finding is that OCR costs the citator nothing measurable (91.9% of STB edges from
   Textract's OCR vs 89.2% from the publisher's text) while the extractor moves recall 29
@@ -25,10 +26,9 @@ by pre-commit: when it fires, prune.
   ~$1,075 Claude batched for the backfill. GPU rental rejected. Written into `ocr-plan.md`
   and `extraction-benchmark.md`. **Ground truth's bound: ranking publishable, absolute
   character accuracy not.** Next: step 3, an ADR recording what ships at what confidence
-- Delete the Inactive `docketyard-instance` key after a clean day (`aws iam delete-access-key`);
-  Cameron stores both new secrets from the session scratchpad
-- **Revoke the Anthropic API key** pasted 2026-08-29 (it is in this session's transcript);
-  it lives at `~/.anthropic-key`. Cost so far ~$5. Next: OCR→citation compound measurement
+- Keys: delete the Inactive `docketyard-instance` key (`aws iam delete-access-key`), and
+  **revoke the Anthropic key** at `~/.anthropic-key` (it is in this session's transcript;
+  session spend ~$16)
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
 
