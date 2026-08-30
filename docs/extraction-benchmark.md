@@ -82,6 +82,16 @@ settled conventions — citations as sets of `(decision, target)`, each `target_
 | qwen3:14b (local, free) | text layer | 73.5% | 29.1% | 96.7% |
 | Claude Sonnet 5 | text layer | **89.2%** | 97.7% | 98.9% |
 | Claude Sonnet 5 | **OCR of the same pages** | **91.9%** | 97.7% | 98.9% |
+| qwen3:14b, **current prompt** (2026-08-30) | text layer | 86.4% | 76.7% | 84.4% |
+
+On the **docket-shaped** class — what a citator resolves, reported apart by the scorer since
+2026-08-30 — the local model is close: qwen3:14b on the current prompt scores **94.1%
+recall / 88.8% precision** against Claude's 95.9% / 95.5%, in 102 minutes on the box at
+no cost. Its extras are 13 self-references (Claude has 10 of the same class) and **13
+verbatim copies of the prompt's own worked examples** (`FD 36732`, `EP 787`) on pages
+where that text does not exist — a small-model failure the on-page check would remove
+entirely, after which its precision on this class is level with Claude's. The row above
+is the first of a batch of nine local candidates (`tools/rmi-ai-machine/benchmark_batch.sh`).
 
 Two things follow, and the second was not expected.
 
@@ -90,7 +100,9 @@ Two things follow, and the second was not expected.
 and worst OCR engines. A citator that misses a quarter of its edges is not a lower-quality
 citator; it is a different product.
 
-*(Corrected 2026-08-30. qwen3's figure first read 60.2%, and a 29-point gap was published
+*(The qwen3:14b figure of 73.5% is the run made before `target_kind` existed, scored through
+the scorer's fallback; the same model on the current prompt, above, reads 86.4%. Corrected
+2026-08-30. qwen3's figure first read 60.2%, and a 29-point gap was published
 here and in `ocr-plan.md` on the strength of it. The scorer's fallback for a run made before
 `target_kind` existed was routing prior-decision citations into captions — the very
 misclassification the conventions had just reversed. A third of the gap was the instrument.)

@@ -1,0 +1,70 @@
+{
+ "run": "data\\benchmark\\runs-batch\\qwen3-14b",
+ "label": "qwen3-14b-textlayer",
+ "legacy_findings": 0,
+ "by_kind": {
+  "citation/stb": {
+   "truth": 332,
+   "found": 697,
+   "hit": 287,
+   "recall": 0.8644578313253012,
+   "precision": 0.4117647058823529
+  },
+  "citation/court": {
+   "truth": 86,
+   "found": 133,
+   "hit": 66,
+   "recall": 0.7674418604651163,
+   "precision": 0.49624060150375937
+  },
+  "citation/record": {
+   "truth": 7,
+   "found": 340,
+   "hit": 3,
+   "recall": 0.42857142857142855,
+   "precision": 0.008823529411764706
+  },
+  "caption/self": {
+   "truth": 38,
+   "found": 184,
+   "hit": 33,
+   "recall": 0.868421052631579,
+   "precision": 0.1793478260869565
+  },
+  "deadline/date": {
+   "truth": 90,
+   "found": 166,
+   "hit": 76,
+   "recall": 0.8444444444444444,
+   "precision": 0.4578313253012048
+  },
+  "deadline/reference": {
+   "truth": 21,
+   "found": 27,
+   "hit": 13,
+   "recall": 0.6190476190476191,
+   "precision": 0.48148148148148145
+  },
+  "deadline/period": {
+   "truth": 18,
+   "found": 54,
+   "hit": 5,
+   "recall": 0.2777777777777778,
+   "precision": 0.09259259259259259
+  },
+  "deadline/indefinite": {
+   "truth": 6,
+   "found": 18,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": 0.0
+  },
+  "citation/stb-docket": {
+   "truth": 220,
+   "found": 233,
+   "hit": 207,
+   "recall": 0.9409090909090909,
+   "precision": 0.8884120171673819
+  }
+ }
+}
