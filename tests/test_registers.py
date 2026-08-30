@@ -80,6 +80,12 @@ def test_the_resolver_reads_every_printed_form_and_never_guesses(tmp_path):
         "EP 711 service date: 2026-08-26",
     ):
         assert r(q).path == "/decision/60001", q
+    # A decision is decided some days before it is served and the record holds the
+    # service date alone, so denying the decision would be false: it is held, under the
+    # date it was served. An unmatched decided date says which date the record keeps.
+    miss = r("EP 711 decided 3/25/2026")
+    assert miss.kind == "sheet" and "not the date it was decided" in miss.note
+    assert "no decision served" not in miss.note
     # two decisions on one day: the sheet, and why
     # one decision entered under a docket and its sub-docket is one decision, not two
     ingest(

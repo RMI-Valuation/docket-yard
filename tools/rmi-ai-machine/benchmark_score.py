@@ -39,6 +39,9 @@ DOCKET = re.compile(
     r"\b(FD|AB|EP|NOR|MCF|MCC|NOM|ISM|IS|SDM|WB|SO|DOP|STA|WCC|SUB)\s*[-\s]?\s*(\d{1,6})\b",
     re.I,
 )
+# the document-versus-proceeding test, for placing findings from a run made before
+# target_kind existed: a prior decision is a citation whatever docket it sits in
+DOC_NAMED = re.compile(r"slip op\.|decision|order|served|NPRM|NITU|CITU", re.I)
 SUBNO = re.compile(r"\(?\s*Sub[-\s]?No\.?\s*(\d+[A-Z]?)\s*\)?", re.I)
 REPORTER = re.compile(
     r"\b(\d{1,3})\s+(F\.?\s?\d?d|S\.?T\.?B\.?|I\.?C\.?C\.?(?:\.?2d)?|U\.?S\.?)\s+(\d{1,4})\b", re.I
@@ -67,6 +70,13 @@ def norm_target(raw: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", text.casefold()).strip()
 
 
+def norm_targets(raw: str) -> set:
+    """A target cell may be a list: `NOR 42144; NOR 42150; NOR 42152; NOR 42153` is one
+    consolidated caption naming four proceedings. Taking the first match drops three of
+    them from the truth set -- the same defect ADR 0004 was written for, one level down."""
+    return {k for part in (raw or "").split(";") if (k := norm_target(part.strip()))}
+
+
 def truth() -> tuple:
     """The sheet, as {decision: {kind: {target_kind: set(target)}}} plus the deadline
     sentences, which are compared as text where no date is printed."""
@@ -78,7 +88,7 @@ def truth() -> tuple:
         if kind == "deadline" and tk in ("period", "indefinite"):
             sentences[did][tk].add(norm_target(r["quoted"]))
             continue
-        out[did][kind][tk].add(norm_target(r["target"]))
+        out[did][kind][tk].update(norm_targets(r["target"]))
     return out, sentences
 
 
@@ -99,7 +109,11 @@ def run_findings(run_dir: Path) -> tuple:
                 if not tk:
                     legacy += 1
                     note = (fi.get("note") or "").lower()
-                    if kind == "citation" and "self" in note:
+                    if (
+                        kind == "citation"
+                        and "self" in note
+                        and not DOC_NAMED.search(fi.get("quoted", ""))
+                    ):
                         kind, tk = "caption", "self"
                     elif kind == "citation":
                         tk = "court" if "court" in note else "stb"
@@ -108,7 +122,7 @@ def run_findings(run_dir: Path) -> tuple:
                 if kind == "deadline" and tk in ("period", "indefinite"):
                     sentences[did][tk].add(norm_target(fi.get("quoted", "")))
                     continue
-                out[did][kind][tk].add(norm_target(fi.get("target", "")))
+                out[did][kind][tk].update(norm_targets(fi.get("target", "")))
     return out, sentences, legacy
 
 

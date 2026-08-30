@@ -5,10 +5,10 @@
  "by_kind": {
   "citation/stb": {
    "truth": 332,
-   "found": 462,
+   "found": 461,
    "hit": 296,
    "recall": 0.891566265060241,
-   "precision": 0.6406926406926406
+   "precision": 0.6420824295010846
   },
   "citation/court": {
    "truth": 86,
@@ -19,10 +19,10 @@
   },
   "citation/record": {
    "truth": 7,
-   "found": 553,
+   "found": 571,
    "hit": 7,
    "recall": 1.0,
-   "precision": 0.012658227848101266
+   "precision": 0.012259194395796848
   },
   "caption/self": {
    "truth": 38,
@@ -40,10 +40,10 @@
   },
   "deadline/reference": {
    "truth": 21,
-   "found": 31,
+   "found": 30,
    "hit": 16,
    "recall": 0.7619047619047619,
-   "precision": 0.5161290322580645
+   "precision": 0.5333333333333333
   },
   "deadline/period": {
    "truth": 18,

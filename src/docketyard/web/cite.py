@@ -23,7 +23,7 @@ from docketyard.web import urls
 
 _DATE = r"[A-Za-z]+\.?\s+\d{1,2},?\s+\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}"
 _SERVED_RE = re.compile(
-    r"\(?\s*(?:STB\s+)?(?:served|decided|service date)\s*:?\s*(" + _DATE + r")\s*\)?", re.I
+    r"\(?\s*(?:STB\s+)?(served|decided|service date)\s*:?\s*(" + _DATE + r")\s*\)?", re.I
 )
 # the Board's own record ids, in the bare form the sheets print (`Decision 53210`); never
 # `Decision No. n`, which is a number printed inside the document, and never a year
@@ -95,13 +95,13 @@ def resolve(con: Connection, text: str) -> Resolution | None:
     printed = urls.printed_docket(identity)
     if served is None:
         return Resolution("docket", urls.docket_path(identity), printed)
-    date = parse_date(served.group(1))
+    date = parse_date(served.group(2))
     if date is None:
         return Resolution(
             "sheet",
             urls.docket_path(identity),
             printed,
-            f"the date {served.group(1)!r} was not read",
+            f"the date {served.group(2)!r} was not read",
         )
     ids = [
         r[0]
@@ -116,8 +116,19 @@ def resolve(con: Connection, text: str) -> Resolution | None:
     ]
     if len(ids) == 1:
         return Resolution("decision", urls.decision_path(ids[0]), f"{printed}, served {date}")
+    decided = served.group(1).lower() == "decided"
     note = (
-        f"no decision served {date} is held in {printed}"
+        (
+            # The Board decides a decision and serves it some days later -- on the sixty
+            # benchmark decisions the two dates differ in 34 -- and `decision_record` holds
+            # the service date alone. So "nothing was served that day" is true and useless
+            # here, while "no such decision is held" would be false: it is held, under its
+            # service date. Say which date the record keeps instead of denying the decision.
+            f"the record holds the date a decision was served, not the date it was decided;"
+            f" nothing was served {date} in {printed}"
+            if decided
+            else f"no decision served {date} is held in {printed}"
+        )
         if not ids
         else f"{len(ids)} decisions were served {date} in {printed}; the sheet lists them"
     )
