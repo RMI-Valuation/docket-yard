@@ -24,7 +24,7 @@ Measured 2026-08-30 over the 10,058 live `as_filed` names with a first-draft rul
 | `company` | 2,293 | `Basin Electric Power Cooperative, Inc.` | non-carrier corporations |
 | `railroad` | 1,323 | `Allegheny Valley Railroad Company` | carriers; reporting marks (`party_name.name_kind = 'mark'`, 31 held) confirm |
 | `government` | 1,122 | `Washington Grain Commission` | agencies, states, municipalities, ports |
-| `association` | 682 | `Corn Refiners Association` | trade groups, unions, coalitions |
+| `association` | 682 | `Corn Refiners Association` | any organised non-governmental collective: trade groups, coalitions, **grassroots/civic committees** (the operator's convention, 2026-08-30); the trade-vs-grassroots distinction is tier 0's to quote, and a later split is an INSERT |
 | `law-firm` | 27 | `Baker & Miller PLLC` | firms filing in their own name |
 | `agency` | 1 | the Board | exists today; never re-derived |
 | *(unmatched)* | 2,028 | `10th District of Ohio` | largely elected officials/districts (→ `government`), `And X` split artefacts, and the genuinely hard tail |
