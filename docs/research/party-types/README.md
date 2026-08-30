@@ -33,10 +33,11 @@ each to `association` and the new `port` row; `company` loses 6 to `railroad`
 **The Wikidata tier**: 67 of 250 organisations linked; of the 31 whose `instance of`
 mapped to the vocabulary, **23 right, 8 wrong** (74%) — and the wrong ones are
 instructive: both law firms mapped `company` (the P31 map lacks a law-firm value), two
-utilities mapped `company`/`government` (same gap), `State Of Georgia` mapped
-`government` where the operator judged the party `railroad`, and one individual it
-called `individual` the operator knows as an elected official. The link is evidence, not
-a verdict.
+utilities mapped `company`/`government` (same gap), and one individual it called
+`individual` the operator knows as an elected official. (`State Of Georgia`, first
+judged `railroad`, was the operator's slip — corrected to `government` the same day;
+Wikidata had it right, one small point for the tier.) The link is evidence, not a
+verdict.
 
 **The judged distribution** (what 300 parties actually are): association 49, individual
 48, company 44, railroad 38, government 37, elected-official 28, span-artefact 25,
