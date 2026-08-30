@@ -24,7 +24,7 @@ LOG = BENCH / "batch.log"
 TEXT = BENCH / "text"
 START_RE = re.compile(r"^===== (\S+)\s+(\S+)$", re.M)
 DONE_RE = re.compile(r"^(\S+): finished in (\d+) min$", re.M)
-ANSI_RE = re.compile(r"\[[0-9;?]*[A-Za-z]")
+ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 FAIL_RE = re.compile(r"^(\S+): (pull failed.*|stopped at .*)$", re.M)
 
 
