@@ -40,6 +40,10 @@ the operator made 2026-08-30, before the check:
   `parent_of` a railroad corroborate.
 - **`utility`** — electric and power entities (204 candidate names, `Basin Electric
   Power Cooperative`); the rate-case complainant constituency deserves its own row.
+- **`port`** (the operator, same day) — port authorities and terminal/harbor operators,
+  today swallowed by the `government` rule's `port of` signal, which moves here. Public
+  authorities and private terminal companies share the row; the distinction, where a
+  document states it, is tier 0's to quote.
 - **Railroad class (I/II/III) is an attribute, not a type.** The Board's own
   revenue-based classification, time-varying and rarely knowable from a name — so it is
   never judged in the name queue. It lands as its own assertion on `railroad` parties,
