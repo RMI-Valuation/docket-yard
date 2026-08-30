@@ -2,6 +2,40 @@
  "run": "data\\benchmark\\runs-ocr\\claude-sonnet-5",
  "label": "claude-ocr",
  "legacy_findings": 13,
+ "page_check": true,
+ "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text-ocr",
+ "unchecked_decisions": [],
+ "off_page_findings": 4,
+ "off_page": [
+  {
+   "decision": "52526",
+   "page": 1,
+   "kind": "citation",
+   "target": "84 Fed. Reg. 48,872",
+   "quoted": "84 Fed. Reg. 48,872 (Sept. 17, 2019)"
+  },
+  {
+   "decision": "53052",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36873, Decision No. 3",
+   "quoted": "The Board took other actions in Decision No. 3"
+  },
+  {
+   "decision": "53052",
+   "page": 3,
+   "kind": "deadline",
+   "target": "May 8, 2026",
+   "quoted": "permitted comments, limited to whether the Revised Application contains the\ninformation required in 49 CFR part 1180, to be filed by May 8, 2026"
+  },
+  {
+   "decision": "53052",
+   "page": 38,
+   "kind": "citation",
+   "target": "90 Fed. Reg. 10,610 (Feb. 25, 2025)",
+   "quoted": "90 Fed. Reg. 10,610 (Feb. 25, 2025)."
+  }
+ ],
  "by_kind": {
   "citation/stb": {
    "truth": 332,
@@ -12,10 +46,10 @@
   },
   "citation/court": {
    "truth": 86,
-   "found": 156,
+   "found": 154,
    "hit": 84,
    "recall": 0.9767441860465116,
-   "precision": 0.5384615384615384
+   "precision": 0.5454545454545454
   },
   "citation/record": {
    "truth": 7,
@@ -60,11 +94,11 @@
    "precision": 0.0
   },
   "citation/stb-docket": {
-   "truth": 220,
-   "found": 223,
-   "hit": 213,
-   "recall": 0.9681818181818181,
-   "precision": 0.9551569506726457
+   "truth": 225,
+   "found": 227,
+   "hit": 217,
+   "recall": 0.9644444444444444,
+   "precision": 0.9559471365638766
   }
  }
 }

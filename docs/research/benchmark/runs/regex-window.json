@@ -1,0 +1,97 @@
+{
+ "run": "data\\benchmark\\runs-regex\\regex-window",
+ "label": "regex-window",
+ "legacy_findings": 0,
+ "page_check": true,
+ "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
+ "unchecked_decisions": [],
+ "off_page_findings": 3,
+ "off_page": [
+  {
+   "decision": "51532",
+   "page": 33,
+   "kind": "caption",
+   "target": "EP 754",
+   "quoted": "12  See Oversight Hearing on Demurrage and Accessorial Charges, EP 754; Policy"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "caption",
+   "target": "FD 36744 (Sub-No. 2)",
+   "quoted": "5  The rail lines at issue in Docket No. FD 36744 (Sub-No. 2) are located between"
+  },
+  {
+   "decision": "52988",
+   "page": 5,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 2)",
+   "quoted": "6  In Reciprocal Switching for Inadequate Service (Reciprocal Switching), EP 711 (Sub-\nNo. 2) (STB served April 30, 2024), the Board adopted regulations to prov"
+  }
+ ],
+ "by_kind": {
+  "citation/stb": {
+   "truth": 332,
+   "found": 206,
+   "hit": 179,
+   "recall": 0.5391566265060241,
+   "precision": 0.8689320388349514
+  },
+  "citation/court": {
+   "truth": 86,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "citation/record": {
+   "truth": 7,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "caption/self": {
+   "truth": 38,
+   "found": 116,
+   "hit": 35,
+   "recall": 0.9210526315789473,
+   "precision": 0.3017241379310345
+  },
+  "deadline/date": {
+   "truth": 90,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "deadline/reference": {
+   "truth": 21,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "deadline/period": {
+   "truth": 18,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "deadline/indefinite": {
+   "truth": 6,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "citation/stb-docket": {
+   "truth": 225,
+   "found": 206,
+   "hit": 179,
+   "recall": 0.7955555555555556,
+   "precision": 0.8689320388349514
+  }
+ }
+}

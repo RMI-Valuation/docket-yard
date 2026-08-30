@@ -35,8 +35,10 @@ ROOT = Path(__file__).resolve().parents[2]
 LABELS = ROOT / "docs/research/benchmark/labels.csv"
 OUT = ROOT / "docs/research/benchmark/runs"
 
+# the suffix letter may be glued to the number (`AB 1296X`, an abandonment exemption) or sit
+# in the sub-docket parenthetical (`AB 55 (Sub-No. 814X)`); both key the same way
 DOCKET = re.compile(
-    r"\b(FD|AB|EP|NOR|MCF|MCC|NOM|ISM|IS|SDM|WB|SO|DOP|STA|WCC|SUB)\s*[-\s]?\s*(\d{1,6})\b",
+    r"\b(FD|AB|EP|NOR|MCF|MCC|NOM|ISM|IS|SDM|WB|SO|DOP|STA|WCC|SUB)\s*[-\s]?\s*(\d{1,6})([A-Z])?\b",
     re.I,
 )
 # the document-versus-proceeding test, for placing findings from a run made before
@@ -63,7 +65,9 @@ def norm_target(raw: str) -> str:
     if m:
         key = f"{m.group(1).upper()} {int(m.group(2))}"
         sub = SUBNO.search(text[m.end() : m.end() + 30])
-        return key + (f" ({sub.group(1).upper()})" if sub else "")
+        if sub:
+            return key + f" ({sub.group(1).upper()})"
+        return key + (f" ({m.group(3).upper()})" if m.group(3) else "")
     r = REPORTER.search(text)
     if r:
         series = re.sub(r"[.\s]", "", r.group(2)).upper()
@@ -93,22 +97,94 @@ def truth() -> tuple:
     return out, sentences
 
 
-def run_findings(run_dir: Path) -> tuple:
-    """A run, in the same shape. A finding without a `target_kind` (a run made before the
-    conventions were settled) is placed by its own `kind` and note, so an older run can
-    still be scored — imperfectly, and the summary says so."""
+# A footnote marker fused to the sentence it annotates: the page prints "received, the"
+# and the text layer holds "received,1 the". The rule labels_check_page.py uses, applied
+# the same way (after whitespace is gone): a digit or two between a lower-case word's
+# punctuation and a lower-case word, leaving "Sub-No. 5X" and "1 I.C.C.2d at 825" alone.
+FOOTNOTE_MARK = re.compile(r"(?<=[a-z][,.;])\d{1,2}(?=[a-z])")
+
+
+def flat(text: str) -> str:
+    """Text reduced to what survives a PDF's wraps, its dashes, extraction's mojibake and
+    a fused footnote marker: NFKC, case-folded, whitespace gone, markers gone, then
+    alphanumerics only. Both sides of a quote check go through this and nothing else."""
+    s = re.sub(r"\s+", "", unicodedata.normalize("NFKC", text).casefold())
+    return re.sub(r"[^a-z0-9]+", "", FOOTNOTE_MARK.sub("", s))
+
+
+def load_text(text_dir: Path) -> dict:
+    """{decision_id: flat text of the whole decision}, from step 0's per-decision files.
+    What cannot be matched from this: a passage that runs over a page break, because
+    extraction emits a page's body and then its footnotes, so the halves are not adjacent
+    (16 of the sheet's 977 quotes, measured 2026-08-30; the queue sends those to the PDF)."""
+    return {
+        f.stem.rsplit("-", 1)[-1]: flat(f.read_text(encoding="utf-8", errors="replace"))
+        for f in text_dir.glob("*.txt")
+    }
+
+
+MIN_QUOTE = 8  # alphanumerics; below this ("Id.", "id. at 4") the check says nothing
+
+
+def on_page(quoted: str, doc_text: str) -> bool:
+    """The rule extraction-benchmark.md § Step 2 states: a quoted passage that is not in the
+    decision is wrong, whatever it targets. Checked against the whole decision rather than
+    the page, because a passage that runs over a page break is genuine and a page-number
+    slip is a different, lesser defect. A model copying the prompt's own worked examples
+    onto a page (measured 2026-08-30: 13 of qwen3:14b's 26 docket-shaped extras) fails
+    here and nowhere else — the docket it names is real, so the registry passes it.
+
+    Two allowances. A quote too short to mean anything is passed — unless it carries a
+    docket or reporter key, which is exactly the short quote the check exists for. And a
+    quote whose halves are each in the decision is passed, because a passage that runs
+    over a page break has a footnote block between its halves in the text layer."""
+    raw = quoted or ""
+    q = flat(raw)
+    if len(q) < MIN_QUOTE and not (DOCKET.search(raw) or REPORTER.search(raw)):
+        return True
+    if q in doc_text:
+        return True
+    words = raw.split()
+    if len(words) >= 4:
+        mid = len(words) // 2
+        a, b = flat(" ".join(words[:mid])), flat(" ".join(words[mid:]))
+        return len(a) >= MIN_QUOTE and len(b) >= MIN_QUOTE and a in doc_text and b in doc_text
+    return False
+
+
+def run_findings(run_dir: Path, texts: dict | None = None) -> tuple:
+    """A run, in the same shape, plus a report dict. A finding without a `target_kind` (a
+    run made before the conventions were settled) is placed by its own `kind` and note,
+    so an older run can still be scored — imperfectly, and the summary says so. With
+    `texts`, a finding whose quote is not in the decision is dropped and listed
+    (`off_page`, auditable), and a decision the texts do not cover is listed
+    (`unchecked`) rather than silently passed. `legacy` counts placed findings only."""
     out: dict = defaultdict(lambda: defaultdict(lambda: defaultdict(set)))
     sentences: dict = defaultdict(lambda: defaultdict(set))
-    legacy = 0
+    report: dict = {"legacy": 0, "off_page": [], "unchecked": []}
     for f in sorted(run_dir.glob("*.json")):
         doc = json.loads(f.read_text(encoding="utf-8"))
         did = str(doc.get("decision_id") or f.stem)
+        doc_text = texts.get(did) if texts is not None else None
+        if texts is not None and doc_text is None:
+            report["unchecked"].append(did)
         for page in doc.get("pages", []):
             for fi in page.get("findings", []) or []:
+                if doc_text is not None and not on_page(fi.get("quoted", ""), doc_text):
+                    report["off_page"].append(
+                        {
+                            "decision": did,
+                            "page": page.get("page"),
+                            "kind": fi.get("kind"),
+                            "target": fi.get("target"),
+                            "quoted": (fi.get("quoted") or "")[:160],
+                        }
+                    )
+                    continue
                 kind = fi.get("kind") or "citation"
                 tk = fi.get("target_kind")
                 if not tk:
-                    legacy += 1
+                    report["legacy"] += 1
                     note = (fi.get("note") or "").lower()
                     if (
                         kind == "citation"
@@ -124,7 +200,7 @@ def run_findings(run_dir: Path) -> tuple:
                     sentences[did][tk].add(norm_target(fi.get("quoted", "")))
                     continue
                 out[did][kind][tk].update(norm_targets(fi.get("target", "")))
-    return out, sentences, legacy
+    return out, sentences, report
 
 
 def score(t_sets: dict, r_sets: dict) -> dict:
@@ -148,16 +224,53 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", required=True, type=Path, help="a directory of per-decision JSON")
     ap.add_argument("--label", default=None, help="name for the result file")
+    ap.add_argument(
+        "--text-dir",
+        type=Path,
+        default=None,
+        help="the text the run read; findings whose quote is not in it are dropped. "
+        "Default: data/benchmark/text-ocr when the run path says 'ocr', else "
+        "data/benchmark/text — an OCR run held to the text layer drops real findings "
+        "(24 on claude-ocr, measured 2026-08-30). --no-page-check disables this.",
+    )
+    ap.add_argument("--no-page-check", action="store_true")
     args = ap.parse_args()
 
+    text_dir = args.text_dir or ROOT / (
+        "data/benchmark/text-ocr" if "ocr" in args.run.as_posix().lower() else "data/benchmark/text"
+    )
+    texts = None if args.no_page_check else load_text(text_dir)
+    if texts is not None and not texts:
+        raise SystemExit(f"no decision text under {text_dir}; pass --text-dir or --no-page-check")
+
     t, t_sent = truth()
-    r, r_sent, legacy = run_findings(args.run)
+    r, r_sent, report = run_findings(args.run, texts)
     name = args.label or args.run.name
 
-    result = {"run": str(args.run), "label": name, "legacy_findings": legacy, "by_kind": {}}
+    result = {
+        "run": str(args.run),
+        "label": name,
+        "legacy_findings": report["legacy"],
+        "page_check": texts is not None,
+        "text_dir": None if texts is None else text_dir.as_posix(),
+        "unchecked_decisions": report["unchecked"],
+        "off_page_findings": len(report["off_page"]),
+        "off_page": report["off_page"],
+        "by_kind": {},
+    }
     print(f"{name}: {len(r)} decisions in the run, {len(t)} in the sheet")
-    if legacy:
-        print(f"  {legacy} findings carried no target_kind and were placed by note (older run)")
+    if report["legacy"]:
+        print(f"  {report['legacy']} findings carried no target_kind and were placed by note")
+    if texts is not None:
+        print(
+            f"  page check against {text_dir.as_posix()}: {len(report['off_page'])} findings "
+            "quoted text that is not in the decision and were dropped"
+        )
+        if report["unchecked"]:
+            print(
+                f"  NOT CHECKED — no text for {len(report['unchecked'])} decisions: "
+                f"{report['unchecked']}"
+            )
 
     for kind, kinds in (
         ("citation", ("stb", "court", "record")),

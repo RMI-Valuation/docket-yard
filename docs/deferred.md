@@ -78,3 +78,19 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   § Open): remove `dump.HELD_TABLES`, restore the Parties block, bump `JSON_SHAPE`, announce
   on `/data`. Money on `/contribute` is omitted by decision until the same review and the
   entity question.
+
+## Benchmark scorer (code review 2026-08-30, on the on-page check)
+
+- **Two definitions of "is this quote in the decision"**: `benchmark_score.flat()` and
+  `labels_check_page.stripped()` each reduce text their own way (the queue also strips
+  page markers and the Board's running head). Measured the same day: reusing `stripped()`
+  recovers none of the 15 page-spanning sheet quotes the scorer cannot locate (18 fail
+  under it), so the divergence costs nothing yet — but the next furniture fix will land in
+  one and not the other. Extract one `locatable(text)` helper into a shared module and
+  import it from both.
+- **The `<stratum>-<id>.txt` naming convention is parsed in four places**
+  (`benchmark_score`, `benchmark_run`, `benchmark_ocr_text`, `labels_check_page`), each
+  differently. One `decision_id_of(path)` in the shared module.
+- **`off_page` is one undifferentiated count**; recording it per `kind/target_kind` would
+  match the rest of the result's shape. The dropped quotes themselves are listed, so the
+  drop is auditable.

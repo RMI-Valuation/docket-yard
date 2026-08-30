@@ -77,21 +77,41 @@ location is wrong. Three rules follow from the settled conventions:
 Two extractors over the sixty labelled decisions, scored by `benchmark_score.py` under the
 settled conventions — citations as sets of `(decision, target)`, each `target_kind` apart:
 
-| extractor | input | STB citations | courts | dated deadlines |
-|---|---|---|---|---|
-| qwen3:14b (local, free) | text layer | 73.5% | 29.1% | 96.7% |
-| Claude Sonnet 5 | text layer | **89.2%** | 97.7% | 98.9% |
-| Claude Sonnet 5 | **OCR of the same pages** | **91.9%** | 97.7% | 98.9% |
-| qwen3:14b, **current prompt** (2026-08-30) | text layer | 86.4% | 76.7% | 84.4% |
+| extractor | input | STB citations | courts | dated deadlines | **docket-shaped** (recall / precision) |
+|---|---|---|---|---|---|
+| qwen3:14b (local, free), old prompt | text layer | 72.3% | 29.1% | 96.7% | 85.8% / 95.1% |
+| Claude Sonnet 5 | text layer | **89.8%** | 97.7% | 98.9% | **95.6% / 95.6%** |
+| Claude Sonnet 5 | **OCR of the same pages** | **91.9%** | 97.7% | 98.9% | 96.4% / 95.6% |
+| qwen3:14b, **current prompt** (2026-08-30) | text layer | 87.0% | 74.4% | 84.4% | 93.8% / 93.8% |
+| **regex + registry, "own docket" rule — no model** (2026-08-30) | text layer | 64.2% | — | — | **94.7%** / 88.0% |
 
-On the **docket-shaped** class — what a citator resolves, reported apart by the scorer since
-2026-08-30 — the local model is close: qwen3:14b on the current prompt scores **94.1%
-recall / 88.8% precision** against Claude's 95.9% / 95.5%, in 102 minutes on the box at
-no cost. Its extras are 13 self-references (Claude has 10 of the same class) and **13
-verbatim copies of the prompt's own worked examples** (`FD 36732`, `EP 787`) on pages
-where that text does not exist — a small-model failure the on-page check would remove
-entirely, after which its precision on this class is level with Claude's. The row above
-is the first of a batch of nine local candidates (`tools/rmi-ai-machine/benchmark_batch.sh`).
+All rows are scored as of 2026-08-30 with the **on-page check** (a finding whose quoted
+passage is not in the decision's text is dropped — 2 of Claude's, 97 of qwen3's) and the
+scorer's docket-suffix fix (`AB 1296X` now keys as a docket; the docket-shaped truth is
+225 targets, not 220). Earlier figures in this document and in `ocr-plan.md` (89.2%,
+95.9% / 95.5%) predate both and differ by under a point.
+
+On the **docket-shaped** class — what a citator resolves — three things were measured:
+
+- **The local model is close.** qwen3:14b on the current prompt scores 93.8% / 93.8%
+  against Claude's 95.6% / 95.6%, in 102 minutes on the box at no cost. Before the on-page
+  check its precision read 88.8%: 13 of its extras were **verbatim copies of the prompt's
+  own worked examples** (`FD 36732`, `EP 787`) on pages where that text does not exist —
+  a small-model failure, and the reason the check exists. What remains weaker is courts
+  (74% vs 98%) and dated deadlines (84% vs 99%). It is the first of a batch of nine local
+  candidates (`tools/rmi-ai-machine/benchmark_batch.sh`).
+- **The docket class needs no model.** `benchmark_regex.py` — a pattern over the text
+  layer, validated against the registry, with one rule: a hit is a caption only when it
+  is the citing decision's own proceeding *and* no document word sits near it — finds
+  94.7% of docket-shaped targets (213 of 225). Its 29 extras are own-proceeding mentions,
+  which ADR 0017's projection rule absorbs; its 12 misses are the six registry
+  unresolvables (ICC-era `EP 445`, `FD 757`, …) and four same-docket prior decisions with
+  no document word in the window. The keyword window alone, without the own-docket rule,
+  is a poor classifier (79.6%): the record already knows which proceeding a decision sits
+  in, and that is the one thing regex should not be asked to decide.
+- **So the paid extractor earns its keep on the other forms** — reporter cites, `decision
+  served …` phrases, court citations, deadlines, and the role of a same-docket mention —
+  not on docket numbers. ADR 0017 § Amendment candidates records what that changes.
 
 Two things follow, and the second was not expected.
 
@@ -100,8 +120,9 @@ Two things follow, and the second was not expected.
 and worst OCR engines. A citator that misses a quarter of its edges is not a lower-quality
 citator; it is a different product.
 
-*(The qwen3:14b figure of 73.5% is the run made before `target_kind` existed, scored through
-the scorer's fallback; the same model on the current prompt, above, reads 86.4%. Corrected
+*(The old-prompt qwen3:14b row is the run made before `target_kind` existed, scored through
+the scorer's fallback; the same model on the current prompt reads 87.0%, so most of the
+"16 points" was the prompt and the instrument, not the model. Corrected
 2026-08-30. qwen3's figure first read 60.2%, and a 29-point gap was published
 here and in `ocr-plan.md` on the strength of it. The scorer's fallback for a run made before
 `target_kind` existed was routing prior-decision citations into captions — the very
@@ -114,10 +135,12 @@ a **lower bound** — the sixty are born-digital, so their renders are cleaner t
 scan — but it is a bound of *no measured damage*, which leaves headroom before degradation
 would begin to matter. `benchmark_ocr_text.py` builds that OCR side.
 
-Precision was not reported above until the operator had checked the sheet (2026-08-30): a
-real citation the drafter passed over scored as a false positive against it. Read after the
-check, over the text layer: STB citations **64.2%** (Claude) and 23.6% (qwen3:14b), and on
-docket-shaped STB targets alone **95.5%** at 95.9% recall — the split ADR 0017 is built on.
+Precision was not reported until the operator had checked the sheet (2026-08-30): a real
+citation the drafter passed over scored as a false positive against it. Read after the
+check, over the text layer: STB citations **64.6%** (Claude) and 44.3% (qwen3:14b, current
+prompt), and on docket-shaped STB targets alone **95.6%** — the split ADR 0017 is built on.
+Most of the headline loss is reporter cites, pin-cite short forms and `decision served …`
+phrases the sheet folds, none of which resolves to a docket.
 
 ## Step 3 — the decision (drafted 2026-08-30, ADR 0017 Proposed)
 

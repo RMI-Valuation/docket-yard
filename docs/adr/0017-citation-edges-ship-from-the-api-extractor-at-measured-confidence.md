@@ -25,16 +25,17 @@ What the benchmark settled, all dated after the check:
   not hold: reporter cites (`3 I.C.C.2d 606`), pin-cite short forms (`IHB II, 3 I.C.C.2d at
   610`), `id.`-style references (`Decision at 15`), and narrative `decision served October
   5, 2017` phrases. None resolves to a docket.
-- **On docket-shaped targets — what a citator resolves — Claude scores 95.9% recall and
-  95.5% precision** (220 edges in the sheet, 211 found, 10 extra; over OCR 213 found, the
-  same 10 extra). **All ten extras name the citing decision's own proceeding** — a caption
+- **On docket-shaped targets — what a citator resolves — Claude scores 95.6% recall and
+  95.6% precision** (225 edges in the sheet, 215 found, 10 extra; over OCR 217 found, the
+  same 10 extra; figures after the on-page check and the scorer's suffix fix, both
+  2026-08-30 — the first draft read 95.9% / 95.5% on 220). **All ten extras name the citing decision's own proceeding** — a caption
   or a consolidated member (`Docket No. NOR 42150` in a decision entered in NOR 42144 et al.)
   read as a citation. **Not one is an edge to a docket the decision never touched.** The
   nine misses are real (`FD 36797`, `NOR 42124`, `EP 705`, `FD 32760 (Sub-No. 21)`, …); the
   other 27 misses are reporter cites and date-named decisions, which resolve differently.
 - **The extractor invents no docket numbers.** Against the registry (32,605 docket rows in
-  the production copy), 6 of the 166 distinct docket targets Claude emitted fail to resolve
-  — and the checked sheet holds exactly the same six. Four are ICC-era proceedings that
+  the production copy), 6 of the 171 distinct docket targets in the sheet fail to resolve
+  — and Claude emits exactly the same six and no other. Four are ICC-era proceedings that
   predate the 1996 record (`EP 445`, `EP 445 (Sub-No. 1)`, `EP 392 (Sub-No. 1)`, `FD 757`),
   one is a sub-docket the copy does not yet hold (`FD 36873 (Sub-No. 2)`), one (`FD 37470`)
   neither resolves nor repairs. A model reading the text layer *has* emitted a fused
@@ -43,9 +44,9 @@ What the benchmark settled, all dated after the check:
 - **The fused-footnote exposure is measurable per target.** A resolved target is exposed
   when the reading with its last digit removed is *also* a held docket (`AB 1242` and
   `AB 124` both exist, so `AB 1242` may be `AB 124` plus footnote 2). On the sheet that is
-  **5 of 220** docket targets, all four-digit `AB` numbers; the other 209 — every five-digit
-  docket and every three-digit `EP` — have no held shorter reading. On the 209 Claude scores
-  95.7% recall and 95.2% precision, the ten extras being the same self-references.
+  **5 of 225** docket targets, all four-digit `AB` numbers; the other 214 — every five-digit
+  docket and every three-digit `EP` — have no held shorter reading. On the 214 Claude scores
+  95.3% recall and 95.3% precision, the ten extras being the same self-references.
 - **A consolidated decision carries one `decision_record` row per member docket** (measured:
   1,736 of 19,827 held decisions have more than one; decision 51532 has five, `EP 328
   (Sub-No. 2)` and four `NOR`s). The work is identified by `stb_decision_id`, which the
@@ -117,14 +118,14 @@ not decisions; this record makes them decisions.
 
    | class | measured (2026-08-30) | projected as "cited by" |
    | --- | --- | --- |
-   | docket, resolved, **not exposed** (the trailing-digit-stripped reading is not a held docket) | 0.952 precision, 0.957 recall, 209 of 220 | **yes, unreviewed** |
-   | docket, resolved, **exposed** (both readings are held: `AB 1242` / `AB 124`), or resolved only by rule 2 | 5 of 220; no wrong edge among them | **after review** |
-   | docket, unresolved | 6 of 166, none invented | **never**; shown as "cites `EP 445` (not in the record)"; queued if in range |
+   | docket, resolved, **not exposed** (the trailing-digit-stripped reading is not a held docket) | 0.953 precision, 0.953 recall, 214 of 225 | **yes, unreviewed** |
+   | docket, resolved, **exposed** (both readings are held: `AB 1242` / `AB 124`), or resolved only by rule 2 | 5 of 225; no wrong edge among them | **after review** |
+   | docket, unresolved | 6 of 171, none invented | **never**; shown as "cites `EP 445` (not in the record)"; queued if in range |
    | reporter (`4 S.T.B. 303`) or date-named, unresolved to a work | unreadable (the sheet folds the forms) | not in this slice; stored |
    | `court` | 0.977 recall; precision unreadable | not in this slice; stored, typed |
    | `record` | not measured | not in this slice; stored; **explicitly not scored** |
 
-   The 0.952 is measured *before* the projection rule of decision 5; on the sheet that rule
+   The 0.953 is measured *before* the projection rule of decision 5; on the sheet that rule
    absorbs all ten extras, so what readers see is better than the stamp. The stamp stays
    the conservative figure and the coverage page says which set it was measured on.
 
@@ -144,7 +145,7 @@ not decisions; this record makes them decisions.
    sequence fall inside the held record (an ICC-era number is expected to fail and is not
    queued; `FD 37470` is); same-docket document citations that did not resolve to a work;
    and every reader report (`/contribute`). A review writes a `human` resolution row. On
-   the sheet the first two queues hold 5 and 1 of 220 edges; the queue is bounded by the
+   the sheet the first two queues hold 5 and 1 of 225 edges; the queue is bounded by the
    tail, not the record, and nothing in the unreviewed class waits on it.
 
 7. **Projection folds by work.** "Cited by" and every count are distinct `(citing work,
@@ -219,6 +220,31 @@ self-references projected only at work level, and why nothing below it is projec
 - **Queries 1 and 5** — untouched; no table they read changes.
 - **ADR 0004's lesson, one level down** — a target cell may be a list (`NOR 42144; NOR
   42150; …`); each member is its own row, never the first match only.
+
+## Amendment candidates (2026-08-30, after the local batch began)
+
+Measured the same day, after this record was drafted, and left for the operator to fold
+in at acceptance rather than rewritten silently:
+
+- **The docket-shaped class needs no model.** A regular expression over the text layer,
+  validated against the registry, with one rule — a hit is a caption only when it is the
+  citing decision's own proceeding *and* no document word sits near it — scores **94.7%
+  recall on docket-shaped targets** (`tools/rmi-ai-machine/benchmark_regex.py`, 213 of
+  225); on the unexposed class 97.2%, above Claude's 95.3%. Its extras are own-proceeding
+  mentions the projection rule of decision 5 absorbs. Decision 1 would then read: the
+  docket class ships from `regex-docket-cite` (the method the schema draft already names)
+  and the API extractor is bought for what regex cannot do — reporter and date-named
+  forms, court citations, deadlines, and the role of a same-docket mention.
+- **The on-page rule belongs in the resolution pass, not only in the scorer.** A small
+  local model copied the prompt's own worked examples onto pages where they do not exist
+  (13 of 26 extras); the docket named is real, so rule 1 passes it. *A quoted passage that
+  is not in the decision's text is not an edge* — checked with the scorer's matcher
+  (`benchmark_score.on_page`), which passes all but 15 page-spanning quotes of the checked
+  sheet's 977.
+- **A local extractor is closer than the first draft said.** qwen3:14b on the current
+  prompt, after the on-page check, scores 93.8% / 93.8% on the docket-shaped class against
+  Claude's 95.6% / 95.6%; the batch of nine local candidates is still running. Where it is
+  clearly weaker is courts (74% vs 98%) and dated deadlines (84% vs 99%).
 
 ## Review (schema-critic, 2026-08-30)
 
