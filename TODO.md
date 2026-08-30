@@ -25,8 +25,11 @@ by pre-commit: when it fires, prune.
   and its local copy gone; a further extraction run needs a new one
 - **Party types (F3's first slice, chosen 2026-08-30)**: design in `docs/party-types.md`
   (vocabulary measured, three method tiers, ground truth before anything ships);
-  schema-critic running on the assertion shape. Next: fold the critic's report in, then
-  the ~300-party checked sample — the operator's queue
+  critic's report folded in (evidence keys, additive vocab, pinned projection). The
+  300-party sample is drawn, Wikidata evidence attached (67 links, 10 disagreements),
+  and **Cameron's check queue is live**:
+  <https://claude.ai/code/artifact/70be297e-340e-4875-b4e3-94a509f6fe7d> — judge, then
+  Copy findings back to a session to apply to `docs/research/party-types/labels.csv`
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
 
