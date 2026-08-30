@@ -90,11 +90,14 @@ one per tier and half-tier, under the rules below) and was **checked by the oper
 for step 2, and precision may now be read — before the check it could not be, since a real
 citation the drafter passed over scored as a false positive.
 
-The one correction is a class, not a row. `Decision No. 1, FD 36744 et al., slip op. at 6`
-records its target as `FD 36744 et al.`, and 68 rows over 16 distinct targets do the same.
-Scoring is unaffected either way (`norm_target` reduces both forms to `FD 36744`); what is
-open is whether the `target` column holds what the page printed or what a citator resolves.
-Pending the operator's answer, the rows stand as drafted.
+The one correction was a class, not a row. `Decision No. 1, FD 36744 et al., slip op. at 6`
+recorded its target as `FD 36744 et al.`, and 68 rows over 16 distinct targets did the same.
+**Decided 2026-08-30 (operator): `target` holds what a citator resolves; `quoted` holds
+what the page printed.** The 68 rows now read `FD 36744`; `et al.` survives in `quoted`.
+Scoring did not move (`norm_target` already reduced both forms to the same key; the truth
+sets were compared before and after and are identical), and the column is now consistent
+with the caption rows, which already wrote a consolidated proceeding as resolved keys
+(`NOR 42144; NOR 42150; …`).
 
 One report of a missing highlight (`NOR 42060 (Sub-No. 1)` on page 20 of 51532) was the
 queue's own defect, not a gap in the sheet: the label existed and the matcher was binding
