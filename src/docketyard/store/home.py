@@ -1,7 +1,9 @@
 """The home-page projection: what moved at the Board in a window. Derived, rebuildable.
 
 A record entered in a docket and its sub-docket is one record: decisions and filings are
-folded by their STB id across the family, headlined by the parent docket.
+folded by their STB id across the family, so neither is counted twice. What they are
+listed UNDER is the proceeding the Board entered them in — the sub-docket where there is
+one, never its parent (revised 2026-08-30; see the note on the `moved` query).
 """
 
 from dataclasses import dataclass

@@ -83,7 +83,7 @@ settled conventions — citations as sets of `(decision, target)`, each `target_
 | Claude Sonnet 5 | text layer | **89.8%** | 97.7% | 98.9% | **95.6% / 95.6%** |
 | Claude Sonnet 5 | **OCR of the same pages** | **91.9%** | 97.7% | 98.9% | 96.4% / 95.6% |
 | qwen3:14b, **current prompt** (2026-08-30) | text layer | 87.0% | 74.4% | 84.4% | 93.8% / 93.8% |
-| **regex + registry, "own docket" rule — no model** (2026-08-30) | text layer | 64.2% | — | — | **94.7%** / 88.0% |
+| **regex + registry, "own docket" rule — no model** (2026-08-30) | text layer | 64.2% | — | — | **95.1%** / 88.1% |
 
 All rows are scored as of 2026-08-30 with the **on-page check** (a finding whose quoted
 passage is not in the decision's text is dropped — 2 of Claude's, 97 of qwen3's) and the
@@ -103,7 +103,8 @@ On the **docket-shaped** class — what a citator resolves — three things were
 - **The docket class needs no model.** `benchmark_regex.py` — a pattern over the text
   layer, validated against the registry, with one rule: a hit is a caption only when it
   is the citing decision's own proceeding *and* no document word sits near it — finds
-  94.7% of docket-shaped targets (213 of 225). Its 29 extras are own-proceeding mentions,
+  95.1% of docket-shaped targets (214 of 225; 94.7% before the scorer's quote matcher was
+  corrected on 2026-08-30, which had been case-folding away its own exceptions). Its 29 extras are own-proceeding mentions,
   which ADR 0017's projection rule absorbs; its 12 misses are the six registry
   unresolvables (ICC-era `EP 445`, `FD 757`, …) and four same-docket prior decisions with
   no document word in the window. The keyword window alone, without the own-docket rule,

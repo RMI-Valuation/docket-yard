@@ -5,30 +5,8 @@
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],
- "off_page_findings": 3,
- "off_page": [
-  {
-   "decision": "51532",
-   "page": 33,
-   "kind": "caption",
-   "target": "EP 754",
-   "quoted": "12  See Oversight Hearing on Demurrage and Accessorial Charges, EP 754; Policy"
-  },
-  {
-   "decision": "52295",
-   "page": 2,
-   "kind": "caption",
-   "target": "FD 36744 (Sub-No. 2)",
-   "quoted": "5  The rail lines at issue in Docket No. FD 36744 (Sub-No. 2) are located between"
-  },
-  {
-   "decision": "52988",
-   "page": 5,
-   "kind": "citation",
-   "target": "EP 711 (Sub-No. 2)",
-   "quoted": "6  In Reciprocal Switching for Inadequate Service (Reciprocal Switching), EP 711 (Sub-\nNo. 2) (STB served April 30, 2024), the Board adopted regulations to prov"
-  }
- ],
+ "off_page_findings": 0,
+ "off_page": [],
  "by_kind": {
   "citation/stb": {
    "truth": 332,
@@ -53,10 +31,10 @@
   },
   "caption/self": {
    "truth": 38,
-   "found": 116,
+   "found": 117,
    "hit": 35,
    "recall": 0.9210526315789473,
-   "precision": 0.3017241379310345
+   "precision": 0.29914529914529914
   },
   "deadline/date": {
    "truth": 90,

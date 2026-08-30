@@ -23,12 +23,12 @@ by pre-commit: when it fires, prune.
   absolute character accuracy not**
 - Keys: rotation closed 2026-08-30. No Anthropic key exists; a Claude run needs a new one
 - **Party types (F3's first slice, chosen 2026-08-30)**: design in `docs/party-types.md`
-  (vocabulary measured, three method tiers, ground truth before anything ships);
+  (vocabulary measured, tiers, ground truth first);
   critic's report folded in (evidence keys, additive vocab, pinned projection). The
   300-party sample is drawn, Wikidata evidence attached (67 links, 10 disagreements),
   and **checked by Cameron 2026-08-30 — all 300** (figures in
   `docs/research/party-types/README.md`: best rule type 87.5%, none publishable as
-  drafted; 8% span artefacts). **Rules v2 done 2026-08-30: 57.7% -> 82.3%**
+  drafted; 8% span artefacts). **Rules v2 done 2026-08-30: 57.7% -> 83.3%**
   (`tools/party_types_rules.py`; labor-union, port, government, elected-official already
   publishable-grade) — but tuned on the sheet it is scored against, so **a second unseen
   sample must confirm before any type ships on rule confidence**. Then the model tier

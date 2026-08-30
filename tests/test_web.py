@@ -230,7 +230,9 @@ def test_a_series_docket_leads_with_its_index(tmp_path):
     assert "6 proceedings held here are indexed below" in r.text
     assert "All 6 proceedings under AB 290" in r.text
     assert "this record holds nothing against the number itself" in r.text  # never the Board's
-    assert "The ten most recent of 1 proceedings" in r.text  # the cap is stated
+    # the ten-row cap is named only when it bites: six active proceedings is not capped
+    assert "The ten most recent" not in r.text
+    assert "All 6 are" in " ".join(r.text.split())
     assert "Most recently active" in r.text
     # the proceeding with records, and the one without — both listed, the second marked
     assert 'href="/d/AB-290/sub/1X"' in r.text and 'href="/d/AB-290/sub/2X"' in r.text

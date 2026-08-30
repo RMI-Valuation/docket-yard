@@ -5,7 +5,7 @@
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],
- "off_page_findings": 98,
+ "off_page_findings": 76,
  "off_page": [
   {
    "decision": "51532",
@@ -74,13 +74,6 @@
    "decision": "52211",
    "page": 1,
    "kind": "caption",
-   "target": "Decision No. 6",
-   "quoted": "Decision No. 6"
-  },
-  {
-   "decision": "52211",
-   "page": 1,
-   "kind": "caption",
    "target": "FD 367321",
    "quoted": "All pleadings, referring to Docket No. FD 367321, should be filed"
   },
@@ -94,37 +87,9 @@
   {
    "decision": "52238",
    "page": 2,
-   "kind": "citation",
-   "target": "49 CFR 1150.32(b)",
-   "quoted": "3  See 49 CFR 1150.32(b)."
-  },
-  {
-   "decision": "52238",
-   "page": 2,
    "kind": "deadline",
    "target": "14-day period",
    "quoted": "the standard 14-day period between publication of a change in operator notice and its effectiveness,3"
-  },
-  {
-   "decision": "52260",
-   "page": 4,
-   "kind": "citation",
-   "target": "4 I.C.C.2d 137 (1987)",
-   "quoted": "4 I.C.C.2d 137 (1987)"
-  },
-  {
-   "decision": "52260",
-   "page": 4,
-   "kind": "citation",
-   "target": "5 U.S.C. 801-808",
-   "quoted": "5 U.S.C. 801-808"
-  },
-  {
-   "decision": "52260",
-   "page": 13,
-   "kind": "citation",
-   "target": "49 U.S.C. 13703",
-   "quoted": "49 U.S.C. 13703"
   },
   {
    "decision": "52295",
@@ -422,20 +387,6 @@
   },
   {
    "decision": "52988",
-   "page": 4,
-   "kind": "citation",
-   "target": "49 U.S.C. 10101(2)",
-   "quoted": "49 U.S.C. 10101(2)"
-  },
-  {
-   "decision": "52988",
-   "page": 4,
-   "kind": "citation",
-   "target": "49 U.S.C. 10101(13)",
-   "quoted": "49 U.S.C. 10101(13)"
-  },
-  {
-   "decision": "52988",
    "page": 17,
    "kind": "citation",
    "target": "Decision No. 44, 1 S.T.B. at 562",
@@ -491,25 +442,11 @@
    "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
   },
   {
-   "decision": "52988",
-   "page": 28,
-   "kind": "citation",
-   "target": "44 U.S.C. 3507(d)",
-   "quoted": "44 U.S.C. 3507(d)"
-  },
-  {
    "decision": "53046",
    "page": 2,
    "kind": "caption",
    "target": "FD 32760 (Sub-No. 48)",
    "quoted": "All pleadings, referring to Docket No. FD 32760 (Sub-No. 48), should be filed"
-  },
-  {
-   "decision": "53046",
-   "page": 3,
-   "kind": "deadline",
-   "target": "",
-   "quoted": "after discovery was completed, BNSF could file an amended petition for enforcement based on any additional relevant information and argument.3"
   },
   {
    "decision": "53046",
@@ -548,38 +485,10 @@
   },
   {
    "decision": "53052",
-   "page": 10,
-   "kind": "citation",
-   "target": "36 CFR part 800",
-   "quoted": "36 CFR part 800"
-  },
-  {
-   "decision": "53052",
-   "page": 10,
-   "kind": "citation",
-   "target": "49 CFR part 1105",
-   "quoted": "49 CFR part 1105"
-  },
-  {
-   "decision": "53052",
-   "page": 13,
-   "kind": "citation",
-   "target": "5 S.T.B. at 570",
-   "quoted": "5 S.T.B. at 570"
-  },
-  {
-   "decision": "53052",
    "page": 23,
    "kind": "deadline",
    "target": "",
    "quoted": "within 30 days of the service of this decision"
-  },
-  {
-   "decision": "53052",
-   "page": 24,
-   "kind": "citation",
-   "target": "5 S.T.B. at 579-581",
-   "quoted": "5 S.T.B. at 579-581"
   },
   {
    "decision": "53052",
@@ -594,55 +503,6 @@
    "kind": "deadline",
    "target": "",
    "quoted": "until further order of the Board"
-  },
-  {
-   "decision": "53052",
-   "page": 29,
-   "kind": "citation",
-   "target": "5 S.T.B. at 599",
-   "quoted": "5 S.T.B. at 599."
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(i)(A)",
-   "quoted": "49 CFR 1105.7(e)(5)(i)(A)"
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(i)(B), (C)",
-   "quoted": "49 CFR 1105.7(e)(5)(i)(B), (C)"
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(ii)(A)",
-   "quoted": "49 CFR 1105.7(e)(5)(ii)(A)"
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(ii)(B), (C)",
-   "quoted": "49 CFR 1105.7(e)(5)(ii)(B), (C)"
-  },
-  {
-   "decision": "53052",
-   "page": 38,
-   "kind": "citation",
-   "target": "90 Fed. Reg. 10,610",
-   "quoted": "90 Fed. Reg. 10,610 (Feb. 25, 2025)."
-  },
-  {
-   "decision": "53052",
-   "page": 38,
-   "kind": "citation",
-   "target": "90 Fed. Reg. 8353",
-   "quoted": "90 Fed. Reg. 8353 (Jan. 20, 2025),"
   },
   {
    "decision": "53052",
@@ -673,55 +533,41 @@
    "quoted": "until further order of the Board"
   },
   {
-   "decision": "53052",
-   "page": 42,
-   "kind": "citation",
-   "target": "49 CFR 1180.4(a)(3)",
-   "quoted": "49 CFR 1180.4(a)(3)"
-  },
-  {
    "decision": "53072",
    "page": 3,
    "kind": "caption",
    "target": "Docket No. 53072",
    "quoted": "Docket No. 53072"
-  },
-  {
-   "decision": "53089",
-   "page": 2,
-   "kind": "citation",
-   "target": "49 U.S.C. 11326(c)",
-   "quoted": "49 U.S.C. 11326(c)"
   }
  ],
  "by_kind": {
   "citation/stb": {
    "truth": 332,
-   "found": 653,
-   "hit": 289,
-   "recall": 0.8704819277108434,
-   "precision": 0.442572741194487
+   "found": 669,
+   "hit": 290,
+   "recall": 0.8734939759036144,
+   "precision": 0.4334828101644245
   },
   "citation/court": {
    "truth": 86,
-   "found": 127,
+   "found": 128,
    "hit": 64,
    "recall": 0.7441860465116279,
-   "precision": 0.5039370078740157
+   "precision": 0.5
   },
   "citation/record": {
    "truth": 7,
-   "found": 336,
+   "found": 337,
    "hit": 3,
    "recall": 0.42857142857142855,
-   "precision": 0.008928571428571428
+   "precision": 0.008902077151335312
   },
   "caption/self": {
    "truth": 38,
-   "found": 177,
+   "found": 178,
    "hit": 33,
    "recall": 0.868421052631579,
-   "precision": 0.1864406779661017
+   "precision": 0.1853932584269663
   },
   "deadline/date": {
    "truth": 90,
@@ -739,10 +585,10 @@
   },
   "deadline/period": {
    "truth": 18,
-   "found": 44,
+   "found": 45,
    "hit": 5,
    "recall": 0.2777777777777778,
-   "precision": 0.11363636363636363
+   "precision": 0.1111111111111111
   },
   "deadline/indefinite": {
    "truth": 6,

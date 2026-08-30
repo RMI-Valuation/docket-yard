@@ -37,7 +37,10 @@ _SUFFIX = (
 JOINED = re.compile(rf"\b{_SUFFIX}\b[.,]?\s*(?:and|&)\s+.+\b{_SUFFIX}\b", re.I)
 # `Inc.Luzerne`, `CompanyMeridian`: a suffix glued to the next name. Case-SENSITIVE on
 # purpose — the capital is the whole signal.
-RUNON = re.compile(r"\b(?:Inc|Llc|LLC|Corp|Company|Railway|Railroad)\.?[A-Z]")
+# `Inc.Luzerne`, `CompanyMeridian`, `Company-Delaware`: a suffix glued to the next
+# name. Case-SENSITIVE on purpose — the capital is the whole signal — which is why the
+# rule table must use THIS pattern and not a lower-cased copy (code review, 2026-08-30).
+RUNON = re.compile(r"\b(?:Inc|Llc|LLC|Corp|Company|Railway|Railroad)\.?[-]?[A-Z]")
 
 ORGISH = re.compile(
     r"\b(?:action|organization|organisation|connections|systems|services|works|farm"
@@ -50,7 +53,7 @@ RULES: list[tuple[str, re.Pattern]] = [
     # 1. not one party at all — the split is the defect, typing waits for the re-split
     ("span-artefact", re.compile(r"^and\s|^d/b/a\s|;", re.I)),
     ("span-artefact", JOINED),
-    ("span-artefact", re.compile(rf"\b(?:inc|llc|corp|company)\.?(?=[A-Z])|{_SUFFIX}-[A-Z]")),
+    ("span-artefact", RUNON),
     # 2. people, before any organisation word in the name can claim them
     (
         "elected-official",

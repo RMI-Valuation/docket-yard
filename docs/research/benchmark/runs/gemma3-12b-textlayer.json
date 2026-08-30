@@ -5,7 +5,7 @@
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],
- "off_page_findings": 141,
+ "off_page_findings": 80,
  "off_page": [
   {
    "decision": "51532",
@@ -58,13 +58,6 @@
   },
   {
    "decision": "51532",
-   "page": 24,
-   "kind": "citation",
-   "target": "7 I.C.C.2d",
-   "quoted": "7 I.C.C.2d at 18, 24"
-  },
-  {
-   "decision": "51532",
    "page": 28,
    "kind": "citation",
    "target": "NOR 39909",
@@ -76,13 +69,6 @@
    "kind": "citation",
    "target": "EP 328",
    "quoted": "National Tank Car Allowance Agreement,7"
-  },
-  {
-   "decision": "52211",
-   "page": 1,
-   "kind": "citation",
-   "target": "Decision No. 6",
-   "quoted": "Decision No. 6"
   },
   {
    "decision": "52211",
@@ -104,13 +90,6 @@
    "kind": "citation",
    "target": "Applicants Suppl. at Ex. A, Table 4",
    "quoted": "Applicants Suppl. at Ex. A, Table 4"
-  },
-  {
-   "decision": "52211",
-   "page": 18,
-   "kind": "citation",
-   "target": "49 C.F.R. \u00a7 1105.7(e)(5)(ii)",
-   "quoted": "49 C.F.R. \u00a7 1105.7(e)(5)(ii)"
   },
   {
    "decision": "52211",
@@ -156,20 +135,6 @@
   },
   {
    "decision": "52260",
-   "page": 4,
-   "kind": "citation",
-   "target": "4 I.C.C.2d 137 (1987)",
-   "quoted": "4 I.C.C.2d 137 (1987)"
-  },
-  {
-   "decision": "52260",
-   "page": 4,
-   "kind": "citation",
-   "target": "5 U.S.C. 801-808",
-   "quoted": "5 U.S.C. 801-808"
-  },
-  {
-   "decision": "52260",
    "page": 9,
    "kind": "citation",
    "target": "EP 787",
@@ -184,80 +149,10 @@
   },
   {
    "decision": "52260",
-   "page": 13,
-   "kind": "caption",
-   "target": "49 U.S.C. 13703",
-   "quoted": "49 U.S.C. 13703"
-  },
-  {
-   "decision": "52260",
-   "page": 14,
-   "kind": "citation",
-   "target": "49 U.S.C. 14303(i)",
-   "quoted": "49 U.S.C. 14303(i)"
-  },
-  {
-   "decision": "52260",
-   "page": 14,
-   "kind": "citation",
-   "target": "49 U.S.C. 10901",
-   "quoted": "49 U.S.C. 10901"
-  },
-  {
-   "decision": "52260",
    "page": 14,
    "kind": "citation",
    "target": "49 U.S.C. 10907(b)(1)(A)(ii)",
    "quoted": "49 U.S.C. 10907(b)(1)(A)(ii)"
-  },
-  {
-   "decision": "52260",
-   "page": 15,
-   "kind": "citation",
-   "target": "49 U.S.C. 11322",
-   "quoted": "49 U.S.C. 11322"
-  },
-  {
-   "decision": "52260",
-   "page": 15,
-   "kind": "citation",
-   "target": "49 U.S.C. 11324",
-   "quoted": "49 U.S.C. 11324"
-  },
-  {
-   "decision": "52260",
-   "page": 16,
-   "kind": "caption",
-   "target": "11324",
-   "quoted": "49 U.S.C. 11324"
-  },
-  {
-   "decision": "52260",
-   "page": 16,
-   "kind": "caption",
-   "target": "10706",
-   "quoted": "49 U.S.C. 10706"
-  },
-  {
-   "decision": "52260",
-   "page": 17,
-   "kind": "citation",
-   "target": "49 U.S.C. 10706(a)(5)(A)",
-   "quoted": "49 U.S.C. 10706(a)(5)(A)"
-  },
-  {
-   "decision": "52267",
-   "page": 4,
-   "kind": "citation",
-   "target": "4 I.C.C.2d 137 (1987)",
-   "quoted": "4 I.C.C.2d 137 (1987)"
-  },
-  {
-   "decision": "52267",
-   "page": 4,
-   "kind": "citation",
-   "target": "5 U.S.C. 801-808",
-   "quoted": "5 U.S.C. 801-808"
   },
   {
    "decision": "52267",
@@ -300,76 +195,6 @@
    "kind": "citation",
    "target": "EP 787",
    "quoted": "NPRM, EP 787, slip op. at 4"
-  },
-  {
-   "decision": "52267",
-   "page": 13,
-   "kind": "citation",
-   "target": "49 U.S.C. 13703",
-   "quoted": "49 U.S.C. 13703"
-  },
-  {
-   "decision": "52267",
-   "page": 14,
-   "kind": "citation",
-   "target": "49 U.S.C. 14303(i)",
-   "quoted": "49 U.S.C. 14303(i)"
-  },
-  {
-   "decision": "52267",
-   "page": 14,
-   "kind": "citation",
-   "target": "49 U.S.C. 10901",
-   "quoted": "49 U.S.C. 10901"
-  },
-  {
-   "decision": "52267",
-   "page": 15,
-   "kind": "citation",
-   "target": "49 U.S.C. 11322",
-   "quoted": "49 U.S.C. 11322"
-  },
-  {
-   "decision": "52267",
-   "page": 15,
-   "kind": "citation",
-   "target": "49 U.S.C. 11324",
-   "quoted": "49 U.S.C. 11324"
-  },
-  {
-   "decision": "52267",
-   "page": 15,
-   "kind": "citation",
-   "target": "49 U.S.C. 11324",
-   "quoted": "49 U.S.C. 11324"
-  },
-  {
-   "decision": "52267",
-   "page": 16,
-   "kind": "citation",
-   "target": "49 U.S.C. 11324",
-   "quoted": "49 U.S.C. 11324"
-  },
-  {
-   "decision": "52267",
-   "page": 16,
-   "kind": "citation",
-   "target": "49 U.S.C. 10706",
-   "quoted": "49 U.S.C. 10706"
-  },
-  {
-   "decision": "52267",
-   "page": 17,
-   "kind": "citation",
-   "target": "49 U.S.C. 10706(a)(5)(A)",
-   "quoted": "49 U.S.C. 10706(a)(5)(A)"
-  },
-  {
-   "decision": "52267",
-   "page": 18,
-   "kind": "citation",
-   "target": "49 U.S.C. 11301 and 49 CFR 1177.3(c)",
-   "quoted": "49 U.S.C. 11301 and 49 CFR 1177.3(c)"
   },
   {
    "decision": "52295",
@@ -433,27 +258,6 @@
    "kind": "deadline",
    "target": "August 29, 2025",
    "quoted": "If BNSF does not receive an amended petition from BNSF by August 29, 2025, or grant an extension of the deadline, this proceeding will be deemed closed without "
-  },
-  {
-   "decision": "52395",
-   "page": 2,
-   "kind": "citation",
-   "target": "11326(c)",
-   "quoted": "49 U.S.C. 11326(c)"
-  },
-  {
-   "decision": "52448",
-   "page": 2,
-   "kind": "citation",
-   "target": "49 C.F.R. \u00a7 1152.29(d)(2) and (h)",
-   "quoted": "49 C.F.R. \u00a7 1152.29(d)(2) and (h)"
-  },
-  {
-   "decision": "52522",
-   "page": 2,
-   "kind": "citation",
-   "target": "11326(c)",
-   "quoted": "49 U.S.C. 11326(c)"
   },
   {
    "decision": "52526",
@@ -520,13 +324,6 @@
   },
   {
    "decision": "52748",
-   "page": 9,
-   "kind": "citation",
-   "target": "90 Fed. Reg. 9065",
-   "quoted": "90 Fed. Reg. 9065 (Jan. 31, 2025)"
-  },
-  {
-   "decision": "52748",
    "page": 11,
    "kind": "citation",
    "target": "EP 711 (Sub-No. 1)",
@@ -538,27 +335,6 @@
    "kind": "citation",
    "target": "EP 705",
    "quoted": "NITL Comments 11, Apr. 12, 2011, Competition in R.R. Indus., EP 705"
-  },
-  {
-   "decision": "52757",
-   "page": 2,
-   "kind": "citation",
-   "target": "5 U.S.C. Chapter 10",
-   "quoted": "5 U.S.C. Chapter 10"
-  },
-  {
-   "decision": "52757",
-   "page": 2,
-   "kind": "citation",
-   "target": "41 CFR part 102-3",
-   "quoted": "41 CFR part 102-3"
-  },
-  {
-   "decision": "52807",
-   "page": 1,
-   "kind": "citation",
-   "target": "16 U.S.C. \u00a7 1247(d)",
-   "quoted": "16 U.S.C. \u00a7 1247(d)."
   },
   {
    "decision": "52807",
@@ -666,13 +442,6 @@
    "quoted": "R.J. Corman, slip op. at 7 (now-Chair Fuchs and now-Vice Chair Schultz concurring)"
   },
   {
-   "decision": "52846",
-   "page": 1,
-   "kind": "caption",
-   "target": "Decision No. 13",
-   "quoted": "Decision No. 13"
-  },
-  {
    "decision": "52887",
    "page": 3,
    "kind": "caption",
@@ -680,74 +449,11 @@
    "quoted": "49 CFR 1002.2(f)(27)"
   },
   {
-   "decision": "52908",
-   "page": 2,
-   "kind": "citation",
-   "target": "5 U.S.C. Chapter 10",
-   "quoted": "5 U.S.C. Chapter 10"
-  },
-  {
-   "decision": "52908",
-   "page": 2,
-   "kind": "citation",
-   "target": "41 CFR part 102-3",
-   "quoted": "41 CFR part 102-3"
-  },
-  {
    "decision": "52971",
    "page": 3,
    "kind": "citation",
    "target": "decision served March 12, 2024",
    "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
-  },
-  {
-   "decision": "52988",
-   "page": 2,
-   "kind": "citation",
-   "target": "20157(a)(1)",
-   "quoted": "49 U.S.C. 20157(a)(1)"
-  },
-  {
-   "decision": "52988",
-   "page": 2,
-   "kind": "citation",
-   "target": "20157(a)(1), (3)(A)\u2013(D)",
-   "quoted": "49 U.S.C. 20157(a)(1), (3)(A)\u2013(D)"
-  },
-  {
-   "decision": "52988",
-   "page": 2,
-   "kind": "citation",
-   "target": "1241.11(a)",
-   "quoted": "49 CFR 1241.11(a)"
-  },
-  {
-   "decision": "52988",
-   "page": 4,
-   "kind": "citation",
-   "target": "10101(2)",
-   "quoted": "49 U.S.C. 10101(2)"
-  },
-  {
-   "decision": "52988",
-   "page": 4,
-   "kind": "citation",
-   "target": "10101(13)",
-   "quoted": "49 U.S.C. 10101(13)"
-  },
-  {
-   "decision": "52988",
-   "page": 16,
-   "kind": "citation",
-   "target": "1250.2(a)(1)(i)",
-   "quoted": "49 CFR 1250.2(a)(1)(i)"
-  },
-  {
-   "decision": "52988",
-   "page": 16,
-   "kind": "citation",
-   "target": "1250.2(a)(6)",
-   "quoted": "49 CFR 1250.2(a)(6)"
   },
   {
    "decision": "52988",
@@ -760,29 +466,8 @@
    "decision": "52988",
    "page": 26,
    "kind": "citation",
-   "target": "5 U.S.C. 603(a)",
-   "quoted": "5 U.S.C. 603(a)"
-  },
-  {
-   "decision": "52988",
-   "page": 26,
-   "kind": "citation",
    "target": "553 F.3d 467",
    "quoted": "White Eagle Coop. Ass\u2019n v. Conner, 553 F.3d 467 (7th Cir. 2009)"
-  },
-  {
-   "decision": "52988",
-   "page": 28,
-   "kind": "citation",
-   "target": "44 U.S.C. 3507(d)",
-   "quoted": "44 U.S.C. 3507(d)"
-  },
-  {
-   "decision": "52988",
-   "page": 28,
-   "kind": "citation",
-   "target": "5 U.S.C. 801-808",
-   "quoted": "5 U.S.C. 801-808"
   },
   {
    "decision": "52991",
@@ -856,45 +541,10 @@
   },
   {
    "decision": "53052",
-   "page": 10,
-   "kind": "citation",
-   "target": "36 CFR part 800",
-   "quoted": "36 CFR part 800"
-  },
-  {
-   "decision": "53052",
-   "page": 10,
-   "kind": "citation",
-   "target": "49 CFR part 1105",
-   "quoted": "49 CFR part 1105"
-  },
-  {
-   "decision": "53052",
-   "page": 19,
-   "kind": "citation",
-   "target": "5 S.T.B.",
-   "quoted": "5 S.T.B. at 546"
-  },
-  {
-   "decision": "53052",
    "page": 20,
    "kind": "citation",
    "target": "49 CFR 1180.1(c)-(d), 1180.6(b)(10)-(11)",
    "quoted": "49 CFR 1180.1(c)-(d), 1180.6(b)(10)-(11)"
-  },
-  {
-   "decision": "53052",
-   "page": 24,
-   "kind": "citation",
-   "target": "5 S.T.B. at 579-581",
-   "quoted": "5 S.T.B. at 579-581"
-  },
-  {
-   "decision": "53052",
-   "page": 29,
-   "kind": "citation",
-   "target": "5 S.T.B. at 599",
-   "quoted": "5 S.T.B. at 599"
   },
   {
    "decision": "53052",
@@ -912,117 +562,40 @@
   },
   {
    "decision": "53052",
-   "page": 36,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)",
-   "quoted": "49 CFR 1105.7(e)(5)"
-  },
-  {
-   "decision": "53052",
-   "page": 36,
-   "kind": "citation",
-   "target": "91 Fed. Reg. 618",
-   "quoted": "91 Fed. Reg. 618 (Jan. 1, 2026)"
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(i)(A)",
-   "quoted": "49 CFR 1105.7(e)(5)(i)(A)"
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(ii)(A)",
-   "quoted": "49 CFR 1105.7(e)(5)(ii)(A)"
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(i)(B), (C)",
-   "quoted": "49 CFR 1105.7(e)(5)(i)(B), (C)"
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(ii)(B), (C)",
-   "quoted": "49 CFR 1105.7(e)(5)(ii)(B), (C)"
-  },
-  {
-   "decision": "53052",
-   "page": 38,
-   "kind": "citation",
-   "target": "90 Fed. Reg. 10610 (Feb. 25, 2025)",
-   "quoted": "90 Fed. Reg. 10,610 (Feb. 25, 2025)"
-  },
-  {
-   "decision": "53052",
-   "page": 41,
-   "kind": "citation",
-   "target": "49 CFR 1106.2",
-   "quoted": "49 CFR 1106.2"
-  },
-  {
-   "decision": "53052",
    "page": 41,
    "kind": "citation",
    "target": "49 CFR 1180.8(a)(1)",
    "quoted": "49 CFR 1180.8(a)(1)"
-  },
-  {
-   "decision": "53052",
-   "page": 41,
-   "kind": "citation",
-   "target": "49 CFR 1106.4(b)(4)",
-   "quoted": "49 CFR 1106.4(b)(4)"
-  },
-  {
-   "decision": "53052",
-   "page": 42,
-   "kind": "citation",
-   "target": "49 CFR 1180.4(a)(3)",
-   "quoted": "49 CFR 1180.4(a)(3)"
-  },
-  {
-   "decision": "53089",
-   "page": 2,
-   "kind": "citation",
-   "target": "11326(c)",
-   "quoted": "49 U.S.C. 11326(c)"
   }
  ],
  "by_kind": {
   "citation/stb": {
    "truth": 332,
-   "found": 865,
+   "found": 896,
    "hit": 262,
    "recall": 0.7891566265060241,
-   "precision": 0.30289017341040464
+   "precision": 0.2924107142857143
   },
   "citation/court": {
    "truth": 86,
-   "found": 306,
+   "found": 325,
    "hit": 74,
    "recall": 0.8604651162790697,
-   "precision": 0.24183006535947713
+   "precision": 0.2276923076923077
   },
   "citation/record": {
    "truth": 7,
-   "found": 435,
+   "found": 437,
    "hit": 4,
    "recall": 0.5714285714285714,
-   "precision": 0.009195402298850575
+   "precision": 0.009153318077803204
   },
   "caption/self": {
    "truth": 38,
-   "found": 157,
+   "found": 160,
    "hit": 33,
    "recall": 0.868421052631579,
-   "precision": 0.21019108280254778
+   "precision": 0.20625
   },
   "deadline/date": {
    "truth": 90,

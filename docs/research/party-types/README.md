@@ -30,7 +30,11 @@ cannot see); `association` loses 7 to the new `labor-union` row; `government` lo
 each to `association` and the new `port` row; `company` loses 6 to `railroad`
 (rail-named LLCs the company rule caught first).
 
-**The Wikidata tier**: 67 of 250 organisations linked; of the 31 whose `instance of`
+**The Wikidata tier**: 67 of 250 looked up linked — but five of those were links about a
+*person* (a state representative matched to a footballer, "John Robert Smith" to a jazz
+organist), which the design forbids and a code review caught on 2026-08-30. They are
+removed from `wikidata.csv`, and the tool now skips a judged individual and discards any
+result Wikidata itself types as human. Of the 62 organisation links, of the 31 whose `instance of`
 mapped to the vocabulary, **23 right, 8 wrong** (74%) — and the wrong ones are
 instructive: both law firms mapped `company` (the P31 map lacks a law-firm value), two
 utilities mapped `company`/`government` (same gap), and one individual it called
@@ -56,7 +60,7 @@ in half), `labor-union`/`port`/`utility` signals, `association` outranking `rail
 *coalition on high speed rail* is not a carrier, and an organisation-word guard on the
 person shape so `Farm Action` is not a person.
 
-Agreement with the operator's sheet rises **57.7% → 82.3%**, and the per-type figures are
+Agreement with the operator's sheet rises **57.7% → 83.3%**, and the per-type figures are
 what a confidence stamp would be keyed on:
 
 | judged type | recall | precision | reading |
@@ -69,7 +73,7 @@ what a confidence stamp would be keyed on:
 | law-firm | 12/12 100% | 80% | review or model |
 | association | 37/49 75.5% | ~90% | review or model |
 | company | 30/44 68.2% | 81.1% | model tier |
-| span-artefact | 16/25 64% | 100% | high precision, half the recall — the rest need the model |
+| span-artefact | 19/25 76% | 100% | high precision; the rest need the model |
 | individual | 38/48 79.2% | 84.4% | model tier |
 | utility | 2/3 | 33% of 6 | too few to read |
 | rail-holding | 0/3 | — | unreachable by name, as designed |

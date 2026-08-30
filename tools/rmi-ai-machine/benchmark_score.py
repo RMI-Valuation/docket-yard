@@ -108,10 +108,16 @@ FOOTNOTE_MARK = re.compile(r"(?<=[a-z][,.;])\d{1,2}(?=[a-z])")
 
 def flat(text: str) -> str:
     """Text reduced to what survives a PDF's wraps, its dashes, extraction's mojibake and
-    a fused footnote marker: NFKC, case-folded, whitespace gone, markers gone, then
-    alphanumerics only. Both sides of a quote check go through this and nothing else."""
-    s = re.sub(r"\s+", "", unicodedata.normalize("NFKC", text).casefold())
-    return re.sub(r"[^a-z0-9]+", "", FOOTNOTE_MARK.sub("", s))
+    a fused footnote marker: NFKC, whitespace gone, markers gone, then case-folded to
+    alphanumerics. Both sides of a quote check go through this and nothing else.
+
+    Order matters, and an earlier revision had it wrong: FOOTNOTE_MARK earns its
+    exceptions from CASE — a digit before an upper-case letter is a sub-number or a
+    reporter series, not a marker — so case-folding first made `Sub-No. 5X` and
+    `Sub-No. 9X` the same string, and `1 I.C.C.2d` and `1 I.C.C.3d` too, defeating the
+    check exactly where it was meant to bite (code review, 2026-08-30)."""
+    s = re.sub(r"\s+", "", unicodedata.normalize("NFKC", text))
+    return re.sub(r"[^a-z0-9]+", "", FOOTNOTE_MARK.sub("", s).casefold())
 
 
 def load_text(text_dir: Path) -> dict:

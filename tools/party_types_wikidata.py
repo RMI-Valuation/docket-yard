@@ -22,7 +22,14 @@ from pathlib import Path
 UA = {
     "User-Agent": "DocketYard-research/0.1 (https://docketyard.org; operator contactable via site)"
 }
-SKIP = {"individual", "span-artefact"}
+# Never looked up. `type` is the operator's judgement where the sheet has one and the
+# draft otherwise: keying on the draft alone let 13 judged individuals through, and five
+# wrong person links reached a public repository (code review, 2026-08-30).
+SKIP = {"individual", "elected-official", "span-artefact"}
+# The second line of defence, which needs no judgement at all: Wikidata itself says the
+# match is a human, so the match is discarded whatever the sheet called the party. A wrong
+# link about a person is a data defect and a privacy harm (docs/party-types.md).
+HUMAN = "Q5"
 # instance-of values seen in the record's world, mapped to the draft vocabulary;
 # anything unmapped stays raw for the check queue to read
 P31_MAP = {
@@ -110,6 +117,8 @@ def link(name: str) -> tuple:
         ]
         label = (ent.get("labels", {}).get("en") or {}).get("value", "")
         desc = (ent.get("descriptions", {}).get("en") or {}).get("value", "")
+        if HUMAN in p31:
+            return "", "", "", "", "", ""  # a person: never stored, never published
         mapped = next((P31_MAP[x] for x in p31 if x in P31_MAP), "")
         return qid, label, desc, "|".join(p31), "|".join(mark), mapped
     return "", "", "", "", "", ""
@@ -142,7 +151,8 @@ def main() -> int:
             )
         looked = 0
         for r in rows:
-            if r["draft_type"] in SKIP or r["party_id"] in done:
+            judged = (r.get("type") or r["draft_type"]).strip()
+            if judged in SKIP or r["draft_type"] in SKIP or r["party_id"] in done:
                 continue
             qid, label, desc, p31, mark, mapped = link(r["as_filed"])
             w.writerow([r["party_id"], r["as_filed"], qid, label, desc, p31, mark, mapped])

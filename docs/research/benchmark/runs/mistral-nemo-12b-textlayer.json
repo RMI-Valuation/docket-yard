@@ -5,7 +5,7 @@
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],
- "off_page_findings": 70,
+ "off_page_findings": 60,
  "off_page": [
   {
    "decision": "51532",
@@ -34,13 +34,6 @@
    "kind": "citation",
    "target": "7 I.C.C.2d at 25, 27-28",
    "quoted": "Buffalo & Pittsburgh, 7 I.C.C.2d at 25, 27-28."
-  },
-  {
-   "decision": "52211",
-   "page": 1,
-   "kind": "deadline",
-   "target": "October 6, 2023",
-   "quoted": "On October 6, 2023, Canadian Pacific Kansas City Limited, on behalf of itself and its wholly owned subsidiary, The Kansas City Southern Railway Company (KCS) d/"
   },
   {
    "decision": "52211",
@@ -267,20 +260,6 @@
    "quoted": "Docket No. FD 36798"
   },
   {
-   "decision": "52748",
-   "page": 13,
-   "kind": "citation",
-   "target": "3 S.T.B. 937",
-   "quoted": "3 S.T.B. 937 (1998)"
-  },
-  {
-   "decision": "52748",
-   "page": 16,
-   "kind": "citation",
-   "target": "EP 748",
-   "quoted": "49 CFR 1201.1-1; Indexing the Ann. Operating Revenues of R.Rs., EP 748 (STB served June 29, 2023)."
-  },
-  {
    "decision": "52757",
    "page": 2,
    "kind": "deadline",
@@ -307,13 +286,6 @@
    "kind": "citation",
    "target": "145 S. Ct. at 1513",
    "quoted": "Seven Cnty., 145 S. Ct. at 1513"
-  },
-  {
-   "decision": "52835",
-   "page": 2,
-   "kind": "citation",
-   "target": "16 U.S.C. \u00a7 1247(d)",
-   "quoted": "16 U.S.C. \u00a7 1247(d); Nat\u2019l Wildlife Fed\u2019n v. ICC, 850 F.2d 694, 699-702 (D.C. Cir. 1988)"
   },
   {
    "decision": "52988",
@@ -359,41 +331,6 @@
   },
   {
    "decision": "53052",
-   "page": 36,
-   "kind": "citation",
-   "target": "91 Fed. Reg. 618",
-   "quoted": "91 Fed. Reg. 618 (Jan. 1, 2026)"
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(i)(A)",
-   "quoted": "49 CFR 1105.7(e)(5)(i)(A)."
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(i)(B), (C)",
-   "quoted": "49 CFR 1105.7(e)(5)(i)(B), (C)."
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(ii)(B), (C)",
-   "quoted": "49 CFR 1105.7(e)(5)(ii)(B), (C)."
-  },
-  {
-   "decision": "53052",
-   "page": 38,
-   "kind": "citation",
-   "target": "90 Fed. Reg. 10,610",
-   "quoted": "90 Fed. Reg. 10,610 (Feb. 25, 2025)."
-  },
-  {
-   "decision": "53052",
    "page": 40,
    "kind": "deadline",
    "target": "",
@@ -405,13 +342,6 @@
    "kind": "deadline",
    "target": "",
    "quoted": "The Board will publish the NOI within 30 days after the Revised Application is filed."
-  },
-  {
-   "decision": "53052",
-   "page": 41,
-   "kind": "citation",
-   "target": "49 CFR 1106.2",
-   "quoted": "49 CFR 1106.2"
   },
   {
    "decision": "53052",
@@ -501,10 +431,10 @@
  "by_kind": {
   "citation/stb": {
    "truth": 332,
-   "found": 315,
-   "hit": 196,
-   "recall": 0.5903614457831325,
-   "precision": 0.6222222222222222
+   "found": 317,
+   "hit": 198,
+   "recall": 0.5963855421686747,
+   "precision": 0.6246056782334385
   },
   "citation/court": {
    "truth": 86,
@@ -515,10 +445,10 @@
   },
   "citation/record": {
    "truth": 7,
-   "found": 130,
+   "found": 136,
    "hit": 1,
    "recall": 0.14285714285714285,
-   "precision": 0.007692307692307693
+   "precision": 0.007352941176470588
   },
   "caption/self": {
    "truth": 38,
@@ -529,10 +459,10 @@
   },
   "deadline/date": {
    "truth": 90,
-   "found": 150,
+   "found": 151,
    "hit": 78,
    "recall": 0.8666666666666667,
-   "precision": 0.52
+   "precision": 0.5165562913907285
   },
   "deadline/reference": {
    "truth": 21,
@@ -557,10 +487,10 @@
   },
   "citation/stb-docket": {
    "truth": 225,
-   "found": 157,
-   "hit": 144,
-   "recall": 0.64,
-   "precision": 0.9171974522292994
+   "found": 158,
+   "hit": 145,
+   "recall": 0.6444444444444445,
+   "precision": 0.9177215189873418
   }
  }
 }

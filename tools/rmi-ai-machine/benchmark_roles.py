@@ -90,7 +90,11 @@ def ask(host: str, model: str, prompt: str, timeout: float) -> str:
         role = json.loads(answer.get("response") or "{}").get("role")
     except json.JSONDecodeError:
         role = None
-    return role if role in ("citation", "caption", "record") else "citation"
+    # An unreadable answer is recorded as one, never folded into `citation`: scoring an
+    # inference failure as the majority class hides it inside the figure being measured
+    # (code review, 2026-08-30). `unreadable` matches no truth row, so it costs precision
+    # rather than quietly earning recall.
+    return role if role in ("citation", "caption", "record") else "unreadable"
 
 
 def mock(snippet: str) -> str:
@@ -147,7 +151,12 @@ def main() -> int:
                 # the store's projection rule (ADR 0017 decision 5) is downstream, and
                 # the sheet's own-docket document citations are genuine edges
                 kind = "citation" if role in ("citation", "record") else "caption"
-                tk = {"citation": "stb", "record": "record", "caption": "self"}[role]
+                tk = {
+                    "citation": "stb",
+                    "record": "record",
+                    "caption": "self",
+                    "unreadable": "unreadable",
+                }[role]
                 start = body.rfind("\n", 0, m.start()) + 1
                 end = body.find("\n", m.end())
                 findings.append(

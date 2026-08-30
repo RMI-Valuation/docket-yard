@@ -5,30 +5,8 @@
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],
- "off_page_findings": 3,
- "off_page": [
-  {
-   "decision": "52526",
-   "page": 1,
-   "kind": "citation",
-   "target": "84 Fed. Reg. 48,872",
-   "quoted": "84 Fed. Reg. 48,872 (Sept. 17, 2019)"
-  },
-  {
-   "decision": "53052",
-   "page": 36,
-   "kind": "citation",
-   "target": "91 Fed. Reg. 618",
-   "quoted": "91 Fed. Reg. 618 (Jan. 1, 2026)"
-  },
-  {
-   "decision": "53052",
-   "page": 38,
-   "kind": "citation",
-   "target": "90 Fed. Reg. 10,610 (Feb. 25, 2025)",
-   "quoted": "90 Fed. Reg. 10,610 (Feb. 25, 2025)"
-  }
- ],
+ "off_page_findings": 0,
+ "off_page": [],
  "by_kind": {
   "citation/stb": {
    "truth": 332,
@@ -39,10 +17,10 @@
   },
   "citation/court": {
    "truth": 86,
-   "found": 157,
+   "found": 158,
    "hit": 84,
    "recall": 0.9767441860465116,
-   "precision": 0.535031847133758
+   "precision": 0.5316455696202531
   },
   "citation/record": {
    "truth": 7,

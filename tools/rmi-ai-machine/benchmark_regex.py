@@ -20,12 +20,14 @@ from pathlib import Path
 
 PAGE_RE = re.compile(r"^===== page (\d+) =====$", re.M)
 # `FD 36873`, `FD-36873`, `EP 542 (Sub-No. 32)`, `EP 711 (Sub-\nNo. 2)` and the older
-# `NOR DOCKET NO. 42183` (prefix, then the words, then the number — decision 52616's caption)
+# `NOR DOCKET NO. 42183` (prefix, then the words, then the number — decision 52616's caption).
+# The PREFIX is case-sensitive and `SO` is why: "it is so 100 percent" would otherwise key as
+# the docket `SO 100`, the same trap the scorer's own regex was fixed for on 2026-08-30. The
+# Board prints its prefixes upper-case; the rest of the pattern stays case-insensitive.
 DOCKET = re.compile(
     r"\b(AB|FD|EP|NOR|MCF|WCC|FSB|NOM|PCA|WB|MCC|ISM|SDM|SO|DOP|STA)"
-    r"(?:[\s\-–—]*(?:No\.?\s*)?|\s+Docket\s+No\.?\s*)(\d{1,5})([A-Z])?"
-    r"(?:\s*\((?:Sub-?\s*No\.?\s*)?(\d+)\s*([A-Z])?\))?",
-    re.I,
+    r"(?:[\s\-–—]*(?:[Nn]o\.?\s*)?|\s+[Dd]ocket\s+[Nn]o\.?\s*)(\d{1,5})([A-Z])?"
+    r"(?:\s*\((?:[Ss]ub-?\s*[Nn]o\.?\s*)?(\d+)\s*([A-Z])?\))?",
 )
 # words that mean a document rather than a proceeding, within a window round the number
 DOC_WORDS = re.compile(

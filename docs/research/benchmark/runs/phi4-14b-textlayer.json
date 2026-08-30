@@ -5,7 +5,7 @@
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],
- "off_page_findings": 155,
+ "off_page_findings": 127,
  "off_page": [
   {
    "decision": "51532",
@@ -128,13 +128,6 @@
   },
   {
    "decision": "51532",
-   "page": 23,
-   "kind": "citation",
-   "target": "28  See Granite State Concrete Co. v. STB, 417 F.3d 85, 95 (1st Cir. 2005) (denying petition for review of Board determination that one railroad acted reasonably in light of safety concerns when imposing conditions on another railroad operating on its lines); Consol. Rail Corp. v. ICC, 646 F.2d 642, 648 (D.C. Cir. 1981) (affirming ICC\u2019s cancellation of tariffs, which were based on unnecessary and wasteful special train service for hazardous radioactive material); Ark. Elec. Coop.\u2014Pet. for Declaratory Ord., FD 35305, slip op. at 6 (STB served Mar. 3, 2011) (considering reasonableness of rule intended to limit loss of coal dust from rail cars in transit).",
-   "quoted": "None of the decisions cited by Complainants involved a rule or practice with a reasonable purpose previously established by the agency.28"
-  },
-  {
-   "decision": "51532",
    "page": 24,
    "kind": "citation",
    "target": "7 I.C.C.2d at 25, 27-28",
@@ -202,13 +195,6 @@
    "kind": "citation",
    "target": "Decision No. 44, 1 S.T.B.",
    "quoted": "Decision No. 44, 1 S.T.B. at 562"
-  },
-  {
-   "decision": "52211",
-   "page": 1,
-   "kind": "citation",
-   "target": "Decision No. 6, FD 36732 et al.",
-   "quoted": "Decision No. 6"
   },
   {
    "decision": "52211",
@@ -282,38 +268,10 @@
   },
   {
    "decision": "52260",
-   "page": 2,
-   "kind": "caption",
-   "target": "Appendix A",
-   "quoted": "column 10 of Appendix A.5"
-  },
-  {
-   "decision": "52260",
-   "page": 4,
-   "kind": "citation",
-   "target": "4 I.C.C.2d 137 (1987)",
-   "quoted": "4 I.C.C.2d 137 (1987)"
-  },
-  {
-   "decision": "52260",
    "page": 13,
    "kind": "caption",
    "target": "EP 787",
    "quoted": "Docket No. EP 787"
-  },
-  {
-   "decision": "52260",
-   "page": 15,
-   "kind": "citation",
-   "target": "49 U.S.C. 11322",
-   "quoted": "49 U.S.C. 11322"
-  },
-  {
-   "decision": "52260",
-   "page": 15,
-   "kind": "citation",
-   "target": "49 U.S.C. 11324",
-   "quoted": "49 U.S.C. 11324"
   },
   {
    "decision": "52260",
@@ -356,48 +314,6 @@
    "kind": "citation",
    "target": "FD 36798",
    "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
-  },
-  {
-   "decision": "52267",
-   "page": 4,
-   "kind": "citation",
-   "target": "4 I.C.C.2d 137 (1987)",
-   "quoted": "4 I.C.C.2d 137 (1987)"
-  },
-  {
-   "decision": "52267",
-   "page": 15,
-   "kind": "citation",
-   "target": "49 U.S.C. 11322",
-   "quoted": "49 U.S.C. 11322"
-  },
-  {
-   "decision": "52267",
-   "page": 15,
-   "kind": "citation",
-   "target": "49 U.S.C. 11324",
-   "quoted": "49 U.S.C. 11324"
-  },
-  {
-   "decision": "52267",
-   "page": 16,
-   "kind": "citation",
-   "target": "49 U.S.C. 11324",
-   "quoted": "49 U.S.C. 11324"
-  },
-  {
-   "decision": "52267",
-   "page": 16,
-   "kind": "citation",
-   "target": "49 U.S.C. 10706",
-   "quoted": "49 U.S.C. 10706"
-  },
-  {
-   "decision": "52295",
-   "page": 1,
-   "kind": "citation",
-   "target": "Decision No. 3, FD 36744",
-   "quoted": "Decision No. 3"
   },
   {
    "decision": "52295",
@@ -561,13 +477,6 @@
    "quoted": "Pet. 8 (citing id., Ex. B, RASA, Ex. A at 49-50)"
   },
   {
-   "decision": "52332",
-   "page": 5,
-   "kind": "citation",
-   "target": "9",
-   "quoted": "These definitions cannot be squared with BNSF\u2019s claim that a 2-to-1 point can exist on a line with no facility open to UP and SP at the time of the UP-SP Merger"
-  },
-  {
    "decision": "52347",
    "page": 3,
    "kind": "deadline",
@@ -666,13 +575,6 @@
    "quoted": "Docket No. WB25-33"
   },
   {
-   "decision": "52699",
-   "page": 3,
-   "kind": "citation",
-   "target": "STB Press Release No. 25-22, https://www.stb.gov/wp-content/uploads/PR-25-22.pdf",
-   "quoted": "6  See STB Press Release No. 25-22, STB Gathers More Than 100 Ideas From Legal Practitioners to Streamline Board Processes, https://www.stb.gov/wp-content/uploa"
-  },
-  {
    "decision": "52701",
    "page": 7,
    "kind": "deadline",
@@ -699,13 +601,6 @@
    "kind": "caption",
    "target": "EP 711",
    "quoted": "Docket No. EP 711"
-  },
-  {
-   "decision": "52748",
-   "page": 16,
-   "kind": "citation",
-   "target": "EP 748 (STB served June 29, 2023)",
-   "quoted": "49 CFR 1201.1-1; Indexing the Ann. Operating Revenues of R.Rs., EP 748 (STB served June 29, 2023)"
   },
   {
    "decision": "52763",
@@ -919,13 +814,6 @@
   },
   {
    "decision": "52988",
-   "page": 1,
-   "kind": "citation",
-   "target": "Comments were filed by the American Chemistry Council (ACC), the American Fuel and Petrochemical Manufacturers (AFPM), the Association of American Railroads (AAR), CSX Transportation, Inc. (CSXT), the International Dairy Foods Association (IDFA), the Fertilizer Institute (TFI), Grand Trunk Corporation (CN), the Freight Rail Customer Alliance (FRCA) and the National Coal Transportation Association (NCTA) (FRCA/NCTA) (joint comments), the National Grain and Feed Association (NGFA), the National Industrial Transportation League (NITL), the Private Railcar Food and Beverage Association, Inc. (PRFBA), Mr. Michael",
-   "quoted": "In response to the NPRM, the Board received 13 opening comments and 4 replies, which are discussed in this decision.2"
-  },
-  {
-   "decision": "52988",
    "page": 9,
    "kind": "citation",
    "target": "FD 36732 et al.",
@@ -951,20 +839,6 @@
    "kind": "citation",
    "target": "decision served March 12, 2024",
    "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
-  },
-  {
-   "decision": "52988",
-   "page": 26,
-   "kind": "citation",
-   "target": "5 U.S.C. 601-604",
-   "quoted": "5 U.S.C. 601-604"
-  },
-  {
-   "decision": "52988",
-   "page": 26,
-   "kind": "citation",
-   "target": "5 U.S.C. 603(a)",
-   "quoted": "5 U.S.C. 603(a)"
   },
   {
    "decision": "52996",
@@ -1009,69 +883,6 @@
    "quoted": "Rev. Appl. 1-14, 1-65"
   },
   {
-   "decision": "53052",
-   "page": 19,
-   "kind": "citation",
-   "target": "FD 36500 et al., slip op. at 3",
-   "quoted": "49 U.S.C. 1321(b)(3); see Canadian Pac. Ry.\u2014Control\u2014Kan. City S., FD 36500 et al., slip op. at 3 (STB served Mar. 16, 2022) (directing applicants to address an "
-  },
-  {
-   "decision": "53052",
-   "page": 30,
-   "kind": "citation",
-   "target": "Rev. Appl. 2-457, V.S. Hunt 70",
-   "quoted": "\u2022 [MS-2] Because the diversion analysis does not account for industry changes since 2023 from transactions involving CP-KCS, CSXT-Pan Am, and CN-Iowa Northern, "
-  },
-  {
-   "decision": "53052",
-   "page": 36,
-   "kind": "citation",
-   "target": "91 Fed. Reg. 618 (Jan. 1, 2026)",
-   "quoted": "91 Fed. Reg. 618 (Jan. 1, 2026)"
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(i)(A)",
-   "quoted": "49 CFR 1105.7(e)(5)(i)(A)."
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(ii)(A)",
-   "quoted": "49 CFR 1105.7(e)(5)(ii)(A)."
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(i)(B), (C)",
-   "quoted": "49 CFR 1105.7(e)(5)(i)(B), (C)."
-  },
-  {
-   "decision": "53052",
-   "page": 37,
-   "kind": "citation",
-   "target": "49 CFR 1105.7(e)(5)(ii)(B), (C)",
-   "quoted": "49 CFR 1105.7(e)(5)(ii)(B), (C)."
-  },
-  {
-   "decision": "53052",
-   "page": 41,
-   "kind": "citation",
-   "target": "49 CFR 1106.2; 49 CFR 244.9",
-   "quoted": "49 CFR 1106.2; see also 49 CFR 244.9."
-  },
-  {
-   "decision": "53052",
-   "page": 41,
-   "kind": "citation",
-   "target": "49 CFR 1106.4(b)(4)",
-   "quoted": "49 CFR 1106.4(b)(4)."
-  },
-  {
    "decision": "53072",
    "page": 3,
    "kind": "caption",
@@ -1084,43 +895,36 @@
    "kind": "caption",
    "target": "Docket No. 53072",
    "quoted": "Docket No. 53072"
-  },
-  {
-   "decision": "53089",
-   "page": 2,
-   "kind": "citation",
-   "target": "49 U.S.C. 11326(c)",
-   "quoted": "49 U.S.C. 11326(c)"
   }
  ],
  "by_kind": {
   "citation/stb": {
    "truth": 332,
-   "found": 725,
-   "hit": 273,
-   "recall": 0.822289156626506,
-   "precision": 0.37655172413793103
+   "found": 745,
+   "hit": 276,
+   "recall": 0.8313253012048193,
+   "precision": 0.3704697986577181
   },
   "citation/court": {
    "truth": 86,
-   "found": 142,
-   "hit": 57,
-   "recall": 0.6627906976744186,
-   "precision": 0.4014084507042254
+   "found": 146,
+   "hit": 59,
+   "recall": 0.686046511627907,
+   "precision": 0.4041095890410959
   },
   "citation/record": {
    "truth": 7,
-   "found": 429,
+   "found": 430,
    "hit": 4,
    "recall": 0.5714285714285714,
-   "precision": 0.009324009324009324
+   "precision": 0.009302325581395349
   },
   "caption/self": {
    "truth": 38,
-   "found": 80,
+   "found": 81,
    "hit": 30,
    "recall": 0.7894736842105263,
-   "precision": 0.375
+   "precision": 0.37037037037037035
   },
   "deadline/date": {
    "truth": 90,
@@ -1152,10 +956,10 @@
   },
   "citation/stb-docket": {
    "truth": 225,
-   "found": 207,
-   "hit": 194,
-   "recall": 0.8622222222222222,
-   "precision": 0.9371980676328503
+   "found": 208,
+   "hit": 195,
+   "recall": 0.8666666666666667,
+   "precision": 0.9375
   }
  }
 }

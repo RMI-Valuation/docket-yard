@@ -32,8 +32,9 @@
 <section class="sub-index">
   {% if active %}
   <h2>Most recently active</h2>
-  <p class="small muted">The ten most recent of {{ active | length }} proceedings with anything
-    held; all {{ sheet.sub_dockets | length }} are <a href="#index">indexed below</a>.</p>
+  <p class="small muted">{% if active | length > 10 %}The ten most recent of
+    {{ active | length }} proceedings with anything held; all{% else %}All{% endif %}
+    {{ sheet.sub_dockets | length }} are <a href="#index">indexed below</a>.</p>
   <table class="moved sub-index-t">
     <thead><tr><th scope="col">Docket</th><th scope="col">Proceeding</th><th scope="col" class="num">Records</th><th scope="col" class="num">Last activity</th></tr></thead>
     <tbody>

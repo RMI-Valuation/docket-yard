@@ -106,8 +106,10 @@ def resolve(con: Connection, text: str) -> Resolution | None:
             printed,
             f"the date {served.group(2)!r} was not read",
         )
-    # The phrase's own verb gates which column may match (ADR 0017 decision 3, accepted
-    # for the resolver 2026-08-30). The Board decides a decision and serves it some days
+    # The phrase's own verb gates which column may match. **The operator decided this for
+    # the resolver on 2026-08-30**; ADR 0017 records the reasoning and is still Proposed, so
+    # the decision below stands on its own measurement, not on an unaccepted record.
+    # The Board decides a decision and serves it some days
     # later -- on the sixty benchmark decisions the two dates differ in 34 -- and
     # `decision_record` holds the service date alone. So a decided date must never be
     # matched against `service_date`: where a sibling happens to have been SERVED on the
