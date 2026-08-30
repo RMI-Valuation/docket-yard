@@ -37,10 +37,10 @@ by pre-commit: when it fires, prune.
 - **ADR 0016** accepted 2026-08-28: a reviewer has an identity, reading stays anonymous;
   `/review` for OCR pages, citation edges, labels, corrections. Next: schema-critic on
   `reviewer`/`review_action`, then build
-- Citator schema gate, before C2 is chosen: the citation-edge shape against
-  `validation-queries.md`, ADR 0006 and 0007 — a new ADR if needed; an unresolvable citation
-  string is data, record the span. **Its first four answers are settled** in
-  `docs/research/benchmark/README.md`
+- Citator schema gate, before C2 is chosen: **`docs/citator-gate.md`** now collects it —
+  four conventions settled, two docket-resolution rules from the footnote-fusion defect, and
+  what is still open (record cites, statutes, the decided date). Needs an ADR, and
+  schema-critic before it is accepted
 - Deadline engine (C4) evidence: decision JSON carries no extracted obligations (verified
   2026-08-26); a hand-checked fixture of 8 dated obligations for FD 36873 is in
   `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only; see

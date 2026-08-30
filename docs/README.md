@@ -11,6 +11,7 @@
 | [`explainers.md`](explainers.md) | The docket-type explainers (P2): the reviewed text behind `/about/prefixes` and `/about/<PREFIX>`, graded by source. Published 2026-08-28. |
 | [`registers.md`](registers.md) | The registers (court actions, protective orders) and the citation resolver: rule, measurements, what they do not say. Published 2026-08-27. |
 | [`validation-queries.md`](validation-queries.md) | The five queries the schema must answer on paper before pipeline code exists. |
+| [`citator-gate.md`](citator-gate.md) | What must be settled before C2 is chosen: the edge shape, docket resolution, and what the benchmark exposed. **Open questions, not decisions.** |
 
 ## The document set
 
