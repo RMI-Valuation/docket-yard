@@ -205,7 +205,7 @@ def main() -> int:
 
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / f"{name}.json"
-    path.write_text(json.dumps(result, indent=1), encoding="utf-8", newline="\n")
+    path.write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8", newline="\n")
     print(f"  -> {path}")
     return 0
 

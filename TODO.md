@@ -16,9 +16,13 @@ by pre-commit: when it fires, prune.
   unresolved targets identical to the sheet's. Schema-critic's seven findings are
   folded in (§ Review); next: Cameron's acceptance in a later session. `target` column settled: what a citator
   resolves (68 rows rewritten, truth sets identical)
-- RMI-AI-MACHINE back 2026-08-29 (a power-off, not a fault: `tailscaled` is enabled at boot,
-  sleep targets inactive — nothing to harden). qwen2.5vl:7b pulled and scored. Tailscale SSH
-  needs a browser check per session — Cameron's click
+- **Local candidates batch, started 2026-08-30 ~10:54 CDT on RMI-AI-MACHINE**
+  (`benchmark_batch.sh`, log `/data/docketyard/benchmark/batch.log`): qwen3:14b re-run on
+  the current prompt, qwen2.5:14b, gemma3:12b, phi4:14b, mistral-nemo:12b, llama3.1:8b,
+  qwen3:30b-a3b, gpt-oss:20b. ~2 h each; Tailscale SSH needs Cameron's browser click per session. Score each with `benchmark_score.py` (now reports
+  the docket-shaped class); the bar is Claude's 95.9%/95.5% on that class. If one comes
+  close, measure regex-first + local role-classifier next (regex+registry alone: 97.3%
+  recall, 76.7% precision on docket-shaped, 2026-08-30)
 - **OCR/extraction (M3):** step 2 done 2026-08-29 (~$16); the finding — OCR costs the
   citator nothing measurable, the extractor moves recall 16 points — is in `ocr-plan.md`,
   `extraction-benchmark.md` and ADR 0017. **Ground truth's bound: ranking publishable,
