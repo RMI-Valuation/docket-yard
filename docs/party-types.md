@@ -80,9 +80,10 @@ was). No figure is published and no label ships before that check.
 
 **Tier 2 — rules, `method = 'rule:party-type'`,** versioned, for what a name states on
 its face. The reporting-mark signal joins (a party with a held `mark` name is a
-`railroad` at high confidence); succession edges are **never** walked for typing — a
-holding company is a `company` however many railroads it owns, and `parent_of` must not
-leak a subsidiary's type upward (schema-critic).
+`railroad` at high confidence); succession edges are **never** walked to type the
+*railroad* side — `parent_of` must not leak a subsidiary's type upward (schema-critic).
+The one graph-derived signal allowed is the inverse, and only as corroboration:
+`parent_of` a railroad supports `rail-holding`, a definition over held rows, not a guess.
 
 **Tier 3 — Wikidata, `method = 'link:wikidata'`, organisations only.** Probed 2026-08-30:
 9 of 12 names link once suffixes are normalised, and `instance of` maps cleanly (Union
