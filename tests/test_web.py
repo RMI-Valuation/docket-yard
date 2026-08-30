@@ -157,7 +157,13 @@ def test_home_lists_the_week_once_per_record(client):
     assert r.text.count("ORDERED REPLIES DUE") == 1  # entered in two dockets, shown once
     assert "also entered in" in r.text and 'href="/d/FD-36873/sub/1"' in r.text
     assert "(one entered in two dockets)" in r.text
-    assert '2</span><span class="l">filings observed, in 1 proceeding<' in r.text  # by family
+    # The proceeding that moved is the docket the filing was entered in, never its parent:
+    # a sub-docket is named and linked as itself (revised 2026-08-30). A filing entered in
+    # a docket and its sub is two `filing` rows and one filing, said so on the page.
+    assert (
+        '2</span><span class="l">filings observed, in 2 proceedings (one entered in two)' in r.text
+    )
+    assert '<td class="dk"><a href="/d/FD-36873/sub/1">FD 36873 (Sub-No. 1)</a></td>' in r.text
     assert "<table" in r.text and '<th scope="col">Docket</th>' in r.text
     assert "19–25 August 2026" in r.text
 

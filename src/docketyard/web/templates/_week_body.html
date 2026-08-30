@@ -1,7 +1,8 @@
   <div class="stats">
     {% set dup = week.decision_entries - week.distinct_decisions %}
     <div class="stat"><span class="n serif">{{ week.distinct_decisions }}</span><span class="l">decisions served{% if dup == 1 %} (one entered in two dockets){% elif dup > 1 %} ({{ dup }} entered in more than one docket){% endif %}</span></div>
-    <div class="stat"><span class="n serif">{{ week.filings }}</span><span class="l">filings observed, in {{ week.moved | length | plural('proceeding') }}</span></div>
+    {% set fdup = week.filing_entries - week.filings %}
+    <div class="stat"><span class="n serif">{{ week.filings }}</span><span class="l">filings observed, in {{ week.moved | length | plural('proceeding') }}{% if fdup == 1 %} (one entered in two){% elif fdup > 1 %} ({{ fdup }} entered in more than one){% endif %}</span></div>
     {% if week.moved %}<div class="stat"><span class="n serif">{{ week.moved[0].filings }}</span><span class="l">of them in {{ printed_docket(parse_docket_id(week.moved[0].docket_raw)) }}</span></div>{% endif %}
   </div>
 </section>

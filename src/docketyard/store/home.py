@@ -32,7 +32,7 @@ class ProceedingMoved:
     docket_id: int
     docket_raw: str
     title: str | None
-    filings: int  # distinct filings across the family
+    filings: int  # distinct filings in THIS proceeding (the sub-docket, where there is one)
     last_activity: str
 
 
@@ -45,7 +45,8 @@ class Week:
     distinct_decisions: int
     decision_entries: int  # record rows, counting a decision once per docket it is entered in
     moved: list[ProceedingMoved]
-    filings: int
+    filings: int  # distinct filings the Board published in the window
+    filing_entries: int  # rows, counting a filing once per proceeding it is entered in
 
 
 def _numeric(record_id: str) -> int:
@@ -93,16 +94,28 @@ def week(con: Connection, start: str, end: str) -> Week:
             last_activity=last,
         )
         for d, raw, p, n, last in con.execute(
+            # The proceeding that moved is the docket the filing was entered in — the
+            # SUB-docket where there is one, never its parent (revised 2026-08-30, the
+            # operator: "I don't care that Norfolk Southern had something moving, I care
+            # what was moving"). For AB, the biggest user of sub-numbers, the sub IS the
+            # proceeding: `/about/AB` says a Sub-No. is "each line a carrier abandons",
+            # and AB 290 alone holds 391 unrelated abandonments. Rolling up to the family
+            # named the carrier's series instead of the action, and named it badly: only
+            # 11.5% of AB family roots carry a caption (the Board publishes rows for the
+            # sub-dockets, not the bare parent), against 100% of the proceedings that
+            # actually filed. Folding also bought nothing it was worth — measured over
+            # 136 weeks, 95.4% of family-weeks hold exactly one moving proceeding and the
+            # most ever is four. The sheet still folds (ADR 0005); a list of what moved
+            # must not.
             """
-            SELECT root.docket_id, root.raw_docket, dc.latest_payload,
+            SELECT d.docket_id, d.raw_docket, dc.latest_payload,
                    COUNT(DISTINCT f.stb_filing_id), MAX(f.filed_date)
               FROM filing f
               JOIN docket d ON d.docket_id = f.docket_id
-              JOIN docket root ON root.docket_id = COALESCE(d.parent_docket_id, d.docket_id)
-              JOIN docket_current dc ON dc.docket_id = root.docket_id
+              JOIN docket_current dc ON dc.docket_id = d.docket_id
              WHERE f.filed_date BETWEEN ? AND ?
-             GROUP BY root.docket_id
-             ORDER BY MAX(f.filed_date) DESC, COUNT(DISTINCT f.stb_filing_id) DESC, root.raw_docket
+             GROUP BY d.docket_id
+             ORDER BY MAX(f.filed_date) DESC, COUNT(DISTINCT f.stb_filing_id) DESC, d.raw_docket
             """,
             (start, end),
         )
@@ -116,7 +129,15 @@ def week(con: Connection, start: str, end: str) -> Week:
         distinct_decisions=len(decisions),
         decision_entries=len(rows),
         moved=moved,
-        filings=sum(m.filings for m in moved),
+        # One filing entered in a docket AND its sub-docket is two `filing` rows (the
+        # natural key is (docket_id, stb_filing_id)), so summing the per-proceeding counts
+        # would publish it twice — the same trap the decisions half of this page already
+        # names. Count the Board's filings once, and keep the row total beside it.
+        filings=con.execute(
+            "SELECT COUNT(DISTINCT stb_filing_id) FROM filing WHERE filed_date BETWEEN ? AND ?",
+            (start, end),
+        ).fetchone()[0],
+        filing_entries=sum(m.filings for m in moved),
     )
 
 
