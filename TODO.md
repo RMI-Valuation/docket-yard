@@ -18,20 +18,20 @@ by pre-commit: when it fires, prune.
   scored so far on docket-shaped — Claude 95.6/95.6, qwen3:14b 93.8/93.8, regex+registry
   94.7 with no model, qwen2.5 87.6/90.0. Roles classifier queued behind the batch
   (`benchmark_roles_followup.sh`); score each model as it lands
-- **OCR/extraction (M3):** step 2 done 2026-08-29 (~$16); the finding — OCR costs the
-  citator nothing measurable, the extractor moves recall 16 points — is in `ocr-plan.md`,
-  `extraction-benchmark.md` and ADR 0017. **Ground truth's bound: ranking publishable,
+- **OCR/extraction (M3):** step 2 done 2026-08-29 (~$16); findings in `ocr-plan.md`,
+  `extraction-benchmark.md`, ADR 0017. **Ground truth's bound: ranking publishable,
   absolute character accuracy not**
-- Keys: rotation closed 2026-08-30; Litestream unaffected. The Anthropic key is revoked
-  and its local copy gone; a further extraction run needs a new one
+- Keys: rotation closed 2026-08-30. No Anthropic key exists; a Claude run needs a new one
 - **Party types (F3's first slice, chosen 2026-08-30)**: design in `docs/party-types.md`
   (vocabulary measured, three method tiers, ground truth before anything ships);
   critic's report folded in (evidence keys, additive vocab, pinned projection). The
   300-party sample is drawn, Wikidata evidence attached (67 links, 10 disagreements),
   and **checked by Cameron 2026-08-30 — all 300** (figures in
   `docs/research/party-types/README.md`: best rule type 87.5%, none publishable as
-  drafted; 8% span artefacts with SPLIT notes). Next: rules v2 from the confusion
-  table, then the model tier against the sheet (box after the batch, or a fresh key)
+  drafted; 8% span artefacts). **Rules v2 done 2026-08-30: 57.7% -> 82.3%**
+  (`tools/party_types_rules.py`; labor-union, port, government, elected-official already
+  publishable-grade) — but tuned on the sheet it is scored against, so **a second unseen
+  sample must confirm before any type ships on rule confidence**. Then the model tier
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
 

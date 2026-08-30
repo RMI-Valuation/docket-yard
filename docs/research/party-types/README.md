@@ -46,8 +46,44 @@ law-firm 12, labor-union 7, port 4, utility 3, rail-holding 3, unknown 2.
 **Span artefacts are 25 of 300** — 8% of the sample is not one party, and the operator's
 SPLIT notes name the correct parties for the future re-split.
 
+## Rules v2, measured the same day
+
+`tools/party_types_rules.py` (`rule:party-type/2026-08-30b`) rewrites the tier from the
+confusion table above: the `Honorable` prefix case-fixed, `Nth District` moved to
+`elected-official`, a **two-sided join test** for the pair names (both halves must carry
+an entity suffix, or `Delaware And Hudson Railway Company` — one railroad — would be torn
+in half), `labor-union`/`port`/`utility` signals, `association` outranking `railroad` so a
+*coalition on high speed rail* is not a carrier, and an organisation-word guard on the
+person shape so `Farm Action` is not a person.
+
+Agreement with the operator's sheet rises **57.7% → 82.3%**, and the per-type figures are
+what a confidence stamp would be keyed on:
+
+| judged type | recall | precision | reading |
+|---|---|---|---|
+| labor-union | 7/7 | 100% | publishable |
+| port | 4/4 | 100% | publishable |
+| government | 35/37 94.6% | 97.2% | publishable |
+| elected-official | 24/28 85.7% | 100% | publishable |
+| railroad | 31/38 81.6% | 83.8% | review or model |
+| law-firm | 12/12 100% | 80% | review or model |
+| association | 37/49 75.5% | ~90% | review or model |
+| company | 30/44 68.2% | 81.1% | model tier |
+| span-artefact | 16/25 64% | 100% | high precision, half the recall — the rest need the model |
+| individual | 38/48 79.2% | 84.4% | model tier |
+| utility | 2/3 | 33% of 6 | too few to read |
+| rail-holding | 0/3 | — | unreachable by name, as designed |
+
+**These figures are an upper bound, not a measurement.** The rules were written from this
+sheet's confusion table and scored against the same 300 rows: that is tuning, and honest
+tuning still overfits. What the numbers license is the *ordering* of the tiers and the
+knowledge of which types need a model; before any type ships on rule confidence alone, a
+**second sample the rules have never seen** must confirm it — the same discipline the
+extraction benchmark applies to a prompt.
+
 ## What follows (recorded in TODO)
 
-Rules v2 from the confusions (elected-official patterns, the joined-pair span rule,
-labor-union/port/utility signals, rail-named-LLC ordering); then the model tier measured
-against this sheet; nothing ships below the bar this sheet sets per type.
+A second sample the rules have never seen, to turn the figures above into a measurement;
+then the model tier for the types the rules cannot reach — `company`, `individual`,
+`rail-holding`, and the half of the span artefacts a name cannot betray. Nothing ships
+below the bar a *held-out* sheet sets per type.
