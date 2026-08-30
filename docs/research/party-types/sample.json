@@ -1,0 +1,27 @@
+{
+ "drawn": "2026-08-30",
+ "seed": 20260830,
+ "store": "data\\prod-copy.sqlite",
+ "strata": {
+  "railroad": 40,
+  "company": 40,
+  "government": 40,
+  "association": 40,
+  "individual": 40,
+  "law-firm": 15,
+  "span-artefact": 10,
+  "unmatched": 75
+ },
+ "population": {
+  "association": 674,
+  "company": 2295,
+  "government": 1132,
+  "individual": 2578,
+  "law-firm": 20,
+  "railroad": 1310,
+  "span-artefact": 47,
+  "unmatched": 2002
+ },
+ "why": "party-types.md tier 1: the operator-checked ground truth every machine tier is measured against before anything publishes; unmatched oversampled because it is where the rules say nothing",
+ "rule_version": "rule:party-type/2026-08-30"
+}
