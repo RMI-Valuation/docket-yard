@@ -22,6 +22,7 @@ BENCH = Path("/data/docketyard/benchmark")
 RUNS = BENCH / "runs"
 LOG = BENCH / "batch.log"
 TEXT = BENCH / "text"
+BATCH = Path(__file__).resolve().parent / "benchmark_batch.sh"
 START_RE = re.compile(r"^===== (\S+)\s+(\S+)$", re.M)
 DONE_RE = re.compile(r"^(\S+): finished in (\d+) min$", re.M)
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
@@ -55,19 +56,33 @@ def batch_alive() -> bool:
         return False
 
 
+def batch_models() -> list[str]:
+    """The MODELS=( ... ) list in benchmark_batch.sh, in batch order; empty if unreadable."""
+    try:
+        src = BATCH.read_text(encoding="utf-8")
+        block = re.search(r"MODELS=\((.*?)\)", src, re.S)
+        return [m for m in (block.group(1) if block else "").split() if not m.startswith("#")]
+    except Exception:  # noqa: BLE001 — the page still shows what ran
+        return []
+
+
 def runs() -> list[dict]:
     log = LOG.read_text(encoding="utf-8", errors="replace") if LOG.exists() else ""
     started = {m.group(1): m.group(2) for m in START_RE.finditer(log)}
     finished = {m.group(1): int(m.group(2)) for m in DONE_RE.finditer(log)}
     failed = {m.group(1): m.group(2) for m in FAIL_RE.finditer(log)}
     total = len(list(TEXT.glob("*.txt"))) or 60
+    # the full picture: every model the batch script names, in its order, plus any run
+    # directory the script does not name (an earlier run), oldest first
+    queue = batch_models()
+    dirs = {d.name: d for d in RUNS.iterdir() if d.is_dir()}
+    ordered = [m.replace(":", "-") for m in queue]
+    ordered += sorted((n for n in dirs if n not in ordered), key=lambda n: dirs[n].stat().st_mtime)
     out = []
-    for d in sorted(RUNS.iterdir(), key=lambda p: p.stat().st_mtime):
-        if not d.is_dir():
-            continue
-        files = sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime)
-        model = d.name
-        key = next((m for m in started if m.replace(":", "-") == model), model)
+    for model in ordered:
+        d = dirs.get(model)
+        files = sorted(d.glob("*.json"), key=lambda p: p.stat().st_mtime) if d else []
+        key = next((m for m in queue + list(started) if m.replace(":", "-") == model), model)
         n = len(files)
         secs = 0.0
         pages = 0
