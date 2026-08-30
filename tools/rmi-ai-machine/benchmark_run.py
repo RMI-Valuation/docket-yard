@@ -19,6 +19,7 @@ import argparse
 import json
 import re
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -118,6 +119,82 @@ def pages_of(text: str) -> list[tuple[int, str]]:
     return out
 
 
+class Fatal(RuntimeError):
+    """A condition no page will recover from: no credit, a bad key, a rejected model."""
+
+
+def ask_claude(model: str, prompt: str, timeout: float, cfg: dict) -> tuple[dict, float]:
+    """The same prompt through the Anthropic API, so that one extractor can be pointed at
+    the publisher's text layer and at an OCR of the same pages and the difference charged
+    to OCR rather than to the extractor.
+
+    The schema is forced through a tool call, which is this API's equivalent of Ollama's
+    `format`. Asking for JSON in prose does not work: a first attempt did that and 429 of
+    443 pages came back in a shape the reader did not recognise -- `type` for `kind`, or no
+    `findings` wrapper at all -- which reads as an engine that found nothing rather than as
+    a malformed answer. Key handling follows ocr_run.py: never on a command line, never
+    printed."""
+    body = json.dumps(
+        {
+            "model": model,
+            "max_tokens": 8192,
+            "messages": [{"role": "user", "content": prompt}],
+            "tools": [
+                {
+                    "name": "record_findings",
+                    "description": "Record every citation, caption and deadline on the page.",
+                    "input_schema": SCHEMA,
+                }
+            ],
+            "tool_choice": {"type": "tool", "name": "record_findings"},
+        }
+    ).encode()
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=body,
+        headers={
+            "content-type": "application/json",
+            "anthropic-version": "2023-06-01",
+            "x-api-key": cfg["_key"],
+        },
+    )
+    t = time.monotonic()
+    wait = 2.0
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                answer = json.loads(resp.read())
+            break
+        except urllib.error.HTTPError as e:
+            if (e.code == 429 or e.code >= 500) and attempt < 4:
+                e.close()
+                time.sleep(wait)
+                wait *= 2
+                continue
+            detail = e.read(300).decode("utf-8", "replace")
+            if e.code in (400, 401, 403):
+                raise Fatal(f"HTTP {e.code}: {detail}") from None
+            raise RuntimeError(f"HTTP {e.code}: {detail}") from None
+        except (urllib.error.URLError, OSError):
+            if attempt < 4:
+                time.sleep(wait)
+                wait *= 2
+                continue
+            raise RuntimeError("transport failed after retries") from None
+    else:
+        raise RuntimeError("retries exhausted")
+    stop = answer.get("stop_reason")
+    if stop not in (None, "end_turn", "tool_use"):
+        raise RuntimeError(f"stop_reason {stop}")
+    usage = answer.get("usage", {})
+    cfg["_in"] = cfg.get("_in", 0) + usage.get("input_tokens", 0)
+    cfg["_out"] = cfg.get("_out", 0) + usage.get("output_tokens", 0)
+    for block in answer.get("content", []):
+        if block.get("type") == "tool_use":
+            return block.get("input") or {"findings": []}, time.monotonic() - t
+    raise RuntimeError("no tool_use block in the answer")
+
+
 def ask(host: str, model: str, prompt: str, timeout: float) -> tuple[dict, float]:
     body = json.dumps(
         {
@@ -149,9 +226,27 @@ def main() -> int:
     ap.add_argument("--text-dir", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--host", default="http://127.0.0.1:11434")
+    ap.add_argument(
+        "--backend",
+        choices=("ollama", "claude"),
+        default="ollama",
+        help="claude reads the key from ANTHROPIC_API_KEY or ~/.anthropic-key",
+    )
     ap.add_argument("--timeout", type=float, default=600.0)
     ap.add_argument("--only", nargs="*", help="decision ids to run (default: every file)")
     args = ap.parse_args()
+    cfg: dict = {}
+    if args.backend == "claude":
+        import importlib.util  # noqa: PLC0415 — only the claude path needs the key loader
+
+        spec = importlib.util.spec_from_file_location(
+            "ocr_run", Path(__file__).parent / "ocr_run.py"
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("cannot load ocr_run.py for its key handling")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        cfg["_key"] = mod._api_key()  # fails now, not on page 1 of 443
     out_dir = Path(args.out) / args.model.replace(":", "-")
     out_dir.mkdir(parents=True, exist_ok=True)
     files = sorted(Path(args.text_dir).glob("*.txt"))
@@ -167,15 +262,25 @@ def main() -> int:
         record = {
             "decision_id": decision_id,
             "model": args.model,
-            "prompt_version": "2026-08-26",
+            "prompt_version": "2026-08-29",
             "pages": [],
         }
         started = time.monotonic()
         for page, body in pages_of(text):
             prompt = PROMPT.format(page=page, decision_id=decision_id, text=body[:24000])
             try:
-                parsed, elapsed = ask(args.host, args.model, prompt, args.timeout)
+                if args.backend == "claude":
+                    parsed, elapsed = ask_claude(args.model, prompt, args.timeout, cfg)
+                else:
+                    parsed, elapsed = ask(args.host, args.model, prompt, args.timeout)
                 record["pages"].append({"page": page, "seconds": round(elapsed, 1), **parsed})
+            except Fatal as e:
+                # nothing later will succeed either; keep what was answered and say why
+                target.write_text(
+                    json.dumps(record, ensure_ascii=False, indent=1), encoding="utf-8"
+                )
+                print(f"{decision_id}: stopped at page {page} — {e}")
+                return 1
             except Exception as e:  # noqa: BLE001 — one page must not cost the run
                 record["pages"].append({"page": page, "error": f"{type(e).__name__}: {e}"})
         record["seconds"] = round(time.monotonic() - started, 1)
