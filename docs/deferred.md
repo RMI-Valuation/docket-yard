@@ -90,6 +90,14 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 - **The `<stratum>-<id>.txt` naming convention is parsed in four places**
   (`benchmark_score`, `benchmark_run`, `benchmark_ocr_text`, `labels_check_page`), each
   differently. One `decision_id_of(path)` in the shared module.
+- **`benchmark_ocr_text.py` discards Textract's per-page confidence** (`cfg['_conf']`
+  accumulates, `_write_conf` is never called): re-calibrating the escalation threshold
+  from that pass means re-paying Textract. Only matters if the 60-decision OCR side is
+  ever re-run; the OCR benchmark's own runs recorded confidence separately.
+- **A model that dies mid-run shows as "running" on the status page**: benchmark_run
+  reports the stop under the decision id (`52238: stopped at page 3`), the page's FAIL_RE
+  keys on the model name, and nothing maps one to the other. The stop is visible in the
+  log tail; attribute it properly if the page outlives this batch.
 - **`off_page` is one undifferentiated count**; recording it per `kind/target_kind` would
   match the rest of the result's shape. The dropped quotes themselves are listed, so the
   drop is auditable.

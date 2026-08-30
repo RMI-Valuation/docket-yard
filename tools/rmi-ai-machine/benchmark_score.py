@@ -317,9 +317,10 @@ def main() -> int:
     )
     result["by_kind"]["citation/stb-docket"] = s
     if s["truth"]:
+        pre = f"{s['precision']:6.1%}" if s["precision"] is not None else "   n/a"
         print(
             f"  docket-shaped: {s['hit']}/{s['truth']} found, {s['found']} emitted"
-            f"  recall {s['recall']:6.1%}  precision {s['precision']:6.1%}"
+            f"  recall {s['recall']:6.1%}  precision {pre}"
         )
 
     OUT.mkdir(parents=True, exist_ok=True)
