@@ -94,3 +94,13 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 - **`off_page` is one undifferentiated count**; recording it per `kind/target_kind` would
   match the rest of the result's shape. The dropped quotes themselves are listed, so the
   drop is auditable.
+
+## Schema draft (schema-critic on § 7, 2026-08-30)
+
+- **`correction_target.target_pk bigint` carries § 7's original defect**: it cannot name a
+  sha256-keyed or composite-keyed row (`document_page`, the planned `document_text`).
+  Widen to the same canonical text key `review_action.target_key` now uses when the table
+  first reaches a migration; it exists in no migration today.
+- **Credit-name history is current-state debt, accepted with eyes open**: an archived page
+  shows a name the store cannot reconstruct after a rename. Revisit if the trust pages
+  ever need "as shown at the time".

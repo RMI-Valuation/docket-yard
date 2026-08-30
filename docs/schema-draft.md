@@ -458,6 +458,104 @@ an event and every event to a capture, "no alerts since date X" decomposes into 
 (ingest broke) vs "captures but no events" (parser broke) vs "events but no deliveries"
 (delivery broke) — each independently monitorable.
 
+
+## 7. Review (ADR 0016) — drafted 2026-08-30; revised the same day on schema-critic's report
+
+A human review is a derived assertion and must carry *who*; reading stays anonymous
+(ADR 0011) and addresses stay ciphertext (ADR 0014). Two tables: a registry and an
+append-only action log. The first consumers are ADR 0017's queues.
+
+```sql
+reviewer (                         -- a REGISTRY (identity only), not an assertion table
+  reviewer_id       bigint PK,     -- permanent, never reused or renumbered (provenance
+                                   -- rows point here forever; ADR 0015's discipline)
+  email_hash        text NOT NULL UNIQUE,  -- the account key the subscription system uses
+  email_enc         bytea NOT NULL,-- ciphertext at rest under the operator-held key (0014);
+                                   -- the key-rotation pass MUST cover this table too
+  credit_name       text NOT NULL, -- mandatory: there is no anonymous review (ADR 0016)
+  counts_public     boolean NOT NULL DEFAULT false,  -- ADR 0016's opt-in, as a column
+  granted_at        timestamptz NOT NULL,
+  granted_note      text NOT NULL, -- the operator's reason, in words
+  revoked_at        timestamptz NULL  -- withdrawal ends new actions; past rows stand
+)
+-- `credit_name`, `counts_public` and `revoked_at` are OPERATIONAL columns, not provenance:
+-- they may change (a re-grant clears revoked_at; a rename is a rename). Append-only
+-- applies to review_action, never to this registry. The cost accepted with eyes open:
+-- a page archived before a rename showed the old credit name and the store does not
+-- reconstruct what was shown — the same current-state debt as a party's display name.
+
+reviewer_token (                   -- magic-link sign-in, ADR 0011's machinery, its own
+  token_hash        text PK,       -- table: subscription_token cascades on unsubscribe,
+  reviewer_id       FK reviewer,   -- and a reviewer must not lose sign-in by unsubscribing
+  expires_at        timestamptz NOT NULL
+)
+
+review_action (                    -- APPEND-ONLY: one decision per queue item
+  action_id         bigint PK,
+  reviewer_id       FK reviewer NOT NULL,
+  queue             text NOT NULL, -- FK review_queue_vocab: 'ocr_page' | 'citation_edge' |
+                                   -- 'correction' | 'reader_report' — extensible by INSERT
+  target_table      text NOT NULL, -- what was reviewed: a typed pair, a join, never prose
+  target_key        text NOT NULL, -- the target row's key rendered canonically — a bigint
+                                   -- pk as digits, a page as '<sha256>/<page>'; bigint
+                                   -- alone cannot name sha256-keyed rows (schema-critic)
+  method_version    text NOT NULL, -- the queue's convention version: what evidence was
+                                   -- shown and under which rules the decision was made
+  decision          text NOT NULL, -- FK review_decision_vocab: accepted | rejected |
+                                   -- corrected | escalated
+  detail            json,          -- what was decided, typed per queue
+  produced_table    text NULL,     -- the human assertion row this action wrote (below);
+  produced_key      text NULL,     -- THE authoritative link, written in the same
+                                   -- transaction that wrote the row it names
+  asserted_at       timestamptz NOT NULL,
+  superseded_by     FK review_action NULL  -- a later review supersedes, never overwrites
+)
+-- UNIQUE (queue, target_table, target_key) WHERE superseded_by IS NULL — "one decision
+-- per queue item" as a constraint, not prose; index on reviewer_id for the opt-in counts.
+```
+
+**Every decision on a queue whose target has an assertion table writes a `human` row**
+(ADR 0017 decision 6 — schema-critic caught the first draft saying otherwise): an
+acceptance writes a human resolution agreeing with the model's; a rejection writes a
+human *does-not-resolve* resolution; a correction writes the corrected one. In each case
+the new row supersedes the live one and the projection keeps reading `superseded_by IS
+NULL` with no knowledge of reviews. Only `escalated` — and queues with no assertion
+effect — produce nothing, and the nulls say so. The assertion is inserted first, then the
+action naming it, in one transaction; the produced row's ADR 0007 block is `method =
+'human'`, its `source_location` keeps ADR 0007's meaning (*where in the source*), and
+"who reviewed this?" is the typed join `review_action WHERE produced_table = … AND
+produced_key = … AND superseded_by IS NULL` → `reviewer.credit_name`. There is no
+backward pointer to disagree with the forward one.
+
+**A human amends a human through the queue.** ADR 0016's "a later review supersedes"
+means: the superseding action writes its own human row and, in the same transaction, sets
+`superseded_by` on the prior action *and* on the prior action's produced row. § 5's rule
+is refined, not broken: a `human` row is never superseded by a **model** pass; a **review
+action** (or the operator's `correction` event, outside any queue) is what may supersede
+it.
+
+**Attribution of pre-table `human` rows is a rule, not a pass.** The party seed, the
+joins and the corrections carry `source_location` like `{"file": "parties/seed.py"}` and
+no review action. They are not rewritten — an UPDATE on provenance is break A2, and a
+synthetic action would falsify what happened. The rule, recorded here once: **a `human`
+assertion no live review action names is the operator's** (the operator is the first
+`reviewer` row, ADR 0016's "reviewer zero"). "Who says so" for those rows answers through
+this rule; their provenance JSON is untouched and their `asserted_at` stays true.
+
+**Queues the store cannot hold, named rather than implied** (schema-critic): a **reader
+report** needs a row to queue on — a small `reader_report` table (report text, the page's
+typed target, received_at; no identity) is the `/contribute` landing the ocr-plan
+promises, and `target_table = 'reader_report'` queues it. **Benchmark labels are not a
+store queue**: `labels.csv` is a repo file with no stable row identity; its review is the
+git history (the operator's 2026-08-30 check *was* such a review, recorded in
+`research/benchmark/README.md` and a commit). The first draft's `benchmark_label` queue
+kind is withdrawn. An **OCR page** queues on the planned `document_text` row via the
+composite key form above.
+
+**What is never stored** (ADR 0011): nothing about what a reviewer reads; no action row is
+written by rendering a queue page; publishing per-reviewer counts requires
+`counts_public`. Sign-in tokens are hashed, single-use, and enumerate nothing.
+
 ---
 
 ## The five queries, on paper

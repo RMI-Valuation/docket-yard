@@ -28,17 +28,17 @@ by pre-commit: when it fires, prune.
   citator nothing measurable, the extractor moves recall 16 points — is in `ocr-plan.md`,
   `extraction-benchmark.md` and ADR 0017. **Ground truth's bound: ranking publishable,
   absolute character accuracy not**
-- Keys: rotation closed 2026-08-30 — the superseded `docketyard-instance` key is deleted,
-  one Active key remains, Litestream unaffected. The Anthropic key is revoked and its local
-  copy gone; a further extraction run needs a new one (session spend was ~$16)
+- Keys: rotation closed 2026-08-30; Litestream unaffected. The Anthropic key is revoked
+  and its local copy gone; a further extraction run needs a new one
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
 
 ## Next
 
-- **ADR 0016** accepted 2026-08-28: a reviewer has an identity, reading stays anonymous;
-  `/review` for OCR pages, citation edges, labels, corrections. Next: schema-critic on
-  `reviewer`/`review_action`, then build
+- **ADR 0016** accepted 2026-08-28. `reviewer`/`review_action` drafted into
+  `schema-draft.md` § 7 and through schema-critic 2026-08-30 (report folded in: every
+  decision writes a human row, attribution of pre-table human rows is a rule not an
+  UPDATE, text target keys, no benchmark-label queue). Next: build, after ADR 0017
 - Citator schema gate (`docs/citator-gate.md`) is drafted into ADR 0017; still open after
   it: record cites' slice, statutes, the decided date's placement
 - Deadline engine (C4) evidence: decision JSON carries no extracted obligations (verified

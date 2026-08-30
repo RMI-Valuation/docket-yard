@@ -245,6 +245,13 @@ in at acceptance rather than rewritten silently:
   prompt, after the on-page check, scores 93.8% / 93.8% on the docket-shaped class against
   Claude's 95.6% / 95.6%; the batch of nine local candidates is still running. Where it is
   clearly weaker is courts (74% vs 98%) and dated deadlines (84% vs 99%).
+- **Decision 8's re-extraction and the human rows** (schema-critic, on § 7 of the schema
+  draft): a re-extraction supersedes every extraction row and mints new citation ids under
+  stable natural keys — which would strand every human `citation_resolution` and every
+  review action pointing at the superseded rows, defeating human-wins in projection while
+  preserving it on paper. The migration that creates these tables must let resolutions
+  follow the citation's **natural key** through supersession (or projections chase the
+  chain); decide it before the first review-class edge, not after a ~$1,335 re-run.
 
 ## Review (schema-critic, 2026-08-30)
 
