@@ -57,16 +57,30 @@ Two things surfaced while applying them that the binary questions had not antici
   Naming all three was the same decision applied consistently — leaving twenty of them blank
   would have recreated the defect.
 
-**Twenty labels quote a passage that is not in the decision's text**, and the queue flags
-each one — a filter shows only those. Locating a quote ignores whitespace entirely, because
-a PDF wraps lines wherever it likes and extraction turns a wrap inside a caption into a
-space: the text holds `Inc.— Discontinuance` where the label, read off the page, quotes
-`Inc.—Discontinuance`. That accounted for 38 of an original 58. Of the 20 that remain, five
-diverge only near the end — a **wrong pin cite**, such as `slip op. at 10-11` where the text
-reads `at 13`, or `1 I.C.C.2d at 825` where it reads `at 824-31` — and fifteen diverge
-early, where two citations appear to have been conflated into one, or where the passage is
-split by a running page header. For a citator a wrong pin cite is the most damaging error
-there is, so this set is the highest-yield thing in the check.
+**Fourteen labels quote a passage that runs over a page break**, and the queue now says so
+rather than calling them missing — a filter shows only those. They cannot be located in the
+extracted text at any effort: extraction emits each page's body first and its footnotes
+after, so the two halves of the passage are not adjacent, and what sits between them is not
+whitespace. Only the Board's PDF settles them, which is what the queue links to. The
+drafter noted every one while reading the PDF (`citation begins at the foot of p10 and
+completes on p11`), so the notes are the guide.
+
+Two classes were mechanical and are fixed (2026-08-30), taking an original 58 down to 14:
+
+- **whitespace** — a PDF wraps where it likes and extraction turns a wrap inside a caption
+  into a space, so the text holds `Inc.— Discontinuance` where the label quotes
+  `Inc.—Discontinuance`. Matching ignores whitespace entirely. That accounted for 38.
+- **the Board's running header and its footnote markers** — a citation crossing a page
+  break has `Docket No. EP 788` and a page number wedged into the middle of it, and a
+  sentence carries the marker of the footnote it annotates (`received,1 the exemption`
+  where the page prints `received, the exemption`). Both are skipped when matching. The
+  footnote rule fires only on a digit or two between a lower-case word's punctuation and
+  the next lower-case word, which leaves `Sub-No. 5X` and `1 I.C.C.2d at 825` untouched.
+
+A caution recorded because it was learned the hard way: **the text layer cannot be used to
+judge a page-spanning label.** Searching it for one half of such a citation finds a
+different citation elsewhere in the decision and makes the label look like a wrong pin
+cite. Two rows were wrongly called wrong pin cites that way before the PDF was consulted.
 
 ## Provenance of the labels (2026-08-26)
 

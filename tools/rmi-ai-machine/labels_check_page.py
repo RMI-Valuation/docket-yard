@@ -74,6 +74,18 @@ SETTLED = [
 
 
 PAGE_MARK = re.compile(r"(?m)^===== page \d+ =====$")
+# A passage that runs over a page break cannot be located in the text layer at all, however
+# much page furniture is stripped: extraction emits each page's body first and its footnotes
+# after, so the two halves are not adjacent and nothing between them is whitespace. The
+# drafter noted every one of these while reading the PDF; the queue trusts that note and
+# asks for the PDF rather than reporting the row as a quote that is nowhere in the decision.
+FOOTNOTE_MARK = re.compile(r"(?<=[a-z][,.;])\d{1,2}(?=[a-z])")
+SPLIT_NOTE = re.compile(r"spans the page|breaks across|begins (?:at |on )|runs onto|is on p", re.I)
+# what the Board prints at the top of a continuation page: the docket, then the page number
+RUNNING_HEAD = re.compile(
+    r"|(?:STB )?(?:Finance |Docket )?(?:Docket )?No\.? .{0,40}|\d{1,3}|Docket Nos?\. .{0,60}",
+    re.I,
+)
 
 
 def stripped(text: str) -> tuple[str, list[int]]:
@@ -88,12 +100,36 @@ def stripped(text: str) -> tuple[str, list[int]]:
     skip = set()
     for m in PAGE_MARK.finditer(text):  # our own page markers must not break a quote
         skip.update(range(m.start(), m.end()))
+        # nor may the Board's own running header, which it prints at the top of every page
+        # and which lands in the middle of any citation that straddles the break: the text
+        # holds "1 I.C.C.2d | Docket No. EP 788 | 13 | at 825" where the page quotes
+        # "1 I.C.C.2d at 825" (diagnosed 2026-08-30, on FD 36845's citation to FD 36180).
+        at = m.end()
+        for _ in range(3):  # a header, a page number, and whatever blank lines separate them
+            line_end = text.find("\n", at)
+            if line_end < 0:
+                break
+            line = text[at:line_end]
+            if not RUNNING_HEAD.fullmatch(line.strip()):
+                break
+            skip.update(range(at, line_end + 1))
+            at = line_end + 1
     out, idx = [], []
     for i, ch in enumerate(text):
         if not ch.isspace() and i not in skip:
             out.append(ch)
             idx.append(i)
-    return "".join(out), idx
+    flat = "".join(out)
+    # A footnote marker sits inside the sentence it annotates: the page prints "has been
+    # received," and the extracted text holds "received,1 the exemption", so a label quoting
+    # the sentence as printed cannot match. Only a digit or two wedged between the end of a
+    # lower-case word's punctuation and the next lower-case word counts -- which leaves
+    # "Sub-No. 5X" and "1 I.C.C.2d at 825" alone, since neither is followed by lower case.
+    drop = {j for m in FOOTNOTE_MARK.finditer(flat) for j in range(m.start(), m.end())}
+    if drop:
+        flat = "".join(c for j, c in enumerate(flat) if j not in drop)
+        idx = [v for j, v in enumerate(idx) if j not in drop]
+    return flat, idx
 
 
 def mark_up(text: str, rows: list[dict]) -> tuple[str, list[bool]]:
@@ -168,6 +204,7 @@ def main() -> None:
                     "n": r["note"],
                     "_notes": [r["note"]] if r["note"] else [],
                     "f": found[i] if i < len(found) else False,
+                    "sp": bool(SPLIT_NOTE.search(r["note"] or "")),
                     "c": 0,
                     "_at": len(groups),
                 }
@@ -175,6 +212,7 @@ def main() -> None:
                 g["pages"].append(r["page"])
                 # one occurrence not located is a finding, even if a sibling was found
                 g["f"] = g["f"] and (found[i] if i < len(found) else False)
+                g["sp"] = g["sp"] or bool(SPLIT_NOTE.search(r["note"] or ""))
                 if r["note"] and r["note"] not in g["_notes"]:
                     g["_notes"].append(r["note"])
             g["c"] += 1
@@ -372,6 +410,7 @@ TEMPLATE = """<title>Label Ledger</title>
       <button data-f="short" aria-pressed="false">Short</button>
       <button data-f="todo" aria-pressed="false">Unchecked</button>
       <button data-f="lost" aria-pressed="false">Not found</button>
+      <button data-f="split" aria-pressed="false">Page-break</button>
     </div>
     <div class="list" id="list"></div>
   </nav>
@@ -460,7 +499,8 @@ TEMPLATE = """<title>Label Ledger</title>
     var d = DEC[i];
     if (filter === "all") { return true; }
     if (filter === "todo") { return decDone(d) < d.rows.length; }
-    if (filter === "lost") { return d.rows.some(function (r) { return !r.f; }); }
+    if (filter === "lost") { return d.rows.some(function (r) { return !r.f && !r.sp; }); }
+    if (filter === "split") { return d.rows.some(function (r) { return !r.f && r.sp; }); }
     return d.s === filter;
   }
   function rail() {
@@ -527,7 +567,12 @@ TEMPLATE = """<title>Label Ledger</title>
                   ? "no date to quote &mdash; the sentence is the whole answer"
                   : "no target") + "</span></p>") +
         (r.n ? '<p class="note">' + esc(r.n) + "</p>" : "") +
-        (r.f ? "" : '<p class="lost">This passage was not found in the decision&rsquo;s text.</p>') +
+        (r.f ? ""
+             : r.sp
+               ? '<p class="lost split">This passage runs over a page break, so it cannot be '
+                 + 'located in the extracted text &mdash; the halves are not adjacent there. '
+                 + 'Check it against the Board&rsquo;s PDF.</p>'
+               : '<p class="lost">This passage was not found in the decision&rsquo;s text.</p>') +
         '<div class="verd"><button data-v="ok">Right</button><button data-v="no">Wrong</button></div>';
       [].forEach.call(card.querySelectorAll(".verd button"), function (b) {
         b.addEventListener("click", function () {
