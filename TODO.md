@@ -9,27 +9,24 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- **ADR 0017 (Proposed 2026-08-30)** — the API extractor ships citation edges; local
-  does not write them; confidence is the measured precision of an edge's class; the
-  registry (rules 1–2) and the ADR 0016 queue sit between model and page. Drafted from the
-  checked sheet: docket-shaped targets 95.9%/95.5%, all ten extras self-references, six
-  unresolved targets identical to the sheet's. Schema-critic's seven findings are
-  folded in (§ Review); next: Cameron's acceptance in a later session. `target` column settled: what a citator
-  resolves (68 rows rewritten, truth sets identical)
-- **Local candidates batch, started 2026-08-30 10:54 CDT on RMI-AI-MACHINE** (nine
-  models, `benchmark_batch.sh` + follow-up; status page <http://10.180.20.12:8765/>; `ssh
-  rmi-lan`). Scored so far: qwen3:14b on the current prompt — docket-shaped 94.1%/93.7%
-  after the on-page check (Claude 95.9%/95.5%). **Regex + registry + "own docket" rule,
-  no model: 95.0% recall on docket-shaped** (`benchmark_regex.py`, 2026-08-30) — the paid
-  extractor earns its keep on non-docket forms, courts and deadlines, not on docket
-  numbers. Score each model as it lands; then the ADR 0017 amendment (regex-first for the
-  docket class; on-page rule in the resolution pass) before acceptance
+- **ADR 0017 (Proposed 2026-08-30)**: the API extractor ships edges at measured class
+  confidence; schema-critic's findings folded in. Awaiting Cameron's acceptance with the
+  amendment candidates (regex-first docket class; on-page rule; the cite.py verb-gate
+  conflict). `target` column settled: what a citator resolves
+- **Local candidates batch running** (status <http://10.180.20.12:8765/>; `ssh rmi-lan`):
+  scored so far on docket-shaped — Claude 95.6/95.6, qwen3:14b 93.8/93.8, regex+registry
+  94.7 with no model, qwen2.5 87.6/90.0. Roles classifier queued behind the batch
+  (`benchmark_roles_followup.sh`); score each model as it lands
 - **OCR/extraction (M3):** step 2 done 2026-08-29 (~$16); the finding — OCR costs the
   citator nothing measurable, the extractor moves recall 16 points — is in `ocr-plan.md`,
   `extraction-benchmark.md` and ADR 0017. **Ground truth's bound: ranking publishable,
   absolute character accuracy not**
 - Keys: rotation closed 2026-08-30; Litestream unaffected. The Anthropic key is revoked
   and its local copy gone; a further extraction run needs a new one
+- **Party types (F3's first slice, chosen 2026-08-30)**: design in `docs/party-types.md`
+  (vocabulary measured, three method tiers, ground truth before anything ships);
+  schema-critic running on the assertion shape. Next: fold the critic's report in, then
+  the ~300-party checked sample — the operator's queue
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
 
