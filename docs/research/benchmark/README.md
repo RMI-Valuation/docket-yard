@@ -85,9 +85,22 @@ cite. Two rows were wrongly called wrong pin cites that way before the PDF was c
 ## Provenance of the labels (2026-08-26)
 
 `labels.csv` was **drafted by a model** (Claude Fable 5, four passes over the Board's PDFs,
-one per tier and half-tier, under the rules below) and is **awaiting the operator's check**.
-It becomes ground truth for step 2 only after that check; rows the operator strikes or adds
-are the ones worth keeping notes on. Two things to hold in view when reading it:
+one per tier and half-tier, under the rules below) and was **checked by the operator on
+2026-08-30**: all 884 cards judged, one row marked wrong, none missing. It is ground truth
+for step 2, and precision may now be read — before the check it could not be, since a real
+citation the drafter passed over scored as a false positive.
+
+The one correction is a class, not a row. `Decision No. 1, FD 36744 et al., slip op. at 6`
+records its target as `FD 36744 et al.`, and 68 rows over 16 distinct targets do the same.
+Scoring is unaffected either way (`norm_target` reduces both forms to `FD 36744`); what is
+open is whether the `target` column holds what the page printed or what a citator resolves.
+Pending the operator's answer, the rows stand as drafted.
+
+One report of a missing highlight (`NOR 42060 (Sub-No. 1)` on page 20 of 51532) was the
+queue's own defect, not a gap in the sheet: the label existed and the matcher was binding
+quotes to the wrong occurrence. Fixed the same day; the label renders.
+
+Two things to hold in view when reading it:
 
 - The drafter is a Claude model and one of step 2's candidates is a Claude API model, so a
   label the operator did not check is a Claude-flavoured target. The check is what removes

@@ -9,13 +9,12 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- **Labels (extraction benchmark):** four conventions settled 2026-08-29, applied and
-  corrected after review — `target_kind` on every row; 727 citations, 86 captions, 164
-  deadlines. The test is document vs proceeding: a prior decision is a citation even in the
-  decision's own docket. **Cameron's row check remains** (884 cards) — start with the 20
-  whose quote is not in the text (5 are wrong pin cites). Until it is checked **no
-  precision figure anywhere is readable** — a citation the drafter missed scores against
-  the model. `benchmark_score.py` scores a run against the sheet
+- **Labels: checked 2026-08-30** — all 884 judged, one row wrong, none missing. Precision
+  is readable at last: Claude 64.2% against 89.2% recall on STB edges, qwen3 23.6%/73.5%.
+  **One decision open, Cameron's:** 68 rows record a target as `FD 36744 et al.`; does the
+  `target` column hold what the page printed or what a citator resolves? Scoring is
+  unaffected either way. Then step 3 — the ADR naming what ships, at what confidence, and
+  what is left to a human
 - RMI-AI-MACHINE back 2026-08-29 (a power-off, not a fault: `tailscaled` is enabled at boot,
   sleep targets inactive — nothing to harden). qwen2.5vl:7b pulled and scored. Tailscale SSH
   needs a browser check per session — Cameron's click
