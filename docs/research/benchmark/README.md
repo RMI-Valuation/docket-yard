@@ -13,9 +13,9 @@ and mirrored to `data/benchmark/text/` on the working machine (disposable, not c
 
 ## How to check the labels (2026-08-29)
 
-A queue, as the OCR ground truth has:
-<https://claude.ai/code/artifact/4e4ceed8-f75d-4a15-b39d-57e41730509c> — built by
-`tools/rmi-ai-machine/labels_check_page.py`, private to the operator. One decision at a
+A queue, as the OCR ground truth has, built by
+`tools/rmi-ai-machine/labels_check_page.py` and published privately to the operator (the
+address is not recorded here — the page is regenerable from the script and the sheet). One decision at a
 time: its **text on the left with every labelled passage highlighted in place**, its labels
 on the right, each marked right or wrong, with a sweep for a whole decision. Judgements stay
 in the browser; **Copy findings** hands them back in one block.

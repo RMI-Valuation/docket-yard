@@ -128,6 +128,9 @@ ciphertext at rest under an operator-held key), **0015** (a party has a permanen
 - `data/` is disposable and gitignored. Anything there must be reproducible from the pipeline.
 - Never commit secrets. Tokens come from the environment, are short-lived, and are revoked
   after use. See `docs/runbook.md`.
+- **The repository is public.** No internal addresses (LAN or tailnet IPs), and no links to
+  the operator's private pages — name the script that builds a thing, not where it is
+  published. Both are recorded outside the repo.
 - Never attach a self-hosted Actions runner to this public repository (a fork's PR would run
   code on it).
 

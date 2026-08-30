@@ -14,7 +14,7 @@ by pre-commit: when it fires, prune.
   settled: the resolver changed, a `decided` date now resolves to the sheet, never to a
   decision. Open amendments at acceptance: regex-first docket class; on-page rule in the
   resolution pass
-- **Local candidates batch running** (status <http://10.180.20.12:8765/>; `ssh rmi-lan`):
+- **Local candidates batch running** (`ssh rmi-lan`; status page on port 8765):
   scored so far on docket-shaped — Claude 95.6/95.6, qwen3:14b 93.8/93.8, regex+registry
   94.7 with no model, qwen2.5 87.6/90.0. Roles classifier queued behind the batch
   (`benchmark_roles_followup.sh`); score each model as it lands

@@ -2,7 +2,8 @@
 
     nohup python3 benchmark_status.py --port 8765 > /data/docketyard/benchmark/status.log 2>&1 &
 
-Then open http://10.180.20.12:8765/ from the workstation. The page rebuilds on every
+Then open `http://<the box's LAN address>:8765/` from the workstation (the address is
+not recorded in this public repository). The page rebuilds on every
 request from what is on disk — the batch log, the per-decision JSON each run writes, and
 `nvidia-smi` — and refreshes itself every minute. It reads nothing else and writes nothing.
 Bind is LAN-only by design: the box exposes nothing to the internet (infra/rmi-ai-machine.md).

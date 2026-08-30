@@ -145,9 +145,8 @@ working machine, and any page can be re-rendered from its hash with `ocr_sample.
 
 ## How to check
 
-**From anywhere**, the queue at
-<https://claude.ai/code/artifact/664789dc-93ce-42b2-b23e-fe56c6c7d8f7> (private to the
-operator, published 2026-08-28): one page at a time, the scan at **full
+**From anywhere**, the queue built by `ocr_check_page.py` and published privately to the
+operator 2026-08-28 (the address is not recorded in this public repository): one page at a time, the scan at **full
 resolution beside the transcript** — scroll to zoom, drag to pan, double-click for one
 screen pixel per scan pixel, `w` to give the page the full width — with the Board's own
 file one click away at `docketyard.org/document/<sha>.pdf#page=N`, since every sampled
