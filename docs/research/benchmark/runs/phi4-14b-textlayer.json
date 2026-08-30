@@ -1,0 +1,1161 @@
+{
+ "run": "data\\benchmark\\runs-batch\\phi4-14b",
+ "label": "phi4-14b-textlayer",
+ "legacy_findings": 0,
+ "page_check": true,
+ "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
+ "unchecked_decisions": [],
+ "off_page_findings": 155,
+ "off_page": [
+  {
+   "decision": "51532",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "51532",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "51532",
+   "page": 4,
+   "kind": "citation",
+   "target": "UP Reply 82-83, Apr. 26, 2019",
+   "quoted": "See UP Reply 82-83, Apr. 26, 2019 (\u201c[UP]\u2019s nearly universal use of zero-mileage rates for movements in tank cars is consistent with the practices of all other r"
+  },
+  {
+   "decision": "51532",
+   "page": 5,
+   "kind": "citation",
+   "target": "3 I.C.C.2d",
+   "quoted": "IHB II, 3 I.C.C.2d at 599, 613-16"
+  },
+  {
+   "decision": "51532",
+   "page": 11,
+   "kind": "citation",
+   "target": "410 U.S. 224",
+   "quoted": "See United States v. Fla. E. Coast Ry., 410 U.S. 224, 239 (1973)."
+  },
+  {
+   "decision": "51532",
+   "page": 11,
+   "kind": "citation",
+   "target": "358 U.S. 68",
+   "quoted": "See Bos. & Me. R.R. v. United States, 358 U.S. 68, 70 (1958)."
+  },
+  {
+   "decision": "51532",
+   "page": 13,
+   "kind": "citation",
+   "target": "Complainants Opening 9; Complainants Opening 20-23",
+   "quoted": "Complainants Opening 9; Complainants Opening 20-23"
+  },
+  {
+   "decision": "51532",
+   "page": 15,
+   "kind": "citation",
+   "target": "Complainants Opening 37",
+   "quoted": "Complainants Opening 37."
+  },
+  {
+   "decision": "51532",
+   "page": 16,
+   "kind": "citation",
+   "target": "FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "51532",
+   "page": 16,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "51532",
+   "page": 16,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "51532",
+   "page": 16,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "51532",
+   "page": 16,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "51532",
+   "page": 16,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "51532",
+   "page": 16,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "51532",
+   "page": 16,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "51532",
+   "page": 16,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "51532",
+   "page": 23,
+   "kind": "citation",
+   "target": "28  See Granite State Concrete Co. v. STB, 417 F.3d 85, 95 (1st Cir. 2005) (denying petition for review of Board determination that one railroad acted reasonably in light of safety concerns when imposing conditions on another railroad operating on its lines); Consol. Rail Corp. v. ICC, 646 F.2d 642, 648 (D.C. Cir. 1981) (affirming ICC\u2019s cancellation of tariffs, which were based on unnecessary and wasteful special train service for hazardous radioactive material); Ark. Elec. Coop.\u2014Pet. for Declaratory Ord., FD 35305, slip op. at 6 (STB served Mar. 3, 2011) (considering reasonableness of rule intended to limit loss of coal dust from rail cars in transit).",
+   "quoted": "None of the decisions cited by Complainants involved a rule or practice with a reasonable purpose previously established by the agency.28"
+  },
+  {
+   "decision": "51532",
+   "page": 24,
+   "kind": "citation",
+   "target": "7 I.C.C.2d at 25, 27-28",
+   "quoted": "Buffalo & Pittsburgh, 7 I.C.C.2d at 25, 27-28."
+  },
+  {
+   "decision": "51532",
+   "page": 27,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "51532",
+   "page": 27,
+   "kind": "citation",
+   "target": "NPRM, EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "51532",
+   "page": 27,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "51532",
+   "page": 27,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B.",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "51532",
+   "page": 28,
+   "kind": "citation",
+   "target": "Docket No. EP 787",
+   "quoted": "Docket No. EP 787, slip op. at 4"
+  },
+  {
+   "decision": "51532",
+   "page": 28,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "51532",
+   "page": 28,
+   "kind": "citation",
+   "target": "NPRM, EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "51532",
+   "page": 28,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "51532",
+   "page": 28,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B.",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52211",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 6, FD 36732 et al.",
+   "quoted": "Decision No. 6"
+  },
+  {
+   "decision": "52211",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 9-11",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 9-11"
+  },
+  {
+   "decision": "52211",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 8",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 8"
+  },
+  {
+   "decision": "52211",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 9",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 9"
+  },
+  {
+   "decision": "52211",
+   "page": 5,
+   "kind": "citation",
+   "target": "Apppl. 24-28, 259-60, Dec. 11, 2023",
+   "quoted": "Apppl. 24-28, 259-60, Dec. 11, 2023."
+  },
+  {
+   "decision": "52211",
+   "page": 13,
+   "kind": "citation",
+   "target": "Applicants Suppl. 8, 10, Nov. 21, 2024, Docket No. FD 36732 et al.",
+   "quoted": "Applicants Suppl. 8, 10, Nov. 21, 2024."
+  },
+  {
+   "decision": "52211",
+   "page": 13,
+   "kind": "citation",
+   "target": "Applicants Suppl. 12-13, Nov. 21, 2024, Docket No. FD 36732 et al.",
+   "quoted": "Applicants Suppl. 12-13, Nov. 21, 2024."
+  },
+  {
+   "decision": "52211",
+   "page": 13,
+   "kind": "citation",
+   "target": "Applicants Suppl., Ex. B, Amtrak-Canadian Pac. Agreement, para. 5, Nov. 21, 2024, Docket No. FD 36732 et al.",
+   "quoted": "Applicants Suppl., Ex. B, Amtrak-Canadian Pac. Agreement, para. 5, Nov. 21, 2024."
+  },
+  {
+   "decision": "52211",
+   "page": 16,
+   "kind": "citation",
+   "target": "Mendocino Coast Railway\u2014Lease & Operate, 360 I.C.C. 653",
+   "quoted": "As a condition to the use of this exemption, any employees adversely affected by the transaction would be protected by the conditions set forth in ... Mendocino"
+  },
+  {
+   "decision": "52211",
+   "page": 26,
+   "kind": "deadline",
+   "target": "within one month of the Board\u2019s authorization of the CPKC transaction",
+   "quoted": "CPKC shall begin implementing the required building sound insulation mitigation within one month of the Board\u2019s authorization of the CPKC transaction."
+  },
+  {
+   "decision": "52238",
+   "page": 4,
+   "kind": "citation",
+   "target": "Docket No. FD 36529",
+   "quoted": "Docket No. FD 36529, slip op. at 2, 2 n.4 (STB served July 15, 2022)"
+  },
+  {
+   "decision": "52260",
+   "page": 2,
+   "kind": "caption",
+   "target": "Appendix A",
+   "quoted": "column 10 of Appendix A.5"
+  },
+  {
+   "decision": "52260",
+   "page": 4,
+   "kind": "citation",
+   "target": "4 I.C.C.2d 137 (1987)",
+   "quoted": "4 I.C.C.2d 137 (1987)"
+  },
+  {
+   "decision": "52260",
+   "page": 13,
+   "kind": "caption",
+   "target": "EP 787",
+   "quoted": "Docket No. EP 787"
+  },
+  {
+   "decision": "52260",
+   "page": 15,
+   "kind": "citation",
+   "target": "49 U.S.C. 11322",
+   "quoted": "49 U.S.C. 11322"
+  },
+  {
+   "decision": "52260",
+   "page": 15,
+   "kind": "citation",
+   "target": "49 U.S.C. 11324",
+   "quoted": "49 U.S.C. 11324"
+  },
+  {
+   "decision": "52260",
+   "page": 23,
+   "kind": "citation",
+   "target": "FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52260",
+   "page": 23,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52260",
+   "page": 23,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52260",
+   "page": 23,
+   "kind": "citation",
+   "target": "1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52260",
+   "page": 23,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52260",
+   "page": 23,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52267",
+   "page": 4,
+   "kind": "citation",
+   "target": "4 I.C.C.2d 137 (1987)",
+   "quoted": "4 I.C.C.2d 137 (1987)"
+  },
+  {
+   "decision": "52267",
+   "page": 15,
+   "kind": "citation",
+   "target": "49 U.S.C. 11322",
+   "quoted": "49 U.S.C. 11322"
+  },
+  {
+   "decision": "52267",
+   "page": 15,
+   "kind": "citation",
+   "target": "49 U.S.C. 11324",
+   "quoted": "49 U.S.C. 11324"
+  },
+  {
+   "decision": "52267",
+   "page": 16,
+   "kind": "citation",
+   "target": "49 U.S.C. 11324",
+   "quoted": "49 U.S.C. 11324"
+  },
+  {
+   "decision": "52267",
+   "page": 16,
+   "kind": "citation",
+   "target": "49 U.S.C. 10706",
+   "quoted": "49 U.S.C. 10706"
+  },
+  {
+   "decision": "52295",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 3, FD 36744",
+   "quoted": "Decision No. 3"
+  },
+  {
+   "decision": "52295",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52295",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52295",
+   "page": 1,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52295",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52295",
+   "page": 1,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52295",
+   "page": 3,
+   "kind": "citation",
+   "target": "FD 36798 et al.",
+   "quoted": "Docket No. FD 36798 et al. (STB served Aug. 23, 2024)"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "NPRM, EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B.",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52330",
+   "page": 1,
+   "kind": "citation",
+   "target": "FD 36732",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52330",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52330",
+   "page": 1,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52330",
+   "page": 1,
+   "kind": "citation",
+   "target": "1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52330",
+   "page": 4,
+   "kind": "citation",
+   "target": "UP Reply 6-7",
+   "quoted": "UP Reply 6-7"
+  },
+  {
+   "decision": "52330",
+   "page": 4,
+   "kind": "citation",
+   "target": "RASA \u00a7 15",
+   "quoted": "BNSF Reply 3 (quoting RASA \u00a7 15)"
+  },
+  {
+   "decision": "52330",
+   "page": 4,
+   "kind": "citation",
+   "target": "BNSF Reply 5",
+   "quoted": "BNSF Reply 5"
+  },
+  {
+   "decision": "52330",
+   "page": 4,
+   "kind": "citation",
+   "target": "UP Reply 7",
+   "quoted": "UP Reply 7"
+  },
+  {
+   "decision": "52332",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 242-43, 246-47, 419",
+   "quoted": "Decision No. 44, 1 S.T.B. at 242-43, 246-47, 419"
+  },
+  {
+   "decision": "52332",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 44, 5 S.T.B. 1173, 1174, 1178 (2001)",
+   "quoted": "Decision No. 44, 5 S.T.B. 1173, 1174, 1178 (2001)"
+  },
+  {
+   "decision": "52332",
+   "page": 2,
+   "kind": "citation",
+   "target": "id., Ex. B, RASA, Ex. A at 49-50",
+   "quoted": "Pet. 8 (citing id., Ex. B, RASA, Ex. A at 49-50)"
+  },
+  {
+   "decision": "52332",
+   "page": 5,
+   "kind": "citation",
+   "target": "9",
+   "quoted": "These definitions cannot be squared with BNSF\u2019s claim that a 2-to-1 point can exist on a line with no facility open to UP and SP at the time of the UP-SP Merger"
+  },
+  {
+   "decision": "52347",
+   "page": 3,
+   "kind": "deadline",
+   "target": "November 25, 2024",
+   "quoted": "The Draft EA will be issued by November 25, 2024."
+  },
+  {
+   "decision": "52361",
+   "page": 3,
+   "kind": "deadline",
+   "target": "November 25, 2024",
+   "quoted": "The Draft EA will be issued by November 25, 2024."
+  },
+  {
+   "decision": "52448",
+   "page": 1,
+   "kind": "citation",
+   "target": "decision served April 24, 2023",
+   "quoted": "By decision served April 24, 2023, the Board issued a NITU for the Line and authorized a 180-day period for WDNR, as proposed trail sponsor, to negotiate with W"
+  },
+  {
+   "decision": "52448",
+   "page": 1,
+   "kind": "deadline",
+   "target": "April 24, 2023",
+   "quoted": "By decision served April 24, 2023, the Board issued a NITU for the Line and authorized a 180-day period for WDNR, as proposed trail sponsor, to negotiate with W"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "It is ordered: ... This decision is effective on its service date."
+  },
+  {
+   "decision": "52498",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52498",
+   "page": 1,
+   "kind": "citation",
+   "target": "FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52498",
+   "page": 1,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52498",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52498",
+   "page": 1,
+   "kind": "citation",
+   "target": "1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52498",
+   "page": 1,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52519",
+   "page": 1,
+   "kind": "caption",
+   "target": "Docket No. AB-167 (Sub-No. 445N); Ohio-Rail Corporation\u2014Discontinuance of Service and Lease Operations In Perry and Muskingum Counties, OH, AB-1321X",
+   "quoted": "Docket No. AB-167 (Sub-No. 445N); Ohio-Rail Corporation\u2014Discontinuance of Service and Lease Operations In Perry and Muskingum Counties, OH, AB-1321X"
+  },
+  {
+   "decision": "52526",
+   "page": 1,
+   "kind": "citation",
+   "target": "Final Offer Rate Review, EP 755 et al.",
+   "quoted": "Final Offer Rate Review, EP 755 et al. (STB served Sept. 12, 2019).2"
+  },
+  {
+   "decision": "52676",
+   "page": 1,
+   "kind": "caption",
+   "target": "WB25-33",
+   "quoted": "Docket No. WB25-33"
+  },
+  {
+   "decision": "52699",
+   "page": 3,
+   "kind": "citation",
+   "target": "STB Press Release No. 25-22, https://www.stb.gov/wp-content/uploads/PR-25-22.pdf",
+   "quoted": "6  See STB Press Release No. 25-22, STB Gathers More Than 100 Ideas From Legal Practitioners to Streamline Board Processes, https://www.stb.gov/wp-content/uploa"
+  },
+  {
+   "decision": "52701",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "I agree not to disclose any Confidential Information, Confidential Documents, methodologies, techniques, or data obtained pursuant to the Protective Order excep"
+  },
+  {
+   "decision": "52748",
+   "page": 1,
+   "kind": "citation",
+   "target": "Rail Revitalization and Regulatory Reform Act of 1976 (the 4R Act), Pub. L. 94-210, the Staggers Rail Act of 1980 (Staggers), Pub.",
+   "quoted": "Rail Revitalization and Regulatory Reform Act of 1976 (the 4R Act), Pub. L. 94-210, the Staggers Rail Act of 1980 (Staggers), Pub."
+  },
+  {
+   "decision": "52748",
+   "page": 8,
+   "kind": "citation",
+   "target": "EP 711, slip op. at 41-42",
+   "quoted": "2016 Switching NPRM, EP 711, slip op. at 41-42."
+  },
+  {
+   "decision": "52748",
+   "page": 8,
+   "kind": "caption",
+   "target": "EP 711",
+   "quoted": "Docket No. EP 711"
+  },
+  {
+   "decision": "52748",
+   "page": 16,
+   "kind": "citation",
+   "target": "EP 748 (STB served June 29, 2023)",
+   "quoted": "49 CFR 1201.1-1; Indexing the Ann. Operating Revenues of R.Rs., EP 748 (STB served June 29, 2023)"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "It is ordered: CXRG\u2019s abandonment exemption will not become effective, and any relevant filing or Board deadlines on or after October 1, 2025, are postponed, un"
+  },
+  {
+   "decision": "52773",
+   "page": 1,
+   "kind": "deadline",
+   "target": "November 20, 2025",
+   "quoted": "CXR, BNSF, and shippers located on the Lines may submit comments by November 20, 2025."
+  },
+  {
+   "decision": "52807",
+   "page": 1,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52807",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52807",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "citation",
+   "target": "FD 36501, slip op. at 5",
+   "quoted": "Union Pac. R.R.\u2014Constr. & Operation Exemption\u2014in Maricopa Cnty., Ariz., FD 36501, slip op. at 5 (STB served June 3, 2025)"
+  },
+  {
+   "decision": "52822",
+   "page": 7,
+   "kind": "citation",
+   "target": "Draft EA xii, 1-7 to 1-8, 3-108",
+   "quoted": "Draft EA xii, 1-7 to 1-8, 3-108"
+  },
+  {
+   "decision": "52822",
+   "page": 7,
+   "kind": "citation",
+   "target": "Final EA 3-15",
+   "quoted": "Final EA 3-15 and citations therein"
+  },
+  {
+   "decision": "52822",
+   "page": 8,
+   "kind": "citation",
+   "target": "Final EA",
+   "quoted": "Final EA and Final EA"
+  },
+  {
+   "decision": "52822",
+   "page": 8,
+   "kind": "citation",
+   "target": "Final EA at xi",
+   "quoted": "Final EA at xi."
+  },
+  {
+   "decision": "52822",
+   "page": 8,
+   "kind": "citation",
+   "target": "Final EA at 4-4",
+   "quoted": "Final EA at 4-4"
+  },
+  {
+   "decision": "52826",
+   "page": 1,
+   "kind": "citation",
+   "target": "Docket No. AB 312 (Sub-No. 6X)",
+   "quoted": "Decision No. 52826"
+  },
+  {
+   "decision": "52835",
+   "page": 7,
+   "kind": "citation",
+   "target": "AB 857 (Sub-No. 2)",
+   "quoted": "Colo. Landowners, AB 857 (Sub-No. 2), slip op. at 6-7 (quoting Seminole Gulf Ry., AB 400 (Sub-No. 4), slip op. at 5)."
+  },
+  {
+   "decision": "52835",
+   "page": 9,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52835",
+   "page": 9,
+   "kind": "citation",
+   "target": "NPRM, EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52835",
+   "page": 9,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52835",
+   "page": 9,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B.",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52835",
+   "page": 9,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52835",
+   "page": 9,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52835",
+   "page": 10,
+   "kind": "citation",
+   "target": "400 F.3d 228",
+   "quoted": "Baros v. Tex. Mex. Ry., 400 F.3d 228, 234 (5th Cir. 2005).18"
+  },
+  {
+   "decision": "52835",
+   "page": 11,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52835",
+   "page": 11,
+   "kind": "citation",
+   "target": "NPRM, EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52846",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "It is ordered: Final briefs in this proceeding may not exceed a limit of 30 pages, including attachments."
+  },
+  {
+   "decision": "52887",
+   "page": 3,
+   "kind": "deadline",
+   "target": "January 30, 2026",
+   "quoted": "The Draft EA will be issued by January 30, 2026."
+  },
+  {
+   "decision": "52910",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52910",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52910",
+   "page": 1,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52910",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B.",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52910",
+   "page": 1,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52988",
+   "page": 1,
+   "kind": "citation",
+   "target": "Comments were filed by the American Chemistry Council (ACC), the American Fuel and Petrochemical Manufacturers (AFPM), the Association of American Railroads (AAR), CSX Transportation, Inc. (CSXT), the International Dairy Foods Association (IDFA), the Fertilizer Institute (TFI), Grand Trunk Corporation (CN), the Freight Rail Customer Alliance (FRCA) and the National Coal Transportation Association (NCTA) (FRCA/NCTA) (joint comments), the National Grain and Feed Association (NGFA), the National Industrial Transportation League (NITL), the Private Railcar Food and Beverage Association, Inc. (PRFBA), Mr. Michael",
+   "quoted": "In response to the NPRM, the Board received 13 opening comments and 4 replies, which are discussed in this decision.2"
+  },
+  {
+   "decision": "52988",
+   "page": 9,
+   "kind": "citation",
+   "target": "FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52988",
+   "page": 10,
+   "kind": "citation",
+   "target": "FD 757, slip op. at 12",
+   "quoted": "Policy Statement on Demurrage & Accessorial Rules & Charges, FD 757, slip op. at 12 (STB served Apr. 30, 2020)."
+  },
+  {
+   "decision": "52988",
+   "page": 19,
+   "kind": "citation",
+   "target": "49 CFR 1251.2(b)(1)(i)",
+   "quoted": "49 CFR 1251.2(b)(1)(i), which provides that such cars, once constructively placed, should be included in ISP calculations based on the time that they are ordere"
+  },
+  {
+   "decision": "52988",
+   "page": 20,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52988",
+   "page": 26,
+   "kind": "citation",
+   "target": "5 U.S.C. 601-604",
+   "quoted": "5 U.S.C. 601-604"
+  },
+  {
+   "decision": "52988",
+   "page": 26,
+   "kind": "citation",
+   "target": "5 U.S.C. 603(a)",
+   "quoted": "5 U.S.C. 603(a)"
+  },
+  {
+   "decision": "52996",
+   "page": 1,
+   "kind": "caption",
+   "target": "52996",
+   "quoted": "Docket No. 52996"
+  },
+  {
+   "decision": "52996",
+   "page": 2,
+   "kind": "caption",
+   "target": "Docket No. 52996",
+   "quoted": "Docket No. 52996"
+  },
+  {
+   "decision": "53046",
+   "page": 2,
+   "kind": "citation",
+   "target": "BNSF Pet. 5-8",
+   "quoted": "BNSF Pet. 5-8"
+  },
+  {
+   "decision": "53046",
+   "page": 3,
+   "kind": "citation",
+   "target": "BNSF Amended Petition, pages 6-9",
+   "quoted": "BNSF Am. Pet. 6-9."
+  },
+  {
+   "decision": "53046",
+   "page": 5,
+   "kind": "citation",
+   "target": "BNSF Am. Pet. 12 n.16",
+   "quoted": "Additionally, BNSF has been aware since at least August 2025, when UP served its responses and objections to BNSF\u2019s first set of discovery requests, that UP int"
+  },
+  {
+   "decision": "53052",
+   "page": 10,
+   "kind": "citation",
+   "target": "Rev. Appl. 1-14, 1-65",
+   "quoted": "Rev. Appl. 1-14, 1-65"
+  },
+  {
+   "decision": "53052",
+   "page": 19,
+   "kind": "citation",
+   "target": "FD 36500 et al., slip op. at 3",
+   "quoted": "49 U.S.C. 1321(b)(3); see Canadian Pac. Ry.\u2014Control\u2014Kan. City S., FD 36500 et al., slip op. at 3 (STB served Mar. 16, 2022) (directing applicants to address an "
+  },
+  {
+   "decision": "53052",
+   "page": 30,
+   "kind": "citation",
+   "target": "Rev. Appl. 2-457, V.S. Hunt 70",
+   "quoted": "\u2022 [MS-2] Because the diversion analysis does not account for industry changes since 2023 from transactions involving CP-KCS, CSXT-Pan Am, and CN-Iowa Northern, "
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "citation",
+   "target": "91 Fed. Reg. 618 (Jan. 1, 2026)",
+   "quoted": "91 Fed. Reg. 618 (Jan. 1, 2026)"
+  },
+  {
+   "decision": "53052",
+   "page": 37,
+   "kind": "citation",
+   "target": "49 CFR 1105.7(e)(5)(i)(A)",
+   "quoted": "49 CFR 1105.7(e)(5)(i)(A)."
+  },
+  {
+   "decision": "53052",
+   "page": 37,
+   "kind": "citation",
+   "target": "49 CFR 1105.7(e)(5)(ii)(A)",
+   "quoted": "49 CFR 1105.7(e)(5)(ii)(A)."
+  },
+  {
+   "decision": "53052",
+   "page": 37,
+   "kind": "citation",
+   "target": "49 CFR 1105.7(e)(5)(i)(B), (C)",
+   "quoted": "49 CFR 1105.7(e)(5)(i)(B), (C)."
+  },
+  {
+   "decision": "53052",
+   "page": 37,
+   "kind": "citation",
+   "target": "49 CFR 1105.7(e)(5)(ii)(B), (C)",
+   "quoted": "49 CFR 1105.7(e)(5)(ii)(B), (C)."
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "citation",
+   "target": "49 CFR 1106.2; 49 CFR 244.9",
+   "quoted": "49 CFR 1106.2; see also 49 CFR 244.9."
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "citation",
+   "target": "49 CFR 1106.4(b)(4)",
+   "quoted": "49 CFR 1106.4(b)(4)."
+  },
+  {
+   "decision": "53072",
+   "page": 3,
+   "kind": "caption",
+   "target": "Docket No. 53072",
+   "quoted": "Docket No. 53072"
+  },
+  {
+   "decision": "53072",
+   "page": 6,
+   "kind": "caption",
+   "target": "Docket No. 53072",
+   "quoted": "Docket No. 53072"
+  },
+  {
+   "decision": "53089",
+   "page": 2,
+   "kind": "citation",
+   "target": "49 U.S.C. 11326(c)",
+   "quoted": "49 U.S.C. 11326(c)"
+  }
+ ],
+ "by_kind": {
+  "citation/stb": {
+   "truth": 332,
+   "found": 725,
+   "hit": 273,
+   "recall": 0.822289156626506,
+   "precision": 0.37655172413793103
+  },
+  "citation/court": {
+   "truth": 86,
+   "found": 142,
+   "hit": 57,
+   "recall": 0.6627906976744186,
+   "precision": 0.4014084507042254
+  },
+  "citation/record": {
+   "truth": 7,
+   "found": 429,
+   "hit": 4,
+   "recall": 0.5714285714285714,
+   "precision": 0.009324009324009324
+  },
+  "caption/self": {
+   "truth": 38,
+   "found": 80,
+   "hit": 30,
+   "recall": 0.7894736842105263,
+   "precision": 0.375
+  },
+  "deadline/date": {
+   "truth": 90,
+   "found": 207,
+   "hit": 79,
+   "recall": 0.8777777777777778,
+   "precision": 0.38164251207729466
+  },
+  "deadline/reference": {
+   "truth": 21,
+   "found": 29,
+   "hit": 17,
+   "recall": 0.8095238095238095,
+   "precision": 0.5862068965517241
+  },
+  "deadline/period": {
+   "truth": 18,
+   "found": 45,
+   "hit": 10,
+   "recall": 0.5555555555555556,
+   "precision": 0.2222222222222222
+  },
+  "deadline/indefinite": {
+   "truth": 6,
+   "found": 59,
+   "hit": 1,
+   "recall": 0.16666666666666666,
+   "precision": 0.01694915254237288
+  },
+  "citation/stb-docket": {
+   "truth": 225,
+   "found": 207,
+   "hit": 194,
+   "recall": 0.8622222222222222,
+   "precision": 0.9371980676328503
+  }
+ }
+}
