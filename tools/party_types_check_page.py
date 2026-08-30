@@ -73,19 +73,46 @@ def main() -> int:
             "</div>"
         )
     doc = f"""<!doctype html><html><head><meta charset="utf-8">
-<title>Party types — the operator's check</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Party Type Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&display=swap">
 <style>
-body {{ font: 15px/1.5 system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; color: #222 }}
-.card {{ border-bottom: 1px solid #ddd; padding: .8rem 0 }}
-.card h2 {{ font-size: 1.05rem; margin: 0 0 .2rem }}
-.ev {{ color: #555; font-size: .85rem; margin: .1rem 0 }}
-.btns button {{ margin: .15rem .3rem .15rem 0; padding: .25rem .6rem; border: 1px solid #bbb;
-  background: #fff; border-radius: 4px; cursor: pointer }}
-.btns button.draft {{ border-color: #46a; border-width: 2px }}
-.btns button.picked {{ background: #2a7; color: #fff; border-color: #2a7 }}
-.note {{ width: 100%; margin-top: .3rem; border: 1px solid #ddd; padding: .25rem }}
-#bar {{ position: sticky; top: 0; background: #fff; padding: .6rem 0; border-bottom: 2px solid #222 }}
-#copy {{ padding: .4rem .8rem }}
+:root {{
+  --bg: #FAFAF7; --ink: #22261F; --muted: #6A7069; --line: #DEDFD7;
+  --accent: #2E6E4E; --accent-ink: #FDFDFB; --draft: #38609C; --field: #FFFFFF;
+}}
+@media (prefers-color-scheme: dark) {{
+  :root:not([data-theme="light"]) {{
+    --bg: #17191B; --ink: #E7E5DE; --muted: #9BA19A; --line: #34383B;
+    --accent: #4E9E76; --accent-ink: #10130F; --draft: #7FA3D8; --field: #1F2224;
+  }}
+}}
+:root[data-theme="dark"] {{
+  --bg: #17191B; --ink: #E7E5DE; --muted: #9BA19A; --line: #34383B;
+  --accent: #4E9E76; --accent-ink: #10130F; --draft: #7FA3D8; --field: #1F2224;
+}}
+body {{ font: 15px/1.5 "Public Sans", system-ui, sans-serif; max-width: 52rem;
+  margin: 0 auto; padding: 0 1rem 4rem; color: var(--ink); background: var(--bg) }}
+.card {{ border-bottom: 1px solid var(--line); padding: .8rem 0 }}
+.card h2 {{ font-size: 1.05rem; font-weight: 600; margin: 0 0 .2rem; text-wrap: balance }}
+.ev {{ color: var(--muted); font-size: .85rem; margin: .1rem 0 }}
+.ev a {{ color: inherit }}
+.btns {{ display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .3rem }}
+.btns button {{ padding: .25rem .6rem; border: 1px solid var(--line); color: var(--ink);
+  background: var(--field); border-radius: 4px; cursor: pointer; font: inherit }}
+.btns button.draft {{ border-color: var(--draft); border-width: 2px }}
+.btns button.picked {{ background: var(--accent); color: var(--accent-ink);
+  border-color: var(--accent) }}
+.btns button:focus-visible, #copy:focus-visible {{ outline: 2px solid var(--draft);
+  outline-offset: 2px }}
+.note {{ width: 100%; margin-top: .35rem; border: 1px solid var(--line); padding: .3rem;
+  background: var(--field); color: var(--ink); font: inherit; border-radius: 4px }}
+#bar {{ position: sticky; top: 0; background: var(--bg); padding: .8rem 0 .4rem;
+  border-bottom: 2px solid var(--ink) }}
+#prog {{ font-variant-numeric: tabular-nums }}
+#copy {{ padding: .4rem .8rem; font: inherit; border: 1px solid var(--ink);
+  background: var(--field); color: var(--ink); border-radius: 4px; cursor: pointer }}
 </style></head><body>
 <div id="bar"><b>Party types — check {len(cards)} parties.</b>
 <span id="prog"></span>
