@@ -16,12 +16,20 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   up to 30 s on it, so a `/subscribe` during one is slow rather than failed. One timed
   `docker compose run --rm --entrypoint docketyard ingest --db … search rebuild` on the
   instance answers both this and whether the promise still holds; the number belongs in
-  `search.md`.
+  `search.md`. **Cheapest moment: `navigation-review.md` Tier 2 bumps `INDEX_FORMAT` and
+  forces a rebuild anyway — time that one rather than paying for a run of its own.**
 - **Two curated "what changed" lists** (2026-08-26): the ETag stamp and the search signature
   each enumerate max ids; one store-level record version (a counter bumped by every writer)
   would make both correct by construction.
-- **FD 36873 sheet** is 1.1 MB / 908 entries unpaginated; measure DOM cost on a low-end phone
-  before changing anything (external review, 2026-08-26).
+- **The largest sheets are unpaginated**; measure DOM cost on a low-end phone before changing
+  anything (external review, 2026-08-26). **Re-measured 2026-08-31** and both halves of the
+  original note were stale: FD 36873 is now **2,164,447 bytes / 1,142 entries**, and the
+  heaviest page on the site is not the merger but **`/d/AB-167/sub/1189X` at 2,641,718 bytes
+  / 1,861 entries**, 1,533 of them environmental comments. The cost is DOM, not bandwidth —
+  Caddy gzips FD 36873 to ~120 KB, while the page carries 27,537 elements and 2,233 inline
+  SVG icons, one per entry link. Price two cheaper moves before pagination: one
+  `<symbol>`/`<use>` pair instead of the repeated SVGs, and a year window. The phone
+  measurement is still the open question (`navigation-review.md` § D).
 
 ## Party module (M10, 2026-08-26)
 
@@ -124,7 +132,10 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   assembles every filing and decision of the family (AB 167: 996 dockets, 866 records,
   with a payload and attachment query per entry) and the template then shows none of it.
   The JSON twin still publishes those entries, so skipping the build means deciding what a
-  series carries in shape 1 — worth doing together, not piecemeal.
+  series carries in shape 1 — worth doing together, not piecemeal. **Same defect as
+  `navigation-review.md` A7**, which measured its outside face: `/d/AB-167` renders zero
+  entries at 399 KB while `/d/AB-167.json` publishes all 2,628 at 2.08 MB, and the page
+  advertises counts it gives no way to reach. One decision, not two.
 
 ## AB sub-docket numbering (measured 2026-08-30, not yet explained)
 
@@ -160,7 +171,9 @@ for ever) were fixed before it shipped. These were triaged as not-now:
 - **`/coverage` still says the registry was walked once on 2026-08-25** while the forward
   pass now refreshes part of it. One generated sentence, driven off the constants, would
   keep the published page honest (`coverage.registry_walked_at` is backfill-only, so the
-  date itself is correct).
+  date itself is correct). **Same file and same editing pass as `navigation-review.md`
+  A3**, which found `/coverage` attributing the comment walk's 56 partial months to
+  filings and decisions — both are trust-page wording and want one sign-off, not two.
 - **`{"already_processed": True}` lands in the ingest counts as `1`** (`isinstance(True, int)`),
   a pre-existing cosmetic wrinkle in `_ingest_pending` that the dockets path now shares.
 - **`_uncaptioned` scans the registry each pass** (~32,600 dockets, index seeks). Free at
@@ -172,7 +185,9 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   EI-34282" while the search index titles it `EI-34282` with no noun and the sheet's kind
   column says "Comment". The index is deliberately untyped (`EO` rows are the Board's own
   documents, and 0011 declines to type the row); whether the page and the sheet should
-  follow is an operator's wording decision, not a defect.
+  follow is an operator's wording decision, not a defect. Ask it alongside
+  `navigation-review.md` A5 (every archive week page headed "this week"): both are copy
+  the operator settles, and Tier 1 is already opening those templates.
 
 ## Found 2026-08-31, during the machine-agent surface
 
