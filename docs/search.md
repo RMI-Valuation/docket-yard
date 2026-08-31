@@ -21,7 +21,7 @@ Four kinds of thing, each already an address:
 | Docket family | printed number and its spellings (`FD 36873`, `FD-36873`, `FD_36873`), the caption as the Board prints it, the sub-dockets' captions | `/d/…` (ADR 0013) | 32,604 |
 | Party | every live name of the component (all kinds, all members) | `/p/<id>` (ADR 0015) | 10,110 parties, fewer components |
 | Decision | id and the Board's summary, when one is printed | `/decision/…` | tens of thousands after wave 3 |
-| Environmental comment | number, the commenter's own words as printed, submitter, organisation and location | `/comment/<number>` (ADR 0013) | 22,000+ after the archive wave |
+| Environmental comment | number, the commenter's own words as printed, submitter, organisation and location | `/d/<docket>/comment/<number>` (ADR 0013) | 34,255 after the archive wave |
 
 Every comment is indexed, not only those carrying words: half the rows print `--` for the
 text (measured 2026-08-31), and their submitter, organisation and location are terms nothing

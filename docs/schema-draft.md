@@ -927,7 +927,7 @@ silently here:
 | `store/coverage.py` | Published coverage counts held and unheld attachments over two tables, so it would understate both |
 | `alerts/summary.py` | Reads an event type as "decision, or else filing" |
 | `store/0010_search.sql` | ~~`search_doc.kind` is a closed `CHECK`~~ — widened by migration 0012; comments are indexed by their words, submitter, organisation and location |
-| `web/sitemaps.py` (ADR 0013) | A comment record has no permanent address in this schema at all |
+| `web/sitemaps.py` (ADR 0013) | ~~no permanent address~~ — `/d/<docket>/comment/<number>`, the store's own key spelled out, because the archive wave found two numbers naming two different comments |
 | The heartbeat | `last_event` is an unscoped `MAX(recorded_at) FROM event`, so a third table writing to the ledger **masks a filings/decisions parser outage** on that canary. Scope it by event type when the third table starts writing |
 
 ## What broke in revision 1

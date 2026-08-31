@@ -42,10 +42,26 @@ STATIC_PAGES = (
 _RECORDS = {
     "decisions": ("decision_record", "stb_decision_id", urls.decision_path),
     "filings": ("filing", "stb_filing_id", urls.filing_path),
-    # a comment is keyed on (docket, number) but addressed by the number alone; the
-    # DISTINCT below is what keeps one address to one sitemap entry (urls.comment_path)
-    "comments": ("enviro_comment", "comment_number", urls.comment_path),
 }
+# a comment is addressed under its docket, so it cannot use the generic (table, id, path)
+# shape above: the address needs two columns. Folded by (number, row ref) — one comment in
+# a docket and its sub-docket is one address; two comments sharing a number are two.
+_COMMENTS = """
+    SELECT d.raw_docket, c.comment_number, MAX(x.at) AS at
+      FROM enviro_comment c
+      JOIN docket d ON d.docket_id = c.docket_id
+      JOIN (SELECT c2.comment_pk, cap.captured_at AS at FROM enviro_comment c2
+              JOIN event e ON e.event_id = c2.observed_in_event
+              JOIN capture cap ON cap.capture_id = e.capture_id) x
+        ON x.comment_pk = c.comment_pk
+     WHERE c.comment_pk = (SELECT c3.comment_pk FROM enviro_comment c3
+                             JOIN docket d3 ON d3.docket_id = c3.docket_id
+                            WHERE c3.comment_number = c.comment_number
+                              AND COALESCE(c3.stb_row_ref, '') = COALESCE(c.stb_row_ref, '')
+                            ORDER BY COALESCE(d3.sub_sequence, -1), COALESCE(d3.suffix, ''),
+                                     c3.comment_pk LIMIT 1)
+     GROUP BY c.comment_pk ORDER BY c.comment_number, d.raw_docket LIMIT ? OFFSET ?
+"""
 _memo: dict[tuple, str] = {}
 _parties_memo: dict[str, list[tuple[int, str | None]]] = {}  # stamp -> entries
 
@@ -59,6 +75,11 @@ def _count(con: Connection, name: str, stamp: str) -> int:
         return len(_party_entries(con, stamp))
     if name == "documents":
         return con.execute("SELECT COUNT(*) FROM document").fetchone()[0]
+    if name == "comments":
+        return con.execute(
+            "SELECT COUNT(*) FROM (SELECT 1 FROM enviro_comment"
+            " GROUP BY comment_number, COALESCE(stb_row_ref, ''))"
+        ).fetchone()[0]
     table, col, _ = _RECORDS[name]
     return con.execute(f"SELECT COUNT(DISTINCT {col}) FROM {table}").fetchone()[0]
 
@@ -181,6 +202,14 @@ def section(con: Connection, site: str, name: str, page: int, stamp: str) -> str
                 (PAGE, offset),
             )
         ]
+    elif name == "comments":
+        # the identity is guarded like every other caller: an unparseable docket must
+        # drop its row, never 500 the whole sitemap page
+        rows = [
+            (parse_docket_id(raw), number, at)
+            for raw, number, at in con.execute(_COMMENTS, (PAGE, offset))
+        ]
+        entries = [(f"{base}{urls.comment_path(i, number)}", at) for i, number, at in rows if i]
     else:
         table, col, path = _RECORDS[name]
         rows = con.execute(

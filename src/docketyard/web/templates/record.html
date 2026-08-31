@@ -19,6 +19,6 @@
     {% set v = viewable_index(entry) %}{% if v is not none %}<a class="btn" href="{{ viewer_path(entry.kind, entry.record_id, v) }}">Read it here</a> {% endif %}
     {% for a in entry.attachments %}<a class="btn" href="{{ a.url }}">{{ a.label or 'The Board’s own file' }} ↓</a> {% endfor %}
   </p>
-  <p class="small muted">Permanent address <span class="mono">docketyard.org{{ record_path(entry.kind, entry.record_id) }}</span>{% for a in entry.attachments if a.document_sha256 %}<br>File <span class="mono">docketyard.org{{ document_path(a.document_sha256, a.media_type) }}</span>{% endfor %} · <a href="{{ docket_path(identity) }}">back to the docket sheet</a></p>
+  <p class="small muted">Permanent address <span class="mono">docketyard.org{{ comment_path(identity, entry.record_id) if entry.kind == 'comment' else record_path(entry.kind, entry.record_id) }}</span>{% for a in entry.attachments if a.document_sha256 %}<br>File <span class="mono">docketyard.org{{ document_path(a.document_sha256, a.media_type) }}</span>{% endfor %} · <a href="{{ docket_path(identity) }}">back to the docket sheet</a></p>
 </section>
 {% endblock %}

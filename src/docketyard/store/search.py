@@ -165,7 +165,12 @@ def _comment_docs(con: Connection):
           FROM (SELECT c.comment_pk, c.comment_number, d.raw_docket,
                        c.date_received_or_sent, c.submitter_raw, c.organisation_raw,
                        c.location_raw, c.comment_text_printed,
-                       ROW_NUMBER() OVER (PARTITION BY c.comment_number
+                       -- partitioned by (number, row ref), NOT the number alone. The
+                       -- row ref is what separates ONE comment entered in a docket and
+                       -- its sub-docket (one ref, fold it) from TWO DIFFERENT comments
+                       -- the Board gave the same number (two refs, index both) — measured
+                       -- in the archive wave: 108 of the former, 2 of the latter
+                       ROW_NUMBER() OVER (PARTITION BY c.comment_number, c.stb_row_ref
                                           ORDER BY COALESCE(d.sub_sequence, -1),
                                                    COALESCE(d.suffix, ''),
                                                    c.comment_pk) AS nearest
@@ -189,7 +194,17 @@ def _comment_docs(con: Connection):
         # because the prefix is inside the number and typing it would be a derived claim.
         # An index is the last place to make one. The kind column beside the hit names the
         # Board's own table, which is a quotation; "Comment EO-3243" would not be.
-        yield "comment", pk, urls.comment_path(number), number, " ".join(words), fact
+        # addressed under its docket: the bare number is ambiguous for two of the 34,255
+        # the record holds, so the index points at the address that never is
+        path = urls.comment_path(ident, number) if ident else urls.comment_short_path(number)
+        yield "comment", pk, path, number, " ".join(words), fact
+
+
+# Bumped whenever the index's SHAPE changes — a path scheme, a title, what is folded —
+# not just when the record does. Without it `rebuild()` compares only row ids, sees no
+# change on deploy, and serves the old paths until unrelated data happens to move. 2:
+# comments addressed under their docket, folded by (number, row ref).
+INDEX_FORMAT = 2
 
 
 def signature(con: Connection) -> str:
@@ -197,7 +212,7 @@ def signature(con: Connection) -> str:
     correction, and how many names, links and edges have been retired (a re-split or a
     withdrawal supersedes rows without inserting any). Unchanged signature, unchanged
     index."""
-    return ".".join(
+    return f"{INDEX_FORMAT}." + ".".join(
         str(v or 0)
         for v in con.execute(
             "SELECT (SELECT MAX(event_id) FROM event), (SELECT MAX(name_id) FROM party_name),"

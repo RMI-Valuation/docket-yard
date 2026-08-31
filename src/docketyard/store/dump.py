@@ -173,12 +173,12 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
             "decisions": q(
                 "SELECT COUNT(DISTINCT stb_decision_id) FROM decision_record"
             ).fetchone()[0],
-            # DISTINCT on the number alone, like its two neighbours on their ids: a
-            # record entered in a docket and its sub-docket is ONE record. That relies on
-            # the number being unique, which is what /comment/<number> already asserts and
-            # what ingest's id_collisions counter would report if it ever failed
+            # by (number, row ref): the row ref folds a comment entered in a docket and
+            # its sub-docket, and keeps apart the two numbers the Board gave to two
+            # different comments — the number alone is not unique (measured)
             "environmental_comments": q(
-                "SELECT COUNT(DISTINCT comment_number) FROM enviro_comment"
+                "SELECT COUNT(*) FROM (SELECT 1 FROM enviro_comment"
+                " GROUP BY comment_number, COALESCE(stb_row_ref, ''))"
             ).fetchone()[0],
             "events": q("SELECT COUNT(*) FROM event").fetchone()[0],
             "documents": q("SELECT COUNT(*) FROM document").fetchone()[0],

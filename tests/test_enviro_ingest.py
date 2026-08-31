@@ -318,44 +318,82 @@ def test_the_sheet_page_renders_a_comment_without_dressing_it_as_a_filing(con, t
 
 
 def test_a_comment_answers_at_its_own_address(con, tmp_path):
-    """The Board's own comment number, as /filing/ and /decision/ use the Board's own
-    record ids: /comment/EI-34280."""
+    """A comment's address names the docket that holds it, because the Board's numbers are
+    NOT unique: two of the 34,255 in the archive name two different people's comments."""
     from fastapi.testclient import TestClient
 
+    from docketyard.ingest.dockets import parse_docket_id
     from docketyard.web.app import create_app
-    from docketyard.web.urls import comment_path
+    from docketyard.web.urls import comment_path, comment_short_path
 
-    assert comment_path("EI-34280") == "/comment/EI-34280"
+    assert comment_path(parse_docket_id("FD_36873"), "EI-34280") == ("/d/FD-36873/comment/EI-34280")
+    assert comment_short_path("EI-34280") == "/comment/EI-34280"
     path = tmp_path / "s.sqlite"
     live = db.connect(path)
     ingest(live, tmp_path, comment_row())
     live.close()
     client = TestClient(create_app(path))
 
-    r = client.get("/comment/EI-34280")
+    r = client.get("/d/FD-36873/comment/EI-34280")
     assert r.status_code == 200
     assert "EI-34280" in r.text and "Casper Aquifer" in r.text
     assert "David Gertsch" in r.text and "Laramie, WY" in r.text
-    assert "Environmental comment" in r.text  # named as what it is, not as a filing
-    assert "/comment/EI-34280" in r.text  # and it states its own permanent address
+    assert "/d/FD-36873/comment/EI-34280" in r.text  # it states its own address
 
-    # the JSON twin answers at the same address
-    j = client.get("/comment/EI-34280.json")
-    assert j.status_code == 200
-    body = j.json()["comment"]  # nested under its kind, as filings and decisions are
+    j = client.get("/d/FD-36873/comment/EI-34280.json")
+    body = j.json()["comment"]
     assert body["record_id"] == "EI-34280" and body["kind"] == "comment"
-    assert body["submitter"] == "David Gertsch" and body["location"] == "Laramie, WY"
-    assert body["url"].endswith("/comment/EI-34280")
+    assert body["url"].endswith("/d/FD-36873/comment/EI-34280")
 
-    # one record, one address: another spelling redirects rather than answering
-    r = client.get("/comment/ei-34280", follow_redirects=False)
-    assert r.status_code == 301 and r.headers["location"] == "/comment/EI-34280"
+    # the bare number stays citable: it redirects when it names one comment
+    r = client.get("/comment/EI-34280", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "/d/FD-36873/comment/EI-34280"
+    r = client.get("/comment/EI-34280.json", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"].endswith(
+        "/d/FD-36873/comment/EI-34280.json"
+    )
+    # and casing still canonicalises
+    r = client.get("/d/FD-36873/comment/ei-34280", follow_redirects=False)
+    assert r.status_code == 301
 
-    # the docket sheet links it
-    assert "/comment/EI-34280" in client.get("/d/FD-36873").text
-    # and it is discoverable
-    assert "/comment/EI-34280" in client.get("/sitemap-comments-1.xml").text
+    assert "/d/FD-36873/comment/EI-34280" in client.get("/d/FD-36873").text
+    assert "/d/FD-36873/comment/EI-34280" in client.get("/sitemap-comments-1.xml").text
+    assert client.get("/d/FD-36873/comment/EI-99999").status_code == 404
     assert client.get("/comment/EI-99999").status_code == 404
+
+
+def test_a_number_two_different_comments_share_names_both(con, tmp_path):
+    """Measured in the archive wave: EI-25366 and EI-25367 each name TWO different
+    people's comments in two dockets. The bare number must not pick one silently."""
+    from fastapi.testclient import TestClient
+
+    from docketyard.web.app import create_app
+
+    path = tmp_path / "s.sqlite"
+    live = db.connect(path)
+    ingest(live, tmp_path, comment_row(number="EI-25366", ref="190089", submitter="Helen"))
+    ingest(
+        live,
+        tmp_path,
+        comment_row(docket="FD_36095", number="EI-25366", ref="190749", submitter="Elizabeth"),
+    )
+    from docketyard.store import search
+
+    search.rebuild(live)
+    live.close()
+    client = TestClient(create_app(path))
+
+    r = client.get("/comment/EI-25366", follow_redirects=False)
+    assert r.status_code == 200  # named, not redirected to whichever sorts first
+    assert "/d/FD-36873/comment/EI-25366" in r.text
+    assert "/d/FD-36095/comment/EI-25366" in r.text
+    # and each answers its own comment
+    assert "Helen" in client.get("/d/FD-36873/comment/EI-25366").text
+    assert "Elizabeth" in client.get("/d/FD-36095/comment/EI-25366").text
+    # both are searchable: folding by number alone would have dropped one
+    sitemap = client.get("/sitemap-comments-1.xml").text
+    assert sitemap.count("/comment/EI-25366") == 2
 
 
 def test_a_number_held_under_another_docket_is_reported_not_minted(con, tmp_path):
@@ -462,7 +500,7 @@ def test_a_comment_is_findable_by_its_words_and_its_submitter(con, tmp_path):
     hit = next(h for h in search.search(con, "Casper Aquifer") if h.kind == "comment")
     # the title is the number AS PRINTED, with no noun: EO rows are the Board's own
     # environmental documents, and migration 0011 declines to type the row
-    assert hit.path == "/comment/EI-34280" and hit.title == "EI-34280"
+    assert hit.path == "/d/FD-36873/comment/EI-34280" and hit.title == "EI-34280"
     # the fact line says "dated", never "received": the Board's own column declines to say
     assert "dated" in hit.fact and "FD 36873" in hit.fact
 
@@ -648,3 +686,83 @@ def test_the_empty_envelope_is_recognised_for_every_table_the_record_walks():
     # and it still refuses to read a genuine failure as an empty result
     assert not is_no_results_envelope(envelope("Security check failed"))
     assert not is_no_results_envelope(b'{"success":true,"data":{"rows":"","total":0}}')
+
+
+def test_a_cross_posted_comment_is_one_comment_at_one_address(con, tmp_path):
+    """108 of the 110 repeated numbers are ONE comment entered in a docket and its
+    sub-docket — one row ref. It must have one address, and the bare number must redirect
+    rather than announce "two different people", which review found it doing."""
+    from fastapi.testclient import TestClient
+
+    from docketyard.web.app import create_app
+
+    path = tmp_path / "s.sqlite"
+    live = db.connect(path)
+    rows = comment_row(docket="AB_55") + comment_row(docket="AB_55_794_X")
+    ingest(live, tmp_path, rows, total=2)
+    live.close()
+    client = TestClient(create_app(path))
+
+    # the bare number resolves to ONE comment and redirects to the parent's copy
+    r = client.get("/comment/EI-34280", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "/d/AB-55/comment/EI-34280"
+    # and the sub-docket's address is not a second live page for the same comment
+    r = client.get("/d/AB-55/sub/794X/comment/EI-34280", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "/d/AB-55/comment/EI-34280"
+    assert client.get("/d/AB-55/comment/EI-34280").status_code == 200
+    # one comment, one sitemap entry
+    assert client.get("/sitemap-comments-1.xml").text.count("comment/EI-34280") == 1
+
+
+def test_the_docket_half_of_the_address_canonicalises_too(con, tmp_path):
+    """`/d/fd-36873` 301s, so `/d/fd-36873/comment/...` must not answer 200."""
+    from fastapi.testclient import TestClient
+
+    from docketyard.web.app import create_app
+
+    path = tmp_path / "s.sqlite"
+    live = db.connect(path)
+    ingest(live, tmp_path, comment_row())
+    live.close()
+    client = TestClient(create_app(path))
+    for url in ("/d/fd-36873/comment/EI-34280", "/d/FD-36873/comment/ei-34280"):
+        r = client.get(url, follow_redirects=False)
+        assert r.status_code == 301, url
+        assert r.headers["location"] == "/d/FD-36873/comment/EI-34280"
+    r = client.get("/d/fd-36873/comment/EI-34280.json", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"].endswith(
+        "/d/FD-36873/comment/EI-34280.json"
+    )
+
+
+def test_record_path_refuses_a_comment_rather_than_inventing_a_filing():
+    """It used to fall through to `/filing/<comment number>` — a live 404 — and
+    `viewer.html`'s prev/next calls it with whatever kind the neighbour happens to be."""
+    import pytest as _pytest
+
+    from docketyard.web import urls
+
+    with _pytest.raises(ValueError, match="addressed under its docket"):
+        urls.record_path("comment", "EI-34280")
+    assert urls.record_path("filing", "311981") == "/filing/311981"
+
+
+def test_the_index_rebuilds_when_its_shape_changes_not_only_its_rows(con, tmp_path):
+    """`signature()` read store row ids only, so a deploy that changed the index's PATHS
+    short-circuited and served the old ones until unrelated data moved."""
+    from docketyard.store import search
+
+    ingest(con, tmp_path, comment_row())
+    first = search.signature(con)
+    assert first.startswith(f"{search.INDEX_FORMAT}.")
+    search.rebuild(con)
+    assert search.rebuild(con)["unchanged"] is True
+    bumped = search.INDEX_FORMAT + 1
+    try:
+        search.INDEX_FORMAT = bumped
+        assert search.signature(con) != first
+        assert search.rebuild(con).get("unchanged") is not True
+    finally:
+        search.INDEX_FORMAT = bumped - 1

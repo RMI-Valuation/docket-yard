@@ -288,6 +288,45 @@ means end-of-results. Those same 151 rows carry only **143 distinct (docket, com
 number) pairs**: six comments occupy more than one row, one per attachment, exactly as
 filings do.
 
+## Measured 2026-08-31 by the archive wave: what the comment record actually is
+
+The wave walked 1996-01-01 → 2026-08-31 in monthly slices: **282 done, 18 proven empty, 56
+partial, 0 capped, 0 failed, no problems**. It holds **34,374 rows carrying 34,255 distinct
+comment numbers**, dated **2000-09-22 to 2026-08-26** — half again more than the ">22,000"
+floor the display-capped decade slices implied.
+
+**The table begins on 22 September 2000.** The 56 partial months are 1996-01 → 2000-08 and
+are genuinely empty, proven the way `## Measured 2026-08-27` proves the filings and decisions
+months: a window spanning the doubted run and one `done` month returns exactly the done
+month's own total. `startDate` 01/01/1996–09/30/2000 answers **1**, which is September 2000
+alone; 01/01/1996–08/31/2000 answers the empty envelope, as does 1990–1995. The walker itself
+cannot reconcile them because `reconcile_empty_month` searches twelve months for a `done`
+neighbour and this run is fifty-six long — a limit worth knowing rather than raising.
+
+**A comment number is NOT globally unique, and this is the fact the pre-flight measurement
+could not see.** Sampling 2,385 comments across 2003, 2010, 2019 and 2026 — 11% of the record
+— found no collision anywhere. The full archive holds **two**:
+
+| Number | Docket | Date | Submitter |
+| --- | --- | --- | --- |
+| `EI-25366` | FD 35952 | 2016-08-15 | Helen McCormick |
+| `EI-25366` | FD 36095 | 2017-09-18 | Elizabeth Johnson, SC SHPO |
+| `EI-25367` | FD 34284 | 2017-09-15 | Robert Fitzgerald, MCEAA |
+| `EI-25367` | FD 35952 | 2016-06-26 | James and Gary Dirker |
+
+Different people, different dockets, different dates, different row refs. Two of 34,255 is
+0.006%, and it is still enough to make a bare-number address ambiguous — `(docket, number)`
+remains the identity, and the store was keyed on it from the start, so no data is at risk.
+
+The other **108** repeated numbers are the benign case the record already knows: one comment
+entered in a docket and its sub-docket, one row ref, folded on the sheet like a filing.
+`ingest`'s `id_collisions` counter reported all 110 without distinguishing them; the
+distinguishing query is `COUNT(DISTINCT stb_row_ref) > 1`.
+
+**A single month can be large.** 2008-09 alone holds 4,708 comments — 95 pages at the
+clamped 50 — so the wave's `pages=200` is what keeps a mass-comment month whole, and the
+rows-against-total reconciliation is what proves it tiled.
+
 ## Measured 2026-08-26: document sizes
 
 Attachments are served from S3 (`dcms-external.s3.amazonaws.com`) with `Content-Length`;

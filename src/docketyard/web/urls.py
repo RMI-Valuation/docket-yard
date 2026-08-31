@@ -133,11 +133,15 @@ def week_path(monday) -> str:
 
 
 def record_path(kind: str, record_id: str) -> str:
-    if kind == "decision":
-        return decision_path(record_id)
+    """Filings and decisions only. A comment's address needs the docket that holds it, so
+    callers with an entry in hand use `comment_path(parse_docket_id(e.docket_raw), …)`.
+
+    A comment reaching here would silently become `/filing/EI-34280`, a live 404 — so it
+    raises instead. Found by review after the address moved and `viewer.html`'s prev/next
+    kept calling this with whatever kind the neighbouring entry happened to be."""
     if kind == "comment":
-        return comment_path(record_id)
-    return filing_path(record_id)
+        raise ValueError("a comment is addressed under its docket: use comment_path()")
+    return decision_path(record_id) if kind == "decision" else filing_path(record_id)
 
 
 def confirm_url(site: str, token: str) -> str:
@@ -168,15 +172,23 @@ def filing_path(stb_filing_id: str) -> str:
     return f"/filing/{stb_filing_id}"
 
 
-def comment_path(comment_number: str) -> str:
-    """An environmental comment's permanent address: the Board's own comment number, as
-    /filing/ and /decision/ use the Board's own record ids. `EI-34280` is what the row
-    prints, what its own link carries in data-stb-id, and what a person would cite.
+def comment_path(identity: ParsedDocket, comment_number: str) -> str:
+    """An environmental comment's permanent address, nested under the docket that holds it:
+    `/d/FD-35952/comment/EI-25366`.
 
-    Its uniqueness is MEASURED, not structural: across 2,385 comments sampled from 2003,
-    2010, 2019 and 2026, no number appeared under two dockets and none stood for two
-    comments — but the numbers are not a time sequence (September 2019 holds EI-30189
-    while October 2019 holds EI-26775), so nothing guarantees it. The store therefore
-    still keys on (docket, number), and ingest reports a number it finds under a second
-    docket as an anomaly rather than minting a second record under one address."""
+    The bare number is NOT the address, and the archive wave is why. A comment number was
+    measured unique across 2,385 sampled comments and is not: of the 34,255 the record
+    holds, `EI-25366` and `EI-25367` each name TWO different people's comments, in two
+    different dockets, on two different dates (`docs/stb-data-source.md`). The store was
+    keyed `(docket, number)` from the first migration, so this address is that key spelled
+    out — it cannot go ambiguous later however the Board numbers things.
+
+    `comment_short_path` keeps the citable bare form; its route redirects here."""
+    return f"{docket_path(identity)}/comment/{comment_number.strip().upper()}"
+
+
+def comment_short_path(comment_number: str) -> str:
+    """The bare number a person would cite. It resolves to exactly one comment for 34,253
+    of the 34,255 held and 301s to that comment's address; where two comments share a
+    number it answers with both rather than picking one of them silently."""
     return f"/comment/{comment_number.strip().upper()}"

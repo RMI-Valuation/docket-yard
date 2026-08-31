@@ -100,8 +100,8 @@ def event_summary(con: Connection, event_id: int, site: str) -> EventSummary:
             if decision_id
             else urls.filing_path(filing_id)
             if filing_id
-            else urls.comment_path(comment_number)
-            if comment_number
+            else urls.comment_path(ident, comment_number)
+            if comment_number and ident
             else None
         )
         return EventSummary(

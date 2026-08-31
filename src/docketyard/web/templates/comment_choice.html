@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Comment {{ number }} — two proceedings — {{ site_name }}{% endblock %}
+{% block description %}The Board has given the number {{ number }} to more than one environmental comment. Both are listed here, each at its own address.{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif docket-number">{{ number }}</h1>
+  <p>The Board has given this number to <strong>more than one environmental comment</strong>, in different proceedings. They are different comments by different people, not one comment entered twice, so this record will not choose between them.</p>
+  <ul>
+    {% for identity, docket_id in held %}
+    <li><a href="{{ comment_path(identity, number) }}">{{ number }} in {{ printed_docket(identity) }}</a></li>
+    {% endfor %}
+  </ul>
+  <p class="small muted">A comment's permanent address names its proceeding for this reason: the Board's comment numbers are unique across all but two of the {{ '34,255' }} this record holds, and an address that is right 99.994% of the time is not an address. Each link above is stable and answers one comment (<a href="https://github.com/RMI-Valuation/docket-yard/blob/main/docs/adr/0013-permanent-urls.md" rel="noopener">ADR 0013</a>).</p>
+</section>
+{% endblock %}

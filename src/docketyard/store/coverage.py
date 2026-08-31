@@ -74,9 +74,13 @@ def coverage(con: Connection) -> Coverage:
         ),
         filings=one("SELECT COUNT(DISTINCT stb_filing_id) FROM filing"),
         decisions=one("SELECT COUNT(DISTINCT stb_decision_id) FROM decision_record"),
-        # by the Board's own number, as filings and decisions are by theirs: a comment
-        # entered in a docket and its sub-docket is one comment
-        comments=one("SELECT COUNT(DISTINCT comment_number) FROM enviro_comment"),
+        # by (number, row ref), NOT the number alone: the row ref folds one comment
+        # entered in a docket and its sub-docket, while keeping the two numbers the Board
+        # gave to two DIFFERENT comments apart (measured, the archive wave)
+        comments=one(
+            "SELECT COUNT(*) FROM (SELECT 1 FROM enviro_comment"
+            " GROUP BY comment_number, COALESCE(stb_row_ref, ''))"
+        ),
         documents=one("SELECT COUNT(*) FROM document"),
         # derived from SPECS, like the held-URL union: this is the PUBLISHED backlog, so
         # a table left out of it hides its own backlog on the page that exists to show it

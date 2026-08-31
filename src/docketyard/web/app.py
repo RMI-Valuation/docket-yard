@@ -208,6 +208,7 @@ def create_app(
         decision_path=urls.decision_path,
         filing_path=urls.filing_path,
         comment_path=urls.comment_path,
+        comment_short_path=urls.comment_short_path,
         party_path=urls.party_path,
         party_feed_path=urls.party_feed_path,
         record_path=urls.record_path,
@@ -700,7 +701,14 @@ def create_app(
     def entry_json(e) -> dict:
         d = asdict(e)
         d.pop("parties", None)  # the enriched layer is held (dump.HELD_REASON)
-        d["url"] = f"https://{site_host}{urls.record_path(e.kind, e.record_id)}"
+        # a comment is addressed under the docket that holds it, and the entry carries
+        # which docket of the family that is — the bare number is not an address
+        if e.kind == "comment":
+            ident = parse_docket_id(e.docket_raw)
+            path = urls.comment_path(ident, e.record_id) if ident else None
+        else:
+            path = urls.record_path(e.kind, e.record_id)
+        d["url"] = f"https://{site_host}{path}" if path else None
         return d
 
     def sheet_json(request: Request, identity) -> Response:
@@ -763,12 +771,43 @@ def create_app(
     def decision_json(stb_id: str):
         return record_json("decision", stb_id)
 
+    def _comment_json_at(request: Request, ident: str, sub: str | None, number: str):
+        got = _comment_canonical(request, ident, sub, number, suffix=".json")
+        if isinstance(got, str):
+            return RedirectResponse(f"{got}.json", status_code=301)
+        identity, canonical = got, number.strip().upper()
+        s, entry = _comment_entry(db_path, identity, canonical)
+        d = entry_json(entry)
+        d["docket"] = docket_ref(s)
+        return as_json({"comment": d})
+
+    @app.get("/d/{ident}/comment/{number}.json")
+    def comment_json(request: Request, ident: str, number: str):
+        return _comment_json_at(request, ident, None, number)
+
+    @app.get("/d/{ident}/sub/{sub}/comment/{number}.json")
+    def sub_comment_json(request: Request, ident: str, sub: str, number: str):
+        return _comment_json_at(request, ident, sub, number)
+
     @app.get("/comment/{number}.json")
-    def comment_json(number: str):
+    def comment_short_json(number: str):
         canonical = number.strip().upper()
-        if canonical != number:  # one record, one address — as the HTML page does
-            return RedirectResponse(f"{urls.comment_path(canonical)}.json", status_code=301)
-        return record_json("comment", canonical)
+        held = _comments_numbered(db_path, canonical)
+        if not held:
+            raise HTTPException(404)
+        if len(held) == 1:
+            return RedirectResponse(
+                f"{urls.comment_path(held[0][0], canonical)}.json", status_code=301
+            )
+        return as_json(
+            {
+                "number": canonical,
+                "held_by": [
+                    {"docket": urls.printed_docket(i), "url": f"https://{site_host}{u}.json"}
+                    for i, u in ((i, urls.comment_path(i, canonical)) for i, _ in held)
+                ],
+            }
+        )
 
     @app.get("/data")
     def data_page(request: Request):
@@ -1191,15 +1230,56 @@ def create_app(
     def filing_page(request: Request, stb_id: str):
         return _record_page(request, db_path, render, "filing", stb_id)
 
-    @app.get("/comment/{number}")
-    def comment_page(request: Request, number: str):
-        """An environmental comment at its own address. The Board prints the number in one
-        case; a request in another is redirected to the canonical spelling rather than
-        answered at two addresses (ADR 0013: one record, one address)."""
+    def _comment_canonical(
+        request: Request, ident: str, sub: str | None, number: str, suffix: str = ""
+    ):
+        """The identity this comment is addressed under, or the path to redirect to.
+
+        Both halves canonicalise. The number's case, and the DOCKET: one comment entered
+        in a docket and its sub-docket is one comment and must not be live at two
+        addresses (ADR 0013), so the copy nearest the parent is the address and the other
+        redirects to it — the same copy the sheet folds to and the sitemap lists.
+        """
+        identity = urls.parse_docket_path(ident, sub)
+        if identity is None:
+            raise HTTPException(404)
         canonical = number.strip().upper()
-        if canonical != number:
-            return RedirectResponse(urls.comment_path(canonical), status_code=301)
-        return _record_page(request, db_path, render, "comment", canonical)
+        want = _addressing_docket(db_path, identity, canonical)
+        if want is None:
+            raise HTTPException(404)
+        path = urls.comment_path(want, canonical)
+        return want if path + suffix == _path(request) else path
+
+    def _comment_at(request: Request, ident: str, sub: str | None, number: str):
+        got = _comment_canonical(request, ident, sub, number)
+        if isinstance(got, str):
+            return RedirectResponse(got, status_code=301)
+        return _comment_page(request, db_path, render, got, number.strip().upper())
+
+    @app.get("/d/{ident}/comment/{number}")
+    def comment_page(request: Request, ident: str, number: str):
+        """A comment's permanent address, under the docket that holds it. The bare number
+        is a short form that redirects here: two of the 34,255 comments the record holds
+        share a number with a DIFFERENT comment, so only the docket-qualified form is
+        unambiguous (docs/stb-data-source.md, the archive wave)."""
+        return _comment_at(request, ident, None, number)
+
+    @app.get("/d/{ident}/sub/{sub}/comment/{number}")
+    def sub_comment_page(request: Request, ident: str, sub: str, number: str):
+        return _comment_at(request, ident, sub, number)
+
+    @app.get("/comment/{number}")
+    def comment_short(request: Request, number: str):
+        """The citable bare number. One comment: 301 to its address. More than one: say so
+        and name them, rather than silently serving whichever sorts first."""
+        canonical = number.strip().upper()
+        held = _comments_numbered(db_path, canonical)
+        if not held:
+            raise HTTPException(404)
+        if len(held) == 1:
+            return RedirectResponse(urls.comment_path(held[0][0], canonical), status_code=301)
+        return render(request, "comment_choice.html", number=canonical, held=held)
+        # (`held` carries only rows whose docket parsed — see _comments_numbered)
 
     # --- the document address and the viewer (ADR 0013 addendum, 2026-08-27) -----------
 
@@ -1289,10 +1369,11 @@ def create_app(
 
 def _record_entry(db_path, kind: str, stb_id: str):
     """A record's family sheet and its entry, or 404 — one lookup for the page and JSON."""
-    table, column = {
-        "decision": ("decision_record", "stb_decision_id"),
-        "comment": ("enviro_comment", "comment_number"),
-    }.get(kind, ("filing", "stb_filing_id"))
+    table, column = (
+        ("decision_record", "stb_decision_id")
+        if kind == "decision"
+        else ("filing", "stb_filing_id")
+    )
     con = _connect(db_path)
     try:
         # a record entered in a docket and its sub-docket is one record: headline the parent
@@ -1312,6 +1393,97 @@ def _record_entry(db_path, kind: str, stb_id: str):
     if entry is None:
         raise HTTPException(404)
     return s, entry
+
+
+def _comments_numbered(db_path, number: str) -> list:
+    """The DISTINCT comments held under this number, each as (identity, docket_id) naming
+    the docket that addresses it — the one nearest the parent.
+
+    Folded by the row ref, not by the number. One comment entered in a docket and its
+    sub-docket shares a row ref and is ONE comment with one address (108 of the 110
+    repeated numbers measured); two comments the Board happened to give the same number
+    have different row refs and are two (the other 2). Folding by number alone would tell
+    a reader that a cross-posted comment was "two different people", which is false.
+    """
+    con = _connect(db_path)
+    try:
+        rows = con.execute(
+            "SELECT d.raw_docket, c.docket_id, COALESCE(c.stb_row_ref, '') AS ref"
+            " FROM enviro_comment c JOIN docket d ON d.docket_id = c.docket_id"
+            " WHERE c.comment_number = ?"
+            " ORDER BY ref, COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, ''), c.comment_pk",
+            (number,),
+        ).fetchall()
+    finally:
+        con.close()
+    out, seen = [], set()
+    for raw, docket_id, ref in rows:
+        identity = parse_docket_id(raw)
+        if ref in seen or identity is None:
+            continue
+        seen.add(ref)
+        out.append((identity, docket_id))
+    return out
+
+
+def _addressing_docket(db_path, identity, number: str):
+    """Which docket addresses this comment, given any docket that holds it — or None.
+
+    A comment can sit in a docket and its sub-docket under one row ref; that is one
+    comment, and its address is the copy nearest the parent. Two comments sharing a
+    number have different row refs and each addresses its own docket."""
+    con = _connect(db_path)
+    try:
+        row = con.execute(
+            "SELECT COALESCE(c.stb_row_ref, '') FROM enviro_comment c JOIN docket d"
+            " ON d.docket_id = c.docket_id WHERE c.comment_number = ?"
+            " AND d.prefix = ? AND d.sequence = ?"
+            " AND COALESCE(d.sub_sequence, -1) = COALESCE(?, -1)"
+            " AND COALESCE(d.suffix, '') = COALESCE(?, '')",
+            (number, identity.prefix, identity.sequence, identity.sub_sequence, identity.suffix),
+        ).fetchone()
+        if row is None:
+            return None
+        best = con.execute(
+            "SELECT d.raw_docket FROM enviro_comment c JOIN docket d"
+            " ON d.docket_id = c.docket_id WHERE c.comment_number = ?"
+            " AND COALESCE(c.stb_row_ref, '') = ?"
+            " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, ''), c.comment_pk"
+            " LIMIT 1",
+            (number, row[0]),
+        ).fetchone()
+    finally:
+        con.close()
+    return parse_docket_id(best[0]) if best else None
+
+
+def _comment_entry(db_path, identity, number: str):
+    """One comment's family sheet and its entry, addressed by (docket, number)."""
+    con = _connect(db_path)
+    try:
+        row = con.execute(
+            "SELECT c.docket_id FROM enviro_comment c JOIN docket d"
+            " ON d.docket_id = c.docket_id WHERE c.comment_number = ?"
+            " AND d.prefix = ? AND d.sequence = ?"
+            " AND COALESCE(d.sub_sequence, -1) = COALESCE(?, -1)"
+            " AND COALESCE(d.suffix, '') = COALESCE(?, '')",
+            (number, identity.prefix, identity.sequence, identity.sub_sequence, identity.suffix),
+        ).fetchone()
+        if row is None:
+            raise HTTPException(404)
+        s = sheet.docket_sheet(con, row[0])
+    finally:
+        con.close()
+    assert s is not None
+    entry = next((e for e in s.entries if e.kind == "comment" and e.record_id == number), None)
+    if entry is None:
+        raise HTTPException(404)
+    return s, entry
+
+
+def _comment_page(request, db_path, render, identity, number: str):
+    s, entry = _comment_entry(db_path, identity, number)
+    return render(request, "record.html", sheet=s, entry=entry)
 
 
 def _record_page(request, db_path, render, kind: str, stb_id: str):
