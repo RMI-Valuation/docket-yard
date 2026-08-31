@@ -61,6 +61,24 @@ main { padding: 0 56px; }
 .viewer-rail h1 { font-size: 26px; margin: 4px 0 6px; }
 .viewer-fallback { margin-top: 8px; }
 .entry-links .view { margin-right: 8px; text-decoration: underline; }
+/* two icons, two meanings: a page with text reads it here, a tray-and-arrow fetches the
+   Board's own file. Sized and spaced as touch targets, not decorations. */
+.doc-icon { display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 4px; color: var(--muted); }
+.doc-icon:hover, .doc-icon:focus-visible { color: var(--ink); background: var(--tint); }
+.doc-icon.read { color: var(--ink); }
+/* a register lists hundreds of dockets: its number is a heading, not the sheet's display
+   number, and every group is separated (the operator, 2026-08-31) */
+.register-group { padding: 20px 0; border-top: 1px solid var(--hair); }
+.register-group:first-of-type { border-top: 0; }
+.register-docket { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: 0; }
+.register-docket a { text-decoration: none; }
+.register-docket a:hover { text-decoration: underline; }
+.register-count { margin-left: 8px; font-family: var(--sans, inherit); font-size: 12px;
+  font-weight: 600; letter-spacing: 0.04em; color: var(--muted); vertical-align: 2px; }
+.register-title { margin: 4px 0 0; max-width: 62ch; }
+.register-entries { margin-top: 10px; }
+.register-entries li { padding: 3px 0; }
 @media (max-width: 900px) { .viewer { grid-template-columns: 1fr; } .viewer-frame { height: 70vh; } }
 .lookup { position: relative; }
 .suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin: 4px 0 0; padding: 4px 0; list-style: none; background: var(--paper); border: 1px solid var(--hair); border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); }

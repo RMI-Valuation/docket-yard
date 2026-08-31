@@ -108,8 +108,9 @@
         {% if e.type and 'protective order' in e.type | lower %}<div class="small"><a class="muted" href="/protective">in the protective-order register</a></div>{% endif %}
       </div>
       <div class="entry-links">
-        {% set v = viewable_index(e) %}{% if v is not none %}<a class="view small" href="{{ viewer_path(e.kind, e.record_id, v) }}" target="_blank" rel="noopener" aria-label="View {{ 'decision' if e.kind == 'decision' else 'filing' }} {{ e.record_id }} beside its record">view</a>{% endif %}
-        {% for a in e.attachments %}<a class="pdf" href="{{ a.url }}" aria-label="The Board’s file for {{ 'decision' if e.kind == 'decision' else 'filing' }} {{ e.record_id }}{% if a.label %} ({{ a.label }}){% endif %}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path></svg></a>{% endfor %}
+        {% set noun = 'decision' if e.kind == 'decision' else 'filing' %}
+        {% set v = viewable_index(e) %}{% if v is not none %}<a class="doc-icon read" href="{{ viewer_path(e.kind, e.record_id, v) }}" target="_blank" rel="noopener" aria-label="Read {{ noun }} {{ e.record_id }} here, beside its record" title="Read it here"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path><path d="M9 12h7"></path><path d="M9 16h7"></path></svg></a>{% endif %}
+        {% for a in e.attachments %}<a class="doc-icon board" href="{{ a.url }}" target="_blank" rel="noopener" aria-label="The Board’s own file for {{ noun }} {{ e.record_id }}{% if a.label %} ({{ a.label }}){% endif %} (stb.gov)" title="The Board’s own file (stb.gov)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v10"></path><path d="M8 11l4 4 4-4"></path><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg></a>{% endfor %}
       </div>
     </li>
     {% else %}

@@ -9,8 +9,8 @@
   {% if entry.summary %}<p class="serif summary as-printed">{{ entry.summary }}</p>{% endif %}
   {% if entry.filed_for_raw %}<p>Filed for: <span class="as-printed">{{ display_filed_for(entry.filed_for_raw) }}</span></p>{% endif %}
   <p>
-    {% set v = viewable_index(entry) %}{% if v is not none %}<a class="btn" href="{{ viewer_path(entry.kind, entry.record_id, v) }}" target="_blank" rel="noopener">View the file</a> {% endif %}
-    {% for a in entry.attachments %}<a class="btn" href="{{ a.url }}">{{ a.label or 'The Board’s file' }}</a> {% endfor %}
+    {% set v = viewable_index(entry) %}{% if v is not none %}<a class="btn" href="{{ viewer_path(entry.kind, entry.record_id, v) }}">Read it here</a> {% endif %}
+    {% for a in entry.attachments %}<a class="btn" href="{{ a.url }}">{{ a.label or 'The Board’s own file' }} ↓</a> {% endfor %}
   </p>
   <p class="small muted">Permanent address <span class="mono">docketyard.org{{ decision_path(entry.record_id) if entry.kind == 'decision' else filing_path(entry.record_id) }}</span>{% for a in entry.attachments if a.document_sha256 %}<br>File <span class="mono">docketyard.org{{ document_path(a.document_sha256, a.media_type) }}</span>{% endfor %} · <a href="{{ docket_path(identity) }}">back to the docket sheet</a></p>
 </section>
