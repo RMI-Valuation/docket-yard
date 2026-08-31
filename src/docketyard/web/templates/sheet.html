@@ -42,7 +42,7 @@
     <tr>
       <td class="dk"><a href="{{ docket_path(parse_docket_id(m.raw_docket)) }}">{{ printed_docket(parse_docket_id(m.raw_docket)) }}</a></td>
       <td class="title as-printed">{{ m.title or '(caption not yet observed)' }}</td>
-      <td class="num held">{{ m.filings + m.decisions }} held</td>
+      <td class="num held">{{ m.filings + m.decisions + m.comments }} held</td>
       <td class="num last"><time datetime="{{ m.last_activity }}">{{ m.last_activity | fmt_date }}</time></td>
     </tr>
     {% endfor %}
@@ -99,22 +99,28 @@
       <div class="entry-date muted"><time datetime="{{ e.date or '' }}">{{ e.date | fmt_date }}</time>{% if e.date_printed %}<span class="vh"> (printed as {{ e.date_printed }})</span>{% endif %}</div>
       <div class="kind{% if e.kind == 'decision' %} kind-decision{% endif %}">{{ kind_label(e.kind, e.type) }}</div>
       <div class="entry-body">
-        <div class="entry-title"><span class="id">{{ e.record_id }}</span><a href="{{ decision_path(e.record_id) if e.kind == 'decision' else filing_path(e.record_id) }}" aria-label="{{ 'Decision' if e.kind == 'decision' else 'Filing' }} {{ e.record_id }}: permanent address">{% if e.kind == 'decision' %}{{ e.deciding_body or 'Decision' }}{% else %}{{ e.type or 'Filing' }}{% endif %}</a>
+        <div class="entry-title"><span class="id">{{ e.record_id }}</span>{% if e.kind == 'comment' %}<a href="{{ comment_path(e.record_id) }}" aria-label="Environmental comment {{ e.record_id }}: permanent address">{{ e.organisation or e.submitter or 'Environmental comment' }}</a>{% else %}<a href="{{ decision_path(e.record_id) if e.kind == 'decision' else filing_path(e.record_id) }}" aria-label="{{ 'Decision' if e.kind == 'decision' else 'Filing' }} {{ e.record_id }}: permanent address">{% if e.kind == 'decision' %}{{ e.deciding_body or 'Decision' }}{% else %}{{ e.type or 'Filing' }}{% endif %}</a>{% endif %}
           {% if e.docket_raw != sheet.raw_docket %}<span class="muted small">· in {{ printed_docket(parse_docket_id(e.docket_raw)) }}</span>{% endif %}
           {% if e.also_in %}<span class="muted small">· also entered in {% for raw in e.also_in %}{{ printed_docket(parse_docket_id(raw)) }}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
         </div>
         {% if e.kind == 'decision' and e.summary %}<div class="summary as-printed">{{ e.summary }}</div>{% endif %}
         {% if e.kind == 'filing' and e.filed_for_raw %}<div class="entry-for as-printed">{{ display_filed_for(e.filed_for_raw) }}</div>{% endif %}
+        {% if e.kind == 'comment' %}
+          {% if e.comment_text %}<div class="summary as-printed">{{ e.comment_text }}</div>{% endif %}
+          {% set named = e.organisation or e.submitter %}
+          {% set person = e.submitter if e.submitter != named else none %}
+          {% if person or e.location %}<div class="entry-for as-printed">{{ person or '' }}{% if person and e.location %} · {% endif %}{{ e.location or '' }}</div>{% endif %}
+        {% endif %}
         {% if e.type and 'protective order' in e.type | lower %}<div class="small"><a class="muted" href="/protective">in the protective-order register</a></div>{% endif %}
       </div>
       <div class="entry-links">
-        {% set noun = 'decision' if e.kind == 'decision' else 'filing' %}
+        {% set noun = 'decision' if e.kind == 'decision' else 'environmental comment' if e.kind == 'comment' else 'filing' %}
         {% set v = viewable_index(e) %}{% if v is not none %}<a class="doc-icon read" href="{{ viewer_path(e.kind, e.record_id, v) }}" target="_blank" rel="noopener" aria-label="Read {{ noun }} {{ e.record_id }} here, beside its record" title="Read it here"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path><path d="M9 12h7"></path><path d="M9 16h7"></path></svg></a>{% endif %}
         {% for a in e.attachments %}<a class="doc-icon board" href="{{ a.url }}" target="_blank" rel="noopener" aria-label="The Board’s own file for {{ noun }} {{ e.record_id }}{% if a.label %} ({{ a.label }}){% endif %} (stb.gov)" title="The Board’s own file (stb.gov)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v10"></path><path d="M8 11l4 4 4-4"></path><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg></a>{% endfor %}
       </div>
     </li>
     {% else %}
-    <li class="muted">No filings or decisions observed yet for this docket.</li>
+    <li class="muted">No filings, decisions or environmental comments observed yet for this docket.</li>
     {% endfor %}
     </ol>
     <p class="muted small no-print" id="empty-note" aria-live="polite" hidden>Nothing of that kind in this docket.</p>

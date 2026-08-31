@@ -2,7 +2,8 @@
 
 from sqlite3 import Connection
 
-from docketyard.capture.stb import DECISIONS, DISPLAY_CAP, FILINGS
+from docketyard.capture.stb import DECISIONS, DISPLAY_CAP, ENVIRO_COMMENTS, FILINGS
+from docketyard.ingest import observations
 from docketyard.store.db import load_json
 
 
@@ -30,7 +31,7 @@ def docket_titles(con: Connection, limit: int = 20) -> list[tuple[str, str | Non
 
 
 def freshness(con: Connection) -> dict:
-    """The three timestamps the silent-failure decomposition in docs/alerts.md checks:
+    """The timestamps the silent-failure decomposition in docs/alerts.md checks:
     no captures (the poller is dead or refused), captures but no events (the parser is
     broken or the Board is quiet), events but no documents (the fetch is broken). Off-box
     monitoring reads these; the box never judges its own health."""
@@ -44,7 +45,32 @@ def freshness(con: Connection) -> dict:
             " WHERE ingest_mode = 'forward' AND filter_asserted = 1 AND table_action IN (?, ?)",
             (FILINGS, DECISIONS),
         ).fetchone()[0],
-        "last_event": q("SELECT MAX(recorded_at) FROM event").fetchone()[0],
+        # scoped to the two record types the canary is ABOUT, for the same reason
+        # last_forward_capture excludes document fetches: a third table writing to the
+        # ledger — environmental comments, from 2026-08-31 — would otherwise keep this
+        # fresh while the filings or decisions parser was silently broken
+        "last_event": q(
+            "SELECT MAX(recorded_at) FROM event WHERE event_type IN"
+            " ('filing_observed', 'decision_observed')"
+        ).fetchone()[0],
+        # The comments table gets its own pair rather than joining the two above, because
+        # its rate is an order of magnitude lower (~4 a week against ~60) and folding it in
+        # would either drown it in the others' freshness or drag their thresholds out to
+        # useless. The capture half carries most of the weight: `filter_asserted` means the
+        # response was PARSED and every criterion positively verified, so a broken parser
+        # or renamed criteria go stale here within hours, not within the event window. A
+        # genuinely quiet week still refreshes it, because the quiet-week proof
+        # (poll.QUIET_TABLES) captures a wider window and that capture asserts.
+        "last_enviro_capture": q(
+            "SELECT MAX(captured_at) FROM capture"
+            " WHERE ingest_mode = 'forward' AND filter_asserted = 1 AND table_action = ?",
+            (ENVIRO_COMMENTS,),
+        ).fetchone()[0],
+        # the backstop for "parses cleanly, produces no events". Its threshold is set from
+        # the measured silence, not from the filings rate — see docs/alerts.md
+        "last_enviro_event": q(
+            "SELECT MAX(recorded_at) FROM event WHERE event_type = 'enviro_comment_observed'"
+        ).fetchone()[0],
         "last_document": q("SELECT MAX(first_seen_at) FROM document").fetchone()[0],
         # delivery: not "when did we last send" (a quiet week sends nothing) but "is
         # anything waiting too long" — the oldest alert still pending
@@ -73,10 +99,16 @@ def status(con: Connection) -> dict:
         "dockets": docket_count(con),
         "filings": q("SELECT COUNT(*) FROM filing").fetchone()[0],
         "decisions": q("SELECT COUNT(*) FROM decision_record").fetchone()[0],
+        "comments": q("SELECT COUNT(*) FROM enviro_comment").fetchone()[0],
         "documents": q("SELECT COUNT(*) FROM document").fetchone()[0],
+        # over every record table, derived from SPECS: a table left out understates the
+        # backlog the operator is looking at
         "attachments_unfetched": q(
-            "SELECT (SELECT COUNT(*) FROM filing_attachment WHERE document_sha256 IS NULL)"
-            " + (SELECT COUNT(*) FROM decision_attachment WHERE document_sha256 IS NULL)"
+            "SELECT "
+            + " + ".join(
+                f"(SELECT COUNT(*) FROM {spec.attachment_table} WHERE document_sha256 IS NULL)"
+                for spec in observations.SPECS.values()
+            )
         ).fetchone()[0],
         "events": q("SELECT COUNT(*) FROM event").fetchone()[0],
     }

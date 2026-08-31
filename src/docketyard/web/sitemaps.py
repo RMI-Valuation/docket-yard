@@ -16,7 +16,7 @@ from docketyard.parties import resolve
 from docketyard.web import urls
 
 PAGE = 40_000
-SECTIONS = ("pages", "dockets", "decisions", "filings", "parties", "documents")
+SECTIONS = ("pages", "dockets", "decisions", "filings", "comments", "parties", "documents")
 STATIC_PAGES = (
     "/",
     "/parties",
@@ -42,6 +42,9 @@ STATIC_PAGES = (
 _RECORDS = {
     "decisions": ("decision_record", "stb_decision_id", urls.decision_path),
     "filings": ("filing", "stb_filing_id", urls.filing_path),
+    # a comment is keyed on (docket, number) but addressed by the number alone; the
+    # DISTINCT below is what keeps one address to one sitemap entry (urls.comment_path)
+    "comments": ("enviro_comment", "comment_number", urls.comment_path),
 }
 _memo: dict[tuple, str] = {}
 _parties_memo: dict[str, list[tuple[int, str | None]]] = {}  # stamp -> entries

@@ -319,6 +319,155 @@ decision_record (                  -- natural key: (docket_id, decision_number)
 "All versions of Decision No. 30" is now a join: `decision_record` rows plus the
 `document_source.supersedes_sha256` chain — not a convention every consumer reinvents.
 
+### Environmental comments (F1's third record row)
+
+The Board publishes three tables per proceeding; the sheet held two. Found 2026-08-31 on
+AB 55 (Sub-No. 794X) — 70 records held, 6 environmental comments unheld — and measured the
+same day, twice: the endpoint's mechanics, then the rows themselves once the natural key
+turned out to depend on them (`stb-data-source.md` § Environmental comments). Structurally
+this is a third row of the kind `filing` and `decision_record` already are: a record row
+carrying zero-or-more attachments, established by an event. It reuses that shape — with one
+deliberate departure, in the key.
+
+```sql
+enviro_comment (                    -- natural key: (docket_id, comment_number)
+  comment_pk            bigint PK,
+  docket_id             FK docket,
+  comment_number        text NOT NULL,  -- 'EI-34280', 'EO-3243': printed in the row AND the
+                                        -- data-stb-id of its own detail link. The only
+                                        -- identity the source corroborates (see below)
+  stb_row_ref           text NULL,      -- the 203738 of FD_36873|203738|830758 — kept as a
+                                        -- corroborating attribute, never as the key
+  date_received_or_sent date NULL,      -- the Board heads this column "Date Received or
+                                        -- Sent" and declines to say which; so do we
+  submitter_raw         text NULL,      -- as printed (on an EO row, a document title)
+  organisation_raw      text NULL,      -- as printed
+  location_raw          text NULL,      -- 'Laramie, WY', kept whole and unparsed
+  comment_text_printed  text NULL,      -- the commenter's own words; absent on half the rows
+  observed_in_event     FK event
+)
+
+enviro_comment_attachment (         -- the same shape as filing_/decision_attachment
+  comment_pk        FK enviro_comment,
+  source_url        text,
+  label             text NULL,
+  document_sha256   FK document NULL,   -- null until fetched
+  UNIQUE (comment_pk, source_url)
+)
+```
+
+**The record is published as the Board publishes it, and no name is masked** (decided
+2026-08-31, after a masking design was drafted and dropped). A commenter filed on a public
+docket at a federal agency; that is the public record, and republishing it is what this
+project is for. ADR 0011's posture is about the site's **readers** — whose attention we
+decline to collect — not about the people who choose to file. So the page, the JSON and the
+CC0 snapshot all carry the comment whole: its words, its submitter, its organisation and its
+location, exactly as printed.
+
+The design that was dropped, recorded so it is not re-proposed from scratch: a mask over the
+submitter column, showing initials while the store kept the name as the Board prints it. It
+fails on its own terms, and the measurement is why. The submitter's own name is inside the
+comment's own words in **5 of the 76** comments measured for 2026 — `EI-34282` signs off
+*"Erin Collins President, Chesterton Town Council"*, and carries no attachment, so that cell
+is the only machine-readable copy there is. The name is also inside the attachment the Board
+serves, and it will be inside the extracted text when the OCR milestone lands. Masking one
+column while three other paths print the name is not a privacy measure but the appearance of
+one — and the appearance is worse than nothing, because a reader takes it for a promise.
+
+Consequences to hold to: **nothing published may imply that a name here can be held back**,
+and the schema carries no `masked_at` column, no CHECK, no trigger and no redaction pass in
+`store/dump.py`. Reinstating any of it is a new migration and a new decision, not the filling
+of a gap left open.
+
+**The key departs from filings and decisions because the source forces it.** Both of those key
+on the endpoint's own record id, and `observations.py` refuses any row whose printed id cell
+disagrees with the middle part of `data-stb-id` — the check that stops a column reorder
+mis-filing a record. **No cell of a comment row prints that middle part.** Keying on it would
+weld an uncorroborated number into an append-only ledger through `source_key`, where re-keying
+is not an `UPDATE` but tens of thousands of fresh events and a ledger of orphans. What the row
+does print is the comment number, which is also the `data-stb-id` of its own detail link — so
+the key is `(docket_id, comment_number)`, corroborated two ways (the cell text against that
+attribute, and the printed docket against the id's first part), with the middle part kept
+beside it as `stb_row_ref`. Measured over 150 rows of 2026: never blank, never colliding with
+a different middle part, never repeated across dockets. **A row with no comment number is
+quarantined and counted, never stored under a synthesised key** — the discipline a dropped row
+already gets.
+
+**One comment spans several rows, one per attachment**, exactly as filings do (FD 36854's
+`EI-34249` occupies four). The parser folds by (docket, record) and takes the attachment set as
+the union of this capture and what the record already holds — reused, not re-derived.
+
+**Every mirrored column must appear in the event payload.** In `observations.py` the payload is
+the *only* change detector (`latest_payload_by_key`), and `_upsert_record` writes columns *only*
+when the payload changed. So a column mirrored onto the record but missing from the payload is
+write-once current state: no history, no change detection, and Q3 quietly wrong for it. The rule
+is that every value of `record_columns` resolves through the payload keys, and it is pinned by a
+test across every spec — which retro-covers filings and decisions too.
+
+**Two columns are derivations, not quotes, and say so.** `date_received_or_sent` is
+`printed_date_to_iso` applied to the cell, with the printed form surviving in
+`payload["date_printed"]` as it does for filings; its name matches the Board's own column head,
+which declines to say whether the date is a receipt or a sending, so the schema declines too.
+`comment_text_printed` is the cell after `markup.clean`, which strips tags and collapses
+whitespace — a multi-paragraph comment loses its paragraphing. For the one column whose purpose
+is a member of the public's own words, that is worth naming rather than glossing: its provenance
+is the capture body at its `payload_version`, and the authoritative text is the attachment. It is
+measured **not** truncated (longest 1,549 characters, ending on a complete signature), so it is
+the whole comment as far as the table gives it — but the cleaned whole, not the printed whole.
+
+**Everything else is quoted, so the table carries no provenance block.** Like `filing` and
+`decision_record`, the remaining columns are cells as the source printed them, and their
+provenance is `observed_in_event → capture`. The provenance block belongs to derived claims, and
+this milestone derives none.
+
+**No position column — here or anywhere.** A comment states a position in the commenter's own
+words. Storing those words verbatim is quotation; a column naming what the position *is* would be
+inference, which the record forbids. A stance classification, if ever chosen, is a separate
+assertion table with ADR 0007 provenance and a `method` — never a column here, exactly as
+`document_party` carries none. The same rule disposes of the `EI`/`EO` split the measurement
+found (42 submitted comments to 8 of the Board's own environmental documents on FD 36873, the
+latter printing a document title where a submitter belongs): the prefix is *inside*
+`comment_number` and needs no column, and typing the row is a derived claim for whoever wants it.
+
+**Location: raw only** (decided 2026-08-31). ADR 0008 requires structured rows so that
+georeferencing never costs a re-read of the corpus. That cost does not arise on this column: the
+string arrives inside the table row and is stored whole, so parsing it later is a pass over
+stored strings — no fetch, no document opened. The `place` registry and `place_mention` therefore
+wait for the geography milestone (C3/D2). Two conditions this puts on what follows. First,
+`location_raw` is stored **uncut and unparsed**, because it is that pass's whole input — and it
+needs to be, since the format varies (`Laramie, WY` and `Towson, Maryland` both occur, so the
+state is not reliably a code and splitting it is a judgement, not a split). Second,
+**`place_mention` as drafted cannot receive it**: its natural key is
+`(document_sha256, source_location, raw_text)`, and a comment's location has no document — it is
+printed in a cell, and half these rows carry no attachment at all. That is break B1 recurring a
+milestone downstream. The geography milestone must anchor a mention on *exactly one of* a
+document or a capture-plus-record, the shape ADR 0007's block already has; cheap to settle now,
+while `place_mention` is still paper. **This is a narrowing of ADR 0008's categorical text living
+in a working draft, recorded as the operator's decision of 2026-08-31 — not as a draft's own
+reading of an accepted record.**
+
+**Submitter: raw text only** (decided 2026-08-31). `submitter_raw` and `organisation_raw` are
+stored and shown as the Board prints them, and nothing here mints a `party`. ADR 0015 makes a
+party id a permanent public address, never reused or withdrawn, and a milestone whose job is to
+capture rows does not open that door for a private individual who commented once. There is a
+second, structural reason the decision is right: `party.founding_key` is `NOT NULL UNIQUE`, one
+party per normalised span, so two different people who share a name would be silently minted as
+one — a false assertion about people, made with no evidence, in a store whose whole discipline is
+that resolution is a judgement carrying provenance. Linkage stays available as an **addition**: a
+`comment_party_span` / `comment_party_link` pair copying the party module's shape (migration 0006
+— copying, not reusing, since `filing_party_span.filing_pk` is `NOT NULL REFERENCES filing`),
+resolved against the raw text this table keeps.
+
+**Citations come from the attachment, never from the cell.** `citation` keys on
+`citing_document` — bytes. A comment's attachment is a document and is already expressible; the
+printed cell is not, and mining edges from it would mean a citation with no citing document.
+
+**Instruments group by document, not by event.** An earlier draft of this section claimed a NITU
+lifecycle could later take a comment event into its group with no schema change. That is false as
+drafted: `instrument_event`'s natural key is `(instrument_id, kind, document_sha256)`, so a
+comment with no attachment — half of them — cannot enter one. Recorded as a cost, not patched
+here; widening it belongs to the trail-use milestone.
+
 ### Party involvement
 
 ```sql
@@ -711,6 +860,75 @@ expresses directly. Unresolved members (`party_id IS NULL`) cannot match a party
 — acceptable only because resolution is re-runnable and the coverage page must say so.
 
 ---
+
+### The five queries against the environmental-comment rows (2026-08-31)
+
+Checked before any code, per `../CLAUDE.md`, then re-checked after the schema-critic's report
+and the row-level measurement it forced. The rows are a third record table, so the exposure is
+the same one filings and decisions had: the ledger and the identity, not the columns.
+
+- **Q1 — segment history.** Answerable exactly as before; comments neither help nor hinder it
+  today. What could foreclose the geography milestone is not the raw-only decision — a stored
+  string re-parses for free — but `place_mention`'s document-keyed natural key, which cannot
+  hold a location printed in a cell. Noted in the section above as that milestone's to fix
+  while it is still paper.
+- **Q2 — negative treatment.** Untouched. Comments produce no citation edges, and the rule
+  above ("from the attachment, never from the cell") keeps `citation.citing_document` honest;
+  the alternative would have been an edge with no citing document, which the key forbids.
+  Migration 0011 also closes the cost this section first recorded: `document_source` gains
+  `comment_source_key`, so a citation mined from a comment's attachment traces back to the
+  comment record and not merely to bytes and a URL. It holds the docket-qualified spelling,
+  not the bare number — its two siblings hold ids unique across the whole source, and a
+  comment number is identity only within a docket.
+- **Q3 — point-in-time docket state.** The query this design has to satisfy, and it does,
+  because
+  the comment is an event before it is a row: `enviro_comment_observed` — the type § 4's
+  vocabulary already reserved — with `occurred_at` from the date cell, `recorded_at` at ingest,
+  and `source_key = <canonical docket>|<comment number>`. The sheet as of 18 August 2026 replays
+  with its comments through the same ledger, on the existing `event_dedup` index. **The near
+  miss**: the ledger carries only what the payload carries, so a mirrored column left out of the
+  payload would have been invisible current state — correct today, unreplayable and
+  change-blind forever. Stated as a rule and pinned by a test, above.
+  The masking design that was dropped would have cost this query a divergence — a flag with
+  no event of its own, so the live store and the snapshot would replay two different
+  histories. Dropping it removes that cost rather than accepting it: every column on the
+  row is a quoted observation carried by an event, and one replay answers for both copies.
+- **Q4 — trail-use lifecycle.** Untouched. An earlier draft of this section claimed comments
+  could later join a NITU's instrument group with no schema change; that was wrong —
+  `instrument_event` groups by `document_sha256`, and half these rows have no document. The
+  claim is withdrawn and the cost recorded where it belongs.
+- **Q5 — service-list membership alert.** The alert path is untouched today:
+  `alerts/build.py` selects on an explicit `ALERTING_EVENT_TYPES` allowlist, so
+  `enviro_comment_observed` alerts nobody until it is named there, and both alert joins filter
+  `capture.ingest_mode = 'forward'`. Break B6 proper is closed for the backfill wave provided
+  **the wave's captures are labelled `backfill` before it starts**, not after it finishes. Two
+  things the allowlist does *not* cover, both recorded here rather than discovered later:
+  1. **`document_replaced` is itself an alerting type**, emitted by `capture/documents.py` for
+     whatever is in `SPECS`. The day a comments spec joins that dict, an erratum on a comment
+     PDF alerts every subscriber to that docket — and `alerts/summary.py` resolves the owner
+     through `document_source`'s two id columns, both null for a comment, so the mail would
+     read "a record it holds (not identified)" with no link.
+  2. **Widening the allowlist is itself a wave.** `build()` advances a subscription's mark to
+     the newest event it actually carried, not to the ledger head, so a subscriber on a quiet
+     docket still holds an old mark. Adding a new alerting type therefore delivers every event
+     of that type above that mark at once — forward-labelled, so `ingest_mode` does not stop it.
+     **The rule, recorded beside the allowlist: a new alerting type is added together with a
+     mark advance to the ledger head for active subscriptions, or with a floor date.**
+
+**Consumers that assume the record is two tables.** An earlier draft named two; there are at
+least eight, and each is widened deliberately by the milestone that wants it rather than
+silently here:
+
+| Consumer | What breaks if it is not widened |
+| --- | --- |
+| `store/dump.py` `PUBLIC_TABLES` | The CC0 snapshot refuses to build (`Unsafe`) the day the migration lands — a failsafe working as designed, and a decision to take deliberately |
+| `capture/documents.py` | `_held_sha` unions two attachment tables, and the two spec ternaries write null into both `document_source` id columns for any third spec |
+| `ingest/observations.py` | `_HELD_URLS` / `held_url_count`: comment attachments never enter the errata re-check, so ADR 0002's chain does not exist for them — **and the published re-check cycle is computed from that count** |
+| `store/coverage.py` | Published coverage counts held and unheld attachments over two tables, so it would understate both |
+| `alerts/summary.py` | Reads an event type as "decision, or else filing" |
+| `store/0010_search.sql` | ~~`search_doc.kind` is a closed `CHECK`~~ — widened by migration 0012; comments are indexed by their words, submitter, organisation and location |
+| `web/sitemaps.py` (ADR 0013) | A comment record has no permanent address in this schema at all |
+| The heartbeat | `last_event` is an unscoped `MAX(recorded_at) FROM event`, so a third table writing to the ledger **masks a filings/decisions parser outage** on that canary. Scope it by event type when the third table starts writing |
 
 ## What broke in revision 1
 

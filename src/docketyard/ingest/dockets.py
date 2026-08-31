@@ -202,6 +202,17 @@ def hit_display_cap(total: int) -> bool:
 # --- the registry --------------------------------------------------------------------
 
 
+def canonical_of(con: Connection, docket_id: int) -> str:
+    """The one spelling per identity, read back from the registry — the form event
+    `source_key`s are built from, so anything naming a record across tables can rebuild
+    the same string without re-parsing a raw docket number."""
+    prefix, sequence, sub, suffix = con.execute(
+        "SELECT prefix, sequence, sub_sequence, suffix FROM docket WHERE docket_id = ?",
+        (docket_id,),
+    ).fetchone()
+    return ParsedDocket(prefix, sequence, sub, suffix).canonical()
+
+
 def find_docket(con: Connection, identity: ParsedDocket) -> int | None:
     row = con.execute(
         """

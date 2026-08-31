@@ -60,6 +60,18 @@ is an instance and not the container service.
 
    The one-shot `migrate` service brings the store to the release's schema before anything
    else starts; `serve` refuses a store that is behind, which is why nothing races it.
+
+   **A release that rebuilds the search index leaves it empty until a pass rebuilds it**,
+   and an empty index answers "Nothing on record" rather than an error — indistinguishable
+   from a genuine miss. Migration 0012 is such a release. Run
+   `docker compose run --rm ingest docketyard search rebuild` straight after `migrate`, so
+   the index is remade in the same window the schema is rather than at the end of the first
+   full pass. (Docket-number lookups are unaffected either way: they never touch the index.)
+
+   **Rollback is not a tag change for a release that migrates.** `serve` refuses a store
+   whose `user_version` differs from the image's in EITHER direction, so once `migrate` has
+   run, the previous image will not start against the store. Recovery is a Litestream
+   restore to a point before the migration, not `docker compose pull` on the old tag.
 5. **Start**: `cd /srv/docketyard && docker compose pull && docker compose up -d`, then
    watch the first pass in `docker compose logs -f ingest`.
 6. **Check**: `curl -sI https://docketyard.org/` is 200; `docker compose ps` shows `web`

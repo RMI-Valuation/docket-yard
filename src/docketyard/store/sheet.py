@@ -6,6 +6,7 @@ sub-dockets merge into one list, newest first, each entry carrying the identifie
 needs to link the Board's own PDF and to cite the record.
 """
 
+import re
 from dataclasses import dataclass, field
 from sqlite3 import Connection
 
@@ -28,11 +29,11 @@ class Attachment:
 
 @dataclass(frozen=True)
 class Entry:
-    kind: str  # 'filing' | 'decision'
+    kind: str  # 'filing' | 'decision' | 'comment'
     date: str | None  # ISO, quoted from the record
     date_printed: str | None
     docket_raw: str  # which docket of the family the entry sits in
-    record_id: str  # STB filing id or decision id
+    record_id: str  # STB filing id, decision id, or comment number
     type: str | None
     filed_for_raw: str | None  # filings only; the cell as printed
     deciding_body: str | None  # decisions only
@@ -40,6 +41,12 @@ class Entry:
     attachments: list[Attachment] = field(default_factory=list)
     also_in: list[str] = field(default_factory=list)  # other family dockets it was entered in
     parties: list[int] = field(default_factory=list)  # component ids the filing was filed for
+    # comments only, each as printed. The submitter is NOT `filed_for_raw`: a commenter is
+    # not a filer, and saying so in the same field would be an inference the record forbids
+    submitter: str | None = None
+    organisation: str | None = None
+    location: str | None = None
+    comment_text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +61,7 @@ class SubDocket:
     title: str | None
     filings: int
     decisions: int
+    comments: int
     last_activity: str | None  # ISO, or None when nothing is held here
 
 
@@ -69,6 +77,7 @@ class DocketSheet:
     entries: list[Entry]
     filings: int
     decisions: int
+    comments: int
     last_checked: str | None  # latest capture that touched the family, ISO UTC
     parties: list[dict] = field(default_factory=list)  # the Parties block (party module)
 
@@ -100,10 +109,19 @@ def _family(con: Connection, docket_id: int) -> list[SubDocket]:
             ids,
         )
     }
+    comments = {
+        d: (n, last)
+        for d, n, last in con.execute(
+            f"SELECT docket_id, COUNT(DISTINCT comment_number), MAX(date_received_or_sent)"
+            f" FROM enviro_comment WHERE docket_id IN ({marks}) GROUP BY docket_id",
+            ids,
+        )
+    }
     out = []
     for d, raw, payload in rows:
         fn, fdate = filings.get(d, (0, None))
         dn, ddate = decisions.get(d, (0, None))
+        cn, cdate = comments.get(d, (0, None))
         out.append(
             SubDocket(
                 docket_id=d,
@@ -111,7 +129,10 @@ def _family(con: Connection, docket_id: int) -> list[SubDocket]:
                 title=load_json(payload)["title"] if payload else None,
                 filings=fn,
                 decisions=dn,
-                last_activity=max([x for x in (fdate, ddate) if x], default=None),
+                comments=cn,
+                # a proceeding whose only held record is a comment is still active, and
+                # the index must not show it as holding nothing
+                last_activity=max([x for x in (fdate, ddate, cdate) if x], default=None),
             )
         )
     return out
@@ -127,6 +148,14 @@ def _attachments(con: Connection, table: str, pk_col: str, pk: int) -> list[Atta
             (pk,),
         )
     ]
+
+
+PLACEHOLDERS = ("", "--", "---")  # what the Board prints for a cell it has nothing for
+
+
+def _present(cell: str | None) -> str | None:
+    """The cell's content, or None when the Board printed a placeholder instead."""
+    return None if (cell or "").strip() in PLACEHOLDERS else cell
 
 
 def _latest_payload(con: Connection, event_id: int) -> dict:
@@ -191,6 +220,35 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
                 attachments=_attachments(con, "decision_attachment", "decision_pk", pk),
             )
         )
+    for pk, fam_docket, number, cdate, submitter, org, location, text, event_id in con.execute(
+        f"SELECT comment_pk, docket_id, comment_number, date_received_or_sent, submitter_raw,"
+        f" organisation_raw, location_raw, comment_text_printed, observed_in_event"
+        f" FROM enviro_comment WHERE docket_id IN ({marks})",
+        ids,
+    ).fetchall():
+        p = _latest_payload(con, event_id)
+        entries.append(
+            Entry(
+                kind="comment",
+                date=cdate,
+                date_printed=p.get("date_printed"),
+                docket_raw=next(m.raw_docket for m in family if m.docket_id == fam_docket),
+                record_id=number,
+                type=None,
+                filed_for_raw=None,
+                deciding_body=None,
+                summary=None,
+                attachments=_attachments(con, "enviro_comment_attachment", "comment_pk", pk),
+                # the Board prints "--" for a cell it has nothing for. That is an ABSENCE,
+                # and printing it as a person's name or a place ("Pamela Underwood, --")
+                # states something the record does not. The store keeps the cell exactly as
+                # printed; this projection is where a placeholder stops being content.
+                submitter=_present(submitter),
+                organisation=_present(org),
+                location=_present(location),
+                comment_text=_present(text),
+            )
+        )
     # a record entered in the docket and its sub-docket is one record: fold to the copy
     # nearest the parent (family order) and note where else it was entered
     entries = _fold_family_duplicates(entries, [m.raw_docket for m in family])
@@ -223,18 +281,30 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
             own is not None
             and own.filings == 0
             and own.decisions == 0
+            and own.comments == 0
             and len(family) - 1 >= SERIES_SUBS
         ),
         entries=entries,
         filings=sum(1 for e in entries if e.kind == "filing"),
         decisions=sum(1 for e in entries if e.kind == "decision"),
+        comments=sum(1 for e in entries if e.kind == "comment"),
         last_checked=last,
         parties=resolve.parties_in(con, ids),
     )
 
 
+_DIGITS = re.compile(r"\d+")
+
+
 def _numeric(record_id: str) -> int:
-    return int(record_id) if record_id.isdigit() else 0
+    """The sortable part of a record id. Filings and decisions print bare digits; a comment
+    prints `EI-34280`, whose digits ARE its sequence — returning 0 for those would leave
+    every same-day comment in whatever order the SELECT happened to yield, against this
+    module's promise of a stable, explainable order."""
+    if record_id.isdigit():
+        return int(record_id)
+    m = _DIGITS.search(record_id)
+    return int(m.group()) if m else 0
 
 
 def _fold_family_duplicates(entries: list[Entry], family_order: list[str]) -> list[Entry]:

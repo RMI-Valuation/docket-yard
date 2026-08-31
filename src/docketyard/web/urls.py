@@ -133,7 +133,11 @@ def week_path(monday) -> str:
 
 
 def record_path(kind: str, record_id: str) -> str:
-    return decision_path(record_id) if kind == "decision" else filing_path(record_id)
+    if kind == "decision":
+        return decision_path(record_id)
+    if kind == "comment":
+        return comment_path(record_id)
+    return filing_path(record_id)
 
 
 def confirm_url(site: str, token: str) -> str:
@@ -162,3 +166,17 @@ def decision_path(stb_decision_id: str) -> str:
 
 def filing_path(stb_filing_id: str) -> str:
     return f"/filing/{stb_filing_id}"
+
+
+def comment_path(comment_number: str) -> str:
+    """An environmental comment's permanent address: the Board's own comment number, as
+    /filing/ and /decision/ use the Board's own record ids. `EI-34280` is what the row
+    prints, what its own link carries in data-stb-id, and what a person would cite.
+
+    Its uniqueness is MEASURED, not structural: across 2,385 comments sampled from 2003,
+    2010, 2019 and 2026, no number appeared under two dockets and none stood for two
+    comments — but the numbers are not a time sequence (September 2019 holds EI-30189
+    while October 2019 holds EI-26775), so nothing guarantees it. The store therefore
+    still keys on (docket, number), and ingest reports a number it finds under a second
+    docket as an anomaly rather than minting a second record under one address."""
+    return f"/comment/{comment_number.strip().upper()}"

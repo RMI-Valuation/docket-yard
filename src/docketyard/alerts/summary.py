@@ -81,17 +81,27 @@ def event_summary(con: Connection, event_id: int, site: str) -> EventSummary:
     ).fetchone()
     observed_at = observed[0] if observed else ""
     if etype == "document_replaced":
+        # Ordered, not `LIMIT 1` on an arbitrary row: one URL can be owned by records in
+        # more than one table, and an unowned row (or a comment, whose owner lives in a
+        # third column) would otherwise win and report a NAMED filing as "not identified".
         owner = con.execute(
-            "SELECT stb_filing_id, stb_decision_id FROM document_source"
-            " WHERE document_sha256 = ? AND source_url = ? LIMIT 1",
+            "SELECT stb_filing_id, stb_decision_id, comment_source_key FROM document_source"
+            " WHERE document_sha256 = ? AND source_url = ?"
+            " ORDER BY (stb_filing_id IS NULL AND stb_decision_id IS NULL"
+            "           AND comment_source_key IS NULL) LIMIT 1",
             (p.get("new"), p.get("source_url")),
         ).fetchone()
-        filing_id, decision_id = owner or (None, None)
+        filing_id, decision_id, comment_key = owner or (None, None, None)
+        # a comment is addressed by its number; the docket half of the key is already the
+        # docket this alert names
+        comment_number = comment_key.split("|")[-1] if comment_key else None
         path = (
             urls.decision_path(decision_id)
             if decision_id
             else urls.filing_path(filing_id)
             if filing_id
+            else urls.comment_path(comment_number)
+            if comment_number
             else None
         )
         return EventSummary(
@@ -100,8 +110,16 @@ def event_summary(con: Connection, event_id: int, site: str) -> EventSummary:
             docket=printed,
             docket_url=docket_url,
             first=False,
-            record_id=decision_id or filing_id,
-            record_kind="decision" if decision_id else "filing" if filing_id else None,
+            record_id=decision_id or filing_id or comment_number,
+            record_kind=(
+                "decision"
+                if decision_id
+                else "filing"
+                if filing_id
+                else "environmental comment"
+                if comment_number
+                else None
+            ),
             date=None,
             url=f"https://{site}{path}" if path else None,
             board_files=[p["source_url"]] if p.get("source_url") else [],

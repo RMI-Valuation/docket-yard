@@ -1,12 +1,19 @@
 """The forward poller: one pass over the recent window, on a timer in production.
 
-Each pass captures the filings and decisions tables for the trailing window, ingests every
-asserted capture, and fetches attachments not yet in the blob store. Captures are
-idempotent to ingest, so a window that overlaps the last pass costs requests, not
-correctness — and the overlap is what catches a record the Board back-dates into a day
+Each pass captures the filings, decisions and environmental-comment tables for the trailing
+window, ingests every asserted capture, and fetches attachments not yet in the blob store.
+Captures are idempotent to ingest, so a window that overlaps the last pass costs requests,
+not correctness — and the overlap is what catches a record the Board back-dates into a day
 already polled. The window is a week: wide enough that a genuinely empty result is
 implausible at the agency's rate (~60 records a week), which is what lets the no-results
 envelope on page 1 be treated as the trap it usually is (`stb-data-source.md`).
+
+That argument does NOT hold for every table. Environmental comments run at a measured ~4 a
+week, so an empty week is ordinary there — and the envelope cannot tell an ordinary quiet
+week from criteria, a sort key or a nonce that broke silently. Rather than weaken the
+signal for every table, a quiet week on such a table is PROVED: one request over a much
+wider window, and only an answer with rows earns the slice the status `empty`. See
+QUIET_TABLES.
 
 Each pass starts by scraping fresh nonces: WordPress rotates them on a 12–24 hour clock and
 the client would otherwise carry a dead one for the life of the container.
@@ -17,7 +24,7 @@ from datetime import UTC, date, datetime, timedelta
 from sqlite3 import Connection
 
 from docketyard.capture import documents, walk
-from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS
+from docketyard.capture.stb import DECISIONS, DOCKETS, ENVIRO_COMMENTS, FILINGS
 from docketyard.ingest import dockets, observations
 from docketyard.parties import resolve
 from docketyard.store import projections, search
@@ -69,6 +76,13 @@ def _ingest_pending(con: Connection, data_dir, action: str, problems: list[str])
         dropped = stats.get("unparsed", 0) + stats.get("markup_skipped", 0)
         if dropped:
             problems.append(f"capture {capture_id}: {dropped} rows dropped at parse; raw retained")
+        if stats.get("id_collisions"):
+            # a record id doubles as a permanent public address: two dockets claiming one
+            # is an anomaly to look at, not a row to trust (urls.comment_path)
+            problems.append(
+                f"capture {capture_id}: {stats['id_collisions']} record id(s) already held"
+                " under another docket — a permanent address may be ambiguous"
+            )
         for key, value in stats.items():
             if isinstance(value, int):
                 counts[key] = counts.get(key, 0) + value
@@ -245,6 +259,41 @@ def _fill_captions(
     return out | {"wanted": len(wanted), "captioned_ids": asked_ids}
 
 
+# Tables quiet enough that a genuinely empty week is ordinary. The forward window's whole
+# argument for reading a page-1 no-results envelope as the trap is that an empty answer is
+# implausible at ~60 records a week — true of filings and decisions, false of environmental
+# comments at a measured ~4 a week, bursty. Left unhandled, every quiet week would raise the
+# one signal that means "your criteria, sort or nonce broke silently", and the operator would
+# learn to ignore it — including when it fires on a table where it is real.
+QUIET_TABLES = (ENVIRO_COMMENTS,)
+PROOF_DAYS = 90  # the wider window a quiet week is proved against
+
+
+def _prove_quiet(con: Connection, client, action: str, today: date, *, data_dir, log) -> bool:
+    """Is this table's empty week genuinely empty, or silently broken?
+
+    The envelope cannot tell them apart, so ask a question whose answer can. One request
+    over a much wider window, with the same criteria names, sort and nonce: if THAT
+    asserts with rows, the whole apparatus demonstrably still works and the quiet week is
+    real. If it comes back empty too, the trap stands and the pass says so. Captured like
+    everything else, so the proof is on record rather than in a log line.
+    """
+    spec = observations.SPECS[action]
+    start, end = window(today, PROOF_DAYS)
+    criteria = [(spec.date_criteria[0], start), (spec.date_criteria[1], end)]
+    try:
+        proof = walk.capture_slice(
+            con, client, action, criteria, data_dir=data_dir, pages=1, mode="forward", log=log
+        )
+    except Exception as e:  # noqa: BLE001 — a failed proof proves nothing; the trap stands
+        log(f"  {action}: quiet-week proof failed ({type(e).__name__}: {e})")
+        return False
+    if proof.rows > 0 and not proof.quarantined:
+        log(f"  {action}: empty window proved quiet — {proof.rows} rows over {PROOF_DAYS} days")
+        return True
+    return False
+
+
 def forward_pass(
     con: Connection,
     client,
@@ -270,7 +319,7 @@ def forward_pass(
     except Exception as e:  # noqa: BLE001 — the search page itself is unreachable
         online = False
         summary["problems"].append(f"nonce refresh failed ({type(e).__name__}: {e})")
-    for action in (FILINGS, DECISIONS):
+    for action in (FILINGS, DECISIONS, ENVIRO_COMMENTS):
         spec = observations.SPECS[action]
         criteria = [(spec.date_criteria[0], start), (spec.date_criteria[1], end)]
         if not online:
@@ -292,8 +341,12 @@ def forward_pass(
                 summary["captured"][action] = "failed"
                 summary["problems"].append(f"{action}: capture failed ({type(e).__name__}: {e})")
             else:
+                if result.envelope_on_first_page and action in QUIET_TABLES:
+                    result.expected_empty = _prove_quiet(
+                        con, client, action, today or date.today(), data_dir=data_dir, log=log
+                    )
                 summary["captured"][action] = result.status
-                if result.status != "done":
+                if result.status not in ("done", "empty"):
                     summary["problems"].append(f"{action}: {_describe(result)}")
         # ingest needs no network: whatever an earlier pass left asserted-but-pending is
         # consumed even while the endpoint is down

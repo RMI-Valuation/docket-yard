@@ -45,6 +45,9 @@ PREFIX_NAMES = {
 def kind_label(kind: str, filing_type: str | None) -> str:
     if kind == "decision":
         return "Decision"
+    if kind == "comment":
+        # the Board's own name for the table these come from; the row carries no type
+        return "Comment"
     text = (filing_type or "").lower()
     for needle, label in _RULES:
         if needle in text:

@@ -1,17 +1,24 @@
 {% extends "base.html" %}
 {% set identity = parse_docket_id(entry.docket_raw) %}
-{% block title %}{{ 'Decision' if entry.kind == 'decision' else 'Filing' }} {{ entry.record_id }} — {{ printed_docket(identity) }} — {{ site_name }}{% endblock %}
+{% set noun = {'decision': 'Decision', 'comment': 'Environmental comment'}.get(entry.kind, 'Filing') %}
+{% block title %}{{ noun }} {{ entry.record_id }} — {{ printed_docket(identity) }} — {{ site_name }}{% endblock %}
 {% block main %}
 <section class="caption">
   <div class="caption-meta muted small"><a href="{{ docket_path(identity) }}">{{ printed_docket(identity) }}</a>{% if sheet.title %} · <span class="as-printed">{{ sheet.title }}</span>{% endif %}</div>
-  <h1 class="serif docket-number">{{ 'Decision' if entry.kind == 'decision' else 'Filing' }} {{ entry.record_id }}</h1>
+  <h1 class="serif docket-number">{{ noun }} {{ entry.record_id }}</h1>
   <p class="muted"><time datetime="{{ entry.date or '' }}">{{ entry.date | fmt_date }}</time>{% if entry.date_printed %} <span class="small">(printed as {{ entry.date_printed }})</span>{% endif %}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}</p>
   {% if entry.summary %}<p class="serif summary as-printed">{{ entry.summary }}</p>{% endif %}
   {% if entry.filed_for_raw %}<p>Filed for: <span class="as-printed">{{ display_filed_for(entry.filed_for_raw) }}</span></p>{% endif %}
+  {% if entry.kind == 'comment' %}
+    {% if entry.comment_text %}<p class="serif summary as-printed">{{ entry.comment_text }}</p>{% endif %}
+    {% set who = [entry.submitter, entry.organisation, entry.location] | select | list %}
+    {% if who %}<p>Submitted by: <span class="as-printed">{{ who | join(' · ') }}</span></p>{% endif %}
+    <p class="small muted">The Board publishes this comment in its environmental-comment table for this proceeding. It is quoted here as printed; nothing is inferred from it, and it states the commenter's own position in their own words, not this record's.</p>
+  {% endif %}
   <p>
     {% set v = viewable_index(entry) %}{% if v is not none %}<a class="btn" href="{{ viewer_path(entry.kind, entry.record_id, v) }}">Read it here</a> {% endif %}
     {% for a in entry.attachments %}<a class="btn" href="{{ a.url }}">{{ a.label or 'The Board’s own file' }} ↓</a> {% endfor %}
   </p>
-  <p class="small muted">Permanent address <span class="mono">docketyard.org{{ decision_path(entry.record_id) if entry.kind == 'decision' else filing_path(entry.record_id) }}</span>{% for a in entry.attachments if a.document_sha256 %}<br>File <span class="mono">docketyard.org{{ document_path(a.document_sha256, a.media_type) }}</span>{% endfor %} · <a href="{{ docket_path(identity) }}">back to the docket sheet</a></p>
+  <p class="small muted">Permanent address <span class="mono">docketyard.org{{ record_path(entry.kind, entry.record_id) }}</span>{% for a in entry.attachments if a.document_sha256 %}<br>File <span class="mono">docketyard.org{{ document_path(a.document_sha256, a.media_type) }}</span>{% endfor %} · <a href="{{ docket_path(identity) }}">back to the docket sheet</a></p>
 </section>
 {% endblock %}

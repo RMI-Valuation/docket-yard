@@ -188,6 +188,13 @@ def test_json_twins_at_the_permanent_addresses(tmp_path):
         "attachments",
         "also_in",
         "url",
+        # the comment's own fields, null on a filing or decision. Added without a
+        # shape_version bump, which the API page's own promise allows: "new fields
+        # may appear without a bump; read by name, not by position"
+        "submitter",
+        "organisation",
+        "location",
+        "comment_text",
     }
 
 

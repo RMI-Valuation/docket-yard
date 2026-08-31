@@ -37,6 +37,7 @@ def test_coverage_numbers_are_measured(tmp_path):
     con = db.connect(path)
     cov = coverage.coverage(con)
     assert cov.dockets == 2 and cov.filings == 2 and cov.decisions == 1  # by Board id
+    assert cov.comments == 0  # the third record row, counted the same way
     assert cov.forward_since and cov.earliest_filed == "2026-08-24"
     assert cov.empty_prefixes == ("ARB", "ASC", "DSO", "RER", "S5A", "SUS")
     assert cov.gaps == []
@@ -48,6 +49,10 @@ def test_coverage_numbers_are_measured(tmp_path):
     con.close()
     r = TestClient(create_app(path)).get("/coverage")
     assert "2 filings" in r.text and "2 dockets" in r.text
+    # the page no longer says environmental comments are absent: the watch asks for them
+    assert "Environmental comments and rail recordations" not in r.text
+    # the watch line names comments without backdating the watch to before they joined it
+    assert "Environmental comments joined that watch later" in r.text
     assert "Outages" in r.text and "captures" in r.text and "<td>x</td>" in r.text
 
 

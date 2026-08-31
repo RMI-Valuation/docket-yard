@@ -9,7 +9,14 @@ whatever has been walked so far.
 from dataclasses import dataclass
 from sqlite3 import Connection
 
-from docketyard.capture.stb import DECISIONS, DOCKETS, EXPECTED_EMPTY_PREFIXES, FILINGS
+from docketyard.capture.stb import (
+    DECISIONS,
+    DOCKETS,
+    ENVIRO_COMMENTS,
+    EXPECTED_EMPTY_PREFIXES,
+    FILINGS,
+)
+from docketyard.ingest import observations
 
 
 @dataclass(frozen=True)
@@ -28,6 +35,7 @@ class Coverage:
     last_checked: str | None  # newest forward table capture
     filings: int
     decisions: int
+    comments: int
     documents: int
     attachments_unfetched: int
     earliest_filed: str | None  # among forward-observed filings
@@ -66,23 +74,36 @@ def coverage(con: Connection) -> Coverage:
         ),
         filings=one("SELECT COUNT(DISTINCT stb_filing_id) FROM filing"),
         decisions=one("SELECT COUNT(DISTINCT stb_decision_id) FROM decision_record"),
+        # by the Board's own number, as filings and decisions are by theirs: a comment
+        # entered in a docket and its sub-docket is one comment
+        comments=one("SELECT COUNT(DISTINCT comment_number) FROM enviro_comment"),
         documents=one("SELECT COUNT(*) FROM document"),
+        # derived from SPECS, like the held-URL union: this is the PUBLISHED backlog, so
+        # a table left out of it hides its own backlog on the page that exists to show it
         attachments_unfetched=one(
-            "SELECT (SELECT COUNT(*) FROM filing_attachment WHERE document_sha256 IS NULL)"
-            " + (SELECT COUNT(*) FROM decision_attachment WHERE document_sha256 IS NULL)"
+            "SELECT "
+            + " + ".join(
+                f"(SELECT COUNT(*) FROM {spec.attachment_table} WHERE document_sha256 IS NULL)"
+                for spec in observations.SPECS.values()
+            )
         ),
         earliest_filed=one(
             "SELECT MIN(f.filed_date) FROM filing f"
             " JOIN event e ON e.event_id = f.observed_in_event"
             " JOIN capture c ON c.capture_id = e.capture_id WHERE c.ingest_mode = 'forward'"
         ),
+        # over every record table: after a comments wave the span reaches back decades
+        # further than filings and decisions do, and a published span that omitted it
+        # would understate what the record actually holds
         record_from=one(
             "SELECT MIN(d) FROM (SELECT MIN(NULLIF(filed_date, '')) AS d FROM filing"
-            " UNION ALL SELECT MIN(NULLIF(service_date, '')) FROM decision_record)"
+            " UNION ALL SELECT MIN(NULLIF(service_date, '')) FROM decision_record"
+            " UNION ALL SELECT MIN(NULLIF(date_received_or_sent, '')) FROM enviro_comment)"
         ),
         record_to=one(
             "SELECT MAX(d) FROM (SELECT MAX(NULLIF(filed_date, '')) AS d FROM filing"
-            " UNION ALL SELECT MAX(NULLIF(service_date, '')) FROM decision_record)"
+            " UNION ALL SELECT MAX(NULLIF(service_date, '')) FROM decision_record"
+            " UNION ALL SELECT MAX(NULLIF(date_received_or_sent, '')) FROM enviro_comment)"
         ),
         earliest_served=one(
             "SELECT MIN(r.service_date) FROM decision_record r"
@@ -110,10 +131,12 @@ def coverage(con: Connection) -> Coverage:
             sorted(
                 {
                     r[0].split(":", 1)[1][:7]
+                    # every walked record table: a comment month a wave has not finished
+                    # is as unfinished as a filings month, and the page exists to say so
                     for r in q(
-                        "SELECT slice_key FROM walk_slice WHERE table_action IN (?, ?)"
+                        "SELECT slice_key FROM walk_slice WHERE table_action IN (?, ?, ?)"
                         " AND status NOT IN ('done', 'empty')",
-                        (FILINGS, DECISIONS),
+                        (FILINGS, DECISIONS, ENVIRO_COMMENTS),
                     )
                 }
             )

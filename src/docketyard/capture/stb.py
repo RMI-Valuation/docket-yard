@@ -29,6 +29,7 @@ USER_AGENT = f"Mozilla/5.0 (compatible; DocketYard/{__version__}; +https://docke
 DOCKETS = "stb_hook_table_dockets"
 FILINGS = "stb_hook_table_filings"
 DECISIONS = "stb_hook_table_decisions"
+ENVIRO_COMMENTS = "stb_hook_table_environmental_comments"
 
 # 10,000 in `total` is a display cap, not a count (docs/stb-data-source.md). The single
 # definition — ingest imports it rather than re-declaring the number.
@@ -40,10 +41,22 @@ CHUNK = records.CHUNK  # bytes per read when a document is streamed to disk
 # The stable sort per table. The default order is NOT repeatable (measured), so every
 # multi-page walk pins one of these. Dockets ascend so a walk is resumable by inspection;
 # filings/decisions descend so forward polling sees the newest first.
+#
+# ENVIRO_COMMENTS is the exception, and its empty string is a MEASURED VALUE, not a default
+# left unset (2026-08-31). That table accepts no sort at all: every candidate key tried —
+# date, receivedDate, dateReceived, receivedOrSentDate, commentDate, receivedSentDate,
+# dateReceivedOrSent, commentNum — answers the empty "There are no environmental comments
+# available" envelope with a 200, the same silent-failure shape as the criteria format and
+# the two wrong date pairs. `sort_order` is echoed back ("…Asc.") and then ignored: asc and
+# desc return identical rows, newest first. Paging it is safe anyway, which was measured
+# rather than assumed — 151 rows over four pages carried 151 distinct data-stb-ids, no
+# overlap and no omission. Do not "fix" this by supplying a sort key: that silently
+# empties the walk.
 TABLE_SORT = {
     DOCKETS: ("docketNum", "asc"),
     FILINGS: ("officialFilingDate", "desc"),
     DECISIONS: ("serviceDate", "desc"),
+    ENVIRO_COMMENTS: ("", "desc"),
 }
 
 # The 34 prefixes the search form offers (census 2026-08-25; none reaches the display cap).

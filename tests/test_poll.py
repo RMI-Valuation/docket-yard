@@ -7,9 +7,10 @@ import pytest
 
 from docketyard import cli
 from docketyard.capture import poll, walk
-from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS
+from docketyard.capture.stb import DECISIONS, DOCKETS, ENVIRO_COMMENTS, FILINGS
 from docketyard.store import db, projections
 from tests.test_dockets_parse import make_body
+from tests.test_enviro_ingest import comment_row
 from tests.test_observations import body_of, decision_row, filing_row
 from tests.test_walk import NO_RESULTS
 
@@ -77,16 +78,24 @@ def test_forward_pass_captures_ingests_and_fetches(tmp_path):
         {
             FILINGS: body_of(filing_row(fid="311981", date="8/25/2026"), 1),
             DECISIONS: body_of(decision_row(did="53210", date="8/24/2026"), 1),
+            ENVIRO_COMMENTS: body_of(comment_row(date="8/23/2026"), 1),
         }
     )
     lines = []
     summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lines.append)
     assert summary["window"] == ("08/19/2026", "08/25/2026")
-    assert summary["captured"] == {FILINGS: "done", DECISIONS: "done"}
+    assert summary["captured"] == {
+        FILINGS: "done",
+        DECISIONS: "done",
+        ENVIRO_COMMENTS: "done",
+    }
     assert summary["problems"] == []
     status = projections.status(con)
     assert status["filings"] == 1 and status["decisions"] == 1
-    assert status["attachments_unfetched"] == 0 and len(client.fetched) == 2
+    assert status["attachments_unfetched"] == 0
+    # three tables watched, three attachments fetched: the filing, the decision and
+    # the environmental comment
+    assert len(client.fetched) == 3
     assert lines[-1].startswith("poll 08/19/2026..08/25/2026")
     # the criteria went through the pair that filters, never officialFilingStartDate
     sent = {name for criteria in client.criteria_sent for name, _ in criteria}
@@ -103,7 +112,7 @@ def test_forward_pass_captures_ingests_and_fetches(tmp_path):
     # the first pass and the ledger holds that ask, so the second pass inside the retry
     # window does not repeat it (stb-ingest-specialist, 2026-08-31 — an uncaptioned docket
     # that keeps receiving records must not be asked about every half hour for 45 days)
-    assert after["captures"] == before["captures"] + 2
+    assert after["captures"] == before["captures"] + 3  # one page per watched table
     assert again["captions"]["asked"] == 0 and again["captions"]["captioned"] == 0
     for key in ("filings", "decisions", "documents", "events"):
         assert after[key] == before[key], key
@@ -120,38 +129,58 @@ def test_forward_pass_captures_ingests_and_fetches(tmp_path):
     assert third["rechecked"]["fetched"] == 1 and third["rechecked"]["replaced"] == 1
     replaced = "SELECT COUNT(*) FROM event WHERE event_type = 'document_replaced'"
     assert con.execute(replaced).fetchone()[0] == 1
-    assert passes()["rechecked"]["fetched"] == 1  # the other one; the first is checked now
-    assert passes()["rechecked"]["fetched"] == 0  # both checked within the month
+    assert passes()["rechecked"]["fetched"] == 1  # the second; the first is checked now
+    assert passes()["rechecked"]["fetched"] == 1  # the third: the comment's attachment,
+    # which joins the errata re-check like any other held file (ADR 0002)
+    assert passes()["rechecked"]["fetched"] == 0  # all three checked within the month
 
 
 def test_a_pass_over_a_dead_endpoint_reports_rather_than_raises(tmp_path):
     con = db.connect(tmp_path / "s.sqlite")
-    client = FakeStb({FILINGS: NO_RESULTS, DECISIONS: NO_RESULTS})
+    client = FakeStb({FILINGS: NO_RESULTS, DECISIONS: NO_RESULTS, ENVIRO_COMMENTS: NO_RESULTS})
     summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
-    assert len(summary["problems"]) == 2  # both slices quarantined, nothing ingested
+    assert len(summary["problems"]) == 3  # every slice quarantined, nothing ingested
     assert all("TRAP: no-results envelope on page 1" in p for p in summary["problems"])
-    assert projections.status(con)["captures_quarantined"] == 2
+    # four quarantined captures for three slices: the comments table's empty answer is put
+    # to a wider window before it is believed, and that proof came back empty too — so the
+    # trap correctly stands rather than being explained away
+    assert projections.status(con)["captures_quarantined"] == 4
 
 
 def test_one_table_down_does_not_cost_the_other(tmp_path):
     con = db.connect(tmp_path / "s.sqlite")
     client = FakeStb(
-        {FILINGS: b"", DECISIONS: body_of(decision_row(did="53210", date="8/24/2026"), 1)},
+        {
+            FILINGS: b"",
+            DECISIONS: body_of(decision_row(did="53210", date="8/24/2026"), 1),
+            ENVIRO_COMMENTS: body_of(comment_row(date="8/23/2026"), 1),
+        },
         dead=(FILINGS,),
     )
     summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
-    assert summary["captured"] == {FILINGS: "failed", DECISIONS: "done"}
+    assert summary["captured"] == {
+        FILINGS: "failed",
+        DECISIONS: "done",
+        ENVIRO_COMMENTS: "done",
+    }
     assert summary["problems"] == [
         f"{FILINGS}: capture failed (RuntimeError: HTTP 503 after retries)"
     ]
-    assert projections.status(con)["decisions"] == 1 and len(client.fetched) == 1
+    assert projections.status(con)["decisions"] == 1
+    # the other two tables were unaffected by the one that failed
+    assert len(client.fetched) == 2
 
 
 def test_the_page_ceiling_is_loud(tmp_path):
     con = db.connect(tmp_path / "s.sqlite")
     full_page = "".join(filing_row(fid=str(311000 + i)) for i in range(50))
     client = FakeStb(
-        {FILINGS: body_of(full_page, 5000), DECISIONS: body_of(decision_row(), 1)}, endless=True
+        {
+            FILINGS: body_of(full_page, 5000),
+            DECISIONS: body_of(decision_row(), 1),
+            ENVIRO_COMMENTS: body_of(comment_row(), 1),
+        },
+        endless=True,
     )
     summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
     assert summary["captured"][FILINGS] == "partial"
@@ -167,7 +196,13 @@ def test_window_floor():
 
 def test_search_page_down_still_ingests_what_is_pending(tmp_path):
     con = db.connect(tmp_path / "s.sqlite")
-    client = FakeStb({FILINGS: body_of(filing_row(), 1), DECISIONS: body_of(decision_row(), 1)})
+    client = FakeStb(
+        {
+            FILINGS: body_of(filing_row(), 1),
+            DECISIONS: body_of(decision_row(), 1),
+            ENVIRO_COMMENTS: body_of(comment_row(), 1),
+        }
+    )
     # a pass that captured but was interrupted before ingest: simulate by ingesting nothing
     walk.capture_slice(
         con,
@@ -185,7 +220,11 @@ def test_search_page_down_still_ingests_what_is_pending(tmp_path):
 
     client.refresh_nonces = down
     summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
-    assert summary["captured"] == {FILINGS: "skipped", DECISIONS: "skipped"}
+    assert summary["captured"] == {
+        FILINGS: "skipped",
+        DECISIONS: "skipped",
+        ENVIRO_COMMENTS: "skipped",
+    }
     assert summary["problems"][0].startswith("nonce refresh failed")
     assert projections.status(con)["filings"] == 1  # the pending capture was still consumed
 
@@ -223,6 +262,7 @@ def test_a_new_proceeding_gains_its_caption_from_the_dockets_table(tmp_path):
                 decision_row(docket="AB_290_423_X", did="53210", date="8/24/2026"), 1
             ),
             DOCKETS: make_body([("AB_290_423_X", "NORFOLK SOUTHERN — ABANDONMENT — POLK CO.")], 1),
+            ENVIRO_COMMENTS: body_of(comment_row(date="8/23/2026"), 1),
         }
     )
     summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
@@ -299,3 +339,68 @@ def test_a_docket_the_board_never_publishes_is_asked_about_a_bounded_number_of_t
     assert all(len(c) == 3 for c in asks)  # prefix, sequence, sub-sequence: one docket
     assert summaries[-1]["captions"]["asked"] == 0
     assert any("asked about" in p and "no longer asked" in p for p in summaries[-1]["problems"])
+
+
+def test_a_quiet_week_is_proved_rather_than_reported_as_the_trap(tmp_path):
+    """Environmental comments run at ~4 a week, so an empty week is ordinary — but the
+    envelope that says "empty" is the same one that says "your criteria silently broke".
+    A wider window that answers with rows proves the apparatus works; only then is the
+    week called empty. Without this, every quiet week cries wolf and the operator learns
+    to ignore the one line that matters."""
+    con = db.connect(tmp_path / "s.sqlite")
+
+    class QuietComments(FakeStb):
+        def query_table(self, action, criteria, *, page, per_page, sort_by, sort_order):
+            if action == ENVIRO_COMMENTS:
+                # the week is empty; the 90-day proof window is not
+                start = dict(criteria)["startDate"]
+                if start == "08/19/2026":
+                    return 200, NO_RESULTS, []
+                return 200, body_of(comment_row(date="7/2/2026"), 1), []
+            return super().query_table(
+                action,
+                criteria,
+                page=page,
+                per_page=per_page,
+                sort_by=sort_by,
+                sort_order=sort_order,
+            )
+
+    client = QuietComments(
+        {
+            FILINGS: body_of(filing_row(fid="311981", date="8/25/2026"), 1),
+            DECISIONS: body_of(decision_row(did="53210", date="8/24/2026"), 1),
+        }
+    )
+    summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    assert summary["captured"][ENVIRO_COMMENTS] == "empty"
+    assert summary["problems"] == []  # a proved quiet week is not a problem
+
+
+def test_an_unproved_empty_week_still_raises_the_trap(tmp_path):
+    """The other half: if the wider window is empty too, nothing has been proved and the
+    envelope keeps its usual meaning."""
+    con = db.connect(tmp_path / "s.sqlite")
+
+    class SilentComments(FakeStb):
+        def query_table(self, action, criteria, *, page, per_page, sort_by, sort_order):
+            if action == ENVIRO_COMMENTS:
+                return 200, NO_RESULTS, []
+            return super().query_table(
+                action,
+                criteria,
+                page=page,
+                per_page=per_page,
+                sort_by=sort_by,
+                sort_order=sort_order,
+            )
+
+    client = SilentComments(
+        {
+            FILINGS: body_of(filing_row(fid="311981", date="8/25/2026"), 1),
+            DECISIONS: body_of(decision_row(did="53210", date="8/24/2026"), 1),
+        }
+    )
+    summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    assert summary["captured"][ENVIRO_COMMENTS] == "partial"
+    assert any("TRAP: no-results envelope" in p for p in summary["problems"])

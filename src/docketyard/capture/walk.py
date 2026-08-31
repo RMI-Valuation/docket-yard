@@ -22,6 +22,7 @@ from docketyard.capture.stb import (
     AJAX,
     DOCKET_PREFIXES,
     DOCKETS,
+    ENVIRO_COMMENTS,
     EXPECTED_EMPTY_PREFIXES,
     FILINGS,
     PAGE_CLAMP,
@@ -169,10 +170,18 @@ def capture_slice(
 
 
 def _reconciles(action: str, result: SliceResult) -> bool:
-    """On the dockets table one row is one docket, so a complete slice has exactly `total`
-    rows (a capped slice can only reach the cap). The multi-row tables cannot be reconciled
-    this way and rely on the short-page rule alone."""
-    if action != DOCKETS or result.total is None:
+    """A complete slice has exactly `total` rows (a capped slice can only reach the cap).
+
+    True of the dockets table, where one row is one docket — and MEASURED true of the
+    environmental-comments table, where the 2026 slice reported `total: 151` and returned
+    151 rows over four pages (143 distinct comments: one row per attachment). It matters
+    most there, because that table accepts no sort key at all, so a long walk has only
+    this to tell it that the pages tiled. Without it a drifting order drops rows, the
+    short-page rule still calls the slice `done`, and nothing ever asks again.
+
+    Filings and decisions stay on the short-page rule: whether their `total` counts rows
+    or records is not measured, and guessing it would quarantine every good slice."""
+    if action not in (DOCKETS, ENVIRO_COMMENTS) or result.total is None:
         return True
     if result.capped:
         return result.rows >= 10_000
