@@ -9,12 +9,12 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- **Environmental comments shipped (v2026.08.42)** — schema 0011–0012, capture, parser,
-  wave, sheet row, `/comment/<number>`, search and the canary pair. **Next: the archive
-  wave** — >22,000 rows, 1996 →, `backfill --tables comments`, monthly. Watch its
-  `id_collisions` count: the address rests on uniqueness measured over 11% of the record,
-  and the wave is what tests the rest. **No name is masked** (2026-08-31; the reasoning is
-  in 0011's header): nothing published may imply otherwise
+- **Environmental comments are live and walked** (v2026.08.43): 34,255 comments,
+  2000-09-22 →, addressed `/d/<docket>/comment/<number>` after the wave found two numbers
+  naming two different comments each. **Left: ~26,900 comment attachments unfetched** —
+  the poller drains them 200 a pass, round-robin with filings and decisions, so a few
+  weeks; watch disk (21 GB free, the blob pruner holds the floor at 20 GB) and
+  `/coverage`, which publishes the backlog
 - **ADR 0017 (Proposed)**: the batch is complete, so it is decidable. Amendments to fold in
   at acceptance: the docket class ships from regex+registry (95.1%, unbeaten by nine local
   models); the on-page rule joins the resolution pass; the decided date is extracted in the
