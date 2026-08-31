@@ -88,7 +88,17 @@ settled conventions — citations as sets of `(decision, target)`, each `target_
 | phi4:14b (2026-08-30) | text layer | 82.2% | 66.3% | 87.8% | 86.7% / 93.8% |
 | llama3.1:8b (2026-08-30) | text layer | 72.9% | — | — | 76.0% / 73.1% ‡ |
 | mistral-nemo:12b (2026-08-30) | text layer | 59.0% | — | — | 64.4% / 91.8% |
+| qwen3:30b-a3b MoE (2026-08-31) | text layer | 83.1% | — | — | 92.4% / 91.2% |
+| gpt-oss:20b MoE (2026-08-31) | text layer | — | — | — | **no usable output** ‡‡ |
 | **regex + registry, "own docket" rule — no model** (2026-08-30) | text layer | 64.2% | — | — | **95.1%** / 88.1% |
+
+‡‡ gpt-oss:20b answered all 443 pages in 8 minutes and returned **nothing readable on
+every one of them** — an empty response, which the runner parses to a page with no
+`findings` key at all. Scored naively that is a clean 0%, indistinguishable from an engine
+that finds no citations; the scorer now separates *answered nothing* from *found nothing*
+and says so. The cause is the harness meeting a reasoning model whose output shape Ollama's
+`format` constraint does not fit — not a measurement of the model, and it is recorded as
+untested rather than as a zero.
 
 ‡ llama3.1:8b **timed out on 41 of its 443 pages** — 9% of the sample answered nothing, so
 its figures are a floor, not a measurement. The cause is the run's own shape: the schema is

@@ -173,7 +173,14 @@ def run_findings(run_dir: Path, texts: dict | None = None) -> tuple:
     (`unchecked`) rather than silently passed. `legacy` counts placed findings only."""
     out: dict = defaultdict(lambda: defaultdict(lambda: defaultdict(set)))
     sentences: dict = defaultdict(lambda: defaultdict(set))
-    report: dict = {"legacy": 0, "off_page": [], "unchecked": [], "error_pages": 0, "pages": 0}
+    report: dict = {
+        "legacy": 0,
+        "off_page": [],
+        "unchecked": [],
+        "error_pages": 0,
+        "unanswered_pages": 0,
+        "pages": 0,
+    }
     for f in sorted(run_dir.glob("*.json")):
         doc = json.loads(f.read_text(encoding="utf-8"))
         did = str(doc.get("decision_id") or f.stem)
@@ -182,6 +189,13 @@ def run_findings(run_dir: Path, texts: dict | None = None) -> tuple:
         # (2026-08-30), 9% of the sample, and read as merely a weak engine.
         report["pages"] += len(doc.get("pages", []))
         report["error_pages"] += sum(1 for p in doc.get("pages", []) if "error" in p)
+        # A page carrying no `findings` key at all is not a page with no citations: the
+        # engine returned nothing the runner could read (an empty response parses to `{}`).
+        # gpt-oss:20b did this on all 443 pages in 8 minutes and scored a clean 0%, which
+        # would otherwise read as an engine that finds nothing (2026-08-31).
+        report["unanswered_pages"] += sum(
+            1 for p in doc.get("pages", []) if "findings" not in p and "error" not in p
+        )
         doc_text = texts.get(did) if texts is not None else None
         if texts is not None and doc_text is None:
             report["unchecked"].append(did)
@@ -270,6 +284,7 @@ def main() -> int:
         "legacy_findings": report["legacy"],
         "pages": report["pages"],
         "error_pages": report["error_pages"],
+        "unanswered_pages": report["unanswered_pages"],
         "page_check": texts is not None,
         "text_dir": None if texts is None else text_dir.as_posix(),
         "unchecked_decisions": report["unchecked"],
@@ -278,6 +293,12 @@ def main() -> int:
         "by_kind": {},
     }
     print(f"{name}: {len(r)} decisions in the run, {len(t)} in the sheet")
+    if report["unanswered_pages"]:
+        print(
+            f"  {report['unanswered_pages']} of {report['pages']} pages carried no findings"
+            " key: the engine answered nothing the runner could read, and every figure below"
+            " is meaningless for those pages"
+        )
     if report["error_pages"]:
         print(
             f"  {report['error_pages']} of {report['pages']} pages returned an error and were"

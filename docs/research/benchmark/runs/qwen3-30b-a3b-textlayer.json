@@ -1,0 +1,884 @@
+{
+ "run": "data\\benchmark\\runs-batch\\qwen3-30b-a3b",
+ "label": "qwen3-30b-a3b-textlayer",
+ "legacy_findings": 0,
+ "pages": 443,
+ "error_pages": 8,
+ "unanswered_pages": 0,
+ "page_check": true,
+ "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
+ "unchecked_decisions": [],
+ "off_page_findings": 115,
+ "off_page": [
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "citation",
+   "target": "FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024, the Board vacated the NITU",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "51532",
+   "page": 5,
+   "kind": "citation",
+   "target": "3 I.C.C.2d 599, 613-16",
+   "quoted": "IHB II, 3 I.C.C.2d 599, 613-16"
+  },
+  {
+   "decision": "51532",
+   "page": 10,
+   "kind": "citation",
+   "target": "49 U.S.C. \u00a7 10704(a)(1), (b)",
+   "quoted": "49 U.S.C. \u00a7 10704(a)(1), (b)"
+  },
+  {
+   "decision": "51532",
+   "page": 24,
+   "kind": "citation",
+   "target": "Buffalo & Pittsburgh, 7 I.C.C.2d at 25, 27-28",
+   "quoted": "Buffalo & Pittsburgh, 7 I.C.C.2d at 25, 27-28"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "Docket No. EP 787"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024, the Board vacated the NITU",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "Applicants\u2019 letter supporting NSR\u2019s motion to withdraw on April 4, 2024",
+   "quoted": "Applicants\u2019 letter supporting NSR\u2019s motion to withdraw on April 4, 2024"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "caption",
+   "target": "EP 787",
+   "quoted": "Docket No. EP 787"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "caption",
+   "target": "Docket No. X",
+   "quoted": "All pleadings, referring to Docket No. X, should be filed"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "caption",
+   "target": "X",
+   "quoted": "Docket No. X"
+  },
+  {
+   "decision": "52211",
+   "page": 5,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52211",
+   "page": 5,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52211",
+   "page": 5,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52211",
+   "page": 8,
+   "kind": "citation",
+   "target": "App. 21, 267-68, Dec. 11, 2023",
+   "quoted": "App. 21, 267-68, Dec. 11, 2023"
+  },
+  {
+   "decision": "52211",
+   "page": 19,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52211",
+   "page": 19,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52211",
+   "page": 19,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52211",
+   "page": 19,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52211",
+   "page": 19,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52211",
+   "page": 20,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52211",
+   "page": 20,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52211",
+   "page": 22,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52211",
+   "page": 22,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52211",
+   "page": 22,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52211",
+   "page": 23,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52211",
+   "page": 23,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52211",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52211",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52211",
+   "page": 23,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52211",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52211",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "deadlines tolled by a lapse in appropriations"
+  },
+  {
+   "decision": "52211",
+   "page": 26,
+   "kind": "deadline",
+   "target": "one month",
+   "quoted": "CPKC shall begin implementing the required building sound insulation mitigation within one month of the Board\u2019s authorization of the CPKC transaction."
+  },
+  {
+   "decision": "52238",
+   "page": 2,
+   "kind": "deadline",
+   "target": "14 days",
+   "quoted": "the standard 14-day period between publication of a change in operator notice and its effectiveness,3"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36744",
+   "quoted": "CNR Letter Filing of Voting Trust Agreement, FD 36744, Dec. 6, 2023"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "citation",
+   "target": "Id. at 1-2, 11-12",
+   "quoted": "Id. at 1-2, 11-12"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "deadlines tolled by a lapse in appropriations"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52295",
+   "page": 25,
+   "kind": "citation",
+   "target": "Norfolk & Western Railway",
+   "quoted": "New York Dock Railway; they also submit that, with respect to the related trackage rights requests filed on behalf of Iowa Northern and CCP, such transactions s"
+  },
+  {
+   "decision": "52295",
+   "page": 35,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 37,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52330",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52332",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 242-43, 246-47, 419",
+   "quoted": "Decision No. 44, 1 S.T.B. at 242-43, 246-47, 419"
+  },
+  {
+   "decision": "52332",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 242-43, 246-47, 419",
+   "quoted": "Decision No. 44, 1 S.T.B. at 242-43, 246-47, 419"
+  },
+  {
+   "decision": "52332",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 32760 (Sub-No. 49)",
+   "quoted": "Ex. C of BNSF\u2019s petition"
+  },
+  {
+   "decision": "52332",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52332",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52448",
+   "page": 2,
+   "kind": "citation",
+   "target": "697 F.3d 326",
+   "quoted": "Simmons v. ICC, 697 F.3d 326 (D.C. Cir. 1982)"
+  },
+  {
+   "decision": "52522",
+   "page": 2,
+   "kind": "citation",
+   "target": "49 U.S.C. 11325",
+   "quoted": "49 U.S.C. 11325"
+  },
+  {
+   "decision": "52522",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "Docket No. EP 787"
+  },
+  {
+   "decision": "52748",
+   "page": 7,
+   "kind": "citation",
+   "target": "817 F.2d at 117",
+   "quoted": "Baltimore Gas & Electric, 817 F.2d at 117"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "citation",
+   "target": "FD 36501",
+   "quoted": "Union Pac. R.R.\u2014Constr. & Operation Exemption\u2014in Maricopa Cnty., Ariz., FD 36501, slip op. at 5 (STB served June 3, 2025)"
+  },
+  {
+   "decision": "52822",
+   "page": 8,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52822",
+   "page": 8,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52822",
+   "page": 8,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52835",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 35496",
+   "quoted": "Docket No. FD 35496"
+  },
+  {
+   "decision": "52835",
+   "page": 5,
+   "kind": "citation",
+   "target": "Id. at 7, June 17, 2024",
+   "quoted": "(Id. at 7, June 17, 2024)."
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024, the Board vacated the NITU",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "deadlines tolled by a lapse in appropriations"
+  },
+  {
+   "decision": "52988",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52988",
+   "page": 6,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "53046",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 10,
+   "kind": "citation",
+   "target": "Rev. Appl. 1-14, 1-65; id. at 1-538, V.S. Parkerson 2",
+   "quoted": "Rev. Appl. 1-14, 1-65; id. at 1-538, V.S. Parkerson 2"
+  },
+  {
+   "decision": "53052",
+   "page": 17,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "FD 36798"
+  },
+  {
+   "decision": "53052",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 23,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "53052",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "deadlines tolled by a lapse in appropriations"
+  },
+  {
+   "decision": "53089",
+   "page": 2,
+   "kind": "citation",
+   "target": "49 U.S.C. 11325",
+   "quoted": "49 U.S.C. 11325"
+  },
+  {
+   "decision": "53089",
+   "page": 2,
+   "kind": "citation",
+   "target": "49 U.S.C. 11325",
+   "quoted": "49 U.S.C. 11325"
+  },
+  {
+   "decision": "53089",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53089",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  }
+ ],
+ "by_kind": {
+  "citation/stb": {
+   "truth": 332,
+   "found": 843,
+   "hit": 276,
+   "recall": 0.8313253012048193,
+   "precision": 0.3274021352313167
+  },
+  "citation/court": {
+   "truth": 86,
+   "found": 106,
+   "hit": 75,
+   "recall": 0.872093023255814,
+   "precision": 0.7075471698113207
+  },
+  "citation/record": {
+   "truth": 7,
+   "found": 372,
+   "hit": 4,
+   "recall": 0.5714285714285714,
+   "precision": 0.010752688172043012
+  },
+  "caption/self": {
+   "truth": 38,
+   "found": 74,
+   "hit": 25,
+   "recall": 0.6578947368421053,
+   "precision": 0.33783783783783783
+  },
+  "deadline/date": {
+   "truth": 90,
+   "found": 287,
+   "hit": 83,
+   "recall": 0.9222222222222223,
+   "precision": 0.289198606271777
+  },
+  "deadline/reference": {
+   "truth": 21,
+   "found": 25,
+   "hit": 14,
+   "recall": 0.6666666666666666,
+   "precision": 0.56
+  },
+  "deadline/period": {
+   "truth": 18,
+   "found": 90,
+   "hit": 10,
+   "recall": 0.5555555555555556,
+   "precision": 0.1111111111111111
+  },
+  "deadline/indefinite": {
+   "truth": 6,
+   "found": 12,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": 0.0
+  },
+  "citation/stb-docket": {
+   "truth": 225,
+   "found": 228,
+   "hit": 208,
+   "recall": 0.9244444444444444,
+   "precision": 0.9122807017543859
+  }
+ }
+}

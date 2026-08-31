@@ -1,0 +1,78 @@
+{
+ "run": "data\\benchmark\\runs-batch\\gpt-oss-20b",
+ "label": "gpt-oss-20b-textlayer",
+ "legacy_findings": 0,
+ "pages": 443,
+ "error_pages": 0,
+ "unanswered_pages": 443,
+ "page_check": true,
+ "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
+ "unchecked_decisions": [],
+ "off_page_findings": 0,
+ "off_page": [],
+ "by_kind": {
+  "citation/stb": {
+   "truth": 332,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "citation/court": {
+   "truth": 86,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "citation/record": {
+   "truth": 7,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "caption/self": {
+   "truth": 38,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "deadline/date": {
+   "truth": 90,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "deadline/reference": {
+   "truth": 21,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "deadline/period": {
+   "truth": 18,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "deadline/indefinite": {
+   "truth": 6,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "citation/stb-docket": {
+   "truth": 225,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  }
+ }
+}
