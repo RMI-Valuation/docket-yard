@@ -251,3 +251,33 @@ def test_one_fetch_per_hash_however_many_ask(tmp_path):
     assert r.status_code == 503 and r.headers["retry-after"] == "60"
     r = TestClient(create_app(path)).get(f"/document/{sha}.pdf")
     assert r.status_code == 503 and "retry-after" not in r.headers
+
+
+def test_a_viewer_page_beside_a_comment_still_answers(tmp_path):
+    """A sheet has held comments since migration 0011, so a viewer page's neighbour can be
+    one — and `viewer.html` asked `record_path` for whatever kind it found. A comment
+    raises there (its address needs the docket it was entered in), so every viewer page
+    next to a comment answered 500: `/filing/240630/view` in AB 290 (Sub-No. 324X),
+    reported 2026-08-31, with ~32,600 records sitting on sheets that hold comments.
+    """
+    from tests.test_enviro_ingest import comment_row
+    from tests.test_enviro_ingest import ingest as ingest_comments
+
+    path, sha = _store_with_document(tmp_path)
+    con = db.connect(path)
+    ingest_comments(con, tmp_path, comment_row())  # FD 36873, 8/25/2026 — beside the filings
+    con.close()
+    client = TestClient(create_app(path))
+    pages = {}
+    for address in ("/filing/311981/view", "/filing/311900/view", "/decision/53210/view"):
+        r = client.get(address)
+        assert r.status_code == 200, f"{address} answered {r.status_code}"
+        pages[address] = r.text
+    both = "".join(pages.values())
+    # the neighbour is linked where a comment is actually addressed, and nowhere else
+    assert 'href="/d/FD-36873/comment/EI-34280"' in both
+    assert "/filing/EI-34280" not in both and "/comment/EI-34280/view" not in both
+    # the sheet and its JSON twin say the same thing, from the same helper
+    assert 'href="/d/FD-36873/comment/EI-34280"' in client.get("/d/FD-36873").text
+    urls_in_json = [e["url"] for e in client.get("/d/FD-36873.json").json()["docket"]["entries"]]
+    assert "https://docketyard.org/d/FD-36873/comment/EI-34280" in urls_in_json

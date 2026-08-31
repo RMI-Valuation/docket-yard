@@ -134,7 +134,7 @@ def week_path(monday) -> str:
 
 def record_path(kind: str, record_id: str) -> str:
     """Filings and decisions only. A comment's address needs the docket that holds it, so
-    callers with an entry in hand use `comment_path(parse_docket_id(e.docket_raw), …)`.
+    a caller with a sheet entry in hand asks `entry_path`, which knows all three kinds.
 
     A comment reaching here would silently become `/filing/EI-34280`, a live 404 — so it
     raises instead. Found by review after the address moved and `viewer.html`'s prev/next
@@ -155,6 +155,39 @@ def unsubscribe_url(site: str, token: str) -> str:
 def viewer_path(kind: str, record_id: str, index: int = 0) -> str:
     """The record's file shown beside the record; `index` picks among several files."""
     return record_path(kind, record_id) + "/view" + (f"?file={index}" if index else "")
+
+
+def entry_path(kind: str, record_id: str, docket_raw: str) -> str:
+    """The permanent address of a sheet entry, whatever kind it turns out to be.
+
+    A sheet holds filings, decisions AND comments since migration 0011, so anything
+    holding "the entry next to this one" holds a kind it did not choose. Four callers
+    spelled the branch themselves — the sheet's rows, the record page, the JSON twin and
+    `viewer.html`'s prev/next — and the fourth was never taught the third kind: every
+    viewer page whose neighbour was a comment answered 500 (`/filing/240630/view`, AB 290
+    Sub-No. 324X, reported 2026-08-31). This is the one place that branch lives now.
+
+    `docket_raw` is the entry's own docket, which for a comment the sheet has already
+    folded to the copy nearest the parent — the same copy `_comment_canonical` addresses,
+    so this returns the canonical address rather than one that redirects.
+    """
+    if kind != "comment":
+        return record_path(kind, record_id)
+    identity = parse_docket_id(docket_raw)
+    # A link is not the place to raise. Every raw docket in the registry parsed once to be
+    # created, so this is defensive; the short form is a real address if it ever fires —
+    # a 301 for all but the two numbers the record holds twice, which name both.
+    return comment_path(identity, record_id) if identity else comment_short_path(record_id)
+
+
+def entry_viewer_path(kind: str, record_id: str, docket_raw: str, index: int | None) -> str:
+    """Where a link to a sheet entry goes: its file beside the record when it has one a
+    browser shows, the record itself when it has not. `index` is `viewable_index`'s answer,
+    which is None for every comment — a comment has no viewer page, its files hang on its
+    own page — so a comment arrives here and leaves through `entry_path`."""
+    if index is None:
+        return entry_path(kind, record_id, docket_raw)
+    return viewer_path(kind, record_id, index)
 
 
 def document_path(sha256: str, media_type: str | None = None) -> str:

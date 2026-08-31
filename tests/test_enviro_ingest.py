@@ -749,6 +749,32 @@ def test_record_path_refuses_a_comment_rather_than_inventing_a_filing():
     assert urls.record_path("filing", "311981") == "/filing/311981"
 
 
+def test_a_sheet_entry_is_addressed_by_its_kind_in_one_place():
+    """The guard above was only half the fix: it made a comment reaching `record_path`
+    loud instead of wrong, and left `viewer.html` calling it, which answered 500 on every
+    viewer page whose neighbour was a comment. `entry_path` is where that branch lives."""
+    from docketyard.web import urls
+
+    assert urls.entry_path("filing", "311981", "FD_36873") == "/filing/311981"
+    assert urls.entry_path("decision", "53210", "FD_36873") == "/decision/53210"
+    assert urls.entry_path("comment", "EI-34280", "FD_36873") == "/d/FD-36873/comment/EI-34280"
+    # the entry's own docket, not the family's: a comment entered in a sub-docket is
+    # addressed there, which is the copy the sheet folded to
+    assert urls.entry_path("comment", "EI-1", "AB_290_324_X") == "/d/AB-290/sub/324X/comment/EI-1"
+    # a docket that will not parse is not a reason to raise inside a link
+    assert urls.entry_path("comment", "EI-34280", "not a docket") == "/comment/EI-34280"
+    # and the neighbour link: the file when there is one, the record when there is not
+    assert urls.entry_viewer_path("filing", "311981", "FD_36873", 0) == "/filing/311981/view"
+    assert urls.entry_viewer_path("filing", "311981", "FD_36873", 2) == "/filing/311981/view?file=2"
+    assert urls.entry_viewer_path("filing", "311981", "FD_36873", None) == "/filing/311981"
+    # `viewable_index` answers None for every comment (it has no viewer page), so a
+    # comment always leaves through `entry_path` — never `/comment/EI-34280/view`
+    assert (
+        urls.entry_viewer_path("comment", "EI-34280", "FD_36873", None)
+        == "/d/FD-36873/comment/EI-34280"
+    )
+
+
 def test_the_index_rebuilds_when_its_shape_changes_not_only_its_rows(con, tmp_path):
     """`signature()` read store row ids only, so a deploy that changed the index's PATHS
     short-circuited and served the old ones until unrelated data moved."""

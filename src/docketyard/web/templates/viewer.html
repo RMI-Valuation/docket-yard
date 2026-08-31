@@ -34,7 +34,7 @@
     {% if prev or next %}
     <div>
       <h2>On this sheet</h2>
-      <p class="small">{% if prev %}← <a href="{% set pv = viewable_index(prev) %}{{ viewer_path(prev.kind, prev.record_id, pv) if pv is not none else record_path(prev.kind, prev.record_id) }}">{{ prev.date | fmt_date }} · {{ kind_label(prev.kind, prev.type) }} {{ prev.record_id }}</a>{% endif %}{% if prev and next %}<br>{% endif %}{% if next %}<a href="{% set nv = viewable_index(next) %}{{ viewer_path(next.kind, next.record_id, nv) if nv is not none else record_path(next.kind, next.record_id) }}">{{ next.date | fmt_date }} · {{ kind_label(next.kind, next.type) }} {{ next.record_id }}</a> →{% endif %}</p>
+      <p class="small">{% if prev %}← <a href="{{ entry_viewer_path(prev.kind, prev.record_id, prev.docket_raw, viewable_index(prev)) }}">{{ prev.date | fmt_date }} · {{ kind_label(prev.kind, prev.type) }} {{ prev.record_id }}</a>{% endif %}{% if prev and next %}<br>{% endif %}{% if next %}<a href="{{ entry_viewer_path(next.kind, next.record_id, next.docket_raw, viewable_index(next)) }}">{{ next.date | fmt_date }} · {{ kind_label(next.kind, next.type) }} {{ next.record_id }}</a> →{% endif %}</p>
       <p class="small muted">Newest first, as on the sheet.</p>
     </div>
     {% endif %}

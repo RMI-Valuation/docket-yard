@@ -214,6 +214,8 @@ def create_app(
         party_feed_path=urls.party_feed_path,
         record_path=urls.record_path,
         viewer_path=urls.viewer_path,
+        entry_path=urls.entry_path,  # a sheet entry's address, whatever kind it is
+        entry_viewer_path=urls.entry_viewer_path,
         document_path=urls.document_path,
         viewable_index=documents.viewable_index,
         explainer_path=urls.explainer_path,
@@ -793,12 +795,7 @@ def create_app(
         d.pop("parties", None)  # the enriched layer is held (dump.HELD_REASON)
         # a comment is addressed under the docket that holds it, and the entry carries
         # which docket of the family that is — the bare number is not an address
-        if e.kind == "comment":
-            ident = parse_docket_id(e.docket_raw)
-            path = urls.comment_path(ident, e.record_id) if ident else None
-        else:
-            path = urls.record_path(e.kind, e.record_id)
-        d["url"] = f"https://{site_host}{path}" if path else None
+        d["url"] = f"https://{site_host}{urls.entry_path(e.kind, e.record_id, e.docket_raw)}"
         return d
 
     def sheet_json(request: Request, identity) -> Response:
