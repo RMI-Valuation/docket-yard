@@ -262,7 +262,7 @@ def test_a_new_proceeding_gains_its_caption_from_the_dockets_table(tmp_path):
                 decision_row(docket="AB_290_423_X", did="53210", date="8/24/2026"), 1
             ),
             DOCKETS: make_body([("AB_290_423_X", "NORFOLK SOUTHERN — ABANDONMENT — POLK CO.")], 1),
-            ENVIRO_COMMENTS: body_of(comment_row(date="8/23/2026"), 1),
+            ENVIRO_COMMENTS: body_of(comment_row(docket="AB_290_423_X", date="8/23/2026"), 1),
         }
     )
     summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
@@ -404,3 +404,27 @@ def test_an_unproved_empty_week_still_raises_the_trap(tmp_path):
     summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
     assert summary["captured"][ENVIRO_COMMENTS] == "partial"
     assert any("TRAP: no-results envelope" in p for p in summary["problems"])
+
+
+def test_a_proceeding_first_seen_through_a_comment_gains_its_caption(tmp_path):
+    """A docket can be minted from ANY record table, so the caption ask has to look at all
+    of them. Its query INNER JOINed filings and decisions only, which silently dropped a
+    docket whose one held record is an environmental comment — its sheet would have read
+    "(caption not yet observed)" for ever (ultrareview, 2026-08-31)."""
+    con = db.connect(tmp_path / "s.sqlite")
+    client = FakeStb(
+        {
+            ENVIRO_COMMENTS: body_of(comment_row(docket="FD_36951", date="8/23/2026"), 1),
+            DOCKETS: make_body([("FD_36951", "UNION PACIFIC — TRACKAGE RIGHTS")], 1),
+        }
+    )
+    summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    # this fake serves no filings or decisions, so those two raise the trap as they should;
+    # what matters here is that the caption ask happened and did not itself fail
+    assert not any("caption" in p for p in summary["problems"]), summary["problems"]
+    title = con.execute(
+        "SELECT json_extract(latest_payload, '$.title') FROM docket_current"
+        " WHERE raw_docket = 'FD_36951'"
+    ).fetchone()[0]
+    assert title == "UNION PACIFIC — TRACKAGE RIGHTS"  # asked for, and answered
+    con.close()

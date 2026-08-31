@@ -137,8 +137,11 @@ def _uncaptioned(con: Connection, today: date) -> list[tuple[int, str, int, int 
     """(docket_id, prefix, sequence, sub_sequence) for proceedings the record holds records
     FOR but has never seen in the Board's own dockets table, newest activity first.
 
-    A new proceeding reaches the filings table before the dockets table, so its docket row
-    is minted from the filing (`docket_inferred`) and carries no caption: the operator
+    A new proceeding reaches a record table before the dockets table, so its docket row is
+    minted from that record (`docket_inferred`) and carries no caption. The union below
+    names every record table for that reason: an INNER JOIN over only two of the three
+    would silently drop a docket whose first held record is an environmental comment, and
+    its sheet would read "(caption not yet observed)" for ever: the operator
     found `AB 290 (Sub-No. 423X)`, `FD 36951` and `AB 55 (Sub-No. 827X)` reading
     "(caption not yet observed)" on the home page, three days after they opened.
 
@@ -155,7 +158,9 @@ def _uncaptioned(con: Connection, today: date) -> list[tuple[int, str, int, int 
               FROM docket d
               JOIN docket_current dc ON dc.docket_id = d.docket_id
               JOIN (SELECT docket_id, filed_date AS happened FROM filing
-                    UNION ALL SELECT docket_id, service_date FROM decision_record) x
+                    UNION ALL SELECT docket_id, service_date FROM decision_record
+                    UNION ALL SELECT docket_id, date_received_or_sent
+                      FROM enviro_comment) x
                 ON x.docket_id = d.docket_id
              WHERE dc.latest_payload IS NULL
                AND x.happened >= ?

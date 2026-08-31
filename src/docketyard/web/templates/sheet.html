@@ -19,7 +19,7 @@
     {% for m in sheet.sub_dockets %}<a href="{{ docket_path(parse_docket_id(m.raw_docket)) }}">{{ printed_docket(parse_docket_id(m.raw_docket)) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
   </p>
   {% elif sheet.title %}<p class="caption-note muted">Caption from the Board’s record.</p>{% endif %}
-  <p class="serif record-summary muted">{{ sheet.filings | plural('filing') }} and {{ sheet.decisions | plural('decision') }} observed here{% if sheet.last_checked %}; last checked {{ sheet.last_checked | fmt_when }}{% endif %}.</p>
+  <p class="serif record-summary muted">{{ sheet.filings | plural('filing') }}, {{ sheet.decisions | plural('decision') }} and {{ sheet.comments | plural('environmental comment') }} observed here{% if sheet.last_checked %}; last checked {{ sheet.last_checked | fmt_when }}{% endif %}.</p>
   <div class="actions no-print">
     <a class="btn" href="#cite">Cite</a>
     <button class="btn" type="button" data-print>Print</button>
@@ -76,7 +76,8 @@
   {% if sheet.is_index %}
     <h2>Entries</h2>
     <p class="muted">Each proceeding keeps its own entries, on its own sheet. The
-      {{ sheet.filings }} filings and {{ sheet.decisions }} decisions held across this series
+      {{ sheet.filings }} filings, {{ sheet.decisions }} decisions and {{ sheet.comments }}
+      environmental comments held across this series
       belong to the {{ sheet.sub_dockets | length }} proceedings indexed above, not to
       {{ printed }} itself — <a href="#index">the index</a> is the way in.</p>
   {% else %}

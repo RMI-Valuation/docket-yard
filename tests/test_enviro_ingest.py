@@ -625,3 +625,26 @@ def test_a_filings_backlog_cannot_starve_comment_attachments(con, tmp_path):
     # and with no limit every one of them is still offered, in table order
     assert len(observations.attachments(con, unfetched_only=True)) == 7
     assert observations.attachments(con, unfetched_only=True, limit=0) == []
+
+
+def test_the_empty_envelope_is_recognised_for_every_table_the_record_walks():
+    r"""The message below is verbatim from the live endpoint, 2026-08-31.
+
+    `_NO_RESULTS_RE` was `There are no \w+ available`, and `\w+` cannot span a space, so it
+    silently failed on the ONE table whose name is two words — the same table whose empty
+    weeks are ordinary. Every quiet week would have quarantined and cried wolf, the
+    quiet-week proof would never have run, and a slice whose last page was exactly full
+    would have quarantined instead of finishing. Every test passed anyway, because the
+    fixture named a one-word table. So these are the real strings.
+    """
+    from docketyard.ingest.dockets import is_no_results_envelope
+
+    def envelope(error: str) -> bytes:
+        return json.dumps({"success": False, "data": {"error": error}}).encode()
+
+    for table in ("filings", "decisions", "environmental comments", "dockets"):
+        body = envelope(f"<p>There are no {table} available at this time.</p>\n")
+        assert is_no_results_envelope(body), table
+    # and it still refuses to read a genuine failure as an empty result
+    assert not is_no_results_envelope(envelope("Security check failed"))
+    assert not is_no_results_envelope(b'{"success":true,"data":{"rows":"","total":0}}')
