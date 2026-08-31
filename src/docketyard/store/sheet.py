@@ -153,8 +153,12 @@ def _attachments(con: Connection, table: str, pk_col: str, pk: int) -> list[Atta
 PLACEHOLDERS = ("", "--", "---")  # what the Board prints for a cell it has nothing for
 
 
-def _present(cell: str | None) -> str | None:
-    """The cell's content, or None when the Board printed a placeholder instead."""
+def present(cell: str | None) -> str | None:
+    """The cell's content, or None when the Board printed a placeholder instead.
+
+    Public because every surface that shows a cell needs it, not just this one: the
+    machine-agent surface re-queried the store directly and handed an assistant
+    "Location: --" as if it were a place (ultrareview, 2026-08-31)."""
     return None if (cell or "").strip() in PLACEHOLDERS else cell
 
 
@@ -243,10 +247,10 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
                 # and printing it as a person's name or a place ("Pamela Underwood, --")
                 # states something the record does not. The store keeps the cell exactly as
                 # printed; this projection is where a placeholder stops being content.
-                submitter=_present(submitter),
-                organisation=_present(org),
-                location=_present(location),
-                comment_text=_present(text),
+                submitter=present(submitter),
+                organisation=present(org),
+                location=present(location),
+                comment_text=present(text),
             )
         )
     # a record entered in the docket and its sub-docket is one record: fold to the copy
