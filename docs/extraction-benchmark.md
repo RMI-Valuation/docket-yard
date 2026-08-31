@@ -83,7 +83,19 @@ settled conventions — citations as sets of `(decision, target)`, each `target_
 | Claude Sonnet 5 | text layer | **89.8%** | 97.7% | 98.9% | **95.6% / 95.6%** |
 | Claude Sonnet 5 | **OCR of the same pages** | **91.9%** | 97.7% | 98.9% | 96.4% / 95.6% |
 | qwen3:14b, **current prompt** (2026-08-30) | text layer | 87.0% | 74.4% | 84.4% | 93.8% / 93.8% |
+| qwen2.5:14b (2026-08-30) | text layer | 81.0% | 74.4% | 82.2% | 87.6% / 90.0% |
+| gemma3:12b (2026-08-30) | text layer | 78.9% | 86.0% | 88.9% | 89.3% / 87.8% |
+| phi4:14b (2026-08-30) | text layer | 82.2% | 66.3% | 87.8% | 86.7% / 93.8% |
+| llama3.1:8b (2026-08-30) | text layer | 72.9% | — | — | 76.0% / 73.1% ‡ |
+| mistral-nemo:12b (2026-08-30) | text layer | 59.0% | — | — | 64.4% / 91.8% |
 | **regex + registry, "own docket" rule — no model** (2026-08-30) | text layer | 64.2% | — | — | **95.1%** / 88.1% |
+
+‡ llama3.1:8b **timed out on 41 of its 443 pages** — 9% of the sample answered nothing, so
+its figures are a floor, not a measurement. The cause is the run's own shape: the schema is
+forced through Ollama's `format`, and a small model that cannot satisfy the grammar loops
+until the 600-second timeout. Inference took 61 minutes; the wall clock was 471, and the
+410-minute difference is 41 timeouts exactly. The scorer now prints and records the count,
+so a run that answered nothing on part of the sample can never again read as a weak engine.
 
 All rows are scored as of 2026-08-30 with the **on-page check** (a finding whose quoted
 passage is not in the decision's text is dropped — 2 of Claude's, 97 of qwen3's) and the

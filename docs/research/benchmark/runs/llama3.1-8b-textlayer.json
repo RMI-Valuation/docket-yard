@@ -1,0 +1,5244 @@
+{
+ "run": "data\\benchmark\\runs-batch\\llama3.1-8b",
+ "label": "llama3.1-8b-textlayer",
+ "legacy_findings": 0,
+ "pages": 443,
+ "error_pages": 41,
+ "page_check": true,
+ "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
+ "unchecked_decisions": [],
+ "off_page_findings": 738,
+ "off_page": [
+  {
+   "decision": "51532",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "51532",
+   "page": 5,
+   "kind": "citation",
+   "target": "IHB II, 3 I.C.C.2d 599, 613-16",
+   "quoted": "IHB II, 3 I.C.C.2d 599, 613-16"
+  },
+  {
+   "decision": "51532",
+   "page": 5,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "51532",
+   "page": 5,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "51532",
+   "page": 7,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "51532",
+   "page": 7,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "51532",
+   "page": 7,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "51532",
+   "page": 7,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "51532",
+   "page": 7,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "51532",
+   "page": 7,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "51532",
+   "page": 7,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024, the Board vacated the NITU",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "51532",
+   "page": 7,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "51532",
+   "page": 7,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "51532",
+   "page": 7,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "51532",
+   "page": 7,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "51532",
+   "page": 8,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "51532",
+   "page": 11,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "51532",
+   "page": 12,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "51532",
+   "page": 14,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "UP would have been legally required to provide such a quote within 30 days"
+  },
+  {
+   "decision": "51532",
+   "page": 15,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "51532",
+   "page": 18,
+   "kind": "citation",
+   "target": "IHB II",
+   "quoted": "IHB II, slip op. at 1-2"
+  },
+  {
+   "decision": "51532",
+   "page": 18,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "51532",
+   "page": 18,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "51532",
+   "page": 18,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "And the prevalence of zero-mileage rates without corresponding rates for transportation in railroad-supplied cars"
+  },
+  {
+   "decision": "51532",
+   "page": 20,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "51532",
+   "page": 20,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "51532",
+   "page": 21,
+   "kind": "citation",
+   "target": "21 (Dec. 6, 2022)",
+   "quoted": "see also, e.g., Christopher J. Walker, Melissa Wasserman & Matthew Lee Wiener, Precedential Decision Making in Agency Adjudication 21 (Dec. 6, 2022) (report to "
+  },
+  {
+   "decision": "51532",
+   "page": 22,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "51532",
+   "page": 22,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "51532",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "51532",
+   "page": 24,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "51532",
+   "page": 25,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "51532",
+   "page": 26,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "51532",
+   "page": 26,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "51532",
+   "page": 30,
+   "kind": "citation",
+   "target": "51-52",
+   "quoted": "See Craven Tr. 51-52 (discussing the \u201cmarket price\u201d and other relevant pricing factors, such as the number of lanes at issue, without specifically mentioning ca"
+  },
+  {
+   "decision": "51532",
+   "page": 30,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "51532",
+   "page": 30,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "51532",
+   "page": 32,
+   "kind": "citation",
+   "target": "7 I.C.C.2d 196 (1986)",
+   "quoted": "7 I.C.C.2d 196 (1986), modified 7 I.C.C.2d 645 (1991)."
+  },
+  {
+   "decision": "51532",
+   "page": 32,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "51532",
+   "page": 32,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "51532",
+   "page": 32,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B.",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "51532",
+   "page": 32,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "decision served March 12, 2024"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52211",
+   "page": 4,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52211",
+   "page": 5,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52211",
+   "page": 5,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52211",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52211",
+   "page": 9,
+   "kind": "citation",
+   "target": "6 n.9, 54",
+   "quoted": "Id. at 6 n.9, 54"
+  },
+  {
+   "decision": "52211",
+   "page": 9,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52211",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52211",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52211",
+   "page": 10,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52211",
+   "page": 10,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52211",
+   "page": 12,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52211",
+   "page": 13,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 787, slip op. at 4."
+  },
+  {
+   "decision": "52211",
+   "page": 13,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52211",
+   "page": 13,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52211",
+   "page": 14,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52211",
+   "page": 17,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52211",
+   "page": 17,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52211",
+   "page": 18,
+   "kind": "citation",
+   "target": "12",
+   "quoted": "CSXT Appl. 12"
+  },
+  {
+   "decision": "52211",
+   "page": 18,
+   "kind": "citation",
+   "target": "EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52211",
+   "page": 18,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "See 49 C.F.R. \u00a7 1105.7(e)(5)(ii)"
+  },
+  {
+   "decision": "52211",
+   "page": 18,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "See 49 C.F.R. \u00a7 1105.10(b)"
+  },
+  {
+   "decision": "52211",
+   "page": 19,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52211",
+   "page": 20,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52211",
+   "page": 20,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52211",
+   "page": 20,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52211",
+   "page": 20,
+   "kind": "citation",
+   "target": "IANR Reply 2, Aug. 14, 2024, FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52211",
+   "page": 21,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52211",
+   "page": 23,
+   "kind": "citation",
+   "target": "FD 36368",
+   "quoted": "Soo Line Corp.\u2014Control\u2014Cent. Me. & Que. Ry. US Inc., FD 36368, slip op. at 7 (STB served May 4, 2020)"
+  },
+  {
+   "decision": "52211",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52211",
+   "page": 24,
+   "kind": "citation",
+   "target": "Decision No. FD 36732 et al.",
+   "quoted": "Decision at 22-24 (Board Member Fuchs, dissenting); id. at 33-35 (Board Member Schultz, dissenting)"
+  },
+  {
+   "decision": "52211",
+   "page": 24,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52211",
+   "page": 25,
+   "kind": "citation",
+   "target": "FD 36472 et al.",
+   "quoted": "Pan Am, FD 36472 et al., slip op. at 50-51."
+  },
+  {
+   "decision": "52211",
+   "page": 25,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52211",
+   "page": 25,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52238",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52238",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52238",
+   "page": 2,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52238",
+   "page": 3,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52238",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52260",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "citation",
+   "target": "March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52260",
+   "page": 7,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52260",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52260",
+   "page": 13,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52260",
+   "page": 13,
+   "kind": "caption",
+   "target": "52260",
+   "quoted": "Docket No. 52260"
+  },
+  {
+   "decision": "52260",
+   "page": 13,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52260",
+   "page": 16,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52260",
+   "page": 16,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52260",
+   "page": 16,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52260",
+   "page": 17,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52260",
+   "page": 18,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52260",
+   "page": 18,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52260",
+   "page": 18,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52260",
+   "page": 18,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52260",
+   "page": 19,
+   "kind": "citation",
+   "target": "",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52260",
+   "page": 21,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52260",
+   "page": 21,
+   "kind": "citation",
+   "target": "FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52260",
+   "page": 21,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52260",
+   "page": 21,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52260",
+   "page": 21,
+   "kind": "citation",
+   "target": "March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52260",
+   "page": 21,
+   "kind": "citation",
+   "target": "1 S.T.B. 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52260",
+   "page": 21,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52267",
+   "page": 1,
+   "kind": "citation",
+   "target": "",
+   "quoted": "See 49 CFR 1002.3(d)"
+  },
+  {
+   "decision": "52267",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52267",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52267",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52267",
+   "page": 6,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52267",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "citation",
+   "target": "March 12, 2024",
+   "quoted": "decision served March 12, 2024"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "citation",
+   "target": "FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "citation",
+   "target": "1 S.T.B. 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "citation",
+   "target": "25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52267",
+   "page": 7,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52267",
+   "page": 8,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52267",
+   "page": 13,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52267",
+   "page": 13,
+   "kind": "caption",
+   "target": "52267",
+   "quoted": "Docket No. 52267"
+  },
+  {
+   "decision": "52267",
+   "page": 13,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52267",
+   "page": 14,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52267",
+   "page": 14,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52267",
+   "page": 15,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52267",
+   "page": 16,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52267",
+   "page": 17,
+   "kind": "citation",
+   "target": "49 U.S.C. 562",
+   "quoted": "49 U.S.C. 562"
+  },
+  {
+   "decision": "52267",
+   "page": 17,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52267",
+   "page": 17,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52267",
+   "page": 18,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52267",
+   "page": 18,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52267",
+   "page": 18,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52267",
+   "page": 18,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52267",
+   "page": 18,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52267",
+   "page": 20,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52267",
+   "page": 20,
+   "kind": "citation",
+   "target": "FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52267",
+   "page": 20,
+   "kind": "citation",
+   "target": "March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52267",
+   "page": 20,
+   "kind": "citation",
+   "target": "1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52267",
+   "page": 20,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52267",
+   "page": 20,
+   "kind": "citation",
+   "target": "25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "52267",
+   "page": 20,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52267",
+   "page": 21,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52267",
+   "page": 21,
+   "kind": "citation",
+   "target": "FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52267",
+   "page": 21,
+   "kind": "citation",
+   "target": "March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52267",
+   "page": 21,
+   "kind": "citation",
+   "target": "1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52267",
+   "page": 21,
+   "kind": "caption",
+   "target": "2025 Fee (Sub-No. 33)",
+   "quoted": "Docket No. 2025 Fee (Sub-No. 33)"
+  },
+  {
+   "decision": "52267",
+   "page": 21,
+   "kind": "caption",
+   "target": "2024 Fee (Sub-No. 32)",
+   "quoted": "Docket No. 2024 Fee (Sub-No. 32)"
+  },
+  {
+   "decision": "52267",
+   "page": 21,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52267",
+   "page": 22,
+   "kind": "citation",
+   "target": "",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52267",
+   "page": 22,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52268",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52268",
+   "page": 3,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52268",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52268",
+   "page": 3,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "52268",
+   "page": 3,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52268",
+   "page": 3,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52268",
+   "page": 3,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52268",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52268",
+   "page": 3,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52268",
+   "page": 3,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52280",
+   "page": 2,
+   "kind": "caption",
+   "target": "FD 36803",
+   "quoted": "All pleadings, referring to Docket No. FD 36803, should be filed"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "citation",
+   "target": "March 12, 2024",
+   "quoted": "decision served March 12, 2024"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "citation",
+   "target": "1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "citation",
+   "target": "1 S.T.B. at 562",
+   "quoted": "Decision No. 44, Id. at 5"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52295",
+   "page": 2,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52295",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52295",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52295",
+   "page": 3,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52295",
+   "page": 3,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "52295",
+   "page": 3,
+   "kind": "citation",
+   "target": "Docket No. FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52295",
+   "page": 5,
+   "kind": "citation",
+   "target": "NPRM, EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52295",
+   "page": 5,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52295",
+   "page": 5,
+   "kind": "citation",
+   "target": "IANR Reply 2, Aug. 14, 2024, FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52295",
+   "page": 5,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52295",
+   "page": 5,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 5,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52295",
+   "page": 5,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52295",
+   "page": 5,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "decision served March 12, 2024"
+  },
+  {
+   "decision": "52295",
+   "page": 5,
+   "kind": "citation",
+   "target": "IANR Reply 2, Aug. 14, 2024, FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52295",
+   "page": 5,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52295",
+   "page": 6,
+   "kind": "citation",
+   "target": "Soo Line/CMQR, FD 36368",
+   "quoted": "See Soo Line/CMQR, FD 36368, slip op. at 4 (STB served May 4, 2020); Norfolk S. Ry.\u2014Acquis. & Operation\u2014Certain Rail Lines of the Del. & Hudson Ry. (NS/D&H), FD"
+  },
+  {
+   "decision": "52295",
+   "page": 6,
+   "kind": "citation",
+   "target": "Canadian Nat\u2019l Ry.\u2014Control\u2014Duluth, Missabe & Iron Range Ry., FD 34424 et al.",
+   "quoted": "See also Canadian Nat\u2019l Ry.\u2014Control\u2014Duluth, Missabe & Iron Range Ry., FD 34424 et al., slip op. at 14 (STB served Apr. 9, 2004);"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "citation",
+   "target": "IANR Reply 2, Aug. 14, 2024, FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52295",
+   "page": 7,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52295",
+   "page": 10,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 11,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52295",
+   "page": 11,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52295",
+   "page": 11,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52295",
+   "page": 12,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 17,
+   "kind": "citation",
+   "target": "CP-KCS Approval, FD 36500 et al.",
+   "quoted": "NGFA Comments 6, Apr. 29, 2024 (citing CP-KCS Approval, FD 36500 et al., slip op. at 68)"
+  },
+  {
+   "decision": "52295",
+   "page": 17,
+   "kind": "citation",
+   "target": "IANR Reply 2, Aug. 14, 2024",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52295",
+   "page": 17,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 20,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 20,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52295",
+   "page": 21,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52295",
+   "page": 22,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 22,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52295",
+   "page": 22,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52295",
+   "page": 24,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52295",
+   "page": 24,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 25,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 25,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52295",
+   "page": 27,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52295",
+   "page": 27,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52295",
+   "page": 27,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 27,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52295",
+   "page": 27,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52295",
+   "page": 28,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024, the Board vacated the NITU",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "citation",
+   "target": "IANR Reply 2, Aug. 14, 2024, FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52295",
+   "page": 29,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52295",
+   "page": 30,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52295",
+   "page": 30,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 30,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52295",
+   "page": 34,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52295",
+   "page": 34,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 34,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52295",
+   "page": 34,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52295",
+   "page": 36,
+   "kind": "citation",
+   "target": "FD 36744 et al.",
+   "quoted": "N. Cent. Iowa Rail Corridor, LLC, FD 36744 et al."
+  },
+  {
+   "decision": "52295",
+   "page": 36,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52295",
+   "page": 37,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "At a minimum, the Board should have imposed a condition requiring CN to negotiate a haulage or trackage rights agreement with an independent carrier to preserve"
+  },
+  {
+   "decision": "52326",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52326",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52326",
+   "page": 3,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52326",
+   "page": 3,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52326",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52326",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52326",
+   "page": 3,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52326",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52326",
+   "page": 3,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52326",
+   "page": 3,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52330",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 30208",
+   "quoted": "See STR Exemption Decision, FD 36616, slip op. at 2 (citing W. Pac. R.R.\u2014Aban. Exemption\u2014in Tooele Cnty., Utah, FD 30208 (ICC served Aug. 9, 1983))."
+  },
+  {
+   "decision": "52330",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52330",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52330",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52330",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52330",
+   "page": 4,
+   "kind": "citation",
+   "target": "BNSF Reply 3 (quoting RASA \u00a7 15)",
+   "quoted": "BNSF Reply 3 (quoting RASA \u00a7 15)"
+  },
+  {
+   "decision": "52330",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52330",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52330",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52332",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52332",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52332",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52332",
+   "page": 4,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52332",
+   "page": 5,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52332",
+   "page": 5,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52332",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52332",
+   "page": 7,
+   "kind": "citation",
+   "target": "MP may supplement this argument on reply if, as discussed below, BNSF submits an amended petition.",
+   "quoted": "MP may supplement this argument on reply if, as discussed below, BNSF submits an amended petition."
+  },
+  {
+   "decision": "52332",
+   "page": 8,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52361",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52395",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52395",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52395",
+   "page": 3,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52395",
+   "page": 3,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52395",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52395",
+   "page": 3,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52395",
+   "page": 3,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52448",
+   "page": 2,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52448",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52448",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52448",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "10 days after the agreement has been reached"
+  },
+  {
+   "decision": "52454",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52457",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 777",
+   "quoted": "Joint Pet. for Rulemaking to Consider Amends. to Reguls. Governing Interim Use of Rts.-of-Way as Trails (49 C.F.R. Part 1152), EP 777, slip op. at 1 (STB served"
+  },
+  {
+   "decision": "52457",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "decision served March 12, 2024"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52457",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52498",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52498",
+   "page": 2,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "52498",
+   "page": 2,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52498",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52498",
+   "page": 2,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52498",
+   "page": 2,
+   "kind": "citation",
+   "target": "IANR Reply 2, Aug. 14, 2024, FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52519",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52519",
+   "page": 2,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52519",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52519",
+   "page": 2,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52519",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52519",
+   "page": 2,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52519",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52519",
+   "page": 2,
+   "kind": "caption",
+   "target": "52519",
+   "quoted": "Page 2 of decision 52519"
+  },
+  {
+   "decision": "52522",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52522",
+   "page": 2,
+   "kind": "citation",
+   "target": "",
+   "quoted": "49 U.S.C. 11325"
+  },
+  {
+   "decision": "52522",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1), slip op. at 4"
+  },
+  {
+   "decision": "52522",
+   "page": 3,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52522",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52522",
+   "page": 3,
+   "kind": "citation",
+   "target": "March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52522",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52522",
+   "page": 3,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52522",
+   "page": 3,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "52522",
+   "page": 3,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52526",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52526",
+   "page": 8,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52526",
+   "page": 8,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 7 days after the mediation period ends in simplified standards cases"
+  },
+  {
+   "decision": "52526",
+   "page": 9,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52526",
+   "page": 9,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52526",
+   "page": 10,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52526",
+   "page": 10,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52526",
+   "page": 10,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52526",
+   "page": 10,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52526",
+   "page": 10,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52526",
+   "page": 10,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52537",
+   "page": 1,
+   "kind": "citation",
+   "target": "Docket No. FD 36486 (Sub-No. 8)",
+   "quoted": "Grainbelt Corp.\u2014Trackage Rights Exemption\u2014BNSF Railway Company"
+  },
+  {
+   "decision": "52537",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52537",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52537",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52537",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52573",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52573",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52573",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52573",
+   "page": 2,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52573",
+   "page": 2,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52573",
+   "page": 2,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "decision served March 12, 2024"
+  },
+  {
+   "decision": "52573",
+   "page": 2,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52573",
+   "page": 2,
+   "kind": "citation",
+   "target": "Docket No. FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52602",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52602",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52602",
+   "page": 1,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "52602",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52602",
+   "page": 1,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52602",
+   "page": 1,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52602",
+   "page": 1,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52602",
+   "page": 1,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52616",
+   "page": 5,
+   "kind": "caption",
+   "target": "Docket No. X",
+   "quoted": "All pleadings, referring to Docket No. X, should be filed"
+  },
+  {
+   "decision": "52616",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52616",
+   "page": 9,
+   "kind": "caption",
+   "target": "52616",
+   "quoted": "Page 9 of decision 52616:"
+  },
+  {
+   "decision": "52616",
+   "page": 10,
+   "kind": "caption",
+   "target": "52616",
+   "quoted": "Docket No. 52616"
+  },
+  {
+   "decision": "52621",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52665",
+   "page": 2,
+   "kind": "caption",
+   "target": "52665",
+   "quoted": "Docket No. 52665"
+  },
+  {
+   "decision": "52676",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52676",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52676",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52676",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52676",
+   "page": 1,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52676",
+   "page": 1,
+   "kind": "deadline",
+   "target": "November 20, 2020",
+   "quoted": "November 20, 2020"
+  },
+  {
+   "decision": "52676",
+   "page": 1,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "service date"
+  },
+  {
+   "decision": "52699",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52699",
+   "page": 2,
+   "kind": "citation",
+   "target": "49 CFR 1102.2(g)(4)",
+   "quoted": "AAR asks the Board to revise the regulatory text to permit ex parte communications in transactions involving Class I railroads, subject to the disclosure requir"
+  },
+  {
+   "decision": "52699",
+   "page": 2,
+   "kind": "citation",
+   "target": "Pet. 9-10",
+   "quoted": "AAR asks the Board to revise the regulatory text to permit ex parte communications in transactions involving Class I railroads, subject to the disclosure requir"
+  },
+  {
+   "decision": "52699",
+   "page": 2,
+   "kind": "citation",
+   "target": "Pet. 11-15",
+   "quoted": "AAR asks the Board to revise the regulatory text to allow: (1) ex parte communications between the public and Board staff, subject to the same requirements gove"
+  },
+  {
+   "decision": "52699",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52701",
+   "page": 2,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52701",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52701",
+   "page": 2,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52701",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52701",
+   "page": 2,
+   "kind": "citation",
+   "target": "March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52701",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B.",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52701",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52701",
+   "page": 2,
+   "kind": "caption",
+   "target": "52701",
+   "quoted": "Docket No. 52701"
+  },
+  {
+   "decision": "52748",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52748",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52748",
+   "page": 1,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52748",
+   "page": 1,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52748",
+   "page": 1,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024, the Board vacated the NITU",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52748",
+   "page": 1,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52748",
+   "page": 1,
+   "kind": "citation",
+   "target": "IANR Reply 2, Aug. 14, 2024, FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52748",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52748",
+   "page": 5,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52748",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52748",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52748",
+   "page": 9,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52748",
+   "page": 11,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52748",
+   "page": 12,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52748",
+   "page": 12,
+   "kind": "citation",
+   "target": "NPRM, EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52748",
+   "page": 12,
+   "kind": "citation",
+   "target": "decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52748",
+   "page": 12,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B.",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52748",
+   "page": 12,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52748",
+   "page": 12,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52748",
+   "page": 12,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52748",
+   "page": 15,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52748",
+   "page": 15,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52748",
+   "page": 15,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52748",
+   "page": 16,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52763",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52773",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52807",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "citation",
+   "target": "FD 36501",
+   "quoted": "Union Pac. R.R.\u2014Constr. & Operation Exemption\u2014in Maricopa Cnty., Ariz., FD 36501, slip op. at 5-6"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "citation",
+   "target": "FD 36501",
+   "quoted": "Union Pac. R.R.\u2014Constr. & Operation Exemption\u2014in Maricopa Cnty., Ariz., FD 36501, slip op. at 6"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52822",
+   "page": 4,
+   "kind": "deadline",
+   "target": "January 30, 2025",
+   "quoted": "January 30, 2025"
+  },
+  {
+   "decision": "52822",
+   "page": 14,
+   "kind": "citation",
+   "target": "NPRM, EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52822",
+   "page": 14,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52822",
+   "page": 14,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52822",
+   "page": 14,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52822",
+   "page": 15,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52822",
+   "page": 16,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52822",
+   "page": 16,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52822",
+   "page": 16,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52822",
+   "page": 16,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52822",
+   "page": 16,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52822",
+   "page": 16,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52822",
+   "page": 16,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "52822",
+   "page": 16,
+   "kind": "citation",
+   "target": "IANR Reply 2, Aug. 14, 2024, FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52822",
+   "page": 19,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "52822",
+   "page": 19,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52822",
+   "page": 19,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52822",
+   "page": 19,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52822",
+   "page": 19,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52822",
+   "page": 19,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52822",
+   "page": 19,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52822",
+   "page": 19,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52822",
+   "page": 19,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52822",
+   "page": 19,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "52822",
+   "page": 19,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52822",
+   "page": 20,
+   "kind": "citation",
+   "target": "NPRM, EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52822",
+   "page": 20,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52822",
+   "page": 20,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52822",
+   "page": 20,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52822",
+   "page": 20,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024, the Board vacated the NITU",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "52822",
+   "page": 20,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52822",
+   "page": 20,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52822",
+   "page": 20,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "52822",
+   "page": 20,
+   "kind": "citation",
+   "target": "IANR Reply 2, Aug. 14, 2024, FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52826",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52826",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52826",
+   "page": 1,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "52826",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52826",
+   "page": 1,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52826",
+   "page": 1,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52826",
+   "page": 1,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52826",
+   "page": 1,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52826",
+   "page": 2,
+   "kind": "citation",
+   "target": "Docket No. AB 312 (Sub-No. 6X)",
+   "quoted": "1.  Prior to commencement of any abandonment-related salvage activities, SCRF shall consult with the GA EPD to ensure appropriate consideration of NPDES permits"
+  },
+  {
+   "decision": "52826",
+   "page": 2,
+   "kind": "citation",
+   "target": "Docket No. AB 312 (Sub-No. 6X)",
+   "quoted": "2.  SCRF shall retain its interest in and take no steps to alter the historic integrity of all historic properties, including sites, buildings, structures, and "
+  },
+  {
+   "decision": "52835",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52835",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52835",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52835",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52835",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52835",
+   "page": 10,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52835",
+   "page": 10,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52835",
+   "page": 10,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52835",
+   "page": 10,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52835",
+   "page": 10,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "52835",
+   "page": 11,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52835",
+   "page": 13,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52835",
+   "page": 13,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52835",
+   "page": 13,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "52835",
+   "page": 14,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "It is ordered: 2.  The motions to strike filed by TRANSDEF and MRY are denied as moot."
+  },
+  {
+   "decision": "52851",
+   "page": 1,
+   "kind": "citation",
+   "target": "January 13, 2026",
+   "quoted": "PNGT submitted a supplement to its notice on January 13, 2026"
+  },
+  {
+   "decision": "52851",
+   "page": 1,
+   "kind": "citation",
+   "target": "January 14, 2026",
+   "quoted": "PNGT provided a certificate of service as required by 49 CFR 1104.12 on January 14, 2026"
+  },
+  {
+   "decision": "52851",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52851",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52860",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52860",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52860",
+   "page": 3,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "52860",
+   "page": 3,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "52860",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52860",
+   "page": 3,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "52860",
+   "page": 3,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52860",
+   "page": 3,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "52860",
+   "page": 3,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52860",
+   "page": 3,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52887",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52887",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52910",
+   "page": 1,
+   "kind": "citation",
+   "target": "February 2, 2026",
+   "quoted": "The notice indicated that interim trail use/railbanking requests would be due by February 2, 2026, and petitions to reopen and requests for public use condition"
+  },
+  {
+   "decision": "52910",
+   "page": 1,
+   "kind": "citation",
+   "target": "February 12, 2026",
+   "quoted": "The notice indicated that interim trail use/railbanking requests would be due by February 2, 2026, and petitions to reopen and requests for public use condition"
+  },
+  {
+   "decision": "52910",
+   "page": 1,
+   "kind": "deadline",
+   "target": "February 2, 2026",
+   "quoted": "The notice indicated that interim trail use/railbanking requests would be due by February 2, 2026, and petitions to reopen and requests for public use condition"
+  },
+  {
+   "decision": "52910",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The notice indicated that interim trail use/railbanking requests would be due by February 2, 2026, and petitions to reopen and requests for public use condition"
+  },
+  {
+   "decision": "52915",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52971",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "at least 60 days before the effective date of this decision"
+  },
+  {
+   "decision": "52988",
+   "page": 1,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52988",
+   "page": 3,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52988",
+   "page": 3,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 3,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52988",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52988",
+   "page": 4,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52988",
+   "page": 5,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52988",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 10,
+   "kind": "citation",
+   "target": "Policy Statement on Demurrage & Accessorial Rules & Charges, FD 757, slip op. at 12",
+   "quoted": "Policy Statement on Demurrage & Accessorial Rules & Charges, FD 757, slip op. at 12"
+  },
+  {
+   "decision": "52988",
+   "page": 13,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 14,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 16,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 17,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 17,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52988",
+   "page": 18,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 19,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "The Board will modify 49 CFR 1251.2(b)(1)-(ii) to reflect these clarifications."
+  },
+  {
+   "decision": "52988",
+   "page": 22,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 24,
+   "kind": "citation",
+   "target": "CN Comments 9",
+   "quoted": "CN Comments 9"
+  },
+  {
+   "decision": "52988",
+   "page": 25,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 25,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52988",
+   "page": 25,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "52988",
+   "page": 28,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52988",
+   "page": 28,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "52988",
+   "page": 28,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "52988",
+   "page": 28,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52988",
+   "page": 32,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "each planned spot or pull from the cancelled service window shall be included as a failure in calculating the ISP metric within 30 days"
+  },
+  {
+   "decision": "52991",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52991",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "52996",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "52996",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "52996",
+   "page": 1,
+   "kind": "citation",
+   "target": "April 23, 2024",
+   "quoted": "By decision served April 23, 2024, the Board granted A-Trail\u2019s request for issuance of a notice of interim trails use facilitative of trails use negotiations wi"
+  },
+  {
+   "decision": "52996",
+   "page": 1,
+   "kind": "caption",
+   "target": "AB-1324X",
+   "quoted": "Alabama Railroad, LCC \u2013 Abandonment Exemption \u2013 In Escambia, Coneuh, and Monroe Counties, Ala., AB-1324X"
+  },
+  {
+   "decision": "52996",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "52996",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "52996",
+   "page": 2,
+   "kind": "caption",
+   "target": "Docket No. 52996",
+   "quoted": "Page 2 of decision 52996:"
+  },
+  {
+   "decision": "53021",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53021",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53021",
+   "page": 2,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53021",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "53046",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1),"
+  },
+  {
+   "decision": "53046",
+   "page": 2,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53046",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53046",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53046",
+   "page": 5,
+   "kind": "citation",
+   "target": "Docket No. FD 36798",
+   "quoted": "UP Reply 5, Dec. 22, 2025."
+  },
+  {
+   "decision": "53046",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53046",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53046",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53046",
+   "page": 7,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "53046",
+   "page": 7,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "53046",
+   "page": 7,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "53046",
+   "page": 7,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53046",
+   "page": 7,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53046",
+   "page": 7,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53046",
+   "page": 7,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "53046",
+   "page": 7,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 25 years"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "citation",
+   "target": "Docket No. FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "citation",
+   "target": "March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "citation",
+   "target": "1 S.T.B. 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "citation",
+   "target": "Docket No. FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 1,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 4,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53052",
+   "page": 4,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "53052",
+   "page": 4,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "53052",
+   "page": 4,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53052",
+   "page": 4,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53052",
+   "page": 4,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "53052",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 4,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "53052",
+   "page": 4,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53052",
+   "page": 5,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53052",
+   "page": 5,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 6,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53052",
+   "page": 9,
+   "kind": "citation",
+   "target": "NPRM, EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53052",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 9,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53052",
+   "page": 10,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53052",
+   "page": 12,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 13,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "citation",
+   "target": "IANR Reply 2, Aug. 14, 2024, FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 16,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 18,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 18,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "53052",
+   "page": 20,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "53052",
+   "page": 21,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 21,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 21,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53052",
+   "page": 22,
+   "kind": "citation",
+   "target": "NPRM, EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "53052",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "the Board directs Applicants to: \u2022 [A-2] For each 3-to-2 shipper facility, explain why the Board should not remedy a reduction in carriers serving the facility."
+  },
+  {
+   "decision": "53052",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "the Board directs Applicants to: \u2022 [A-3] For each 2-to-1 and 3-to-2 shipper facility, provide any contracts or agreements, and any supporting details relevant t"
+  },
+  {
+   "decision": "53052",
+   "page": 23,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "the Board directs Applicants to: \u2022 [A-4] Confirm that Applicants do not intend to take any action to reduce or eliminate the access of any Class II carrier, Cla"
+  },
+  {
+   "decision": "53052",
+   "page": 25,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 25,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 25,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53052",
+   "page": 26,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 27,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 27,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 27,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53052",
+   "page": 28,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 30,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53052",
+   "page": 30,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "Specifically, the Board directs Applicants to: \u2022 [MS-2] Because the diversion analysis does not account for industry changes since 2023 from transactions involv"
+  },
+  {
+   "decision": "53052",
+   "page": 30,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "Specifically, the Board directs Applicants to: \u2022 [MS-2] Because the diversion analysis does not account for industry changes since 2023 from transactions involv"
+  },
+  {
+   "decision": "53052",
+   "page": 31,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 34,
+   "kind": "citation",
+   "target": "NPRM, EP 787",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53052",
+   "page": 34,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "citation",
+   "target": "Docket No. FD 36798",
+   "quoted": "Docket No. FD 36798"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "53052",
+   "page": 36,
+   "kind": "deadline",
+   "target": "October 15, 2024",
+   "quoted": "October 15, 2024"
+  },
+  {
+   "decision": "53052",
+   "page": 39,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 39,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 39,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53052",
+   "page": 39,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "effective on its service date"
+  },
+  {
+   "decision": "53052",
+   "page": 40,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53052",
+   "page": 40,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "citation",
+   "target": "49 CFR 1180.8(a)(1)",
+   "quoted": "49 CFR 1180.8(a)(1)"
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 41,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 42,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53052",
+   "page": 42,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "53052",
+   "page": 42,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "53052",
+   "page": 42,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53052",
+   "page": 42,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53052",
+   "page": 42,
+   "kind": "citation",
+   "target": "Docket No. FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "53052",
+   "page": 42,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53052",
+   "page": 42,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53052",
+   "page": 42,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53072",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 711 (Sub-No. 1)",
+   "quoted": "NPRM, EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "53072",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53072",
+   "page": 4,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "53072",
+   "page": 4,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "53072",
+   "page": 4,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "53072",
+   "page": 4,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "53072",
+   "page": 4,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53072",
+   "page": 4,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53072",
+   "page": 4,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "53072",
+   "page": 4,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "53072",
+   "page": 4,
+   "kind": "caption",
+   "target": "Docket No. 53072",
+   "quoted": "Page 4 of decision 53072"
+  },
+  {
+   "decision": "53072",
+   "page": 8,
+   "kind": "caption",
+   "target": "Docket No. 53072",
+   "quoted": "Docket No. 53072"
+  },
+  {
+   "decision": "53072",
+   "page": 11,
+   "kind": "citation",
+   "target": "Decision No. 53072",
+   "quoted": "Decision No. 53072"
+  },
+  {
+   "decision": "53076",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 696 (STB served Sept. 2, 2010)",
+   "quoted": "NPRM, EP 696 (STB served Sept. 2, 2010)"
+  },
+  {
+   "decision": "53076",
+   "page": 1,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53076",
+   "page": 1,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al.",
+   "quoted": "Decision No. 1, FD 36732 et al."
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "citation",
+   "target": "EP 711 (Sub-No. 1)",
+   "quoted": "EP 711 (Sub-No. 1)"
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "15 days after the draft EA is available"
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "deadline",
+   "target": "service date",
+   "quoted": "on its service date"
+  },
+  {
+   "decision": "53076",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "until further order of the Board"
+  },
+  {
+   "decision": "53089",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53089",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53089",
+   "page": 1,
+   "kind": "citation",
+   "target": "1 S.T.B. 233 (1996)",
+   "quoted": "1 S.T.B. 233 (1996)"
+  },
+  {
+   "decision": "53089",
+   "page": 1,
+   "kind": "citation",
+   "target": "360 I.C.C. 91 (1979)",
+   "quoted": "360 I.C.C. 91 (1979)"
+  },
+  {
+   "decision": "53089",
+   "page": 1,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024, the Board vacated the NITU",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "53089",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "53089",
+   "page": 1,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53089",
+   "page": 1,
+   "kind": "citation",
+   "target": "No. 25-7442",
+   "quoted": "No. 25-7442"
+  },
+  {
+   "decision": "53089",
+   "page": 1,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "53089",
+   "page": 2,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53089",
+   "page": 2,
+   "kind": "citation",
+   "target": "49 U.S.C. 11325",
+   "quoted": "49 U.S.C. 11325"
+  },
+  {
+   "decision": "53089",
+   "page": 2,
+   "kind": "deadline",
+   "target": "",
+   "quoted": "within 30 days"
+  },
+  {
+   "decision": "53125",
+   "page": 1,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53125",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 1, FD 36732 et al., slip op. at 6",
+   "quoted": "Decision No. 1, FD 36732 et al., slip op. at 6"
+  },
+  {
+   "decision": "53125",
+   "page": 1,
+   "kind": "citation",
+   "target": "By decision served March 12, 2024",
+   "quoted": "By decision served March 12, 2024, the Board vacated the NITU"
+  },
+  {
+   "decision": "53125",
+   "page": 1,
+   "kind": "citation",
+   "target": "Decision No. 44, 1 S.T.B. at 562",
+   "quoted": "Decision No. 44, 1 S.T.B. at 562"
+  },
+  {
+   "decision": "53125",
+   "page": 1,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53125",
+   "page": 1,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  },
+  {
+   "decision": "53125",
+   "page": 3,
+   "kind": "citation",
+   "target": "NPRM, EP 787, slip op. at 4",
+   "quoted": "NPRM, EP 787, slip op. at 4"
+  },
+  {
+   "decision": "53125",
+   "page": 3,
+   "kind": "citation",
+   "target": "Docket No. FD 36500",
+   "quoted": "Docket No. FD 36500"
+  },
+  {
+   "decision": "53125",
+   "page": 3,
+   "kind": "citation",
+   "target": "109 F.3d 794",
+   "quoted": "Grainbelt Corp. v. STB, 109 F.3d 794 (D.C. Cir. 1997)"
+  },
+  {
+   "decision": "53125",
+   "page": 3,
+   "kind": "citation",
+   "target": "FD 36798",
+   "quoted": "IANR Reply 2, Aug. 14, 2024, FD 36798"
+  }
+ ],
+ "by_kind": {
+  "citation/stb": {
+   "truth": 332,
+   "found": 978,
+   "hit": 242,
+   "recall": 0.7289156626506024,
+   "precision": 0.2474437627811861
+  },
+  "citation/court": {
+   "truth": 86,
+   "found": 125,
+   "hit": 62,
+   "recall": 0.7209302325581395,
+   "precision": 0.496
+  },
+  "citation/record": {
+   "truth": 7,
+   "found": 342,
+   "hit": 3,
+   "recall": 0.42857142857142855,
+   "precision": 0.008771929824561403
+  },
+  "caption/self": {
+   "truth": 38,
+   "found": 86,
+   "hit": 29,
+   "recall": 0.7631578947368421,
+   "precision": 0.3372093023255814
+  },
+  "deadline/date": {
+   "truth": 90,
+   "found": 197,
+   "hit": 64,
+   "recall": 0.7111111111111111,
+   "precision": 0.3248730964467005
+  },
+  "deadline/reference": {
+   "truth": 21,
+   "found": 20,
+   "hit": 12,
+   "recall": 0.5714285714285714,
+   "precision": 0.6
+  },
+  "deadline/period": {
+   "truth": 18,
+   "found": 82,
+   "hit": 5,
+   "recall": 0.2777777777777778,
+   "precision": 0.06097560975609756
+  },
+  "deadline/indefinite": {
+   "truth": 6,
+   "found": 240,
+   "hit": 1,
+   "recall": 0.16666666666666666,
+   "precision": 0.004166666666666667
+  },
+  "citation/stb-docket": {
+   "truth": 225,
+   "found": 234,
+   "hit": 171,
+   "recall": 0.76,
+   "precision": 0.7307692307692307
+  }
+ }
+}

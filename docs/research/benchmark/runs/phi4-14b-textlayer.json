@@ -2,6 +2,8 @@
  "run": "data\\benchmark\\runs-batch\\phi4-14b",
  "label": "phi4-14b-textlayer",
  "legacy_findings": 0,
+ "pages": 443,
+ "error_pages": 1,
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],

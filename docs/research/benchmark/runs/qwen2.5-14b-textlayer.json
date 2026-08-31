@@ -2,6 +2,8 @@
  "run": "data\\benchmark\\runs-batch\\qwen2.5-14b",
  "label": "qwen2.5-14b-textlayer",
  "legacy_findings": 0,
+ "pages": 443,
+ "error_pages": 0,
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],

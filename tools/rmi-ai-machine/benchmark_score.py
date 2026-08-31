@@ -173,10 +173,15 @@ def run_findings(run_dir: Path, texts: dict | None = None) -> tuple:
     (`unchecked`) rather than silently passed. `legacy` counts placed findings only."""
     out: dict = defaultdict(lambda: defaultdict(lambda: defaultdict(set)))
     sentences: dict = defaultdict(lambda: defaultdict(set))
-    report: dict = {"legacy": 0, "off_page": [], "unchecked": []}
+    report: dict = {"legacy": 0, "off_page": [], "unchecked": [], "error_pages": 0, "pages": 0}
     for f in sorted(run_dir.glob("*.json")):
         doc = json.loads(f.read_text(encoding="utf-8"))
         did = str(doc.get("decision_id") or f.stem)
+        # A page the engine never answered contributes no findings, so its recall loss is
+        # invisible unless the count is carried: llama3.1:8b timed out on 41 of 443 pages
+        # (2026-08-30), 9% of the sample, and read as merely a weak engine.
+        report["pages"] += len(doc.get("pages", []))
+        report["error_pages"] += sum(1 for p in doc.get("pages", []) if "error" in p)
         doc_text = texts.get(did) if texts is not None else None
         if texts is not None and doc_text is None:
             report["unchecked"].append(did)
@@ -263,6 +268,8 @@ def main() -> int:
         "run": str(args.run),
         "label": name,
         "legacy_findings": report["legacy"],
+        "pages": report["pages"],
+        "error_pages": report["error_pages"],
         "page_check": texts is not None,
         "text_dir": None if texts is None else text_dir.as_posix(),
         "unchecked_decisions": report["unchecked"],
@@ -271,6 +278,11 @@ def main() -> int:
         "by_kind": {},
     }
     print(f"{name}: {len(r)} decisions in the run, {len(t)} in the sheet")
+    if report["error_pages"]:
+        print(
+            f"  {report['error_pages']} of {report['pages']} pages returned an error and were"
+            " read as empty: recall below is a floor, not a measurement"
+        )
     if report["legacy"]:
         print(f"  {report['legacy']} findings carried no target_kind and were placed by note")
     if texts is not None:

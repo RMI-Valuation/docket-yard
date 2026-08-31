@@ -2,6 +2,8 @@
  "run": "data\\benchmark\\runs-batch\\gemma3-12b",
  "label": "gemma3-12b-textlayer",
  "legacy_findings": 0,
+ "pages": 443,
+ "error_pages": 0,
  "page_check": true,
  "text_dir": "E:/DevProjects/docket-yard/data/benchmark/text",
  "unchecked_decisions": [],
