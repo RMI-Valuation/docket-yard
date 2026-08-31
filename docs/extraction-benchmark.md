@@ -132,6 +132,31 @@ On the **docket-shaped** class — what a citator resolves — three things were
   no document word in the window. The keyword window alone, without the own-docket rule,
   is a poor classifier (79.6%): the record already knows which proceeding a decision sits
   in, and that is the one thing regex should not be asked to decide.
+### The role classifier, measured 2026-08-31 — the second half, and the answer
+
+`benchmark_roles.py` fixes the finder (regex + registry) and asks a model one question per
+hit: does the text name a DOCUMENT, only the PROCEEDING, or a FILING? Recall is capped at
+the regex's own, so what this measures is the judgement.
+
+| classifier over the same regex hits | docket-shaped recall | precision |
+|---|---|---|
+| **the record's own-docket rule — no model** | **95.1%** | 88.1% |
+| llama3.1:8b | **96.9%** | 79.3% |
+| qwen3:14b | 83.1% | **95.9%** |
+| the keyword window — no model | 79.6% | 86.9% |
+
+Both models beat the keyword window, so a model *does* judge better than a word list. But
+neither beats **the record's own knowledge**: the own-docket rule wins on the combination
+because it is not judging at all — it reads which proceeding the deciding decision is
+entered in, which the model is never told. qwen3:14b is the most cautious judge (95.9%
+precision, the best figure any engine reached on this class) and pays 12 points of recall
+for it by calling 488 hits captions; llama3.1:8b calls 667 of them citations and buys the
+highest recall of anything measured at the cost of precision. The pair bracket the
+own-docket rule rather than beating it.
+
+**So the shape holds end to end**: find with a regular expression, decide with the record,
+and buy a model only for what neither can do.
+
 - **So the paid extractor earns its keep on the other forms** — reporter cites, `decision
   served …` phrases, court citations, deadlines, and the role of a same-docket mention —
   not on docket numbers. ADR 0017 § Amendment candidates records what that changes.

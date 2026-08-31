@@ -1,6 +1,6 @@
 {
- "run": "data\\benchmark\\runs-roles\\roles-mock",
- "label": "roles-mock",
+ "run": "data\\benchmark\\runs-roles\\roles-qwen3-14b",
+ "label": "roles-qwen3-14b",
  "legacy_findings": 0,
  "pages": 443,
  "error_pages": 0,
@@ -13,10 +13,10 @@
  "by_kind": {
   "citation/stb": {
    "truth": 332,
-   "found": 206,
-   "hit": 179,
-   "recall": 0.5391566265060241,
-   "precision": 0.8689320388349514
+   "found": 195,
+   "hit": 187,
+   "recall": 0.5632530120481928,
+   "precision": 0.958974358974359
   },
   "citation/court": {
    "truth": 86,
@@ -27,17 +27,17 @@
   },
   "citation/record": {
    "truth": 7,
-   "found": 0,
-   "hit": 0,
-   "recall": 0.0,
-   "precision": null
+   "found": 9,
+   "hit": 2,
+   "recall": 0.2857142857142857,
+   "precision": 0.2222222222222222
   },
   "caption/self": {
    "truth": 38,
-   "found": 117,
+   "found": 100,
    "hit": 35,
    "recall": 0.9210526315789473,
-   "precision": 0.29914529914529914
+   "precision": 0.35
   },
   "deadline/date": {
    "truth": 90,
@@ -69,10 +69,10 @@
   },
   "citation/stb-docket": {
    "truth": 225,
-   "found": 206,
-   "hit": 179,
-   "recall": 0.7955555555555556,
-   "precision": 0.8689320388349514
+   "found": 195,
+   "hit": 187,
+   "recall": 0.8311111111111111,
+   "precision": 0.958974358974359
   }
  }
 }

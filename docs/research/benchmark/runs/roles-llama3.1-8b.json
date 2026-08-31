@@ -1,6 +1,6 @@
 {
- "run": "data\\benchmark\\runs-roles\\roles-mock",
- "label": "roles-mock",
+ "run": "data\\benchmark\\runs-roles\\roles-llama3.1-8b",
+ "label": "roles-llama3.1-8b",
  "legacy_findings": 0,
  "pages": 443,
  "error_pages": 0,
@@ -13,10 +13,10 @@
  "by_kind": {
   "citation/stb": {
    "truth": 332,
-   "found": 206,
-   "hit": 179,
-   "recall": 0.5391566265060241,
-   "precision": 0.8689320388349514
+   "found": 275,
+   "hit": 218,
+   "recall": 0.6566265060240963,
+   "precision": 0.7927272727272727
   },
   "citation/court": {
    "truth": 86,
@@ -27,17 +27,17 @@
   },
   "citation/record": {
    "truth": 7,
-   "found": 0,
+   "found": 1,
    "hit": 0,
    "recall": 0.0,
-   "precision": null
+   "precision": 0.0
   },
   "caption/self": {
    "truth": 38,
-   "found": 117,
-   "hit": 35,
-   "recall": 0.9210526315789473,
-   "precision": 0.29914529914529914
+   "found": 39,
+   "hit": 20,
+   "recall": 0.5263157894736842,
+   "precision": 0.5128205128205128
   },
   "deadline/date": {
    "truth": 90,
@@ -69,10 +69,10 @@
   },
   "citation/stb-docket": {
    "truth": 225,
-   "found": 206,
-   "hit": 179,
-   "recall": 0.7955555555555556,
-   "precision": 0.8689320388349514
+   "found": 275,
+   "hit": 218,
+   "recall": 0.9688888888888889,
+   "precision": 0.7927272727272727
   }
  }
 }
