@@ -140,3 +140,22 @@ the next person does not re-derive it.
   Conrail proceeding where all three numbers sit high in their own series — and
   AB 290 (Sub-No. 553X), 2024, which our record shows entered nowhere else. A joint filing
   drawing from a high range would explain the first and not the second.
+
+## Caption refresh (stb-ingest-specialist, 2026-08-31, against v2026.08.40)
+
+Raised on the poll's caption lookup; the blocking findings (asking by family, and asking
+for ever) were fixed before it shipped. These were triaged as not-now:
+
+- **No positive control that the lookup can succeed.** A criteria rename at the Board would
+  answer the no-results envelope for every ask, which `expected_empty=True` reads as
+  benign. `CAPTION_ATTEMPTS` turns that into a problem line after eight tries per docket,
+  which is a floor, not a proof: asking once a pass about a family the record already has a
+  caption for would prove the query still works, at one request.
+- **`/coverage` still says the registry was walked once on 2026-08-25** while the forward
+  pass now refreshes part of it. One generated sentence, driven off the constants, would
+  keep the published page honest (`coverage.registry_walked_at` is backfill-only, so the
+  date itself is correct).
+- **`{"already_processed": True}` lands in the ingest counts as `1`** (`isinstance(True, int)`),
+  a pre-existing cosmetic wrinkle in `_ingest_pending` that the dockets path now shares.
+- **`_uncaptioned` scans the registry each pass** (~32,600 dockets, index seeks). Free at
+  this size, and it will not stay free.

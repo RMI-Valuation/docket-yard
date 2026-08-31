@@ -130,7 +130,10 @@ def parse_response(body: bytes) -> ParsedResponse:
 
 # --- the positive filter assertion, shared halves ------------------------------------
 
-DOCKET_CRITERIA = {"docketNum_one", "docketNum_two"}
+# `docketNum_three` is the SUB-sequence: measured against the live endpoint 2026-08-31,
+# which echoes the criteria it understood — `one=AB, two=290` answers 392 rows, and
+# `one=AB, two=290, three=423` answers 1, naming "Sub Sequence Number = 423".
+DOCKET_CRITERIA = {"docketNum_one", "docketNum_two", "docketNum_three"}
 
 
 def assert_preamble(
@@ -166,12 +169,15 @@ def docket_criteria_hold(checks: dict[str, str], identities: Iterable[ParsedDock
     returns the full unfiltered set with a 200 — this is the check that catches it)."""
     want_prefix = checks["docketNum_one"].upper() if "docketNum_one" in checks else None
     want_sequence = int(checks["docketNum_two"]) if "docketNum_two" in checks else None
+    want_sub = int(checks["docketNum_three"]) if "docketNum_three" in checks else None
     for identity in identities:
         if identity is None:
             return False
         if want_prefix is not None and identity.prefix != want_prefix:
             return False
         if want_sequence is not None and identity.sequence != want_sequence:
+            return False
+        if want_sub is not None and identity.sub_sequence != want_sub:
             return False
     return True
 

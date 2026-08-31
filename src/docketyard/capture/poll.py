@@ -13,14 +13,15 @@ the client would otherwise carry a dead one for the life of the container.
 """
 
 import time
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from sqlite3 import Connection
 
 from docketyard.capture import documents, walk
-from docketyard.capture.stb import DECISIONS, FILINGS
-from docketyard.ingest import observations
+from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS
+from docketyard.ingest import dockets, observations
 from docketyard.parties import resolve
 from docketyard.store import projections, search
+from docketyard.store.db import load_json
 
 WINDOW_DAYS = 7
 MIN_WINDOW_DAYS = 3  # below this a quiet weekend makes the page-1 envelope a false alarm
@@ -53,11 +54,14 @@ def _describe(result: walk.SliceResult) -> str:
 
 def _ingest_pending(con: Connection, data_dir, action: str, problems: list[str]) -> dict:
     """Every asserted, unprocessed capture of one table. Rows dropped at parse are a
-    problem — the raw is retained, but a record is missing from its sheet."""
+    problem — the raw is retained, but a record is missing from its sheet.
+
+    The dockets table has its own parser: it carries the registry, not observations."""
+    parse = dockets.ingest_capture if action == DOCKETS else observations.ingest_capture
     counts: dict = {}
     for capture_id in projections.pending_capture_ids(con, action):
         try:
-            stats = observations.ingest_capture(con, data_dir, capture_id)
+            stats = parse(con, data_dir, capture_id)
         except Exception as e:  # noqa: BLE001 — one bad capture must not strand the pass
             con.rollback()
             problems.append(f"capture {capture_id}: {type(e).__name__}: {e}")
@@ -69,6 +73,176 @@ def _ingest_pending(con: Connection, data_dir, action: str, problems: list[str])
             if isinstance(value, int):
                 counts[key] = counts.get(key, 0) + value
     return counts
+
+
+# The caption refresh, bounded three ways: how many dockets a pass asks about, how recent
+# a record must be for its docket to be worth asking, and how many times one docket may be
+# asked before the record concludes the Board does not publish it. Measured on production
+# 2026-08-31: 3 dockets of 5,076 with records lacked a caption, all opened within 3 days.
+CAPTION_LOOKUPS = 10
+CAPTION_WINDOW_DAYS = 45
+CAPTION_ATTEMPTS = 8  # ~4 hours of passes; then it is reported, not asked again
+CAPTION_RETRY_HOURS = 6  # one ask per docket per this many hours, whatever the pass rate
+
+
+def _caption_asks(con: Connection) -> dict[tuple[str, int, int | None], tuple[int, str]]:
+    """How often each docket has been asked about, and when last, read from the capture
+    ledger — the same trick the errata re-check uses, so this costs no schema change.
+
+    A caption ask is the only forward DOCKETS capture the poller makes, and its criteria
+    are recorded on the capture row, so the ledger already answers "did we ask, and when".
+    """
+    out: dict[tuple[str, int, int | None], tuple[int, str]] = {}
+    for params, captured_at in con.execute(
+        "SELECT request_params, captured_at FROM capture"
+        " WHERE table_action = ? AND ingest_mode = 'forward' ORDER BY captured_at",
+        (DOCKETS,),
+    ):
+        # the capture records the POST fields as the endpoint takes them —
+        # `search-criteria[i][name]` and `[value]`, never (name, value) pairs — so the
+        # criteria are reassembled by index (code review, 2026-08-31)
+        names: dict[str, str] = {}
+        values: dict[str, str] = {}
+        for field, value in load_json(params) or []:
+            if field.startswith("search-criteria["):
+                index, part = field[len("search-criteria[") :].split("][", 1)
+                (names if part.startswith("name") else values)[index] = value
+        criteria = {names[i]: values[i] for i in names if i in values}
+        prefix = criteria.get("docketNum_one")
+        sequence = criteria.get("docketNum_two")
+        if not prefix or not sequence:
+            continue
+        third = criteria.get("docketNum_three")
+        key = (prefix, int(sequence), int(third) if third else None)
+        seen = out.get(key)
+        out[key] = ((seen[0] if seen else 0) + 1, captured_at)
+    return out
+
+
+def _uncaptioned(con: Connection, today: date) -> list[tuple[int, str, int, int | None]]:
+    """(docket_id, prefix, sequence, sub_sequence) for proceedings the record holds records
+    FOR but has never seen in the Board's own dockets table, newest activity first.
+
+    A new proceeding reaches the filings table before the dockets table, so its docket row
+    is minted from the filing (`docket_inferred`) and carries no caption: the operator
+    found `AB 290 (Sub-No. 423X)`, `FD 36951` and `AB 55 (Sub-No. 827X)` reading
+    "(caption not yet observed)" on the home page, three days after they opened.
+
+    Only dockets holding a record of their own are asked about, so the ~2,400 parents
+    minted for sub-dockets (`AB_1_0`, implied by `AB_1_6`) — which the Board never prints
+    and which hold nothing — are never asked about at all.
+    """
+    since = (today - timedelta(days=CAPTION_WINDOW_DAYS)).isoformat()
+    return [
+        (docket_id, prefix, sequence, sub_sequence)
+        for docket_id, prefix, sequence, sub_sequence, _ in con.execute(
+            """
+            SELECT d.docket_id, d.prefix, d.sequence, d.sub_sequence, MAX(x.happened) AS newest
+              FROM docket d
+              JOIN docket_current dc ON dc.docket_id = d.docket_id
+              JOIN (SELECT docket_id, filed_date AS happened FROM filing
+                    UNION ALL SELECT docket_id, service_date FROM decision_record) x
+                ON x.docket_id = d.docket_id
+             WHERE dc.latest_payload IS NULL
+               AND x.happened >= ?
+               AND EXISTS (SELECT 1 FROM event e
+                            WHERE e.docket_id = d.docket_id AND e.event_type = 'docket_inferred')
+             GROUP BY d.docket_id
+             ORDER BY newest DESC, d.docket_id DESC
+            """,
+            (since,),
+        )
+    ]
+
+
+def _captioned_ids(con: Connection) -> set[int]:
+    return {
+        r[0]
+        for r in con.execute(
+            "SELECT docket_id FROM docket_current WHERE latest_payload IS NOT NULL"
+        )
+    }
+
+
+def _fill_captions(
+    con: Connection, client, data_dir, *, online: bool, problems: list[str], today: date, log
+) -> dict:
+    """Ask the Board's dockets table about each uncaptioned docket — ONE row, one request.
+
+    The registry was walked once (627 requests, `docs/stb-data-source.md`) and nothing
+    refreshed it, so a proceeding opened after that walk never gained its caption. The
+    criteria name the docket itself, never its family: `docketNum_three` is the
+    sub-sequence, measured against the live endpoint 2026-08-31, and asking `AB 290` by
+    family answers 392 rows where asking `AB 290 (Sub-No. 423)` answers 1. Asking by
+    family would have cost 20 requests every half hour for `AB 55` alone, and its
+    thousand-row family would not even have reached the docket in question
+    (stb-ingest-specialist, 2026-08-31).
+    """
+    out: dict = {"asked": 0, "answered": 0, "captioned": 0, "exhausted": []}
+    if not online:
+        return out
+    wanted = _uncaptioned(con, today)
+    if not wanted:
+        return out
+    asks = _caption_asks(con)
+    cutoff = (datetime.now(UTC) - timedelta(hours=CAPTION_RETRY_HOURS)).isoformat(
+        timespec="seconds"
+    )
+    due = []
+    for docket_id, prefix, sequence, sub_sequence in wanted:
+        attempts, last = asks.get((prefix, sequence, sub_sequence), (0, ""))
+        if attempts >= CAPTION_ATTEMPTS:
+            out["exhausted"].append(
+                f"{prefix} {sequence}" + (f" ({sub_sequence})" if sub_sequence else "")
+            )
+            continue
+        if last and last > cutoff:  # asked recently: the Board publishes on its own clock
+            continue
+        due.append((docket_id, prefix, sequence, sub_sequence))
+    if out["exhausted"]:
+        problems.append(
+            f"captions: {len(out['exhausted'])} dockets asked about {CAPTION_ATTEMPTS} times"
+            f" with no row returned, and no longer asked: {', '.join(out['exhausted'][:5])}"
+        )
+    if len(due) > CAPTION_LOOKUPS:
+        problems.append(f"captions: {len(due)} due, asking about {CAPTION_LOOKUPS} this pass")
+        due = due[:CAPTION_LOOKUPS]
+    for _docket_id, prefix, sequence, sub_sequence in due:
+        criteria = [("docketNum_one", prefix), ("docketNum_two", str(sequence))]
+        if sub_sequence is not None:
+            criteria.append(("docketNum_three", str(sub_sequence)))
+        out["asked"] += 1
+        try:
+            result = walk.capture_slice(
+                con,
+                client,
+                DOCKETS,
+                criteria,
+                data_dir=data_dir,
+                pages=1,  # one docket is one row; more than a page means the filter slipped
+                mode="forward",
+                # The one query whose empty answer is the answer: the Board may not have
+                # published a docket row for this proceeding yet, which is why its caption
+                # is missing. What that hides is narrow — a dead nonce answers `0` or 403
+                # and an ignored filter answers rows that fail the per-row criteria check,
+                # both of which stay loud — so only the envelope itself is read as benign,
+                # and CAPTION_ATTEMPTS turns a permanently empty answer into a problem
+                # rather than silence (stb-ingest-specialist, 2026-08-31).
+                expected_empty=True,
+                log=log,
+            )
+        except Exception as e:  # noqa: BLE001 — a caption is never worth failing a pass
+            con.rollback()
+            problems.append(
+                f"caption {prefix} {sequence}: capture failed ({type(e).__name__}: {e})"
+            )
+            continue
+        if result.status in ("done", "empty"):
+            out["answered"] += 1
+        else:
+            problems.append(f"caption {prefix} {sequence}: {_describe(result)}")
+    asked_ids = [d for d, _, _, _ in due]
+    return out | {"wanted": len(wanted), "captioned_ids": asked_ids}
 
 
 def forward_pass(
@@ -124,6 +298,37 @@ def forward_pass(
         # ingest needs no network: whatever an earlier pass left asserted-but-pending is
         # consumed even while the endpoint is down
         summary["ingested"][action] = _ingest_pending(con, data_dir, action, summary["problems"])
+    # a proceeding reaches the filings table before the dockets table, so ask about the
+    # ones we have inferred and never seen (the operator, 2026-08-31)
+    # a proceeding reaches the filings table before the dockets table, so ask about the
+    # ones we have inferred and never seen (the operator, 2026-08-31)
+    summary["captions"] = {"asked": 0, "answered": 0, "captioned": 0}
+    try:
+        before = _captioned_ids(con)
+        summary["captions"] = _fill_captions(
+            con,
+            client,
+            data_dir,
+            online=online,
+            problems=summary["problems"],
+            today=today or date.today(),
+            log=log,
+        )
+    except Exception as e:  # noqa: BLE001 — never at the cost of the pass
+        con.rollback()
+        before = None
+        summary["problems"].append(f"captions: failed ({type(e).__name__}: {e})")
+    # unconditional, exactly as the record tables are: whatever an earlier pass left
+    # asserted-but-pending is consumed even when the endpoint is down or nothing was asked
+    summary["captions"]["ingested"] = _ingest_pending(con, data_dir, DOCKETS, summary["problems"])
+    if before is not None:
+        # the dockets THIS pass asked about that now carry a caption — never a store-wide
+        # delta, which a family page or a concurrent wave would inflate
+        gained = _captioned_ids(con) - before
+        summary["captions"]["captioned"] = len(
+            gained & set(summary["captions"].pop("captioned_ids", []))
+        )
+        summary["captions"].pop("captioned_ids", None)
     try:
         summary["parties"] = resolve.run(con, log=lambda _: None)
     except Exception as e:  # noqa: BLE001 — a resolution bug must not cost the capture

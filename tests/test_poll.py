@@ -7,8 +7,9 @@ import pytest
 
 from docketyard import cli
 from docketyard.capture import poll, walk
-from docketyard.capture.stb import DECISIONS, FILINGS
+from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS
 from docketyard.store import db, projections
+from tests.test_dockets_parse import make_body
 from tests.test_observations import body_of, decision_row, filing_row
 from tests.test_walk import NO_RESULTS
 
@@ -32,13 +33,20 @@ class FakeStb:
         self.criteria_sent.append(list(criteria))
         if action in self.dead:
             raise RuntimeError("HTTP 503 after retries")
-        if page > 1 and not self.endless:
-            return 200, NO_RESULTS, []
-        return (
-            200,
-            self.bodies[action],
-            [(f"search-criteria[{i}][name]", n) for i, (n, _) in enumerate(criteria)],
-        )
+        fields = [  # as stb.build_fields does: name AND value, so the ledger reads the same
+            pair
+            for i, (n, v) in enumerate(criteria)
+            for pair in (
+                (f"search-criteria[{i}][name]", n),
+                (f"search-criteria[{i}][value]", v),
+            )
+        ]
+        # a table this fake was not given, or a page past the end: the no-results envelope,
+        # which is what the endpoint sends — with the fields it was asked with, as the real
+        # client returns them
+        if action not in self.bodies or (page > 1 and not self.endless):
+            return 200, NO_RESULTS, fields
+        return 200, self.bodies[action], fields
 
     def get(self, url):
         self.fetched.append(url)
@@ -91,7 +99,12 @@ def test_forward_pass_captures_ingests_and_fetches(tmp_path):
     again = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
     after = projections.status(con)
     assert again["problems"] == [] and again["fetched"]["fetched"] == 0
-    assert after["captures"] == before["captures"] + 2  # one page per table; no fetch captures
+    # one page per table, and NO second caption ask: FD 36873's caption was asked about on
+    # the first pass and the ledger holds that ask, so the second pass inside the retry
+    # window does not repeat it (stb-ingest-specialist, 2026-08-31 — an uncaptioned docket
+    # that keeps receiving records must not be asked about every half hour for 45 days)
+    assert after["captures"] == before["captures"] + 2
+    assert again["captions"]["asked"] == 0 and again["captions"]["captioned"] == 0
     for key in ("filings", "decisions", "documents", "events"):
         assert after[key] == before[key], key
     assert again["rechecked"]["fetched"] == 0  # nothing held is 30 days unchecked yet
@@ -194,3 +207,95 @@ def test_run_forever_survives_a_failing_pass(monkeypatch):
     except KeyboardInterrupt:
         pass
     assert len(calls) == 3 and len(sleeps) == 2
+
+
+def test_a_new_proceeding_gains_its_caption_from_the_dockets_table(tmp_path):
+    """A proceeding reaches the filings table before the dockets table, so its docket row
+    is minted from the filing and has no caption — three such dockets were reading
+    "(caption not yet observed)" on the live home page (the operator, 2026-08-31). The
+    pass asks the dockets table about each one, by prefix and number, and the caption
+    arrives on the next pass rather than waiting for a re-walk of the whole registry."""
+    con = db.connect(tmp_path / "s.sqlite")
+    client = FakeStb(
+        {
+            FILINGS: body_of(filing_row(docket="AB_290_423_X", fid="311981", date="8/25/2026"), 1),
+            DECISIONS: body_of(
+                decision_row(docket="AB_290_423_X", did="53210", date="8/24/2026"), 1
+            ),
+            DOCKETS: make_body([("AB_290_423_X", "NORFOLK SOUTHERN — ABANDONMENT — POLK CO.")], 1),
+        }
+    )
+    summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    assert summary["problems"] == []
+    assert summary["captions"]["asked"] == 1 and summary["captions"]["captioned"] == 1
+    title = con.execute(
+        "SELECT json_extract(latest_payload, '$.title') FROM docket_current"
+        " WHERE raw_docket = 'AB_290_423_X'"
+    ).fetchone()[0]
+    assert title == "NORFOLK SOUTHERN — ABANDONMENT — POLK CO."
+    # the question was asked as the endpoint requires: the family, by prefix and number
+    # the question names the DOCKET, not its family: `docketNum_three` is the
+    # sub-sequence (measured against the live endpoint 2026-08-31 — asking AB 290 by
+    # family answers 392 rows, asking AB 290 (Sub-No. 423) answers one), so the ask
+    # costs one request and cannot be truncated by a thousand-member family
+    assert ["docketNum_one", "docketNum_two", "docketNum_three"] in [
+        [n for n, _ in c] for c in client.criteria_sent
+    ]
+    assert ("docketNum_three", "423") in [pair for c in client.criteria_sent for pair in c]
+    # and it is not asked again once answered
+    again = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    assert again["captions"]["asked"] == 0
+
+
+def test_a_caption_the_board_does_not_publish_stops_being_asked_about(tmp_path):
+    """The ~2,400 parents minted for sub-dockets (`AB_1_0`, implied by `AB_1_6`) hold no
+    records of their own and must never be asked about, or every pass would ask for ever."""
+    con = db.connect(tmp_path / "s.sqlite")
+    client = FakeStb(
+        {
+            FILINGS: body_of(filing_row(docket="AB_290_423_X", fid="311981", date="8/25/2026"), 1),
+            DECISIONS: body_of(
+                decision_row(docket="AB_290_423_X", did="53210", date="8/24/2026"), 1
+            ),
+        }
+    )
+    poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    # the minted parent exists and has no caption, and is not one of the questions asked
+    assert (
+        con.execute("SELECT COUNT(*) FROM docket WHERE raw_docket = 'AB_290_0'").fetchone()[0] == 1
+    )
+    asked = [(p, q, sub) for _, p, q, sub in poll._uncaptioned(con, date(2026, 8, 25))]
+    assert asked == [("AB", 290, 423)]  # the sub-docket itself, never the bare parent
+    # and a record too old to be new stops the question
+    assert poll._uncaptioned(con, date(2027, 1, 1)) == []
+
+
+def test_a_docket_the_board_never_publishes_is_asked_about_a_bounded_number_of_times(tmp_path):
+    """The first draft asked by FAMILY and forever: `AB 55` would have cost 20 requests
+    every half hour for 45 days — ~43,000 asks to learn one caption — and its thousand-row
+    family would not even have reached the docket in question (stb-ingest-specialist,
+    2026-08-31). It now asks about the docket itself, once per retry window, and stops
+    after CAPTION_ATTEMPTS with a problem naming what it gave up on."""
+    con = db.connect(tmp_path / "s.sqlite")
+    client = FakeStb(
+        {  # no dockets body: the Board has not published this proceeding's row, ever
+            FILINGS: body_of(filing_row(docket="AB_55_827_X", fid="311981", date="8/25/2026"), 1),
+            DECISIONS: body_of(
+                decision_row(docket="AB_55_827_X", did="53210", date="8/24/2026"), 1
+            ),
+        }
+    )
+    retry = poll.CAPTION_RETRY_HOURS
+    poll.CAPTION_RETRY_HOURS = 0  # a burst of passes in one second still exercises the cap
+    try:
+        summaries = [
+            poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+            for _ in range(poll.CAPTION_ATTEMPTS + 2)
+        ]
+    finally:
+        poll.CAPTION_RETRY_HOURS = retry
+    asks = [c for c in client.criteria_sent if any(n == "docketNum_one" for n, _ in c)]
+    assert len(asks) == poll.CAPTION_ATTEMPTS  # bounded, and never once per family page
+    assert all(len(c) == 3 for c in asks)  # prefix, sequence, sub-sequence: one docket
+    assert summaries[-1]["captions"]["asked"] == 0
+    assert any("asked about" in p and "no longer asked" in p for p in summaries[-1]["problems"])
