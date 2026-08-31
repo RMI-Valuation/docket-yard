@@ -43,6 +43,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **ADR 0012 addendum: the blob cache** (S3 the store, the instance a cache; sync + prune).
   Pulled from `docs/deferred.md` 2026-08-31 — its precondition is met: wave 3 closed, the
   pruner has held the floor for four days, a pruned blob has been served back from S3
+- **`docs/navigation-review.md`** (2026-08-31): eight measured defects on the live site, of
+  which Tier 1 is corrective and cheap — the `covered()` slice-key match hides 91 filings
+  and walls off the whole 1996–2026 archive; `/coverage` misattributes the comment walk's
+  gaps to filings. **The `/coverage` wording is a trust-page claim and needs Cameron.**
+  Tiers 2–4 are findability, and are his to choose
 - When this list runs short or a decision makes one of them near-term, pull the next item
   from `docs/deferred.md` (review findings and known gaps, dated, with their context)
 

@@ -11,6 +11,7 @@
 | [`explainers.md`](explainers.md) | The docket-type explainers (P2): the reviewed text behind `/about/prefixes` and `/about/<PREFIX>`, graded by source. Published 2026-08-28. |
 | [`machine-surface.md`](machine-surface.md) | The machine-agent surface (F7): the read-only MCP server, the protocol choices and why, and the AI-crawler policy. Chosen 2026-08-31. |
 | [`registers.md`](registers.md) | The registers (court actions, protective orders) and the citation resolver: rule, measurements, what they do not say. Published 2026-08-27. |
+| [`navigation-review.md`](navigation-review.md) | What the record holds against what a reader can reach: eight measured defects, the captions the search index never prints, and a ranked sequence. Analysis 2026-08-31, nothing chosen. |
 | [`validation-queries.md`](validation-queries.md) | The five queries the schema must answer on paper before pipeline code exists. |
 | [`citator-gate.md`](citator-gate.md) | What must be settled before C2 is chosen: the edge shape, docket resolution, and what the benchmark exposed. **Open questions, not decisions.** |
 
