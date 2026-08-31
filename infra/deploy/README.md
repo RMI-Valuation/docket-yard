@@ -64,9 +64,11 @@ is an instance and not the container service.
    **A release that rebuilds the search index leaves it empty until a pass rebuilds it**,
    and an empty index answers "Nothing on record" rather than an error — indistinguishable
    from a genuine miss. Migration 0012 is such a release. Run
-   `docker compose run --rm ingest docketyard search rebuild` straight after `migrate`, so
+   `docker compose run --rm ingest search rebuild` straight after `migrate` (the image's
+   entrypoint IS `docketyard`, so the subcommand alone is the whole argument), so
    the index is remade in the same window the schema is rather than at the end of the first
    full pass. (Docket-number lookups are unaffected either way: they never touch the index.)
+   Measured on the v2026.08.42 deploy: 32s for 61,959 rows.
 
    **Rollback is not a tag change for a release that migrates.** `serve` refuses a store
    whose `user_version` differs from the image's in EITHER direction, so once `migrate` has
