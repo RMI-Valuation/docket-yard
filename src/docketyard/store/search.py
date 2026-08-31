@@ -1,5 +1,6 @@
 """One search box (docs/search.md): a docket number is never a search; everything else is an
-FTS5 query over captions, party names and decision summaries, rebuilt by ingest.
+FTS5 query over captions, party names, decision summaries and the words of environmental
+comments, rebuilt by ingest.
 
 `rebuild` is the only writer. It derives every row first, on reads, and then replaces the
 index in one short write transaction; when nothing the index depends on has changed since
@@ -129,7 +130,8 @@ def _decision_docs(con: Connection):
                        json_extract(e.payload, '$.summary') AS summary,
                        ROW_NUMBER() OVER (PARTITION BY r.stb_decision_id
                                           ORDER BY COALESCE(d.sub_sequence, -1),
-                                                   COALESCE(d.suffix, '')) AS nearest
+                                                   COALESCE(d.suffix, ''),
+                                                   r.decision_pk) AS nearest
                   FROM decision_record r
                   JOIN docket d ON d.docket_id = r.docket_id
                   JOIN event e ON e.event_id = r.observed_in_event
@@ -142,6 +144,52 @@ def _decision_docs(con: Connection):
         fact = printed + (f", served {date}" if date else "")
         body = f"{sid} {printed} {summary}"
         yield "decision", pk, urls.decision_path(sid), f"Decision {sid}", body, fact
+
+
+# what the Board prints for a cell it has nothing for: never a search term
+_PLACEHOLDERS = ("", "--", "---")
+
+
+def _comment_docs(con: Connection):
+    """Environmental comments: one row per comment number, headlined by the docket nearest
+    the parent, exactly as a decision is.
+
+    Every comment is indexed, not only those carrying words — half the rows print `--` for
+    the text (measured), and their submitter, organisation and location are still terms
+    nothing else in the index carries. The body holds the commenter's own words verbatim;
+    the index asserts nothing about them, and the page it resolves to says so."""
+    for pk, number, raw, date, submitter, org, location, text in con.execute(
+        """
+        SELECT comment_pk, comment_number, raw_docket, date_received_or_sent,
+               submitter_raw, organisation_raw, location_raw, comment_text_printed
+          FROM (SELECT c.comment_pk, c.comment_number, d.raw_docket,
+                       c.date_received_or_sent, c.submitter_raw, c.organisation_raw,
+                       c.location_raw, c.comment_text_printed,
+                       ROW_NUMBER() OVER (PARTITION BY c.comment_number
+                                          ORDER BY COALESCE(d.sub_sequence, -1),
+                                                   COALESCE(d.suffix, ''),
+                                                   c.comment_pk) AS nearest
+                  FROM enviro_comment c
+                  JOIN docket d ON d.docket_id = c.docket_id)
+         WHERE nearest = 1
+        """
+    ):
+        ident = parse_docket_id(raw)
+        printed = urls.printed_docket(ident) if ident else raw
+        # "dated", never "received": the Board heads the column "Date Received or Sent" and
+        # declines to say which, so the index declines too
+        fact = printed + (f", dated {date}" if date else "")
+        # the organisation cell repeats the submitter verbatim on the Board's own EO rows
+        # (measured), and a term counted twice is a term bm25 over-weights
+        cells = [submitter, org if org != submitter else None, location, text]
+        words = [w for w in (number, printed, *cells) if (w or "").strip() not in _PLACEHOLDERS]
+        # The title is the number AS PRINTED, with no noun in front of it. `EI` rows are
+        # submitted comments and `EO` rows are the Board's own environmental documents
+        # (measured, 8 of 50 on FD 36873), and migration 0011 declines to type the row
+        # because the prefix is inside the number and typing it would be a derived claim.
+        # An index is the last place to make one. The kind column beside the hit names the
+        # Board's own table, which is a quotation; "Comment EO-3243" would not be.
+        yield "comment", pk, urls.comment_path(number), number, " ".join(words), fact
 
 
 def signature(con: Connection) -> str:
@@ -181,8 +229,8 @@ def rebuild(con: Connection, *, force: bool = False) -> dict:
     if sig == last and not force:
         return {"unchanged": True, "build": build}
     rows: list[tuple] = []
-    counts = {"docket": 0, "party": 0, "decision": 0, "skipped": 0}
-    for source in (_docket_docs, _party_docs, _decision_docs):
+    counts = {"docket": 0, "party": 0, "decision": 0, "comment": 0, "skipped": 0}
+    for source in (_docket_docs, _party_docs, _decision_docs, _comment_docs):
         for kind, ref, path, title, body, fact in source(con):
             counts[kind] += 1
             if kind != "skipped":
@@ -235,8 +283,9 @@ def _match(text: str, prefix: bool) -> str | None:
 
 
 def search(con: Connection, text: str, *, limit: int = LIMIT, prefix: bool = False) -> list[Hit]:
-    """Ranked hits: bm25 with the title weighted above the body; ties by kind (docket,
-    party, decision) then title. A docket number is the caller's fast path, not this."""
+    """Ranked hits: bm25 with the title weighted above the body; ties by kind then title,
+    the kinds ordering as they sort (comment, decision, docket, party). A docket number is
+    the caller's fast path, not this."""
     match = _match(text, prefix)
     if match is None:
         return []

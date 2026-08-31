@@ -207,6 +207,7 @@ def create_app(
         cite_docket=urls.cite_docket,
         decision_path=urls.decision_path,
         filing_path=urls.filing_path,
+        comment_path=urls.comment_path,
         party_path=urls.party_path,
         party_feed_path=urls.party_feed_path,
         record_path=urls.record_path,
@@ -719,6 +720,7 @@ def create_app(
                 "title": m.title,
                 "filings": m.filings,
                 "decisions": m.decisions,
+                "comments": m.comments,
                 "last_activity": m.last_activity,
             }
             for m in s.sub_dockets
@@ -760,6 +762,13 @@ def create_app(
     @app.get("/decision/{stb_id}.json")
     def decision_json(stb_id: str):
         return record_json("decision", stb_id)
+
+    @app.get("/comment/{number}.json")
+    def comment_json(number: str):
+        canonical = number.strip().upper()
+        if canonical != number:  # one record, one address — as the HTML page does
+            return RedirectResponse(f"{urls.comment_path(canonical)}.json", status_code=301)
+        return record_json("comment", canonical)
 
     @app.get("/data")
     def data_page(request: Request):
@@ -1182,6 +1191,16 @@ def create_app(
     def filing_page(request: Request, stb_id: str):
         return _record_page(request, db_path, render, "filing", stb_id)
 
+    @app.get("/comment/{number}")
+    def comment_page(request: Request, number: str):
+        """An environmental comment at its own address. The Board prints the number in one
+        case; a request in another is redirected to the canonical spelling rather than
+        answered at two addresses (ADR 0013: one record, one address)."""
+        canonical = number.strip().upper()
+        if canonical != number:
+            return RedirectResponse(urls.comment_path(canonical), status_code=301)
+        return _record_page(request, db_path, render, "comment", canonical)
+
     # --- the document address and the viewer (ADR 0013 addendum, 2026-08-27) -----------
 
     data_dir = Path(db_path).parent
@@ -1270,11 +1289,10 @@ def create_app(
 
 def _record_entry(db_path, kind: str, stb_id: str):
     """A record's family sheet and its entry, or 404 — one lookup for the page and JSON."""
-    table, column = (
-        ("decision_record", "stb_decision_id")
-        if kind == "decision"
-        else ("filing", "stb_filing_id")
-    )
+    table, column = {
+        "decision": ("decision_record", "stb_decision_id"),
+        "comment": ("enviro_comment", "comment_number"),
+    }.get(kind, ("filing", "stb_filing_id"))
     con = _connect(db_path)
     try:
         # a record entered in a docket and its sub-docket is one record: headline the parent

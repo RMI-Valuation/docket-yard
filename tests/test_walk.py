@@ -10,8 +10,12 @@ from docketyard.store import db, projections
 from tests.test_dockets_parse import make_body
 from tests.test_observations import body_of, filing_row
 
+# Verbatim from the live endpoint, 2026-08-31. The TWO-WORD table name is the point: a
+# fixture naming a one-word table let a detector that could not span a space pass every
+# test in this file while failing on the real thing (ultrareview).
 NO_RESULTS = (
-    b'{"success":false,"data":{"error":"<p>There are no dockets available at this time.<\\/p>\\n"}}'
+    b'{"success":false,"data":{"error":"<p>There are no environmental comments'
+    b' available at this time.<\\/p>\\n"}}'
 )
 
 

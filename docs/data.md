@@ -75,7 +75,7 @@ separate decision (capability F7), not taken here.
 
 ## Not built, deliberately
 
-The search index (`search_doc`, `search_fts`; migration 0010) — derived, rebuilt from the
+The search index (`search_doc`, `search_fts`; migrations 0010 and 0012) — derived, rebuilt from the
 record when it changes, and it carries party names, so the snapshot ships the tables empty;
 a full restore (Litestream) rebuilds it with `docketyard search rebuild`.
 

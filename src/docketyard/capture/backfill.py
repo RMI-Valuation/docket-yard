@@ -15,7 +15,7 @@ from datetime import date
 from sqlite3 import Connection
 
 from docketyard.capture import documents, walk
-from docketyard.capture.stb import DECISIONS, FILINGS
+from docketyard.capture.stb import DECISIONS, ENVIRO_COMMENTS, FILINGS
 from docketyard.ingest import observations
 from docketyard.parties import resolve
 from docketyard.store import projections, search
@@ -32,11 +32,20 @@ def forward_since(con: Connection) -> date | None:
 
 
 def ingest_pending(con: Connection, data_dir, action: str, log=print) -> dict:
-    counts: dict = {"captures": 0, "failed": 0}
+    counts: dict = {"captures": 0, "failed": 0, "id_collisions": 0}
     for capture_id in projections.pending_capture_ids(con, action):
         try:
-            observations.ingest_capture(con, data_dir, capture_id)
+            stats = observations.ingest_capture(con, data_dir, capture_id)
             counts["captures"] += 1
+            hits = stats.get("id_collisions", 0)
+            if hits:
+                # the wave is where a collision would first appear, so it is said out loud
+                # rather than left in a counter (urls.comment_path)
+                counts["id_collisions"] += hits
+                log(
+                    f"capture {capture_id}: {hits} record id(s) already held under another"
+                    " docket — a permanent address may be ambiguous"
+                )
         except Exception as e:  # noqa: BLE001 — one bad capture must not strand the wave
             con.rollback()
             counts["failed"] += 1
@@ -52,12 +61,18 @@ def wave(
     end: date | None = None,
     *,
     fetch_limit: int | None = None,
+    tables: tuple[str, ...] = (FILINGS, DECISIONS, ENVIRO_COMMENTS),
     log=print,
 ) -> dict:
-    """Walk both tables month by month, ingest, then fetch what is not yet held."""
+    """Walk the record tables month by month, ingest, then fetch what is not yet held.
+
+    Slice state is per (table, month), so adding a table to an in-flight wave costs only
+    that table's months: the ones already `done` are skipped. `tables` narrows the walk
+    when a wave is meant for one of them — the environmental-comment archive is its own
+    dated wave, and is over 22,000 rows across three decades."""
     end = end or forward_since(con) or date.today()
     summary: dict = {"range": (start.isoformat(), end.isoformat())}
-    for action in (FILINGS, DECISIONS):
+    for action in tables:
         log(f"=== {action} {start} .. {end}")
         summary[action] = walk.walk_observations(
             con, client, action, start, end, data_dir=data_dir, log=log

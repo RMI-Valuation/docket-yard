@@ -358,6 +358,8 @@ def test_health_reports_freshness_without_judging_it(client):
     assert h["schema"] == db.MIGRATIONS[-1][0] and set(h["age_seconds"]) == {
         "last_forward_capture",
         "last_event",
+        "last_enviro_capture",
+        "last_enviro_event",
         "last_document",
         "oldest_pending_alert",
     }
@@ -371,3 +373,20 @@ def test_record_pages_and_404s(client):
     assert client.get("/filing/1").status_code == 404
     assert client.get("/d/FD-1").status_code == 404
     assert client.get("/d/nonsense").status_code == 404
+
+
+def test_every_freshness_signal_is_actually_watched():
+    """A canary nobody reads is not a canary. `/health` reports the timestamps and the
+    heartbeat workflow judges them, so the two must name the same set: a signal added here
+    and forgotten there is exactly the silent gap the third record table opened."""
+    import re
+    from pathlib import Path
+
+    from docketyard.store import db, projections
+
+    con = db.connect(":memory:")
+    reported = set(projections.freshness(con))
+    con.close()
+    workflow = Path(".github/workflows/heartbeat.yml").read_text(encoding="utf-8")
+    limits = set(re.findall(r'"(last_\w+|oldest_\w+)":\s*\d', workflow))
+    assert reported == limits, f"unwatched: {reported - limits}; unknown: {limits - reported}"

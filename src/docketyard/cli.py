@@ -8,7 +8,14 @@ from pathlib import Path
 
 from docketyard.alerts import build, mail, vault
 from docketyard.capture import backfill, documents, poll, walk
-from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS, PAGE_CLAMP, StbClient
+from docketyard.capture.stb import (
+    DECISIONS,
+    DOCKETS,
+    ENVIRO_COMMENTS,
+    FILINGS,
+    PAGE_CLAMP,
+    StbClient,
+)
 from docketyard.ingest import dockets, observations
 from docketyard.parties import resolve
 from docketyard.store import db, gaps, projections, search, traffic
@@ -17,7 +24,15 @@ INGESTERS = {
     DOCKETS: dockets.ingest_capture,
     FILINGS: observations.ingest_capture,
     DECISIONS: observations.ingest_capture,
+    ENVIRO_COMMENTS: observations.ingest_capture,
 }
+# the subcommand name per table, in one place: `capture` and `ingest` offer the same set
+TABLE_COMMANDS = (
+    ("dockets", DOCKETS),
+    ("filings", FILINGS),
+    ("decisions", DECISIONS),
+    ("comments", ENVIRO_COMMENTS),
+)
 
 
 def _criteria_from(args: argparse.Namespace, spec) -> list[tuple[str, str]]:
@@ -107,10 +122,23 @@ def _backfill(args: argparse.Namespace) -> int:
     client = StbClient(min_interval=args.interval)
     start = date.fromisoformat(args.start)
     end = date.fromisoformat(args.end) if args.end else None
-    summary = backfill.wave(con, client, args.data_dir, start, end, fetch_limit=args.fetch_limit)
-    bad = any(
-        summary[a]["partial"] or summary[a]["capped"] for a in (FILINGS, DECISIONS)
-    ) or summary["documents"].get("failed")
+    by_name = {name: action for name, action in TABLE_COMMANDS}
+    tables = tuple(by_name[n] for n in args.tables) if args.tables else None
+    summary = backfill.wave(
+        con,
+        client,
+        args.data_dir,
+        start,
+        end,
+        fetch_limit=args.fetch_limit,
+        **({"tables": tables} if tables else {}),
+    )
+    # judged over the tables THIS wave walked, not a fixed pair: `--tables comments` walks
+    # one, and reading the other two would fail the run with a KeyError
+    walked = tables or (FILINGS, DECISIONS, ENVIRO_COMMENTS)
+    bad = any(summary[a]["partial"] or summary[a]["capped"] for a in walked) or summary[
+        "documents"
+    ].get("failed")
     return 1 if bad else 0
 
 
@@ -305,7 +333,7 @@ def main(argv: list[str] | None = None) -> int:
 
     cap = sub.add_parser("capture", help="fetch one slice from the STB endpoint into captures")
     cap_sub = cap.add_subparsers(dest="table", required=True)
-    for name, action in (("dockets", DOCKETS), ("filings", FILINGS), ("decisions", DECISIONS)):
+    for name, action in TABLE_COMMANDS:
         p = cap_sub.add_parser(name)
         p.add_argument("--prefix", help="docketNum_one criterion, e.g. FD")
         p.add_argument("--sequence", type=int, help="docketNum_two criterion")
@@ -320,7 +348,7 @@ def main(argv: list[str] | None = None) -> int:
 
     ing = sub.add_parser("ingest", help="consume asserted captures into the ledger")
     ing_sub = ing.add_subparsers(dest="table", required=True)
-    for name, action in (("dockets", DOCKETS), ("filings", FILINGS), ("decisions", DECISIONS)):
+    for name, action in TABLE_COMMANDS:
         p = ing_sub.add_parser(name)
         p.add_argument("--capture", type=int, help="one capture id (default: all pending)")
         p.set_defaults(func=lambda a, act=action: _run_ingest(a, act))
@@ -341,11 +369,17 @@ def main(argv: list[str] | None = None) -> int:
     wd.add_argument("--redo", action="store_true", help="re-walk prefixes already done")
     wd.set_defaults(func=_walk_dockets)
 
-    bf = sub.add_parser("backfill", help="a wave: both record tables over a range, then files")
+    bf = sub.add_parser("backfill", help="a wave: the record tables over a range, then files")
     bf.add_argument("--start", required=True, help="first day, YYYY-MM-DD")
     bf.add_argument("--end", help="last day, YYYY-MM-DD (default: the day the watch began)")
     bf.add_argument("--interval", type=float, default=2.0)
     bf.add_argument("--fetch-limit", type=int, help="documents per run (default: all)")
+    bf.add_argument(
+        "--tables",
+        nargs="+",
+        choices=[name for name, action in TABLE_COMMANDS if action != DOCKETS],
+        help="which record tables this wave walks (default: all of them)",
+    )
     bf.set_defaults(func=_backfill)
 
     pl = sub.add_parser("poll", help="forward pass: capture, ingest and fetch the recent window")

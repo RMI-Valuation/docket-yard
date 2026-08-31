@@ -103,7 +103,13 @@ def parse_envelope(body: bytes) -> dict:
     return payload.get("data") or {}
 
 
-_NO_RESULTS_RE = re.compile(r"There are no \w+ available")
+# `[\w ]+`, not `\w+`: a table name can be TWO WORDS. The live endpoint answers
+# "There are no environmental comments available at this time." and `\w+` cannot span
+# the space, so the detector silently failed to recognise the one table whose empty
+# weeks are ordinary — quarantining every quiet week and never running the proof that
+# exists to tell a quiet table from a broken one (ultrareview, 2026-08-31). The tests
+# missed it because their fixture said "dockets", which is one word.
+_NO_RESULTS_RE = re.compile(r"There are no [\w ]+ available")
 
 
 def is_no_results_envelope(body: bytes) -> bool:
@@ -200,6 +206,17 @@ def hit_display_cap(total: int) -> bool:
 
 
 # --- the registry --------------------------------------------------------------------
+
+
+def canonical_of(con: Connection, docket_id: int) -> str:
+    """The one spelling per identity, read back from the registry — the form event
+    `source_key`s are built from, so anything naming a record across tables can rebuild
+    the same string without re-parsing a raw docket number."""
+    prefix, sequence, sub, suffix = con.execute(
+        "SELECT prefix, sequence, sub_sequence, suffix FROM docket WHERE docket_id = ?",
+        (docket_id,),
+    ).fetchone()
+    return ParsedDocket(prefix, sequence, sub, suffix).canonical()
 
 
 def find_docket(con: Connection, identity: ParsedDocket) -> int | None:

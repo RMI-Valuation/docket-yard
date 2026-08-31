@@ -46,9 +46,10 @@ PRIVATE_TABLES = (
 )
 # Replication bookkeeping (Litestream keeps two tables in the store); not record, not published.
 TOOL_TABLES = ("_litestream_lock", "_litestream_seq")
-# The search index (migration 0010): derived, rebuilt from the record when it changes, and
-# it carries party names — the held layer — so the snapshot ships it EMPTY: the tables stay
-# (a restored copy is at schema 10 and `docketyard search rebuild` remakes it), the rows go.
+# The search index (migrations 0010 and 0012): derived, rebuilt from the record when it
+# changes, and it carries party names — the held layer — so the snapshot ships it EMPTY: the
+# tables stay (a restored copy is at the release's schema and `docketyard search rebuild`
+# remakes it), the rows go.
 DERIVED_TABLES = ("search_doc", "search_meta")
 # The FTS index's tables are not listed by hand: SQLite names an FTS5 virtual table's
 # shadows `<name>_<suffix>` and may change the set between versions, so `scrub` derives
@@ -84,9 +85,12 @@ PUBLIC_TABLES = frozenset(
         "walk_slice",
         "coverage_gap",
         "correction",
+        "enviro_comment",
+        "enviro_comment_attachment",
     }
 )
 _SUSPECT_COLUMN = re.compile(r"email|token|secret|_enc$|recipient|address", re.I)
+
 LATEST = "docketyard-latest.sqlite.gz"
 SCHEMA = "schema.sql"
 LICENCE = "CC0-1.0"
@@ -168,6 +172,13 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
             "filings": q("SELECT COUNT(DISTINCT stb_filing_id) FROM filing").fetchone()[0],
             "decisions": q(
                 "SELECT COUNT(DISTINCT stb_decision_id) FROM decision_record"
+            ).fetchone()[0],
+            # DISTINCT on the number alone, like its two neighbours on their ids: a
+            # record entered in a docket and its sub-docket is ONE record. That relies on
+            # the number being unique, which is what /comment/<number> already asserts and
+            # what ingest's id_collisions counter would report if it ever failed
+            "environmental_comments": q(
+                "SELECT COUNT(DISTINCT comment_number) FROM enviro_comment"
             ).fetchone()[0],
             "events": q("SELECT COUNT(*) FROM event").fetchone()[0],
             "documents": q("SELECT COUNT(*) FROM document").fetchone()[0],

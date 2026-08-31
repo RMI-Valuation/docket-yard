@@ -172,12 +172,17 @@ def test_viewable_is_the_first_held_file_a_browser_shows():
             self.document_sha256, self.media_type = sha, kind
 
     class E:
-        def __init__(self, *a):
-            self.attachments = list(a)
+        def __init__(self, *a, kind="filing"):
+            self.attachments, self.kind = list(a), kind
 
     assert documents.viewable_index(E(A(None, None), A("x", "pdf"))) == 1
     assert documents.viewable_index(E(A("x", "zip"), A("y", "jpg"))) == 1
     assert documents.viewable_index(E(A("x", "zip"), A(None, None))) is None
+    assert documents.viewable_index(E(A("x", "pdf"), kind="decision")) == 0
+    # a comment has no /view route, so a held PDF is still not viewable HERE. The rule
+    # lives in this one function because the sheet, the record page and the viewer's own
+    # prev/next all ask it — guarding them one at a time is how one gets missed
+    assert documents.viewable_index(E(A("x", "pdf"), kind="comment")) is None
     assert set(fetcher._EXTENSION_TYPES.values()) <= set(documents.MEDIA)
 
 

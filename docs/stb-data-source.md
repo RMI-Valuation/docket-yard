@@ -226,6 +226,68 @@ shows 70 records on our sheet where the Board's own search shows 6 environmental
 - The search page also declares an action this record does not use:
   `stb_hook_search_by_date`.
 
+**Measured the same day by reading the rows themselves**, because the schema's natural key
+turned on a fact the column list above did not settle. It corrects that list, which was taken
+from a single row:
+
+- The row is **nine cells, not eight**: `[0]` a folder button carrying the row's own
+  `data-stb-id` and a `data-stb-record` label (`#EI-34280 | David Gertsch`); `[1]` date;
+  `[2]` comment number; `[3]` docket; `[4]` submitter; `[5]` organisation; `[6]` the comment's
+  words; `[7]` location; `[8]` attachment.
+- **No cell prints the middle part of the composite id.** `FD_36873|203738|830758` prints
+  neither `203738` nor `830758` anywhere in the row — so the corroboration check that guards
+  filings and decisions (the printed id cell must agree with the id) cannot be written against
+  it. What *is* printed is the comment number, which is also the `data-stb-id` of cell 2's own
+  detail link. **Identity corroborates on the comment number and the docket.**
+- Across **150 rows** of 2026 (three pages): comment number blank in 0, colliding with a
+  different middle id in 0, repeated across different dockets in 0. `(docket, comment number)`
+  is the identity the source will corroborate.
+- **One comment spans several rows, one per attachment**, exactly as filings do — FD 36854's
+  `EI-34249` occupies four. Folding by (docket, record) is required, not optional.
+- **The table is not only comments.** Numbers carry two prefixes: `EI` for a submitted comment
+  (42 of 50 on FD 36873) and `EO` for the Board's own environmental documents (8 of 50), whose
+  submitter and organisation cells hold a document title — "Final Environmental Assessment" in
+  both — rather than a person and an employer.
+- **Half the rows carry no comment text at all**: 76 of the 150 print `--`, as do 10 of FD
+  36873's 50. Location is absent in 37 of 150.
+- **The comment text is not truncated.** The longest cell observed is 1,549 characters and
+  ends on a complete signature; the lengths cluster at no round number.
+- **The location format varies**: `Laramie, WY` and `Towson, Maryland` both occur — the state
+  is not reliably a two-letter code, so parsing it is a judgement, not a split.
+- **`per-page` is clamped to 50** here as elsewhere: `per_page=100` returns 50 rows and the
+  envelope says "Records 1-50".
+- `startDate`/`endDate` confirmed against a second slice: 2026-01-01 to 2026-08-31 answers
+  `total: 151`, and the envelope echoes "Start Date = 2026-01-01, End Date = 2026-08-31".
+  **Both spellings of a date are accepted**, and both echo back as ISO: `01/01/2026` and
+  `2026-01-01` answer the same `total: 151`, so the walk's own `%m/%d/%Y` form needs no
+  special case here. A single month (June 2026) answers 15 — comfortably inside one page.
+- A per-comment detail modal exists — `stb_hook_modal_environmental_comment_details`, with its
+  own nonce carried on the cell — but `id` is not its criterion name; it answers "The
+  requested environmental comment could not be loaded." Nothing needs it: the table cell holds
+  the whole comment.
+
+**The sort, measured 2026-08-31 when the walk needed one to pin.** This table is the
+exception to "every multi-page walk pins a sort", and both halves of why are traps:
+
+- **Any non-empty `sort_by` answers the empty envelope with a 200.** `date`,
+  `receivedDate`, `dateReceived`, `receivedOrSentDate`, `commentDate`, `receivedSentDate`,
+  `dateReceivedOrSent` and `commentNum` were each tried: every one returns
+  `success: false`, "There are no environmental comments available" — indistinguishable
+  from a genuinely empty slice and from a page past the end. This is the **fourth**
+  instance of the same silent-failure shape, after the criteria format, the filings date
+  pair and the decisions date pair. `sort_by=""` is the only accepted value.
+- **`sort_order` is echoed but not applied.** The envelope dutifully says "Sort by Date
+  Received or Sent Asc." for `asc`, and returns byte-identical rows to `desc` — newest
+  first either way. The order is not ours to choose.
+
+**The default order is nonetheless stable enough to page, which was measured rather than
+assumed.** The 2026 slice (`total: 151`) walked in four pages of 50 returned **151 rows
+carrying 151 distinct `data-stb-id`s** — no overlap, no omission — and page 1 was
+byte-identical on an immediate repeat. The last page returned 1 row, so a short page still
+means end-of-results. Those same 151 rows carry only **143 distinct (docket, comment
+number) pairs**: six comments occupy more than one row, one per attachment, exactly as
+filings do.
+
 ## Measured 2026-08-26: document sizes
 
 Attachments are served from S3 (`dcms-external.s3.amazonaws.com`) with `Content-Length`;

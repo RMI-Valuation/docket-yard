@@ -30,9 +30,17 @@ jobs:
           age = h["age_seconds"]
           # the poller runs every 30 minutes; three hours is six missed passes.
           # the Board serves something most business days; six days of nothing is the canary
+          # The environmental-comment pair runs on its own clock: ~4 comments a week
+          # against ~60 records, so its event threshold is measured from the table's own
+          # silence (longest gap in five years: 14 days) rather than borrowed. Its capture
+          # threshold is NOT relaxed — an asserted capture means the response parsed and
+          # every criterion verified, and a quiet week still produces one via the
+          # quiet-week proof, so 3 hours holds. See docs/alerts.md § The heartbeat.
           limits = {
               "last_forward_capture": 3 * 3600,
               "last_event": 6 * 86400,
+              "last_enviro_capture": 3 * 3600,
+              "last_enviro_event": 21 * 86400,
               "last_document": 6 * 86400,
               "oldest_pending_alert": 3 * 3600,  # built but not delivered: mail is broken
           }

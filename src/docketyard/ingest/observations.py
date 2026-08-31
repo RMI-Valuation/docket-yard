@@ -1,39 +1,54 @@
-"""Filings- and decisions-table rows → record tables + observed events.
+"""Record-table rows → record tables + observed events (filings, decisions, comments).
 
-Both tables share one shape: rows carry a triple id `docket|record_id|row_id` in
-data-stb-id, positional cells, and zero-or-one attachment link per row — with one filing
-appearing on SEVERAL rows, one per attachment (measured, docs/stb-data-source.md), so rows
-fold into records by (docket, record_id). Rows of one record can also straddle a page
-boundary, i.e. land in different captures: the folded attachment set is therefore the union
-of what this capture shows and what the record already holds, so change-detection converges
-instead of oscillating between the halves. Everything else is per-table configuration.
+All three share one shape: rows carry a triple id `docket|record_id|row_id` in data-stb-id,
+positional cells, and zero-or-one attachment link per row — with one record appearing on
+SEVERAL rows, one per attachment (measured, docs/stb-data-source.md), so rows fold into
+records by (docket, record_id). Rows of one record can also straddle a page boundary, i.e.
+land in different captures: the folded attachment set is therefore the union of what this
+capture shows and what the record already holds, so change-detection converges instead of
+oscillating between the halves. Everything else is per-table configuration.
 
-The same traps as dockets ingest apply, plus the date-pair trap: filings filter on
-filingStartDate/filingEndDate (the officialFilingStartDate pair returns zero rows with no
-error), so date criteria are positively verified against the printed date cells — and a
-date value the verifier cannot normalise quarantines rather than silently skipping.
+The same traps as dockets ingest apply, plus the date-pair trap in THREE spellings:
+filings filter on filingStartDate/filingEndDate, decisions on serviceStartDate/
+serviceEndDate, environmental comments on plain startDate/endDate — and every wrong pair
+returns an empty envelope with a 200, not an error. So date criteria are positively
+verified against the printed date cells, and a date the verifier cannot normalise
+quarantines rather than silently skipping.
+
+Environmental comments differ in one way the spec carries rather than the code
+special-casing: their rows print the middle part of data-stb-id NOWHERE, so identity is the
+comment number corroborated against its own cell's anchor (`id_anchor`).
 """
 
 import hashlib
 import html
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from itertools import zip_longest
 from sqlite3 import Connection
 
 from docketyard.capture import records
-from docketyard.capture.stb import DECISIONS, FILINGS
+from docketyard.capture.stb import DECISIONS, ENVIRO_COMMENTS, FILINGS
 from docketyard.ingest import dockets
 from docketyard.ingest.markup import CELL_RE, LINK_RE, ROW_RE, STB_ID_RE, clean, printed_date_to_iso
 from docketyard.store import events
+
+# EI (a submitted comment) and EO (the Board's own environmental document) are the only
+# prefixes in 2,385 comments measured across 2003, 2010, 2019 and 2026. Naming them
+# rather than accepting any prefix is what makes the corroboration promise true: a
+# genuinely new prefix is counted as a skipped row, which the poller reports as a
+# problem, instead of being keyed into an append-only ledger unnoticed.
+_COMMENT_NUMBER_RE = re.compile(r"(?:EI|EO)-\d+")
 
 
 @dataclass(frozen=True)
 class TableSpec:
     action: str
     event_type: str
-    record_table: str  # filing | decision_record
-    record_pk: str  # filing_pk | decision_pk
-    record_id_column: str  # stb_filing_id | stb_decision_id
+    record_table: str  # filing | decision_record | enviro_comment
+    record_pk: str  # filing_pk | decision_pk | comment_pk
+    record_id_column: str  # stb_filing_id | stb_decision_id | comment_number
     attachment_table: str
     date_cell: int
     docket_cell: int
@@ -43,6 +58,16 @@ class TableSpec:
     date_criteria: tuple[str, str]  # the pair that actually filters
     payload_cells: dict[str, int] = field(default_factory=dict)
     record_columns: dict[str, str] = field(default_factory=dict)  # column -> payload key
+    # Where the record's identity comes from, and what corroborates it. 'stb_id': the middle
+    # part of data-stb-id, corroborated by the printed id cell — filings and decisions, both
+    # of which print it. 'cell_anchor': the id cell's own text, corroborated by that cell's
+    # own data-stb-id attribute — environmental comments, whose rows print the middle part
+    # NOWHERE (measured 2026-08-31), so keying on it could not be checked at all.
+    id_anchor: str = "stb_id"
+    # the record id is also a public, permanent address, so a second docket claiming one
+    # already held is an anomaly to report rather than a row to write
+    globally_addressed: bool = False
+    extra_payload: dict[str, str] = field(default_factory=dict)  # payload key -> TableRow attr
 
 
 FILINGS_SPEC = TableSpec(
@@ -87,19 +112,56 @@ DECISIONS_SPEC = TableSpec(
     },
 )
 
-SPECS = {spec.action: spec for spec in (FILINGS_SPEC, DECISIONS_SPEC)}
+# Cells measured from live rows 2026-08-31 (docs/stb-data-source.md): [0] folder button,
+# [1] date, [2] comment number, [3] docket, [4] submitter, [5] organisation, [6] the
+# comment's words, [7] location, [8] attachment. Nine cells, and [4]/[5] hold a document
+# title rather than a person on an EO row — stored as printed either way, because typing
+# the row would be a derived claim and this table derives none.
+ENVIRO_COMMENTS_SPEC = TableSpec(
+    action=ENVIRO_COMMENTS,
+    event_type="enviro_comment_observed",
+    record_table="enviro_comment",
+    record_pk="comment_pk",
+    record_id_column="comment_number",
+    attachment_table="enviro_comment_attachment",
+    date_cell=1,
+    docket_cell=3,
+    id_cell=2,
+    attachment_cell=8,
+    min_cells=9,
+    # a THIRD spelling, after filings' filingStartDate and decisions' serviceStartDate; the
+    # other pairs answer an empty envelope with a 200. Both %m/%d/%Y and ISO are accepted
+    # (measured), so the walk's printed form needs no special case
+    date_criteria=("startDate", "endDate"),
+    id_anchor="cell_anchor",
+    globally_addressed=True,
+    payload_cells={"submitter": 4, "organisation": 5, "comment_text": 6, "location": 7},
+    extra_payload={"row_ref": "record_ref"},
+    record_columns={
+        "date_received_or_sent": "date",
+        "submitter_raw": "submitter",
+        "organisation_raw": "organisation",
+        "comment_text_printed": "comment_text",
+        "location_raw": "location",
+        "stb_row_ref": "row_ref",
+    },
+)
+
+SPECS = {spec.action: spec for spec in (FILINGS_SPEC, DECISIONS_SPEC, ENVIRO_COMMENTS_SPEC)}
 SPECS_BY_ATTACHMENT_TABLE = {spec.attachment_table: spec for spec in SPECS.values()}
 
 
 @dataclass(frozen=True)
 class TableRow:
     docket_stb_id: str
-    record_id: str
+    record_id: str  # the identity: the id part, or the id cell's own anchor (see id_anchor)
     row_id: str
     date_printed: str  # the cell as printed — the quoted fact
     date: str | None  # ISO normalisation of the same date, None if it did not parse
     fields: dict[str, str]
     attachment: tuple[str, str] | None  # (url, label) from the attachment cell only
+    record_ref: str = ""  # data-stb-id's middle part; the identity for 'stb_id' specs and a
+    # corroborating attribute for 'cell_anchor' ones
 
 
 @dataclass(frozen=True)
@@ -107,6 +169,34 @@ class ParsedTable:
     rows: list[TableRow]
     total: int
     skipped: int
+
+
+def _identity(
+    spec: TableSpec, cells: list[str], raw_cells: list[str], parts: list[str]
+) -> tuple[str, bool]:
+    """The row's record id and whether the row corroborates it.
+
+    'stb_id' (filings, decisions): the middle part of data-stb-id, corroborated by the
+    printed id cell — the check that stops a column reorder mis-filing a record.
+
+    'cell_anchor' (environmental comments): no cell prints that middle part, so it could
+    not be checked at all. What the row does print is the comment number, in a cell whose
+    own link carries the same value in data-stb-id — so the cell corroborates against the
+    markup rather than against the row id, and the middle part is kept beside it.
+    """
+    if spec.id_anchor == "stb_id":
+        return parts[1], cells[spec.id_cell] == parts[1]
+    anchor = STB_ID_RE.search(raw_cells[spec.id_cell])
+    printed = cells[spec.id_cell]
+    # The SHAPE is checked as well as the agreement. "the cell equals its own anchor" is
+    # satisfied by other cells in the same row — the docket cell prints FD_36873 and
+    # carries data-stb-id="FD_36873" — so on its own it is one column reorder away from
+    # keying the ledger on a docket number, and a source_key cannot be taken back.
+    # A genuinely new prefix quarantines loudly (see _COMMENT_NUMBER_RE), which is the
+    # right direction to fail: a number is a permanent address and an append-only key.
+    return printed, anchor is not None and anchor.group(1) == printed and bool(
+        _COMMENT_NUMBER_RE.fullmatch(printed)
+    )
 
 
 def parse_response(spec: TableSpec, body: bytes) -> ParsedTable:
@@ -117,15 +207,18 @@ def parse_response(spec: TableSpec, body: bytes) -> ParsedTable:
         raw_cells = CELL_RE.findall(tr)
         cells = [clean(c) for c in raw_cells]
         parts = stb_id.group(1).split("|") if stb_id else []
-        # the printed docket and id cells must corroborate the triple id, so a column
-        # reorder cannot silently mis-file a record
+        # the printed docket cell must corroborate the triple id, so a column reorder
+        # cannot silently mis-file a record
         if (
             len(parts) != 3
             or len(cells) < spec.min_cells
             or cells[spec.docket_cell] != parts[0]
-            or cells[spec.id_cell] != parts[1]
             or dockets.parse_docket_id(parts[0]) is None
         ):
+            skipped += 1
+            continue
+        record_id, corroborated = _identity(spec, cells, raw_cells, parts)
+        if not corroborated:
             skipped += 1
             continue
         # links are read from the attachment cell only — a docket or title link elsewhere
@@ -135,7 +228,8 @@ def parse_response(spec: TableSpec, body: bytes) -> ParsedTable:
         rows.append(
             TableRow(
                 docket_stb_id=parts[0],
-                record_id=parts[1],
+                record_id=record_id,
+                record_ref=parts[1],
                 row_id=parts[2],
                 date_printed=cells[spec.date_cell],
                 date=printed_date_to_iso(cells[spec.date_cell]),
@@ -199,6 +293,7 @@ def ingest_capture(con: Connection, data_dir, capture_id: int) -> dict:
         "events": 0,
         "suppressed": 0,
         "attachments": 0,
+        "id_collisions": 0,
     }
     for (docket_stb_id, record_id), group in _grouped(parsed.rows).items():
         stats["records"] += 1
@@ -214,12 +309,27 @@ def ingest_capture(con: Connection, data_dir, capture_id: int) -> dict:
         )
         stats["new_dockets"] += minted
         record_pk = _find_record(con, spec, docket_id, record_id)
+        if record_pk is None and spec.globally_addressed:
+            # The record's id doubles as a PUBLIC ADDRESS (/comment/EI-34280), which ADR
+            # 0013 makes permanent. The store keys on (docket, id) because global
+            # uniqueness is measured, not structural — 2,385 comments sampled across 2003,
+            # 2010, 2019 and 2026 held no collision, but that is 11% of the archive. So a
+            # second docket claiming an id already held is COUNTED and reported here,
+            # loudly, during the wave that would find it — never silently minted as a
+            # second record sharing one address.
+            stats["id_collisions"] += _elsewhere(con, spec, docket_id, record_id)
         labels = {url: label for row in group if row.attachment for url, label in [row.attachment]}
         known = _known_attachments(con, spec, record_pk) if record_pk else set()
         first = group[0]
         payload: dict[str, object] = dict(first.fields)
         payload["date_printed"] = first.date_printed
         payload["date"] = first.date
+        for key, attr in spec.extra_payload.items():
+            # deterministic across the group, not `first`: a record legitimately spans
+            # several rows AND several pages, so arrival order differs between captures.
+            # Measured 1:1 today, so this is a no-op that stays one if that ever changes —
+            # the alternative is a payload that flips every pass and doubles the events.
+            payload[key] = min(getattr(r, attr) for r in group)
         payload["attachments"] = sorted(known | set(labels))
         source_key = f"{identity.canonical()}|{record_id}"
         event_id = None
@@ -270,6 +380,16 @@ def _find_record(con: Connection, spec: TableSpec, docket_id: int, record_id: st
         (docket_id, record_id),
     ).fetchone()
     return row[0] if row else None
+
+
+def _elsewhere(con: Connection, spec: TableSpec, docket_id: int, record_id: str) -> int:
+    """1 when this record id is already held under a DIFFERENT docket, else 0."""
+    row = con.execute(
+        f"SELECT 1 FROM {spec.record_table} WHERE {spec.record_id_column} = ?"
+        f" AND docket_id <> ? LIMIT 1",
+        (record_id, docket_id),
+    ).fetchone()
+    return 1 if row else 0
 
 
 def _known_attachments(con: Connection, spec: TableSpec, record_pk: int) -> set[str]:
@@ -345,15 +465,17 @@ def recently_refused(con: Connection, days: int = REFUSAL_REST_DAYS) -> set[str]
     return {url for url, refused in latest.items() if refused}
 
 
-_HELD_URLS = (
-    "SELECT source_url FROM filing_attachment WHERE document_sha256 IS NOT NULL"
-    " UNION SELECT source_url FROM decision_attachment WHERE document_sha256 IS NOT NULL"
+# Built from SPECS rather than named by hand: these two drive the errata re-check (ADR
+# 0002) and the PUBLISHED re-check cycle length, so a table left out of them silently has
+# no replacement detection and quietly shortens a number the coverage page prints.
+_HELD_URLS = " UNION ".join(
+    f"SELECT source_url FROM {spec.attachment_table} WHERE document_sha256 IS NOT NULL"
+    for spec in SPECS.values()
 )
-_HELD_URLS_UNDER = (  # the same, bounded by the held document's size
-    "SELECT a.source_url FROM filing_attachment a JOIN document d"
+_HELD_URLS_UNDER = " UNION ".join(  # the same, bounded by the held document's size
+    f"SELECT a.source_url FROM {spec.attachment_table} a JOIN document d"
     " ON d.document_sha256 = a.document_sha256 WHERE d.size_bytes <= ?"
-    " UNION SELECT a.source_url FROM decision_attachment a JOIN document d"
-    " ON d.document_sha256 = a.document_sha256 WHERE d.size_bytes <= ?"
+    for spec in SPECS.values()
 )
 _LAST_FETCH = (
     "SELECT endpoint, MAX(captured_at) AS at FROM capture"
@@ -379,7 +501,9 @@ def recheck_urls(
         if after_days is not None
         else "\uffff"
     )
-    held, size = (_HELD_URLS, ()) if max_bytes is None else (_HELD_URLS_UNDER, (max_bytes,) * 2)
+    held, size = (
+        (_HELD_URLS, ()) if max_bytes is None else (_HELD_URLS_UNDER, (max_bytes,) * len(SPECS))
+    )
     return [
         url
         for (url,) in con.execute(
@@ -396,7 +520,7 @@ def held_url_count(con: Connection, max_bytes: int | None = None) -> int:
     if max_bytes is None:
         return con.execute(f"SELECT COUNT(*) FROM ({_HELD_URLS})").fetchone()[0]
     return con.execute(
-        f"SELECT COUNT(*) FROM ({_HELD_URLS_UNDER})", (max_bytes, max_bytes)
+        f"SELECT COUNT(*) FROM ({_HELD_URLS_UNDER})", (max_bytes,) * len(SPECS)
     ).fetchone()[0]
 
 
@@ -420,6 +544,7 @@ def attachments(
     to records whose latest observation came from captures of that ingest mode — the
     poller fetches the watch's own files first; a backfill wave's backlog is the wave's."""
     out: list[AttachmentRef] = []
+    per_spec: list[list[AttachmentRef]] = []
     rest = recently_refused(con) if unfetched_only else set()
     for spec in SPECS.values():
         conds = []
@@ -435,9 +560,9 @@ def attachments(
                 " JOIN event e ON e.event_id = r.observed_in_event"
                 " JOIN capture c ON c.capture_id = e.capture_id WHERE c.ingest_mode = ?)"
             )
-            params = (observed_in,)
+            params += (observed_in,)  # never `=`: it would drop the `urls` bindings above
         where = (" WHERE " + " AND ".join(conds)) if conds else ""
-        out += [
+        found = [
             AttachmentRef(spec, r[0], r[1], r[2])
             for r in con.execute(
                 f"SELECT a.{spec.record_pk}, a.source_url, a.document_sha256"
@@ -446,4 +571,23 @@ def attachments(
             )
             if r[1] not in rest
         ]
-    return out[:limit] if limit is not None else out
+        per_spec.append(found)
+        out += found
+    if limit is None:
+        return out
+    if limit <= 0:
+        return []
+    if len(out) <= limit:
+        return out
+    # Round-robin across the tables, not the first `limit` of a concatenation. Specs are
+    # concatenated in order, so a filings backlog larger than the limit would take every
+    # slot on every pass and a comment's file would never be fetched at all — the newest
+    # table starving behind the oldest, forever and silently.
+    fair: list[AttachmentRef] = []
+    for row in zip_longest(*per_spec):
+        for ref in row:
+            if ref is not None:
+                fair.append(ref)
+                if len(fair) == limit:
+                    return fair
+    return fair

@@ -14,13 +14,19 @@ reader or the query is stored.
 
 ## What is searched
 
-Three kinds of thing, each already an address:
+Four kinds of thing, each already an address:
 
 | Kind | Text indexed | Address | Rows today |
 | --- | --- | --- | --- |
 | Docket family | printed number and its spellings (`FD 36873`, `FD-36873`, `FD_36873`), the caption as the Board prints it, the sub-dockets' captions | `/d/…` (ADR 0013) | 32,604 |
 | Party | every live name of the component (all kinds, all members) | `/p/<id>` (ADR 0015) | 10,110 parties, fewer components |
 | Decision | id and the Board's summary, when one is printed | `/decision/…` | tens of thousands after wave 3 |
+| Environmental comment | number, the commenter's own words as printed, submitter, organisation and location | `/comment/<number>` (ADR 0013) | 22,000+ after the archive wave |
+
+Every comment is indexed, not only those carrying words: half the rows print `--` for the
+text (measured 2026-08-31), and their submitter, organisation and location are terms nothing
+else in the index holds. A placeholder is never a term. The words are the commenter's own,
+quoted; a hit asserts nothing about them, and the page it resolves to says so.
 
 Not indexed: filings (a filing is reached through its docket; its "type" string is not a
 search target), document text (no extraction exists yet; the citator is a later decision),
@@ -50,13 +56,18 @@ one whose caption repeats the parent's folds into the family row.
   written into the body as separate tokens so `36873` alone matches. Prefix queries on the
   last token for `/suggest`.
 - **Ranking**: `bm25` with the title column weighted above the body; ties broken by kind
-  (docket, party, decision) then title. No recency and no popularity signal. A result row
-  shows kind, the title as printed, and one measured fact (the sheet's own counts for a
-  docket; distinct dockets and filings across the component for a party; docket and
-  service date for a decision) — no snippet.
+  then title, the kinds ordering as they sort (comment, decision, docket, party). No
+  recency and no popularity signal. A result row shows kind, the title as printed, and one
+  measured fact (the sheet's own counts for a docket; distinct dockets and filings across
+  the component for a party; docket and service date for a decision; docket and the date
+  the Board printed for a comment — "dated", never "received", because the Board's own
+  column declines to say which) — no snippet.
 - **`/search?q=`**: an HTML page, at most 50 results, each row = kind, address, the caption
   or name as printed (`as-printed`), and a one-line measured fact (filings and last filing
-  for a docket; dockets and filings for a party; docket and date for a decision). Works with
+  for a docket; dockets and filings for a party; docket and date for a decision or a
+  comment). A comment's title is its number with no noun in front of it: `EI` rows are
+  submitted comments and `EO` rows are the Board's own environmental documents, and the
+  record declines to type the row (migration 0011). Works with
   no script. A result page is `no-store` and `noindex` (its address carries what was
   typed); the bare `/search` page is cached and in the sitemap like any page. No query in
   any log: Caddy's filter now drops the whole query string from the logged URI, whatever
@@ -70,7 +81,10 @@ one whose caption repeats the parent's folds into the family row.
 
 ## Schema (for the schema-critic)
 
-Migration 0010: `search_doc` (a plain table, one row per indexed thing, rebuilt) and
+Migration 0012 rebuilt `search_doc` to admit `comment` — SQLite cannot alter a CHECK — and
+cleared `search_meta`'s signature (not its row, so the ETag's build counter carries on) so
+the empty index knows it is stale. Migration 0010, as it stands after that: `search_doc` (a
+plain table, one row per indexed thing, rebuilt) and
 `search_fts` (FTS5, `content='search_doc'`). Derived, disposable, rebuildable from the store
 — it carries no provenance because it asserts nothing; it is an index over assertions that
 carry theirs. The `party` rows index every live name of a component under the

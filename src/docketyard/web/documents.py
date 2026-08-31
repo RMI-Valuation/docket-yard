@@ -118,9 +118,19 @@ def headers_for(sha256: str, ext: str) -> tuple[str, dict[str, str]]:
     }
 
 
+# kinds with a /view route. A comment has none — it is addressed at /comment/<number> and
+# links the Board's own file — so the rule lives HERE rather than at each call site: the
+# sheet, the record page and the viewer's own prev/next all ask this one function, and
+# guarding them one at a time is how the third one gets missed (code review, 2026-08-31).
+VIEWABLE_KINDS = ("filing", "decision")
+
+
 def viewable_index(entry) -> int | None:
-    """The first attachment a viewer page can show — fetched, and of a kind a browser
-    renders — or None. One rule for the sheet's link, the record's button and the page."""
+    """The first attachment a viewer page can show — fetched, of a kind a browser renders,
+    on a record kind that HAS a viewer — or None. One rule for the sheet's link, the
+    record's button, the viewer page and its prev/next."""
+    if entry.kind not in VIEWABLE_KINDS:
+        return None
     for i, a in enumerate(entry.attachments):
         if a.document_sha256 and a.media_type in INLINE:
             return i

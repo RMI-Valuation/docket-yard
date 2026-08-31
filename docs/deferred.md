@@ -159,3 +159,21 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   a pre-existing cosmetic wrinkle in `_ingest_pending` that the dockets path now shares.
 - **`_uncaptioned` scans the registry each pass** (~32,600 dockets, index seeks). Free at
   this size, and it will not stay free.
+
+## Found 2026-08-31, against the environmental-comments milestone (migrations 0011–0012)
+
+- **Time one `search rebuild --force` after the comment wave** and put the number in
+  `search.md` beside the 227s one. `rebuild()` promises "seconds, not minutes" and holds a
+  write lock while FTS5 re-tokenises the whole content table; 22,000+ comment bodies (up to
+  1,549 characters, measured) are the longest text the index has ever carried, against
+  captions of a few dozen. A measurement, not a redesign.
+- **`_PLACEHOLDERS` in `search.py` covers `--` only.** All three of its values tokenise to
+  nothing under `unicode61`, so it earns little today; the values that would actually
+  pollute the vocabulary are alphanumeric (`N/A`, `None`, `Unknown`). Count the distinct
+  short values of `location_raw` and `organisation_raw` after the wave before treating the
+  tuple as closed.
+- **The site now has two nouns for one row**: the record page says "Environmental comment
+  EI-34282" while the search index titles it `EI-34282` with no noun and the sheet's kind
+  column says "Comment". The index is deliberately untyped (`EO` rows are the Board's own
+  documents, and 0011 declines to type the row); whether the page and the sheet should
+  follow is an operator's wording decision, not a defect.

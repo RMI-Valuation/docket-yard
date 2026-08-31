@@ -19,7 +19,7 @@ from pathlib import Path
 from sqlite3 import Connection
 
 from docketyard.capture import records
-from docketyard.ingest import observations
+from docketyard.ingest import dockets, observations
 from docketyard.store import events
 from docketyard.store.db import utcnow
 
@@ -147,13 +147,13 @@ def fetch_attachments(
                     docket_id, record_id = _owner(con, owner)
                     con.execute(
                         "INSERT OR IGNORE INTO document_source (document_sha256, source_url,"
-                        " stb_filing_id, stb_decision_id, supersedes_sha256, capture_id,"
-                        " observed_at) VALUES (?, ?, ?, ?, NULL, ?, ?)",
+                        " stb_filing_id, stb_decision_id, comment_source_key,"
+                        " supersedes_sha256, capture_id, observed_at)"
+                        " VALUES (?, ?, ?, ?, ?, NULL, ?, ?)",
                         (
                             sha256,
                             url,
-                            record_id if owner.spec is observations.FILINGS_SPEC else None,
-                            record_id if owner.spec is observations.DECISIONS_SPEC else None,
+                            *_source_ids(con, owner.spec, docket_id, record_id),
                             capture_id,
                             now,
                         ),
@@ -174,13 +174,18 @@ def fetch_attachments(
         ).rowcount
         for owner in owners:
             docket_id, record_id = _owner(con, owner)
-            filing_id = record_id if owner.spec is observations.FILINGS_SPEC else None
-            decision_id = record_id if owner.spec is observations.DECISIONS_SPEC else None
             con.execute(
                 "INSERT OR IGNORE INTO document_source (document_sha256, source_url,"
-                " stb_filing_id, stb_decision_id, supersedes_sha256, capture_id, observed_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (sha256, url, filing_id, decision_id, old_sha, capture_id, now),
+                " stb_filing_id, stb_decision_id, comment_source_key, supersedes_sha256,"
+                " capture_id, observed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    sha256,
+                    url,
+                    *_source_ids(con, owner.spec, docket_id, record_id),
+                    old_sha,
+                    capture_id,
+                    now,
+                ),
             )
             if old_sha is not None:
                 # a reverted erratum (A→B→A) re-meets an existing row: keep its chain link
@@ -219,12 +224,12 @@ def fetch_attachments(
 def _held_sha(con: Connection, url: str) -> str | None:
     """The hash the record holds for a URL, whichever record cites it — a new sub-docket
     row citing a held file must not start the chain over (ADR 0002)."""
-    row = con.execute(
-        "SELECT document_sha256 FROM filing_attachment WHERE source_url = ?"
-        " AND document_sha256 IS NOT NULL UNION SELECT document_sha256 FROM"
-        " decision_attachment WHERE source_url = ? AND document_sha256 IS NOT NULL LIMIT 1",
-        (url, url),
-    ).fetchone()
+    union = " UNION ".join(
+        f"SELECT document_sha256 FROM {spec.attachment_table}"
+        " WHERE source_url = ? AND document_sha256 IS NOT NULL"
+        for spec in observations.SPECS.values()
+    )
+    row = con.execute(f"{union} LIMIT 1", (url,) * len(observations.SPECS)).fetchone()
     return row[0] if row else None
 
 
@@ -256,3 +261,22 @@ def _owner(con: Connection, ref: observations.AttachmentRef) -> tuple[int, str]:
     ).fetchone()
     assert row is not None  # attachment rows reference their record by FK
     return row[0], row[1]
+
+
+def _source_ids(con: Connection, spec, docket_id: int, record_id: str) -> tuple:
+    """`document_source`'s three owner columns for this record: (filing, decision, comment).
+
+    A comment's column holds the DOCKET-QUALIFIED spelling, not the bare number, because a
+    comment number is identity only within a docket — the same reason `enviro_comment` keys
+    on the pair. The other two hold ids that are unique across the whole source.
+    """
+    if spec.record_table == "filing":
+        return record_id, None, None
+    if spec.record_table == "decision_record":
+        return None, record_id, None
+    if spec.record_table == "enviro_comment":
+        return None, None, f"{dockets.canonical_of(con, docket_id)}|{record_id}"
+    # never fall through to (None, None, None): that is exactly the anonymous association
+    # comment_source_key exists to prevent, and it would arrive silently the day a fourth
+    # attachment-bearing table joins SPECS
+    raise ValueError(f"document_source has no owner column for {spec.record_table}")
