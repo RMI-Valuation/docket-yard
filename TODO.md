@@ -4,17 +4,14 @@ Open work only. Completed items are **deleted**, never checked off — git histo
 archive; shipped milestones are recorded in `docs/milestones.md`. `docs/deferred.md` is the
 pool of accepted-later work: **pull an item from it into Next when capacity or a decision
 makes it near-term**, and delete it there when it lands. Anything stale in Parked graduates
-to `ROADMAP.md` or dies. Hard line cap enforced
-by pre-commit: when it fires, prune.
+to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, prune.
 
 ## Now
 
-- **Environmental comments are live and walked** (v2026.08.43): 34,255 comments,
-  2000-09-22 →, addressed `/d/<docket>/comment/<number>` after the wave found two numbers
-  naming two different comments each. **Left: ~26,900 comment attachments unfetched** —
-  the poller drains them 200 a pass, round-robin with filings and decisions, so a few
-  weeks; watch disk (21 GB free, the blob pruner holds the floor at 20 GB) and
-  `/coverage`, which publishes the backlog
+- **~26,900 comment attachments unfetched** (the archive wave walked with
+  `--fetch-limit 0`, so the records landed without waiting on files). The poller takes
+  200 a pass, round-robin with filings and decisions, so a few weeks. Watch disk — 21 GB
+  free against the blob pruner's 20 GB floor — and `/coverage`, which publishes the count
 - **ADR 0017 (Proposed)**: the batch is complete, so it is decidable. Amendments to fold in
   at acceptance: the docket class ships from regex+registry (95.1%, unbeaten by nine local
   models); the on-page rule joins the resolution pass; the decided date is extracted in the
