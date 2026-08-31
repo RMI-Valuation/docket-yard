@@ -9,45 +9,44 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- **ADR 0017 (Proposed)**: acceptance **deferred to the batch's completion** (Cameron,
-  2026-08-30) — decision 1 turns on the full model table. The verb-gate conflict is
-  settled: the resolver changed, a `decided` date now resolves to the sheet, never to a
-  decision. Open amendments at acceptance: regex-first docket class; on-page rule in the
-  resolution pass
-- **Extraction benchmark complete 2026-08-31**: nine local candidates and two role
-  classifiers scored against the checked sheet; nothing local beat regex+registry on the
-  docket class (95.1%), and the record's own-docket rule beat both model classifiers.
-  Figures and the caveats in `docs/extraction-benchmark.md`
-- **OCR/extraction (M3):** step 2 done 2026-08-29 (~$16); findings in `ocr-plan.md`,
-  `extraction-benchmark.md`, ADR 0017. **Ground truth's bound: ranking publishable,
-  absolute character accuracy not**
-- Keys: rotation closed 2026-08-30. No Anthropic key exists; a Claude run needs a new one
+- **Environmental comments (chosen 2026-08-31)** — the record captures none, and F1 defines
+  the sheet as filings, decisions **and** environmental comments. Endpoint fully measured
+  (`stb-data-source.md`): same nonce and criteria, windowed by `startDate`/`endDate` (a
+  third spelling — the other pairs answer an empty envelope with a 200), >22,000 rows, each
+  carrying the comment's words, submitter, organisation, attachment and a geocodable
+  location. **Next: the schema — a record table and `enviro_comment_observed` — to
+  schema-critic before anything is built**; then capture and parser (ingest specialist,
+  `/security-review`), a dated backfill, and the sheet row that completes F1
+- **ADR 0017 (Proposed)**: the batch is complete, so it is decidable. Amendments to fold in
+  at acceptance: the docket class ships from regex+registry (95.1%, unbeaten by nine local
+  models); the on-page rule joins the resolution pass; the decided date is extracted in the
+  same pass or costs a ~$1,335 re-run. **Cameron's acceptance**
 - **Party types (F3's first slice)**: design in `docs/party-types.md`, ground truth checked
-  (300 parties), rules v2 at 83.3% — but tuned on the sheet it is scored against, so a
-  second unseen sample must confirm before any type ships. Then the model tier
+  (300 parties), rules v2 at 83.3% — but tuned on the sheet it is scored against, so **a
+  second unseen sample must confirm** before any type ships. Then the model tier
+- No Anthropic key exists; any Claude-backed run needs a new one from Cameron
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
 
 ## Next
 
 - **ADR 0016** accepted 2026-08-28; `reviewer`/`review_action` drafted into
-  `schema-draft.md` § 7, schema-critic's report folded in 2026-08-30. Build after 0017
+  `schema-draft.md` § 7, schema-critic's report folded in. Build after 0017
 - Citator schema gate (`docs/citator-gate.md`) is drafted into ADR 0017; still open after
   it: record cites' slice, statutes, the decided date's placement
+- **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md`,
+  shape measured — Textract bulk + Claude on graphic/tabular/low-confidence, ~$700 for the
+  backfill. Nothing reads into the store before ADR 0017 settles what ships
 - Deadline engine (C4) evidence: decision JSON carries no extracted obligations (verified
   2026-08-26); a hand-checked fixture of 8 dated obligations for FD 36873 is in
   `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only; see
   `docs/upns-tracker-inheritance.md`). Dates quoted, never computed (ADR 0006)
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
-- **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md`.
-  Shape now measured: Textract bulk + Claude on graphic/tabular/low-confidence, ~$700 for
-  the backfill; nothing reads into the store before step 3
 - Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
 - When this list runs short or a decision makes one of them near-term, pull the next item
   from `docs/deferred.md` (review findings and known gaps, dated, with their context)
 
 ## Parked
 
-- Benchmark step 2: 12GB VRAM ⇒ 14B dense / ~30B MoE; disable Qwen3 thinking per request
 - A key held off the box (KMS), decrypting only at send time — ADR 0014's open forward step
 - Stats deferrals: one month walker for `home.py`/`stats.py`; index `filing(filed_date)`

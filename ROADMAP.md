@@ -7,37 +7,38 @@ nothing moves from the menu to here without the operator's decision, recorded in
 with its date. Hard line cap enforced by pre-commit: when it fires, prune.
 
 **The wedge** (agency-wide docket sheets plus alerting, forward-only) **shipped 2026-08-26**
-and is live at [docketyard.org](https://docketyard.org), unannounced. Since then: backfill
-in dated waves, the party module, the statistics page, feeds and webhooks, bulk data and JSON — see
-the milestones record, and the document viewer (2026-08-27). The Ripe list is the menu for what follows.
+and is live at [docketyard.org](https://docketyard.org), unannounced. Since then, in
+`docs/milestones.md`: backfill in dated waves, the party module, statistics, feeds and
+webhooks, bulk data and JSON, the document viewer, the citation resolver and two registers,
+docket-type explainers, and — v2026.08.40–41 — the week naming the proceeding that moved,
+a series docket leading with its index, and captions for newly-opened proceedings. The Ripe
+list is the menu for what follows.
 
 ## Chosen
 
 | # | Milestone | Done means | Chosen | Status |
 | --- | --- | --- | --- | --- |
-| — | Environmental comments (F1's missing third) | The record captures the Board's environmental-comment table: a typed record with the commenter's own words, submitter, organisation, attachment and location, on the docket sheet beside filings and decisions, walked back over the record and watched forward | 2026-08-31 | Measured (`stb-data-source.md`); next: the date criteria, then the schema to the critic |
+| — | Environmental comments (F1's missing third) | The record captures the Board's environmental-comment table: a typed record with the commenter's own words, submitter, organisation, attachment and location, on the docket sheet beside filings and decisions, walked back over the record and watched forward | 2026-08-31 | Endpoint measured in full (`stb-data-source.md`): `startDate`/`endDate`, >22,000 rows. Next: the schema, to schema-critic |
 | — | Party types on `/parties` (F3's first slice) | Every party carries a typed classification (railroad, company, government, association, individual, law firm, …) as a derived assertion with ADR 0007 provenance and an ADR 0016 review path; `/parties` gains a browse by type (large types collapsed) beside the search, which stays | 2026-08-30 | Design: vocabulary and method tiers from the measured corpus; schema-critic before the assertion table exists |
-| — | OCR of the image-only record (M3's first slice, `docs/ocr-plan.md`) | Ground truth the operator checks (90 pages, three tiers); candidates measured by CER/WER and by docket-number and date errors, API candidate included; a review layer (agreement → confidence, registry checks, a reviewer queue with identity from the start, ~50 pages a week); text published only above the measured threshold, with provenance | 2026-08-28 | Step 1: the sample |
-| — | Extraction benchmark (background) | Local LLM on RMI-AI-MACHINE vs API on a hand-labelled sample, before any extraction commits to local output; unblocks the citator | 2026-08-26 | Step 0 done; step 1 (60-decision labelled sample) awaits the operator's labels |
-| — | Three held-metadata slices, chosen by delegation ("proceed with whatever you see fit", 2026-08-27) | The citation resolver (F2's second half: a docket or decision citation in any of the Board's printed forms resolves to its address with no search step); a court-action index (D4's first slice: the 491 `Notice Of Court Action` decisions by rulemaking, quoted); a protective-order register (D7's first slice: the 695 `Motion For Protective Order` filings on one page and marked on the sheet). No inference, no extraction — projections of held rows | 2026-08-27 | Landed v2026.08.36 (milestones) |
+| — | OCR of the image-only record (M3's first slice, `docs/ocr-plan.md`) | Ground truth the operator checks (90 pages, three tiers); candidates measured by CER/WER and by docket-number and date errors, API candidate included; a review layer (agreement → confidence, registry checks, a reviewer queue with identity from the start, ~50 pages a week); text published only above the measured threshold, with provenance | 2026-08-28 | Ground truth checked 2026-08-29; five engines scored. Waiting on ADR 0017, which decides what ships |
+| — | Extraction benchmark (background) | Local LLM on RMI-AI-MACHINE vs API on a hand-labelled sample, before any extraction commits to local output; unblocks the citator | 2026-08-26 | **Complete 2026-08-31**: nine local candidates and two role classifiers scored against the operator-checked sheet. Step 3 is ADR 0017, Proposed, awaiting acceptance |
 
 ## Ripe — awaiting a decision
 
 Candidates the record can support now, in the order recommended 2026-08-27 (reviewed against
 the capability map with the whole record held). None is chosen.
 
-1. ~~Docket-type explainers (P2)~~ — reviewed and published 2026-08-28 (milestones).
-2. **The citation graph** — the first slice of the citator (C2): edges only (this decision
+1. **The citation graph** — the first slice of the citator (C2): edges only (this decision
    cites that decision, docket or document) against the validated registry, shipped as "cited
    by" lists and search ranking; treatment classification lands later on the same edges.
    Wave 3 is done (19,829 decisions, 1996 →); gated on the labelled sample and the schema
    check in TODO § Next. The citation resolver (Chosen) is its front door.
-3. **A machine-agent surface** (F7, proposed 2026-08-26) — read-only MCP over what exists
+2. **A machine-agent surface** (F7, proposed 2026-08-26) — read-only MCP over what exists
    plus the AI-crawler line in `robots.txt`; Low effort because F5, `/api` and `/llms.txt`
    shipped. On the menu, not chosen.
-4. **Fielded search** (F4) — the one box shipped 2026-08-26 (captions, parties, summaries);
+3. **Fielded search** (F4) — the one box shipped 2026-08-26 (captions, parties, summaries);
    fields, boolean and proximity wait for the extracted text.
-5. **Rate-case index** (D5's first slice) — the 3,952 NOR dockets with parties and quoted
+4. **Rate-case index** (D5's first slice) — the 3,952 NOR dockets with parties and quoted
    spans; only 136 carry held filings, so thin until the ICC-era gap closes. The casebook
    proper (methodology, outcome) is human coding.
 
