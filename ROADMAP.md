@@ -10,15 +10,15 @@ with its date. Hard line cap enforced by pre-commit: when it fires, prune.
 and is live at [docketyard.org](https://docketyard.org), unannounced. Since then, in
 `docs/milestones.md`: backfill in dated waves, the party module, statistics, feeds and
 webhooks, bulk data and JSON, the document viewer, the citation resolver and two registers,
-docket-type explainers, and — v2026.08.40–41 — the week naming the proceeding that moved,
-a series docket leading with its index, and captions for newly-opened proceedings. The Ripe
+docket-type explainers, the week naming the proceeding that moved, a series docket leading
+with its index, captions for newly-opened proceedings, and — v2026.08.42 — environmental
+comments, the third record row F1 always named. The Ripe
 list is the menu for what follows.
 
 ## Chosen
 
 | # | Milestone | Done means | Chosen | Status |
 | --- | --- | --- | --- | --- |
-| — | Environmental comments (F1's missing third) | The record captures the Board's environmental-comment table: a typed record with the commenter's own words, submitter, organisation, attachment and location, on the docket sheet beside filings and decisions, walked back over the record and watched forward | 2026-08-31 | **Merged to `main` 2026-08-31** (#11), through five reviews. **Not deployed**: production is v2026.08.41 at schema 10, and this release applies 0011–0012 — see the two deploy notes in `infra/deploy/README.md`. Then the archive wave |
 | — | Party types on `/parties` (F3's first slice) | Every party carries a typed classification (railroad, company, government, association, individual, law firm, …) as a derived assertion with ADR 0007 provenance and an ADR 0016 review path; `/parties` gains a browse by type (large types collapsed) beside the search, which stays | 2026-08-30 | Design: vocabulary and method tiers from the measured corpus; schema-critic before the assertion table exists |
 | — | OCR of the image-only record (M3's first slice, `docs/ocr-plan.md`) | Ground truth the operator checks (90 pages, three tiers); candidates measured by CER/WER and by docket-number and date errors, API candidate included; a review layer (agreement → confidence, registry checks, a reviewer queue with identity from the start, ~50 pages a week); text published only above the measured threshold, with provenance | 2026-08-28 | Ground truth checked 2026-08-29; five engines scored. Waiting on ADR 0017, which decides what ships |
 | — | Extraction benchmark (background) | Local LLM on RMI-AI-MACHINE vs API on a hand-labelled sample, before any extraction commits to local output; unblocks the citator | 2026-08-26 | **Complete 2026-08-31**: nine local candidates and two role classifiers scored against the operator-checked sheet. Step 3 is ADR 0017, Proposed, awaiting acceptance |
