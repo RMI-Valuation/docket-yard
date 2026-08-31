@@ -194,6 +194,27 @@ The environmental comments table carries the commenter's own submitted text in a
 location string. On FD 36873, 40 of 51 carried a clean "City, ST" — directly geocodable, and the
 cheapest possible first map layer.
 
+**Measured 2026-08-31** (the operator found the record holds none of them: AB 55 (Sub-No. 794X)
+shows 70 records on our sheet where the Board's own search shows 6 environmental comments too):
+
+- `action = stb_hook_table_environmental_comments` answers on the same nonce and the same
+  `search-criteria[i][name]/[value]` vocabulary as the other tables. `docketNum_one/two/three`
+  filter it, and the envelope echoes what it understood — "Search Criteria: Docket Prefix = AB,
+  Sequence Number = 55, Sub Seque…". AB 55 (Sub-No. 794X) answers `total: 6`, matching the
+  Board's own count exactly, including `EO-3243` of 10/4/2019.
+- **The unfiltered table answers `total: 10000` — the display cap**, so the whole set needs
+  slicing to walk, exactly as the dockets registry did.
+- Default sort is "Date Received or Sent Desc."; `sort_by=""` is accepted.
+- The columns, from one row: date; comment number (`EI-34280`); docket (`FD_36873`); submitter
+  (`David Gertsch`); organisation (`Albany County Planning Department`); **the comment's own
+  words**; **a location string** (`Laramie, WY`); and an attachment on the same S3 host
+  (`EI-34280.pdf`).
+- Row ids are composite: `AB_55_794_X|39772|753808`, alongside the comment number and the
+  docket as separate anchors.
+- **Not yet measured**: which date criteria filter this table (the form's list carries no
+  enviro-specific date pair), and therefore whether a forward poll can window it the way
+  filings and decisions are windowed. That is the first thing to measure if it is chosen.
+
 ## Measured 2026-08-26: document sizes
 
 Attachments are served from S3 (`dcms-external.s3.amazonaws.com`) with `Content-Length`;
