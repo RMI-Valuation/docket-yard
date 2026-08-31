@@ -9,21 +9,17 @@ by pre-commit: when it fires, prune.
 
 ## Now
 
-- **Environmental comments (chosen 2026-08-31)** — F1's third record row. **All four steps
-  built and green (253 tests), uncommitted, not deployed**: migration 0011, the fourth
-  `TableSpec`, the wave (`backfill --tables comments`), the sheet row. Four reviews, every
-  finding fixed or recorded; a live 3-month wave walked 229 rows → 226 comments, all
-  slices `done`. **Left: run the archive wave** (>22,000 rows, 1996 →, monthly)
-- Comments: addressed at `/comment/EI-34280`, watched by `last_enviro_capture` (3h) /
-  `last_enviro_event` (21d — the longest measured silence is 14d), searchable by their own
-  words (0012). **No name is masked** (2026-08-31, reasoning in 0011's header): nothing
-  published may imply otherwise. **Deploy notes for 0011+0012 are in
-  `infra/deploy/README.md`**: run `search rebuild` right after `migrate`, and roll back by
-  Litestream restore rather than by tag
-- **The name-withdrawal wording is a public promise** and ships only on Cameron's sign-off:
-  it stops republication from the next snapshot on, does not recall a distributed archive,
-  does not redact a signature inside the comment's own words, and does not reach the
-  Board's PDF. All three limits are in migration 0011's header
+- **Environmental comments — merged to `main` (#11), NOT deployed.** Production is
+  v2026.08.41 at schema 10; this release applies 0011–0012. **Deploy first** (both notes
+  are in `infra/deploy/README.md`: run `search rebuild` right after `migrate`, and roll
+  back by Litestream restore, never by tag), **then run the archive wave** — >22,000 rows,
+  1996 →, `backfill --tables comments`. Watch its `id_collisions` count: the
+  `/comment/<number>` address rests on uniqueness measured over 11% of the record, and the
+  wave is what tests the rest.
+  **What landed with it**: `/comment/EI-34280` as a permanent address, the
+  `last_enviro_capture` (3h) / `last_enviro_event` (21d) canary pair, and search over the
+  commenters' own words. **No name is masked** (2026-08-31; the reasoning is in 0011's
+  header): nothing published may imply otherwise
 - **ADR 0017 (Proposed)**: the batch is complete, so it is decidable. Amendments to fold in
   at acceptance: the docket class ships from regex+registry (95.1%, unbeaten by nine local
   models); the on-page rule joins the resolution pass; the decided date is extracted in the
