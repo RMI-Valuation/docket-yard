@@ -123,7 +123,15 @@ def test_the_surface_is_read_only(client):
     the module's own imports and source, so a later tool that writes fails here."""
     source = pathlib.Path(mcp.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source)
-    imported = {(node.module or "") for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
+    # BOTH import forms: the walk checked only `from X import Y`, so `import
+    # docketyard.subscriptions` — an ast.Import, whose names live on node.names — would
+    # have slipped past the check this test exists to be (ultrareview)
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            imported.add(node.module or "")
+        elif isinstance(node, ast.Import):
+            imported.update(alias.name for alias in node.names)
     forbidden = ("alerts", "subscriptions", "capture", "backfill", "poll", "dump")
     for module in imported:
         assert not any(f in module for f in forbidden), f"{module} is not a read path"
@@ -313,12 +321,15 @@ def test_a_malformed_body_is_a_protocol_error_not_a_500(client):
     """The body is unauthenticated and arbitrary. `params` and `arguments` are dicts only
     because a client chose to send dicts, so they are checked — `params.get` on a list was
     an unhandled 500 from a one-line payload (security review)."""
-    for params in ([1, 2], "x", 7):
-        r = client.post(
-            "/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": params}
-        )
-        assert r.status_code == 200, params
-        assert r.json()["error"]["code"] == -32602, params
+    # BOTH branches that reach into params — the fix landed on tools/call and initialize
+    # was left with the same defect, which this loop would have caught (ultrareview)
+    for method in ("tools/call", "initialize"):
+        for params in ([1, 2], "x", 7):
+            r = client.post(
+                "/mcp", json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
+            )
+            assert r.status_code == 200, (method, params)
+            assert r.json()["error"]["code"] == -32602, (method, params)
     for arguments in ([1], "x", 7):
         r = rpc(client, "tools/call", {"name": "coverage", "arguments": arguments})
         assert r.status_code == 200 and r.json()["error"]["code"] == -32602, arguments
@@ -359,3 +370,74 @@ def test_the_stores_own_connection_refuses_writes(tmp_path):
             con.execute("DELETE FROM docket")
     finally:
         con.close()
+
+
+# --- what the cloud review found --------------------------------------------------------
+
+
+def test_the_boards_placeholder_never_becomes_a_name_or_a_place(tmp_path):
+    """`--` is what the Board prints for a cell it has nothing for, and it is truthy. The
+    sheet strips it before any page renders; this surface re-queried the store and would
+    have handed an assistant "Location: --" as though it were a place."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    ingest_comment(con, tmp_path, comment_row(org="--", location="--", text="--"))
+    con.close()
+    c = TestClient(create_app(path))
+    text = call(c, "get_environmental_comment", {"number": "EI-34280"})["content"][0]["text"]
+    assert "--" not in text
+    assert "Location:" not in text and "Organisation:" not in text
+    assert "David Gertsch" in text  # what WAS printed survives
+    # and the no-text branch fires rather than quoting the placeholder as the words
+    assert "printed no text for this comment" in text
+
+
+def test_a_comment_with_neither_words_nor_file_does_not_contradict_itself(tmp_path):
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    ingest_comment(con, tmp_path, comment_row(text="--", pdf=""))
+    con.execute("DELETE FROM enviro_comment_attachment")
+    con.commit()
+    con.close()
+    c = TestClient(create_app(path))
+    text = call(c, "get_environmental_comment", {"number": "EI-34280"})["content"][0]["text"]
+    assert "its words are in the file below" not in text  # nothing to point at
+    assert "printed no text for this comment and lists no file" in text
+
+
+def test_a_cross_posting_is_named_in_the_form_a_person_could_look_up(tmp_path):
+    """`also_in` carries the store's own ids (AB_55_785_X). Handed to an assistant they
+    resolve nowhere — the failure this surface exists to prevent, delivered by it."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    ingest_comment(
+        con, tmp_path, comment_row(docket="AB_55") + comment_row(docket="AB_55_794_X"), total=2
+    )
+    con.close()
+    c = TestClient(create_app(path))
+    text = call(c, "get_docket_sheet", {"docket": "AB 55"})["content"][0]["text"]
+    assert "AB_55_794_X" not in text and "AB_55" not in text.replace("AB 55", "")
+    if "also entered in" in text:
+        assert "AB 55 (Sub-No. 794X)" in text
+
+
+def test_the_caveats_are_appended_once_by_the_handler_not_by_each_tool(client):
+    """Three return paths skipped them while a test claimed every tool carried them. They
+    are appended centrally now, so a tool cannot forget what it does not do."""
+    empty_query = call(client, "search_the_record", {"query": "   "})["content"][0]["text"]
+    unparseable = call(client, "get_docket_sheet", {"docket": "not a docket"})["content"][0]["text"]
+    for text in (empty_query, unparseable):
+        assert "does not say what any party argued" in text, text[:60]
+    # and exactly once — the tools no longer add their own
+    assert empty_query.count("Coverage is not uniform") == 1
+
+
+def test_initialize_falls_back_to_the_version_the_header_negotiated(client):
+    """A client that sets MCP-Protocol-Version and omits protocolVersion from params gets
+    its own version back, not ours — which is what threading `version` in was for."""
+    r = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+        headers={"MCP-Protocol-Version": "2025-06-18"},
+    )
+    assert r.json()["result"]["protocolVersion"] == "2025-06-18"

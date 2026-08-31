@@ -30,6 +30,7 @@ from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.store import coverage as coverage_store
 from docketyard.store import search as search_store
 from docketyard.store import sheet as sheet_store
+from docketyard.store.sheet import present
 from docketyard.web import urls
 
 PROTOCOL_VERSION = "2025-11-25"
@@ -109,11 +110,11 @@ def _search(con: Connection, args: dict, host: str) -> str:
     if not hits and held is None:
         return (
             f"The record holds nothing matching {text!r}. That is an absence in this record, "
-            f"not proof of absence at the Board.\n\n{_NOT_HELD}"
+            "not proof of absence at the Board."
         )
     for h in hits:
         lines.append(f"[{h.kind}] {h.title} — {h.fact} — {_site(host, h.path)}")
-    return "\n".join(lines) + f"\n\n{_NOT_HELD}"
+    return "\n".join(lines)
 
 
 def _docket(con: Connection, args: dict, host: str) -> str:
@@ -127,7 +128,7 @@ def _docket(con: Connection, args: dict, host: str) -> str:
     if docket_id is None:
         return (
             f"The record holds no proceeding numbered {urls.printed_docket(identity)}. "
-            f"It may exist at the Board and not here.\n\n{_NOT_HELD}"
+            "It may exist at the Board and not here."
         )
     s = sheet_store.docket_sheet(con, docket_id)
     if s is None:
@@ -153,7 +154,13 @@ def _docket(con: Connection, args: dict, host: str) -> str:
             if entered and e.docket_raw != s.raw_docket
             else ""
         )
-        also = f" — also entered in {', '.join(e.also_in)}" if e.also_in else ""
+        # printed, not raw: `also_in` carries the store's own ids (AB_55_785_X), which
+        # resolve at neither docketyard.org nor stb.gov — and the `where` clause one line
+        # above already canonicalises the same class of value (ultrareview)
+        printed_also = [
+            urls.printed_docket(i) for i in map(parse_docket_id, e.also_in) if i is not None
+        ]
+        also = f" — also entered in {', '.join(printed_also)}" if printed_also else ""
         rows.append(
             f"- {e.date or 'undated'} [{e.kind}] {e.record_id}"
             + (f" — {e.type}" if e.type else "")
@@ -168,7 +175,26 @@ def _docket(con: Connection, args: dict, host: str) -> str:
             f"\n({len(s.entries) - limit} older entries not shown — these are the"
             f" {limit} most recent, not the whole sheet. Raise `limit` or read the sheet.)"
         )
-    return "\n".join(head) + "\n\n" + "\n".join(rows) + more + f"\n\n{_NOT_HELD}"
+    return "\n".join(head) + "\n\n" + "\n".join(rows) + more
+
+
+def _words(text: str | None, board_file: str | None) -> str:
+    """The comment's words and its file, said once and without contradicting itself.
+
+    Two independent ternaries promised "its words are in the file below" and then said
+    "the Board lists no file for this comment" whenever a comment had neither."""
+    if text:
+        said = f"\nThe commenter's own words, as the Board printed them:\n{text}"
+    elif board_file:
+        said = (
+            "\nThe Board printed no text for this comment in its table; its words are in"
+            " the file below."
+        )
+    else:
+        said = "\nThe Board printed no text for this comment and lists no file for it."
+    if board_file:
+        said += f"\nThe Board's own file: {board_file}"
+    return said
 
 
 def _comment(con: Connection, args: dict, host: str) -> str:
@@ -184,13 +210,18 @@ def _comment(con: Connection, args: dict, host: str) -> str:
         (number,),
     ).fetchall()
     if not rows:
-        return f"The record holds no environmental comment numbered {number}.\n\n{_NOT_HELD}"
+        return f"The record holds no environmental comment numbered {number}."
     # Folded by ROW REF, not by number. One comment entered in a docket and its sub-docket
     # shares a ref and is ONE comment (108 of the 110 repeated numbers measured); two
     # comments the Board gave the same number have different refs and are two. Folding by
     # number would tell an assistant that a cross-posted comment was two different people.
     seen, out = set(), []
-    for raw, date, submitter, org, location, text, ref, board_file in rows:
+    for raw, date, raw_sub, raw_org, raw_loc, raw_text, ref, board_file in rows:
+        # `--` is what the Board prints for a cell it has nothing for, and it is
+        # truthy. The sheet strips it before any page renders; re-querying the store
+        # here handed an assistant "Location: --" as a place (ultrareview).
+        submitter, org = present(raw_sub), present(raw_org)
+        location, text = present(raw_loc), present(raw_text)
         if ref in seen:
             continue
         seen.add(ref)
@@ -201,17 +232,7 @@ def _comment(con: Connection, args: dict, host: str) -> str:
             + (f" Submitted by: {submitter}." if submitter else "")
             + (f" Organisation: {org}." if org else "")
             + (f" Location: {location}." if location else "")
-            + (
-                f"\nThe commenter's own words, as the Board printed them:\n{text}"
-                if text
-                else "\nThe Board printed no text for this comment in its table;"
-                " its words are in the file below."
-            )
-            + (
-                f"\nThe Board's own file: {board_file}"
-                if board_file
-                else "\nThe Board lists no file for this comment."
-            )
+            + _words(text, board_file)
             + (
                 f"\nPermanent address: {_site(host, urls.comment_path(identity, number))}"
                 if identity
@@ -227,10 +248,8 @@ def _comment(con: Connection, args: dict, host: str) -> str:
     return (
         "\n\n".join(out)
         + note
-        + (
-            "\n\nThis is the commenter's own statement, quoted. It is not this record's view, "
-            f"and it is not the Board's.\n{_NOT_HELD}"
-        )
+        + "\n\nThis is the commenter's own statement, quoted. It is not this record's view,"
+        " and it is not the Board's."
     )
 
 
@@ -250,7 +269,7 @@ def _coverage(con: Connection, args: dict, host: str) -> str:
             if c.backfill_incomplete
             else ""
         )
-        + f"\nThe page a person would read: {_site(host, '/coverage')}\n\n{_NOT_HELD}"
+        + f"\nThe page a person would read: {_site(host, '/coverage')}"
     )
 
 
@@ -337,7 +356,18 @@ def handle(message: dict, *, con: Connection, host: str, version: str) -> dict |
     if request_id is None:  # a notification
         return None
     if method == "initialize":
-        asked = (message.get("params") or {}).get("protocolVersion")
+        # the guard tools/call already has: `or {}` does NOT short-circuit past a truthy
+        # non-dict, so `params: [1,2]` was an unhandled 500 from one line — the defect
+        # fixed for the sibling branch and not carried across to this one (ultrareview)
+        params = message.get("params")
+        if params is None:
+            params = {}
+        if not isinstance(params, dict):
+            return _error(request_id, -32602, "params must be an object")
+        # falling back to the version the route negotiated from the header, which it has
+        # already validated: a client that set the header and left protocolVersion out of
+        # params gets its own version back rather than ours
+        asked = params.get("protocolVersion") or version
         return _result(
             request_id,
             {
@@ -397,7 +427,16 @@ def handle(message: dict, *, con: Connection, host: str, version: str) -> dict |
                     "isError": True,
                 },
             )
-        return _result(request_id, {"content": [{"type": "text", "text": text}], "isError": False})
+        # The caveats are appended HERE, once, rather than by each tool. Three return paths
+        # skipped them while a test claimed every tool carried them; a tool cannot forget
+        # to do what it does not do (ultrareview).
+        return _result(
+            request_id,
+            {
+                "content": [{"type": "text", "text": f"{text}\n\n{_NOT_HELD}"}],
+                "isError": False,
+            },
+        )
     return _error(request_id, -32601, f"Method not found: {method}")
 
 
