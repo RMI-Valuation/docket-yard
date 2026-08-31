@@ -177,3 +177,15 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   column says "Comment". The index is deliberately untyped (`EO` rows are the Board's own
   documents, and 0011 declines to type the row); whether the page and the sheet should
   follow is an operator's wording decision, not a defect.
+
+## Found 2026-08-31, during the machine-agent surface
+
+- **One unreproduced failure of `test_snapshot_omits_readers_and_measures_itself`.** Seen
+  once in a full run; the same run's other 290 passed, and it has not recurred in four
+  full runs since, in isolation, or with `test_mcp.py` ordered before and after it. Checked
+  and ruled out: the dump's work directory is per-test (`tmp_path/.dump-work`), and
+  `build_store` writes to a per-test `tmp_path`, so no store or output path is shared
+  between tests. The remaining plausible cause is environmental — `dump` does a
+  `VACUUM INTO` and an atomic replace, and the basetemp sits inside the repo on Windows
+  where an indexer or scanner can hold a handle briefly. Recorded rather than chased: if it
+  recurs, capture the assertion output, which this occurrence did not keep.

@@ -1,7 +1,9 @@
 # ADR 0017 — Citation edges ship from the API extractor, at measured confidence, with the registry and a reviewer between the model and the page
 
 - **Status:** Proposed
-- **Date:** 2026-08-30 (drafted; revised the same day after schema-critic review — see § Review)
+- **Date:** 2026-08-30 (drafted; revised the same day after schema-critic review — see
+  § Review; figures and status corrected 2026-08-31 when the batch finished — see
+  § What the finished batch changed)
 
 ## Context
 
@@ -228,9 +230,11 @@ in at acceptance rather than rewritten silently:
 
 - **The docket-shaped class needs no model.** A regular expression over the text layer,
   validated against the registry, with one rule — a hit is a caption only when it is the
-  citing decision's own proceeding *and* no document word sits near it — scores **94.7%
-  recall on docket-shaped targets** (`tools/rmi-ai-machine/benchmark_regex.py`, 213 of
-  225); on the unexposed class 97.2%, above Claude's 95.3%. Its extras are own-proceeding
+  citing decision's own proceeding *and* no document word sits near it — scores ~~94.7%
+  recall on docket-shaped targets~~ **95.1%, 214 of 225** (`benchmark_regex.py`; the 94.7%
+  was measured before the scorer's quote matcher was corrected the same day, which had
+  been case-folding away its own exceptions); on the unexposed class 97.2%, above Claude's
+  95.3%. Its extras are own-proceeding
   mentions the projection rule of decision 5 absorbs. Decision 1 would then read: the
   docket class ships from `regex-docket-cite` (the method the schema draft already names)
   and the API extractor is bought for what regex cannot do — reporter and date-named
@@ -243,8 +247,9 @@ in at acceptance rather than rewritten silently:
   sheet's 977.
 - **A local extractor is closer than the first draft said.** qwen3:14b on the current
   prompt, after the on-page check, scores 93.8% / 93.8% on the docket-shaped class against
-  Claude's 95.6% / 95.6%; the batch of nine local candidates is still running. Where it is
-  clearly weaker is courts (74% vs 98%) and dated deadlines (84% vs 99%).
+  Claude's 95.6% / 95.6%. Where it is clearly weaker is courts (74% vs 98%) and dated
+  deadlines (84% vs 99%). ~~The batch of nine local candidates is still running.~~ **It
+  finished 2026-08-31 — see § What the finished batch changed.**
 - **Decision 8's re-extraction and the human rows** (schema-critic, on § 7 of the schema
   draft): a re-extraction supersedes every extraction row and mints new citation ids under
   stable natural keys — which would strand every human `citation_resolution` and every
@@ -283,6 +288,36 @@ in at acceptance rather than rewritten silently:
   record's open question; declining it leaves the record permanently one date short of the
   documents it publishes.
 
+## What the finished batch changed (2026-08-31)
+
+This record's own precondition for acceptance was "accept when the batch reports". It
+reported. Nothing in § Decision is rewritten here — that is the operator's to fold in at
+acceptance — but the evidence decision 1 turns on is now complete, and a record that still
+described a run in progress would misstate what it rests on.
+
+- **Nine local candidates ran; none beats the record's own knowledge on the docket class.**
+  The finished table is in `../extraction-benchmark.md`: the best local docket-shaped recall
+  is qwen3:14b at 93.8%, against **regex + registry at 95.1%** and Claude at 95.6%. The
+  regex baseline is therefore unbeaten by any local model, which is what decision 1 was
+  waiting to learn.
+- **A model judges better than a word list, and worse than the record.** The role classifier
+  (2026-08-31) fixes the finder and asks only the judgement: llama3.1:8b reaches 96.9%
+  recall at 79.3% precision, qwen3:14b 83.1% at 95.9%, the keyword window 79.6% / 86.9% —
+  and the own-docket rule 95.1% / 88.1%. Both models beat the word list; neither beats
+  reading which proceeding the deciding decision sits in. The record already knows that, so
+  it is the one thing no extractor should be asked to decide.
+- **One candidate returned nothing readable, and the scorer now says so.** gpt-oss:20b
+  answered all 443 pages with an empty response, which scored naively is a clean 0% and is
+  indistinguishable from an engine that found no citations. The scorer separates *answered
+  nothing* from *found nothing*. That is a harness result, not a measurement of the model,
+  and it is the reason a 0% in that table can never be read as a finding on its own.
+
+**What this leaves the operator**, unchanged in substance from 2026-08-30 and now decidable:
+acceptance itself, the decided-date placement, and the three amendment candidates above —
+the docket class shipping from `regex-docket-cite`, the on-page rule joining the resolution
+pass, and decision 8's supersession path for human rows, which must be settled before the
+first review-class edge rather than after a ~$1,335 re-run.
+
 ## Review (schema-critic, 2026-08-30)
 
 Seven defects were reported against the first draft and are folded in above: resolution,
@@ -296,10 +331,15 @@ doubled counts (7). Two of the critic's readings were measured rather than assum
 consolidated decision does carry a row per member docket, and the exposed class is 5 of
 220. What remains the operator's: acceptance, and the decided-date placement.
 
-**Acceptance deferred by the operator, 2026-08-30**: five local candidates and the role
-classifier are still running, and decision 1 (which extractor ships the docket class)
-turns on the complete table — the regex baseline's 94.7% recall on that class is so far
-unbeaten by any local model. Accept when the batch reports.
+~~**Acceptance deferred by the operator, 2026-08-30**: five local candidates and the role
+classifier are still running, and decision 1 turns on the complete table. Accept when the
+batch reports.~~
+
+**The batch reported, 2026-08-31.** All nine local candidates and the role classifier are
+scored; the regex baseline's **95.1%** recall on the docket-shaped class is unbeaten by any
+of them. The precondition this record set for its own acceptance is met, and decision 1 can
+be taken on the complete table (§ What the finished batch changed). Still the operator's:
+acceptance, and the decided-date placement.
 
 *Proposed, not accepted. Accept only after this decision has been checked against
 `../validation-queries.md` — the check above is the drafter's, revised on the critic's
