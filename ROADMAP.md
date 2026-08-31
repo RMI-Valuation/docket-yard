@@ -19,7 +19,6 @@ record's start in September 2000. The Ripe list is the menu for what follows.
 
 | # | Milestone | Done means | Chosen | Status |
 | --- | --- | --- | --- | --- |
-| — | A machine-agent surface (F7) | A read-only MCP server over the endpoints that already exist — search, docket, filing, decision, comment, party, week — plus `/.well-known/mcp.json`, and an explicit crawler and AI-training policy in `robots.txt` and on `/data` in place of today's silence. Read-only throughout: no capability writes, subscribes or spends on a reader's behalf. Anything handed to an assistant carries the same provenance and coverage caveats the human page carries — an assistant quoting this record without them is worse than no source | 2026-08-31 | Chosen after the plans were pruned: the two milestones in flight are blocked on ADR 0017 and a key, and this one needs neither |
 | — | Party types on `/parties` (F3's first slice) | Every party carries a typed classification (railroad, company, government, association, individual, law firm, …) as a derived assertion with ADR 0007 provenance and an ADR 0016 review path; `/parties` gains a browse by type (large types collapsed) beside the search, which stays | 2026-08-30 | Design: vocabulary and method tiers from the measured corpus; schema-critic before the assertion table exists |
 | — | OCR of the image-only record (M3's first slice, `docs/ocr-plan.md`) | Ground truth the operator checks (90 pages, three tiers); candidates measured by CER/WER and by docket-number and date errors, API candidate included; a review layer (agreement → confidence, registry checks, a reviewer queue with identity from the start, ~50 pages a week); text published only above the measured threshold, with provenance | 2026-08-28 | Ground truth checked 2026-08-29; five engines scored. Waiting on ADR 0017, which decides what ships |
 
@@ -33,12 +32,9 @@ the capability map with the whole record held). None is chosen.
    by" lists and search ranking; treatment classification lands later on the same edges.
    Wave 3 is done (19,829 decisions, 1996 →); gated on the labelled sample and the schema
    check in TODO § Next. The citation resolver, shipped in v2026.08.36, is its front door.
-2. **A machine-agent surface** (F7, proposed 2026-08-26) — read-only MCP over what exists
-   plus the AI-crawler line in `robots.txt`; Low effort because F5, `/api` and `/llms.txt`
-   shipped. On the menu, not chosen.
-3. **Fielded search** (F4) — the one box shipped 2026-08-26 (captions, parties, summaries);
+2. **Fielded search** (F4) — the one box shipped 2026-08-26 (captions, parties, summaries);
    fields, boolean and proximity wait for the extracted text.
-4. **Rate-case index** (D5's first slice) — the 3,952 NOR dockets with parties and quoted
+3. **Rate-case index** (D5's first slice) — the 3,952 NOR dockets with parties and quoted
    spans; only 136 carry held filings, so thin until the ICC-era gap closes. The casebook
    proper (methodology, outcome) is human coding.
 
