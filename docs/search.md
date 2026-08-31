@@ -28,6 +28,15 @@ text (measured 2026-08-31), and their submitter, organisation and location are t
 else in the index holds. A placeholder is never a term. The words are the commenter's own,
 quoted; a hit asserts nothing about them, and the page it resolves to says so.
 
+**The placeholder tuple is `--` and nothing else, measured after the wave.** `--` accounts
+for 22,553 of the short `location_raw` cells and 21,941 of the short `organisation_raw`
+ones; every other short spelling that looked like a placeholder is somebody's own typing —
+`Unknown` 124, `Various` 74, `N/A`/`NA`/`n.a.` 15, `None` 17 across all three columns,
+230 rows in 34,257. Those are what the Board printed and what a person filled in, so they
+are indexed like any other cell rather than swallowed: a cell that says `Unknown` is an
+assertion, an empty cell is an absence, and the index must not turn the first into the
+second.
+
 Not indexed: filings (a filing is reached through its docket; its "type" string is not a
 search target), document text (no extraction exists yet; the citator is a later decision),
 anything derived.
@@ -47,7 +56,8 @@ one whose caption repeats the parent's folds into the family row.
   body)`; FTS5 present in the production image, SQLite 3.46) rebuilt by ingest, not the web
   tier — the server stays a reader. Rebuild is a pass at the end of `poll` and after a wave:
   captions and party names change rarely and the whole set is small (55,000 rows on the
-  2026-08-26 store), so a full rebuild is simpler than incremental maintenance. It runs only
+  2026-08-26 store; 96,225 on 2026-08-31, the comment wave having added a third of it), so a
+  full rebuild is simpler than incremental maintenance. It runs only
   when a signature of the record's newest ids has moved (`search_meta`), derives every row
   on reads first, and writes in one short transaction; the CLI's join/unjoin rebuild too.
   Measured on the production copy: the first version took 227 s (correlated subqueries);

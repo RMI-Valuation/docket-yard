@@ -8,10 +8,12 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **~26,900 comment attachments unfetched** (the archive wave walked with
-  `--fetch-limit 0`, so the records landed without waiting on files). The poller takes
-  200 a pass, round-robin with filings and decisions, so a few weeks. Watch disk — 21 GB
-  free against the blob pruner's 20 GB floor — and `/coverage`, which publishes the count
+- **26,943 comment attachments unfetched, and the poller will never fetch them** (measured
+  2026-08-31: all 26,943 are `backfill`-mode observations, and `poll` asks for
+  `observed_in="forward"` — the watch's own files first, a wave's backlog being the wave's).
+  4 are held, all re-seen in the forward window. It needs the loop the documents wave used:
+  `fetch attachments --mode backfill` on the instance, resumable, watching disk (21 GB free
+  against the pruner's 20 GB floor) — **Cameron's go**, it is ~27k requests to the Board
 - **ADR 0017 (Proposed)**: the batch is complete, so it is decidable. Amendments to fold in
   at acceptance: the docket class ships from regex+registry (95.1%, unbeaten by nine local
   models); the on-page rule joins the resolution pass; the decided date is extracted in the
@@ -38,6 +40,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `docs/upns-tracker-inheritance.md`). Dates quoted, never computed (ADR 0006)
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
 - Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
+- **ADR 0012 addendum: the blob cache** (S3 the store, the instance a cache; sync + prune).
+  Pulled from `docs/deferred.md` 2026-08-31 — its precondition is met: wave 3 closed, the
+  pruner has held the floor for four days, a pruned blob has been served back from S3
 - When this list runs short or a decision makes one of them near-term, pull the next item
   from `docs/deferred.md` (review findings and known gaps, dated, with their context)
 

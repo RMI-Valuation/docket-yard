@@ -7,17 +7,19 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 
 ## Web tier
 
-- **Search rebuild is whole, not a diff** (2026-08-26, v2026.08.28): any moved id rebuilds all
-  ~62k rows (40 s on the instance while a wave runs); a diff by `(kind, ref)` would write only
-  what changed. Related: `_connect_rw` waits up to 30 s on the rebuild's write lock, so a
-  `/subscribe` during one is slow rather than failed.
+- **Search rebuild is whole, not a diff** (2026-08-26, v2026.08.28): any moved id rebuilds
+  every row; a diff by `(kind, ref)` would write only what changed. The set has grown with
+  the record — 62k rows at 40 s while a wave ran, 32 s for 61,959 on the v2026.08.42 deploy,
+  **96,225 rows since the comment wave** (2026-08-31), a third of them comment bodies, which
+  are the longest text the index carries. Nobody has timed it at that size: `rebuild()`
+  promises "seconds, not minutes" and holds a write lock throughout, and `_connect_rw` waits
+  up to 30 s on it, so a `/subscribe` during one is slow rather than failed. One timed
+  `docker compose run --rm --entrypoint docketyard ingest --db … search rebuild` on the
+  instance answers both this and whether the promise still holds; the number belongs in
+  `search.md`.
 - **Two curated "what changed" lists** (2026-08-26): the ETag stamp and the search signature
   each enumerate max ids; one store-level record version (a counter bumped by every writer)
   would make both correct by construction.
-- **`/parties` and `/search`: re-measure after seed wave 2** multiplies the same_as edge
-  count. Measured healthy 2026-08-30 at wave-3 scale (10,110 parties, 15 live edges:
-  worst request path 31 ms; the ~6 s full `members()` sweep is per store version in the
-  sitemap memo, never per request).
 - **FD 36873 sheet** is 1.1 MB / 908 entries unpaginated; measure DOM cost on a low-end phone
   before changing anything (external review, 2026-08-26).
 
@@ -44,7 +46,10 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 - **The sitemap advertises pruned documents.** A crawler walking every document address
   pulls every pruned file back from S3 (egress at ~$0.09/GB; the prune re-bounds the disk).
   Watch the `document` class on `docketyard traffic`; drop the section or add `crawl-delay`
-  if it costs.
+  if it costs. **Sharper since F7** (2026-08-31): `robots.txt` now names thirteen AI agents
+  and welcomes them, so the population that would walk it is larger by invitation. The
+  invitation was the right call and this is its one measurable cost — watch the class before
+  changing anything.
 - **The S3 key layout** `blobs/aa/<sha>` is spelled in `web/documents.py`, `prune_blobs.py`
   and the sync unit; one `records.blob_key(sha)` when any of them next changes.
 
@@ -68,15 +73,16 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   honours `If-None-Match`; recording the response `ETag` on the fetch capture and sending
   it on re-check would make an unchanged file a 304. Larger files are the operator's
   `fetch attachments --refresh`, which has no age floor and no default limit.
-- **ADR 0012 addendum** recording the blob cache design (S3 the store, the instance a cache;
-  sync + prune) once wave 3 proves it.
 - **Streamed downloads** (2026-08-26, v2026.08.25): no Range-resume on a mid-body failure;
   the file is written, hashed and sniffed in three passes rather than one; one commit per
   document is the dominant DB cost of a wave.
 - **Enriched layer into the snapshot and JSON** after the attorney review (`licensing.md`
   § Open): remove `dump.HELD_TABLES`, restore the Parties block, bump `JSON_SHAPE`, announce
-  on `/data`. Money on `/contribute` is omitted by decision until the same review and the
-  entity question.
+  on `/data`. **F7 added a fourth place the same review governs**: `robots.txt` disallows
+  `/p/` and `/parties` to the named AI agents, and `/.well-known/mcp.json` declines to label
+  the surface CC0, because the dedication does not cover the party module — all four must
+  move together or the rules and the prose will contradict each other. Money on
+  `/contribute` is omitted by decision until the same review and the entity question.
 
 ## Benchmark scorer (code review 2026-08-30, against v2026.08.39)
 
@@ -162,16 +168,6 @@ for ever) were fixed before it shipped. These were triaged as not-now:
 
 ## Found 2026-08-31, against the environmental-comments milestone (migrations 0011–0012)
 
-- **Time one `search rebuild --force` after the comment wave** and put the number in
-  `search.md` beside the 227s one. `rebuild()` promises "seconds, not minutes" and holds a
-  write lock while FTS5 re-tokenises the whole content table; 22,000+ comment bodies (up to
-  1,549 characters, measured) are the longest text the index has ever carried, against
-  captions of a few dozen. A measurement, not a redesign.
-- **`_PLACEHOLDERS` in `search.py` covers `--` only.** All three of its values tokenise to
-  nothing under `unicode61`, so it earns little today; the values that would actually
-  pollute the vocabulary are alphanumeric (`N/A`, `None`, `Unknown`). Count the distinct
-  short values of `location_raw` and `organisation_raw` after the wave before treating the
-  tuple as closed.
 - **The site now has two nouns for one row**: the record page says "Environmental comment
   EI-34282" while the search index titles it `EI-34282` with no noun and the sheet's kind
   column says "Comment". The index is deliberately untyped (`EO` rows are the Board's own
