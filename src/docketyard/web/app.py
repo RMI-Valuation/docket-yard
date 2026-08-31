@@ -27,6 +27,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from docketyard import __version__
 from docketyard.alerts import feedback, mail, subscriptions, vault, webhooks
@@ -46,8 +47,8 @@ from docketyard.store import (
     stats,
     traffic,
 )
-from docketyard.store.db import MIGRATIONS, utcnow
-from docketyard.web import cite, documents, feeds, labels, sitemaps, urls
+from docketyard.store.db import MIGRATIONS, dump_json, utcnow
+from docketyard.web import cite, documents, feeds, labels, mcp, sitemaps, urls
 
 _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
@@ -319,13 +320,102 @@ def create_app(
 
     # --- discovery: robots.txt and sitemaps, generated from the registry --------------
 
+    # AI crawlers are named and allowed, and training on the CC0 raw index is permitted
+    # (the operator's decision, 2026-08-31, with F7). Silence is not neutral: some crawlers
+    # read it as disallowed, and the audience asks assistants these questions either way —
+    # an assistant grounded in this record beats one inventing a docket number, which is
+    # the failure F7 exists to prevent. Naming them costs nothing the CC0 dedication has
+    # not already given away, and it cannot be withdrawn, so it is said plainly.
+    AI_AGENTS = (
+        "GPTBot", "OAI-SearchBot", "ChatGPT-User",
+        "ClaudeBot", "Claude-User", "Claude-SearchBot",
+        "Google-Extended", "PerplexityBot", "Perplexity-User",
+        "CCBot", "Applebot-Extended", "Meta-ExternalAgent", "Bytespider",
+    )  # fmt: skip
+
     @app.get("/robots.txt")
     def robots():
         # the paths a cache must not keep are the paths a crawler must not index
-        lines = ["User-agent: *"] + [f"Disallow: {p}" for p in NEVER_CACHE if p != "/health"]
-        return public(
-            "\n".join(lines) + f"\nSitemap: https://{site_host}/sitemap.xml\n", "text/plain"
-        )
+        disallow = [f"Disallow: {p}" for p in NEVER_CACHE if p != "/health"]
+        lines = ["User-agent: *", *disallow, ""]
+        # The named agents also get the party module's paths disallowed, so the RULE says
+        # what the prose below says. The party module is derived work held back from the
+        # CC0 dedication pending a licence review (dump.HELD_REASON); a training permission
+        # whose rules hand it over anyway would be a promise contradicted by its own file.
+        # It stays readable to people and to ordinary crawlers — this is about the
+        # dedication, not secrecy.
+        held = ["Disallow: /p/", "Disallow: /parties"]
+        for agent in AI_AGENTS:
+            lines += [f"User-agent: {agent}", *disallow, *held, ""]
+        lines += [
+            "# This is a public record of proceedings before the U.S. Surface",
+            "# Transportation Board, operated by RMI Valuation, LLC. It is not the STB.",
+            "#",
+            "# AI crawlers are welcome, and training on the raw index is permitted: it is",
+            "# dedicated to the public domain under CC0 1.0. No permission or attribution",
+            "# is needed. The party module (/p/, /parties) is held back from that",
+            "# dedication pending a licence review, so it is disallowed above for the",
+            "# agents named here — readable by people, not offered for training.",
+            "#",
+            "# If you answer questions from this record, please carry what a reader would",
+            "# have seen: coverage is not uniform, every date and caption is quoted rather",
+            "# than computed, and nothing here says what any party argued. The Board's own",
+            "# file is the authority for every record.",
+            "#",
+            f"# For assistants:  https://{site_host}/llms.txt",
+            f"# MCP (read-only): https://{site_host}/.well-known/mcp.json",
+            f"# What is missing: https://{site_host}/coverage",
+            f"# Bulk data:       https://{site_host}/data",
+            "",
+            f"Sitemap: https://{site_host}/sitemap.xml",
+            "",
+        ]
+        return public("\n".join(lines), "text/plain")
+
+    # --- the machine-agent surface (F7) --------------------------------------------
+
+    @app.post("/mcp")
+    async def mcp_endpoint(request: Request):
+        """Streamable HTTP, the read-only half. One JSON-RPC message in; a JSON response
+        out, or 202 for a notification. No SSE: this server never initiates a message, so
+        there is nothing to stream, and no session id, so a restart strands nobody."""
+        asked = request.headers.get("mcp-protocol-version")
+        if asked is not None and asked not in mcp.SUPPORTED_PROTOCOL_VERSIONS:
+            raise HTTPException(400, f"unsupported MCP-Protocol-Version: {asked}")
+        version = asked or mcp.FALLBACK_PROTOCOL_VERSION
+        try:
+            message = await request.json()
+        except Exception:  # noqa: BLE001 — a malformed body is a JSON-RPC parse error
+            return JSONResponse(
+                {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}},
+                status_code=400,
+            )
+
+        # Every other DB route here is a plain `def`, which Starlette runs in a threadpool.
+        # This one must be `async` to await the body, so the synchronous SQLite work is
+        # handed to the threadpool explicitly — otherwise one `get_docket_sheet` on a
+        # 995-sub-docket family blocks the event loop and stalls the whole site, which is
+        # single-process (cli.py's uvicorn.run).
+        def answer_it():
+            con = _connect(db_path)
+            try:
+                return mcp.handle(message, con=con, host=site_host, version=version)
+            finally:
+                con.close()
+
+        answer = await run_in_threadpool(answer_it)
+        if answer is None:
+            return Response(status_code=202)
+        return JSONResponse(answer, headers={"Cache-Control": "no-store"})
+
+    @app.get("/mcp")
+    def mcp_stream():
+        """The spec's out: a server that never pushes may answer GET with 405."""
+        raise HTTPException(405, "this server sends no unsolicited messages; POST to /mcp")
+
+    @app.get("/.well-known/mcp.json")
+    def mcp_discovery():
+        return public(dump_json(mcp.discovery(site_host)), "application/json")
 
     XML = "application/xml; charset=utf-8"
 

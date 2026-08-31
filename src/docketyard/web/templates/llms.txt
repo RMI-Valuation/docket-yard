@@ -20,6 +20,7 @@ Addresses are permanent (ADR 0013): a docket is /d/FD-36873, a sub-docket /d/FD-
 
 - [API](https://{{ site_host }}/api): JSON at every address, feeds, documents by hash, the OpenAPI description, the licence and what is stable
 - [Bulk snapshot](https://{{ site_host }}/data): the whole raw index as one SQLite file, nightly, CC0
+- [MCP](https://{{ site_host }}/.well-known/mcp.json): a read-only MCP server at `/mcp` — search the record, read a docket sheet or an environmental comment, and ask what the record does not hold. Nothing there writes, subscribes or spends.
 - [OpenAPI](https://{{ site_host }}/openapi.json): every route this site serves
 - [Sitemap](https://{{ site_host }}/sitemap.xml): every address, by kind
 
