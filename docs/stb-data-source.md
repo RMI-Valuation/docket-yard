@@ -211,9 +211,20 @@ shows 70 records on our sheet where the Board's own search shows 6 environmental
   (`EI-34280.pdf`).
 - Row ids are composite: `AB_55_794_X|39772|753808`, alongside the comment number and the
   docket as separate anchors.
-- **Not yet measured**: which date criteria filter this table (the form's list carries no
-  enviro-specific date pair), and therefore whether a forward poll can window it the way
-  filings and decisions are windowed. That is the first thing to measure if it is chosen.
+- **The date pair is `startDate`/`endDate`** — generic, and a third spelling of the same
+  idea after filings' `filingStartDate` and decisions' `serviceStartDate`. Measured
+  2026-08-31 by reading the search form (which declares `startDate`/`endDate` alongside
+  the other pairs) and confirming against the endpoint, which echoes "Start Date =
+  2026-01-01, End Date = 2026-08-31". **The filings trap applies here too**: the three
+  wrong pairs (`filingStartDate`, `officialFilingStartDate`, `serviceStartDate`) each
+  answer an empty envelope with a 200, not an error.
+- **Volume, measured the same day by date slice**: 1996–2005 holds **2,057**; 2006–2015 and
+  2016–2026 each answer the 10,000 display cap, so the whole set is **well over 22,000** —
+  the order of the decisions table. A backfill therefore slices by year or month, as the
+  record waves do; 2026 to date is 151, and a recent week held 5, so the forward rate is
+  a handful a week agency-wide.
+- The search page also declares an action this record does not use:
+  `stb_hook_search_by_date`.
 
 ## Measured 2026-08-26: document sizes
 
