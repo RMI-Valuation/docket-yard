@@ -70,7 +70,7 @@ CREATE INDEX enviro_comment_by_docket ON enviro_comment (docket_id, date_receive
 -- either, because comment_number is its second column. Without this both are a full scan of
 -- a 22,000-row table: once per page view, and once per comment minted by the archive wave.
 CREATE INDEX enviro_comment_by_number ON enviro_comment (comment_number);
--- a withdrawal is rare and the snapshot checks every one of them: index the few, not the many
+
 CREATE TABLE enviro_comment_attachment (
     comment_pk      INTEGER NOT NULL REFERENCES enviro_comment (comment_pk),
     source_url      TEXT NOT NULL,
