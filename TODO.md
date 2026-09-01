@@ -14,20 +14,19 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   causes, separated in 0016's header: the scorer's registry dropped the suffix from 2,711
   dockets; the finder now joins every occurrence on a page, not the first; and precision
   FELL, which is the honest trade for finding more
-- **The finder ships too** (migration 0016 seeds `kind`; `citator/find.py`). The whole chain
-  is now shipping code, and `citation_dryrun.py` regenerates the run it is measured on, so
-  ADR 0017's table is re-derivable at last. **The figures moved again and every line has its
-  own reason** — migration 0016's header is the one to quote
-- **`/review` and magic-link sign-in ship** (migration 0017). The one cookie this server
-  sets, scoped to `/review` so no read page can become identity-linked, and no page view
-  counted. `/privacy` and `/contribute` say so. **Nothing now blocks the citator from
-  production** — what remains is the operator's call on when to run the first real load
+- **Nothing in the code blocks the citator from production** (migrations 0014-0017). What
+  remains is operational: nobody has run the first real load, and production is four
+  migrations behind at schema 13. Migration 0016's header is the figures to quote
 - **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not
   in the record" display joining live `citation`; the veto's trigger the day it stops being
   inert. Twelve smaller findings in `docs/deferred.md`
 - **Settled 2026-09-01 (Cameron):** citator held from the CC0 dump; 0018 D7's "88.4%"
   stands (fixed registry measures 88.1%); `class_measurement` keeps D8's key
-- **Drain RUNNING, healthy** — 16,541 left 17:11 UTC, 0 failed, due ~02:30 UTC 2026-09-02
+- **Drain RUNNING, healthy** — due ~02:30 UTC 2026-09-02. Do not deploy across it: a
+  migrating release rolls back only by Litestream restore, not a tag change
+- **OCR bench, 2026-09-01**: Tesseract 5.5.0 is the baseline at last (13.3% CER); Textract
+  `analyze-document` TABLES took table cells 0.0% -> **87.4%**, and the 0.0% was our harness,
+  not the engines. `docs/research/ocr-benchmark/README.md` § Step 3 has the table
 - **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against —
   **a second unseen sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
@@ -36,12 +35,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **The finder, and `/review` + sign-in** — the two blockers above. Neither needs a key
-- **ADR 0016** accepted 2026-08-28; `reviewer`/`review_action` drafted into
-  `schema-draft.md` § 7. **Unblocked** — 0017/0018 accepted; `review_action` needs
-  `key_version` and the resolution rendering (0018 D1) before `/review` ships
-- **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md`,
-  ~$700 for the backfill. **Unblocked by 0017/0018**; still needs the Anthropic key
+- **Finish the OCR bench**: PaddleOCR-VL (env stood up on the box; the 0.9B alone is an
+  element recogniser, so it needs the layout pipeline, and that needs a vLLM backend to be
+  practical), dots.ocr, docTR. None needs a key. Then: more tabular ground truth, which
+  needs Cameron's check, and preprocessing, which is a separate experiment
+- **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md`.
+  The tiered read the bench points at — free local on clean, paid on degraded — is not
+  costed yet; the plan's ~$1,335 assumes one engine everywhere
 - Deadline engine (C4): decision JSON carries no extracted obligations (verified
   2026-08-26); a hand-checked fixture of 8 for FD 36873 is in
   `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only). Dates quoted, never computed

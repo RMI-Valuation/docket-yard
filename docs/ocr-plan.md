@@ -113,6 +113,22 @@ rental was costed and rejected — it competes only on the OCR line, where the s
 most ~$140 against a managed service that needs no instance, no driver and no spot
 interruption handling.
 
+**Superseded on the OCR line, 2026-09-01.** The reasoning above holds; the conclusion was
+drawn before anything both adequate and free had been measured. **PaddleOCR-VL 1.6 on the
+box reads better than Textract and costs nothing** — 8.8% CER against 10.8%, and on the
+degraded tier 12.0% against 18.4%, within 1.5 points of Claude. At 1.3 s a page the whole
+backfill is about 63 hours of box time, so the ~$260 OCR line goes to ~$0 and buys *more*
+accuracy rather than less. Tesseract, the baseline nothing had until that day, sits at 13.3%
+and shows Textract's margin over free software was always modest. Two caveats decide the
+routing rather than the engine: Textract with TABLES still recovers 87.4% of table cells
+against PaddleOCR-VL's 57.5%; and on the graphic tier PaddleOCR-VL has a rare, catastrophic
+failure — **one page of nine, on which it invented 20,368 characters**, against Textract's
+worst of 1,794 and Tesseract's none. It is silent on the other eight, so this is a tail to
+gate behind the confidence layer rather than an inability to be routed around, and **nine
+pages cannot establish how often it happens** — the frequency is what would decide between
+gating and routing, and it is not measured. The full table, and how PaddleOCR-VL has to be
+run to reach that speed, is in `research/ocr-benchmark/README.md` § Step 3.
+
 The box keeps two jobs: it is free, so it is where anything gets tried first, and
 qwen2.5vl:7b is a usable bulk reader (9.2% CER, better than Textract's 10.8%) **provided
 graphic and tabular pages route elsewhere** — on nine graphic pages it emitted 3,920 false
