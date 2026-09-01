@@ -32,12 +32,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 ## Next
 
 - **ADR 0016** accepted 2026-08-28; `reviewer`/`review_action` drafted into
-  `schema-draft.md` § 7. Build after 0017 settles
-- `schema-draft.md`'s citation section is three revisions behind what 0017 proposes
-  (`citation.treatment`, `cited_decision_id` FK, the superseded natural key); revise it on
-  acceptance, not after
+  `schema-draft.md` § 7. **Unblocked** — 0017/0018 accepted; `review_action` needs
+  `key_version` and the resolution rendering (0018 D1) before `/review` ships
+- **`schema-draft.md`'s citation section is now behind the accepted 0018** — it still has
+  `citation.treatment`, no `cited_decision_id` FK, and the superseded natural key. **Due
+  now:** revise it to the five families before migration 0014 is written against it
 - **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md`,
-  ~$700 for the backfill. Still blocked on 0017, and still needs the key
+  ~$700 for the backfill. **Unblocked by 0017/0018**; still needs the Anthropic key
 - Deadline engine (C4): decision JSON carries no extracted obligations (verified
   2026-08-26); a hand-checked fixture of 8 for FD 36873 is in
   `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only). Dates quoted, never computed
