@@ -58,6 +58,11 @@ DERIVED_TABLES = ("search_doc", "search_meta")
 # types `shadow` qualify: a hand-made `CREATE TABLE search_fts_anything`, or a second FTS
 # index over held data, is type `table`/`virtual` and still fails the dump loudly.
 # Derived work held back pending the enriched-layer licence review (docs/licensing.md).
+# The citator block (migration 0014) is the enriched layer this module's own docstring
+# already promised would join the party module here; it ships EMPTY today, and holding it
+# back now means the licence question is answered before an edge is published rather than
+# after. Listed children before parents: `scrub` drops with foreign keys OFF, so the order
+# is not required today — it is kept so the list stays correct if that ever changes.
 HELD_TABLES = (
     "filing_party_link",
     "filing_party_span",
@@ -65,10 +70,31 @@ HELD_TABLES = (
     "relationship_vocab",
     "party_name",
     "party",
+    "citation_treatment",
+    "citation_judgement",
+    "citation_resolution",
+    "citation_reading",
+    "citation",
+    "citation_key",
+    "decision_decided_date",
+    "extraction_run",
+    "assertion_method",
+    "class_measurement",
+    "class_vocab",
+    "measured_target_vocab",
+    "judgement_value_vocab",
+    "judgement_vocab",
+    "treatment_vocab",
+    "outcome_vocab",
+    "date_kind_vocab",
+    "reading_vocab",
+    "target_kind_vocab",
+    "decision_work",
 )
 HELD_REASON = (
-    "The party module (entity resolution, aliases, successions) is derived work whose licence"
-    " awaits review; it is withheld until then, not dedicated by default."
+    "The party module (entity resolution, aliases, successions) and the citator (citation"
+    " edges, their readings, resolutions and judgements) are derived work whose licence"
+    " awaits review; they are withheld until then, not dedicated by default."
 )
 PUBLIC_TABLES = frozenset(
     {
@@ -140,6 +166,15 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
         out.execute("PRAGMA foreign_keys = OFF")
         for table in PRIVATE_TABLES + HELD_TABLES + TOOL_TABLES:
             out.execute(f"DROP TABLE IF EXISTS {table}")
+        # A correction NAMES the row it amends, and since migration 0014 it names it by the
+        # row's own key — `<sha256>/<page>/<target_kind>/<target_key>` for a citation. So a
+        # correction against a held table republishes the held row's identity through a
+        # table that stays public. Dropping the parent is not enough; the pointer has to go
+        # with it. (The party module has the same shape with an opaque integer, which says
+        # less but is the same leak.)
+        out.executemany(
+            "DELETE FROM correction WHERE target_table = ?", [(t,) for t in HELD_TABLES]
+        )
         for table in DERIVED_TABLES:
             out.execute(f"DELETE FROM {table}")
         out.execute("INSERT INTO search_fts (search_fts) VALUES ('rebuild')")  # now empty

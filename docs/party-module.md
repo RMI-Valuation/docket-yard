@@ -69,9 +69,12 @@ filing_party_link (link_id PK, span_id FK NOT NULL, party_id FK NOT NULL,
   provenance…, superseded_by)
   -- natural key (span_id) among live rows; "unresolved" = no live link, never a NULL
 
-correction (correction_id PK, target_table, target_id, note, provenance…)
+correction (correction_id PK, target_table, target_key, note, provenance…)
   -- the amendment path for human rows (ADR 0007's rule that a model pass never supersedes
   -- a human assertion needs somewhere for the human to say "this one was wrong")
+  -- target_key is TEXT since migration 0014: it must also address a natural-keyed citation
+  -- row, so an integer pk is rendered as digits and a keyed row as its columns joined by
+  -- '/', which is ADR 0016's review_action.target_key convention
 ```
 
 `provenance…` is ADR 0007's full block on every assertion table: `asserted_from_capture`,

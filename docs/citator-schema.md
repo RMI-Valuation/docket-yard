@@ -1,9 +1,17 @@
 # The tables ADR 0018 needs — proposals
 
-> **Status: proposals, 2026-09-01. Nothing here is accepted, and nothing here ships.**
-> ADR 0017 and ADR 0018 are both Proposed and both cleared by the schema-critic. This document
-> works each open item into a concrete shape so that deciding them is a yes or a no rather
-> than a design session.
+> **Status, revised 2026-09-01 (second time that day): ADR 0017 and ADR 0018 are both
+> ACCEPTED by the operator, and MIGRATION 0014 SHIPS MOST OF THIS.** The banner below was
+> written while both records were Proposed and is kept for the reasoning, not for the status.
+> What shipped: § B's `decision_decided_date` (with an `ordinal` in the key), § C's
+> `class_measurement` (with `measured_target` in the identity index), § D's typed natural key
+> (as `citation_key`, a table, so the extraction assertion above it can supersede), § F's
+> `citation_treatment` and `decision_work`. What did NOT: § E's on-page veto ships inert, as
+> § E itself concludes. Where this document and `src/docketyard/store/0014_citations.sql`
+> disagree, the migration is what runs.
+>
+> This document works each open item into a concrete shape so that deciding them is a yes or
+> a no rather than a design session.
 >
 > **Decision numbers below are the pre-split ones.** ADR 0017 grew to 1,082 lines by bundling
 > a shipping decision with a schema and was split on 2026-09-01. Where this document says
@@ -29,8 +37,14 @@
 > honest figure for the shipping method is 98.2%. The difference is the whole reason the
 > review was run.
 >
-> `schema-draft.md` § Citations is the drafted shape these revise. It is three revisions behind
-> what 0017 proposes and is revised **on acceptance**, not before.
+> `schema-draft.md` § Citations was the drafted shape these revise. **It was revised on
+> acceptance, 2026-09-01**, and now states the five families; it is no longer behind.
+>
+> **One figure in this document is retracted and is left standing with its retraction named,
+> because the record is append-only.** The `precision after` column below reads **98.2%**.
+> ADR 0017 D4 retracted that: it counted the registry-unresolvable edges as *shown* when they
+> reach no page at all. The figure for what a reader sees is **98.0%** (201 true of 205
+> shown), and it is the only one that may be published.
 
 ## The measurement
 

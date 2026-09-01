@@ -487,30 +487,233 @@ is the fact. **No position column exists on this table or any other.** A party's
 ever modelled, is an assertion extracted from the document's own words with its own provenance
 — never inferred from who filed.
 
-### Citations (typed edges)
+### Citations (ADR 0018) — five assertion families over one natural key
+
+**Revised 2026-09-01 to the shape ADR 0018 accepts.** What stood here before — one `citation`
+row carrying `cited_raw`, both resolved FKs and a `treatment` column under a single confidence
+and a single provenance block — is superseded in full. Six schema-critic passes found the same
+defect in different clothes each time: a value that must be superseded sitting inside a key,
+two values sharing one confidence, or a live row nobody could order against another. The
+shipping decision and its measured figures are
+[ADR 0017](adr/0017-citation-edges-ship-at-measured-confidence.md); the shape is
+[ADR 0018](adr/0018-the-citation-assertion-families.md); the argument behind each table is in
+[`citator-schema.md`](citator-schema.md).
+
+**One natural key, with no method in it:** `(citing_document, page, target_kind, target_key)`,
+carried as **typed columns** on every family — the draft's idiom everywhere else — and rendered
+canonically as `<sha256>/<page>/<target_kind>/<target_key>` where a single text key is wanted
+(`review_action.target_key`, and `correction.target_key`, which migration 0014 widened from
+an integer to text for exactly this — the paper `correction_target` of § 4 is in no migration).
+It is **never digested**: the normalisation
+has already changed once — the scorer's docket-suffix fix moved the docket-shaped truth from 220
+targets to 225 on 2026-08-30 — and under a digest that class of change rewrites every key and
+strands every human row. `key_version` makes it a migration somebody can see instead.
+
+The key is stable across a text-layer and an OCR reading of the same bytes, which differ in the
+quoted passage (10.8% CER measured) and would otherwise double every edge on re-read.
 
 ```sql
-citation (                         -- natural key: (citing_document, cited_raw, source_location)
-  citing_document   FK document,
-  cited_raw         text,          -- the string as it appeared, always kept
-  cited_docket_id   FK docket NULL,     -- resolved & validated against the dockets registry
-  cited_decision_id FK decision_record NULL,  -- resolved to the decision, not one hash of it
-  treatment         text,          -- FK to treatment_vocab; defaults to untyped 'cites'
-  -- provenance + supersession block
+citation_key (          -- THE KEY, and nothing else. A key is not an assertion.
+  citing_document   FK document,   -- bytes; the fold to the work happens at projection
+  page              int,
+  target_kind       text,          -- FK target_kind_vocab: 'stb' | 'court' | ...
+  target_key        text,          -- the NORMALISED target, never the string as printed
+  key_version       text NOT NULL, -- the normaliser that produced target_key
+  PK (citing_document, page, target_kind, target_key)
+)
+
+citation (              -- the EXTRACTION assertion, keyed on the row above
+  <the natural key>,
+  -- provenance + supersession block, MINUS source_location: `page` in the key IS the
+  -- location. A deliberate departure from § 5's uniform block; do not restore the column
+)
+```
+
+**The key is a table because the assertion about it must be able to supersede** *(settled at
+migration 0014, on the schema-critic's report)*. Every child foreign-keys the four typed
+columns, and SQLite will only accept a **non-partial** UNIQUE as a foreign key's parent — so
+holding the key on `citation` itself would have forced a full UNIQUE there, and that forbids
+three supersessions the accepted records require: a re-extraction at a higher `method_version`
+(ADR 0017: "a better extractor supersedes rather than rewrites"), an ownership handover to a
+new method, and a retraction with **no successor** — a docket-shaped string that is no
+citation at all, which `0009_party_ids_permanent.sql` retires with a `superseded_by` pointing
+at its own row. `decision_work` exists for the identical reason one table over.
+
+**Identity only.** `cited_raw` is not here — the string as printed differs between readings, so
+on a row keyed stably across them whichever channel inserted first would own it for ever. It
+belongs beside the quoted passage it came from, in `citation_reading`. Neither resolved FK is
+here, and neither is `treatment`: those are assertions, measured at different rates, by
+different methods, at different times.
+
+`target_kind` is in the key, so a misclassification **cannot** be corrected by supersession — a
+corrected row would mint a *different* key. It is a **retraction and a fresh assertion**: the new
+row is written and the mis-keyed row's `superseded_by` points at it. For that to change anything,
+**every projection must join `citation` and require it live**. The resolutions and judgements
+anchored on the retracted key still read `superseded_by IS NULL`; a projection reading only those
+tables would publish the mis-kinded edge regardless. The join is what makes a retraction bite.
+
+Because the key has no method in it, **one method owns each `(target_kind, target_form)`** — two
+extractors emitting the same target on the same page would collide, one row dropped or the edge
+counted twice. Ownership is declared on `assertion_method` and fixed at insert time from the
+owning method's own declaration, never from a later judgement row. A finding outside its method's
+class is counted on `extraction_run`, so "not kept" is an auditable number and not a silent drop.
+
+```sql
+citation_reading (      -- + reading_channel. One row per reading of the page.
+  <the natural key>,
+  reading_channel   text,          -- FK reading_vocab: 'text-layer' | 'ocr' | 'human'
+  reading_method    text NULL,     -- the OCR engine, and its version, OUTSIDE the key —
+  reading_method_version text NULL,-- else a re-OCR mints a row that supersedes nothing and
+                                   -- doubles the live readings (1,480 of 9,663 image-only)
+  cited_raw         text NOT NULL, -- the string as THIS reading printed it
+  quoted_passage    text NOT NULL, -- what the span test reads
+  source_location   json,          -- § 5's block: {page, block_id, bbox}
+  -- provenance + supersession block  (OCR text is derived; it supersedes)
+)
+
+citation_resolution (   -- + (method, method_version, reading_channel)
+  <the natural key>,                -- the channel is in the key, or one rule run over two
+  method, method_version,           -- readings of a page collides on the whole key
+  reading_channel   text,
+  outcome           text NOT NULL, -- FK outcome_vocab: resolved | unresolved | repaired |
+                                   -- vetoed. A null docket id otherwise means three things
+  cited_docket_id   FK docket NULL,          -- the COMPLETE outcome rides on ONE row: the
+  cited_decision_id FK decision_work NULL,   -- family test reads the docket and Q2 keys on
+                                             -- the decision, both of the SAME resolution
+  -- provenance + supersession block, with confidence NOT NULL + confidence_state
+)
+
+citation_judgement (    -- + (judgement, method, method_version, reading_channel)
+  <the natural key>,
+  judgement         text,          -- FK judgement_vocab: 'kind' | 'target_form' |
+                                   -- 'span_names_document'
+  method, method_version, reading_channel,
+  value             text NOT NULL, -- PAYLOAD, never key. Its domain is judgement_vocab's,
+                                   -- or one column holds a boolean and two enumerations
+                                   -- untyped — the EAV shape citator-schema.md § B rejects
+  -- provenance + supersession block, with confidence NOT NULL + confidence_state
+)
+
+citation_treatment (    -- + (method, method_version, reading_channel)
+  <the natural key>,               -- what the citing decision DID to the target. Not a
+  method, method_version,          -- resolution row: sharing one would force a typing pass
+  reading_channel,                 -- to restate the resolution or write NULLs into outcome
+  treatment         text NOT NULL, -- FK treatment_vocab
+  -- provenance + supersession block, with confidence NOT NULL + confidence_state
 )
 
 treatment_vocab (
   treatment         text PK,       -- cites | follows | distinguishes | narrows | overrules |
-  polarity          text           -- supersedes | ...
+  polarity          text NOT NULL  -- supersedes | ...
 )                                  -- polarity: positive | neutral | negative
 ```
 
-Unresolved citations keep `cited_raw` with null FKs — the WB25-53 false-positive trap means
-resolution *must* validate against the dockets registry, and a failed validation is stored as
-unresolved, not discarded. Treatment typing is a later, higher-`method_version` pass over the
-same rows. Citations to authorities outside STB (federal courts, USC/CFR) are not yet
-resolvable — `cited_raw` preserves them, and an external-authority target column is a later
-*addition*, not a migration. Door left ajar on purpose.
+`kind` and `span_names_document` are measured at different rates (88.1%, and the span test is
+what the 98.0% projected precision was measured with), which is why one confidence column on a
+parent could never have carried them. A review writes a `human` row in whichever family it
+corrects — including `citation_treatment`, or the one column Q2 reads would have no correction
+path.
+
+**The registries the families are ordered and scored by:**
+
+```sql
+assertion_method (      -- APPEND-ONLY. The single ordering registry for all five families.
+  target_table      text NOT NULL, -- 'citation' | 'citation_resolution' | ...
+  method, method_version,
+  reading_channel   text NULL,     -- NULL exactly on a target_table='citation' ownership row:
+                                   -- citation's own key has no channel, so ownership of a
+                                   -- class cannot be per-channel either
+  role              text NULL,     -- 'suppress' | 'resolve'; NULL on an ownership row, which
+  precedence_rank   int NULL,      -- declares WHO MAY WRITE, not who wins — a rank there
+                                   -- would be a fake ordering inside the registry that orders
+  target_kind       text NULL,     -- the (target_kind, target_form) this method OWNS: the
+  target_form       text NULL,     -- one-owner rule of ADR 0018 D1, given a table
+  score_row_id      FK class_measurement NULL,  -- REQUIRED when role='suppress': a veto row
+                                   -- exists only once its false-veto rate is measured
+  rank_version      text NOT NULL  -- a re-rank is a new version, never an UPDATE of rows
+)
+
+class_measurement (     -- APPEND-ONLY. The single home for every score, ADR 0018 D8.
+  measurement_id    bigint PK,     -- so the pointer from an assertion row is one column
+  measured_target   text NOT NULL, -- WHICH STAGE was measured; also scopes `class`'s vocabulary
+  class             text NOT NULL, -- FK (measured_target, class) → class_vocab
+  extraction_method, extraction_method_version,
+  resolution_method text NULL,     -- NULL for a stage that runs before resolution, which is
+  resolution_method_version text NULL,  -- why the unique index COALESCEs over these
+  reading_channel   text NOT NULL, -- every figure so far is text-layer; OCR is unmeasured
+  projection_rule_version text NULL,    -- the span test's version, the family closure's, and
+                                        -- rank_version, together — the projection is that
+                                        -- product. NULL for a pre-projection stage
+  benchmark_date    text NOT NULL, -- re-measuring the same version is an INSERT, not an
+  score_file        text NOT NULL, -- UPDATE on a published number
+  recall, precision, false_veto_rate    -- the veto carries a RATE, not a confidence
+)
+
+extraction_run (        -- one row per (document, method, method_version, reading_channel)
+  ...,                  -- a typed outcome AND the out-of-class counts. Nothing else
+)                       -- distinguishes READ AND FOUND NOTHING from NOT YET READ.
+                        -- Absence is not a measurement.
+
+decision_work (         -- stb_decision_id text PK, AND NOTHING ELSE — attributes here would
+)                       -- be current state entering a registry by the back door. Written
+                        -- only by ingest from decision_observed; the resolver may reference
+                        -- it and never insert. Measured before proposing the PK, because it
+                        -- is a one-way door: 1,736 ids carry several decision_record rows
+                        -- and NOT ONE of them disagrees.
+```
+
+Confidence is `NOT NULL` on every assertion row with a typed `confidence_state`
+(`measured | human | unmeasured | not-applicable`) and
+`CHECK ((confidence_state = 'measured') = (score_row_id IS NOT NULL))`. A human review has a
+confidence; what it lacks is a *benchmark*. Because unmeasured rows carry `0`, these tables
+cannot reuse `0006_parties.sql`'s `CHECK (confidence > 0)` idiom, and **`confidence` is never
+selected without `confidence_state`** — the projection is the only supported path to it.
+
+**The projection formula, stated per family, because they do not share one.** For the resolution
+family: *if any live `suppress` row exists **for the same reading channel**, no edge; else the
+highest-ranked live `resolve` row whose `outcome IN ('resolved','repaired')`.* A flat rank made
+every rule-2 repair unreachable, because rule 1 writes a row when it fails and outranks the repair
+that exists because it failed. **Treatment and judgement have no `outcome` to restrict on: theirs
+is the highest-ranked live row and nothing else.** The predicate
+`confidence_state IN ('measured','human')` goes on the **candidate set**, never on the rank-1 row
+— there it *deletes* edges, when an unmeasured OCR resolution outranks a measured text-layer one
+and takes rank 1.
+
+That term is not the whole projection. **An edge projects only when the resolution term holds AND
+one of two family terms does:** the target docket is outside the citing work's family — the
+docket, its sub-dockets and its parent, unioned over every docket a consolidated decision is
+entered in — **or**, if it is inside, a live `span_names_document` judgement says `true`,
+defaulting to **suppress** where nothing has judged it (ADR 0017 D4). Reading the resolution term
+alone publishes every own-proceeding mention: measured on the sixty-decision sheet
+2026-09-01, 210 true of 239 shown = **87.9%**, against 201 of 205 = 98.0% with both terms.
+(ADR 0018 D7 states this comparison as "88.4% instead of 98.0%"; 88.4% is `citator-schema.md`'s
+*extraction* precision as scored, 220 of 249 emitted, which is a different configuration. An
+erratum for the operator on an accepted record — recorded here, not corrected here.) The family
+closure is **registry data, not application code**; `web/cite.py` computes the same closure for
+the lookup page, and the projection may not depend on that being kept in step by hand.
+
+**Projection folds by work** (ADR 0018 D9): "cited by" and every count are distinct
+`(citing work, target_kind, cited_docket_id | cited_decision_id)` triples, with the citing work
+being `decision_attachment` → `decision_record.stb_decision_id`, falling back to
+`COALESCE(stb_decision_id, citing_document)` so an edge mined from a filing folds to itself rather
+than being dropped by an inner join. The target half is **typed** because
+`decision_record.decision_number` is populated for 0 of 23,713 rows — docket-level edges are the
+normal case, and an untyped count would silently mix two grains.
+
+**The decided date is extracted in the same pass**, because doing it later costs a ~$1,335
+re-extraction. It is an assertion — `decision_decided_date`, keyed
+`(document_sha256, date_kind, ordinal, reading_channel, method, method_version)` with
+`printed_text NOT NULL`, since dates are quoted and never computed — and **never a
+`decision_record` column** (that table mirrors the latest observation and would destroy the
+history) and **never a ledger event** (a decided date is a second clock; a replay would show a
+decision existing before it was served).
+
+Unresolved targets are kept, never discarded: the WB25-53 false-positive trap means resolution
+*must* validate against the dockets registry, and a failed validation is stored `unresolved` and
+projected never — which is what makes "cites `EP 445` (not in the record)" a display that can be
+produced, and a review queue that is not empty by construction. Citations to authorities outside
+STB (federal courts, USC/CFR) are `target_kind` values whose resolver does not exist yet;
+`citation_reading.cited_raw` preserves them. Door left ajar on purpose.
 
 ### Place mentions
 
@@ -758,22 +961,36 @@ coverage; the schema expresses the query from day one, the corpus fills in later
 
 > What has narrowed, distinguished, or superseded this decision?
 
-```sql
-SELECT c.treatment, c.citing_document, c.confidence,
-       c.method, c.method_version, c.source_location    -- provenance rides along per edge
-FROM citation c
-JOIN treatment_vocab tv ON tv.treatment = c.treatment
-WHERE c.cited_decision_id = :decision_id      -- the decision, not one hash of one version
-  AND tv.polarity = 'negative'
-  AND c.superseded_by IS NULL;
-```
+**The SQL is on disk, not inline here** — [`citator-query-2.sql`](citator-query-2.sql), written
+in full against ADR 0018's five families so that "Q2 is writable against this shape" is a claim
+anyone can run rather than one three documents assert about each other. Keeping a sketch here as
+well would be two spellings of one query, and the sketch is the one that would rot.
 
-**Verdict: expressible** — after revision. Revision 1 keyed the query on a single document
-hash, which returns half the edges the day an erratum splits the decision across two hashes —
-the exact scenario ADR 0002 exists to detect. `decision_record` gives the citator a
-work-level target; `document_source.supersedes_sha256` keeps the version chain typed. New
-treatment types are vocabulary INSERTs; typing untyped `cites` edges is a
-higher-`method_version` pass over kept rows — no re-ingest, no migration.
+**Verdict: expressible.** The query joins `citation` (live, or a retraction changes nothing),
+`citation_reading` (the passage and the raw string, per channel), `citation_resolution` (keyed on
+`cited_decision_id`), `citation_judgement` (the span test), `citation_treatment` and
+`treatment_vocab` for the negative polarity, plus `assertion_method` for the ordering and the
+`decision_attachment` → `decision_record` fold to the work.
+
+Three things it settles that the pre-0018 sketch here could not. It keyed on a single document
+hash, which returns half the edges the day an erratum splits a decision across two hashes — the
+exact scenario ADR 0002 exists to detect; the work fold answers it. It read one `treatment` column
+on the `citation` row, which cannot carry a typing pass and a resolution under one confidence.
+And it stopped at `superseded_by IS NULL`, which is not the projection: several resolutions are
+live per edge, so a "cited by" count that does not pick one is inflated.
+
+**And it returns nothing on the day the first edges ship**, for two reasons and not one.
+ADR 0017 D7 gives the first: every edge in the first slice is `cites`, treatment typing is a
+later pass, and this query filters on a negative polarity. The second is the grain — it keys on
+`cited_decision_id`, the **work**, and ADR 0018 D9 measures how rare that is:
+`decision_record.decision_number` is populated for 0 of 23,713 rows, so docket-level edges are
+the normal case and D4's verb gate keeps every `decided <date>` phrase at docket level. So this
+query stays thin even after the treatment pass runs, and the docket-grain variant is the one a
+reader's "cited by" list is actually built from.
+That is stated rather than left for a reader to discover — what ships is "what cites this", at
+89.3% projected recall and 98.0% precision, which is the wedge and is worth shipping. New
+treatment types remain vocabulary INSERTs; typing untyped edges remains a higher-`method_version`
+pass over kept rows — no re-ingest, no migration.
 
 ### Q3 — Point-in-time docket state
 

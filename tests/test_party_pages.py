@@ -178,7 +178,10 @@ def test_unjoin_reports_what_still_holds_a_component_together(tmp_path):
     edge, still = resolve.unjoin(con, nrdc, ppu, "wrong")
     assert len(still) == 2 and resolve.component_of(con, ppu) == min(nrdc, ppu, third)
     row = con.execute(
-        "SELECT method_version, source_location FROM correction WHERE target_id = ?", (edge,)
+        # 0014 renamed the column and made it TEXT (it must address a natural-keyed
+        # citation row); an integer pk is rendered as digits
+        "SELECT method_version, source_location FROM correction WHERE target_key = ?",
+        (str(edge),),
     ).fetchone()
     assert row[0] == resolve.JOIN_VERSION and "unjoin" in row[1]
     _, still = resolve.unjoin(con, third, ppu, "wrong too")

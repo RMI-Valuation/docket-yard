@@ -8,22 +8,26 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **v2026.08.51 is live** (2026-09-01). Navigation review Tiers 1–3 (v45–v49), five from
-  the deferred pool (v50), A7 + JSON shape 2 (v51). Delete
-  `/srv/docketyard/pre-v45-backup.sqlite` (296 MB) once these have held a day
-- **The comment-attachment drain is RUNNING** (started 2026-09-01 11:23 UTC at the client's
-  2 s interval): `/srv/docketyard/drain.sh`, resumable; `touch drain.stop` ends it after the
-  chunk. **~13 hours, so the original estimate was right and this line's own "2.5 days" was
-  wrong** — measured 3,600 in 2h00m55s = **2.02 s each**, attachments averaging 0.23 MB not
-  1.46. Done ~02:30 UTC 2026-09-02, needing ~5.4 GB against ~20 GB free
-- **ADR 0017 + 0018 Accepted 2026-09-01** — citation edges ship at 89.3% projected / 98.0%
-  precision (`tools/rmi-ai-machine/projection_score.py`); five assertion families hold them.
-  **Next: migration 0014 against 0018, then dry-run the pipeline over the 60-decision
-  benchmark** — eight items are owed at the migration (0018 § Owed), four exercised by the
-  first edge, and the review recommends `citation_treatment` sits out of it (ships empty; a
-  DROP later, not a door). Paper review converged after eight rounds; execution is the test
-  that remains
-- **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against, so
+- **Migration 0014 is written and uncommitted** — five families plus `citation_key`,
+  `assertion_method`, `class_measurement`, `extraction_run`, `decision_decided_date`;
+  `correction.target_id` rebuilt to `target_key TEXT`. All eight owed items paid; two
+  schema-critic passes triaged. `citation_dryrun.py` reproduces the scorer **in SQL** over
+  all 60 decisions: 201 of 225 projected (89.3%), 201 true of 205 shown (98.0%)
+- **Three calls are Cameron's**, flagged not assumed: the citator tables are **held from
+  the CC0 dump** like the party module; ADR 0018 D7's "**88.4%**" for the resolution term
+  alone is an erratum (measured, that configuration is **210 of 239 = 87.9%**; 88.4% is the
+  *extraction* line); and `class_measurement`'s key is D8's exactly, so it carries **no
+  scorer version** — a same-day rescore at unchanged pipeline versions cannot be inserted,
+  which is precisely the 98.2%→98.0% case. Widening it is an ALTER, and a departure from an
+  accepted record. ADRs are append-only, so neither was edited
+- **Owed with the pipeline, not the migration**: ingest must insert into `decision_work` on
+  `decision_observed`; the review queue and the "not in the record" display must join live
+  `citation`, not `citation_resolution` alone; the extractor must not re-assert a key a
+  human retracted; the veto's cross-row rules need a trigger the day it stops being inert
+  (the within-page span join is inert too — the finder dedupes per page)
+- **The comment-attachment drain is RUNNING and healthy** — 16,541 left at 17:11 UTC
+  2026-09-01, 0 failed, 26 GB free, due ~02:30 UTC 2026-09-02. `drain.stop` ends it
+- **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against —
   **a second unseen sample must confirm** before any type ships
 - No Anthropic key exists; any Claude-backed run needs a new one from Cameron
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
@@ -31,12 +35,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
+- **The extraction pipeline against 0014** — finder, resolver, span judgement and
+  `extraction_run`, writing what the dry run writes. The regex class needs no Anthropic key
 - **ADR 0016** accepted 2026-08-28; `reviewer`/`review_action` drafted into
   `schema-draft.md` § 7. **Unblocked** — 0017/0018 accepted; `review_action` needs
   `key_version` and the resolution rendering (0018 D1) before `/review` ships
-- **`schema-draft.md`'s citation section is now behind the accepted 0018** — it still has
-  `citation.treatment`, no `cited_decision_id` FK, and the superseded natural key. **Due
-  now:** revise it to the five families before migration 0014 is written against it
 - **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md`,
   ~$700 for the backfill. **Unblocked by 0017/0018**; still needs the Anthropic key
 - Deadline engine (C4): decision JSON carries no extracted obligations (verified

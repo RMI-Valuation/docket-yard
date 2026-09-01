@@ -690,10 +690,12 @@ def unjoin(con: Connection, a: int, b: int, note: str) -> int:
         "UPDATE party_relationship SET superseded_by = edge_id WHERE edge_id = ?", (edge_id,)
     )
     con.execute(
-        "INSERT INTO correction (target_table, target_id, note, method, method_version,"
+        # migration 0014 renamed target_id to target_key and made it TEXT, so a correction
+        # can address a natural-keyed citation row; an integer pk is rendered as digits
+        "INSERT INTO correction (target_table, target_key, note, method, method_version,"
         " source_location, asserted_at) VALUES ('party_relationship', ?, ?, 'human', ?, ?, ?)",
         (
-            edge_id,
+            str(edge_id),
             note.strip(),
             JOIN_VERSION,
             json.dumps({"via": "docketyard parties unjoin", "note": note.strip()}),

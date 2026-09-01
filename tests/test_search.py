@@ -37,8 +37,8 @@ def test_rebuild_indexes_families_parties_and_summaries(tmp_path):
     # an unchanged record is not rebuilt; a changed one is, and the build number moves
     assert search.rebuild(con) == {"unchanged": True, "build": 1}
     con.execute(
-        "INSERT INTO correction (target_table, target_id, note, asserted_at)"
-        " VALUES ('x', 1, 'n', 't')"
+        "INSERT INTO correction (target_table, target_key, note, asserted_at)"
+        " VALUES ('x', '1', 'n', 't')"  # target_key is TEXT since 0014
     )
     con.commit()
     assert search.rebuild(con)["build"] == 2
@@ -204,7 +204,7 @@ def test_migration_0013_alters_a_populated_index_without_disturbing_it(tmp_path)
     con.close()
 
     con = db.connect(path)  # the migration production will run
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 13
+    assert con.execute("PRAGMA user_version").fetchone()[0] == db.MIGRATIONS[-1][0]
     # every row survives, un-rebuilt, with the column's default
     assert con.execute("SELECT COUNT(*) FROM search_doc").fetchone()[0] == 2
     assert {c for (c,) in con.execute("SELECT caption FROM search_doc")} == {""}
