@@ -251,7 +251,7 @@ def test_the_index_carries_no_control_characters(tmp_path):
     # (and silently tolerated on others — this test passed on Windows and failed on CI).
     # The record decodes these to the real characters, which is the case under test.
     changed = con.execute(
-        r"UPDATE event SET payload = replace(payload, 'UP/NS CONTROL', 'UPNSCONTROL')"
+        r"UPDATE event SET payload = replace(payload, 'UP/NS CONTROL', 'UP\u0002NS\u0003CONTROL')"
         " WHERE payload LIKE '%UP/NS CONTROL%'"
     ).rowcount
     con.commit()
