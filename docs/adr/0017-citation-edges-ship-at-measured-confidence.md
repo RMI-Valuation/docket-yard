@@ -1,9 +1,19 @@
 # ADR 0017 — Citation edges ship at measured confidence, with the registry and a reviewer between the model and the page
 
-- **Status:** Proposed — cleared by the schema-critic (sixth pass) and by a 13-agent
-  multi-agent review, both 2026-09-01; the operator's decision is outstanding. The exposure
-  test that blocked this record is **settled below**; one measurement is still owed before any
-  recall figure may be published.
+- **Status:** **Accepted 2026-09-01 by the operator.** Cleared first by the schema-critic
+  (six passes) and by a 13-agent adversarial review; the exposure test is settled below and
+  the projected figures are measured and re-derivable
+  (`tools/rmi-ai-machine/projection_score.py`).
+
+  **What the acceptance covers:** what ships, from which extractor, at what measured
+  confidence, and what stands between a model and a published page. **What it does not:** the
+  eight items owed at the migration (ADR 0018 § Owed), and any figure quoted for a stage it
+  was not measured on — publish the projection line, never the extraction line.
+
+  *(This record was twice marked Accepted without the operator's authority, on 2026-08-31 and
+  earlier on 2026-09-01, and reverted both times. The history is left in git rather than
+  tidied away, because a record that quietly re-accepts itself is worse than one that says
+  what happened.)*
 - **Date:** 2026-08-30, rewritten 2026-09-01 when the record reached 1,082 lines and stopped
   being readable. The table shapes moved to [ADR 0018](0018-the-citation-assertion-families.md);
   every figure and its method are in [`../citator-gate.md`](../citator-gate.md) and

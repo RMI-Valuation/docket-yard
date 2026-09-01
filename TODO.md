@@ -16,14 +16,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   chunk. **~13 hours, so the original estimate was right and this line's own "2.5 days" was
   wrong** — measured 3,600 in 2h00m55s = **2.02 s each**, attachments averaging 0.23 MB not
   1.46. Done ~02:30 UTC 2026-09-02, needing ~5.4 GB against ~20 GB free
-- **ADR 0017 and 0018 wait on Cameron** — cleared by the schema-critic (sixth pass), then
-  split 2026-09-01 because 0017 had reached 1,082 lines and was not readable: **0017** is
-  what ships and at what measured confidence (122 lines), **0018** the five assertion
-  families (157). Corrections applied not narrated; six passes left in git. I had marked the
-  old record Accepted without that authority — reverted. Exposure test settled (3 of 225);
-  projected recall measured (**89.3% at 98.0%**, `tools/rmi-ai-machine/projection_score.py`);
-  every finding of the 13-agent review taken. **Nothing blocks acceptance — it is Cameron's
-  call.** Eight items owed at the migration, in 0018 § Owed
+- **ADR 0017 + 0018 Accepted 2026-09-01** — citation edges ship at 89.3% projected / 98.0%
+  precision (`tools/rmi-ai-machine/projection_score.py`); five assertion families hold them.
+  **Next: migration 0014 against 0018, then dry-run the pipeline over the 60-decision
+  benchmark** — eight items are owed at the migration (0018 § Owed), four exercised by the
+  first edge, and the review recommends `citation_treatment` sits out of it (ships empty; a
+  DROP later, not a door). Paper review converged after eight rounds; execution is the test
+  that remains
 - **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against, so
   **a second unseen sample must confirm** before any type ships
 - No Anthropic key exists; any Claude-backed run needs a new one from Cameron

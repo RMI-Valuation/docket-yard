@@ -1,7 +1,15 @@
 # ADR 0018 — A citation is five append-only assertion families over one natural key
 
-- **Status:** Proposed — cleared by the schema-critic 2026-09-01 (sixth pass); the operator's
-  decision is outstanding.
+- **Status:** **Accepted 2026-09-01 by the operator**, together with
+  [ADR 0017](0017-citation-edges-ship-at-measured-confidence.md). Cleared by the schema-critic
+  (six passes) and by a 13-agent adversarial review; validation query 2 is written out at
+  [`../citator-query-2.sql`](../citator-query-2.sql) rather than asserted here.
+
+  **What the acceptance covers:** the grain, the identity model, and the five families. **What
+  it does not:** the eight items in § Owed at the migration — four of which the first edge
+  exercises — and whether `citation_treatment` is in the first migration at all, which the
+  adversarial review recommends deferring since it ships empty and is a DROP later, not a
+  door.
 - **Date:** 2026-09-01. Split from [ADR 0017](0017-citation-edges-ship-at-measured-confidence.md),
   which had grown to 1,082 lines by bundling a shipping decision with a schema. 0017 decides
   *what ships and at what confidence*; this record decides *what shape holds it*. Table
