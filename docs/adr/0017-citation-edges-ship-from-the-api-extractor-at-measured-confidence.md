@@ -72,9 +72,20 @@ not decisions; this record makes them decisions.
 1. **The docket-shaped class ships from `regex-docket-cite`; the API model is bought for
    what regex cannot reach.** *(Amended 2026-09-01. The sentence this replaces read "the
    extractor that ships is the API model" and was written before the batch reported.)* A
-   regular expression over the text layer, with the own-proceeding rule, scores **95.1%**
-   recall on docket-shaped targets — unbeaten by any of the nine local candidates (best:
-   qwen3:14b, 93.8%) and within half a point of Claude's 95.6%, at no per-page cost.
+   regular expression over the text layer, with the own-proceeding rule, scores **97.8%**
+   recall on docket-shaped targets at no per-page cost — above Claude's 95.6% and every one
+   of the nine local candidates (best: qwen3:14b, 93.8%).
+
+   **That 97.8% is the corrected configuration, and it is 2.7 points above what this record
+   reported.** Measured 2026-09-01: the benchmark run filtered its emissions against the
+   registry inside the finder, which scored 95.1% (214 of 225). Moving the check into
+   resolution — see the next paragraph — recovers **exactly six targets, and all six are real
+   edges in the sheet**: `EP 445`, `EP 445 (Sub-No. 1)`, `EP 392 (Sub-No. 1)`, `FD 757`,
+   `FD 36873 (Sub-No. 2)` and `FD 37470`, which are precisely the six this record already
+   named as unresolvable against the registry copy. Not one false positive comes with them
+   (249 emitted against 243; precision as scored moves 88.1% → 88.4%, and after decision 5 it
+   is 98.2% either way). The correction the schema-critic forced does not cost recall to buy
+   correctness — it buys both.
 
    **The registry check is rule 1 of the RESOLUTION pass, not a filter inside the finder**
    *(corrected 2026-09-01, schema-critic)*. The measured run filtered its emissions against
@@ -83,10 +94,12 @@ not decisions; this record makes them decisions.
    as `cites EP 445` (not in the record)" a display this extractor can never produce, and
    makes `citator-gate.md` rule 1 — *record the span and the raw string; do not guess, and do
    not discard* — unimplementable, because the span is never seen. It also caps recall on the
-   sheet at 219 of 225: the six ICC-era targets (`EP 445`, `FD 757`, …) are outside what a
+   sheet at 219 of 225: the six ICC-era and not-yet-held targets are outside what a
    registry-filtered finder can say. So the finder emits every docket-shaped hit, and
    resolution decides what the registry holds. It still cannot invent a proceeding, because
-   an unresolved target is stored as unresolved and never projected.
+   an unresolved target is stored as unresolved and never projected — and those six are now
+   the `docket, unresolved` class decision 4 describes and decision 6's second queue holds,
+   which were both unreachable before.
 
    The API model — `method = 'model:claude-sonnet-5'`, `method_version = <prompt version>`
    (`2026-08-29` for the measured prompt) — ships for reporter cites, date-named decisions,
@@ -206,7 +219,7 @@ not decisions; this record makes them decisions.
 
    | class | reading | measured | projected as "cited by" |
    | --- | --- | --- | --- |
-   | docket, resolved, **not exposed**, `regex-docket-cite` | text layer | 95.1% recall; **98.2% precision after decision 5** (88.1% as scored) | **yes, unreviewed** |
+   | docket, resolved, **not exposed**, `regex-docket-cite` | text layer | **97.8%** recall; **98.2% precision after decision 5** (88.4% as scored), under `cite.py`'s family closure | **yes, unreviewed** |
    | docket, resolved, **exposed** (both readings are held: `AB 1242` / `AB 124`), or resolved only by rule 2 | text layer | see the note below — the count is stale | **after review** |
    | any class | OCR | **`unmeasured`** | **never** |
    | docket, unresolved | text layer | 6 of 171, none invented | **never**; shown as "cites `EP 445` (not in the record)"; queued if in range |

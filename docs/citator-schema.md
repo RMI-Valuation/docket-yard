@@ -34,7 +34,8 @@ exists to find. So an extra is only absorbed if its quoted span names no documen
 
 | Docket-shaped class | truth | emitted | found | recall | precision, as scored | extras decision 5 suppresses | extras it projects | precision after |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `regex-docket-cite` | 225 | 243 | 214 | **95.1%** | 88.1% | 25 | **4** | **98.2%** |
+| `regex-docket-cite`, as benchmarked (registry filter in the finder) | 225 | 243 | 214 | 95.1% | 88.1% | 25 | 4 | 98.2% |
+| `regex-docket-cite`, **as decision 1 now specifies it** (check in resolution) | 225 | 249 | 220 | **97.8%** | 88.4% | 25 | **4** | **98.2%** |
 | `model:claude-sonnet-5` | 225 | 225 | 215 | **95.6%** | 95.6% | 10 | 0 | **100%** |
 
 **Neither engine emits an edge to a proceeding the citing decision was not entered in** — 29 of
@@ -43,6 +44,15 @@ directly. But regex's four projected extras are potential wrong edges: all four 
 `Decision No. 1, FD 36744 et al., slip op. at 6` — the decision citing a prior decision in its
 own consolidated proceeding. They may be sheet omissions rather than errors; nobody has judged
 them.
+
+**Moving the registry check out of the finder costs nothing and recovers six real edges.**
+Measured 2026-09-01 by re-running the finder with the filter removed: the six targets it had
+been suppressing are `EP 445`, `EP 445 (Sub-No. 1)`, `EP 392 (Sub-No. 1)`, `FD 757`,
+`FD 36873 (Sub-No. 2)` and `FD 37470` — the six this record already named as registry
+unresolvables — and **every one is a real edge in the sheet**. No false positive arrives with
+them, and the post-decision-5 precision is unchanged. They become the `docket, unresolved`
+class and decision 6's second review queue, which a finder-side filter had emptied by
+construction.
 
 **What this figure is, and is not.** It is a property of the **pair** — extractor plus decision
 5 — not of the extractor, and it may only be published with the rule named beside it. It is 60

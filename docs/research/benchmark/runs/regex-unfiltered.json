@@ -1,0 +1,78 @@
+{
+ "run": "C:\\Users\\CAMERO~1\\AppData\\Local\\Temp\\claude\\e--DevProjects-docket-yard\\85ee6486-9b69-4c8f-a204-f8b65cf40d44\\scratchpad\\runs-unfiltered\\regex-own",
+ "label": "regex-unfiltered",
+ "legacy_findings": 0,
+ "pages": 443,
+ "error_pages": 0,
+ "unanswered_pages": 0,
+ "page_check": true,
+ "text_dir": "data/benchmark/text",
+ "unchecked_decisions": [],
+ "off_page_findings": 0,
+ "off_page": [],
+ "by_kind": {
+  "citation/stb": {
+   "truth": 332,
+   "found": 249,
+   "hit": 220,
+   "recall": 0.6626506024096386,
+   "precision": 0.8835341365461847
+  },
+  "citation/court": {
+   "truth": 86,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "citation/record": {
+   "truth": 7,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "caption/self": {
+   "truth": 38,
+   "found": 70,
+   "hit": 35,
+   "recall": 0.9210526315789473,
+   "precision": 0.5
+  },
+  "deadline/date": {
+   "truth": 90,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "deadline/reference": {
+   "truth": 21,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "deadline/period": {
+   "truth": 18,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "deadline/indefinite": {
+   "truth": 6,
+   "found": 0,
+   "hit": 0,
+   "recall": 0.0,
+   "precision": null
+  },
+  "citation/stb-docket": {
+   "truth": 225,
+   "found": 249,
+   "hit": 220,
+   "recall": 0.9777777777777777,
+   "precision": 0.8835341365461847
+  }
+ }
+}
