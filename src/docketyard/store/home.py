@@ -298,6 +298,67 @@ def walked_through(con: Connection, start: date, end: date) -> date | None:
     return reached
 
 
+@dataclass(frozen=True)
+class WeekSummary:
+    monday: str  # ISO, the week's own permanent address
+    end: str  # its Sunday, so the page can print the range without re-deriving it
+    filings: int
+    decisions: int
+
+
+@dataclass(frozen=True)
+class WeekYear:
+    year: int
+    weeks: list[WeekSummary]  # newest first
+    filings: int
+    decisions: int
+
+
+def weeks_index(con: Connection, today: date | None = None) -> list[WeekYear]:
+    """Every week the record holds anything for, newest first, grouped by year.
+
+    ~1,590 week pages render correctly and were reachable only by clicking "previous week"
+    sixteen hundred times; they are in neither the sitemap nor `llms.txt`, so no search
+    engine could be the index the site lacked either (navigation-review.md § C). This is
+    that index, and it is one aggregate over the two record tables — no per-week query.
+
+    A week is Monday–Sunday, the same unit `/week` serves: SQLite's `weekday 0` moves
+    forward to Sunday, so backing up six days is the Monday whose week the date falls in —
+    the arithmetic `monday_of` does. Only well-formed dates inside the corridor count: a
+    Board-side typo is shape-checked at ingest, not range-checked, and must not stretch
+    this page to the year 2062 or invent a week before the record."""
+    today = today or date.today()
+    floor, ceiling = WEEK_FLOOR.isoformat(), today.isoformat()
+    per_week: dict[str, list[int]] = {}
+    for column, table, slot in (
+        ("filed_date", "filing", 0),
+        ("service_date", "decision_record", 1),
+    ):
+        ident = "stb_filing_id" if slot == 0 else "stb_decision_id"
+        for monday, n in con.execute(
+            f"SELECT date({column}, 'weekday 0', '-6 days'), COUNT(DISTINCT {ident})"
+            f" FROM {table} WHERE {column} IS NOT NULL AND {column} BETWEEN ? AND ?"
+            f" GROUP BY 1",
+            (floor, ceiling),
+        ):
+            if monday:  # date() answers NULL for anything it cannot read
+                per_week.setdefault(monday, [0, 0])[slot] = n
+    years: dict[int, list[WeekSummary]] = {}
+    for monday in sorted(per_week, reverse=True):
+        f, d = per_week[monday]
+        end = (date.fromisoformat(monday) + timedelta(days=WEEK_DAYS - 1)).isoformat()
+        years.setdefault(int(monday[:4]), []).append(WeekSummary(monday, end, f, d))
+    return [
+        WeekYear(
+            year=y,
+            weeks=weeks,
+            filings=sum(w.filings for w in weeks),
+            decisions=sum(w.decisions for w in weeks),
+        )
+        for y, weeks in sorted(years.items(), reverse=True)
+    ]
+
+
 def this_week(con: Connection, today: date | None = None) -> Week:
     """The one definition of the window: the seven days ending on the latest activity."""
     end = latest_activity_date(con, today)

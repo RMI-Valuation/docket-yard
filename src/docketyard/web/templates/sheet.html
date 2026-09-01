@@ -9,7 +9,11 @@
 {% block head %}<link rel="alternate" type="application/atom+xml" title="{{ printed_docket(feed_for) }}" href="{{ docket_path(feed_for) }}/feed">{% endblock %}
 {% block main %}
 <section class="caption">
-  <div class="caption-meta"><span class="label">{{ prefix_name(identity.prefix) }}</span><span>Before the Surface Transportation Board</span></div>
+  {#- The way up. A sub-docket sheet asks `_family` for its OWN id and a sub-docket has no
+      children, so it had no parent link, no siblings and no way back to its series — on
+      AB 167 that is 952 of 995 proceedings ending in a cul-de-sac
+      (navigation-review.md § C). -#}
+  <div class="caption-meta"><span class="label">{{ prefix_name(identity.prefix) }}</span>{% if sheet.series and identity.parent() %}<span>In <a href="{{ docket_path(identity.parent()) }}">{{ printed_docket(identity.parent()) }}</a></span>{% else %}<span>Before the Surface Transportation Board</span>{% endif %}</div>
   <h1 class="serif docket-number">{{ printed }}</h1>
   <p class="print-only small muted">{{ site_name }} · docketyard.org{{ docket_path(identity) }} · entries shown: <span id="print-state">all, {{ 'oldest' if order == 'oldest' else 'newest' }} first</span></p>
   {% if sheet.title %}<p class="serif caption-title as-printed">{{ sheet.title }}</p>{% else %}<p class="caption-note muted">This docket has not yet been observed directly in the Board’s dockets table; its entries below come from filings and decisions that name it.</p>{% endif %}

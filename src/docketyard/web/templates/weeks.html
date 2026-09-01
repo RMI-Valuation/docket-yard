@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Every week — {{ site_name }}{% endblock %}
+{% block description %}Every week the Surface Transportation Board posted a filing or served a decision{% if years %}, {{ years[-1].year }} to {{ years[0].year }}{% endif %}.{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Every week on record</h1>
+  {#- The index the site did not have. ~1,590 week pages rendered correctly and were
+      reachable only by clicking "previous week" sixteen hundred times, and the weeks were in
+      neither the sitemap nor llms.txt, so no search engine could stand in for the index
+      either (navigation-review.md § C). Counted, never typed. -#}
+  <p class="muted">Every week the Board posted a filing or served a decision, newest first. A week is Monday to Sunday and keeps a permanent address; a week with nothing on record is not listed, which is a statement about this record and not about the Board — <a href="/coverage">coverage</a> says how far each walk has reached.</p>
+  {% if years %}
+  <div class="stats stats-2">
+    <div class="stat"><span class="n serif">{{ weeks_total | commas }}</span><span class="l">weeks with something on record</span></div>
+    <div class="stat"><span class="n serif">{{ years | length }}</span><span class="l">years, {{ years[-1].year }} to {{ years[0].year }}</span></div>
+  </div>
+  <p class="small muted">Jump to: {% for y in years %}<a href="#y{{ y.year }}">{{ y.year }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  {% else %}
+  <p class="muted">The record holds no dated filing or decision yet, so there is no week to list. This address stays, and fills in as the watch and the waves reach it.</p>
+  {% endif %}
+</section>
+
+{% for y in years %}
+<section class="weeks-year">
+  <h2 id="y{{ y.year }}">{{ y.year }}</h2>
+  <p class="small muted">{{ y.weeks | length | plural('week') }} · {{ y.filings | plural('filing') }} · {{ y.decisions | plural('decision') }}</p>
+  <ul class="plain weeks-list">
+    {% for w in y.weeks %}
+    <li><a href="/week/{{ w.monday }}">{{ fmt_range(w.monday, w.end) }}</a> <span class="small muted">{% if w.filings %}{{ w.filings | plural('filing') }}{% endif %}{% if w.filings and w.decisions %}, {% endif %}{% if w.decisions %}{{ w.decisions | plural('decision') }}{% endif %}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endfor %}
+
+<section class="caption">
+  <p class="small muted">Counts are what this record holds dated in each week, by the Board's own dates; a filing entered in a docket and its sub-docket is counted once. <a href="/stats">The statistics page</a> counts the same records by month, and counts them all: a date outside the range these addresses cover is left out here and included there.</p>
+</section>
+{% endblock %}

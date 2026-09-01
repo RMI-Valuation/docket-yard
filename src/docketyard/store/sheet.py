@@ -66,6 +66,24 @@ class SubDocket:
 
 
 @dataclass(frozen=True)
+class Series:
+    """The number a proceeding sits under, when it sits under one.
+
+    A sub-docket sheet had no way up: `_family` is asked for the page's OWN id and a
+    sub-docket has no children, so the family list came back holding only itself. On AB 167
+    that leaves 952 of 995 proceedings as cul-de-sacs — no parent, no siblings, and filter
+    chips filtering an empty list (navigation-review.md § C).
+
+    The number alone. A first draft also carried the series' caption and how many
+    proceedings it holds; the count was `COUNT(*) … WHERE parent_docket_id = ?`, and
+    `docket.parent_docket_id` carries no index, so every sub-docket page scanned all 32,605
+    dockets to garnish one line — on the 10,798 addresses crawlers walk most. The series
+    page says both the moment the reader arrives (code review, 2026-09-01)."""
+
+    raw_docket: str
+
+
+@dataclass(frozen=True)
 class DocketSheet:
     docket_id: int
     raw_docket: str
@@ -79,6 +97,7 @@ class DocketSheet:
     decisions: int
     comments: int
     last_checked: str | None  # latest capture that touched the family, ISO UTC
+    series: Series | None = None  # the number above this one, when this is a sub-docket
     parties: list[dict] = field(default_factory=list)  # the Parties block (party module)
 
 
@@ -165,6 +184,17 @@ def present(cell: str | None) -> str | None:
 def _latest_payload(con: Connection, event_id: int) -> dict:
     row = con.execute("SELECT payload FROM event WHERE event_id = ?", (event_id,)).fetchone()
     return load_json(row[0]) if row else {}
+
+
+def _series(con: Connection, docket_id: int) -> Series | None:
+    """The series above a sub-docket, or None for a docket that is nobody's child. Two
+    primary-key lookups: the page's own row, then its parent's."""
+    row = con.execute(
+        "SELECT p.raw_docket FROM docket d JOIN docket p ON p.docket_id = d.parent_docket_id"
+        " WHERE d.docket_id = ?",
+        (docket_id,),
+    ).fetchone()
+    return Series(row[0]) if row else None
 
 
 def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
@@ -272,6 +302,7 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
         prefix=prefix,
         sequence=sequence,
         title=load_json(payload)["title"] if payload else None,
+        series=_series(con, docket_id),
         sub_dockets=[m for m in family if m.docket_id != docket_id],
         # A parent that holds no records of its own AND carries a run of sub-dockets is
         # a carrier's series, not a case: measured 2026-08-30, every one of the fourteen

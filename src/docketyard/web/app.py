@@ -599,6 +599,36 @@ def create_app(
 
     # --- past weeks: fixed Monday–Sunday weeks at permanent addresses --------------------
 
+    _weeks: dict[str, list] = {}
+
+    @app.get("/weeks")  # the numbers move once a poll; the page may be cached that long
+    def weeks_index(request: Request):
+        """Every week the record holds anything for — the index the archive never had.
+
+        Memoised on the store stamp and cached like `/stats`: this is two full aggregates
+        over `filing` and `decision_record`, and the footer links it from every page,
+        including the ~107,000 record addresses crawlers walk (code review, 2026-09-01).
+
+        An empty record renders the page saying so, rather than 404ing an address the
+        footer and the sitemap both publish."""
+        key = stamp()
+        if key not in _weeks:
+            con = _connect(db_path)
+            try:
+                _weeks.clear()
+                _weeks[key] = home.weeks_index(con)
+            finally:
+                con.close()
+        years = _weeks[key]
+        response = render(
+            request,
+            "weeks.html",
+            years=years,
+            weeks_total=sum(len(y.weeks) for y in years),
+        )
+        response.headers.update(PUBLIC_CACHE)
+        return response
+
     @app.get("/week")
     def latest_week(request: Request):
         """The most recent complete calendar week."""

@@ -1,13 +1,16 @@
 """The docket-sheet projection over a small real-shaped record."""
 
 import pytest
+from fastapi.testclient import TestClient
 
 from docketyard.capture import records
 from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS
 from docketyard.ingest import dockets, observations
 from docketyard.store import db, sheet
+from docketyard.web.app import create_app
 from tests.test_dockets_parse import make_body
 from tests.test_observations import body_of, decision_row, filing_row
+from tests.test_web import build_store
 
 
 @pytest.fixture
@@ -95,3 +98,30 @@ def test_sub_docket_sheet_is_its_own(con, tmp_path):
 
 def test_unknown_docket(con):
     assert sheet.docket_sheet(con, 999) is None
+
+
+def test_a_sub_docket_sheet_can_reach_its_series(tmp_path):
+    """`_family` is asked for the page's OWN id and a sub-docket has no children, so the
+    family list came back holding only itself: no parent link, no siblings, no way back.
+    On AB 167 that is 952 of 995 proceedings ending in a cul-de-sac
+    (navigation-review.md § C)."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    sub_id = con.execute("SELECT docket_id FROM docket WHERE raw_docket = 'FD_36873_1'").fetchone()[
+        0
+    ]
+    family_id = con.execute(
+        "SELECT docket_id FROM docket WHERE raw_docket = 'FD_36873'"
+    ).fetchone()[0]
+    child = sheet.docket_sheet(con, sub_id)
+    assert child.series is not None
+    assert child.series.raw_docket == "FD_36873"  # the number, and nothing it must scan for
+    assert child.sub_dockets == []  # unchanged: a sub-docket has no children
+    # a family is nobody's child, and says nothing it cannot back
+    assert sheet.docket_sheet(con, family_id).series is None
+    con.close()
+    client = TestClient(create_app(path))
+    page = client.get("/d/FD-36873/sub/1").text
+    assert '<a href="/d/FD-36873">FD 36873</a>' in page
+    assert "Before the Surface Transportation Board" not in page  # the way up replaces it
+    assert "Before the Surface Transportation Board" in client.get("/d/FD-36873").text
