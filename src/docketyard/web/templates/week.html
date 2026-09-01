@@ -11,7 +11,7 @@
 <section class="week">
   <div class="week-head">
     <h1 class="serif week-title">Week of {{ monday_iso | fmt_date }}</h1>
-    <div class="muted small">{{ fmt_range(week.start, week.end) }} · Monday to Sunday{% if prev_path %} · <a href="{{ prev_path }}">← previous week</a>{% endif %}{% if next_path %} · <a href="{{ next_path }}">next week →</a>{% endif %} · <a href="/">the latest seven days</a></div>
+    <div class="muted small">{{ fmt_range(week.start, week.end) }} · Monday to Sunday{% if prev_path %} · <a href="{{ prev_path }}">← previous week</a>{% endif %}{% if next_path %} · <a href="{{ next_path }}">next week →</a>{% endif %} · <a href="/weeks">every week</a> · <a href="/">the latest seven days</a></div>
   </div>
 </section>
 {% if state == 'future' %}

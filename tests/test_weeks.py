@@ -32,7 +32,9 @@ def test_week_pages(tmp_path):
     assert client.get("/week/not-a-date").status_code == 404
     r = client.get("/week", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/week/2026-08-17"
-    assert 'href="/week"' in client.get("/").text  # the home page links past weeks
+    # the home page links the INDEX, not one week: "past weeks" used to land the reader on
+    # a single week and leave them clicking backwards (navigation-review.md § C)
+    assert 'href="/weeks"' in client.get("/").text
 
 
 def test_uncovered_week_says_so_and_fills_in_after_a_wave(tmp_path):
@@ -152,3 +154,88 @@ def test_the_archive_week_heading_names_its_own_week(tmp_path):
     assert "The latest seven days at the Board" in home_page
     assert "Proceedings that moved in these seven days" in home_page
     assert "This week at the Board" not in home_page
+
+
+def test_the_weeks_index_is_the_way_into_the_archive(tmp_path):
+    """~1,590 week pages rendered correctly and were reachable only by clicking "previous
+    week" sixteen hundred times (navigation-review.md § C). One aggregate, not a query per
+    week."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    years = home.weeks_index(con, today=date(2026, 8, 31))
+    con.close()
+    assert [y.year for y in years] == [2026]
+    mondays = [w.monday for w in years[0].weeks]
+    assert mondays == ["2026-08-24", "2026-08-17"]  # newest first; Monday-anchored
+    # the fixture's two filings fall in one week and its decision in the week before
+    first, second = years[0].weeks
+    assert first.end == "2026-08-30" and (first.filings, first.decisions) == (2, 0)
+    assert (second.filings, second.decisions) == (0, 1)
+    assert years[0].filings == 2 and years[0].decisions == 1  # the year's own totals
+    client = TestClient(create_app(path))
+    r = client.get("/weeks")
+    assert r.status_code == 200
+    assert 'href="/week/2026-08-24"' in r.text and 'href="/week/2026-08-17"' in r.text
+    assert '<span class="n serif">2</span><span class="l">weeks with something' in r.text
+    # a week with nothing on record is not listed, and the page says why that is not a
+    # claim about the Board
+    assert "/week/2026-08-10" not in r.text
+    assert "not about the Board" in r.text
+    # and the crawler is told about them too, where it was told about none
+    assert "/week/2026-08-24" in client.get("/sitemap-weeks-1.xml").text
+    assert "/weeks" in client.get("/sitemap-pages-1.xml").text
+    assert "/weeks" in client.get("/llms.txt").text
+
+
+def test_the_weeks_index_ignores_dates_outside_the_corridor(tmp_path):
+    """Dates are shape-checked at ingest, not range-checked. A Board-side typo must not
+    stretch this page to 2062 or invent a week before the record."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    con.execute("UPDATE filing SET filed_date = '2062-01-05' WHERE rowid = 1")
+    con.execute("UPDATE filing SET filed_date = '1301-04-02' WHERE rowid = 2")
+    con.commit()
+    years = home.weeks_index(con, today=date(2026, 8, 31))
+    con.close()
+    assert all(int(w.monday[:4]) <= 2026 for y in years for w in y.weeks)
+    assert all(date.fromisoformat(w.monday) >= home.WEEK_FLOOR for y in years for w in y.weeks)
+
+
+def test_the_weeks_index_holds_its_address_on_an_empty_record(tmp_path):
+    """The footer links `/weeks` from every page and the sitemap publishes it, so it must
+    not 404 on a record with nothing dated in it (code review, 2026-09-01)."""
+    path = tmp_path / "empty.sqlite"
+    db.connect(path).close()
+    client = TestClient(create_app(path))
+    r = client.get("/weeks")
+    assert r.status_code == 200
+    assert "no week to list" in r.text
+    assert r.headers["cache-control"] == "public, max-age=1800"
+    assert client.get("/sitemap-weeks-1.xml").status_code == 200
+
+
+def test_the_weeks_index_is_computed_once_per_store_stamp(tmp_path):
+    """Two full aggregates over `filing` and `decision_record`, on a page the footer links
+    from every one of ~130,000 addresses."""
+    path = build_store(tmp_path)
+    client = TestClient(create_app(path))
+    assert client.get("/weeks").headers["cache-control"] == "public, max-age=1800"
+    con = db.connect(path)
+    calls = {"n": 0}
+    real = home.weeks_index
+
+    def counted(*a, **k):
+        calls["n"] += 1
+        return real(*a, **k)
+
+    con.close()
+    import docketyard.store.home as home_mod
+
+    home_mod.weeks_index = counted
+    try:
+        client2 = TestClient(create_app(path))
+        for _ in range(3):
+            assert client2.get("/weeks").status_code == 200
+        assert calls["n"] == 1  # memoised on the store stamp
+    finally:
+        home_mod.weeks_index = real

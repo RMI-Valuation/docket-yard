@@ -155,6 +155,15 @@ table.moved { width: 100%; border-collapse: collapse; }
 
 .footer { margin-top: 56px; padding: 24px 56px 40px 56px; border-top: 1px solid var(--hair); display: flex; justify-content: space-between; align-items: baseline; gap: 24px; font-size: 13px; color: var(--muted); }
 
+/* the weeks index: ~1,590 links, so they wrap into columns rather than one endless
+   scroll, and each year is its own block a reader can stop at */
+.stats-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.weeks-year { padding-top: 28px; }
+.weeks-year h2 { margin-bottom: 2px; }
+.weeks-list { columns: 4 200px; column-gap: 32px; padding-top: 10px; }
+.weeks-list li { break-inside: avoid; padding: 2px 0; font-size: 14px; }
+.weeks-list a { white-space: nowrap; }
+
 @media (max-width: 900px) {
   main, .masthead, .footer, .prefs { padding-left: 20px; padding-right: 20px; }
   .prefs-note { margin-left: 0; flex-basis: 100%; }
@@ -164,6 +173,7 @@ table.moved { width: 100%; border-collapse: collapse; }
   .lead { grid-template-columns: 1fr; gap: 24px; }
   .lead h1 { font-size: 30px; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .weeks-list { columns: 2 140px; column-gap: 20px; }
   .two-col, .two-col.wide-rail { grid-template-columns: 1fr; gap: 32px; }
   .row { grid-template-columns: 1fr; gap: 4px; }
   .moved thead { display: none; }

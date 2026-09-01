@@ -13,12 +13,14 @@ from xml.sax.saxutils import escape
 
 from docketyard.ingest.dockets import parse_docket_id
 from docketyard.parties import resolve
+from docketyard.store import home
 from docketyard.web import urls
 
 PAGE = 40_000
-SECTIONS = ("pages", "dockets", "decisions", "filings", "comments", "parties", "documents")
+SECTIONS = ("pages", "weeks", "dockets", "decisions", "filings", "comments", "parties", "documents")
 STATIC_PAGES = (
     "/",
+    "/weeks",
     "/parties",
     "/search",
     "/stats",
@@ -64,11 +66,29 @@ _COMMENTS = """
 """
 _memo: dict[tuple, str] = {}
 _parties_memo: dict[str, list[tuple[int, str | None]]] = {}  # stamp -> entries
+_weeks_memo: dict[str, list[str]] = {}  # stamp -> every week address, counted once
+
+
+def _weeks_for(con: Connection, stamp: str) -> list[str]:
+    if stamp not in _weeks_memo:
+        _weeks_memo.clear()  # one stamp at a time, as the parties memo does
+        _weeks_memo[stamp] = _weeks(con)
+    return _weeks_memo[stamp]
+
+
+def _weeks(con: Connection) -> list[str]:
+    """Every week address the record can fill. They were in neither the sitemap nor
+    `llms.txt`, so no search engine could be the index the site lacked while the only way
+    to reach 2010 was clicking "previous week" sixteen hundred times
+    (navigation-review.md § C). One aggregate, memoised per store stamp like the rest."""
+    return [w.monday for year in home.weeks_index(con) for w in year.weeks]
 
 
 def _count(con: Connection, name: str, stamp: str) -> int:
     if name == "pages":
         return len(STATIC_PAGES)
+    if name == "weeks":
+        return len(_weeks_for(con, stamp))
     if name == "dockets":
         return con.execute("SELECT COUNT(*) FROM docket").fetchone()[0]
     if name == "parties":
@@ -154,6 +174,10 @@ def section(con: Connection, site: str, name: str, page: int, stamp: str) -> str
     offset = (page - 1) * PAGE
     if name == "pages":
         entries = [(f"{base}{p}", None) for p in STATIC_PAGES[offset : offset + PAGE]]
+    elif name == "weeks":
+        entries = [
+            (f"{base}/week/{m}", None) for m in _weeks_for(con, stamp)[offset : offset + PAGE]
+        ]
     elif name == "dockets":
         # every docket address (ADR 0013): a parent's lastmod is the newest capture that
         # touched its family, a sub-docket's the newest that touched it. One grouped pass

@@ -1,8 +1,10 @@
 # Navigation review — what the record holds and what a reader can reach
 
-> **Status: analysis, 2026-08-31. Tiers 1 and 2 shipped as one release the same day** —
-> A1, A2, A3, A4, A5, A8 and § B are fixed; A6 is decided but not built; A7, § C, § D, § E
-> and Tiers 3–4 are unchanged and still the operator's to choose. Every measurement below
+> **Status: analysis, 2026-08-31. Tiers 1–2 shipped 2026-09-01 (v2026.08.45), A6 the same
+> day (v2026.08.46), and the first of Tier 3 after it (v2026.08.47)** — A1–A6, A8 and § B
+> are fixed; of § C, the weeks index and the sub-docket breadcrumb are built and the rest —
+> a docket index by prefix and year, `/parties` as a page before it is a search — is not.
+> A7, § D, § E and Tier 4 are unchanged and still the operator's to choose. Every measurement below
 > is left as it was taken, because it is the evidence the fixes were made against; what
 > shipped is recorded in `milestones.md` and in the commit, not by editing the numbers here.
 >
@@ -260,7 +262,7 @@ no alphabet. Thirteen further surfaces are footer-only.
 | ~32,000 of 32,623 dockets | ∞ | the search box, or nothing |
 | ~10,150 of 10,156 parties | ∞ | type a name you already know |
 | ~34,250 of 34,257 comments | ∞ | a sheet you already found, or a search hit |
-| ~1,540 of ~1,550 active weeks | ∞ | "← previous week", one at a time |
+| ~1,540 of ~1,550 active weeks | ∞ | "← previous week", one at a time — **`/weeks` since 2026-09-01: 1,550 weeks, 31 years, one page, in the sitemap** |
 | `/about/prefixes` (the page) | 3 | Statistics → an explainer → "Every docket prefix" |
 
 **Crawlers get seven indexes; readers get none.** `sitemaps.py` publishes pages, dockets,
@@ -282,7 +284,9 @@ The long tail is a field of cul-de-sacs: 952 of AB 167's 995 proceedings hold no
 each is a page with no link to its parent, no siblings, no `/coverage`, and filter chips that
 filter an empty list. A sub-docket sheet never links up to its series — `store/sheet.py:88`
 matches `docket_id = ? OR parent_docket_id = ?` against the page's own id, so on a child the
-family query returns only itself.
+family query returns only itself. **The way up shipped 2026-09-01** (`sheet.Series`): every
+sub-docket page now names its series and links to it, which is also the way to its siblings,
+since the series page indexes them. The filter chips are unchanged.
 
 ---
 
@@ -350,7 +354,8 @@ count on `/stats`. This alone reopens the whole 1996–2026 archive to navigatio
 Render `body` as a highlighted snippet on every search row; make the caption a docket row's
 title with the number beside it. One change, and T1, T4, T5 and T6 all improve at once.
 
-**Tier 3 — a front door (a day or two each).**
+**Tier 3 — a front door (a day or two each).** *The weeks index and the breadcrumb shipped
+2026-09-01; the aggregate measured 35 ms, not 120.*
 A weeks index built from the ~120 ms full-record aggregate; a docket index by prefix and
 year, linked from the explainers that currently dead-end after saying "the registry holds
 6,643 AB dockets"; `/parties` as a page before it is a search; and the sub-docket → series

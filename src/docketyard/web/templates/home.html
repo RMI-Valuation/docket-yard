@@ -22,7 +22,7 @@
        record holds, while /week is a Monday–Sunday calendar week. Two units under one
        name was the wording the operator found (navigation-review.md A5). #}
     <h2 class="week-title">The latest seven days at the Board</h2>
-    <div class="muted small">{{ fmt_range(week.start, week.end) }}{% if week.checked %} · record checked {{ week.checked | fmt_when }}{% endif %} · <a href="/week">past weeks</a></div>
+    <div class="muted small">{{ fmt_range(week.start, week.end) }}{% if week.checked %} · record checked {{ week.checked | fmt_when }}{% endif %} · <a href="/weeks">every week on record</a></div>
   </div>
 {% set moved_in = 'in these seven days' %}
 {% include "_week_body.html" %}
