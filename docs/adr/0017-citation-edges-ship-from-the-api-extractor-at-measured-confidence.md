@@ -24,7 +24,10 @@ What the benchmark settled, all dated after the check:
   89.2% of the sheet's STB edges and a local 14B model (qwen3:14b) 73.5%. Over Textract's
   OCR of the same pages Claude finds 91.9%. A local model that misses a quarter of the
   edges is a different product, not a cheaper one; a 10.8% character error rate costs no
-  measurable edges. Money therefore belongs at extraction (~$1,075 batched for the backfill)
+  measurable edges. Money therefore belongs at extraction (~$1,075 batched for the backfill
+  — **unreconciled with the ~$1,335 this record quotes four times elsewhere**; *conjecture,
+  2026-09-01: $1,075 extraction plus ~$260 OCR, which nothing states, so one of the two
+  figures is wrong and the difference must be named before either is quoted again*)
   and OCR should be as cheap as is adequate (~$260, `docs/ocr-plan.md`).
 - **Precision as the scorer keys it is 64.2%, and most of that loss is not a wrong docket.**
   Of the 165 STB findings not in the sheet, 155 are forms the sheet's conventions fold or do
@@ -120,8 +123,12 @@ not decisions; this record makes them decisions.
    which proceeding a decision sits in, and that is the one thing no extractor should be
    asked to decide.
 
-   **One owning method per `target_form`**, because decision 2's natural key has no method in
-   it: two extractors emitting the same target on the same page would collide, one row
+   **One owning method per `(target_kind, target_form)`** *(corrected 2026-09-01, third
+   critic pass: keyed on `target_form` alone, `regex-docket-cite` would own `docket` while
+   only ever emitting `target_kind = 'stb'`, so Claude's **court** docket numbers — measured
+   at 97.7% recall and explicitly stored by decision 4 — would be out of class and reduced to
+   an `extraction_run` count)*. There is one owner because decision 2's natural key has no
+   method in it: two extractors emitting the same target on the same page would collide, one row
    silently dropped or the edge counted twice. A finding outside its method's class is
    recorded at run level — an `extraction_run` row carrying counts — so "not kept" is an
    auditable number and never a silent drop. The score
@@ -144,11 +151,21 @@ not decisions; this record makes them decisions.
    differ in the quoted passage (10.8% CER) and would otherwise double every edge on
    re-read. **Each reading is a row of its own in `citation_reading`** *(added 2026-09-01,
    second critic pass)*: `(citation natural key, reading_channel, reading_method,
-   reading_method_version, source_location, quoted_passage)`. "The passage is payload" does
-   not cover a **location**, and ADR 0007 requires one per assertion — under a key stable
-   across readings the losing reading's `source_location` was simply lost. The child also
-   makes `reading_channel` a joinable fact rather than a value set by whichever pass wrote
-   first, which is what both the confidence stamp and the on-page veto have to key on.
+   reading_method_version, source_location, quoted_passage)`, and its **key is the citation's
+   natural key plus `reading_channel` — the reading method and its version are payload,
+   outside the key** *(stated 2026-09-01, third critic pass; with the engine version inside
+   the key, a re-OCR at a better engine mints a row that supersedes nothing and doubles the
+   live readings, which is verbatim the defect `citator-schema.md` § B corrected for
+   `decision_decided_date`, over a measured 1,480 of 9,663 image-only files)*. It carries
+   **ADR 0007's own block and its own `superseded_by`**, because OCR text is derived and a
+   re-OCR must have something to supersede.
+
+   **The reading columns come off `citation` when the child lands.** `source_location`, the
+   quoted passage and the reading's identity live in the child and nowhere else; left on the
+   parent as well they would still be set by whichever pass wrote first, which is the precise
+   defect the child exists to cure. "The passage is payload" does not cover a **location**,
+   and ADR 0007 requires one per assertion. The child is also what makes `reading_channel` a
+   joinable fact, which is what both the confidence stamp and the on-page veto key on.
    Repeats of one target on one page collapse to one row;
    repeats across pages fold at projection. A row is never discarded for failing to resolve.
 
@@ -176,9 +193,14 @@ not decisions; this record makes them decisions.
    **observation**: re-ranking, or admitting a sixth pass, becomes an UPDATE of every row on
    an append-only table, and a closed enum has no rank for the three further passes decision
    8 promises (treatment typing, a reporter→work resolver, `cited_filing_id` for record
-   cites). The rank is a column beside the method in the registry decision 1 already
-   creates, joined at projection: adding a pass is one INSERT, re-ranking is one UPDATE of
-   one registry row, and no assertion is ever rewritten. The order it currently holds is a
+   cites). The rank lives in **`resolution_method (method, method_version, precedence_rank)`,
+   a table of its own** — joined at projection. *(Named 2026-09-01, third critic pass: this
+   said "the registry decision 1 already creates", and decision 1's registry is keyed on
+   **extraction** methods. Putting a rank over resolution methods into it would re-create,
+   one decision over, the exact defect decision 4 diagnosed when it moved confidence back
+   onto the row: "the registry is keyed on EXTRACTION methods and the row being displayed is
+   a RESOLUTION.")* Adding a pass is one INSERT, re-ranking is one UPDATE of one registry
+   row, and no assertion is ever rewritten. The order it currently holds is a
    human first, then a veto, then rule 1, then rule 2.
 
    Then the outcome itself: `cited_docket_id` (**rule 1**: the normalised key — prefix, sequence,
@@ -343,17 +365,28 @@ not decisions; this record makes them decisions.
    view**: `span_names_document` is a typed column with its own `method`, `method_version`,
    `confidence` and ADR 0007 block — the same discipline that demoted `kind`, which at least
    had a column. A projection rule with no provenance is a derived claim published without
-   one, which this project does not do. `kind` is stored beside it, and **`kind` gets a class row of its own in the confidence registry** — one
-   ADR 0007 block on the `citation` row currently covers four independent judgements
-   (`cited_raw`, `kind`, `target_kind`, `target_form`) measured at different rates, and
-   decision 9 shows a reader none of them. Adding the row is an addition, not a migration,
-   but it must land in the first edge, because 98.2% is only honest beside it. On top of the
+   one, which this project does not do. `kind` is stored beside it, and **each of `citation`'s judgements becomes its own
+   assertion row rather than sharing one confidence column** *(corrected 2026-09-01, third
+   critic pass)*. A class row in the confidence registry cannot be stamped onto `citation`
+   at all: the table has **one** `confidence` and **one** ADR 0007 block covering four
+   independent judgements — `cited_raw`, `kind`, `target_kind`, `target_form` — measured at
+   different rates, so "`kind` gets a class row" was not expressible as written. Either
+   `citation`'s single block covers `cited_raw` only and the other three are separate
+   assertion rows, or the table grows per-judgement confidence, state and FK. This record
+   takes the first: `cited_raw` is the extraction, and `kind` is a typed assertion beside
+   `span_names_document`, on the same natural key, each with its own method, version and
+   confidence. It must land in the first edge, because 98.2% is only honest beside it. On top of the
    span test, a resolved edge whose target docket is in the
    **family — the docket, its sub-dockets, and its parent, which is `web/cite.py`'s closure
    and NOT `schema-draft.md` Q3's CTE** (self plus transitive descendants, no parent; this
    record named the CTE and meant the other, and the difference is the parent). Measured
    2026-09-01: with the parent, precision after this rule is 98.2% and every emitted edge
-   falls inside the closure; without it, 97.3% and two do not. Of any docket the citing
+   falls inside the closure; without it, 97.3% and two do not. **The closure is taken as the
+   union over every docket the citing decision is entered in**, not over one — `cite.py`
+   computes one docket's family, and a consolidated decision carries several
+   `decision_record` rows (1,736 multi-row ids measured), so a per-docket closure would call
+   a sibling member's docket foreign and project a self-reference *(added 2026-09-01, third
+   critic pass)*. Of any docket the citing
    decision carries a `decision_record` row in, a mention is
    **not projected at docket level** — the record already holds that membership — and **is
    projected when `cited_decision_id` resolves to a different work**, which is exactly the
@@ -402,7 +435,12 @@ not decisions; this record makes them decisions.
    joins.
 
    **`extraction_run` is a table, not a phrase** *(defined 2026-09-01, second critic pass)*:
-   one row per `(document, method, method_version)` that was passed over, with its outcome.
+   one row per `(document, method, method_version, reading_channel)` that was passed over,
+   with its outcome and its out-of-class counts. *(The channel is in the key from the start
+   — added 2026-09-01, third critic pass — because a text-layer pass and an OCR pass over one
+   document at one method version otherwise collide, and this row is the only thing that
+   distinguishes *read and found nothing* from *not yet read*. Re-keying it later would touch
+   one row per document per method across 75,000–125,000 documents.)*
    Three separate claims in this record and in `citator-schema.md` lean on it — decision 1's
    out-of-class counts, "read, and there is no `Decided:` line" for the five decisions that
    print none, and the pass record itself — and none is expressible without it, because
@@ -416,13 +454,30 @@ not decisions; this record makes them decisions.
    **`review_action` carries `key_version`, and the rendering declares its delimiter**
    *(added 2026-09-01, second critic pass)*. `schema-draft.md` § 6 declares `target_key`,
    `produced_key` and `method_version` and no `key_version`, while the supersession path
-   below requires one; and the canonical rendering
+   below requires one; **a resolution row needs a canonical rendering of its own**, because
+   `<sha256>/<page>/<target_kind>/<key>` names a *citation* while `produced_key` must name a
+   *resolution*, whose identity is seven columns (the natural key plus `method`,
+   `method_version`, `reading_channel`) — with several live resolutions per edge by decision
+   3's design, decision 9's "the reviewer's credit name where a human resolved it" would
+   otherwise return the reviewer of the citation rather than of the row *(added 2026-09-01,
+   third critic pass)*; the `UNIQUE (queue, target_table, target_key)` constraint rests on
+   the rendered string, so the typed columns beside it are a convenience and the rendering is
+   the identity; and the canonical rendering
    `<sha256>/<page>/<target_kind>/<key>` goes into `review_action.target_key TEXT` under
    `UNIQUE (queue, target_table, target_key)` with no stated escape. STB docket forms contain
    no `/`; *conjecture* — consolidated **court** case numbers, which `target_kind = 'court'`
    will carry, do. Both are free today, because `reviewer`, `reviewer_token` and
    `review_action` are paper only (no migration exists past `0013_search_caption.sql`), and
-   both become a backfill the day `/review` ships. So: `key_version` is a column; the four
+   both become a backfill the day `/review` ships.
+
+   **The correction path needs the same treatment, for the same reason** *(added 2026-09-01,
+   third critic pass)*. `schema-draft.md` § 5 says amending a human row requires a
+   `correction` event via `correction_target`, and the live table is
+   `correction (target_table TEXT, target_id INTEGER NOT NULL)` (`0006_parties.sql:115-122`)
+   — an integer. This decision forbids a surrogate id on `citation_resolution`, so the one
+   route by which the operator may correct a human citation row cannot address it. The
+   correction path takes the same text key `review_action` carries, under the same
+   `key_version`. Free now; a schema change to a live table after `/review` ships. So: `key_version` is a column; the four
    fields are **also** stored typed on `review_action`, and the rendered string is a display
    and a uniqueness convenience rather than the only place the key exists.
 
@@ -515,7 +570,11 @@ is unchanged" was true of the draft and false of the amendment.
   that table and a `treatment_vocab` polarity.
 
   The citing-side fold is sound as written: `citation.citing_document` →
-  `document_source.stb_decision_id` with `DISTINCT` folds a consolidated decision's 1,736-id
+  `decision_attachment.document_sha256` → `decision_pk` → `decision_record.stb_decision_id`
+  with `DISTINCT` — **decision 7's chosen path, not `document_source`** *(corrected
+  2026-09-01: this paragraph folded through `document_source`, which decision 7 rejects two
+  pages later because it holds several rows per document and states no direction; one record
+  cannot carry two join paths for one fold)* — folds a consolidated decision's 1,736-id
   population correctly, because every member `decision_record` row carries the same
   `stb_decision_id`.
 - **Q3 — point-in-time. Expressible.** No proposal writes to `event`; an edge is an
