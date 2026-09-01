@@ -20,7 +20,7 @@ recorded in `docs/milestones.md`. Production operations: `infra/deploy/README.md
 | `docs/README.md` | Index of the whole document set, with status per document |
 | `docs/validation-queries.md` | **The five queries the schema must answer.** All five answered on paper 2026-08-25. |
 | `docs/schema-draft.md` | The paper schema the queries were validated against; revision history included |
-| `docs/adr/` | **0001-0017 all Accepted** (0002-0008 and 0010-0015 carry Validation sections); 0016 2026-08-28 (reviewer identity); **0017 Accepted** 2026-08-31 with three amendments (citation edges: the docket class from regex+registry, the API model for the rest) |
+| `docs/adr/` | **0001-0015 all Accepted** (0002-0008 and 0010-0015 carry Validation sections); **0016 Accepted** 2026-08-28 (reviewer identity) |
 | `docs/stb-data-source.md` | Endpoint mechanics, its silent-failure traps, and every measurement taken |
 | `docs/capability-map.md` | The 28 capabilities. A menu, not a roadmap. |
 | `docs/research/comparable-platforms.md` | What CourtListener, FERC and others solved; what failed and why |

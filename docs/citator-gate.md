@@ -1,13 +1,11 @@
 # The citator gate — what must be settled before C2 is chosen
 
-**Status: superseded in part. ADR 0017 was ACCEPTED 2026-08-31** with three amendments, and
-it now carries as decisions the conventions and the two rules below, what ships at what
-confidence, and the decided-date question this document raised (accepted: extracted in the
-same pass, stored as an assertion with ADR 0007's block — never a `decision_record` column
-and never a ledger event, both of which this document fenced). **Where this document and
-ADR 0017 differ, the ADR governs.** What is still open here is what 0017 left open, listed
-in its § What must be settled before the first edge is written. This document remains the
-evidence and the reasoning; it is not the decision. Capability C2 is an **STB and ICC citator**
+**Status: open questions, not decisions — now drafted into ADR 0017 (Proposed,
+2026-08-30), which makes the conventions and the two rules below decisions and names what
+ships at what confidence.** This collects what the extraction benchmark has
+settled, what it has exposed, and what remains, so that the ADR recording the citation-edge
+shape can be written from evidence rather than from first principles. Nothing here is
+accepted; an accepted ADR supersedes any of it. Capability C2 is an **STB and ICC citator**
 (`capability-map.md`), and it has not been chosen.
 
 The rule this document exists to protect: **a citation that resolves to the wrong docket is

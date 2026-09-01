@@ -1,10 +1,11 @@
 # ADR 0017 — Citation edges ship from the API extractor, at measured confidence, with the registry and a reviewer between the model and the page
 
-- **Status:** Accepted
+- **Status:** Proposed
 - **Date:** 2026-08-30 (drafted; revised the same day after schema-critic review — see
   § Review; figures and status corrected 2026-08-31 when the batch finished — see
-  § What the finished batch changed). **Accepted by the operator 2026-08-31 with three
-  amendments folded in — see § Accepted.**
+  § What the finished batch changed). **Acceptance was taken on 2026-08-31 and HELD by the
+  operator the same day, before it left the branch — see § Acceptance, held.** The three
+  amendments are still amendment *candidates*; § Decision stands as proposed, unamended.
 
 ## Context
 
@@ -66,31 +67,8 @@ not decisions; this record makes them decisions.
 
 ## Decision
 
-1. **The docket-shaped class ships from `regex-docket-cite`; the API model is bought for
-   what regex cannot do.** *(Amended at acceptance, 2026-08-31; the sentence this replaces
-   read "The extractor that ships is the API model" and was written before the batch.)* A
-   regular expression over the text layer, validated against the registry, with the
-   own-proceeding rule, scores **95.1%** recall on docket-shaped targets — unbeaten by any
-   of the nine local candidates (best: qwen3:14b, 93.8%) and within half a point of Claude's
-   95.6%, at no per-page cost. The registry is what makes it safe: it emits a docket only
-   where one is held, so it cannot invent a proceeding.
-
-   The API model — `method = 'model:claude-sonnet-5'`,
-   `method_version = <prompt version>` (`2026-08-29` for the measured prompt) — ships for
-   the forms regex cannot reach: reporter cites, date-named decisions, court citations and
-   dated obligations. Each class names its own method on its own rows, so the two are never
-   one undifferentiated confidence.
-
-   **Not the role of a same-docket mention**, which the amendment candidate had listed and
-   which is struck here (schema-critic, at acceptance). This record's own § What the
-   finished batch changed concludes it: "neither beats reading which proceeding the
-   deciding decision sits in. The record already knows that, so it is the one thing no
-   extractor should be asked to decide" — own-docket rule 95.1%/88.1%, llama3.1:8b
-   96.9%/79.3%, qwen3:14b 83.1%/95.9%. Buying a model for it would also collide on decision
-   2's natural key, which does not include the method: the model would either mint a second
-   `citation` row for a docket target regex has already extracted at that page, or write
-   `kind` onto a row it did not extract, which § Foreclosed forbids. The role stays with the
-   own-docket rule, on the extraction row. The score
+1. **The extractor that ships is the API model: `method = 'model:claude-sonnet-5'`,
+   `method_version = <prompt version>` (`2026-08-29` for the measured prompt).** The score
    file that measured a version is recorded beside it in a small `method` registry table
    (method, version, benchmark date, score file) — the draft has none, and confidence
    stamps need one. It reads the publisher's text layer where one exists and Textract's OCR
@@ -365,13 +343,26 @@ of them. The precondition this record set for its own acceptance is met, and dec
 be taken on the complete table (§ What the finished batch changed). Still the operator's:
 acceptance, and the decided-date placement.
 
-## Accepted (the operator, 2026-08-31)
+## Acceptance, held (2026-08-31)
 
-Accepted with three of the four amendment candidates folded in. The fourth is not settled
-and is not accepted by this record.
+**Nothing in this section is accepted.** The operator accepted this record on 2026-08-31
+with three of the four amendment candidates, the schema-critic reviewed the amended record
+before the status changed, and the operator then held the acceptance the same day. The
+status reverted to Proposed and § Decision was restored to its proposed text; **the
+amendments below are candidates, not decisions**, and `regex-docket-cite` does not ship on
+the strength of anything here.
 
-1. **The docket class ships from regex + registry** (§ Decision 1, amended in place above).
-   The batch is what decided it: 95.1% against nine local models' best of 93.8%, and the
+The section is kept rather than deleted with the status, because it is the most complete
+statement of what accepting this record would mean and what it would cost — the work an
+acceptance needs, which does not have to be done twice. Read now as: **what a future
+acceptance would decide, and what it must clear first.**
+
+### What acceptance would decide
+
+Three of the four amendment candidates; the fourth is untouched.
+
+1. **The docket class would ship from regex + registry**, amending § Decision 1 — which
+   still reads as proposed, because this was held. The batch is what would decide it: 95.1% against nine local models' best of 93.8%, and the
    API extractor is bought for the classes regex cannot reach rather than for all of them.
 2. **The on-page rule joins the resolution pass**, not only the scorer. A quoted passage
    that is not in the decision's own text is not an edge, checked with the scorer's own
@@ -392,7 +383,7 @@ and is not accepted by this record.
    the pass is already reading the page and the line sits in a fixed position under the
    caption, so it costs one field today and a ~$1,335 re-run afterwards.
 
-**Not accepted, and still open: decision 8's supersession path for the human rows.** A
+**Also not settled: decision 8's supersession path for the human rows.** A
 re-extraction supersedes every extraction row and mints new citation ids under stable
 natural keys, which would strand every human `citation_resolution` and every review action
 pointing at the superseded rows — defeating human-wins in projection while preserving it on
@@ -401,10 +392,11 @@ paper. The migration that creates these tables must let a resolution follow the 
 before the first review-class edge is written, not after. Nothing else in this record waits
 on it.
 
-### Re-checked against `../validation-queries.md` (2026-08-31, at acceptance)
+### The amendments re-checked against `../validation-queries.md` (2026-08-31)
 
-The check in § Checked against was the drafter's, against the unamended decisions. What the
-three amendments change:
+The check in § Checked against was the drafter's, against the unamended decisions. This one
+was written at the acceptance that was then held; it is where a future acceptance's check
+starts rather than something it repeats. What the three candidate amendments would change:
 
 - **Amendment 1 changes the method, not the shape.** `method`/`method_version` were already
   columns on both the extraction and the resolution, and the `method` registry (decision 1)
@@ -418,8 +410,8 @@ three amendments change:
   quoted passage is not on the page is exactly the wrong edge `citator-gate.md` exists to
   prevent.
 - **Amendment 3 follows the record's assertion PATTERN, and has no table yet.** *(Corrected
-  at acceptance after schema-critic review; the first draft of this bullet said "it is the
-  grain the record already has", which is not supported by `schema-draft.md`.)* A decided
+  after schema-critic review; the first draft of this bullet said "it is the grain the
+  record already has", which is not supported by `schema-draft.md`.)* A decided
   date is a quoted assertion about a document, carrying provenance (ADR 0007) and superseded
   rather than rewritten. It is **not** an event, so **query 3's replay is untouched** — the
   ledger it reads gains no row, and a decision does not become replayable as existing before
@@ -462,13 +454,36 @@ three amendments change:
 - **ADR 0004's lesson still holds one level down**: a target cell may be a list, and each
   member is its own row.
 
-### What must be settled before the first edge is written (schema-critic, at acceptance)
+### What acceptance must clear first (schema-critic, 2026-08-31)
 
-The critic reviewed the amended record against the five queries before this status changed.
-Nothing it found breaks a query, and none of it is a reason to hold the decision — but each
-is a claim this record would otherwise make and could not keep, so each is named here rather
-than discovered in a migration. Two were corrected above (decision 1's class list, and the
-re-check's account of amendment 3); these four remain:
+The critic reviewed the amended record against the five queries. Nothing it found breaks a
+query — but each item below is a claim this record would make and could not keep, and
+together they are why the acceptance is held rather than standing. Six, not four: the first
+two were corrected inside the held acceptance, and reverting the status restored the text
+those corrections had fixed, so they are restated here as work.
+
+**A. Decision 1's class list must not buy the model for the role of a same-docket mention.**
+The candidate amendment listed it; this record's own § What the finished batch changed
+concludes the opposite — "neither beats reading which proceeding the deciding decision sits
+in. The record already knows that, so it is the one thing no extractor should be asked to
+decide" (own-docket rule 95.1%/88.1%, llama3.1:8b 96.9%/79.3%, qwen3:14b 83.1%/95.9%). It
+would also collide on decision 2's natural key, which has no method in it: the model would
+either mint a second `citation` row for a docket target regex already extracted at that
+page, or write `kind` onto a row it did not extract, which § Foreclosed forbids.
+
+**B. Amendment 3 names a table that does not exist.** `schema-draft.md` § 5's assertion
+tables are all purpose-shaped with typed value columns; none has a `(document, assertion
+type)` key or a generic value column, so the fork — a typed `decision_decided_date` against
+a generic `document_assertion` EAV row, which this draft has refused elsewhere — is
+undecided. That key is also insufficient: a text-layer and an OCR reading of the same bytes
+both assert under it and, at 10.8% CER, can disagree on the date, with no rule ordering two
+methods asserting at the same time. It must carry the reading and the source location, as
+`place_mention`'s `(document_sha256, source_location, raw_text)` already does, and the row
+must carry the **printed string** as well as the parsed date — dates are quoted, never
+computed, and recovering the printed form later is the ~$1,335 re-run the amendment exists
+to avoid.
+
+And these four:
 
 1. **Decision 4's confidence table stamps the wrong engine for the class that ships.** Its
    docket row — "resolved, not exposed → 0.953 precision, 0.953 recall" — is Claude's
@@ -502,16 +517,18 @@ re-check's account of amendment 3); these four remain:
    **This one is the operator's**: either 0018 narrows 0007 explicitly, or decision 4 drops
    the NULL case and an unmeasured class simply does not ship until it is measured.
 
-Also drifting, and not a schema question: `docs/citator-gate.md` still says "Status: open
-questions, not decisions … Nothing here is accepted", which this record has now made untrue,
-and `schema-draft.md`'s citation section is three revisions behind the accepted design
+Two more that acceptance would create rather than find, and that the hold defers with it:
+`schema-draft.md`'s citation section is three revisions behind what this record proposes
 (`citation.treatment`, `cited_decision_id` FK to `decision_record`, and the superseded
-natural key). `web/cite.py` carries a promise — "until a decided-date assertion exists, a
-decided phrase resolves to the sheet" — whose trigger amendment 3 creates without setting a
-coverage condition for flipping it; a decided-date lookup against a partial assertion set
-can confidently name the wrong decision, which is the failure the resolver was changed on
-2026-08-30 to avoid.
+natural key), and would have to be revised on acceptance rather than after it. And
+`web/cite.py` carries a promise — "until a decided-date assertion exists, a decided phrase
+resolves to the sheet" — whose trigger amendment 3 creates without setting a coverage
+condition for flipping it; a decided-date lookup against a partial assertion set can
+confidently name the wrong decision, which is the failure the resolver was changed on
+2026-08-30 to avoid. `docs/citator-gate.md` remains accurate while this is Proposed.
 
-*Accepted. Superseding any of this means a new record, never an edit to this one
-(ADR 0001) — the amendments above are folded in at acceptance, which is the moment this
-record itself reserved for them, and each says what it replaced.*
+*Proposed, not accepted. The acceptance taken on 2026-08-31 was held the same day and
+never left the branch, so no decision here has ever governed anything and there is nothing
+to supersede; § Decision is the proposed text, unamended. Accepting it means folding in the
+amendment candidates, clearing the six items above, and re-checking against
+`../validation-queries.md` — § The amendments re-checked is where that check starts.*
