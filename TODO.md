@@ -11,21 +11,20 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **v2026.08.51 is live** (2026-09-01). Navigation review Tiers 1–3 (v45–v49), five from
   the deferred pool (v50), A7 + JSON shape 2 (v51). Delete
   `/srv/docketyard/pre-v45-backup.sqlite` (296 MB) once these have held a day
-- **The comment-attachment drain is RUNNING** (started 2026-09-01 11:23 UTC, Cameron's go at
-  the client's 2 s interval): `/srv/docketyard/drain.sh` under nohup, resumable, chunks of
-  400 with a disk guard, logging to `drain.log`; `touch /srv/docketyard/drain.stop` ends it
-  after the current chunk. **~2.5 days, not the 15 hours estimated** — the 2 s interval is
-  not the constraint, the 1.46 MB downloads are (~7.6 s each). Disk holding at 20 GB
-- **26,943 comment attachments unfetched, and the poller will never fetch them** (measured
-  2026-08-31: all are `backfill`-mode observations and `poll` asks for `observed_in=
-  "forward"`). Cameron's go given 2026-08-31, **throttled and after this release**:
-  `fetch attachments --mode backfill` on the instance, resumable, watching disk (21 GB free
-  against the pruner's 20 GB floor). ~27k requests to the Board — agree the rate first
-- **ADR 0017 stays Proposed**, and `docs/citator-schema.md` now drafts its six open items
-  into proposals so reviving it is a yes/no. Schema-critic found 24 defects in the first
-  draft, including its headline: the honest precision after decision 5 is **98.2%**, not the
-  100% first published. **Cameron's**: § G (a NULL confidence narrows ADR 0007 — 0018, drop
-  the case, or a typed `confidence_state`), and whether 0017 is revived at all
+- **The comment-attachment drain is RUNNING** (started 2026-09-01 11:23 UTC at the client's
+  2 s interval): `/srv/docketyard/drain.sh`, resumable; `touch drain.stop` ends it after the
+  chunk. **~13 hours, so the original estimate was right and this line's own "2.5 days" was
+  wrong** — measured 3,600 in 2h00m55s = **2.02 s each**, attachments averaging 0.23 MB not
+  1.46. Done ~02:30 UTC 2026-09-02, needing ~5.4 GB against ~20 GB free
+- **ADR 0017 stays Proposed, declined twice by the schema-critic and corrected twice**
+  (`revive-0017`). Pass 2's D1–D14 are all addressed in d532566: the registry split so no
+  stamp is ever rewritten, precedence moved to the method registry, `citation_reading` +
+  `reading_channel` in the resolution key, `citation_treatment` as treatment's one home,
+  `human` as its own confidence state. Recall is **97.8%**, not 95.1% — the benchmark
+  filtered inside the finder and decision 1 no longer does (5ba275a); the six recovered
+  targets are all real edges. Third pass running. **The one open blocker is the exposure
+  test**, which has no single definition and yields 3, 5 or 14 of 225. **Cameron's**:
+  whether to accept once the critic clears it
 - **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against, so
   **a second unseen sample must confirm** before any type ships
 - No Anthropic key exists; any Claude-backed run needs a new one from Cameron
