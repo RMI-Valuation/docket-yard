@@ -383,8 +383,11 @@ CREATE TABLE class_measurement (
 -- ADR 0017 § The exposure test measures two populations (225 truth, 249 emitted) on one day.
 -- The recovery available today is a new `benchmark_date`, which falsifies the column.
 -- Widening the key is an ALTER plus a reindex, cheap now and cheap later — and it would
--- depart from a key an accepted record names, so it is the operator's and it is in TODO.md,
--- not taken here. `class_measurement` is also the one derived table in this migration with
+-- depart from a key an accepted record names, so it was the operator's. DECLINED
+-- 2026-09-01, on grounds worth recording: these figures are a spot in time and move as the
+-- registry grows through waves 2-3, so a re-measurement lands on a new `benchmark_date`
+-- anyway and the same-day collision is rare. In `docs/deferred.md`; pull it in if the
+-- scorer ever changes twice in one day. `class_measurement` is also the one derived table in this migration with
 -- no `method`/`method_version` of its own, which is the same gap seen from ADR 0007's side.
 CREATE UNIQUE INDEX class_measurement_identity ON class_measurement (
     measured_target, class,

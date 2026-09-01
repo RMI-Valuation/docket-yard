@@ -13,13 +13,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `correction.target_id` rebuilt to `target_key TEXT`. All eight owed items paid; two
   schema-critic passes triaged. `citation_dryrun.py` reproduces the scorer **in SQL** over
   all 60 decisions: 201 of 225 projected (89.3%), 201 true of 205 shown (98.0%)
-- **Three calls are Cameron's**, flagged not assumed: the citator tables are **held from
-  the CC0 dump** like the party module; ADR 0018 D7's "**88.4%**" for the resolution term
-  alone is an erratum (measured, that configuration is **210 of 239 = 87.9%**; 88.4% is the
-  *extraction* line); and `class_measurement`'s key is D8's exactly, so it carries **no
-  scorer version** — a same-day rescore at unchanged pipeline versions cannot be inserted,
-  which is precisely the 98.2%→98.0% case. Widening it is an ALTER, and a departure from an
-  accepted record. ADRs are append-only, so neither was edited
+- **All three review calls settled by Cameron, 2026-09-01.** The citator tables stay **held
+  from the CC0 dump**. ADR 0018 D7's "88.4%" is left as it stands — it describes a
+  configuration nothing runs, and the shipping figures in 0014 and `schema-draft.md` carry
+  the measured 87.9%. `class_measurement` keeps D8's key exactly; the scorer-version gap is
+  in `docs/deferred.md`, not worth widening an accepted key for a spot-in-time number
 - **Owed with the pipeline, not the migration**: ingest must insert into `decision_work` on
   `decision_observed`; the review queue and the "not in the record" display must join live
   `citation`, not `citation_resolution` alone; the extractor must not re-assert a key a

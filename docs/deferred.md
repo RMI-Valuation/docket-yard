@@ -200,3 +200,28 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   records the store fully holds. But an `events` gap can also mean captures that quarantined
   and were never re-asked, which SHOULD shadow. The failure taxonomy cannot tell the two
   apart; a fifth failure kind, or a quarantine count on the gap, could.
+
+## Found 2026-09-01 (v2026.08.51, migration 0014), reviewing the citator schema
+
+- **`class_measurement` carries no scorer version and no evaluation-set identity.** Its key
+  is exactly the one ADR 0018 D8 names, so a re-score at unchanged pipeline versions ON THE
+  SAME DAY cannot be inserted — which is the 98.2% → 98.0% correction of 2026-09-01, and
+  ADR 0017 § The exposure test measures two populations (225 truth, 249 emitted) on one day.
+  The fix is `score_method_version` (and/or `benchmark_set`) in the table and in
+  `class_measurement_identity`: an `ALTER` plus a reindex, cheap now and cheap later.
+  **Not taken, the operator's decision, 2026-09-01**, on grounds worth keeping: the benchmark
+  figures are a spot in time and move as the registry grows through waves 2–3 (the bias
+  inversion in `citator-schema.md`), so re-measurement lands on a new `benchmark_date`
+  anyway and the same-day collision is rare. Widening the key would also depart from an
+  accepted record for a rare case. Pull this in if the scorer ever changes twice in one day
+  (schema-critic, second pass).
+- **`docs/citator-query-2.sql`'s `family` CTE keys on `stb_decision_id`** while
+  `citing_work_id` COALESCEs to a raw sha256 for a filing-mined edge, so for those the family
+  EXISTS is always false and every filing self-mention projects. The file says so at the CTE.
+  ADR 0018 D9 provides for filing edges, so this needs its branch before extraction moves
+  beyond decisions — which this slice does not (schema-critic, both passes).
+- **No `superseded_at` on any citator assertion table.** A superseded row is dated only by
+  its successor's `asserted_at`, and a self-pointer retraction has no date at all — so
+  "what a reader saw on date D" is not fully reconstructible for the citator layer. This is
+  the 0006/0009 house idiom rather than anything 0014 invented, but it is now load-bearing
+  for a published number (schema-critic, second pass, against validation query 3).
