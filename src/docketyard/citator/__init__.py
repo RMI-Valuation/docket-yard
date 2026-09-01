@@ -37,15 +37,13 @@ it published itself. Now `load` stores an `exposed` judgement, `review` computes
 and `project` holds such an edge until a live `human` resolution exists for it. Measured on
 the benchmark: 3 edges held, exactly the three ADR 0017 § The exposure test names.
 
-**WHAT IS STILL MISSING BEFORE THIS WRITES TO PRODUCTION:**
+**AND THE SURFACE IS BUILT.** `/review` (migration 0017, `signin`, `web/review_routes.py`)
+is the one signed-in page on the site: magic-link sign-in, a session cookie scoped to
+`/review` so no read page can become identity-linked, and no page view counted, because
+ADR 0016 says the review surfaces log the decision "and nothing else". A grant can now be
+used by the person it was granted to.
 
-  1. **The finder**, per the note above, so nothing produces the findings a load consumes
-     except a replay of the benchmark.
-  2. **`/review` and sign-in.** The queue and the decision are here and reachable through
-     `docketyard citator review` / `decide`, which is enough for the operator — reviewer
-     zero, ADR 0016 — and not enough for anyone else. Magic-link sign-in exists in ADR 0011's
-     decision and not yet in code, and until it does, a grant cannot be used by the person it
-     was granted to.
-
-Both are in TODO.md rather than left for whoever runs the first load to discover.
+What is left is not a gap in the code. Nobody has run the first real load: the finder needs
+text from the enrichment box, and the box's side of the seam — the work batch out, the
+findings back — is the next piece.
 """

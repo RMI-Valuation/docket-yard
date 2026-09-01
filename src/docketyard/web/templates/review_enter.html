@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Sign in to review — {{ site_name }}{% endblock %}
+{% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block main %}
+<section class="caption">
+  {% if who %}
+  <h1 class="serif">Sign in as {{ who.credit_name }}?</h1>
+  <p>Press the button to sign in. The link works once; nothing happens until you press it, which is why a mail gateway fetching this page cannot spend it.</p>
+  <form method="post" action="/review/enter/{{ token }}">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <button class="btn" type="submit">Sign in</button>
+  </form>
+  {% else %}
+  <h1 class="serif">That link will not sign you in</h1>
+  <p>It has been used, it has expired, or the grant it named has been withdrawn. Ask for another from <a href="/review">the review page</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}

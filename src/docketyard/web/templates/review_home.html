@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Review — {{ site_name }}{% endblock %}
+{% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Review</h1>
+  <p>Signed in as <strong>{{ who.credit_name }}</strong>, which is the name shown beside every assertion you make. <form class="inline" method="post" action="/review/sign-out"><button class="linkish" type="submit">Sign out</button></form></p>
+</section>
+<section>
+  <table class="rows">
+    <caption class="visually-hidden">Queues, in order of yield</caption>
+    <thead><tr><th scope="col">Queue</th><th scope="col">What it asks</th><th scope="col" class="num">Owed</th></tr></thead>
+    <tbody>
+    {% for q in queues %}
+      <tr>
+        <th scope="row">{% if q.count %}<a href="/review/{{ q.queue }}">{{ q.queue.replace('citation_', '') }}</a>{% else %}{{ q.queue.replace('citation_', '') }}{% endif %}</th>
+        <td>{{ q.note }}</td>
+        <td class="num">{{ q.count }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted">In ADR 0017's order of yield. An exposed edge reaches no page until it is answered here; the others are already published and are asked about anyway.</p>
+</section>
+{% endblock %}

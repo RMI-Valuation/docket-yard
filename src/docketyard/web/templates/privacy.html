@@ -7,8 +7,8 @@
 
   <h2>Reading is anonymous</h2>
   <ul>
-    <li>No account is needed to read anything, and there is nothing to sign in to.</li>
-    <li>No cookies are set. Display preferences (compact rows, record ids, theme) live in your own browser and are never sent to the server.</li>
+    <li>No account is needed to read anything. There is one sign-in on this site, at <code>/review</code>, and it is for the handful of people the operator has asked to check the machine's work — see below. Nothing you can read is behind it.</li>
+    <li>No cookie is set on any page of the record. Display preferences (compact rows, record ids, theme) live in your own browser and are never sent to the server. The one cookie this site can set belongs to <code>/review</code>, is scoped to that path, and is therefore never sent when you read anything.</li>
     <li>The web server's access log does not record your address, your browser, any identifier, or what you searched for. It records the page and the time, for keeping the site up. Logs are kept for days, not months.</li>
     <li>The site keeps hourly counts of requests by kind of page, response code, size and speed, and whether the visitor looked like a crawler — numbers only, with no address, browser, page or identifier of any sort, kept for 90 days by the hour and indefinitely by the day.</li>
     <li>There are no analytics scripts, no third-party fonts or assets, and no tracking of any kind. Every request the page makes goes to this site.</li>
@@ -27,8 +27,12 @@
     <li>Emails are sent through Amazon Simple Email Service. If your mail server rejects a message or reports it as unwanted, the address is added to a stop list so it is never mailed again.</li>
   </ul>
 
+  <h2>Reviewers</h2>
+  <p>A few people check the machine's work — whether a citation the software found really points where it says. That is writing to the record, not reading it, so it carries a name: a reviewer chooses how they are credited, and the credit appears beside what they decided. There is no anonymous review, and there is no sign-up; the operator grants access by hand and can withdraw it.</p>
+  <p>A reviewer account is the same thing as a subscription: an email address, held as ciphertext under the operator's key, with no password. Signing in is a link in the post. What is stored is the decisions — what was reviewed, what was decided, why, and when — and <strong>nothing about what a reviewer reads</strong>: no page views, no timing beyond the decision's own timestamp, and no address joined to any of it. Their session cookie is scoped to <code>/review</code>, so it is not sent when they read the record, and their reading is as anonymous as yours.</p>
+
   <h2>What can be produced under legal process</h2>
-  <p>Only what exists: the subscription rows above, for addresses that are currently following a docket — and producing them in readable form would take the operator's key, since the record itself holds only ciphertext. There is no reading history, no visitor log with identities in it, and no record of past subscriptions. Emails are sent through Amazon Simple Email Service, which necessarily sees the addresses it delivers to. {{ site_name }} will not volunteer anything, will insist that any demand be lawful and specific, and will tell the affected person unless a court forbids it.</p>
+  <p>Only what exists: the subscription rows above, and the reviewer rows, for addresses that are currently following a docket or hold a grant — and producing them in readable form would take the operator's key, since the record itself holds only ciphertext. There is no reading history, no visitor log with identities in it, and no record of past subscriptions. Emails are sent through Amazon Simple Email Service, which necessarily sees the addresses it delivers to. {{ site_name }} will not volunteer anything, will insist that any demand be lawful and specific, and will tell the affected person unless a court forbids it.</p>
 
   <h2>The operator</h2>
   <p>{{ site_name }} is operated by RMI Valuation, LLC, which works in this industry. The architecture above is the answer to the obvious question: the operator cannot see who reads what, because no such record exists; it could see who follows a docket only by deliberately decrypting the subscription rows with the key, and this page says so rather than pretending otherwise.</p>

@@ -185,12 +185,54 @@ def grant(con, email: str, credit_name: str, note: str, *, counts_public: bool =
     ).lastrowid
 
 
-def revoke(con, reviewer_id: int) -> None:
-    """Withdraw the grant. It ends NEW actions and leaves every past row attributed."""
+def revoke(con, reviewer_id: int) -> int:
+    """Withdraw the grant, and end every live session with it. Past rows stay attributed.
+
+    `signin.whoami` re-checks `revoked_at` on every request, so the withdrawal bites without
+    this — but leaving the rows would leave live tokens naming a reviewer nobody may act as,
+    and ADR 0016's "a role that can be withdrawn needs a way to be withdrawn" is better
+    served by the token being gone than by every future reader of it remembering to check.
+    Returns the number of sessions ended.
+    """
+    from docketyard.citator import signin
+
+    if (
+        con.execute("SELECT 1 FROM reviewer WHERE reviewer_id = ?", (reviewer_id,)).fetchone()
+        is None
+    ):
+        # a mistyped id used to print "revoked; 0 sessions ended" and exit 0 while the real
+        # reviewer kept both grant and session
+        raise ValueError(f"no reviewer {reviewer_id}")
     con.execute("UPDATE reviewer SET revoked_at = ? WHERE reviewer_id = ?", (utcnow(), reviewer_id))
+    return signin.end_all_sessions(con, reviewer_id)
 
 
-def pending(con, queue: str, limit: int = 50) -> list[dict]:
+def find_docket(con, printed: str) -> tuple[int, str] | None:
+    """A docket a reviewer TYPED, as (id, raw). `AB 124`, `AB-124`, `Docket No. AB 124` all
+    find the same row, because `keys.normalise` is the one place a printed docket becomes a
+    key and a human should not have to know an internal id to correct one.
+
+    Returns None when nothing matches, which the caller must refuse: a correction that names
+    no docket is worse than no correction, because it publishes under a reviewer's name.
+    """
+    key = keys.normalise(printed or "")
+    if key is None:
+        return None
+    docket_id = keys.registry(con).get(key)
+    if docket_id is None:
+        return None
+    raw = con.execute("SELECT raw_docket FROM docket WHERE docket_id = ?", (docket_id,)).fetchone()
+    return (docket_id, raw[0] if raw else key)
+
+
+def owed(con, queue: str) -> int:
+    """How many items a queue really holds. `len(pending(..., limit=N))` reports N once the
+    queue passes N and stays there — and the home page's whole job is saying how much is
+    owed, so a number that stops moving is worse than no number."""
+    return len(pending(con, queue, limit=None))
+
+
+def pending(con, queue: str, limit: int | None = 50) -> list[dict]:
     """One queue, oldest key first, with the evidence beside the question (ADR 0016).
 
     Rendering a queue writes NOTHING. ADR 0011's promise to readers covers reviewers too:
@@ -216,7 +258,7 @@ def pending(con, queue: str, limit: int = 50) -> list[dict]:
     ]
     if queue == "citation_unresolved":
         rows = [r for r in rows if in_the_held_record(con, r["target_key"])]
-    return rows[:limit]
+    return rows if limit is None else rows[:limit]
 
 
 def decide(

@@ -18,9 +18,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   is now shipping code, and `citation_dryrun.py` regenerates the run it is measured on, so
   ADR 0017's table is re-derivable at last. **The figures moved again and every line has its
   own reason** — migration 0016's header is the one to quote
-- **One thing still blocks production**: no `/review` or magic-link sign-in. The queue and
-  the decision exist as `docketyard citator review|decide|grant`, which serves reviewer zero
-  and nobody else; `reviewer_token` has no writer
+- **`/review` and magic-link sign-in ship** (migration 0017). The one cookie this server
+  sets, scoped to `/review` so no read page can become identity-linked, and no page view
+  counted. `/privacy` and `/contribute` say so. **Nothing now blocks the citator from
+  production** — what remains is the operator's call on when to run the first real load
 - **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not
   in the record" display joining live `citation`; the veto's trigger the day it stops being
   inert. Twelve smaller findings in `docs/deferred.md`

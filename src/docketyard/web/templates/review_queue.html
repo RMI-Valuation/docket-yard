@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ queue }} — Review — {{ site_name }}{% endblock %}
+{% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">{{ queue.replace('citation_', '') }}</h1>
+  <p>{{ note }}</p>
+  <p class="muted"><a href="/review">Back to the queues</a> — signed in as {{ who.credit_name }}. Nothing about what you read here is stored; only the decision, with your name on it.</p>
+</section>
+{% if not items %}
+<section><p>Nothing owed. </p></section>
+{% endif %}
+{% for item in items %}
+<section class="record">
+  <h2 class="serif">{{ item.target_key }}</h2>
+  <p class="quoted">{{ item.quoted_passage }}</p>
+  <p class="muted">page {{ item.page }} of <a href="/document/{{ item.citing_document }}">the citing document</a>{% if item.cited_docket %} — the machine resolved this to <strong>{{ item.cited_docket }}</strong>{% endif %}</p>
+  <form method="post" action="/review/{{ queue }}/decide">
+    <input type="hidden" name="key" value="{{ item.target_key_rendered }}">
+    <label for="note-{{ loop.index }}">Why — recorded as the provenance</label>
+    <input id="note-{{ loop.index }}" name="note" type="text" required>
+    <label for="docket-{{ loop.index }}">If correcting: the docket it should be, as the Board prints it</label>
+    <input id="docket-{{ loop.index }}" name="docket" type="text" placeholder="AB 124" autocomplete="off">
+    <button class="btn" type="submit" name="decision" value="accepted">Accept</button>
+    <button class="btn" type="submit" name="decision" value="corrected">Correct</button>
+    <button class="btn" type="submit" name="decision" value="rejected">Reject</button>
+    <button class="btn" type="submit" name="decision" value="escalated">Escalate</button>
+  </form>
+</section>
+{% endfor %}
+{% endblock %}

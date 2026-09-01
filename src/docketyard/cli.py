@@ -266,9 +266,12 @@ def _citator(args: argparse.Namespace) -> int:
         # The grant needs the vault key; a REVIEW does not, because a decision never touches
         # an address. That split is why a reviewer can work on a box that cannot read one.
         if args.what == "revoke":
-            review.revoke(con, args.reviewer)
+            ended = review.revoke(con, args.reviewer)
             con.commit()
-            print(f"reviewer {args.reviewer} revoked; past rows stand and stay attributed")
+            print(
+                f"reviewer {args.reviewer} revoked; {ended} session(s) ended."
+                " Past rows stand and stay attributed."
+            )
             return 0
         v = vault.Vault.from_env()
         if v is None:

@@ -3,7 +3,13 @@
 Every page is derived from the store at request time (the agency moves ~250 times a month;
 caching is a later concern) and quotes the record as printed — captions and decision
 summaries appear in the Board's own capitals until a casing method exists as a derived
-assertion with provenance. No account, no cookie, no tracking on any read path (ADR 0011).
+assertion with provenance. No account, no cookie, no tracking ON ANY READ PATH (ADR 0011).
+
+`/review` is the one exception and it is fenced rather than excused (ADR 0016: reviewing is
+writing to the record, and writing has a name). Its cookie is scoped `Path=/review`, so it
+is never sent with a page of the record and no read page can become identity-linked; its
+paths are excluded from the traffic counter, because ADR 0016 says the review surfaces log
+the decision "and nothing else; no page views". `web/review_routes.py` holds the rules.
 
 The server is a reader with one exception: it opens the store read-only for every page,
 refuses a missing file or a store whose schema is not the one this code was built for, and
@@ -51,13 +57,14 @@ from docketyard.store import (
     traffic,
 )
 from docketyard.store.db import MIGRATIONS, dump_json, utcnow
-from docketyard.web import cite, documents, feeds, labels, mcp, sitemaps, urls
+from docketyard.web import cite, documents, feeds, labels, mcp, review_routes, sitemaps, urls
 
 _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 2  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
 POLL_MINUTES = 30  # the watch's cadence, as /coverage states it (compose: --interval 30)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
-NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/suggest")  # tokens, consent
+NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/suggest", "/review")
+# tokens, consent, and the one signed-in surface
 MOUNTS = ("/static/", "/data/files/")  # StaticFiles: streams, validates and HEADs itself
 DISCOVERY_CACHE = 86400  # robots and sitemaps: a day
 PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move once a poll
@@ -188,6 +195,8 @@ def create_app(
     public_dir: str | Path | None = None,  # where `docketyard dump` writes (M9)
     traffic_path: str | Path | None = None,  # hourly counts, no identifier (docs/traffic.md)
     store_fetch=None,  # fetch(key) -> file-like from the blob store; None = no store
+    # off only for a local http:// run; the cookie is Secure everywhere a reviewer really is
+    secure_cookie: bool = True,
 ) -> FastAPI:
     _check_store(db_path)
     public_dir = Path(public_dir) if public_dir else Path(db_path).parent / "public"
@@ -312,6 +321,12 @@ def create_app(
         """The count: kind of page, status class, size, speed, crawler or not — then the
         request is forgotten (docs/traffic.md; the sentence on /privacy). Counting must
         never cost a page."""
+        path = _path(request)
+        if path == review_routes.PREFIX or path.startswith(review_routes.PREFIX + "/"):
+            # ADR 0016: the review surfaces "log the actions above and nothing else; no page
+            # views, no timing beyond the action's own timestamp". A count carries no
+            # identifier, but a page view is a page view, and the record says none is kept.
+            return
         try:
             counter.record(
                 _path(request),
@@ -1744,6 +1759,19 @@ def create_app(
     @app.get("/filing/{stb_id}/view")
     def filing_viewer(request: Request, stb_id: str, file: int = 0):
         return viewer(request, "filing", stb_id, file)
+
+    # `/review` last, so its `/{queue}` catch-all cannot shadow a named route above it, and
+    # in its own module because its rules are not this one's (ADR 0016).
+    review_routes.register(
+        app,
+        db_path=db_path,
+        connect=_connect,
+        connect_rw=_connect_rw,
+        render=render,
+        site_host=site_host,
+        sender=sender,
+        secure_cookie=secure_cookie,
+    )
 
     for route in app.routes:  # HEAD answers as GET without a body, on every page
         if isinstance(route, APIRoute) and "GET" in route.methods:
