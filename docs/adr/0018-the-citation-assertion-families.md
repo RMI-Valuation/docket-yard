@@ -52,6 +52,14 @@ record is still free.
    at it. Superseding the *row* is legal though the *key* is not; without that pointer the
    old row stays live beside its replacement and the count doubles.
 
+   **For that to change anything, the projection must join live `citation`** *(added
+   2026-09-01, multi-agent review)*. A retraction supersedes the `citation` row and nothing
+   else: the resolutions, judgements and treatments anchored on the retracted key still carry
+   `superseded_by IS NULL`, so a projection that reads only those tables still publishes the
+   mis-kinded edge. Joining `citation` and requiring it live is what makes the retraction
+   effective — and it is the reason the stranded child rows are harmless rather than
+   double-counting, which decision 2 asserted without the join that delivers it.
+
    `citation` carries **no `source_location`** — `page` in the key is its location. That is a
    deliberate departure from `schema-draft.md` § 5's uniform block and must not be reversed
    by restoring the column.

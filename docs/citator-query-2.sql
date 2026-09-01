@@ -112,6 +112,12 @@ SELECT DISTINCT
        rd.method, rd.method_version, rd.reading_channel,
        rg.cited_raw, rg.quoted_passage, rg.source_location, rd.page
 FROM resolved rd
+-- 0018 D2: the parent MUST be joined and MUST be live, or a retracted target_kind changes
+-- nothing -- its resolutions still read superseded_by IS NULL and the mis-kinded edge
+-- still projects. This join is what makes a retraction effective.
+JOIN citation c         ON (c.citing_document, c.page, c.target_kind, c.target_key)
+                         = (rd.citing_document, rd.page, rd.target_kind, rd.target_key)
+                       AND c.superseded_by IS NULL
 JOIN citing_work cw     ON cw.citing_document = rd.citing_document
 JOIN treat t            ON (t.citing_document, t.page, t.target_kind, t.target_key)
                          = (rd.citing_document, rd.page, rd.target_kind, rd.target_key)

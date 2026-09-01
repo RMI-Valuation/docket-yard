@@ -70,6 +70,17 @@ published without a human reading it first**, and on what evidence.
    own method, version and confidence, never a predicate computed inside a view. Its default,
    where nothing has judged an edge, is to **suppress**.
 
+   **The test is disjunctive over every occurrence of the target in the citing work: one
+   occurrence naming a document projects the edge** *(settled 2026-09-01, multi-agent review,
+   which found the occurrence undecided and the stored span systematically unrepresentative —
+   the extractor quotes the FIRST match's line, which is usually the running caption)*. The
+   question the rule answers is "does this decision cite that work as a document", and a
+   single occurrence saying so answers it yes; requiring the *first* occurrence to say so
+   would let a caption on page 1 decide an edge argued on page 9. This is what was measured:
+   the 98.0% and 89.3% above join every occurrence's span before testing. It errs toward
+   projecting a real edge rather than suppressing one, which is the right direction for a
+   rule whose other side is already the conservative default.
+
 5. **What is left to a human** (ADR 0016), in order of yield: the exposed class and every
    rule-2 repair; unresolved docket targets whose number falls inside the held record (an
    ICC-era number is expected to fail and is not queued); same-docket citations naming a
