@@ -1,9 +1,25 @@
-# The tables ADR 0017 needs — proposals
+# The tables ADR 0018 needs — proposals
 
 > **Status: proposals, 2026-09-01. Nothing here is accepted, and nothing here ships.**
-> ADR 0017 is Proposed: its acceptance was taken on 2026-08-31 and held the same day, and its
-> § What acceptance would have rested on lists six items. This document works each into a concrete
-> shape so that reviving 0017 is a yes or a no rather than a design session.
+> ADR 0017 and ADR 0018 are both Proposed and both cleared by the schema-critic. This document
+> works each open item into a concrete shape so that deciding them is a yes or a no rather
+> than a design session.
+>
+> **Decision numbers below are the pre-split ones.** ADR 0017 grew to 1,082 lines by bundling
+> a shipping decision with a schema and was split on 2026-09-01. Where this document says
+> "decision N", read:
+>
+> | pre-split | now |
+> | --- | --- |
+> | 1 — regex ships, registry check in resolution, one owning method | 0017 D1–D2; 0018 D1 |
+> | 2 — the `citation` row, its natural key, the reading | 0018 D1–D3 |
+> | 3 — resolution and precedence | 0018 D4, D7 |
+> | 4 — confidence and the measurement registry | 0017 D3; 0018 D8 |
+> | 5 — self-reference, the span test, the judgements | 0017 D4; 0018 D5 |
+> | 6 — what is left to a human | 0017 D5 |
+> | 7 — projection folds by work | 0018 D9 |
+> | 8 — not in this slice; `extraction_run`; keys; the decided date | 0017 D7; 0018 D10 |
+> | 9 — what a reader sees | 0017 D6 |
 >
 > **Revised the same day, after schema-critic review, which found 24 defects in the first
 > draft — including one in its headline measurement.** What that changed is recorded rather
@@ -92,7 +108,7 @@ that page, or write `kind` onto a row it did not extract, which § Foreclosed fo
 **And the same argument goes further than 0017 uses it.** Claude still ships for other classes
 and will incidentally emit docket-shaped targets that regex owns. Nothing says what becomes of
 them: dropping them contradicts "a row is never discarded", keeping them collides. *Proposal:*
-**one owning method per `(target_kind, target_form)`** (settled in ADR 0017 decision 1;
+**one owning method per `(target_kind, target_form)`** (settled in ADR 0018 decision 1;
 keyed on the form alone, regex would own `docket` while only ever emitting `target_kind =
 'stb'`, so the model's **court** docket numbers fall out of class), with out-of-scope
 findings recorded at run level — an `extraction_run` row carrying counts — so "discarded" is an auditable number and not a silent
@@ -157,7 +173,7 @@ so a document with no line gets no row — making "read, and there is no printed
 indistinguishable from "not yet passed over". Both the docket calendar and `web/cite.py`'s
 coverage condition need that distinction. *Proposal:* record the **pass**, not the absence — an
 `extraction_run` row per `(document, method, method_version, reading_channel)` — the channel
-is in the key from the start (ADR 0017 decision 8), because a text-layer pass and an OCR pass
+is in the key from the start (ADR 0018 decision 10), because a text-layer pass and an OCR pass
 over one document at one method version otherwise collide, and re-keying later touches one row
 per document per method across 75,000–125,000 documents — which § A already wants for a
 second reason.
@@ -173,7 +189,7 @@ be written down, not implied.**
 
 ## C. Decision 4's confidence table stamps the wrong engine
 
-**Settled in ADR 0017 decision 4, 2026-09-01.** This section originally proposed keying
+**Settled in ADR 0018 decision 8, 2026-09-01.** This section originally proposed keying
 confidence `(method, method_version, class, reading_channel, benchmark_date)` and letting the
 resolution row **join** it rather than stamp a number of its own. That is **not** what shipped,
 and this paragraph is corrected rather than left standing, because the acceptance sentence binds

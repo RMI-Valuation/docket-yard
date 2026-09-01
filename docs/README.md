@@ -22,7 +22,7 @@ Documentation that isn't load-bearing is drag.
 
 | # | Document | Purpose | Status |
 | --- | --- | --- | --- |
-| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0016 accepted (**0016** 2026-08-28, a reviewer has an identity; reading stays anonymous); **0017 proposed**, its acceptance taken and held 2026-08-31 |
+| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0016 accepted (**0016** 2026-08-28, a reviewer has an identity; reading stays anonymous); **0017 and 0018 proposed** 2026-09-01 — what citation edges ship at, and the five assertion families that hold them; both cleared by the schema-critic, both awaiting the operator |
 | 02 | [`document-ir.md`](document-ir.md) | What the PDF→JSON layer captures | stub |
 | 03 | [`methodology.md`](methodology.md) | Extraction rules; doubles as the published methodology page | page published 2026-08-26 (`web/templates/methodology.html`); extraction rules await extraction |
 | 04 | [`licensing.md`](licensing.md) | Code, data and trademark terms | drafted |

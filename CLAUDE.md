@@ -20,7 +20,7 @@ recorded in `docs/milestones.md`. Production operations: `infra/deploy/README.md
 | `docs/README.md` | Index of the whole document set, with status per document |
 | `docs/validation-queries.md` | **The five queries the schema must answer.** All five answered on paper 2026-08-25. |
 | `docs/schema-draft.md` | The paper schema the queries were validated against; revision history included |
-| `docs/adr/` | **0001-0015 all Accepted** (0002-0008 and 0010-0015 carry Validation sections); **0016 Accepted** 2026-08-28 (reviewer identity); **0017 still Proposed** — cleared by the schema-critic 2026-09-01 on its sixth pass, **awaiting the operator's decision**; a clearance of the paper shape only, endorsing no published number |
+| `docs/adr/` | **0001-0015 all Accepted** (0002-0008 and 0010-0015 carry Validation sections); **0016 Accepted** 2026-08-28 (reviewer identity); **0017 and 0018 Proposed** 2026-09-01, both cleared by the schema-critic and **awaiting the operator** — 0017 is what ships and at what measured confidence, 0018 the five assertion families; the exposure test still bars the first published edge |
 | `docs/stb-data-source.md` | Endpoint mechanics, its silent-failure traps, and every measurement taken |
 | `docs/capability-map.md` | The 28 capabilities. A menu, not a roadmap. |
 | `docs/research/comparable-platforms.md` | What CourtListener, FERC and others solved; what failed and why |

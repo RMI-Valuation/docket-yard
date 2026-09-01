@@ -196,7 +196,7 @@ Recorded as an ADR: which method ships, at what confidence, and what is left to 
 "Local is good enough" and "API for the hard tier, local for the routine tier" are both
 acceptable outcomes; "ship without measuring" is not.
 
-**Drafted:** `adr/0017-citation-edges-ship-from-the-api-extractor-at-measured-confidence.md`.
+**Drafted:** `adr/0017-citation-edges-ship-at-measured-confidence.md` (what ships, at what confidence) and `adr/0018-the-citation-assertion-families.md` (the shape that holds it) — split 2026-09-01.
 The API extractor ships; the local model does not write edges. The figure that decides it
 was read only after the operator's check of the sheet (2026-08-30): on **docket-shaped
 targets** — what a citator resolves — Claude scores 95.9% recall and 95.5% precision, and

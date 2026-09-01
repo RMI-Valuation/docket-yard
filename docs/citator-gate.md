@@ -1,8 +1,9 @@
 # The citator gate — what must be settled before C2 is chosen
 
-**Status: open questions, not decisions — drafted into ADR 0017 (Proposed 2026-08-30,
-amended 2026-09-01), which makes the conventions and the two rules below decisions and names
-what ships at what confidence. Since the 2026-09-01 amendment the ADR also carries THIS
+**Status: open questions, not decisions — drafted into ADR 0017 (what ships, at what
+measured confidence) and ADR 0018 (the five assertion families that hold it), both Proposed
+2026-09-01 and both cleared by the schema-critic. Between them they make the conventions and
+the two rules below decisions. Since the 2026-09-01 amendment the ADR also carries THIS
 document's open decided-date question as a decision — extracted in the same pass, stored as
 an assertion, never a `decision_record` column and never a ledger event, which are the two
 shapes fenced below. The ADR is still Proposed, so nothing is accepted yet.** This collects what the extraction benchmark has
@@ -105,7 +106,7 @@ would never fire on a docket number. A docket needs its own rule, keyed on digit
   alone: 52.5% of the 22,702 held decisions have a sibling served within 21 days of their
   own service date, so a decided date matched against `service_date` can confidently name
   the wrong decision. The decided date is wanted for display, for reconciliation against
-  paper, and for the calendar. ADR 0017 now carries it as an amendment candidate: extract
+  paper, and for the calendar. ADR 0017 decision 7 now carries it as a decision: extract
   it in the same pass, one field, or pay a re-run for it later. Placement
   is contested: a new `kind` in the sheet, an assertion carrying the full ADR 0007 block in
   the store, and **not** a `decision_record` column (that table mirrors the latest
