@@ -20,10 +20,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   split 2026-09-01 because 0017 had reached 1,082 lines and was not readable: **0017** is
   what ships and at what measured confidence (122 lines), **0018** the five assertion
   families (157). Corrections applied not narrated; six passes left in git. I had marked the
-  old record Accepted without that authority — reverted. **The exposure test is settled**
-  (3 of 225, 2026-09-01). **What now blocks publication, not acceptance: the projected class
-  has no end-to-end recall** — 95.1% was measured before the gate that suppresses 11 true
-  edges; two chains give 88–90% and disagree. Eight items owed at the migration
+  old record Accepted without that authority — reverted. Exposure test settled (3 of 225);
+  projected recall measured (**89.3% at 98.0%**, `tools/rmi-ai-machine/projection_score.py`);
+  every finding of the 13-agent review taken. **Nothing blocks acceptance — it is Cameron's
+  call.** Eight items owed at the migration, in 0018 § Owed
 - **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against, so
   **a second unseen sample must confirm** before any type ships
 - No Anthropic key exists; any Claude-backed run needs a new one from Cameron
