@@ -8,11 +8,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **v2026.08.45 is live** (2026-09-01, navigation Tiers 1–2). Verified on the site: the
-  three walled-off weeks show their 91 filings, 1996 is reachable, `/coverage` names
-  2026-08 alone for filings and decisions, search leads with captions. A pre-deploy copy of
-  the store sits at `/srv/docketyard/pre-v45-backup.sqlite` (296 MB) — delete it once the
-  release has held a day; Litestream is the real answer (ADR 0012)
+- **v2026.08.46 is live** (2026-09-01). Tiers 1–2 (v45) and A6 (v46), both verified on the
+  site. A pre-deploy copy of the store sits at `/srv/docketyard/pre-v45-backup.sqlite`
+  (296 MB) — delete it once the releases have held a day; Litestream is the real answer
 - **26,943 comment attachments unfetched, and the poller will never fetch them** (measured
   2026-08-31: all are `backfill`-mode observations and `poll` asks for `observed_in=
   "forward"`). Cameron's go given 2026-08-31, **throttled and after this release**:
@@ -22,9 +20,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   day**, before it left the branch; § Decision is unamended. Its § Acceptance, held keeps
   the work — what acceptance would decide, the amendments re-checked, and the six things it
   must clear first. Still gates OCR, the citator and the reviewer build
-- **A6 decided 2026-08-31, not built**: an AB sub-docket subscription stops folding to its
-  family; every other prefix keeps folding. It changes what a subscription means, so it is
-  its own change with its own review
+- **`/d/AB-55/sub/794X.json` still answers with the whole family** while its page and feed
+  now cover the one line (code review, v2026.08.46). Changing it alters what an existing
+  consumer receives: a `shape_version` decision, and **Cameron's** — `docs/deferred.md`
 - **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against, so
   **a second unseen sample must confirm** before any type ships
 - No Anthropic key exists; any Claude-backed run needs a new one from Cameron
