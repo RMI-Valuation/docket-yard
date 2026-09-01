@@ -54,14 +54,34 @@ DOCKET = re.compile(
 # IT IS ANCHORED TO THE NUMBER, never searched over a window. A window is how the first
 # draft of this fix read `Docket No. FD 35873, slip op. at 4 (2015)` as `FD 35873 (2015)`
 # and `EP 445 and FD 36873 (Sub-No. 1)` as `EP 445 (1)` — a resolvable citation silently
-# stored unresolved, or a key pointing at the wrong proceeding. The leading `\s*` still
-# crosses the line break in `EP 711 (Sub-\nNo. 2)`, which is what the window was there for.
+# stored unresolved, or a key pointing at the wrong proceeding.
+#
+# The space before the parenthesis is HORIZONTAL ONLY. A newline there means the paren
+# belongs to something else: `EP 445` at the end of a line followed by a list marker `(a)`
+# was keying as `EP 445 (A)`, which the old finder never exposed because it rebuilt targets
+# from match groups instead of reading the page. Inside the parenthetical a newline is still
+# allowed, which is the wrapped `EP 711 (Sub-\nNo. 2)` this pattern exists for.
 #
 # The contents are a sub-docket number of at most four digits with an optional suffix letter
 # (the largest held sub-docket is 1195), or a bare suffix of one or two letters (2,711 held
-# dockets carry one: `X`, `TA`). A year or a pin cite — `(2015)`, `(STB served Oct. 5,
-# 2017)` — matches nothing, and the key stays the bare docket.
-SUBNO = re.compile(r"\s*\(\s*(?:Sub[-\s]*No\.?\s*)?(\d{1,4}[A-Z]?|[A-Z]{1,2})\s*\)", re.I)
+# dockets carry one: `X`, `TA`). A wordy parenthetical — `(STB served Oct. 5, 2017)` —
+# matches nothing and the key stays the bare docket.
+#
+# A YEAR IS EXCLUDED. `(2015)` is four digits and was being read as sub-docket 2015: a real,
+# resolvable citation stored `unresolved`, plus a permanent bogus item in the review queue.
+# The exclusion is measured rather than guessed — 2026-09-01, NO held docket has a
+# sub-sequence of 1900 or more, the largest being 1195 — so `19xx`/`20xx` cannot be a
+# sub-docket anyone could cite.
+#
+# It applies to BOTH spellings, `(2015)` and `(Sub-No. 2015)`. Excluding only the bare form
+# would leave the key non-idempotent — `EP 328 (Sub-No. 2015)` keying to `EP 328 (2015)` and
+# that keying back to `EP 328` — and a key that cannot be read back is the whole defect this
+# pattern was rewritten to remove.
+SUBNO = re.compile(
+    r"[^\S\n]*\(\s*(?:Sub[-\s]*No\.?\s*)?"
+    r"(?!(?:19|20)\d\d\s*\))(\d{1,4}[A-Z]?|[A-Z]{1,2})\s*\)",
+    re.I,
+)
 # what `normalise` emits for a docket, and therefore what the docket-shaped class IS
 DOCKET_KEY = re.compile(r"^[A-Z]{2,4} \d+")
 # a key with no sub-docket and no suffix: `EP 445`, not `EP 445 (1)` or `AB 1296 (X)`. The

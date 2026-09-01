@@ -684,8 +684,8 @@ one of two family terms does:** the target docket is outside the citing work's f
 docket, its sub-dockets and its parent, unioned over every docket a consolidated decision is
 entered in — **or**, if it is inside, a live `span_names_document` judgement says `true`,
 defaulting to **suppress** where nothing has judged it (ADR 0017 D4). Reading the resolution term
-alone publishes every own-proceeding mention: measured on the sixty-decision sheet
-2026-09-01, 214 true of 243 shown = **88.1%**, against 205 of 209 = **98.1%** with both terms.
+alone publishes every own-proceeding mention. The comparison is in migration 0016's § The
+figures, with the run that produced it.
 (ADR 0018 D7 states this comparison as "88.4%", which is near enough that the difference is
 the run rather than the rule. Both figures moved that day when a defect in the scorer's
 registry was fixed — it dropped the suffix from 2,711 held dockets, so every finding naming
@@ -846,9 +846,12 @@ table over. The judgement itself is `not-applicable`: it is not a claim about co
 a mechanical property of the printed form, and ADR 0017 measures how OFTEN it fires (3 of 225,
 3 of 249 emitted), which is a rate and not a precision.
 
-Measured on the sixty-decision benchmark, 2026-09-01: the rule projects **205 of 225
-(91.1%)**, and a reader sees **202 (89.8%)** until those three — `AB 1014`, `AB 1071`,
-`AB 1242`, exactly the three ADR 0017 § The exposure test names — have been reviewed.
+**The figures live in ONE place and are re-derivable**: migration 0016's header carries the
+restated table, and `tools/rmi-ai-machine/citation_dryrun.py` regenerates the run it was
+measured on. On the sixty decisions the rule projects 206 of 225 and a reader sees 203 until
+the three edges the exposure test names have been answered. Quote that header, or better,
+run the tool — a figure with no `class_measurement` row behind it is one nobody has
+checked.
 
 ```sql
 reviewer (                         -- a REGISTRY (identity only), not an assertion table
@@ -919,9 +922,14 @@ is refined, not broken: a `human` row is never superseded by a **model** pass; a
 action** (or the operator's `correction` event, outside any queue) is what may supersede
 it.
 
-**Attribution of pre-table `human` rows is a rule, not a pass.** The party seed, the
-joins and the corrections carry `source_location` like `{"file": "parties/seed.py"}` and
-no review action. They are not rewritten — an UPDATE on provenance is break A2, and a
+**Attribution of pre-table `human` rows is a rule, not a pass — the operator's decision,
+2026-09-01, and a narrowing of ADR 0016 recorded here rather than left implicit.** 0016 says
+those rows "**are re-attributed** to the operator's reviewer id when the table exists"; the
+table exists as of migration 0015 and nothing was rewritten. Doing it literally would be an
+UPDATE on provenance, which is break A2, and a synthetic review action would falsify what
+happened — so the rule below stands in its place, the way ADR 0008's narrowing was recorded
+on 2026-08-31. The party seed, the joins and the corrections carry `source_location` like
+`{"file": "parties/seed.py"}` and no review action. They are not rewritten — an UPDATE on provenance is break A2, and a
 synthetic action would falsify what happened. The rule, recorded here once: **a `human`
 assertion no live review action names is the operator's** (the operator is the first
 `reviewer` row, ADR 0016's "reviewer zero"). "Who says so" for those rows answers through
@@ -1021,8 +1029,8 @@ the normal case and D4's verb gate keeps every `decided <date>` phrase at docket
 query stays thin even after the treatment pass runs, and the docket-grain variant is the one a
 reader's "cited by" list is actually built from.
 That is stated rather than left for a reader to discover — what ships is "what cites this", at
-91.1% projected recall and 98.1% precision — restated 2026-09-01 from 89.3%/98.0% when the
-scorer's registry was fixed — which is the wedge and is worth shipping. New
+the projected recall and precision in migration 0016's § The figures, which is the wedge and
+is worth shipping. New
 treatment types remain vocabulary INSERTs; typing untyped edges remains a higher-`method_version`
 pass over kept rows — no re-ingest, no migration.
 

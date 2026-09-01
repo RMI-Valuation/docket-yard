@@ -8,20 +8,19 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **Migration 0015 + `citator.review` are written and uncommitted** — reviewer, token and
-  `review_action`; the exposure test is now a stored judgement and the projection HOLDS an
-  exposed edge until a human answers. On the benchmark that is 3 edges, exactly the three
-  ADR 0017 names: the rule projects 205 of 225 (91.1%), a reader sees 202 (89.8%) until the
-  queue is worked. `docketyard citator review|decide` are the verbs
-- **The figures moved: 91.1% / 98.1%**, from 89.3%/98.0%. `projection_score.printed()`
-  round-tripped each docket row through a non-idempotent normaliser, dropping the suffix
-  from **2,711 held dockets**, so every finding naming one scored as unresolvable. Fixed
-  both sides, pinned equal. **ADR 0017 § The figures is not re-derivable** — that run
-  directory is not in `data/`
-- **Two things still block the citator from production**, both in `citator/__init__.py`: no
-  finder (its `kind` judgement has no vocabulary), and no `/review` or magic-link sign-in —
-  the queue and the decision exist as `docketyard citator review` / `decide`, which serves
-  reviewer zero and nobody else
+- **The review gate holds** (migration 0015): the exposure test is a stored judgement and an
+  exposed edge waits for a human. Five held on the benchmark
+- **The figures: 94.7% projected / 97.7% precision by the rule, 93.3% to a reader.** Three
+  causes, separated in 0016's header: the scorer's registry dropped the suffix from 2,711
+  dockets; the finder now joins every occurrence on a page, not the first; and precision
+  FELL, which is the honest trade for finding more
+- **The finder ships too** (migration 0016 seeds `kind`; `citator/find.py`). The whole chain
+  is now shipping code, and `citation_dryrun.py` regenerates the run it is measured on, so
+  ADR 0017's table is re-derivable at last. **The figures moved again and every line has its
+  own reason** — migration 0016's header is the one to quote
+- **One thing still blocks production**: no `/review` or magic-link sign-in. The queue and
+  the decision exist as `docketyard citator review|decide|grant`, which serves reviewer zero
+  and nobody else; `reviewer_token` has no writer
 - **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not
   in the record" display joining live `citation`; the veto's trigger the day it stops being
   inert. Twelve smaller findings in `docs/deferred.md`

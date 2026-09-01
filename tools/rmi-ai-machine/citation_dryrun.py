@@ -4,8 +4,8 @@
 chain THROUGH THE SHIPPED CODE — `docketyard.citator` — so the check is of what production
 would do, not of a second implementation that agrees with it today.
 
-    python tools/rmi-ai-machine/citation_dryrun.py data/benchmark/runs-regex/regex-own \
-        [--registry data/prod-copy.sqlite] [--store <path>]
+    python tools/rmi-ai-machine/citation_dryrun.py [data/benchmark/text] \
+        [--registry data/prod-copy.sqlite] [--store <path>] [--out <run dir>]
 
 The point is not to produce a number. The number is already known. The point is that the
 shipped resolver, span test, loader and projection must produce THE SAME number: if SQL and
@@ -15,12 +15,15 @@ disagreement is the finding. The script exits non-zero when they differ.
 Nothing here writes to a real store. It copies the registry to a scratch database, migrates
 it, and loads into that. It is a dry run in the literal sense.
 
-**It replays a measured finder rather than running the shipped one, because there is no
-shipped one yet** (see `docketyard/citator/__init__.py`): `benchmark_regex.py` classifies
-each hit `citation` or `caption` from a document-word window, which is the `kind` judgement
-of ADR 0018 D5, and that judgement's value domain is deliberately empty until the typing
-pass decides it. So this reads the benchmark run's own citation findings and feeds them to
-the shipped loader in the interchange shape the enrichment box will POST.
+**It runs the SHIPPED finder over the benchmark text**, not a replay of a run directory:
+`docketyard.citator.find` reads `data/benchmark/text/*.txt` and produces the interchange the
+enrichment box will POST. So this is the whole chain in shipping code — finder, resolver,
+span test, loader, projection — measured against the same sheet, and the run directory it
+consumes is reproducible from the pipeline rather than a fossil nobody can regenerate.
+
+It is also the configuration ADR 0017 § The figures describes and could not re-derive: the
+finder with NO REGISTRY FILTER (D2), emitting every docket-shaped hit including the captions
+the earlier tool dropped.
 
 Two things it also checks, because both are claims the records make about themselves:
 
@@ -43,7 +46,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 import benchmark_score as bs  # noqa: E402
 import projection_score as ps  # noqa: E402
 
-from docketyard.citator import keys, load, methods, project, resolve  # noqa: E402
+from docketyard.citator import find, keys, load, methods, project, resolve  # noqa: E402
 from docketyard.store import db  # noqa: E402
 
 SCORE_FILE = "tools/rmi-ai-machine/projection_score.py"
@@ -83,22 +86,16 @@ def citing_documents(con: sqlite3.Connection, ids: set[str]) -> dict[str, str]:
     return out
 
 
-def as_findings_document(doc: dict, sha: str) -> dict:
-    """The benchmark run, in the shape the enrichment box will POST (`citator/load.py`)."""
-    return {
-        "document_sha256": sha,
-        "method": methods.EXTRACTOR,
-        "method_version": doc["prompt_version"],
-        "reading_channel": methods.CHANNEL_TEXT,
-        "pages_read": len(doc.get("pages", [])),
-        "findings": [
-            {"page": page["page"], "target": f["target"], "quoted": f.get("quoted", "")}
-            for page in doc.get("pages", [])
-            for f in page.get("findings", [])
-            # the measured finder's own citation/caption call, replayed — see the docstring
-            if f.get("kind") == "citation" and f.get("target_kind") == "stb"
-        ],
-    }
+def own_dockets(con: sqlite3.Connection) -> dict[str, set[str]]:
+    """Per decision, the normalised keys of every docket it is entered in — the record's own
+    knowledge, which ADR 0017 D1 says no extractor should be asked to guess."""
+    out: dict[str, set[str]] = {}
+    for did, prefix, seq, sub_seq, suffix in con.execute(
+        "SELECT r.stb_decision_id, d.prefix, d.sequence, d.sub_sequence, d.suffix"
+        " FROM decision_record r JOIN docket d USING (docket_id)"
+    ):
+        out.setdefault(str(did), set()).add(keys.registry_key(prefix, seq, sub_seq, suffix))
+    return out
 
 
 def register(con: sqlite3.Connection, version: str, scores: dict) -> dict:
@@ -214,9 +211,60 @@ def pct(part: int, whole: int) -> str:
     return f"{100 * part / whole:5.1f}%" if whole else "    n/a"
 
 
-def main(run: Path, registry: Path, store: Path) -> int:
+def run_the_finder(text_dir: Path, out: Path, own: dict[str, set[str]]) -> Path:
+    """The SHIPPED finder over every extracted decision, written in benchmark_run.py's shape
+    so `projection_score.py` can score it beside the models.
+
+    This is the run ADR 0017 § The figures describes and could not re-derive — the finder
+    with NO registry filter (D2) — and it is regenerated on every dry run rather than kept as
+    a directory nobody can reproduce. `data/` is disposable, and this is what makes it so.
+    """
+    out.mkdir(parents=True, exist_ok=True)
+    for stale in out.glob("*.json"):
+        stale.unlink()
+    orphans = []
+    for path in sorted(text_dir.glob("*.txt")):
+        did = path.stem.rsplit("-", 1)[-1]
+        if did not in own:
+            # without the decision's own dockets the rule calls every caption a citation:
+            # degrade LOUDLY, never silently (the same guard benchmark_regex.py carries)
+            orphans.append(did)
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        doc = {
+            "decision_id": did,
+            "model": methods.EXTRACTOR,
+            "prompt_version": find.FINDER_VERSION,
+            "pages": [
+                {
+                    "page": page,
+                    "findings": [
+                        {
+                            **f,
+                            # benchmark_run.py's convention: a caption is `self`, and
+                            # `benchmark_score.collect(…, 'citation', 'stb')` reads the pair
+                            "target_kind": "stb" if f["kind"] == "citation" else "self",
+                            "note": "regex-docket-cite; no registry filter (ADR 0017 D2)",
+                        }
+                        for f in find.find(body, own[did])
+                    ],
+                }
+                for page, body in find.pages(text)
+            ],
+        }
+        (out / f"{did}.json").write_text(json.dumps(doc, indent=1), encoding="utf-8")
+    if orphans:
+        print(f"  WARNING: {len(orphans)} decisions have no docket in the registry: {orphans[:5]}")
+    return out
+
+
+def main(text_dir: Path, registry: Path, store: Path, out: Path) -> int:
+    con0 = sqlite3.connect(f"file:{registry}?mode=ro", uri=True)
+    own = own_dockets(con0)
+    con0.close()
+    run = run_the_finder(text_dir, out, own)
     py = python_chain(run, registry)
-    print(f"run {run}  registry {registry}\n")
+    print(f"finder over {text_dir} -> {run}   registry {registry}\n")
     print("PYTHON CHAIN (tools/rmi-ai-machine/projection_score.py):")
     print(
         f"  extraction {py['found']:3d}/{py['truth']}   resolution {py['resolved']:3d}"
@@ -228,7 +276,7 @@ def main(run: Path, registry: Path, store: Path) -> int:
     )
 
     con = scratch_store(registry, store)
-    version = json.loads(next(run.glob("*.json")).read_text(encoding="utf-8"))["prompt_version"]
+    version = find.FINDER_VERSION
     stamps = register(con, version, py)
     held = keys.registry(con)
     docs = citing_documents(con, {p.stem for p in run.glob("*.json")})
@@ -245,7 +293,23 @@ def main(run: Path, registry: Path, store: Path) -> int:
         if sha is None or sha in seen:
             continue
         seen.add(sha)
-        result = load.load_document(con, as_findings_document(doc, sha), held, stamps)
+        result = load.load_document(
+            con,
+            {
+                "document_sha256": sha,
+                "method": methods.EXTRACTOR,
+                "method_version": doc["prompt_version"],
+                "reading_channel": methods.CHANNEL_TEXT,
+                "pages_read": len(doc.get("pages", [])),
+                "findings": [
+                    {"page": page["page"], **f}
+                    for page in doc.get("pages", [])
+                    for f in page.get("findings", [])
+                ],
+            },
+            held,
+            stamps,
+        )
         totals["emitted"] += result.emitted
         totals["out_of_class"] += result.out_of_class
         totals["unresolved"] += result.unresolved
@@ -355,16 +419,15 @@ def main(run: Path, registry: Path, store: Path) -> int:
 if __name__ == "__main__":
     argv = sys.argv[1:]
     args = [a for a in argv if not a.startswith("--")]
-    if not args:
-        sys.exit(__doc__)
 
     def opt(name, default):
         return Path(argv[argv.index(name) + 1]) if name in argv else Path(default)
 
     sys.exit(
         main(
-            Path(args[0]),
+            Path(args[0]) if args else Path("data/benchmark/text"),
             opt("--registry", "data/prod-copy.sqlite"),
             opt("--store", "data/citation-dryrun.sqlite"),
+            opt("--out", "data/benchmark/runs-regex/shipped"),
         )
     )

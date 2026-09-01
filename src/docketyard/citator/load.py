@@ -145,6 +145,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
     # key permits multiplicity and the span test must see all of it if it ever arrives.
     passages: dict[tuple[int, str], list[str]] = {}
     printed: dict[tuple[int, str], str] = {}
+    kinds: dict[tuple[int, str], str | None] = {}
     for finding in doc.get("findings", []):
         key = keys.normalise(finding.get("target", ""))
         if key is None or not keys.DOCKET_KEY.match(key):
@@ -153,10 +154,38 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
         at = (int(finding["page"]), key)
         passages.setdefault(at, []).append(finding.get("quoted", ""))
         printed.setdefault(at, finding.get("target", ""))
+        # the finder's own reading of the page, kept because a CAPTION IS STORED LIKE ANY
+        # OTHER FINDING (the operator's decision, 2026-09-01) rather than dropped into a
+        # total nobody can check. A target read twice on a page keeps the first call; the
+        # two agree by construction, since `kind` is a property of the key and the window.
+        kinds.setdefault(at, finding.get("kind"))
 
     for (page, key), quotes in sorted(passages.items()):
         passage = " | ".join(q for q in quotes if q)
         out.emitted += 1
+        # A CAPTION IS AN UNMEASURED CLASS. Every published figure is of the CITATION class —
+        # nobody has scored what the finder calls a caption — so a caption's rows carry
+        # `unmeasured`, point at no measurement, and the projection's
+        # `confidence_state IN ('measured','human')` predicate keeps them off every page.
+        #
+        # Two things follow. A caption is STORED rather than dropped, which is the whole
+        # reason both kinds are emitted (migration 0016). And it cannot reach a reader
+        # through some other term — not even the span test, whose pattern is NOT the
+        # finder's and can answer `true` where the finder said caption (`Decision 41123`
+        # matches one and not the other). What changes this is measuring the caption class,
+        # not editing a predicate.
+        caption = kinds.get((page, key)) == "caption"
+
+        def stamp(stage: str, _caption: bool = caption) -> tuple:
+            """(confidence, confidence_state, measured_target, score_row_id) for a row.
+
+            Migration 0014's CHECK is an equivalence, so all four move together: a row is
+            `measured` exactly when it points at the measurement it was stamped from.
+            """
+            if _caption:
+                return (0, "unmeasured", None, None)
+            return (stamps[stage][1], "measured", stage, stamps[stage][0])
+
         con.execute(
             "INSERT OR IGNORE INTO citation_key (citing_document, page, target_kind,"
             " target_key, key_version, first_seen_at) VALUES (?, ?, 'stb', ?, ?, ?)",
@@ -184,18 +213,8 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
                 "INSERT INTO citation (citing_document, page, target_kind, target_key,"
                 " asserted_from_document, method, method_version, asserted_at, confidence,"
                 " confidence_state, measured_target, score_row_id)"
-                " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, 'measured', 'citation', ?)",
-                (
-                    sha,
-                    page,
-                    key,
-                    sha,
-                    method,
-                    version,
-                    now,
-                    stamps["citation"][1],
-                    stamps["citation"][0],
-                ),
+                " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (sha, page, key, sha, method, version, now, *stamp("citation")),
             )
             if live is not None:  # step three: the retired row points at its replacement
                 con.execute(
@@ -218,8 +237,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
             " quoted_passage, source_location, asserted_from_document, method,"
             " method_version, asserted_at, confidence, confidence_state, measured_target,"
             " score_row_id)"
-            " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'measured',"
-            " 'citation', ?)",
+            " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 sha,
                 page,
@@ -234,8 +252,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
                 method,
                 version,
                 now,
-                stamps["citation"][1],
-                stamps["citation"][0],
+                *stamp("citation"),
             ),
         )
         if old_reading:
@@ -267,8 +284,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
                 " target_key, method, method_version, reading_channel, outcome,"
                 " cited_docket_id, cited_decision_id, asserted_from_document, asserted_at,"
                 " confidence, confidence_state, measured_target, score_row_id)"
-                " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'measured',"
-                " 'citation_resolution', ?)"
+                " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ),
             insert_args=(
                 sha,
@@ -282,8 +298,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
                 r.decision_id,
                 sha,
                 now,
-                stamps["citation_resolution"][1],
-                stamps["citation_resolution"][0],
+                *stamp("citation_resolution"),
             ),
         )
         # The span judgement is a STORED ASSERTION (ADR 0017 D4) — it decides what every
@@ -328,11 +343,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
                 channel,
                 sha,
                 now,
-                *(
-                    (stamps["projection"][1], "measured", "projection", stamps["projection"][0])
-                    if names
-                    else (0, "unmeasured", None, None)
-                ),
+                *(stamp("projection") if names else (0, "unmeasured", None, None)),
             ),
         )
 
@@ -393,6 +404,44 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
                 now,
             ),
         )
+
+        # `kind`: what the FINDER read, stored beside what the span test judged. They ask a
+        # neighbouring question and are measured separately (95.1%/88.1% against the span
+        # test's own figure), so keeping both is what makes a disagreement visible. Nothing
+        # reads it yet; the projection's document-versus-proceeding term is the span test.
+        if kinds.get((page, key)) in ("citation", "caption"):
+            _supersede_if_changed(
+                con,
+                table="citation_judgement",
+                id_col="judgement_id",
+                where=(
+                    "citing_document = ? AND page = ? AND target_kind = 'stb'"
+                    " AND target_key = ? AND judgement = 'kind' AND method = ?"
+                    " AND method_version = ? AND reading_channel = ?"
+                ),
+                where_args=(sha, page, key, method, version, channel),
+                compare="value",
+                values=(kinds[(page, key)],),
+                insert=(
+                    "INSERT INTO citation_judgement (citing_document, page, target_kind,"
+                    " target_key, judgement, value_domain, value, method, method_version,"
+                    " reading_channel, asserted_from_document, source_location, asserted_at,"
+                    " confidence, confidence_state) VALUES (?, ?, 'stb', ?, 'kind', 'kind',"
+                    " ?, ?, ?, ?, ?, ?, ?, 0, 'unmeasured')"
+                ),
+                insert_args=(
+                    sha,
+                    page,
+                    key,
+                    kinds[(page, key)],
+                    method,
+                    version,
+                    channel,
+                    sha,
+                    dump_json({"page": page}),
+                    now,
+                ),
+            )
 
         if r.outcome == "resolved":
             out.resolved += 1

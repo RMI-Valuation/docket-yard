@@ -317,3 +317,64 @@ Its Tier 0 and Tier 1 findings were fixed in the same session and are pinned by
 - **No sign-in.** `reviewer_token` has no writer and no reader: magic-link sign-in is in ADR
   0011's decision and not in code, so a grant cannot be used by the person it was granted to.
   `docketyard citator grant` and `decide` serve reviewer zero; `/review` is the blocker.
+
+## Found 2026-09-01, reviewing the finder (code-review high + stb-ingest-specialist)
+
+The silent-data findings were fixed the same session and are pinned by
+`tests/test_citator_find.py` and `tests/test_citator_pipeline.py`. These are what was left.
+
+- **A hyphenated sub-docket resolves to the PARENT.** The Board prints `WB25-33` for
+  `WB 25 (Sub-No. 33)`, and decision 52676 in the benchmark is docketed that way and cites
+  `WB-20-50`. `keys.DOCKET` stops at the number, so the key is `WB 25` and the published edge
+  points at the parent proceeding. `find.printed` now absorbs the tail so `cited_raw` is
+  honest, but the KEY does not carry it — that is a `keys.py` change and an ADR question
+  (116 WB dockets), and it should be decided rather than slipped in. Its second effect: for
+  that decision the own-docket rule inverts, because `own` holds `WB 25 (33)` while the
+  finding keys `WB 25`, so its own caption reads as a citation and is saved from publication
+  only by the family closure's parent term.
+- **The grammar is not the measured tool's**, so migration 0016's table reproduces ADR
+  0017's configuration rather than being it. `keys.DOCKET` allows six digits where
+  `benchmark_regex.py` capped at five; it does not accept the interposed words in
+  `NOR Docket No. 42183` (decision 52616's caption), so that form is now lost outright; and
+  `SUBNO` takes a bare `(X)` the old pattern did not. Reconciling the two grammars, or
+  retiring the old one, is the fix.
+- **A six-digit fusion is outside both the repair and the exposure test.** `resolve.py`'s
+  comments still assert the finder's old `\d{1,5}` cap as the reason. `FD 368731` — a
+  five-digit docket with a fused footnote marker, the shape `docs/stb-data-source.md` names —
+  now keys as a six-digit unresolvable that neither rule 2 nor the exposure test looks at.
+- **The `projection` measurement stores the RULE's figure, under a rule version that names
+  the gate.** `methods.PROJECTION_RULE` carries `gate=exposed@…`, but the stored recall and
+  precision are what the rule projects before the gate holds anything back. What a reader
+  sees depends on review backlog, which no single measurement can carry. A second
+  `class_measurement` row under its own class — `docket, after review gate` — is the fix.
+- **The regenerated run records neither the registry it was made against nor a fingerprint
+  of it.** `kind` is a function of `own`, which comes from the registry, and 0016's own
+  argument is that the old figures were un-re-derivable partly because of which registry they
+  were scored against. Writing the path and `SELECT COUNT(*) FROM docket` beside the run
+  closes it.
+- **An orphan decision silently lowers every figure.** A decision with no `decision_record`
+  is skipped, its truth targets stay in the 225 denominator, and the response is a `print`
+  fifty lines above the numbers. It should be fatal, or printed beside them.
+- **`kind` is work-relative but stored per document.** The own-docket rule is defined against
+  the citing WORK's dockets; the judgement key has no work in it. ADR 0018 D9 measured 5
+  documents of 20,992 hanging under two decision ids — for those, loading from each work in
+  turn writes opposite `kind` values on one key and grows an oscillating supersession chain.
+  Nothing reads `kind`, so no edge moves; the chain still grows.
+- **Captions enter the exposed review queue.** No queue carries a `kind` term, so a human can
+  be asked to clear a self-reference the projection suppresses whichever way they answer.
+  Bounded noise, but it is the "trains a reviewer to skim" cost ADR 0017 narrowed the
+  exposure test to avoid.
+- **`target_kind` means two things either side of the seam.** The benchmark run shape uses it
+  to distinguish caption from citation; in the store it is the target's namespace (`stb` vs
+  `court`) and `load` hardcodes `'stb'`. Nothing breaks only because `load` ignores the field.
+- **The dry run's agreement check will report NO for something ADR 0017 D4 permits.** The
+  Python side counts citation-kind findings only; the store now holds captions, and an
+  in-family caption whose own line names a document SHOULD project — that is the
+  reconsideration edge query 2 exists to find. It needs naming as a fourth legitimate
+  difference beside the rule-2 and review-gate exclusions.
+- **`find` drops a finding whose raw will not normalise, with no counter.** `load` has
+  `out_of_class` for exactly that, so a drop inside the finder is the one drop nothing can
+  audit. Near-unreachable today, one line to close.
+- **A backfill pass and a forward pass over one document are indistinguishable afterwards.**
+  `extraction_run` carries no `ingest_mode`. Citation edges reach no alert join, so the
+  trap's usual hazard is absent, but the distinction is gone.

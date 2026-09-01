@@ -140,6 +140,13 @@ def in_the_held_record(con, key: str) -> bool:
 def grant(con, email: str, credit_name: str, note: str, *, counts_public: bool = False) -> int:
     """Give a person the reviewer grant, or re-grant one that was withdrawn.
 
+    THE OPERATOR IS REVIEWER ZERO (ADR 0016), and the pre-table `human` rows — the party
+    seed, the joins, the corrections — are NOT re-attributed to that id. 0016 says they are;
+    doing it would be an UPDATE on provenance (break A2) and a synthetic review action would
+    falsify what happened. `schema-draft.md` § 7's rule stands in its place, recorded as the
+    operator's decision of 2026-09-01: a `human` assertion no live review action names is
+    the operator's.
+
     THE OPERATOR DOES THIS BY HAND, and there is no self-service (ADR 0016). The address is
     hashed and sealed with the same vault every other account uses (ADR 0014), so this needs
     the key — while `decide` does not, because a review never touches an address. That split

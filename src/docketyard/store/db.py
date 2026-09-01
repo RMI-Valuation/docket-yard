@@ -28,6 +28,7 @@ MIGRATIONS: list[tuple[int, str]] = [
     (13, "0013_search_caption.sql"),
     (14, "0014_citations.sql"),
     (15, "0015_review.sql"),
+    (16, "0016_citation_kind.sql"),
 ]
 
 

@@ -131,6 +131,13 @@ def declare(
         ("citation_resolution", HUMAN, human_version, HUMAN, "resolve", 0, None, None),
         # the span test ranks and carries no role: its family's projection has no role term
         ("citation_judgement", SPAN_METHOD, judge.SPAN_VERSION, CHANNEL_TEXT, None, 1, None, None),
+        # `kind` at rank 2, AT THE EXTRACTOR'S OWN METHOD AND VERSION — `load` writes those
+        # from the findings document, so a constant here would register a version nothing
+        # wrote and leave every kind row unregistered. Nothing reads it yet (the projection
+        # reads `span_names_document` and `exposed`), but it is declared so a later ranked
+        # read cannot drop them all through an INNER join, which is how a bumped
+        # SPAN_VERSION suppressed every in-family edge before `declare` learned to refuse.
+        ("citation_judgement", extractor, extractor_version, CHANNEL_TEXT, None, 2, None, None),
     ]
     for row in rows:
         try:
