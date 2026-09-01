@@ -1,6 +1,6 @@
 # ADR 0017 — Citation edges ship from the API extractor, at measured confidence, with the registry and a reviewer between the model and the page
 
-- **Status:** Proposed — **amended 2026-09-01 and ready for acceptance**
+- **Status:** Proposed — amended 2026-09-01, **and NOT ready: the schema-critic declined it**
 - **Date:** 2026-08-30 (drafted; revised the same day after schema-critic review — see
   § Review; figures corrected 2026-08-31 when the batch finished). Acceptance was taken on
   2026-08-31 and **held** by the operator the same day. On 2026-09-01 the operator settled
@@ -415,7 +415,27 @@ of them. The precondition this record set for its own acceptance is met, and dec
 be taken on the complete table (§ What the finished batch changed). Still the operator's:
 acceptance, and the decided-date placement.
 
-## Ready for acceptance (2026-09-01)
+## Offered for acceptance 2026-09-01, and declined by the schema-critic
+
+> **The critic's verdict on the amended record: no.** Seventeen defects, six of them
+> every-row, and three of the amended decisions contradict each other or an accepted record
+> in ways that determine table shape. Its own summary of what the amendments got right is
+> worth keeping — the typed natural key over a digest, `target_key` vs `produced_key`,
+> `reading_channel` and `benchmark_date` in the confidence key, the honest retraction of 100%
+> to 98.2%, and `decision_work` keyed after measuring 1,736 consolidated ids rather than
+> before. **None of that is re-litigated.** What follows the list below is what must change.
+>
+> The largest finding is one nobody had caught, including the critic's own first pass:
+> **`regex-docket-cite` filters its emissions against the registry, so it cannot emit an
+> unresolvable docket target at all.** That empties decision 6's second review queue by
+> construction, makes decision 4's "shown as `cites EP 445` (not in the record)" a display the
+> shipping extractor can never produce, and makes `citator-gate.md`'s rule 1 — *record the
+> span and the raw string; do not guess, and do not discard* — unimplementable, because the
+> span is never seen. It also puts the shipped recall ceiling at 219 of 225, not 225. The fix
+> is cheap today and needs a paid re-run later: **the registry check belongs in the resolution
+> pass, which is what decision 3 already says resolution is.**
+
+## What acceptance would have rested on (2026-09-01)
 
 The acceptance taken on 2026-08-31 was held the same day because the schema-critic, reviewing
 the amended record, found six things it would have claimed and could not keep. The operator
