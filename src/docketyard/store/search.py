@@ -307,7 +307,11 @@ def rebuild(con: Connection, *, force: bool = False) -> dict:
         for kind, ref, path, title, body, fact, caption in source(con):
             counts[kind] += 1
             if kind != "skipped":
-                rows.append((kind, ref, path, _plain(title), _plain(body), fact, caption))
+                rows.append(
+                    # every text column, not only the two the snippet reads today:
+                    # "no marker can come from the record" should be true of the row
+                    (kind, ref, path, _plain(title), _plain(body), _plain(fact), _plain(caption))
+                )
     con.execute("BEGIN IMMEDIATE")
     con.execute("DELETE FROM search_doc")
     con.executemany(
