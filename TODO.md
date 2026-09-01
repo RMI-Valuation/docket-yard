@@ -8,10 +8,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **v2026.08.49 is live** (2026-09-01). The navigation review is built through Tier 3:
-  Tiers 1–2 (v45), A6 (v46), weeks index and breadcrumb (v47), `/parties` (v48), `/dockets`
-  (v49). All verified on the site. A pre-deploy copy of the store sits at
-  `/srv/docketyard/pre-v45-backup.sqlite` (296 MB) — delete it once these have held a day
+- **v2026.08.50 is live** (2026-09-01). The navigation review is built through Tier 3
+  (v45–v49), and v50 cleared five from `docs/deferred.md` that needed no decision. A
+  pre-deploy copy of the store sits at `/srv/docketyard/pre-v45-backup.sqlite` (296 MB) —
+  delete it once these have held a day
 - **26,943 comment attachments unfetched, and the poller will never fetch them** (measured
   2026-08-31: all are `backfill`-mode observations and `poll` asks for `observed_in=
   "forward"`). Cameron's go given 2026-08-31, **throttled and after this release**:
