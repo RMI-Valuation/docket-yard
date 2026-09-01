@@ -6,13 +6,33 @@
 -- NOTHING WRITES TO THESE TABLES YET. The extraction pipeline is the next piece of work.
 -- What ships here is the shape, so that the first edge has somewhere correct to land.
 --
--- Dry-run through this shape before it was committed: the sixty-decision benchmark loaded
--- through all four live families and the projection computed in SQL reproduces the Python
--- scorer pair for pair — 201 of the 225 truth targets projected (89.3%), and 201 true of the
--- 205 shown (98.0%). All 60 decisions had fetched bytes to hang an edge on, so the two sides
--- were compared over the whole sheet and not a subset; the tool reports that count on every
--- run and exits non-zero if the two chains disagree on a single pair.
--- `tools/rmi-ai-machine/citation_dryrun.py` is that run.
+-- Dry-run through this shape: the sixty-decision benchmark loaded through all four live
+-- families and the projection computed in SQL reproduces the Python scorer pair for pair.
+-- All 60 decisions had fetched bytes to hang an edge on, so the two sides were compared over
+-- the whole sheet and not a subset; `tools/rmi-ai-machine/citation_dryrun.py` reports that
+-- count on every run and exits non-zero if the chains disagree on a single pair. Since
+-- 2026-09-01 it runs THROUGH `docketyard.citator`, so it checks the shipping code rather
+-- than a second implementation that agrees with it today.
+--
+-- THE FIGURES MOVED ON 2026-09-01, AFTER A DEFECT IN THE SCORER'S REGISTRY, and they are
+-- restated here rather than quietly swapped. `projection_score.printed()` built its registry
+-- by round-tripping each `docket` row through `norm_target`, which is not idempotent: it
+-- reads `AB 1296X` as `AB 1296 (X)` but reads `AB 1296 (X)` as `AB 1296`. So all 2,711 held
+-- dockets that carry a suffix and no sub-docket entered the registry WITHOUT their suffix,
+-- every finding naming one scored as a registry unresolvable, and the projected figure was
+-- measured low. Fixed by building the key from the columns, which is what the shipped
+-- `citator.keys.registry_key` does and what a test now pins the two equal on.
+--
+--   on `data/benchmark/runs-regex/regex-own`, re-derived 2026-09-01:
+--     extraction   214 of 225   95.1%
+--     resolution   214 of 225   95.1%   (0 registry unresolvables, was 4)
+--     PROJECTION   205 of 225   91.1%   (was 201, 89.3%)
+--     precision    205 true of 209 shown = 98.1%   (was 201 of 205, 98.0%)
+--
+-- ADR 0017 § The figures publishes 97.8 / 93.3 / 89.3 and 98.0%, measured on a DIFFERENT
+-- run — the finder with its registry filter removed — whose run directory is not in `data/`.
+-- Those numbers are therefore NOT RE-DERIVABLE today, and they were measured with the same
+-- broken registry. Restating them is the operator's, and it needs that run kept.
 --
 -- ============================================================================
 -- The eight items ADR 0018 § Owed at the migration owes, and where each is paid
@@ -167,14 +187,12 @@
 -- docket a consolidated decision is entered in), OR — if it is inside — a live
 -- `span_names_document` judgement says 'true', defaulting to SUPPRESS where nothing has
 -- judged it. Measured on the sixty-decision sheet, 2026-09-01: reading the resolution term
--- alone and stopping there shows 210 true of 239 = 87.9%, against 201 of 205 = 98.0% with
--- both terms.
---   (ADR 0018 D7 states this comparison as "88.4% instead of 98.0%". 88.4% is
---   citator-schema.md's EXTRACTION precision as scored, 220 of 249 emitted, which is a
---   different configuration; 87.9% is this one, measured by removing the family branch from
---   the dry-run projection. An erratum for the operator on an accepted record, not a
---   correction this migration may make — so the measured figure is stated here with its
---   method and the ADR is left as it stands.)
+-- alone and stopping there shows 214 true of 243 = 88.1%, against 205 of 209 = 98.1% with
+-- both terms (re-derived 2026-09-01 with the registry fixed, by removing the family branch
+-- from the dry-run projection). ADR 0018 D7 states this comparison as "88.4%", which is
+-- near enough to 88.1% that the difference is the run, not the rule — an earlier reading of
+-- 87.9% here was an artefact of the same registry defect, and the argument it started was
+-- not worth having.
 --
 -- THE SPAN TERM IS PER PAGE AND THE RULE IS PER WORK, and the two are reconciled by the
 -- fold, not by a wider judgement. ADR 0017 D4 makes the test disjunctive over every
@@ -203,9 +221,9 @@
 -- measured with that behaviour, so it is a mis-description to fix and not a regression to
 -- chase. Fixing it is a change to the finder's `seen` set, never to this key.
 --
--- The figures this shape ships at are 89.3% projected recall — 201 of the 225 docket-shaped
--- truth targets on the sixty-decision sheet — and 98.0% precision, which is 201 true of the
--- 205 edges shown and has a different denominator. Both are re-derivable with
+-- The figures this shape ships at are 91.1% projected recall — 205 of the 225 docket-shaped
+-- truth targets on the sixty-decision sheet — and 98.1% precision, which is 205 true of the
+-- 209 edges shown and has a different denominator. Both are re-derivable with
 -- tools/rmi-ai-machine/projection_score.py. They are the PROJECTION line. The extraction
 -- line (97.8%) describes the finder and is never quoted for what a reader sees.
 
@@ -387,8 +405,9 @@ CREATE TABLE class_measurement (
 -- 2026-09-01, on grounds worth recording: these figures are a spot in time and move as the
 -- registry grows through waves 2-3, so a re-measurement lands on a new `benchmark_date`
 -- anyway and the same-day collision is rare. In `docs/deferred.md`; pull it in if the
--- scorer ever changes twice in one day. `class_measurement` is also the one derived table in this migration with
--- no `method`/`method_version` of its own, which is the same gap seen from ADR 0007's side.
+-- scorer ever changes twice in one day. `class_measurement` is also the one derived table
+-- in this migration with no `method`/`method_version` of its own, which is the same gap
+-- seen from ADR 0007's side.
 CREATE UNIQUE INDEX class_measurement_identity ON class_measurement (
     measured_target, class,
     extraction_method, extraction_method_version,

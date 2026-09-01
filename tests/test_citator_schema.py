@@ -611,15 +611,15 @@ def test_a_veto_suppresses_only_what_it_actually_vetoed(tmp_path):
     """A veto pass that records every target it checked AND CLEARED is the auditable way to
     write one. On `role` alone it would suppress everything it looked at, so the projection
     reads the outcome too — and `vetoed` was in the vocabulary and read by nothing."""
-    sql = Path("docs/citator-query-2.sql").read_text(encoding="utf-8")
-    assert "WHERE role = 'suppress' AND outcome = 'vetoed'" in sql
-    from pathlib import Path as _P
+    from docketyard.citator import project
 
-    dry = _P("tools/rmi-ai-machine/citation_dryrun.py").read_text(encoding="utf-8")
-    assert "role = 'suppress' AND outcome = 'vetoed'" in dry
-    # and the confidence predicate reaches the parent too, on both
-    assert sql.count("c.confidence_state IN ('measured', 'human')") == 1
-    assert dry.count("c.confidence_state IN ('measured', 'human')") == 1
+    sql = Path("docs/citator-query-2.sql").read_text(encoding="utf-8")
+    # validation query 2 and the shipping projection are different jobs over the SAME terms
+    for text in (sql, project.PROJECTION):
+        assert "role = 'suppress' AND outcome = 'vetoed'" in text
+        # and the confidence predicate reaches the parent too, which it did not until the
+        # second schema-critic pass
+        assert text.count("c.confidence_state IN ('measured', 'human')") == 1
 
 
 def test_the_reading_stage_can_be_measured_once_somebody_measures_ocr(tmp_path):

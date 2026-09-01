@@ -43,6 +43,12 @@
 -- The docket-grain variant — `WHERE rd.cited_docket_id = :target_docket` — is the one a
 -- reader's "cited by" list is actually built from.
 --
+-- THE SHIPPING PROJECTION IS `docketyard.citator.project`, not this file. This is validation
+-- query 2 — a different job, filtering on a negative treatment polarity — written out so the
+-- claim "Q2 is writable against this shape" is checkable. The terms they share are pinned
+-- equal by a test, because they drifted within a day of being written: the veto sat on the
+-- rank-1 row in one and the candidate set in the other.
+--
 -- The live tables it joins (decision_attachment, decision_record, docket) were verified
 -- against src/docketyard/store/0002_filings_decisions.sql.
 

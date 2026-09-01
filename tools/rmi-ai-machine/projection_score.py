@@ -45,10 +45,24 @@ SPAN_NAMES_DOCUMENT = re.compile(
 
 
 def printed(prefix: str, seq: int, sub: int | None, suffix: str | None) -> str:
-    """The Board's own spelling, normalised the way the scorer normalises a target."""
+    """A `docket` row in the key a citation normalises to.
+
+    BUILT FROM THE COLUMNS, never round-tripped through the normaliser. It was
+    `N(f"{prefix} {seq} ({suffix})")` until 2026-09-01, and `norm_target` is not idempotent:
+    it reads `AB 1296X` as `AB 1296 (X)` but reads `AB 1296 (X)` as `AB 1296`, because its
+    parenthetical pattern requires the words "Sub-No.". So every suffixed docket entered
+    this registry WITHOUT its suffix - 2,711 of them hold a suffix and no sub-docket - and
+    a finding keyed `AB 1296 (X)` could never resolve. Those targets scored as registry
+    unresolvables, which is why the projected figure was measured low.
+
+    `docketyard.citator.keys.registry_key` is the same function on the shipped side, and
+    this stays a copy on purpose: a scorer that imports the code it scores cannot catch the
+    code being wrong. They are pinned equal by a test instead.
+    """
+    key = f"{prefix.upper()} {int(seq)}"
     if sub is not None:
-        return N(f"{prefix} {seq} (Sub-No. {sub}{suffix or ''})")
-    return N(f"{prefix} {seq} ({suffix})" if suffix else f"{prefix} {seq}")
+        return f"{key} ({int(sub)}{(suffix or '').upper()})"
+    return f"{key} ({suffix.upper()})" if suffix else key
 
 
 def registry(con: sqlite3.Connection) -> set[str]:

@@ -225,3 +225,57 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   "what a reader saw on date D" is not fully reconstructible for the citator layer. This is
   the 0006/0009 house idiom rather than anything 0014 invented, but it is now load-bearing
   for a published number (schema-critic, second pass, against validation query 3).
+
+## Found 2026-09-01, reviewing `docketyard.citator` (code-review high + stb-ingest-specialist)
+
+The serious ones were fixed in the same session and are pinned by tests in
+`tests/test_citator_pipeline.py`. These are what was left, each with why it waits.
+
+- **The exposed class and every rule-2 repair reach a page unreviewed.** ADR 0017 D5 routes
+  both to a human *before* publication — that is what the exposure test was defined for. The
+  loader computes the keys and `citator load` prints them, but `review_action` (ADR 0016) is
+  in no migration, so nothing stores or gates on them. **This is a shipping blocker, not a
+  deferral**, and it is in `TODO.md`; it is here so the finding is not lost if that line is
+  pruned.
+- **`targets_out_of_class` and `targets_emitted` are on different grains.** Out-of-class
+  counts findings; emitted counts distinct `(page, key)` pairs. So the two do not add up to
+  what the producer sent, and "not kept" is auditable only against a known dedup rule. A
+  `findings_received` column, or counting distinct out-of-class raws, fixes it.
+- **The resolver has no version of its own.** `citation_resolution.method_version` carries
+  the RULE name (`rule-1`, `rule-2-repair`), so a change to `resolve.resolve` — the exposure
+  threshold, say — mints no new key, supersedes nothing and is invisible in every
+  measurement, against ADR 0007. Carry the rule as part of the method and add a real
+  `RESOLVER_VERSION`.
+- **A six-digit fusion is outside both the repair and the exposure test.** ADR 0017's
+  argument rests on the finder's `\d{1,5}`; `keys.DOCKET` allows six, because 104 held
+  dockets have six-digit sequences and a five-digit cap would key them as nothing. So a
+  five-digit docket that absorbed a marker is neither repaired nor flagged. Widening either
+  rule is a change to an accepted definition.
+- **`citation_key.key_version` belongs to whoever inserted first.** `INSERT OR IGNORE` on
+  the four-column key leaves the old value when a re-run under a bumped `KEY_VERSION`
+  produces the same key — the same "whichever channel inserted first owns it for ever"
+  defect ADR 0018 D2 rejected `cited_raw` over. A differing `key_version` on an existing key
+  is a re-normalisation event worth being loud about.
+- **`cited_by(work_id=...)` always returns nothing**, because no writer populates
+  `citation_resolution.cited_decision_id`: ADR 0018 D4's verb gate (a phrase's own verb
+  decides whether `served <date>` matches `service_date`) is a later pass. The docket grain
+  is the one to use, and `project.cited_by`'s docstring says so.
+- **The family closure is written twice** — `web/cite.py` and `project.py` — which ADR 0018
+  D7 says the projection may not depend on. `methods.PROJECTION_RULE` also hardcodes
+  `closure=cite.py@2026-09-01`, a date somebody must remember to edit.
+- **No `superseded_at` on any citator assertion**, so a self-pointer retraction has no date
+  and "what a reader saw on date D" is not fully reconstructible for this layer. The
+  0006/0009 house idiom, but now load-bearing for a published number.
+- **The findings body is not identified.** `asserted_from_capture` stays NULL and
+  `extraction_run` records no payload hash, so an edge traces to `(method, version)` and not
+  to the enrichment run that produced it — the capture-first invariant met by convention
+  rather than by the store. The file's sha256 in `extraction_run.note` is the cheap fix.
+- **`methods.measure` hardcodes `reading_channel = 'text-layer'`** and `methods.stamp` takes
+  no channel, so an OCR pass would silently borrow the text-layer measurement. Harmless
+  today — `declare` ranks no OCR resolution, so an OCR edge fails closed — but the guard is
+  accidental rather than stated.
+- **An empty `quoted_passage` can project.** A finding with no `quoted` text passes NOT NULL
+  as `''`, and the edge then reaches a reader with no citing passage, against ADR 0017 D6.
+- **`WB25-53` keys as `WB 25`**, because `\b` accepts the hyphen as a boundary. That is the
+  accepted design — emit, let resolution decide — but if `WB 25` is held it resolves
+  confidently, and the exposure test does not cover it because it is not a fusion.

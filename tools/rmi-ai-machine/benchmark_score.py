@@ -47,7 +47,12 @@ DOCKET = re.compile(
 # target_kind existed: a prior decision is a citation whatever docket it sits in
 DOC_NAMED = re.compile(r"slip op\.|decision|order|served|NPRM|NITU|CITU", re.I)
 DOCKET_KEY = re.compile(r"^[A-Z]{2,4} \d+")  # what norm_target emits for a docket
-SUBNO = re.compile(r"\(?\s*Sub[-\s]?No\.?\s*(\d+[A-Z]?)\s*\)?", re.I)
+# Corrected 2026-09-01 to match `docketyard.citator.keys.SUBNO`, which a test pins it
+# against. The old pattern REQUIRED the words "Sub-No.", so it read `AB 1296X` as
+# `AB 1296 (X)` but `AB 1296 (X)` as `AB 1296` — one docket with two normal forms depending
+# on how it was printed. That put every suffixed docket into the scorer's registry without
+# its suffix and scored real edges as unresolvable.
+SUBNO = re.compile(r"\s*\(\s*(?:Sub[-\s]*No\.?\s*)?(\d{1,4}[A-Z]?|[A-Z]{1,2})\s*\)", re.I)
 REPORTER = re.compile(
     r"\b(\d{1,3})\s+(F\.?\s?\d?d|S\.?T\.?B\.?|I\.?C\.?C\.?(?:\.?2d)?|U\.?S\.?)\s+(\d{1,4})\b", re.I
 )
@@ -66,7 +71,9 @@ def norm_target(raw: str) -> str:
     m = DOCKET.search(text)
     if m:
         key = f"{m.group(1).upper()} {int(m.group(2))}"
-        sub = SUBNO.search(text[m.end() : m.end() + 30])
+        # ANCHORED, not searched over a window: a window grafts a later docket's
+        # parenthetical, or a trailing year, onto this key (corrected 2026-09-01 with SUBNO)
+        sub = SUBNO.match(text[m.end() :])
         if sub:
             return key + f" ({sub.group(1).upper()})"
         return key + (f" ({m.group(3).upper()})" if m.group(3) else "")

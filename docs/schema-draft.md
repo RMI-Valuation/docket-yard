@@ -685,10 +685,11 @@ docket, its sub-dockets and its parent, unioned over every docket a consolidated
 entered in — **or**, if it is inside, a live `span_names_document` judgement says `true`,
 defaulting to **suppress** where nothing has judged it (ADR 0017 D4). Reading the resolution term
 alone publishes every own-proceeding mention: measured on the sixty-decision sheet
-2026-09-01, 210 true of 239 shown = **87.9%**, against 201 of 205 = 98.0% with both terms.
-(ADR 0018 D7 states this comparison as "88.4% instead of 98.0%"; 88.4% is `citator-schema.md`'s
-*extraction* precision as scored, 220 of 249 emitted, which is a different configuration. An
-erratum for the operator on an accepted record — recorded here, not corrected here.) The family
+2026-09-01, 214 true of 243 shown = **88.1%**, against 205 of 209 = **98.1%** with both terms.
+(ADR 0018 D7 states this comparison as "88.4%", which is near enough that the difference is
+the run rather than the rule. Both figures moved that day when a defect in the scorer's
+registry was fixed — it dropped the suffix from 2,711 held dockets, so every finding naming
+one scored as unresolvable; migration 0014's header carries the restatement.) The family
 closure is **registry data, not application code**; `web/cite.py` computes the same closure for
 the lookup page, and the projection may not depend on that being kept in step by hand.
 
@@ -988,7 +989,8 @@ the normal case and D4's verb gate keeps every `decided <date>` phrase at docket
 query stays thin even after the treatment pass runs, and the docket-grain variant is the one a
 reader's "cited by" list is actually built from.
 That is stated rather than left for a reader to discover — what ships is "what cites this", at
-89.3% projected recall and 98.0% precision, which is the wedge and is worth shipping. New
+91.1% projected recall and 98.1% precision — restated 2026-09-01 from 89.3%/98.0% when the
+scorer's registry was fixed — which is the wedge and is worth shipping. New
 treatment types remain vocabulary INSERTs; typing untyped edges remains a higher-`method_version`
 pass over kept rows — no re-ingest, no migration.
 

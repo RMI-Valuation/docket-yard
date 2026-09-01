@@ -1,6 +1,7 @@
 """Command-line entry points: capture | ingest | fetch | walk | poll | status | serve."""
 
 import argparse
+import json
 import os
 import sys
 from datetime import UTC, date, datetime
@@ -251,6 +252,104 @@ def _traffic(args: argparse.Namespace) -> int:
     return 0
 
 
+def _citator(args: argparse.Namespace) -> int:
+    """The citator's two operator verbs: load a batch of findings, and read an edge list.
+
+    There is no `find` verb, and that is the missing half rather than an omission: text
+    extraction runs on the enrichment box and comes back over the internal API, and the
+    finder itself waits on a vocabulary for the `kind` judgement (docketyard/citator).
+    """
+    from docketyard.citator import keys, load, methods, project
+
+    con = db.connect(args.db)
+    if args.what == "cited-by":
+        rows = (
+            project.cited_by(con, work_id=args.work)
+            if args.work
+            else project.cited_by(con, docket_id=args.docket)
+        )
+        # ADR 0017 D6: per edge, the citing passage, its page, the method and version, and
+        # the class's measured confidence. NO COUNT IS PUBLISHED WITHOUT ITS CLASS.
+        for r in rows:
+            work, _kind, key, _dk, _wk, conf, state, _score, method, version, channel = r[:11]
+            raw, passage, page = r[11], r[12], r[13]
+            print(f"{work}  p{page}  {key}  <- {raw!r}")
+            print(f"    {passage[:110]}")
+            print(f"    {method}@{version} / {channel}, confidence {conf} ({state})")
+        # ADR 0018 D9: "cited by" and every count are distinct (citing work, target) PAIRS.
+        # The rows are per page — short-form density must not inflate a count a reader sees.
+        print(f"{len({(r[0], r[2]) for r in rows})} edges over {len(rows)} passages")
+        return 0
+
+    batch = sorted(Path(args.findings).glob("*.json"))
+    if not batch:
+        print(f"no findings documents in {args.findings}")
+        return 1
+    docs, unreadable = [], 0
+    for path in batch:
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            for required in ("document_sha256", "method", "method_version"):
+                if not doc[required]:
+                    raise KeyError(required)
+        except (ValueError, KeyError, TypeError, OSError) as e:
+            print(f"  skipped {path.name}: {type(e).__name__} {e}")
+            unreadable += 1
+            continue
+        docs.append((path, doc))
+    if not docs:
+        print("refused: no readable findings document in the batch")
+        return 1
+    # A MIXED BATCH IS REFUSED rather than half-declared. `declare` records one owner per
+    # class per rank_version, so loading two extractor versions in one wave would leave the
+    # second writing rows the registry says it does not own (ADR 0018 D1).
+    passes = {(d["method"], d["method_version"]) for _, d in docs}
+    if len(passes) > 1:
+        print(f"refused: the batch mixes {sorted(passes)} — one pass per load")
+        return 1
+    method, version = passes.pop()
+
+    try:
+        # The measurement must exist before an edge may point at it: a class nobody has
+        # scored is unmeasured and PROJECTS NOTHING (ADR 0017 D3). `stamp` also refuses a
+        # measurement that carries no precision, which is what a row is stamped with.
+        stamps = methods.stamp(con)
+        methods.declare(con, version, extractor=method)
+        con.commit()
+    except (methods.Unscored, methods.Conflict) as e:
+        print(f"refused: {e}")
+        return 1
+
+    held = keys.registry(con)
+    totals = dict.fromkeys(
+        ("documents", "emitted", "out_of_class", "unresolved", "unchanged", "human_held"), 0
+    )
+    review: list[str] = []
+    failed = 0
+    for path, doc in docs:
+        try:
+            result = load.load_document(con, doc, held, stamps)
+            con.commit()  # PER DOCUMENT: a wave killed at document 40,000 keeps 40,000, and
+        except Exception as e:  # noqa: BLE001 — one bad document must not take the wave
+            con.rollback()  # the 30-minute poller is not locked out for the whole run
+            print(f"  failed {path.name}: {type(e).__name__} {e}")
+            failed += 1
+            continue
+        totals["documents"] += 1
+        for field in ("emitted", "out_of_class", "unresolved", "unchanged", "human_held"):
+            totals[field] += getattr(result, field)
+        review.extend(result.review)
+    print(totals | {"unreadable": unreadable, "failed": failed})
+    # ADR 0017 D5's queues do not exist yet, so these keys are PRINTED and not stored. Until
+    # `review_action` is in a migration, the exposed class reaches a page unreviewed — which
+    # is the one thing the exposure test was defined to prevent. See docketyard/citator.
+    if review:
+        print(f"\n{len(review)} keys owed a human review (ADR 0017 D5) — NOT YET QUEUED:")
+        for rendered in review:
+            print(f"  {rendered}")
+    return 0
+
+
 def _search_rebuild(args: argparse.Namespace) -> int:
     print(search.rebuild(db.connect(args.db)))
     return 0
@@ -412,6 +511,17 @@ def main(argv: list[str] | None = None) -> int:
         if what == "join":
             pj.add_argument("--cite", default=None, help="a filing or decision id, or a URL")
         pj.set_defaults(func=_parties)
+
+    ct = sub.add_parser("citator", help="citation edges (docs/adr/0017, 0018; migration 0014)")
+    ct_sub = ct.add_subparsers(dest="what", required=True)
+    cl = ct_sub.add_parser("load", help="one batch of findings documents into the families")
+    cl.add_argument("findings", help="a directory of findings JSON, one per document")
+    cl.set_defaults(func=_citator)
+    cb = ct_sub.add_parser("cited-by", help="what cites this proceeding, or this work")
+    cb_group = cb.add_mutually_exclusive_group(required=True)
+    cb_group.add_argument("--docket", type=int, help="a docket_id — THE NORMAL GRAIN")
+    cb_group.add_argument("--work", help="an stb_decision_id; thin, see project.cited_by")
+    cb.set_defaults(func=_citator)
 
     se = sub.add_parser("search", help="the search index (docs/search.md)")
     se_sub = se.add_subparsers(dest="what", required=True)

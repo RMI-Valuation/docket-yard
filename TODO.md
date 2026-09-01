@@ -8,33 +8,34 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **Migration 0014 is written and uncommitted** — five families plus `citation_key`,
-  `assertion_method`, `class_measurement`, `extraction_run`, `decision_decided_date`;
-  `correction.target_id` rebuilt to `target_key TEXT`. All eight owed items paid; two
-  schema-critic passes triaged. `citation_dryrun.py` reproduces the scorer **in SQL** over
-  all 60 decisions: 201 of 225 projected (89.3%), 201 true of 205 shown (98.0%)
-- **All three review calls settled by Cameron, 2026-09-01.** The citator tables stay **held
-  from the CC0 dump**. ADR 0018 D7's "88.4%" is left as it stands — it describes a
-  configuration nothing runs, and the shipping figures in 0014 and `schema-draft.md` carry
-  the measured 87.9%. `class_measurement` keeps D8's key exactly; the scorer-version gap is
-  in `docs/deferred.md`, not worth widening an accepted key for a spot-in-time number
-- **Owed with the pipeline, not the migration**: ingest must insert into `decision_work` on
-  `decision_observed`; the review queue and the "not in the record" display must join live
-  `citation`, not `citation_resolution` alone; the extractor must not re-assert a key a
-  human retracted; the veto's cross-row rules need a trigger the day it stops being inert
-  (the within-page span join is inert too — the finder dedupes per page)
-- **The comment-attachment drain is RUNNING and healthy** — 16,541 left at 17:11 UTC
-  2026-09-01, 0 failed, 26 GB free, due ~02:30 UTC 2026-09-02. `drain.stop` ends it
+- **`docketyard.citator` is written and uncommitted** — keys, resolver, span test, loader
+  and projection over migration 0014, plus a `citator` CLI verb. Two reviews triaged, the
+  serious findings fixed and pinned by tests; `citation_dryrun.py` now runs the SHIPPED code
+  and reproduces the scorer over all 60 decisions
+- **The figures moved: 91.1% projected / 98.1% precision**, from 89.3%/98.0%.
+  `projection_score.printed()` round-tripped each docket row through a non-idempotent
+  normaliser, dropping the suffix from **2,711 held dockets**, so every finding naming one
+  scored as unresolvable. Fixed both sides, pinned equal. **ADR 0017 § The figures is not
+  re-derivable** — that run directory is not in `data/`
+- **Two things block the citator from production**, both in `citator/__init__.py`: no
+  finder (its `kind` judgement has no vocabulary), and **no review queue** — 0017 D5 routes
+  the exposed class and every repair to a human *before* publication, `review_action` is in
+  no migration, so an exposed edge projects indistinguishably from a clean one
+- **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not
+  in the record" display joining live `citation`; the veto's trigger the day it stops being
+  inert. Twelve smaller findings in `docs/deferred.md`
+- **Settled 2026-09-01 (Cameron):** citator held from the CC0 dump; 0018 D7's "88.4%"
+  stands (fixed registry measures 88.1%); `class_measurement` keeps D8's key
+- **Drain RUNNING, healthy** — 16,541 left 17:11 UTC, 0 failed, due ~02:30 UTC 2026-09-02
 - **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against —
   **a second unseen sample must confirm** before any type ships
-- No Anthropic key exists; any Claude-backed run needs a new one from Cameron
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
+- No Anthropic key exists; any Claude-backed run needs a new one from Cameron
 - Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
 
 ## Next
 
-- **The extraction pipeline against 0014** — finder, resolver, span judgement and
-  `extraction_run`, writing what the dry run writes. The regex class needs no Anthropic key
+- **The finder, and the review queue** — the two blockers above. Neither needs a key
 - **ADR 0016** accepted 2026-08-28; `reviewer`/`review_action` drafted into
   `schema-draft.md` § 7. **Unblocked** — 0017/0018 accepted; `review_action` needs
   `key_version` and the resolution rendering (0018 D1) before `/review` ships
