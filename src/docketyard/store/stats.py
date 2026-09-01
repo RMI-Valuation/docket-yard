@@ -14,6 +14,7 @@ from datetime import date
 from sqlite3 import Connection
 
 from docketyard.ingest.dockets import ParsedDocket, parse_docket_id
+from docketyard.parties import resolve
 from docketyard.store.db import load_json
 
 _MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
@@ -71,6 +72,7 @@ def month_keys(first: str, today: date) -> list[str]:
 def stats(con: Connection, today: date | None = None) -> Stats:
     today = today or date.today()
     q = con.execute
+    comps = resolve.Components(con)
 
     def one(sql: str) -> int:
         return q(sql).fetchone()[0]
@@ -142,7 +144,11 @@ def stats(con: Connection, today: date | None = None) -> Stats:
         documents=documents,
         document_bytes=document_bytes,
         dockets=one("SELECT COUNT(*) FROM docket"),
-        parties=one("SELECT COUNT(*) FROM party"),
+        # components, not rows: two records held to be one party ARE one party (ADR 0015),
+        # which is what `/parties` publishes and what a reader is told when a join happens.
+        # Counting rows here made two pages in the masthead disagree under one sentence
+        # (code review, 2026-09-01).
+        parties=len({comps.rep(p) for (p,) in q("SELECT party_id FROM party")}),
         months=months,
         years=years,
         by_prefix=q(

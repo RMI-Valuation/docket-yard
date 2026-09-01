@@ -3,6 +3,7 @@ minting and ambiguity, supersession on a changed cell, and the same_as component
 
 from docketyard.parties import names, resolve, seed
 from docketyard.store import db
+from tests.test_web import build_store
 
 
 def spans(cell, known=frozenset()):
@@ -259,3 +260,49 @@ def test_sheet_and_parties_view(tmp_path):
     assert "permanent page" in r.text  # ADR 0015: the search leads to an address
     assert "No party on record" in client.get("/parties", params={"name": "%_%"}).text
     assert "No party on record" in client.get("/parties", params={"name": "zzz"}).text
+
+
+def test_the_bulk_namer_agrees_with_the_one_party_namer(tmp_path):
+    """`display_names` duplicates `Components.display_name`'s precedence — display > legal
+    > as_filed > the earliest live name — so that a directory over 10,108 components costs
+    one read instead of four queries each. The duplication is the risk: if the two drift,
+    `/p/<id>` and `/parties` print different names for one party. This is the assertion
+    `resolve.display_names`' docstring promises (code review, 2026-09-01)."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    resolve.run(con, log=lambda _: 0)
+    comps = resolve.Components(con)
+    reps = {comps.rep(p) for (p,) in con.execute("SELECT party_id FROM party")}
+    assert reps, "fixture precondition: the store holds parties"
+    bulk = resolve.display_names(con, comps)
+    assert {r: bulk[r] for r in reps} == {r: comps.display_name(r) for r in reps}
+
+    # every branch of the precedence, not just whichever one this fixture happens to hit
+    party = min(reps)
+    for kind in ("as_filed", "legal", "display"):
+        con.execute(
+            "INSERT INTO party_name (party_id, raw_name, norm_name, name_kind, method,"
+            " method_version, confidence, asserted_at)"
+            " VALUES (?, ?, ?, ?, 'test', '1', 1.0, 't')",
+            (party, f"NAME {kind}", f"name {kind}", kind),
+        )
+        con.commit()
+        fresh = resolve.Components(con)
+        # the two must agree whatever the precedence resolves to — asserting WHICH name
+        # wins would only restate the rule, and the rule is what is being duplicated
+        assert resolve.display_names(con, fresh)[party] == fresh.display_name(party)
+    # and once a display name exists it outranks the rest, in both
+    fresh = resolve.Components(con)
+    assert fresh.display_name(party) == "NAME display"
+    assert resolve.display_names(con, fresh)[party] == "NAME display"
+    # a newer name of the same kind wins over an older one, in both
+    con.execute(
+        "INSERT INTO party_name (party_id, raw_name, norm_name, name_kind, method,"
+        " method_version, confidence, asserted_at)"
+        " VALUES (?, 'NAME newer', 'name newer', 'display', 'test', '1', 1.0, 't')",
+        (party,),
+    )
+    con.commit()
+    fresh = resolve.Components(con)
+    assert resolve.display_names(con, fresh)[party] == fresh.display_name(party) == "NAME newer"
+    con.close()

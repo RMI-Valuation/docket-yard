@@ -2,8 +2,8 @@
 
 > **Status: analysis, 2026-08-31. Tiers 1–2 shipped 2026-09-01 (v2026.08.45), A6 the same
 > day (v2026.08.46), and the first of Tier 3 after it (v2026.08.47)** — A1–A6, A8 and § B
-> are fixed; of § C, the weeks index and the sub-docket breadcrumb are built and the rest —
-> a docket index by prefix and year, `/parties` as a page before it is a search — is not.
+> are fixed; of § C, the weeks index, the sub-docket breadcrumb and `/parties` as a page
+> are built, and a docket index by prefix and year is not.
 > A7, § D, § E and Tier 4 are unchanged and still the operator's to choose. Every measurement below
 > is left as it was taken, because it is the evidence the fixes were made against; what
 > shipped is recorded in `milestones.md` and in the commit, not by editing the numbers here.
@@ -255,12 +255,16 @@ you to already know what you are looking for.
 
 The masthead is `This week | Parties | Statistics` — and `/parties`, one of the three, is a
 heading, a sentence and an empty search box: 10,156 parties, not one of them named, no list,
-no alphabet. Thirteen further surfaces are footer-only.
+no alphabet. **Fixed 2026-09-01**: the fifty busiest are named with their counts, and an
+alphabet leads to a page per initial over all 10,108 components. Counting them exposed a
+second defect — `/stats` counted `party` ROWS where `/parties` counts components, so two of
+the three masthead pages published different numbers under one sentence; a party is the
+entity (ADR 0015), so `/stats` now counts components too. Thirteen further surfaces are footer-only.
 
 | Surface | Clicks from home | How a reader finds it today |
 | --- | --- | --- |
 | ~32,000 of 32,623 dockets | ∞ | the search box, or nothing |
-| ~10,150 of 10,156 parties | ∞ | type a name you already know |
+| ~10,150 of 10,156 parties | ∞ | type a name you already know — **`/parties` since 2026-09-01: the 50 busiest named, and an A–Z over all 10,108** |
 | ~34,250 of 34,257 comments | ∞ | a sheet you already found, or a search hit |
 | ~1,540 of ~1,550 active weeks | ∞ | "← previous week", one at a time — **`/weeks` since 2026-09-01: 1,550 weeks, 31 years, one page, in the sitemap** |
 | `/about/prefixes` (the page) | 3 | Statistics → an explainer → "Every docket prefix" |

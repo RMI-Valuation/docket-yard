@@ -38,6 +38,7 @@ from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
 from docketyard.store import (
     coverage,
+    directory,
     dump,
     explainers,
     home,
@@ -528,6 +529,29 @@ def create_app(
     # (ADR 0015): the id is never reused, every member of a same_as component resolves,
     # and a member that is not the representative answers 301 to the representative.
 
+    _directory: dict[str, tuple[list, directory.Directory]] = {}
+
+    def party_directory() -> tuple[list, directory.Directory]:
+        """Every party named and counted once, and the front page derived from it, memoised
+        on the store stamp. Naming all 10,108 components through `Components.display_name`
+        took six seconds — four queries each; `resolve.display_names` does it in one read.
+
+        The build happens BEFORE the old entry is dropped. Clearing first left the memo
+        empty for the whole rebuild, so concurrent requests each rebuilt it and a request
+        still holding the previous stamp could read a key that was no longer there (code
+        review, 2026-09-01)."""
+        key = stamp()
+        if key not in _directory:
+            con = _connect(db_path)
+            try:
+                rows = directory.rows(con)
+            finally:
+                con.close()
+            built = (rows, directory.directory(rows))
+            _directory.clear()  # one stamp at a time, and only once the new one is ready
+            _directory[key] = built
+        return _directory[key]
+
     @app.get("/parties")
     def parties_page(request: Request, name: str = ""):
         con = _connect(db_path)
@@ -535,7 +559,39 @@ def create_app(
             found, truncated = resolve.search(con, name) if name.strip() else ([], False)
         finally:
             con.close()
-        return render(request, "parties.html", query=name.strip(), found=found, truncated=truncated)
+        # the directory IS the page when nothing was searched for, and is not built when
+        # something was: a query would pay for the whole thing and then discard it
+        listing = party_directory()[1] if not name.strip() else None
+        response = render(
+            request,
+            "parties.html",
+            query=name.strip(),
+            found=found,
+            truncated=truncated,
+            dir=listing if listing and listing.parties else None,
+        )
+        if not name.strip():
+            response.headers.update(PUBLIC_CACHE)
+        return response
+
+    @app.get("/parties/{key}")
+    def parties_letter(request: Request, key: str):
+        """Every party under one entry of the alphabet — the list `/parties` never had."""
+        if key != key.upper():  # any case resolves; one address is served, as a sheet does
+            return RedirectResponse(f"/parties/{key.upper()}", status_code=301)
+        rows, listing = party_directory()
+        if key not in {letter.key for letter in listing.letters}:
+            raise HTTPException(404, "There is no party index at this address.")
+        response = render(
+            request,
+            "parties_letter.html",
+            key=key,
+            label=next(le.label for le in listing.letters if le.key == key),
+            letters=listing.letters,
+            rows=directory.letter(rows, key),
+        )
+        response.headers.update(PUBLIC_CACHE)
+        return response
 
     def party_id_of(text: str) -> int:
         """An address is ASCII digits only; anything else is not a party address (404)."""
@@ -615,10 +671,11 @@ def create_app(
         if key not in _weeks:
             con = _connect(db_path)
             try:
-                _weeks.clear()
-                _weeks[key] = home.weeks_index(con)
+                built = home.weeks_index(con)
             finally:
                 con.close()
+            _weeks.clear()  # built first: an empty memo mid-rebuild is a KeyError waiting
+            _weeks[key] = built
         years = _weeks[key]
         response = render(
             request,

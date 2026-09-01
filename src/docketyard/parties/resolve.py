@@ -107,6 +107,36 @@ def display_name(con: Connection, party_id: int) -> str:
     return Components(con).display_name(party_id)
 
 
+def display_names(con: Connection, comps: "Components") -> dict[int, str]:
+    """Every component's display name, keyed by representative, in one pass.
+
+    `Components.display_name` runs up to four queries per party, which is right for one
+    page about one party and wrong for a directory: naming all 10,108 components that way
+    took six seconds. This applies the same precedence — display > legal > as_filed > the
+    earliest live name — over a single ordered read of `party_name`.
+
+    The precedence is the thing to keep identical, so `test_parties.py` asserts the two
+    agree for every component in the store rather than trusting that they look alike."""
+    best: dict[int, dict[str, str]] = {}
+    earliest: dict[int, str] = {}
+    for party_id, kind, raw in con.execute(
+        "SELECT party_id, name_kind, raw_name FROM party_name WHERE superseded_by IS NULL"
+        " ORDER BY name_id"
+    ):
+        rep = comps.rep(party_id)
+        best.setdefault(rep, {})[kind] = raw  # ascending, so the last write is the newest
+        earliest.setdefault(rep, raw)  # first write wins: the lowest name_id
+    out: dict[int, str] = {}
+    for rep, kinds in best.items():
+        for kind in ("display", "legal", "as_filed"):
+            if kind in kinds:
+                out[rep] = kinds[kind]
+                break
+        else:
+            out[rep] = earliest[rep]
+    return out
+
+
 # --- split ---------------------------------------------------------------------------------
 
 
