@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from docketyard.cli import main
 from docketyard.parties import resolve
-from docketyard.store import db
+from docketyard.store import db, directory
 from docketyard.web import sitemaps
 from docketyard.web.app import create_app
 from tests.test_web import build_store
@@ -184,3 +184,59 @@ def test_unjoin_reports_what_still_holds_a_component_together(tmp_path):
     _, still = resolve.unjoin(con, third, ppu, "wrong too")
     assert still == [] and resolve.component_of(con, ppu) == ppu
     con.close()
+
+
+def test_parties_is_a_page_before_it_is_a_search(tmp_path):
+    """`/parties` is one of the three things in the masthead and was a heading, a sentence
+    and an empty box over 10,108 parties, none of them named — no way in for a reader who
+    did not already know a name (navigation-review.md § C)."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    resolve.run(con, log=lambda _: 0)
+    rows = directory.rows(con)
+    con.close()
+    assert rows and all(r.name for r in rows)
+    assert rows == sorted(rows, key=lambda r: (r.name.casefold(), r.party_id))  # by name
+    d = directory.directory(rows)
+    assert d.parties == len(rows)
+    assert d.busiest[0].filings >= d.busiest[-1].filings  # busiest first
+    # A–Z first and the digit bucket last, which is NOT plain `sorted()` — that puts '0'
+    # in front, and this assertion passed only because the fixture has no digit-initial
+    # name (code review, 2026-09-01)
+    keys = [le.key for le in d.letters]
+    assert keys == sorted(keys, key=lambda k: (k == directory.OTHER, k))
+    assert set(keys) == {directory._bucket(r.name) for r in rows}
+
+    client = TestClient(create_app(path))
+    r = client.get("/parties")
+    assert r.status_code == 200 and r.headers["cache-control"] == "public, max-age=1800"
+    assert "parties on record" in r.text
+    for row in d.busiest:
+        assert f'href="/p/{row.party_id}"' in r.text  # every one of them named and linked
+    # the alphabet, and a page behind each entry
+    for le in d.letters:
+        assert f'href="/parties/{le.key}"' in r.text
+        page = client.get(f"/parties/{le.key}")
+        assert page.status_code == 200
+        assert page.text.count('href="/p/') >= le.parties
+    # a search still answers, and does not carry the directory with it
+    hit = client.get("/parties", params={"name": "nrdc"})
+    assert hit.status_code == 200 and "parties on record" not in hit.text
+    assert hit.headers["cache-control"] != "public, max-age=1800"  # a query is not cached
+
+
+def test_a_party_letter_has_one_address_and_no_others(tmp_path):
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    resolve.run(con, log=lambda _: 0)
+    con.close()
+    client = TestClient(create_app(path))
+    con = db.connect(path)
+    try:
+        live = directory.directory(directory.rows(con)).letters[0].key
+    finally:
+        con.close()
+    r = client.get(f"/parties/{live.lower()}", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == f"/parties/{live}"
+    assert client.get("/parties/9").status_code == 404  # no parties file under it
+    assert client.get("/parties/ZZ").status_code == 404

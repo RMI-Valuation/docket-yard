@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Parties: {{ label }} — {{ site_name }}{% endblock %}
+{% block description %}Every party on record whose name begins with {{ label }}, each at a permanent address.{% endblock %}
+{% block main %}
+<section class="caption">
+  <div class="caption-meta"><span class="label">Parties</span><span><a href="/parties">All parties</a></span></div>
+  <h1 class="serif">{{ label }}</h1>
+  <p class="muted">{{ rows | length | plural('party', 'parties') }} on record, as the Board’s “Filed For” cells name them, resolved by rule (<a href="/methodology">how</a>). Counts are filings this record holds, and the proceedings they were filed in.</p>
+  <p class="letters">{% for l in letters %}{% if l.key == key %}<span aria-current="page">{{ l.label }}</span>{% else %}<a href="/parties/{{ l.key }}">{{ l.label }}</a>{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+</section>
+<section>
+  <table class="moved">
+    <thead><tr><th scope="col">Party</th><th scope="col" class="num">Filings</th><th scope="col" class="num">Proceedings</th></tr></thead>
+    <tbody>
+    {% for p in rows %}
+    <tr><td><a href="{{ party_path(p.party_id) }}">{{ p.name }}</a></td><td class="num">{{ p.filings | commas }}</td><td class="num">{{ p.dockets | commas }}</td></tr>
+    {% else %}
+    <tr><td colspan="3" class="muted">No party on record files under this letter.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

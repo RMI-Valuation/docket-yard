@@ -3,11 +3,36 @@
 {% block main %}
 <section class="caption">
   <h1 class="serif">Parties on record</h1>
-  <p class="muted">Who files, as the Board’s “Filed For” cells name them, resolved by rule (<a href="/methodology">how</a>). Each party has a permanent page; this search is how to find it.</p>
+  <p class="muted">Who files, as the Board’s “Filed For” cells name them, resolved by rule (<a href="/methodology">how</a>). Each party has a permanent page. Search a name, or read down from the busiest.</p>
   <form class="search" action="/parties" method="get" role="search">
     <input name="name" type="search" value="{{ query }}" placeholder="Part of a name — e.g. Union Pacific, BNSF, Watco" aria-label="Party name">
   </form>
 </section>
+{#- A page before it is a search. This was a heading, a sentence and an empty box over
+    10,108 parties, none of them named — one of three things in the masthead, and no way in
+    for a reader who did not already know a name (navigation-review.md § C). -#}
+{% if not query and dir %}
+<section>
+  <div class="stats stats-2">
+    <div class="stat"><span class="n serif">{{ dir.parties | commas }}</span><span class="l">parties on record</span></div>
+    <div class="stat"><span class="n serif">{{ dir.busiest[0].filings | commas }}</span><span class="l">filings for {{ dir.busiest[0].name }}, the busiest</span></div>
+  </div>
+  <h2>By name</h2>
+  <p class="small muted">Every party, alphabetically, at its own address.</p>
+  <p class="letters">{% for l in dir.letters %}<a href="/parties/{{ l.key }}">{{ l.label }}</a> <span class="muted small">{{ l.parties }}</span>{% if not loop.last %} · {% endif %}{% endfor %}</p>
+
+  <h2>The busiest</h2>
+  <p class="small muted">By filings the Board’s “Filed For” cell names them in — a count of what this record holds, not a claim about who matters.</p>
+  <table class="moved">
+    <thead><tr><th scope="col">Party</th><th scope="col" class="num">Filings</th><th scope="col" class="num">Proceedings</th></tr></thead>
+    <tbody>
+    {% for p in dir.busiest %}
+    <tr><td><a href="{{ party_path(p.party_id) }}">{{ p.name }}</a></td><td class="num">{{ p.filings | commas }}</td><td class="num">{{ p.dockets | commas }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
 {% if query %}
 <section>
   {% if truncated %}<p class="muted small">More than {{ found | length }} parties match; showing the first {{ found | length }}. Narrow the name.</p>{% endif %}
