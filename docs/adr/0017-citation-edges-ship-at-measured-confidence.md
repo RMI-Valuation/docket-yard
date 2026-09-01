@@ -57,7 +57,9 @@ published without a human reading it first**, and on what evidence.
 
    **The classifier is the quoted span, and it is a stored assertion.** An extra is absorbed
    only when its span names no document; a span carrying `Decision No. …`, `slip op.` or a
-   served date is projected. That test yields **98.2%** precision after the rule.
+   served date is projected. Precision of what then projects is **98.0%** (§ The figures, by
+   stage). *(An earlier 98.2% counted the registry-unresolvable edges as shown; they reach no
+   page, so they belong on neither side of the ratio.)*
 
    The alternative test this record first stated — *project when the target resolves to a
    different work* — is **blind, not conservative**, and the difference was measured:

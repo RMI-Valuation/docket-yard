@@ -93,7 +93,7 @@ record is still free.
 5. **`citation_judgement`** holds what is *judged* rather than identified — `kind`,
    `target_form`, `span_names_document` — keyed on the natural key plus
    `(judgement, method, method_version, reading_channel)`, with `value` as payload. They are
-   measured at different rates (88.1% for `kind`, 98.2% for the span test) and one confidence
+   measured at different rates (88.1% for `kind`; the span test is what the 98.0% projected precision was measured with) and one confidence
    column on the parent could never have carried three.
 
    **A `judgement_vocab` declares each judgement's value domain**, because one `value` column
@@ -124,7 +124,7 @@ record is still free.
    - **That term is not the whole projection, and must never be read as if it were**
      *(restored 2026-09-01 — the split put this formula here and ADR 0017's self-reference
      gate there, and the formula read complete without it, which would publish every
-     own-proceeding mention at 88.4% instead of 98.2%)*. **An edge projects only when the
+     own-proceeding mention at 88.4% instead of 98.0%)*. **An edge projects only when the
      resolution term holds AND one of the two family terms does** *(the wording said "all
      three hold" and then joined 2 and 3 with "or", which is not a formula)*:
      1. the resolution term above; **and**
