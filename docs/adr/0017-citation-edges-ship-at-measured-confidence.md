@@ -112,8 +112,19 @@ and resolution decides against a registry that only grows.
 
 ## Consequences
 
-The first slice can be built and its numbers known before an edge is stored: 95.1% of
-docket-level edges project unreviewed at 98.2% precision after decision 4 (88.4% as scored).
+The first slice can be built, but **its end-to-end recall is not yet measured, and the 95.1%
+this record published for it was wrong** *(multi-agent review, 2026-09-01)*. 95.1% counts hits
+**before** the projection gate; 98.2% is precision **after** it. Quoting them in one sentence
+describes no configuration that exists. Run end to end the gate also suppresses **11 true
+positives** — real edges inside the citing decision's own family whose span names no document —
+and rule 1 drops the registry-unresolvable ones, which two independent measurements put at
+**88–90% projected recall** (199/225 and 203/225; the two chains differ on how the unresolvable
+class is counted and the difference has not been reconciled).
+
+**No recall figure may be published for the projected class until that one measurement is
+taken.** Precision after the gate holds at ~98%. This is the fourth time in this record's life
+that a published figure described a configuration the pipeline does not run, and the pattern —
+measuring a stage and quoting it as the whole — is the one to distrust.
 Re-measurement is a scorer run, not a migration. A better extractor supersedes rather than
 rewrites. What becomes hard: every published figure is now a property of a **pair** —
 extractor plus projection rule — and may only be published with the rule named beside it.

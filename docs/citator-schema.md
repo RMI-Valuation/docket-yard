@@ -298,12 +298,15 @@ inert**, and the projection view should not reference it until it is measured on
 *(Reconciled with ADR 0018 decision 7 — decision 3 pre-split — 2026-09-01, third critic pass: the veto still holds
 rank 2 in the resolution order, which is not a contradiction of "ships inert" — it is ranked
 for when it is measured, and referenced by no projection until then. One thing the order does
-have to say, because the two readings invert a suppression: **the projection predicate
-`confidence_state IN ('measured','human')` is applied to the rank-1 row, not to the candidate
-set.** Applied to the candidate set it would drop the veto — whose state is
-`not-applicable` — out of the ranking entirely, rank 1 would fall through to rule 1, and the
-vetoed edge would project. A suppression mechanism that is filtered out before it can suppress
-is worse than no mechanism, because the record would claim to have one.)*
+have to say: **the projection predicate `confidence_state IN ('measured','human')` is applied
+to the CANDIDATE SET**, and a `suppress` row carries `confidence_state = 'measured'` so the
+predicate does not filter it out. *(This paragraph said the opposite — "applied to the rank-1
+row, not to the candidate set" — under a heading claiming reconciliation, until 2026-09-01.
+The rank-1 reading was retired when `role` was introduced: a suppressor is evaluated by its own
+existence and never by rank, so it cannot be filtered out of a ranking it does not enter. Left
+on the rank-1 row the predicate instead DELETES edges, because an unmeasured OCR resolution
+outranking a measured text-layer one takes rank 1 and the edge vanishes. ADR 0018 decision 7
+governs.)*
 
 ---
 

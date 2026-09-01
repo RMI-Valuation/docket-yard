@@ -41,12 +41,19 @@ resolved AS (
              ORDER BY rc.precedence_rank) AS rn
     FROM res_cand rc
     WHERE rc.role = 'resolve' AND rc.outcome IN ('resolved', 'repaired')
-  )
-  WHERE rn = 1
+  ) ranked
+  WHERE ranked.rn = 1
+    -- every name on both sides must be qualified: unqualified columns bind to the INNER
+    -- scope, so `s.citing_document = citing_document` reads as `s.x = s.x` and the NOT
+    -- EXISTS is false for every row the moment `suppressed` holds anything at all. One
+    -- veto would have emptied the entire result. (Found by the multi-agent review,
+    -- 2026-09-01, in the file both ADRs cite as proof this query runs.)
     AND NOT EXISTS (SELECT 1 FROM suppressed s
-                     WHERE s.citing_document = citing_document AND s.page = page
-                       AND s.target_kind     = target_kind     AND s.target_key = target_key
-                       AND s.reading_channel = reading_channel)
+                     WHERE s.citing_document = ranked.citing_document
+                       AND s.page            = ranked.page
+                       AND s.target_kind     = ranked.target_kind
+                       AND s.target_key      = ranked.target_key
+                       AND s.reading_channel = ranked.reading_channel)
 ),
 citing_work AS (                         -- 0018 D9: fold to the work, COALESCE so a filing
   SELECT r.citing_document,              -- folds to itself rather than being dropped
@@ -86,6 +93,10 @@ span AS (                                -- 0017 D4 / 0018 D5: the stored span j
   ) WHERE rn = 1
 ),
 family AS (                              -- 0017 D4: self + sub-dockets + parent, unioned over
+  -- NOTE: keyed on stb_decision_id, while citing_work_id COALESCEs to a raw sha256 for a
+  -- filing-mined edge -- so for those the EXISTS below is always false and every filing
+  -- self-mention projects. 0018 D9 explicitly provides for filing edges, so this needs the
+  -- filing branch below before extraction moves beyond decisions.
   SELECT dr.stb_decision_id, dr.docket_id FROM decision_record dr   -- every member docket
   UNION
   SELECT dr.stb_decision_id, ch.docket_id
