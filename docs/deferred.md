@@ -126,15 +126,6 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 
 ## Docket sheet (code review 2026-08-30, v2026.08.39)
 
-- **A series sheet still builds the merged entry list it does not render**: `docket_sheet`
-  assembles every filing and decision of the family (AB 167: 996 dockets, 866 records,
-  with a payload and attachment query per entry) and the template then shows none of it.
-  The JSON twin still publishes those entries, so skipping the build means deciding what a
-  series carries in shape 1 — worth doing together, not piecemeal. **Same defect as
-  `navigation-review.md` A7**, which measured its outside face: `/d/AB-167` renders zero
-  entries at 399 KB while `/d/AB-167.json` publishes all 2,628 at 2.08 MB, and the page
-  advertises counts it gives no way to reach. One decision, not two.
-
 ## AB sub-docket numbering (measured 2026-08-30, not yet explained)
 
 Raised while building the series index. Nothing here blocks anything; it is recorded so
@@ -194,16 +185,6 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   the worst case and does not fail. Kept here, struck through, because a plausible finding
   that three passes believed is worth leaving visible: the lesson is that a wall-clock
   number is not a lock number, and nobody had measured the difference.
-
-## Found 2026-09-01, reviewing the AB sub-docket follow (v2026.08.46)
-
-- **`/d/AB-55/sub/794X.json` still answers with the whole AB 55 family** (code review). After
-  this change that address means two things: the page and the feed cover the one line, the
-  JSON twin covers all 766 proceedings. The divergence predates the change and is described
-  on `/data`, but it now sits directly against the change's own goal. Making the JSON follow
-  the page would alter what an existing consumer receives at an address that has always
-  answered this way, so it is a `shape_version` decision and the operator's, not a defect to
-  fix quietly. `sheet_json` uses `family_sheet`; the page uses the requested identity.
 
 ## Found 2026-09-01, clearing five from this pool
 

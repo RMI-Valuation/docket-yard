@@ -143,3 +143,42 @@ def test_an_entry_icon_is_defined_once_and_referenced(tmp_path):
     # the icons stay hidden from the accessibility tree; the link carries the label
     assert page.count('<svg class="vh"') == 1
     assert "The Board’s own file for" in page
+
+
+def test_a_series_sheet_does_not_build_the_entries_it_never_renders(tmp_path):
+    """`/d/AB-167` assembled all 2,628 entries of its 995 sub-dockets — a payload and an
+    attachment query EACH — and the template then rendered none of them, in 399 KB of prose
+    over 866 records of work, on every request (navigation-review.md A7). Each proceeding
+    keeps its entries at its own address, which the index links."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    parent = con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence) VALUES ('AB_167', 'AB', 167)"
+    ).lastrowid
+    for sub in range(1, sheet.SERIES_SUBS + 2):
+        con.execute(
+            "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, suffix,"
+            " parent_docket_id) VALUES (?, 'AB', 167, ?, 'X', ?)",
+            (f"AB_167_{sub}_X", sub, parent),
+        )
+    con.commit()
+    s = sheet.docket_sheet(con, parent)
+    assert s.is_index and s.entries == []  # the series itself carries none
+    assert len(s.sub_dockets) == sheet.SERIES_SUBS + 1
+    assert (s.filings, s.decisions, s.comments) == (0, 0, 0)
+    assert s.parties == []  # not rendered on a series, so not resolved either
+
+    # a family that IS a case still builds its entries, and its counts still fold
+    case = con.execute("SELECT docket_id FROM docket WHERE raw_docket = 'FD_36873'").fetchone()[0]
+    c = sheet.docket_sheet(con, case)
+    assert not c.is_index and c.entries
+    assert c.filings == 2 and c.decisions == 1  # by the Board's id, not two rows
+    con.close()
+
+    client = TestClient(create_app(path))
+    page = client.get("/d/AB-167")
+    assert page.status_code == 200 and 'href="/d/AB-167/sub/1X"' in page.text
+    # and the JSON twin says the same thing the page does (shape 2)
+    body = client.get("/d/AB-167.json").json()
+    assert body["docket"]["entries"] == [] and body["docket"]["is_index"] is True
+    assert len(body["docket"]["sub_dockets"]) == sheet.SERIES_SUBS + 1
