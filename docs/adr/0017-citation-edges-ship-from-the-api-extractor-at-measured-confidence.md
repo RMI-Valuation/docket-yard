@@ -7,7 +7,7 @@
   2026-08-31 and **held** by the operator the same day. On 2026-09-01 the operator settled
   the one question the hold rested on and directed the amendments to be folded in: they are
   now **in § Decision**, and the tables they need are proposed in
-  [`../citator-schema.md`](../citator-schema.md). See § Ready for acceptance.
+  [`../citator-schema.md`](../citator-schema.md). See § What acceptance would have rested on.
 
 ## Context
 
@@ -80,8 +80,16 @@ not decisions; this record makes them decisions.
    recall on docket-shaped targets at no per-page cost — above Claude's 95.6% and every one
    of the nine local candidates (best: qwen3:14b, 93.8%).
 
-   **That 97.8% is the corrected configuration, and it is 2.7 points above what this record
-   reported.** Measured 2026-09-01: the benchmark run filtered its emissions against the
+   **That 97.8% is what the finder emits, and it is not what a reader sees** *(scoped
+   2026-09-01, third critic pass)*. The six targets the move recovers are registry-**un**
+   resolvable by definition, so they land in `docket, unresolved` and are never projected:
+   they become decision 6's second review queue, which a finder-side filter had emptied by
+   construction. The **projected** class still carries 214 of 225 — **95.1%**, or 97.7% of
+   the 219 targets that are resolvable at all. Both figures are true of different things and
+   this record publishes both, because the earlier draft stamped the finder's 97.8% on the
+   class row decision 9 shows a reader.
+
+   Against Claude the comparison stays finder-to-finder and stays honest: Measured 2026-09-01: the benchmark run filtered its emissions against the
    registry inside the finder, which scored 95.1% (214 of 225). Moving the check into
    resolution — see the next paragraph — recovers **exactly six targets, and all six are real
    edges in the sheet**: `EP 445`, `EP 445 (Sub-No. 1)`, `EP 392 (Sub-No. 1)`, `FD 757`,
@@ -204,27 +212,31 @@ not decisions; this record makes them decisions.
    per-edge display of decision 9 a join that is neither unique nor reachable — the registry
    is keyed on EXTRACTION methods and the row being displayed is a RESOLUTION.
 
-   The registry is **two tables, not one** *(split 2026-09-01, second critic pass)*:
+   The registry is **one append-only table**, `class_measurement`, keyed
+   `(extraction method+version, resolution method+version, class, reading_channel,
+   projection_rule_version, benchmark_date)`, carrying the score file, recall and precision.
+   **The row's `score_row_id` names the exact measurement it was stamped from** — one target,
+   stated once.
 
-   - `confidence_class (extraction method+version, resolution method+version, class,
-     reading_channel)` — every component a resolution row **can know at the moment it is
-     written**. This is what the row's FK points at.
-   - `class_measurement (class, projection_rule_version, benchmark_date, score file, recall,
-     precision)` — append-only, one row per time the class was scored.
+   *(A split into `confidence_class` + `class_measurement` was made on 2026-09-01 for the
+   second critic pass and is **withdrawn** the same day, because the argument for it was
+   wrong. It held that keeping `projection_rule_version` in the FK'd key would force
+   `UPDATE citation_resolution SET score_row_id = …` over every row whenever decision 5's
+   closure changed. It would not. A pointer into an **append-only** measurement table never
+   needs updating: a rule change mints a new measurement, later rows stamp the new one, and
+   earlier rows keep the historical one — which is exactly the snapshot Q3 wants. The
+   every-row rewrite only arises if each row's stamp must always name the *current*
+   measurement, which is the opposite of a snapshot and was never the design. The split also
+   left the FK naming two different tables in eight lines and gave `class_measurement` no
+   join key. Withdrawn, and the argument retracted rather than quietly replaced.)*
 
-   The split exists because `projection_rule_version` **cannot be a fact of any row**:
-   decision 5's rule is applied at projection, after the row exists, and that closure has
-   already changed once during measurement (98.2% with the parent, 97.3% without). Held in
-   one table with the stamp pointing at it, every change of the rule would force
-   `UPDATE citation_resolution SET score_row_id = …` **over every row** — an every-row
-   rewrite of an append-only table whose discipline is that retirement is a pointer, never a
-   DELETE — or else the stamps drift from the published methodology, which `CLAUDE.md`
-   forbids outright. Split, the row's stamp is a snapshot that stays true (Q3 reconstructs
-   what a reader saw), the projection joins the measurement in force, and re-measuring
-   mints a row and strands nothing.
+   What the row carries is a **snapshot**: the `confidence` shown to a reader and the
+   measurement it came from. What the projection view joins is the measurement **in force**
+   for the class under the rule version currently running. Both are available, neither is
+   ever rewritten, and re-measuring strands nothing.
 
    **Confidence is NOT NULL, and a typed `confidence_state` carries the rest** (the
-   operator, 2026-09-01): `measured` | `unmeasured` | `not-applicable`. The earlier draft
+   operator, 2026-09-01): `measured` | `human` | `unmeasured` | `not-applicable`. The earlier draft
    permitted NULL "where the class is unmeasured", which narrowed ADR 0007's categorical text
    — every extracted fact carries a confidence — inside a record that is not 0007, and
    against the live convention (`0006_parties.sql` declares
@@ -239,9 +251,17 @@ not decisions; this record makes them decisions.
 
    **An unmeasured row must not carry a plausible number**, or a reader selecting
    `confidence` without `confidence_state` publishes an invention as a measurement:
-   `CHECK ((confidence_state = 'measured' AND confidence > 0 AND confidence <= 1)
-   OR (confidence_state <> 'measured' AND confidence = 0))
-   AND ((confidence_state = 'measured') = (score_row_id IS NOT NULL))`. The second clause
+   `CHECK ((confidence_state IN ('measured','human') AND confidence > 0 AND confidence <= 1)
+   OR (confidence_state IN ('unmeasured','not-applicable') AND confidence = 0))
+   AND ((confidence_state = 'measured') = (score_row_id IS NOT NULL))`. *(Corrected
+   2026-09-01, third critic pass: the previous form said `confidence_state <> 'measured' AND
+   confidence = 0`, which forced **every human row to a confidence of zero** — and `human` is
+   in the projection predicate, so the rows carrying the most trust in this design would have
+   projected showing a reader a zero, and any `AVG` over the view would have been wrong by
+   exactly those rows. It also contradicted the live convention this decision cites in its own
+   defence: the four assertion tables in `0006_parties.sql` carry real numbers on human rows.
+   A human review has a confidence; what it does not have is a **benchmark**, which is what
+   `score_row_id IS NULL` now says.)* The second clause
    binds the **pointer** as well as the number *(added 2026-09-01)*: without it a `measured`
    row can name no measurement and an `unmeasured` row can name a real one, which is the
    whole content of the correction above.
@@ -274,7 +294,8 @@ not decisions; this record makes them decisions.
 
    | class | reading | measured | projected as "cited by" |
    | --- | --- | --- | --- |
-   | docket, resolved, **not exposed**, `regex-docket-cite` | text layer | **97.8%** recall; **98.2% precision after decision 5** (88.4% as scored), under `cite.py`'s family closure | **yes, unreviewed** |
+   | docket, resolved, **not exposed**, `regex-docket-cite` | text layer | **95.1%** recall of the 225 (214 projected; 97.7% of the 219 that are registry-resolvable); **98.2% precision after decision 5** (88.4% as scored), under `cite.py`'s family closure | **yes, unreviewed** |
+   | docket, **unresolved**, `regex-docket-cite` | text layer | the 6 targets moving the registry check out of the finder recovers — all real edges, none projectable | never; decision 6's second queue |
    | docket, resolved, **exposed** (both readings are held: `AB 1242` / `AB 124`), or resolved only by rule 2 | text layer | see the note below — the count is stale | **after review** |
    | any class | OCR | **`unmeasured`** | **never** |
    | docket, unresolved | text layer | 6 of 171, none invented | **never**; shown as "cites `EP 445` (not in the record)"; queued if in range |
@@ -291,7 +312,8 @@ not decisions; this record makes them decisions.
    `AB 1242` — which is what "all four-digit AB numbers" describes). Decision 6 sizes its
    review queue on this number; the test must be written down once before it does.
 
-   The 0.953 is measured *before* the projection rule of decision 5; on the sheet that rule
+   The 0.953 — Claude's docket-shaped precision, the row above — is measured *before* the
+   projection rule of decision 5; on the sheet that rule
    absorbs all ten extras, so what readers see is better than the stamp. The stamp stays
    the conservative figure and the coverage page says which set it was measured on.
 
@@ -301,10 +323,27 @@ not decisions; this record makes them decisions.
    pass)*. 98.2% was produced by absorbing an extra only when **its quoted span names no
    document** — a span carrying `Decision No. …`, `slip op.` or a served date is projected —
    and this decision called `kind` "the primary classifier", which is a different test
-   measured at a different rate (88.1% precision on the own-docket call). Publishing 98.2%
-   over a classifier the measurement did not use would have been the same defect as
-   publishing the registry-filtered recall. So: the span test governs, `kind` is stored
-   beside it, and **`kind` gets a class row of its own in the confidence registry** — one
+   measured at a different rate (88.1% precision on the own-docket call).
+
+   **The span test is not the same rule as this decision's own "resolves to a different
+   work", and the difference is measured** *(2026-09-01, third critic pass)*. Under the work
+   test the pipeline can actually execute, all four projected extras are **suppressed**, and
+   precision after decision 5 reads **100%** — the exact figure this record already retracted
+   as false. The reason is that the work test cannot resolve them: `decision_record
+   .decision_number` is populated for **0 of 23,713 rows in production** (measured on the
+   instance; the column is filled by extraction later), and none of the four spans carries a
+   served date — they read `Decision No. 1, FD 36744 et al., slip op. at 6` and
+   `FD 36730 and FD 36731. Decision No. 1, FD 36732 et al., slip op. at 6`. So the work test
+   is not the conservative rule it looks like. It is **blind**, and its 100% is produced by
+   hiding four candidate wrong edges behind a resolver that resolves nothing.
+
+   The **span test therefore governs**, and 98.2% is the honest figure precisely because it
+   does not wait for a resolver that has no data. Because the span test decides what every
+   published edge is, it is **a stored assertion and not a predicate computed inside a
+   view**: `span_names_document` is a typed column with its own `method`, `method_version`,
+   `confidence` and ADR 0007 block — the same discipline that demoted `kind`, which at least
+   had a column. A projection rule with no provenance is a derived claim published without
+   one, which this project does not do. `kind` is stored beside it, and **`kind` gets a class row of its own in the confidence registry** — one
    ADR 0007 block on the `citation` row currently covers four independent judgements
    (`cited_raw`, `kind`, `target_kind`, `target_form`) measured at different rates, and
    decision 9 shows a reader none of them. Adding the row is an addition, not a migration,
@@ -416,8 +455,11 @@ not decisions; this record makes them decisions.
 ## Consequences
 
 The citator's first slice can be built and its numbers are known before the first edge is
-stored: 95% of docket-level edges arrive unreviewed at 95% precision, with the whole
-measured error being self-references the projection rule absorbs. Re-measurement is a
+stored: 95.1% of docket-level edges project unreviewed, at **98.2%** precision after
+decision 5's rule (88.4% as scored). *(Corrected 2026-09-01: this said "at 95% precision,
+with the whole measured error being self-references the projection rule absorbs" — which is
+the retracted 100%-precision reasoning verbatim. The rule does not absorb the whole error;
+four extras name a document and are projected, which is what 98.2% rather than 100% says.)* Re-measurement is a
 scorer run, not a migration, because the sheet, the scorer and the conventions are in the
 repository and every row names its method version. A better extractor supersedes
 extraction rows; a better resolver, a grown registry or a reviewer supersedes resolution
@@ -533,7 +575,7 @@ blocker.)*
 ## Amendment candidates (2026-08-30, after the local batch began)
 
 > **Folded into § Decision on 2026-09-01**, at the operator's direction, and corrected where
-> the schema-critic showed them wrong — see § Ready for acceptance. Kept as written because
+> the schema-critic showed them wrong — see § What acceptance would have rested on. Kept as written because
 > each says what it replaced, and because the third of them (the role of a same-docket
 > mention) was struck rather than adopted.
 

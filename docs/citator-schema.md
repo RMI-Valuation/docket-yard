@@ -2,7 +2,7 @@
 
 > **Status: proposals, 2026-09-01. Nothing here is accepted, and nothing here ships.**
 > ADR 0017 is Proposed: its acceptance was taken on 2026-08-31 and held the same day, and its
-> § What acceptance must clear first lists six items. This document works each into a concrete
+> § What acceptance would have rested on lists six items. This document works each into a concrete
 > shape so that reviving 0017 is a yes or a no rather than a design session.
 >
 > **Revised the same day, after schema-critic review, which found 24 defects in the first
@@ -257,7 +257,17 @@ projection, not *human resolutions*.
 
 After amendment 1 the veto protects nothing currently projected — regex quotes are on-page by
 construction, and every model-shipped class is stored rather than projected. **It would ship
-inert.** The projection view should not reference it until it is measured on both readings.
+inert**, and the projection view should not reference it until it is measured on both readings.
+
+*(Reconciled with ADR 0017 decision 3, 2026-09-01, third critic pass: the veto still holds
+rank 2 in the resolution order, which is not a contradiction of "ships inert" — it is ranked
+for when it is measured, and referenced by no projection until then. One thing the order does
+have to say, because the two readings invert a suppression: **the projection predicate
+`confidence_state IN ('measured','human')` is applied to the rank-1 row, not to the candidate
+set.** Applied to the candidate set it would drop the veto — whose state is
+`not-applicable` — out of the ranking entirely, rank 1 would fall through to rule 1, and the
+vetoed edge would project. A suppression mechanism that is filtered out before it can suppress
+is worse than no mechanism, because the record would claim to have one.)*
 
 ---
 
@@ -278,11 +288,19 @@ inert.** The projection view should not reference it until it is measured on bot
   `stb_decision_id`s carry more than one `decision_record` row, and **not one of them disagrees**
   on service date or decision number. Consolidation, not collision. The key is safe.
 
-**Q2 still does not run**, and neither draft made it. `citation_resolution` is keyed
-`(citation_id, method, method_version)` with supersession *within* a method, and §C blesses two
-methods while §E adds a veto row — so several resolutions are live per edge with no precedence
-column, and any "cited by" count is inflated. **A typed outcome and a precedence rule are owed
-before the first projection**, which 0017's own re-check said and neither draft closed.
+**Settled in ADR 0017 decision 3 (2026-09-01); ADR 0017 governs.** This paragraph read
+"**Q2 still does not run**", and declared `citation_resolution` keyed
+`(citation_id, method, method_version)`. Both are superseded. The key is the citation's
+**natural key** plus `(method, method_version, reading_channel)` — no surrogate id — and the
+typed `outcome` and the precedence rank this paragraph said were owed are now decided: the
+outcome is a column, the rank is on the resolution method rather than on every row. What this
+paragraph got right and is kept for: several resolutions ARE live per edge, so a "cited by"
+count that does not pick one is inflated.
+
+`citation_treatment` takes `reading_channel` in its key for the same reason
+`citation_resolution` does — a typing pass over a text-layer and an OCR reading of one page
+otherwise collides on the whole key, which is the defect § B fixed for
+`decision_decided_date`.
 
 ---
 
