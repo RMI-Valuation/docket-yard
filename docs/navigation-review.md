@@ -2,8 +2,9 @@
 
 > **Status: analysis, 2026-08-31. Tiers 1–2 shipped 2026-09-01 (v2026.08.45), A6 the same
 > day (v2026.08.46), and the first of Tier 3 after it (v2026.08.47)** — A1–A6, A8 and § B
-> are fixed; of § C, the weeks index, the sub-docket breadcrumb and `/parties` as a page
-> are built, and a docket index by prefix and year is not.
+> are fixed, and § C's front door is built: the weeks index, the sub-docket breadcrumb,
+> `/parties` as a page, and the docket index — by prefix and NUMBER, because the record has
+> no year for a docket that holds nothing, which is three quarters of them.
 > A7, § D, § E and Tier 4 are unchanged and still the operator's to choose. Every measurement below
 > is left as it was taken, because it is the evidence the fixes were made against; what
 > shipped is recorded in `milestones.md` and in the commit, not by editing the numbers here.
@@ -263,7 +264,7 @@ entity (ADR 0015), so `/stats` now counts components too. Thirteen further surfa
 
 | Surface | Clicks from home | How a reader finds it today |
 | --- | --- | --- |
-| ~32,000 of 32,623 dockets | ∞ | the search box, or nothing |
+| ~32,000 of 32,623 dockets | ∞ | the search box, or nothing — **`/dockets` since 2026-09-01: every prefix, then every number under it** |
 | ~10,150 of 10,156 parties | ∞ | type a name you already know — **`/parties` since 2026-09-01: the 50 busiest named, and an A–Z over all 10,108** |
 | ~34,250 of 34,257 comments | ∞ | a sheet you already found, or a search hit |
 | ~1,540 of ~1,550 active weeks | ∞ | "← previous week", one at a time — **`/weeks` since 2026-09-01: 1,550 weeks, 31 years, one page, in the sitemap** |
@@ -277,7 +278,8 @@ weeks are in neither, so no search engine can be the index the site lacks.
 The trust pages are terminal: `/coverage`, `/methodology`, `/privacy` and `/parties` contain
 zero outbound internal links. `/coverage` states the record holds 32,623 dockets back to
 1996 and offers no way to look at any of them. It is the most-linked page in the templates
-and the emptiest exit.
+and the emptiest exit. **`/dockets` shipped 2026-09-01**, and each prefix explainer — which
+dead-ended after quoting a count — now links its own list.
 
 The deep pages are where strangers actually land — roughly 107,000 of ~130,000 indexable
 addresses are filings, decisions and comments — and none of them carries the "About this
@@ -358,8 +360,11 @@ count on `/stats`. This alone reopens the whole 1996–2026 archive to navigatio
 Render `body` as a highlighted snippet on every search row; make the caption a docket row's
 title with the number beside it. One change, and T1, T4, T5 and T6 all improve at once.
 
-**Tier 3 — a front door (a day or two each).** *The weeks index and the breadcrumb shipped
-2026-09-01; the aggregate measured 35 ms, not 120.*
+**Tier 3 — a front door (a day or two each).** *Shipped 2026-09-01, all of it. The weeks
+aggregate measured 35 ms, not 120. The docket index is by prefix and NUMBER, not year: a
+docket row carries a caption and no date, and 16,805 of 21,807 families hold no entry to
+infer one from, so an index by year would have omitted three quarters of the registry or
+invented a date for it.*
 A weeks index built from the ~120 ms full-record aggregate; a docket index by prefix and
 year, linked from the explainers that currently dead-end after saying "the registry holds
 6,643 AB dockets"; `/parties` as a page before it is a search; and the sub-docket → series

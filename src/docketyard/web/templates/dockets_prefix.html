@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ prefix }}{% if band is not none %} {{ band | commas }}–{{ (band + band_size - 1) | commas }}{% endif %} — every docket — {{ site_name }}{% endblock %}
+{% block description %}Every {{ prefix }} proceeding on record{% if band is not none %}, numbered {{ band }} to {{ band + band_size - 1 }}{% endif %}.{% endblock %}
+{% block main %}
+<section class="caption">
+  <div class="caption-meta"><span class="label">{{ prefix_name(prefix) }}</span><span><a href="/dockets">Every docket</a>{% if band is not none %} · <a href="/dockets/{{ prefix }}">All {{ prefix }}</a>{% endif %}</span></div>
+  <h1 class="serif docket-number">{{ prefix }}{% if band is not none %} {{ band | commas }}–{{ (band + band_size - 1) | commas }}{% endif %}</h1>
+  <p class="muted">{{ rows | length | plural('proceeding') }}{% if band is none %} under this prefix{% endif %}, in the Board's own numbering.{% if prefix in explained %} <a href="{{ explainer_path(prefix) }}">What a {{ prefix }} docket is</a>.{% endif %} One row per number the Board opened directly; a sub-docket is listed on its own series&rsquo; sheet, which is what a row links to. A proceeding holding nothing is listed all the same — the Board opened it, and the number is the answer where the documents predate this record (<a href="/coverage">coverage</a>).</p>
+  {% if info.banded %}
+  <p class="letters">{% for b in info.bands %}{% if b.start == band %}<span aria-current="page">{{ b.start | commas }}</span>{% else %}<a href="/dockets/{{ prefix }}/{{ b.start }}">{{ b.start | commas }}</a>{% endif %} <span class="muted small">{{ b.dockets }}</span>{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  {% endif %}
+</section>
+{% if band is not none or not info.banded %}
+<section>
+  <table class="moved sub-index-t registry-t">
+    <thead><tr><th scope="col">Docket</th><th scope="col">Proceeding</th><th scope="col" class="num">Filings</th><th scope="col" class="num">Decisions</th><th scope="col" class="num">Comments</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr{% if not r.held %} class="dormant"{% endif %}>
+      <td class="dk"><a href="{{ docket_path(parse_docket_id(r.raw_docket)) }}">{{ printed_docket(parse_docket_id(r.raw_docket)) }}</a></td>
+      <td class="title as-printed">{{ r.title or '(caption not yet observed)' }}</td>
+      <td class="num held">{{ r.filings or '—' }}</td>
+      <td class="num held2">{{ r.decisions or '—' }}</td>
+      <td class="num held3">{{ r.comments or '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<section class="caption">
+  <p class="muted">{{ info.dockets | commas }} proceedings is more than one page should carry, so they are split by number above — each band is a permanent address covering {{ band_size | commas }} numbers, whatever the Board opens in it later.</p>
+</section>
+{% endif %}
+{% endblock %}

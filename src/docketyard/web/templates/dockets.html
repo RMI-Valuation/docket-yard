@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Every docket — {{ site_name }}{% endblock %}
+{% block description %}Every proceeding the Surface Transportation Board has opened, by its number: {{ total | commas }} across {{ prefixes | length }} prefixes.{% endblock %}
+{% block main %}
+<section class="caption">
+  <h1 class="serif">Every docket on record</h1>
+  {#- `/coverage` said the record holds 32,623 dockets and offered no way to look at one;
+      the explainers dead-ended after quoting a count (navigation-review.md § C). -#}
+  <p class="muted">The Board's registry of proceedings, by its own numbering. Each prefix means a different kind of proceeding — <a href="/about/prefixes">what the letters mean</a>. A proceeding is listed whether or not this record holds anything filed in it: the Board opened it, and its number is the answer even where the documents are older than this record reaches (<a href="/coverage">coverage</a>).</p>
+  <div class="stats">
+    <div class="stat"><span class="n serif">{{ total | commas }}</span><span class="l">numbers the Board opened directly, listed here</span></div>
+    <div class="stat"><span class="n serif">{{ (total + subs) | commas }}</span><span class="l">dockets in all, counting sub-numbers — what <a href="/coverage">coverage</a> reports</span></div>
+    <div class="stat"><span class="n serif">{{ held | commas }}</span><span class="l">holding at least one filing, decision or comment</span></div>
+  </div>
+  <p class="small muted">The two totals differ because a sub-docket is listed on its own series&rsquo; sheet rather than here: {{ subs | commas }} of them, reached from the number they sit under.</p>
+</section>
+<section>
+  <table class="moved">
+    <thead><tr><th scope="col">Prefix</th><th scope="col">What it is</th><th scope="col" class="num">Proceedings</th><th scope="col" class="num">Sub-numbers</th><th scope="col" class="num">With entries</th></tr></thead>
+    <tbody>
+    {% for p in prefixes %}
+    <tr>
+      <td class="dk"><a href="/dockets/{{ p.prefix }}">{{ p.prefix }}</a></td>
+      <td class="title">{{ prefix_name(p.prefix) }}{% if p.prefix in explained %} · <a class="small" href="{{ explainer_path(p.prefix) }}">what this is</a>{% endif %}</td>
+      <td class="num">{{ p.dockets | commas }}</td>
+      <td class="num">{{ p.subs | commas }}</td>
+      <td class="num">{{ p.held | commas }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

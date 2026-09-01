@@ -1,5 +1,6 @@
 """The web tier over a small real-shaped store: addresses, redirects, content as printed."""
 
+import re
 from datetime import date
 
 import pytest
@@ -9,7 +10,7 @@ from docketyard.capture import records
 from docketyard.capture.stb import DECISIONS, DOCKETS, FILINGS
 from docketyard.ingest import dockets, observations
 from docketyard.ingest.dockets import ParsedDocket
-from docketyard.store import db, home, sheet
+from docketyard.store import db, home, registry, sheet
 from docketyard.web import urls
 from docketyard.web.app import create_app
 from tests.test_dockets_parse import make_body
@@ -406,3 +407,87 @@ def test_a_head_override_adds_to_the_shared_head_or_deliberately_replaces_it(tmp
     # a page with a feed of its own swaps the site's out rather than advertising both
     sheet = client.get("/d/FD-36873").text
     assert sheet.count('type="application/atom+xml"') == 1 and site_feed not in sheet
+
+
+def con_count(path, sql: str) -> int:
+    con = db.connect(path)
+    try:
+        return con.execute(sql).fetchone()[0]
+    finally:
+        con.close()
+
+
+def test_the_docket_index_lists_the_registry_by_number(tmp_path):
+    """`/coverage` said the record holds 32,623 dockets and offered no way to look at one
+    (navigation-review.md § C). By NUMBER, not by year: a docket row carries a caption and
+    no date, and 16,805 of 21,807 families hold no entry to infer one from."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    rows = registry.rows(con)
+    con.close()
+    assert [r.raw_docket for r in rows] == ["FD_36873"]  # families only; the sub is on its sheet
+    assert rows[0].filings == 2 and rows[0].decisions == 1 and rows[0].held
+    con = db.connect(path)
+    summary = registry.prefixes(rows, registry.sub_counts(con))
+    con.close()
+    # the sub-docket is counted, not listed: /coverage counts every docket and this page
+    # counts the ones opened directly, and a page publishing only its own total would
+    # contradict it (code review, 2026-09-01)
+    assert [(p.prefix, p.dockets, p.subs, p.held, p.banded) for p in summary] == [
+        ("FD", 1, 1, 1, False)
+    ]
+
+    client = TestClient(create_app(path))
+    r = client.get("/dockets")
+    assert r.status_code == 200 and r.headers["cache-control"] == "public, max-age=1800"
+    assert 'href="/dockets/FD"' in r.text
+    # both totals on the page, and they reconcile with the one /coverage publishes
+    assert "listed here" in r.text and "dockets in all" in r.text
+    held = int(
+        re.search(r'([\d,]+)</span><span class="l">dockets in all', r.text)
+        .group(1)
+        .replace(",", "")
+    )
+    assert held == con_count(path, "SELECT COUNT(*) FROM docket")
+    prefix = client.get("/dockets/FD")
+    assert prefix.status_code == 200
+    assert 'href="/d/FD-36873"' in prefix.text and "UP/NS CONTROL" in prefix.text
+    # a small prefix is listed without bands, and its band addresses do not exist
+    assert client.get("/dockets/FD/36000").status_code == 404
+    assert client.get("/dockets/ZZ").status_code == 404
+    assert client.get("/dockets/FD/notanumber").status_code == 404
+    # one canonical address, as everywhere else
+    lower = client.get("/dockets/fd", follow_redirects=False)
+    assert lower.status_code == 301 and lower.headers["location"] == "/dockets/FD"
+    # and the surfaces that make it reachable
+    assert 'href="/dockets"' in client.get("/").text  # the footer, on every page
+    assert "/dockets" in client.get("/sitemap-pages-1.xml").text
+    assert "/dockets" in client.get("/llms.txt").text
+
+
+def test_a_banded_prefix_splits_by_number_and_the_bands_are_permanent(tmp_path):
+    """A band is a range of the Board's own numbers, so `/dockets/FD/36000` means
+    FD 36000–36999 for ever, whatever is opened in it later — which a page number would
+    not."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    for seq in range(1, registry.DIRECT + 2):  # one more than fits on a single page
+        if seq != 36873:
+            con.execute(
+                "INSERT OR IGNORE INTO docket (raw_docket, prefix, sequence) VALUES (?, 'FD', ?)",
+                (f"FD_{seq}", seq),
+            )
+    con.commit()
+    rows = registry.rows(con)
+    con.close()
+    info = next(p for p in registry.prefixes(rows) if p.prefix == "FD")
+    assert info.banded and {b.start for b in info.bands} == {0, 1000, 36000}
+    assert sum(b.dockets for b in info.bands) == info.dockets
+    client = TestClient(create_app(path))
+    listing = client.get("/dockets/FD")
+    assert listing.status_code == 200
+    assert 'href="/dockets/FD/36000"' in listing.text  # bands, not 1,002 rows
+    assert 'href="/d/FD-36873"' not in listing.text
+    band = client.get("/dockets/FD/36000")
+    assert band.status_code == 200 and 'href="/d/FD-36873"' in band.text
+    assert client.get("/dockets/FD/2000").status_code == 404  # a range holding nothing
