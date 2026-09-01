@@ -8,11 +8,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **v2026.08.45 is committed and not deployed.** Navigation Tiers 1–2. The deploy MUST run
-  `docker compose run --rm ingest search rebuild` in the window (`infra/deploy/README.md`):
-  `INDEX_FORMAT` 3 forces a rebuild, and a rebuild over 30 s makes a concurrent
-  `/subscribe` **fail** — 32 s was measured at two thirds of today's 96,225 rows. **Take
-  that timing and put it in `search.md`**; it is the last owed half of a deferred item
+- **v2026.08.45 merged to `main`, deploy in progress.** Navigation Tiers 1–2. The deploy
+  runs `search rebuild` in the window (`INDEX_FORMAT` 3 forces one anyway)
 - **26,943 comment attachments unfetched, and the poller will never fetch them** (measured
   2026-08-31: all are `backfill`-mode observations and `poll` asks for `observed_in=
   "forward"`). Cameron's go given 2026-08-31, **throttled and after this release**:

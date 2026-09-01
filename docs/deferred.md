@@ -8,20 +8,12 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 ## Web tier
 
 - **Search rebuild is whole, not a diff** (2026-08-26, v2026.08.28): any moved id rebuilds
-  every row; a diff by `(kind, ref)` would write only what changed. **The timing half of this
-  item is answered and the diff half is not.** Timed 2026-08-31 against a 2026-08-26
-  production copy with migration 0013 applied: **7.4 s for 61,898 rows** on the operator's
-  workstation, against 32 s for 61,959 on the instance at the v2026.08.42 deploy — so the
-  instance is roughly 4× that hardware and the local figure is a floor. The number at the
-  current size (96,225 rows, a third of them comment bodies, the longest text the index
-  carries) is taken on the deploy that ships `INDEX_FORMAT` 3, which forces a rebuild anyway;
-  `search.md` carries what is known.
-  **What the timing surfaced, and is the real finding:** `rebuild()` holds a write lock
-  throughout and `_connect_rw` waits at most 30 s for one, so a rebuild longer than 30 s
-  makes a concurrent `/subscribe` **fail**, not merely wait — and 32 s was already measured
-  at two thirds of today's row count. Either the derive is split from the write, or the
-  waiter's timeout outlasts the longest rebuild. The instance measurement decides which, and
-  it is owed at the next deploy.
+  every row; a diff by `(kind, ref)` would write only what changed. **The timing half of
+  this item is answered and closed; the diff half stands.** Measured on the instance
+  2026-08-31 at 96,225 rows: 22.4 s deriving (no lock), a **5.6 s** write transaction,
+  24.1 s in all — the numbers and their meaning are in `search.md`. A diff would still save
+  most of the 22.4 s, which is why this stays open; it is an efficiency, not a correctness
+  problem.
 - **Two curated "what changed" lists** (2026-08-26): the ETag stamp and the search signature
   each enumerate max ids; one store-level record version (a counter bumped by every writer)
   would make both correct by construction.
@@ -203,11 +195,15 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   Pre-existing and bounded to one measured month (`FILINGS:2025-10`); this release does not
   widen it. Smallest hardening is in `walk.py`: attempt the proof for expected-empty months
   too and fall back to the declaration only when the proof cannot be obtained.
-- **`_connect_rw`'s 30 s wait is shorter than a rebuild** (schema-critic, code review). The
-  deploy README now requires the rebuild to happen in the deploy window, which avoids the
-  collision rather than fixing it. The fix is either splitting the derive from the write or
-  raising the waiter's timeout past the longest measured rebuild; the instance measurement
-  owed at the next deploy decides which.
+- ~~**`_connect_rw`'s 30 s wait is shorter than a rebuild**~~ (schema-critic, code review).
+  **Measured on the instance 2026-08-31 and withdrawn: it is not.** Two reviews and this
+  file read the 32 s whole-command wall time as lock time; `rebuild()` derives on reads
+  first and the write transaction is **5.6 s** at 96,225 rows, well inside the 30 s wait.
+  The derive was already split from the write — that is what the module docstring meant by
+  "writes in one short transaction". A concurrent `/subscribe` waits about five seconds in
+  the worst case and does not fail. Kept here, struck through, because a plausible finding
+  that three passes believed is worth leaving visible: the lesson is that a wall-clock
+  number is not a lock number, and nobody had measured the difference.
 - **`reconcile_empty_month` is a fourth reader of the slice-key grammar**
   (stb-ingest-specialist). `walk.py:223` treats only `len(rest) == 7` keys as candidate
   `done` neighbours, so a month walked to completion as two complementary range slices

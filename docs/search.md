@@ -68,19 +68,28 @@ one whose caption repeats the parent's folds into the family row.
   Measured on the production copy: the first version took 227 s (correlated subqueries);
   the one-pass version is what shipped.
 
-  **How long a rebuild takes.** 40 s for ~62,000 rows while a wave ran, and 32 s for 61,959
-  on the v2026.08.42 deploy — both on the instance. Timed again on 2026-08-31 against a
-  2026-08-26 production copy on the operator's workstation, with migration 0013 applied:
-  **7.4 s for 61,898 rows**, which sets the instance at roughly 4× that hardware and makes
-  the local figure a floor, not the answer. The instance number at the current size — 96,225
-  rows, a third of them comment bodies, the longest text the index carries — is owed and is
-  taken on the deploy that ships `INDEX_FORMAT` 3, which forces a rebuild anyway.
+  **How long a rebuild takes, and how long it locks.** Measured on the instance
+  2026-08-31, against a `VACUUM INTO` snapshot of the production store at **96,225 rows**
+  (a third of them comment bodies, the longest text the index carries):
 
-  **This is not only a curiosity.** `rebuild()` holds a write lock throughout and
-  `_connect_rw` waits up to 30 s for one, so a rebuild longer than 30 s makes a concurrent
-  `/subscribe` **fail**, not merely wait — and 32 s was already measured at two thirds of
-  today's row count. Either the write is split from the derive, or the waiter's timeout
-  outlasts the longest rebuild; the measurement decides which.
+  | | |
+  | --- | --- |
+  | Deriving every row, on reads | **22.4 s** — no lock held |
+  | The write transaction | **5.6 s** — the write lock is held for this and only this |
+  | …of which the FTS re-tokenise | 4.5 s (delete 0.3 s, insert 0.6 s, commit 0.3 s) |
+  | Whole `search rebuild` | **24.1 s** |
+
+  Earlier figures — 40 s while a wave ran, 32 s for 61,959 on the v2026.08.42 deploy — are
+  whole-command wall times, and `docs/deferred.md` read them as lock time. **They are not.**
+  `rebuild()` derives everything on reads first and writes in one short transaction, exactly
+  as this note has always claimed, so the window in which another writer can collide is the
+  5.6 s, comfortably inside the 30 s `_connect_rw` waits. A concurrent `/subscribe` waits
+  about five seconds in the worst case; it does not fail. At this record's growth — roughly
+  250 documents a month — the lock window would have to grow more than fivefold before the
+  waiter's timeout became the binding constraint.
+
+  The derive is the part worth watching, and it is the part that costs nothing to anyone:
+  it holds no lock, and a reader searching during it sees the previous index.
 - **Tokenizer** `unicode61` with `remove_diacritics 2`; the docket-number spellings are
   written into the body as separate tokens so `36873` alone matches. Prefix queries on the
   last token for `/suggest`.
