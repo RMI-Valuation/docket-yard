@@ -209,3 +209,13 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   `done` neighbours, so a month walked to completion as two complementary range slices
   cannot anchor an empty-month proof. Fails safe — the month records `partial` instead of
   `empty` — and `slice_days`/`slice_month` now exist beside it to fix it with.
+
+## Found 2026-09-01, reviewing the AB sub-docket follow (v2026.08.46)
+
+- **`/d/AB-55/sub/794X.json` still answers with the whole AB 55 family** (code review). After
+  this change that address means two things: the page and the feed cover the one line, the
+  JSON twin covers all 766 proceedings. The divergence predates the change and is described
+  on `/data`, but it now sits directly against the change's own goal. Making the JSON follow
+  the page would alter what an existing consumer receives at an address that has always
+  answered this way, so it is a `shape_version` decision and the operator's, not a defect to
+  fix quietly. `sheet_json` uses `family_sheet`; the page uses the requested identity.

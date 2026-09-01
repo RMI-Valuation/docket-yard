@@ -247,6 +247,9 @@ def create_app(
         kind_label=labels.kind_label,
         filter_key=labels.filter_key,
         register_link=labels.register_link,
+        # what a follow (and the page's own Atom link) actually follows, so the template
+        # cannot spell the rule a second time and drift from it
+        follow_target=subscriptions.follow_target,
         confirm_ttl_hours=subscriptions.CONFIRM_TTL_HOURS,  # the privacy page quotes it
     )
     app.mount("/static", StaticFiles(directory=str(_PKG / "static")), name="static")
@@ -792,25 +795,68 @@ def create_app(
         finally:
             con.close()
 
-    @app.get("/d/{ident}/feed")
-    def docket_feed(ident: str):
-        identity = urls.parse_docket_path(ident)
-        if identity is None:
+    def _feed_docket_id(identity) -> int:
+        """The docket a feed address resolves to, or 404.
+
+        `find_docket` on the identity ITSELF, not `family_sheet`: the sheet was being built
+        purely as an existence check and thrown away, which on AB 167 means assembling a
+        995-sub-docket sheet with party resolution on every feed poll — and it checked the
+        FAMILY, so `/d/FD-36873/sub/999/feed` redirected happily while the page at that
+        address 404s (code review, 2026-09-01)."""
+        con = _connect(db_path)
+        try:
+            if find_docket(con, identity) is None:
+                raise HTTPException(404)
+            docket_id = find_docket(con, subscriptions.follow_target(identity))
+        finally:
+            con.close()
+        if docket_id is None:
             raise HTTPException(404)
-        family, s = family_sheet(identity)
+        return docket_id
+
+    def _docket_feed(identity):
+        """The feed for whatever unit a follow of this address follows, so the Atom link and
+        the follow button on one page never mean two different things — which they did:
+        `/d/AB-55/sub/794X` advertised the family's feed beside a button that (also) claimed
+        to follow the sub-docket, and its own feed address answered 404
+        (navigation-review.md A6)."""
+        target = subscriptions.follow_target(identity)
+        docket_id = _feed_docket_id(identity)
         con = _connect(db_path)
         try:
             return atom(
                 feeds.family_feed(
                     con,
-                    s.docket_id,
-                    urls.printed_docket(family),
-                    urls.docket_path(family),
+                    docket_id,
+                    urls.printed_docket(target),
+                    urls.docket_path(target),
                     site_host,
                 )
             )
         finally:
             con.close()
+
+    @app.get("/d/{ident}/feed")
+    def docket_feed(ident: str):
+        identity = urls.parse_docket_path(ident)
+        if identity is None:
+            raise HTTPException(404)
+        return _docket_feed(identity)
+
+    @app.get("/d/{ident}/sub/{sub}/feed")
+    def sub_docket_feed(ident: str, sub: str):
+        identity = urls.parse_docket_path(ident, sub)
+        if identity is None:
+            raise HTTPException(404)
+        _feed_docket_id(identity)  # 404 for a sub-docket the record does not hold
+        target = subscriptions.follow_target(identity)
+        if target != identity:
+            # a folding prefix: this sub-docket's feed IS its family's, so say so with a
+            # 301 rather than serving the same entries at a second address. It answered 404
+            # before, which was the wrong answer to a real question (navigation-review.md
+            # A6) — the page had always advertised the family's feed from here.
+            return RedirectResponse(urls.docket_path(target) + "/feed", status_code=301)
+        return _docket_feed(identity)
 
     # --- JSON: the same addresses, as data (M9). CC0; envelope names the source ----------
 
@@ -1167,11 +1213,13 @@ def create_app(
         con = _connect_rw(db_path)
         try:
             if identity is not None:
-                family = identity.parent() or identity
-                docket_id = find_docket(con, family)
+                # what the button says it follows: the sheet's family, except where a
+                # sub-docket is a proceeding in its own right (subscriptions.follow_target)
+                target = subscriptions.follow_target(identity)
+                docket_id = find_docket(con, target)
                 if docket_id is None:
                     raise HTTPException(404)
-                printed = urls.printed_docket(family)
+                printed = urls.printed_docket(target)
                 token = subscriptions.subscribe(con, address, docket_id, cadence, channel=channel)
             else:
                 if not resolve.party_exists(con, party_id):

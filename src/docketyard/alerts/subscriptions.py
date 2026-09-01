@@ -20,6 +20,48 @@ from sqlite3 import Connection
 
 from docketyard.alerts import vault, webhooks
 
+# --- what "follow this docket" follows -------------------------------------------------
+#
+# A sheet folds its sub-dockets (ADR 0005), and until 2026-09-01 a follow folded with it:
+# `/d/AB-55/sub/794X` offered a button reading "Follow this docket" and subscribed the
+# address to all 766 proceedings under AB 55, which the reader discovered from the
+# confirmation email naming AB 55 (navigation-review.md A6).
+#
+# Whether that fold is right depends on what a Sub-No. MEANS, and the Board does not use it
+# for one thing:
+#
+# - For FD, a sub-docket is a phase of one proceeding. Someone following the merger wants
+#   its phases, and folding is what they asked for.
+# - For AB, a sub-docket IS the proceeding: `/about/AB` says a Sub-No. is "each line a
+#   carrier abandons", and AB 55 alone holds 766 of them, in different states and different
+#   decades. Folding hands someone who asked about one line in one county every
+#   abandonment that carrier has ever filed. It is also where the lay reader is: 52.1% of AB
+#   captions name a county, parish or borough, against 6.1% of FD.
+#
+# The operator's decision, 2026-08-31: AB stops folding, every other prefix keeps folding.
+# Deciding it per prefix rather than everywhere is the narrow reading — it changes only the
+# case that was measured to be wrong, and an FD sub-docket follow keeps delivering what its
+# subscriber already gets. Existing subscriptions are untouched either way: this decides
+# what a NEW follow means, and every stored subscription keeps the docket_id it was made
+# with.
+#
+# The alert builder needs no change to honour this. It already matches
+# `d.docket_id = s.docket_id OR d.parent_docket_id = s.docket_id`, so a subscription
+# holding a sub-docket's id matches that sub-docket and nothing else — sub-dockets have no
+# children of their own.
+OWN_PROCEEDING_PREFIXES = frozenset({"AB"})
+
+
+def follow_target(identity):
+    """The docket a follow of `identity` should actually subscribe to.
+
+    Takes and returns a `ParsedDocket`. For a prefix whose sub-dockets are proceedings in
+    their own right, a sub-docket follows itself; everything else follows its family, which
+    is the sheet the reader was looking at."""
+    own = identity.sub_sequence is not None and identity.prefix in OWN_PROCEEDING_PREFIXES
+    return identity if own else (identity.parent() or identity)
+
+
 CONFIRM_TTL_HOURS = 48  # the one number the mail and the expired page both quote
 CONFIRM_TTL = timedelta(hours=CONFIRM_TTL_HOURS)
 CONFIRM_MAILS_PER_HOUR = 3  # per address, whatever the docket (ADR 0011: rate-limited)
