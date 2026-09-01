@@ -8,10 +8,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **v2026.08.48 is live** (2026-09-01): navigation Tiers 1–2 (v45), A6 (v46), the weeks
-  index and sub-docket breadcrumb (v47) and `/parties` as a page (v48), all verified on the
-  site. A pre-deploy copy of the store sits at `/srv/docketyard/pre-v45-backup.sqlite`
-  (296 MB) — delete it once these have held a day; Litestream is the real answer
+- **v2026.08.49 is live** (2026-09-01). The navigation review is built through Tier 3:
+  Tiers 1–2 (v45), A6 (v46), weeks index and breadcrumb (v47), `/parties` (v48), `/dockets`
+  (v49). All verified on the site. A pre-deploy copy of the store sits at
+  `/srv/docketyard/pre-v45-backup.sqlite` (296 MB) — delete it once these have held a day
 - **26,943 comment attachments unfetched, and the poller will never fetch them** (measured
   2026-08-31: all are `backfill`-mode observations and `poll` asks for `observed_in=
   "forward"`). Cameron's go given 2026-08-31, **throttled and after this release**:
@@ -45,12 +45,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
 - Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
 - **ADR 0012 addendum: the blob cache** (S3 the store, the instance a cache; sync + prune)
-- **`docs/navigation-review.md`**: Tiers 1–2 shipped. A7 (a series sheet builds 2,628
-  entries and renders none) is one decision with the same item in `docs/deferred.md`.
-  Of Tier 3, the weeks index, the breadcrumb and `/parties` shipped; still open is a docket
-  index by prefix and year, linked from the explainers, which dead-end after "the registry
-  holds 6,643 AB dockets". **Tier 4 is his** (the masthead, the home window's unit, what a
-  series sheet is, place)
+- **`docs/navigation-review.md`: Tiers 1–3 are built.** What is left is **Cameron's**:
+  Tier 4 (the masthead's shape, whether the home window becomes the calendar week, what a
+  series sheet is, whether a place index is ripe) and A7 — a series sheet builds 2,628
+  entries and renders none, one decision with the same item in `docs/deferred.md`
 - When this list runs short or a decision makes one of them near-term, pull the next item
   from `docs/deferred.md` (review findings and known gaps, dated, with their context)
 
