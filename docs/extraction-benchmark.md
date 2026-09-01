@@ -159,7 +159,7 @@ and buy a model only for what neither can do.
 
 - **So the paid extractor earns its keep on the other forms** — reporter cites, `decision
   served …` phrases, court citations, deadlines, and the role of a same-docket mention —
-  not on docket numbers. ADR 0017 § Amendment candidates records what that changes.
+  not on docket numbers. ADR 0017 decision 1 records what that changes (the pre-split § Amendment candidates is in git).
 
 Two things follow, and the second was not expected.
 

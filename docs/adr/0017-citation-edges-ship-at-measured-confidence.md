@@ -37,7 +37,8 @@ published without a human reading it first**, and on what evidence.
    A finder that can only emit dockets the registry holds cannot emit an unresolvable one —
    which empties the review queue for unresolved targets by construction, makes "cites
    `EP 445` (not in the record)" a display that can never be produced, and caps recall at
-   219 of 225. So the finder emits every docket-shaped hit and resolution decides what the
+   219 of 225 (the 225 docket-shaped truth rows less the six the registry cannot resolve —
+   arithmetic, not a separate measurement). So the finder emits every docket-shaped hit and resolution decides what the
    registry holds. It still invents nothing: an unresolved target is stored unresolved and
    never projected.
 
@@ -83,6 +84,16 @@ published without a human reading it first**, and on what evidence.
    decided date **is** extracted in the same pass, because doing it later costs that re-run:
    55 of 60 decisions print a `Decided:` line, none prints two, and 34 of 52 differ from the
    service date, so this record and a paper copy disagree today with nothing explaining why.
+   It is stored as an assertion carrying ADR 0007's block — **never a `decision_record`
+   column** (that table mirrors the latest observation and would destroy the history) and
+   **never a ledger event** (a decided date is a second clock; a replay would show a decision
+   existing before it was served). Those two fences are the grain constraint, not a detail:
+   the extraction decision without them is the cheap half.
+
+   One limit on decision 5, stated because a reader will assume the opposite: `citing_document`
+   is a sha256, so **a human review of an edge in the original does not follow into an
+   erratum's bytes**. The fold to the work is for edges; a review is anchored to the document
+   it was taken on.
 
 ## The blocker this decision does not resolve
 
@@ -117,6 +128,7 @@ rows. Only the "cited by" count is a public number that cannot be quietly restat
 ## Checked against `../validation-queries.md`
 
 Query 2 (negative treatment) is the query this record exists to serve, and it is writable
-against ADR 0018's tables — verified in full SQL, not asserted. Queries 1, 3 and 5 read no
-table this record proposes. Query 4 is expressible; the deviation it rests on is stated in
-0018. The five queries were re-checked against these decisions on 2026-09-01.
+against ADR 0018's tables. The SQL is on disk at [`../citator-query-2.sql`](../citator-query-2.sql), so this is checkable rather than asserted. Queries 1, 3 and 5 read no
+table this record proposes. Query 4 (lifecycle and provenance) reads no citation table and is untouched; what 0018
+protects for it is the natural-key-plus-supersession discipline that stops a re-extraction
+doubling an instrument's history. The five queries were re-checked against these decisions on 2026-09-01.

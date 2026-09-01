@@ -664,7 +664,7 @@ review_action (                    -- APPEND-ONLY: one decision per queue item
 ```
 
 **Every decision on a queue whose target has an assertion table writes a `human` row**
-(ADR 0017 decision 6 — schema-critic caught the first draft saying otherwise): an
+(ADR 0017 decision 5 — decision 6 pre-split; schema-critic caught the first draft saying otherwise): an
 acceptance writes a human resolution agreeing with the model's; a rejection writes a
 human *does-not-resolve* resolution; a correction writes the corrected one. In each case
 the new row supersedes the live one and the projection keeps reading `superseded_by IS

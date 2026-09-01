@@ -29,7 +29,9 @@ record is still free.
    `(citing_document, page, target_kind, normalised target key)`. It is stable across a
    text-layer and an OCR reading of the same bytes, which differ in the quoted passage
    (10.8% CER) and would otherwise double every edge on re-read. Resolutions, reviews and
-   corrections anchor on it as **typed columns rendered canonically** — never a surrogate id
+   corrections anchor on it as **typed columns rendered canonically**, and a review anchors on
+   `review_action.target_key` (the row reviewed), never `produced_key` (the row it wrote) —
+   never a surrogate id
    and never a digest, because the normalisation has already changed once and under a digest
    that silently rewrites every key. A `key_version` makes such a change visible.
 
@@ -40,8 +42,11 @@ record is still free.
    the class that admitted it. A finding outside its method's class is counted at run level
    (decision 10), so "not kept" is an auditable number and never a silent drop.
 
-2. **`citation` carries identity only:** `cited_raw`, `target_kind`, and ADR 0007's block for
-   the extraction. `target_kind` is in the key, so it cannot be corrected by supersession —
+2. **`citation` carries identity only:** `target_kind`, the natural key itself, and ADR
+   0007's block for the extraction. **`cited_raw` is not here** — the string as printed
+   differs between a text-layer and an OCR reading (10.8% CER), so on a row keyed stably
+   across readings whichever channel inserted first would own it for ever. It belongs beside
+   the quoted passage it came from, in `citation_reading`. `target_kind` is in the key, so it cannot be corrected by supersession —
    a corrected row would mint a *different* key. A misclassification is a **retraction and a
    fresh assertion**: the new row is written and the mis-keyed row's `superseded_by` points
    at it. Superseding the *row* is legal though the *key* is not; without that pointer the
@@ -55,8 +60,8 @@ record is still free.
    `reading_channel`, with the reading method and its version as **payload outside the key**,
    or a re-OCR at a better engine mints a row that supersedes nothing and doubles the live
    readings — over a measured 1,480 of 9,663 image-only files. It carries the
-   `source_location` and quoted passage, its own ADR 0007 block and its own `superseded_by`,
-   because OCR text is derived. `reading_channel` is `text-layer | ocr | human`; the third
+   `cited_raw` (the string as printed by that reading), the `source_location` and the quoted
+   passage, its own ADR 0007 block and its own `superseded_by`, because OCR text is derived. `reading_channel` is `text-layer | ocr | human`; the third
    value exists because the channel is in every key and a human row must carry something
    legal.
 
@@ -83,6 +88,11 @@ record is still free.
    measured at different rates (88.1% for `kind`, 98.2% for the span test) and one confidence
    column on the parent could never have carried three.
 
+   **A `judgement_vocab` declares each judgement's value domain**, because one `value` column
+   otherwise holds a boolean (`span_names_document`) and two enumerations (`kind`,
+   `target_form`) untyped — which is the EAV shape `citator-schema.md` § B rejects one
+   document over, and it would leave the projection comparing a boolean as a string.
+
 6. **`citation_treatment`** is its own table on the natural key plus method, version and
    channel, with a `treatment_vocab` carrying polarity. It is not a resolution row: putting
    it there would force the typing pass to restate the resolution or write NULLs into
@@ -95,17 +105,40 @@ record is still free.
    is singular only against an order — and an order stored per row records a *policy* where
    the row should record an *observation*, making a re-rank an update of every row.
 
-   - **`role` is `suppress` or `resolve`, and projection is not "rank 1".** It is: *if any
-     live `suppress` row exists, no edge; else the highest-ranked live `resolve` row whose
+   - **`role` is `suppress` or `resolve`, and projection is not "rank 1".** The resolution
+     family's term is: *if any live `suppress` row exists **for the same reading channel**,
+     no edge; else the highest-ranked live `resolve` row whose
      `outcome IN ('resolved','repaired')`.* A flat rank made every rule-2 repair unreachable,
      because rule 1 writes a row when it fails and outranks the repair that exists because it
-     failed.
+     failed. The channel match is required because a veto names **the reading it checked**: a
+     text-layer extraction checked against OCR text would be vetoed spuriously.
+
+   - **That term is not the whole projection, and must never be read as if it were**
+     *(restored 2026-09-01 — the split put this formula here and ADR 0017's self-reference
+     gate there, and the formula read complete without it, which would publish every
+     own-proceeding mention at 88.4% instead of 98.2%)*. **An edge projects only when all
+     three hold:**
+     1. the resolution term above;
+     2. the target docket is **outside** the citing work's family — the docket, its
+        sub-dockets and its parent, unioned over every docket a consolidated decision is
+        entered in (ADR 0017 decision 4);
+     3. or, if it is inside, a live `span_names_document` judgement says `true` —
+        **defaulting to suppress when no live judgement row passes** (ADR 0017 decision 4).
+
+     The family closure is **registry data, not application code**, and its version is one of
+     the three things `projection_rule_version` names (decision 8). `web/cite.py` computes the
+     same closure for the lookup page; the projection may not depend on that being kept in
+     step by hand.
    - **The projection predicate goes on the candidate set**, not the rank-1 row. On the
      rank-1 row it *deletes* edges: an unmeasured OCR resolution outranking a measured
      text-layer one takes rank 1 and the edge vanishes. The text layer outranks OCR for every
      method, held as registry data.
-   - **A `suppress` row exists only once its false-veto rate is measured.** Absence of the
-     row is how the record says "not yet trusted".
+   - **A `suppress` row exists only once its false-veto rate is measured, and carries
+     `confidence_state = 'measured'`.** Absence of the registry row is how the record says
+     "not yet trusted". The state matters because the predicate above filters the candidate
+     set: a veto left at `not-applicable` would be filtered out before it could suppress, and
+     the suppression mechanism would be silently inert *(caught 2026-09-01 — moving the
+     predicate to the candidate set fixed one defect and opened this one)*.
    - The formula is stated **per family**: treatment and judgement have no `outcome`, so
      theirs is the highest-ranked live row and nothing else.
 
@@ -132,9 +165,16 @@ record is still free.
    which is why this is a decision and not an implementation detail. The `supersedes_sha256`
    chain is **not** the instrument: it states no direction and holds several rows per document.
 
+   **The target half of the pair is typed**, because not every edge resolves to a work — with
+   `decision_record.decision_number` populated for 0 of 23,713 rows, docket-level edges are
+   the normal case. A pair is `(citing work, target_kind, cited_docket_id | cited_decision_id)`
+   with which one is set recorded, or a public "cited by" count silently mixes two grains.
+
 10. **`extraction_run`** records the pass, one row per
-   `(document, method, method_version, reading_channel)`, with a typed outcome. Nothing else
-   distinguishes *read and found nothing* from *not yet read*. Absence is not a measurement.
+   `(document, method, method_version, reading_channel)`, with a typed outcome **and its
+   out-of-class counts** — decision 1 promises "not kept" is an auditable number, and only a
+   count makes it one. Nothing else distinguishes *read and found nothing* from *not yet
+   read*. Absence is not a measurement.
 
 ## Consequences
 
@@ -167,8 +207,7 @@ version rather than reading one. A `projection_rule` table is an addition any da
 
 ## Checked against `../validation-queries.md`
 
-**Query 2 is writable end to end** — the join path was written in full SQL by the
-schema-critic, not asserted, across `citation`, `citation_reading`, `citation_resolution`,
+**Query 2 is writable end to end** — the SQL is on disk at [`../citator-query-2.sql`](../citator-query-2.sql) rather than asserted here, across `citation`, `citation_reading`, `citation_resolution`,
 `citation_judgement`, `citation_treatment`, `assertion_method` and the work fold. Queries 1
 and 5 read no table here. Query 3 is untouched: no proposal writes to `event`, and a
 confidence a reader saw is reconstructible from the row's own snapshot for `measured` rows —

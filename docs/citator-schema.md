@@ -21,6 +21,8 @@
 > | 8 — not in this slice; `extraction_run`; keys; the decided date | 0017 D7; 0018 D10 |
 > | 9 — what a reader sees | 0017 D6 |
 >
+> Section names also moved: § Amendment candidates, § What the finished batch changed and § Foreclosed were pre-split sections and are in git, not on disk. "Amendment 1" is 0017 D1; "amendment 3" is 0018 D8.
+>
 > **Revised the same day, after schema-critic review, which found 24 defects in the first
 > draft — including one in its headline measurement.** What that changed is recorded rather
 > than quietly corrected: the first draft published 100% precision after projection, and the
@@ -208,7 +210,7 @@ both documents and they cannot declare two shapes for one table. What the ADR se
   and earlier rows keep the historical one, which is the snapshot Q3 wants. `confidence_class`
   does not exist.)*
 
-**ADR 0017 governs where the two disagree.**
+**ADR 0018 decision 8 governs where the two disagree.**
 
 | method | class | reading | recall | precision after decision 5 | projected? |
 | --- | --- | --- | --- | --- | --- |
@@ -293,7 +295,7 @@ After amendment 1 the veto protects nothing currently projected — regex quotes
 construction, and every model-shipped class is stored rather than projected. **It would ship
 inert**, and the projection view should not reference it until it is measured on both readings.
 
-*(Reconciled with ADR 0017 decision 3, 2026-09-01, third critic pass: the veto still holds
+*(Reconciled with ADR 0018 decision 7 — decision 3 pre-split — 2026-09-01, third critic pass: the veto still holds
 rank 2 in the resolution order, which is not a contradiction of "ships inert" — it is ranked
 for when it is measured, and referenced by no projection until then. One thing the order does
 have to say, because the two readings invert a suppression: **the projection predicate
@@ -323,7 +325,7 @@ is worse than no mechanism, because the record would claim to have one.)*
   `stb_decision_id`s carry more than one `decision_record` row, and **not one of them disagrees**
   on service date or decision number. Consolidation, not collision. The key is safe.
 
-**Settled in ADR 0017 decision 3 (2026-09-01); ADR 0017 governs.** This paragraph read
+**Settled in ADR 0018 decision 4 (2026-09-01); ADR 0018 governs.** This paragraph read
 "**Q2 still does not run**", and declared `citation_resolution` keyed
 `(citation_id, method, method_version)`. Both are superseded. The key is the citation's
 **natural key** plus `(method, method_version, reading_channel)` — no surrogate id — and the
