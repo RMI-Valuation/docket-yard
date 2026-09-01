@@ -2,7 +2,11 @@
 {% set printed = printed_docket(identity) %}
 {% block title %}{{ printed }} — {{ site_name }}{% endblock %}
 {% block description %}{{ sheet.title or printed }}{% endblock %}
-{% block head %}<link rel="alternate" type="application/atom+xml" title="{{ printed }}" href="{{ docket_path(identity.parent() or identity) }}/feed">{% endblock %}
+{#- The feed for what THIS page follows, not always the family's. An AB sub-docket is a
+    proceeding in its own right, so its sheet advertised a feed for all 766 of its
+    siblings beside a button reading "Follow this docket" (navigation-review.md A6). -#}
+{% set feed_for = follow_target(identity) %}
+{% block head %}<link rel="alternate" type="application/atom+xml" title="{{ printed_docket(feed_for) }}" href="{{ docket_path(feed_for) }}/feed">{% endblock %}
 {% block main %}
 <section class="caption">
   <div class="caption-meta"><span class="label">{{ prefix_name(identity.prefix) }}</span><span>Before the Surface Transportation Board</span></div>
@@ -151,9 +155,19 @@
       {{ sheet.sub_dockets | length }}</a> under this number.</p></div>
     {% endif %}
     <div class="no-print">
-      <h2 id="follow">Follow this docket</h2>
-      {% with follow_field='docket', follow_value=printed, follow_note='Confirmed by email; one click to stop, and the address is deleted when you do. No account.' %}{% include '_follow_form.html' %}{% endwith %}
-      <p class="small muted follow-alt">Or: <a href="{{ docket_path(identity.parent() or identity) }}/feed">Atom feed</a> · <a href="#webhook">webhook</a></p>
+      {%- set is_sub = identity.sub_sequence is not none and feed_for != identity %}
+      {#- Name the unit, and name it before the confirmation email does. Where a follow of
+          this page covers more than the page — an FD sub-docket follows its family, because
+          there a Sub-No. is a phase of one proceeding — the heading and the note say so.
+          The reader used to find out afterwards, from an email naming something else
+          (navigation-review.md A6). -#}
+      <h2 id="follow">Follow {% if is_sub %}{{ printed_docket(feed_for) }}{% else %}this docket{% endif %}</h2>
+      {#- `feed_for != identity` is NOT "this is a sub-docket": a suffix on a parent
+          (`S5M 1 A`, `SUB 300 L`, both in the record) also has a parent, so the sub-number
+          is what the sentence below actually depends on. -#}
+      {% set follow_scope = '' if not is_sub else 'This is a sub-docket of ' ~ printed_docket(feed_for) ~ ', and following it follows the whole proceeding — every sub-docket under that number. ' %}
+      {% with follow_field='docket', follow_value=printed, follow_note=follow_scope ~ 'Confirmed by email; one click to stop, and the address is deleted when you do. No account.' %}{% include '_follow_form.html' %}{% endwith %}
+      <p class="small muted follow-alt">Or: <a href="{{ docket_path(feed_for) }}/feed">Atom feed</a> · <a href="#webhook">webhook</a></p>
       <details id="webhook" class="follow-webhook">
         <summary class="small muted">Send new entries to a webhook</summary>
         <form class="follow" method="post" action="/subscribe">

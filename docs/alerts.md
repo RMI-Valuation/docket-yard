@@ -50,10 +50,21 @@ the heartbeat to stop with it; `workflow_dispatch` re-arms it.
 
 ## The delivery promise (decided 2026-08-26)
 
-A subscription is to **one docket** (its family: the parent and its sub-dockets fold into
-one sheet and one subscription) **or, from M6, to one party** — filings whose "Filed For"
+A subscription is to **one docket** — its family, because a parent and its sub-dockets fold
+into one sheet and one subscription, **except where a sub-docket is a proceeding in its own
+right**: for `AB`, where a Sub-No. is each line a carrier abandons and one parent can hold
+766 of them, a sub-docket follows itself (2026-09-01, `alerts/subscriptions.py`
+§ follow_target; `navigation-review.md` A6). The sheet names the unit before the
+confirmation email does. Existing subscriptions are untouched: the rule decides what a NEW
+follow means, and every stored subscription keeps the docket it was made with — **or, from
+M6, to one party** — filings whose "Filed For"
 cell resolves to that party, in any docket; decisions carry no filer and never reach a
 party subscription — at **one of two cadences the subscriber chooses**:
+
+One address may hold two subscriptions that overlap — a docket and a sub-docket under it
+that does not fold. An event is mailed to an address once: the second subscription's copy
+joins the alert the first opened rather than opening a second, and is still recorded under
+its own subscription so that unsubscribing one does not strand the other.
 
 - **As it happens** — one email per docket per poll pass that observed something new on
   it. The poller runs every 30 minutes, so an entry the Board posts is usually in the
@@ -107,8 +118,11 @@ Email is one channel of three. All three render the same `EventSummary`
 captures, never a backfill wave — so a feed reader, a webhook receiver and an inbox see the
 same entry.
 
-**Atom feeds** (`web/feeds.py`) are stateless: `/feed` (agency-wide), `/d/<docket>/feed`
-(family) and `/p/<id>/feed` return the latest 100 entries, `Cache-Control: max-age=1800`.
+**Atom feeds** (`web/feeds.py`) are stateless: `/feed` (agency-wide), `/d/<docket>/feed`,
+`/d/<docket>/sub/<n>/feed` and `/p/<id>/feed` return the latest 100 entries,
+`Cache-Control: max-age=1800`. A feed address covers exactly what a follow of that page
+follows, so the two never mean different things: a sub-docket feed under a folding prefix
+answers 301 to its family's, and an `AB` sub-docket has a feed of its own.
 Nothing is stored about the reader (ADR 0011). A party feed lives under the party's
 permanent address (ADR 0015); the M8 path `/feed/party/<id>` answers 301 to it, forever.
 

@@ -11,6 +11,7 @@ from docketyard.alerts import build, mail, subscriptions, vault
 from docketyard.capture import records
 from docketyard.capture.stb import FILINGS
 from docketyard.ingest import observations
+from docketyard.ingest.dockets import parse_docket_id
 from docketyard.store import db
 from docketyard.web.app import create_app
 from tests.test_observations import body_of, filing_row
@@ -352,3 +353,146 @@ def test_subscribe_by_party_alerts_filings_across_dockets_and_never_decisions(st
         == 404
     )
     assert 'name="party" value="' in client.get("/parties", params={"name": "nrdc"}).text
+
+
+def test_an_ab_sub_docket_follows_itself_and_an_fd_one_follows_its_family(store, tmp_path):
+    """A6. `/d/AB-55/sub/794X` offered "Follow this docket" and subscribed the address to
+    all 766 proceedings under AB 55 — the reader found out from the confirmation email,
+    which named AB 55. For AB a Sub-No. IS the proceeding (each line a carrier abandons);
+    for FD it is a phase of one, and folding is what the subscriber asked for."""
+    con, path, _, _ = store
+    for raw, prefix, seq, sub, suffix in (
+        ("AB_55", "AB", 55, None, None),
+        ("AB_55_794_X", "AB", 55, 794, "X"),
+        ("AB_55_800_X", "AB", 55, 800, "X"),
+    ):
+        parent = None
+        if sub is not None:
+            parent = con.execute(
+                "SELECT docket_id FROM docket WHERE raw_docket = 'AB_55'"
+            ).fetchone()[0]
+        con.execute(
+            "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, suffix,"
+            " parent_docket_id) VALUES (?, ?, ?, ?, ?, ?)",
+            (raw, prefix, seq, sub, suffix, parent),
+        )
+    con.commit()
+
+    # the rule itself, in the one place it is written
+    ab_sub = parse_docket_id("AB_55_794_X")
+    fd_sub = parse_docket_id("FD_36873_1")
+    assert subscriptions.follow_target(ab_sub) == ab_sub  # its own proceeding
+    assert subscriptions.follow_target(fd_sub) == parse_docket_id("FD_36873")  # a phase
+    family = parse_docket_id("AB_55")
+    assert subscriptions.follow_target(family) == family  # a family follows itself
+
+    sender = FakeSender()
+    client = TestClient(create_app(path, sender=sender))
+    r = client.post(
+        "/subscribe", data={"email": "ab@example.org", "docket": "AB 55 (Sub-No. 794X)"}
+    )
+    assert r.status_code == 200
+    # the confirmation names the sub-docket, because that is what it subscribed to
+    assert "AB 55 (Sub-No. 794X)" in sender.sent[-1].subject
+    assert "AB 55 (Sub-No. 800X)" not in sender.sent[-1].text
+    row = con.execute(
+        "SELECT d.raw_docket FROM subscription s JOIN docket d ON d.docket_id = s.docket_id"
+    ).fetchall()
+    assert [r[0] for r in row] == ["AB_55_794_X"]
+
+    # an FD sub-docket still folds, and the page says so before the email does
+    client.post("/subscribe", data={"email": "fd@example.org", "docket": "FD 36873 (Sub-No. 1)"})
+    assert "FD 36873" in sender.sent[-1].subject and "Sub-No" not in sender.sent[-1].subject
+    sheet = client.get("/d/FD-36873/sub/1").text
+    assert "following it follows the whole proceeding" in sheet
+    assert "Follow FD 36873<" in sheet
+    ab_sheet = client.get("/d/AB-55/sub/794X").text
+    assert "Follow this docket" in ab_sheet
+    assert "follows the whole proceeding" not in ab_sheet
+
+
+def test_an_ab_sub_docket_alert_carries_only_its_own_entries(store, tmp_path):
+    """The alert builder needed no change to honour A6 — it already matched
+    `docket_id = s.docket_id OR parent_docket_id = s.docket_id`, and a sub-docket has no
+    children. This is the test that says so."""
+    con, path, _, _ = store
+    parent = con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence) VALUES ('AB_55', 'AB', 55)"
+    ).lastrowid
+    ids = {}
+    for raw, sub in (("AB_55_794_X", 794), ("AB_55_800_X", 800)):
+        ids[raw] = con.execute(
+            "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, suffix,"
+            " parent_docket_id) VALUES (?, 'AB', 55, ?, 'X', ?)",
+            (raw, sub, parent),
+        ).lastrowid
+    con.commit()
+    token = subscriptions.subscribe(con, "line@example.org", ids["AB_55_794_X"], "pass", now=T0)
+    subscriptions.confirm(con, token, now=T0)
+    # one filing in the followed line, one in its sibling, one in the family
+    for raw in ("AB_55_794_X", "AB_55_800_X", "AB_55"):
+        observe(
+            con, tmp_path, filing_row(docket=raw, fid=f"5{ids.get(raw, 0)}", date="8/27/2026"), 1
+        )
+    pending = build.pending_events(con, "pass")
+    assert [p.docket_raw for p in pending] == ["AB_55_794_X"]  # not the sibling, not the family
+
+
+def test_overlapping_subscriptions_mail_one_address_once(store, tmp_path):
+    """AB no longer folding makes a new shape possible: one address holding both `AB 55` and
+    a sub-docket under it. At 'pass' cadence the group key is the subscription, so the same
+    filing would have been mailed twice (code review, 2026-09-01)."""
+    con, path, _, _ = store
+    parent = con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence) VALUES ('AB_55', 'AB', 55)"
+    ).lastrowid
+    line = con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, suffix,"
+        " parent_docket_id) VALUES ('AB_55_794_X', 'AB', 55, 794, 'X', ?)",
+        (parent,),
+    ).lastrowid
+    con.commit()
+    for d in (parent, line):  # the series AND one line under it
+        subscriptions.confirm(
+            con, subscriptions.subscribe(con, "both@example.org", d, "pass", now=T0), now=T0
+        )
+    observe(con, tmp_path, filing_row(docket="AB_55_794_X", fid="410001", date="8/27/2026"), 1)
+    ids = build.build(con, "pass", now=T0)
+    assert len(ids) == 1  # one alert, not one per subscription
+    # …and the duplicate is still recorded, so unsubscribing one does not strand the other
+    rows = con.execute(
+        "SELECT COUNT(*), COUNT(DISTINCT subscription_id) FROM alert_event WHERE alert_id = ?",
+        (ids[0],),
+    ).fetchone()
+    assert rows == (2, 2)
+    sender = FakeSender()
+    build.deliver(con, sender, "docketyard.org", log=lambda _: None)
+    assert len(sender.sent) == 1  # one email
+    # counted once, not twice: `render` groups the alert's rows by event
+    assert sender.sent[0].subject == "AB 55 (Sub-No. 794X): 1 new entry"
+    # both marks advanced: a joined event must not be re-sent every pass, for ever
+    assert build.pending_events(con, "pass") == []
+    marks = [m for (m,) in con.execute("SELECT high_water_event_id FROM subscription")]
+    assert len(set(marks)) == 1 and marks[0] is not None
+
+
+def test_a_suffix_on_a_parent_is_not_called_a_sub_docket(store):
+    """`S5M 1 A` and `SUB 300 L` have a suffix and no sub-number, so `parent()` is non-None
+    for them too. Testing "does this fold?" as "is this a sub-docket?" made the page claim a
+    relationship the record denies (code review, 2026-09-01)."""
+    con, path, _, _ = store
+    con.execute("INSERT INTO docket (raw_docket, prefix, sequence) VALUES ('S5M_1', 'S5M', 1)")
+    parent = con.execute("SELECT docket_id FROM docket WHERE raw_docket = 'S5M_1'").fetchone()[0]
+    con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, suffix,"
+        " parent_docket_id) VALUES ('S5M_1_0_A', 'S5M', 1, NULL, 'A', ?)",
+        (parent,),
+    )
+    con.commit()
+    suffixed = parse_docket_id("S5M_1_0_A")
+    assert suffixed.sub_sequence is None and suffixed.parent() is not None
+    # it still folds — that behaviour is unchanged — but it is not a sub-docket
+    assert subscriptions.follow_target(suffixed) == parse_docket_id("S5M_1")
+    page = TestClient(create_app(path)).get("/d/S5M-1-A").text
+    assert "This is a sub-docket of" not in page
+    assert "every sub-docket under that number" not in page

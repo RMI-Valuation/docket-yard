@@ -196,9 +196,26 @@ def build(
     # one alert per group: the address alone for a digest, the subscription otherwise
     groups: dict[tuple[str, str, int | None], list[Carried]] = {}
     channels = dict(con.execute("SELECT subscription_id, channel FROM subscription"))
+    # An address can hold two subscriptions that OVERLAP — a docket and, since 2026-09-01,
+    # a sub-docket under it that no longer folds (subscriptions.follow_target). At 'pass'
+    # cadence the group key is the subscription, so one filing would be mailed to the same
+    # person twice.
+    #
+    # An event already claimed for this address joins the alert that claimed it, rather than
+    # opening a second one — the same shape a daily digest has always had, generalised. The
+    # duplicate is still RECORDED, under its own subscription: `render` groups by event so
+    # it is shown once, `_carrier` takes the lowest subscription, and if the claiming
+    # subscription is unsubscribed before the alert is delivered the other one still carries
+    # it. Dropping the row instead would lose an entry the second subscription was owed.
+    claimed: dict[tuple[str, str, int], tuple] = {}
+    # Every subscription's mark advances whether or not its copy opened the alert. Advancing
+    # only from an alert's own rows would re-send a joined event every pass, for ever.
+    marks_all: dict[int, int] = {}
     for c in carried:
+        marks_all[c.subscription_id] = max(marks_all.get(c.subscription_id, 0), c.event_id)
         ch = channels[c.subscription_id]
         key = (c.email_hash, ch, None if cadence == "daily" else c.subscription_id)
+        key = claimed.setdefault((c.email_hash, ch, c.event_id), key)
         groups.setdefault(key, []).append(c)
     ids = []
     for (h, channel, _), items in groups.items():
@@ -212,7 +229,6 @@ def build(
             " VALUES (?, ?, ?, 'pending', ?, ?)",
             (h, enc, cadence, t, channel),
         ).lastrowid
-        marks: dict[int, int] = {}
         for c in items:
             gap_id = _gap_covering(con, c.captured_at) if c.late else None
             con.execute(
@@ -220,13 +236,12 @@ def build(
                 " late_gap_id) VALUES (?, ?, ?, ?, ?)",
                 (alert_id, c.subscription_id, c.event_id, int(c.late), gap_id),
             )
-            marks[c.subscription_id] = max(marks.get(c.subscription_id, 0), c.event_id)
-        for sid, mark in marks.items():
-            con.execute(
-                "UPDATE subscription SET high_water_event_id = ? WHERE subscription_id = ?",
-                (mark, sid),
-            )
         ids.append(alert_id)
+    for sid, mark in marks_all.items():
+        con.execute(
+            "UPDATE subscription SET high_water_event_id = ? WHERE subscription_id = ?",
+            (mark, sid),
+        )
     con.commit()
     return ids
 

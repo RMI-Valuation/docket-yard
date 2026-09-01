@@ -35,11 +35,12 @@ def test_feeds_render_forward_events_only(store):
     _forward_filing(con, tmp_path)
     con.close()
     client = TestClient(create_app(path))
-    for url in ("/feed", "/d/FD-36873/feed", "/d/FD-36873/sub/1/feed"):
+    # FD folds, so the sub-docket's feed IS the family's: one canonical address, reached
+    # by a 301 rather than answered 404 (navigation-review.md A6)
+    r = client.get("/d/FD-36873/sub/1/feed", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == "/d/FD-36873/feed"
+    for url in ("/feed", "/d/FD-36873/feed"):
         r = client.get(url)
-        if url.endswith("/sub/1/feed"):
-            assert r.status_code == 404  # a family is addressed by its parent
-            continue
         assert r.status_code == 200, url
         assert r.headers["content-type"].startswith("application/atom+xml")
         assert r.headers["cache-control"] == "public, max-age=1800"
@@ -280,3 +281,14 @@ def test_daily_due_is_per_channel(store):
         (at.isoformat(),),
     )
     assert build.daily_due(con, at, "email") and not build.daily_due(con, at, "webhook")
+
+
+def test_a_feed_address_checks_the_address_it_names(store):
+    """The guard checked the FAMILY, so `/d/FD-36873/sub/999/feed` redirected happily while
+    the page at that address 404s (code review, 2026-09-01)."""
+    con, path, _, tmp_path = store
+    con.close()
+    client = TestClient(create_app(path))
+    assert client.get("/d/FD-36873/sub/999", follow_redirects=False).status_code == 404
+    assert client.get("/d/FD-36873/sub/999/feed", follow_redirects=False).status_code == 404
+    assert client.get("/d/FD-99999/feed", follow_redirects=False).status_code == 404
