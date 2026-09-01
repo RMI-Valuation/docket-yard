@@ -44,6 +44,7 @@ from docketyard.store import (
     home,
     projections,
     registers,
+    registry,
     search,
     sheet,
     stats,
@@ -657,6 +658,81 @@ def create_app(
 
     _weeks: dict[str, list] = {}
 
+    _registry: dict[str, tuple[list, list]] = {}
+
+    def registry_rows() -> tuple[list, list]:
+        """Every family and the per-prefix summary, memoised on the store stamp: three
+        grouped counts and one ordered read over 21,807 families, ~60 ms."""
+        key = stamp()
+        if key not in _registry:
+            con = _connect(db_path)
+            try:
+                rows, subs = registry.rows(con), registry.sub_counts(con)
+            finally:
+                con.close()
+            built = (rows, registry.prefixes(rows, subs))
+            # assign BEFORE dropping the old: a reader that passed the membership check
+            # above must never find the key gone underneath it (code review, 2026-09-01)
+            _registry[key] = built
+            for stale in [k for k in _registry if k != key]:
+                del _registry[stale]
+        return _registry[key]
+
+    @app.get("/dockets")  # the numbers move once a poll; the page may be cached that long
+    def dockets_index(request: Request):
+        """Every prefix the registry holds. `/coverage` said the record holds 32,623
+        dockets and offered no way to look at one (navigation-review.md § C)."""
+        rows, summary = registry_rows()
+        response = render(
+            request,
+            "dockets.html",
+            prefixes=summary,
+            total=len(rows),
+            subs=sum(p.subs for p in summary),
+            held=sum(1 for r in rows if r.held),
+            explained=urls.EXPLAINED,
+        )
+        response.headers.update(PUBLIC_CACHE)
+        return response
+
+    def _prefix_page(request: Request, prefix: str, band: int | None):
+        rows, summary = registry_rows()
+        info = next((p for p in summary if p.prefix == prefix), None)
+        if info is None:
+            raise HTTPException(404, "The registry holds no docket with that prefix.")
+        if band is not None and band not in {b.start for b in info.bands}:
+            raise HTTPException(404, "The registry holds no docket in that range.")
+        response = render(
+            request,
+            "dockets_prefix.html",
+            prefix=prefix,
+            band=band,
+            band_size=registry.BAND,
+            info=info,
+            rows=registry.of_prefix(rows, prefix, band),
+            explained=urls.EXPLAINED,
+        )
+        response.headers.update(PUBLIC_CACHE)
+        return response
+
+    @app.get("/dockets/{prefix}")
+    def dockets_prefix(request: Request, prefix: str):
+        if prefix != prefix.upper():  # any case resolves; one address is served
+            return RedirectResponse(f"/dockets/{prefix.upper()}", status_code=301)
+        return _prefix_page(request, prefix, None)
+
+    @app.get("/dockets/{prefix}/{band}")
+    def dockets_band(request: Request, prefix: str, band: str):
+        if prefix != prefix.upper():
+            return RedirectResponse(f"/dockets/{prefix.upper()}/{band}", status_code=301)
+        # ASCII digits only: "²".isdigit() is True and int("²") raises, which was a 500
+        # rather than a 404 (code review, 2026-09-01)
+        if not (band.isascii() and band.isdigit() and len(band) <= 9):
+            raise HTTPException(404)
+        if str(int(band)) != band:  # one canonical address, as /dockets/fd already 301s
+            return RedirectResponse(f"/dockets/{prefix}/{int(band)}", status_code=301)
+        return _prefix_page(request, prefix, int(band))
+
     @app.get("/weeks")  # the numbers move once a poll; the page may be cached that long
     def weeks_index(request: Request):
         """Every week the record holds anything for — the index the archive never had.
@@ -778,7 +854,11 @@ def create_app(
             return RedirectResponse(urls.explainer_path(canonical), status_code=301)
         if canonical in explainers.PAGES:
             return render(
-                request, f"explain_{canonical}.html", f=facts(), page_path=f"/about/{canonical}"
+                request,
+                f"explain_{canonical}.html",
+                f=facts(),
+                prefix=canonical,  # the shared layout links this prefix's own docket index
+                page_path=f"/about/{canonical}",
             )
         known = {p for p, _, _ in explainers.OTHERS} | set(explainers.EMPTY_PREFIXES)
         if canonical in known or canonical in facts().prefixes:  # its row on the index

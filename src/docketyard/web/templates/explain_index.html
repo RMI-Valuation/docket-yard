@@ -25,7 +25,7 @@
     <tbody>
     {% for p, name, what in [('FD', 'Finance Docket', 'Line sales and leases, trackage rights, control and mergers, declaratory orders, constructions'), ('AB', 'Abandonment', 'Abandonments and discontinuances of service, including trail use'), ('NOR', 'Formal complaint', 'Complaints, including rate cases, unreasonable-practice cases and the common carrier obligation'), ('EP', 'Ex Parte', 'Rulemaking and information-gathering proceedings the Board opens itself'), ('MCF', 'Motor carrier finance', 'Control and mergers among intercity bus companies')] %}
     {% set pf = f.prefix(p) %}
-    <tr><td class="title mono"><a href="/about/{{ p }}">{{ p }}</a> <span class="muted small">{{ name }}</span></td><td class="title">{{ what }}</td><td class="num">{{ pf.dockets | commas }}</td><td class="num">{{ pf.filings | commas }}</td></tr>
+    <tr><td class="title mono"><a href="/about/{{ p }}">{{ p }}</a> <span class="muted small">{{ name }}</span> <a class="small" href="/dockets/{{ p }}">list</a></td><td class="title">{{ what }}</td><td class="num">{{ pf.dockets | commas }}</td><td class="num">{{ pf.filings | commas }}</td></tr>
     {% endfor %}
     </tbody>
   </table>

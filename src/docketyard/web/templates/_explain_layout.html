@@ -11,6 +11,15 @@
   <p class="small muted">A reading aid, not legal advice, and not a substitute for the record. Every statement carries a grade — <span class="grade">[B]</span> the Board’s own words, <span class="grade">[R]</span> the rule or statute, <span class="grade">[N]</span> the National Archives’ description of the series, <span class="grade">[C]</span> measured from this record, <span class="grade">[?]</span> unconfirmed. Nothing here says what any party argued or which side it is on. Figures are counted from the record as it stands.</p>
 </section>
 {% block body %}{% endblock %}
+{#- The way out. Each explainer quoted "the registry holds N X dockets" and stopped, with
+    no way to see one of them (navigation-review.md § C). Guarded because this layout is
+    shared with `/about/prefixes`, which is about no single prefix and passes none — it was
+    rendering `<a href="/dockets/">Every  proceeding on record</a>` (code review). -#}
+{% if prefix is defined and prefix %}
+<section class="caption">
+  <p><a href="/dockets/{{ prefix }}">Every {{ prefix }} proceeding on record</a>, by number — including the ones this record holds nothing filed in. The count is on that page: quoting it here too is how two pages come to disagree.</p>
+</section>
+{% endif %}
 <section class="caption">
   <p class="small muted">Sources (all read 2026-08-26): the Board’s <a href="https://www.stb.gov/proceedings-actions/search-stb-records/tips-for-searching-stb-records/" rel="noopener">Tips for Searching STB Records</a> (the one page on stb.gov that defines prefixes), <a href="https://www.stb.gov/about-stb/" rel="noopener">About STB</a>, <a href="https://www.stb.gov/resources/rail-consumers/litigation-alternatives/" rel="noopener">Litigation Alternatives</a>, <a href="https://www.stb.gov/resources/rail-consumers/need-assistance/" rel="noopener">Need Assistance?</a>, <a href="https://www.stb.gov/environmental-review/" rel="noopener">Environmental Overview</a>, <a href="https://www.stb.gov/resources/household-goods/" rel="noopener">Household Goods Tariff Guidance</a>, <a href="https://www.stb.gov/resources/legal-resources/" rel="noopener">Legal Resources</a>, <a href="https://www.stb.gov/proceedings-actions/major-railroad-mergers-faqs/" rel="noopener">Major Railroad Mergers FAQs</a>, press release PR-22-55; 49 CFR §1152.50, §1180.2, Parts 1150 and 1111; NARA records schedules N1-134-99-002 and DAA-0134-2013-0017; the search form’s own prefix and suffix lists. Permanent address <span class="mono">docketyard.org{{ page_path }}</span>. Something wrong? <a href="/corrections">Corrections</a>.</p>
 </section>

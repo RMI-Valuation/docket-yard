@@ -21,6 +21,7 @@ SECTIONS = ("pages", "weeks", "dockets", "decisions", "filings", "comments", "pa
 STATIC_PAGES = (
     "/",
     "/weeks",
+    "/dockets",
     "/parties",
     "/search",
     "/stats",
