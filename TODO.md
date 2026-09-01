@@ -8,22 +8,24 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **v2026.08.50 is live** (2026-09-01). The navigation review is built through Tier 3
-  (v45–v49), and v50 cleared five from `docs/deferred.md` that needed no decision. A
-  pre-deploy copy of the store sits at `/srv/docketyard/pre-v45-backup.sqlite` (296 MB) —
-  delete it once these have held a day
+- **v2026.08.51 is live** (2026-09-01). Navigation review Tiers 1–3 (v45–v49), five from
+  the deferred pool (v50), A7 + JSON shape 2 (v51). Delete
+  `/srv/docketyard/pre-v45-backup.sqlite` (296 MB) once these have held a day
+- **The comment-attachment drain is RUNNING** (started 2026-09-01 11:23 UTC, Cameron's go at
+  the client's 2 s interval): `/srv/docketyard/drain.sh` under nohup, resumable, chunks of
+  400 with a disk guard, logging to `drain.log`; `touch /srv/docketyard/drain.stop` ends it
+  after the current chunk. **~2.5 days, not the 15 hours estimated** — the 2 s interval is
+  not the constraint, the 1.46 MB downloads are (~7.6 s each). Disk holding at 20 GB
 - **26,943 comment attachments unfetched, and the poller will never fetch them** (measured
   2026-08-31: all are `backfill`-mode observations and `poll` asks for `observed_in=
   "forward"`). Cameron's go given 2026-08-31, **throttled and after this release**:
   `fetch attachments --mode backfill` on the instance, resumable, watching disk (21 GB free
   against the pruner's 20 GB floor). ~27k requests to the Board — agree the rate first
-- **ADR 0017 stays Proposed.** Acceptance taken 2026-08-31 and **held by Cameron the same
-  day**, before it left the branch; § Decision is unamended. Its § Acceptance, held keeps
-  the work — what acceptance would decide, the amendments re-checked, and the six things it
-  must clear first. Still gates OCR, the citator and the reviewer build
-- **`/d/AB-55/sub/794X.json` still answers with the whole family** while its page and feed
-  now cover the one line (code review, v2026.08.46). Changing it alters what an existing
-  consumer receives: a `shape_version` decision, and **Cameron's** — `docs/deferred.md`
+- **ADR 0017 stays Proposed**, and `docs/citator-schema.md` now drafts its six open items
+  into proposals so reviving it is a yes/no. Schema-critic found 24 defects in the first
+  draft, including its headline: the honest precision after decision 5 is **98.2%**, not the
+  100% first published. **Cameron's**: § G (a NULL confidence narrows ADR 0007 — 0018, drop
+  the case, or a typed `confidence_state`), and whether 0017 is revived at all
 - **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against, so
   **a second unseen sample must confirm** before any type ships
 - No Anthropic key exists; any Claude-backed run needs a new one from Cameron
@@ -45,10 +47,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
 - Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
 - **ADR 0012 addendum: the blob cache** (S3 the store, the instance a cache; sync + prune)
-- **`docs/navigation-review.md`: Tiers 1–3 are built.** What is left is **Cameron's**:
-  Tier 4 (the masthead's shape, whether the home window becomes the calendar week, what a
-  series sheet is, whether a place index is ripe) and A7 — a series sheet builds 2,628
-  entries and renders none, one decision with the same item in `docs/deferred.md`
+- **`docs/navigation-review.md`: Tiers 1–3 and A7 are built**, and the home window keeps its
+  rolling seven days (Cameron, 2026-09-01). What is left is **Cameron's**: the masthead's
+  shape, and whether a place index is ripe
 - When this list runs short or a decision makes one of them near-term, pull the next item
   from `docs/deferred.md` (review findings and known gaps, dated, with their context)
 

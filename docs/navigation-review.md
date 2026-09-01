@@ -5,7 +5,10 @@
 > are fixed, and § C's front door is built: the weeks index, the sub-docket breadcrumb,
 > `/parties` as a page, and the docket index — by prefix and NUMBER, because the record has
 > no year for a docket that holds nothing, which is three quarters of them.
-> A7, § D, § E and Tier 4 are unchanged and still the operator's to choose. Every measurement below
+> **A7 shipped 2026-09-01** (v2026.08.51): a series carries an index, and its JSON twin
+> covers what its page covers. Of Tier 4 the home window is settled — it keeps the rolling
+> seven days, named for what it is. The masthead's shape and whether a place index is ripe
+> are unchanged and still the operator's to choose. Every measurement below
 > is left as it was taken, because it is the evidence the fixes were made against; what
 > shipped is recorded in `milestones.md` and in the commit, not by editing the numbers here.
 >
