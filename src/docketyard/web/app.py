@@ -54,7 +54,7 @@ from docketyard.store.db import MIGRATIONS, dump_json, utcnow
 from docketyard.web import cite, documents, feeds, labels, mcp, sitemaps, urls
 
 _PKG = resources.files("docketyard.web")
-JSON_SHAPE = 1  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
+JSON_SHAPE = 2  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
 POLL_MINUTES = 30  # the watch's cadence, as /coverage states it (compose: --interval 30)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
 NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/suggest")  # tokens, consent
@@ -1062,7 +1062,19 @@ def create_app(
         canonical = urls.docket_path(identity) + ".json"
         if _path(request) != canonical:  # any case resolves; one address is served
             return RedirectResponse(canonical, status_code=301)
-        family, s = family_sheet(identity)
+        # The JSON covers what the PAGE covers. It used to answer with the family whatever
+        # was asked for, so `/d/AB-55/sub/794X.json` published all 766 proceedings while the
+        # page beside it showed one line, and `/d/AB-167.json` published 2,628 entries the
+        # page at that address renders none of. One address, one meaning (operator,
+        # 2026-09-01; navigation-review.md A7). `shape_version` 2 says so.
+        con = _connect(db_path)
+        try:
+            docket_id = find_docket(con, identity)
+            s = sheet.docket_sheet(con, docket_id) if docket_id is not None else None
+        finally:
+            con.close()
+        if s is None:
+            raise HTTPException(404)
         d = asdict(s)
         d.pop("parties", None)  # the enriched layer is held (dump.HELD_REASON)
         d.update(docket_ref(s))
@@ -1080,13 +1092,16 @@ def create_app(
             }
             for m in s.sub_dockets
         ]
+        # a series carries no entries of its own: each proceeding keeps them on its own
+        # address, which `sub_dockets` names
         d["entries"] = [entry_json(e) for e in s.entries]
         body = {"docket": d}
-        if identity != family:  # a sub-docket address answers with its family, and says so
-            body["requested"] = {
-                "raw_docket": identity.canonical(),
-                "printed": urls.printed_docket(identity),
-                "url": f"https://{site_host}{urls.docket_path(identity)}",
+        parent = identity.parent()
+        if parent is not None:  # a sub-docket names the series it sits under
+            body["series"] = {
+                "raw_docket": parent.canonical(),
+                "printed": urls.printed_docket(parent),
+                "url": f"https://{site_host}{urls.docket_path(parent)}",
             }
         return as_json(body)
 

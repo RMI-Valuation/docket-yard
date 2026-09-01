@@ -38,10 +38,20 @@ lists the Board's own URL), and anything about readers.
 ## JSON
 
 The same permanent addresses (ADR 0013) with `.json` appended, case-normalised by 301 as
-the pages are: `/d/FD-36873.json` and `/d/FD-36873/sub/1.json` (the family sheet —
-`sheet.DocketSheet` serialised, plus `printed`, `url`, a `url` per entry, and `requested`
-when a sub-docket was asked for), `/filing/<id>.json`, `/decision/<id>.json` (the entry
-plus its docket). Every response carries `source`, `licence`, `licence_url`,
+the pages are: `/d/FD-36873.json` and `/d/FD-36873/sub/1.json` (`sheet.DocketSheet`
+serialised, plus `printed`, `url`, a `url` per entry, and `series` when the address sits
+under a number), `/filing/<id>.json`, `/decision/<id>.json` (the entry plus its docket).
+
+**Shape 2 (2026-09-01): a JSON address covers what the page at that address covers.** Until
+then it answered with the family whatever was asked for, so `/d/AB-55/sub/794X.json`
+published all 766 proceedings under AB 55 while the page beside it showed one line, and
+`/d/AB-167.json` published 2,628 entries the page at that address renders none of. Two
+consequences for a consumer of shape 1: a sub-docket address now returns that sub-docket's
+own sheet, with `series` naming the number it sits under where `requested` used to name what
+was asked for; and a **series** address — a number holding nothing itself, with a run of
+sub-dockets under it — returns its index and an empty `entries`, because each proceeding
+keeps its entries at its own address. The family sheet is still one request away: it is the
+`series` link. Every response carries `source`, `licence`, `licence_url`,
 `shape_version`, `generated_at`, and `Cache-Control: public, max-age=1800`. No keys, no
 accounts, no rate limits; the page asks for a reasonable pace and a `User-Agent`.
 

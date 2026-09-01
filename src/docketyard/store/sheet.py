@@ -197,6 +197,33 @@ def _series(con: Connection, docket_id: int) -> Series | None:
     return Series(row[0]) if row else None
 
 
+def _family_totals(con: Connection, ids: list[int]) -> dict:
+    """What a family holds, folded by the Board's own identifier — never summed over its
+    members. One filing entered in a docket AND its sub-docket is two `filing` rows and one
+    filing (ADR 0005), which is the fold the entry list did by construction and a sum over
+    per-docket counts would undo."""
+    marks = ",".join("?" for _ in ids)
+    counts = {}
+    for key, table, ident in (
+        ("filings", "filing", "stb_filing_id"),
+        ("decisions", "decision_record", "stb_decision_id"),
+        ("comments", "enviro_comment", "comment_number"),
+    ):
+        counts[key] = con.execute(
+            f"SELECT COUNT(DISTINCT {ident}) FROM {table} WHERE docket_id IN ({marks})", ids
+        ).fetchone()[0]
+    return counts
+
+
+def _last_checked(con: Connection, ids: list[int]) -> str | None:
+    marks = ",".join("?" for _ in ids)
+    return con.execute(
+        f"SELECT MAX(c.captured_at) FROM capture c JOIN event e ON e.capture_id = c.capture_id"
+        f" WHERE e.docket_id IN ({marks})",
+        ids,
+    ).fetchone()[0]
+
+
 def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
     head = con.execute(
         "SELECT raw_docket, prefix, sequence, latest_payload FROM docket_current"
@@ -210,6 +237,48 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
     own = next((m for m in family if m.docket_id == docket_id), None)
     ids = [m.docket_id for m in family]
     marks = ",".join("?" for _ in ids)
+
+    # A parent that holds no records of its own AND carries a run of sub-dockets is
+    # a carrier's series, not a case: measured 2026-08-30, every one of the fourteen
+    # largest families (AB 167 with 995 sub-dockets, AB 55 with 765, AB 290 with 391)
+    # holds zero filings and zero decisions directly, while FD 33388 — one merger with
+    # phases — holds 325. Both halves are needed: 142 families have more than five subs
+    # and no records of their own, but a two-member family whose records all sit in the
+    # one sub-docket is still a case, and leading with a one-row index would bury it
+    # (code review, 2026-08-30).
+    is_index = (
+        own is not None
+        and own.filings == 0
+        and own.decisions == 0
+        and own.comments == 0
+        and len(family) - 1 >= SERIES_SUBS
+    )
+    if is_index:
+        # Decided BEFORE the entries are built, because a series does not build them. The
+        # page has never rendered them and the JSON twin now matches the page (operator,
+        # 2026-09-01): on AB 167 that was 2,628 entries assembled with a payload and an
+        # attachment query EACH, and then discarded — 399 KB of prose over 866 records of
+        # work, on every request (navigation-review.md A7, deferred 2026-08-30). Each
+        # proceeding keeps its own entries on its own sheet, which the index links.
+        return DocketSheet(
+            docket_id=docket_id,
+            raw_docket=raw,
+            prefix=prefix,
+            sequence=sequence,
+            title=load_json(payload)["title"] if payload else None,
+            series=_series(con, docket_id),
+            sub_dockets=[m for m in family if m.docket_id != docket_id],
+            is_index=True,
+            entries=[],
+            # counted, never summed over the members: one filing entered in a docket AND
+            # its sub-docket is two `filing` rows and one filing, which is the fold the
+            # entry list used to do (ADR 0005)
+            **_family_totals(con, ids),
+            last_checked=_last_checked(con, ids),
+            # the Parties block is not rendered on a series, so it is not resolved either
+            parties=[],
+        )
+
     entries: list[Entry] = []
     filing_rows = con.execute(
         f"SELECT filing_pk, docket_id, stb_filing_id, filing_type, filed_date,"
@@ -291,11 +360,7 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
     entries.sort(
         key=lambda e: (e.date or "", e.kind == "decision", _numeric(e.record_id)), reverse=True
     )
-    last = con.execute(
-        f"SELECT MAX(c.captured_at) FROM capture c JOIN event e ON e.capture_id = c.capture_id"
-        f" WHERE e.docket_id IN ({marks})",
-        ids,
-    ).fetchone()[0]
+    last = _last_checked(con, ids)
     return DocketSheet(
         docket_id=docket_id,
         raw_docket=raw,
@@ -304,21 +369,7 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
         title=load_json(payload)["title"] if payload else None,
         series=_series(con, docket_id),
         sub_dockets=[m for m in family if m.docket_id != docket_id],
-        # A parent that holds no records of its own AND carries a run of sub-dockets is
-        # a carrier's series, not a case: measured 2026-08-30, every one of the fourteen
-        # largest families (AB 167 with 995 sub-dockets, AB 55 with 765, AB 290 with 391)
-        # holds zero filings and zero decisions directly, while FD 33388 — one merger with
-        # phases — holds 325. Both halves are needed: 142 families have more than five subs
-        # and no records of their own, but a two-member family whose records all sit in the
-        # one sub-docket is still a case, and leading with a one-row index would bury it
-        # (code review, 2026-08-30).
-        is_index=(
-            own is not None
-            and own.filings == 0
-            and own.decisions == 0
-            and own.comments == 0
-            and len(family) - 1 >= SERIES_SUBS
-        ),
+        is_index=False,  # decided above; a series returns before it reaches here
         entries=entries,
         filings=sum(1 for e in entries if e.kind == "filing"),
         decisions=sum(1 for e in entries if e.kind == "decision"),

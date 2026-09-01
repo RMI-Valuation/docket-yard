@@ -22,7 +22,7 @@ def test_api_page_and_llms_txt_say_what_the_surface_is(tmp_path):
         "/openapi.json",
         "/llms.txt",
         "CC0 1.0",
-        '"shape_version": 1',
+        '"shape_version": 2',
         "ADR 0013",
         "User-Agent",
         "/document/&lt;sha256&gt;.pdf",
@@ -168,12 +168,15 @@ def test_json_twins_at_the_permanent_addresses(tmp_path):
     assert client.get("/d/FD-99999.json").status_code == 404
     r = client.get("/d/fd-36873.json", follow_redirects=False)
     assert r.status_code == 301 and r.headers["location"] == "/d/FD-36873.json"
+    # shape 2: a JSON address covers what the PAGE at that address covers. It used to
+    # answer with the family whatever was asked for (operator, 2026-09-01)
     sub = client.get("/d/FD-36873/sub/1.json").json()
-    assert (
-        sub["requested"]["printed"] == "FD 36873 (Sub-No. 1)"
-        and sub["docket"]["printed"] == "FD 36873"
-    )
-    assert d["shape_version"] == 1
+    assert sub["docket"]["printed"] == "FD 36873 (Sub-No. 1)"
+    assert sub["series"]["printed"] == "FD 36873"
+    assert sub["series"]["url"].endswith("/d/FD-36873")
+    assert "requested" not in sub
+    assert d["shape_version"] == 2
+    assert "series" not in d  # a family sits under nothing
     # the key set is the public contract: a rename must be a deliberate shape bump
     assert set(e) == {
         "kind",
