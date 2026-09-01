@@ -300,11 +300,43 @@ def main(run: Path, registry: Path, store: Path) -> int:
     }
     if repaired:
         print(f"  {len(repaired)} rule-2 repairs, which the Python chain does not model")
+    # THE REVIEW GATE IS A THIRD LEGITIMATE DIFFERENCE (migration 0015). ADR 0017 D2 sends
+    # the exposed class to a human before publication, and `projection_score.py` does not
+    # model that — it measures the PAIR, extractor plus projection rule, while this is a
+    # queue state a review clears. So the held edges are NAMED and excluded from the
+    # comparison rather than failing a correct pipeline.
+    held_for_review = {
+        (w, k)
+        for w, k in con.execute(
+            "SELECT DISTINCT COALESCE(dr.stb_decision_id, r.citing_document), r.target_key"
+            " FROM citation_resolution r"
+            " JOIN citation_judgement j ON j.citing_document = r.citing_document"
+            "  AND j.page = r.page AND j.target_kind = r.target_kind"
+            "  AND j.target_key = r.target_key AND j.judgement = 'exposed'"
+            "  AND j.value = 'true' AND j.superseded_by IS NULL"
+            " LEFT JOIN decision_attachment da ON da.document_sha256 = r.citing_document"
+            " LEFT JOIN decision_record dr ON dr.decision_pk = da.decision_pk"
+            " WHERE r.superseded_by IS NULL AND r.outcome IN ('resolved', 'repaired')"
+            " AND NOT EXISTS (SELECT 1 FROM citation_resolution h"
+            "  WHERE h.citing_document = r.citing_document AND h.page = r.page"
+            "  AND h.target_kind = r.target_kind AND h.target_key = r.target_key"
+            "  AND h.confidence_state = 'human' AND h.superseded_by IS NULL)"
+        )
+    }
+    if held_for_review:
+        print(
+            f"  {len(held_for_review)} edges HELD FOR REVIEW by the exposure test"
+            f" (ADR 0017 D2), so a reader sees {len(sql_true)} of {py['truth']} ="
+            f" {pct(len(sql_true), py['truth']).strip()} until the queue is worked:"
+        )
+        for work, key in sorted(held_for_review):
+            print(f"    {work}  {key}")
+
     reachable = {(d, k) for d, k in py["pairs"] if d in docs}
-    ok = sql_pairs == reachable
+    ok = sql_pairs == reachable - held_for_review
     print(
-        f"\n  python projects {len(reachable)} pairs on documents the store holds;"
-        f" SQL projects {len(sql_pairs)}"
+        f"\n  python projects {len(reachable)} pairs on documents the store holds, less"
+        f" {len(held_for_review)} held for review; SQL projects {len(sql_pairs)}"
     )
     print(f"  AGREEMENT: {'yes' if ok else 'NO'}")
     if not ok:

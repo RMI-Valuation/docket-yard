@@ -16,11 +16,31 @@ EXTRACTOR = "regex-docket-cite"
 SPAN_METHOD = "span-names-document"
 CHANNEL_TEXT = "text-layer"
 RANK_VERSION = "v1"
+# A human is a method, a channel and a version like any other — `reading_vocab` carries
+# 'human' for exactly this reason (ADR 0018 D3: the channel is in every key, so a human row
+# must carry something legal).
+#
+# HUMAN_VERSION is the QUEUE's convention version: what evidence was shown and under which
+# rules the decision was made. It lives here, in ONE place, because the registry row and the
+# assertion row must carry the same string — the projection joins them on it, and a mismatch
+# would drop every human answer through an INNER join without saying so.
+HUMAN = "human"
+HUMAN_VERSION = "2026-09-01"
 
-# ADR 0018 D8: this names three things at once — the span test's version, the family
-# closure's version and `rank_version` — because the projection is that product, and a
-# figure may only be published with the rule named beside it.
-PROJECTION_RULE = f"span={judge.SPAN_VERSION};closure=cite.py@2026-09-01;rank={RANK_VERSION}"
+# ADR 0018 D8: this names the things the projection is a PRODUCT of, because a figure may
+# only be published with the rule named beside it. D8 lists three — the span test's version,
+# the family closure's, and `rank_version`.
+#
+# THE GATE IS A FOURTH, added when migration 0015 made the exposed class wait for a human
+# (ADR 0017 D2). Bumping this string was not optional: without it a measurement taken before
+# the gate and one taken after would carry the SAME `projection_rule_version` with different
+# numbers and nothing to say why, and `class_measurement_identity` would collide them on one
+# benchmark_date. That is the fourth repetition of the error ADR 0017 § Consequences names,
+# so it is bumped here before the first edge is stamped rather than after.
+PROJECTION_RULE = (
+    f"span={judge.SPAN_VERSION};closure=cite.py@2026-09-01;rank={RANK_VERSION}"
+    f";gate=exposed@{resolve.EXPOSURE_VERSION}"
+)
 
 # The text layer outranks OCR for every method, held as registry data (ADR 0018 D7). Ranks
 # are unique per (rank_version, target_table), so "the highest-ranked live row" is singular.
@@ -78,6 +98,7 @@ def declare(
     extractor_version: str,
     *,
     extractor: str = EXTRACTOR,
+    human_version: str = HUMAN_VERSION,
     rank_version: str = RANK_VERSION,
 ) -> None:
     """Ownership, then the ranks. Idempotent: a re-run declares nothing new, and a
@@ -102,6 +123,12 @@ def declare(
             ("citation_resolution", method, version, channel, "resolve", rank, None, None)
             for (method, version, channel), rank in RANKS.items()
         ],
+        # THE HUMAN RESOLVER, at rank 0: it outranks every machine rule, because ADR 0017 D5
+        # says a review writes a `human` row which a model pass may never supersede — and a
+        # row that cannot be superseded but does not win is a review that changed nothing.
+        # Without this declaration the projection's candidate join is INNER and drops it, so
+        # an accepted review silently turns a published edge into no edge at all.
+        ("citation_resolution", HUMAN, human_version, HUMAN, "resolve", 0, None, None),
         # the span test ranks and carries no role: its family's projection has no role term
         ("citation_judgement", SPAN_METHOD, judge.SPAN_VERSION, CHANNEL_TEXT, None, 1, None, None),
     ]

@@ -102,12 +102,12 @@ def _live(con, table):
     return con.execute(f"SELECT COUNT(*) FROM {table} WHERE superseded_by IS NULL").fetchone()[0]
 
 
-def test_the_store_migrates_to_fourteen_and_query_two_runs_and_returns_nothing(tmp_path):
+def test_the_store_migrates_and_query_two_runs_and_returns_nothing(tmp_path):
     """ADR 0017 D7: query 2 filters on a negative polarity, and every edge in the first slice
     is `cites`. An empty result is the correct day-one answer — and an unparseable query is
-    not an answer at all, which is why citation_treatment is in this migration."""
+    not an answer at all, which is why citation_treatment is in migration 0014."""
     con = _store(tmp_path)
-    assert con.execute("PRAGMA user_version").fetchone()[0] == db.MIGRATIONS[-1][0] == 14
+    assert con.execute("PRAGMA user_version").fetchone()[0] == db.MIGRATIONS[-1][0]
     assert con.execute("PRAGMA foreign_key_check").fetchall() == []
     rows = con.execute(
         Path("docs/citator-query-2.sql").read_text(encoding="utf-8"),
@@ -553,6 +553,11 @@ def test_the_citator_is_held_back_from_the_public_dump(tmp_path):
 
     assert "citation" in dump.HELD_TABLES and "citation_key" in dump.HELD_TABLES
     assert not dump.PUBLIC_TABLES & set(dump.HELD_TABLES)
+    # a reviewer row holds an address, so it is PRIVATE and not merely held; `review_action`
+    # is one row per decision, and publishing it would give a per-reviewer count nobody
+    # opted into (ADR 0016)
+    assert {"reviewer", "reviewer_token"} <= set(dump.PRIVATE_TABLES)
+    assert "review_action" in dump.HELD_TABLES
     order = list(dump.HELD_TABLES)
     assert order.index("citation_treatment") < order.index("citation")
     assert order.index("citation") < order.index("citation_key")
@@ -617,9 +622,17 @@ def test_a_veto_suppresses_only_what_it_actually_vetoed(tmp_path):
     # validation query 2 and the shipping projection are different jobs over the SAME terms
     for text in (sql, project.PROJECTION):
         assert "role = 'suppress' AND outcome = 'vetoed'" in text
-        # and the confidence predicate reaches the parent too, which it did not until the
-        # second schema-critic pass
+        # the confidence predicate reaches the parent, which it did not until the second
+        # schema-critic pass, and the reading, which it did not until the third
         assert text.count("c.confidence_state IN ('measured', 'human')") == 1
+        assert text.count("rg.confidence_state IN ('measured', 'human')") == 1
+        # and the exposure gate, which query 2 lacked while the shipping projection had it —
+        # so Q2 returned a SUPERSET of what a reader sees, silently
+        for term in (
+            "judgement = 'exposed' AND value = 'true'",
+            "outcome NOT IN ('resolved', 'repaired')",
+        ):
+            assert term in text, term
 
 
 def test_the_reading_stage_can_be_measured_once_somebody_measures_ocr(tmp_path):

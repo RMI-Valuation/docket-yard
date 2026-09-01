@@ -336,6 +336,64 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
             ),
         )
 
+        # THE EXPOSURE TEST IS STORED, not recomputed at read time (migration 0015). It
+        # decides whether a published edge reaches a page unreviewed, so it is an assertion
+        # with its own method and provenance, exactly as the span test is.
+        #
+        # It carries its OWN method and version, not the resolver's: the exposure test is a
+        # distinct rule whose membership ADR 0017 reconsidered between 3, 5 and 14 before
+        # settling on 3, and `registry-match@rule-1` on an exposure judgement is simply false
+        # provenance — that method did not make that judgement, and redefining the class
+        # would have rewritten every row in place with nothing visible to say so.
+        #
+        # `unmeasured`, not `measured` and not `not-applicable`: ADR 0017 measures how OFTEN
+        # this fires (3 of 225, 3 of 249 emitted), which is a rate and not a precision, so
+        # `class_measurement` has nothing for it to point at — but a precision IS measurable,
+        # and the review queue this feeds is the instrument that would produce it. So the
+        # honest state is "nobody has scored it yet", which is the state the span test's
+        # `false` rows already carry. The projection reads this row WITHOUT the confidence
+        # predicate in any case: it suppresses, and a suppressor filtered out of the
+        # candidate set is silently inert (ADR 0018 D7, on the on-page veto).
+        _supersede_if_changed(
+            con,
+            table="citation_judgement",
+            id_col="judgement_id",
+            where=(
+                "citing_document = ? AND page = ? AND target_kind = 'stb' AND target_key = ?"
+                " AND judgement = 'exposed' AND method = ? AND method_version = ?"
+                " AND reading_channel = ?"
+            ),
+            where_args=(
+                sha,
+                page,
+                key,
+                resolve.EXPOSURE_METHOD,
+                resolve.EXPOSURE_VERSION,
+                channel,
+            ),
+            compare="value",
+            values=("true" if r.exposed else "false",),
+            insert=(
+                "INSERT INTO citation_judgement (citing_document, page, target_kind,"
+                " target_key, judgement, value_domain, value, method, method_version,"
+                " reading_channel, asserted_from_document, source_location, asserted_at,"
+                " confidence, confidence_state) VALUES (?, ?, 'stb', ?, 'exposed', 'boolean',"
+                " ?, ?, ?, ?, ?, ?, ?, 0, 'unmeasured')"
+            ),
+            insert_args=(
+                sha,
+                page,
+                key,
+                "true" if r.exposed else "false",
+                resolve.EXPOSURE_METHOD,
+                resolve.EXPOSURE_VERSION,
+                channel,
+                sha,
+                dump_json({"page": page}),
+                now,
+            ),
+        )
+
         if r.outcome == "resolved":
             out.resolved += 1
         elif r.outcome == "repaired":
@@ -344,7 +402,10 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
             out.unresolved += 1
         if r.exposed:
             out.exposed += 1
-        # ADR 0017 D5, in its order of yield: the exposed class, then every rule-2 repair
+        # ADR 0017 D5, in its order of yield: the exposed class, then every rule-2 repair.
+        # These are the keys `citator review list` renders; the queue itself is a QUERY over
+        # the store, so this list is a convenience for the operator running the load and
+        # never the queue's source of truth.
         if r.exposed or r.outcome == "repaired":
             out.review.append(keys.render(sha, page, "stb", key))
 

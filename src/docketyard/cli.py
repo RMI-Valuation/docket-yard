@@ -259,9 +259,74 @@ def _citator(args: argparse.Namespace) -> int:
     extraction runs on the enrichment box and comes back over the internal API, and the
     finder itself waits on a vocabulary for the `kind` judgement (docketyard/citator).
     """
-    from docketyard.citator import keys, load, methods, project
+    from docketyard.citator import keys, load, methods, project, review
 
     con = db.connect(args.db)
+    if args.what in ("grant", "revoke"):
+        # The grant needs the vault key; a REVIEW does not, because a decision never touches
+        # an address. That split is why a reviewer can work on a box that cannot read one.
+        if args.what == "revoke":
+            review.revoke(con, args.reviewer)
+            con.commit()
+            print(f"reviewer {args.reviewer} revoked; past rows stand and stay attributed")
+            return 0
+        v = vault.Vault.from_env()
+        if v is None:
+            print("refused: no DY_EMAIL_KEY — a grant seals an address (ADR 0014)")
+            return 1
+        vault.configure(v)
+        try:
+            who = review.grant(con, args.email, args.credit_name, args.note)
+        except ValueError as e:
+            print(f"refused: {e}")
+            return 1
+        con.commit()
+        print(f"reviewer {who}: {args.credit_name}")
+        return 0
+
+    if args.what == "review":
+        # Rendering a queue WRITES NOTHING (ADR 0011's promise covers reviewers too): the
+        # surfaces log the decision and nothing else — no page views, no timing beyond the
+        # action's own timestamp.
+        items = review.pending(con, args.queue, limit=args.limit)
+        for item in items:
+            print(f"{item['target_key_rendered']}  -> docket {item['cited_docket_id']}")
+            print(f"    {item['quoted_passage'][:110]}")
+        print(f"{len(items)} owed a human on the {args.queue} queue")
+        return 0
+
+    if args.what == "decide":
+        item = next(
+            (
+                q
+                for q in review.pending(con, args.queue, limit=10_000)
+                if q["target_key_rendered"] == args.key
+            ),
+            None,
+        )
+        if item is None:
+            print(f"refused: {args.key} is not on the {args.queue} queue")
+            return 1
+        try:
+            action = review.decide(
+                con,
+                reviewer_id=args.reviewer,
+                queue=args.queue,
+                item=item,
+                decision=args.decision,
+                note=args.note,
+                cited_docket_id=args.docket,
+            )
+        except ValueError as e:
+            con.rollback()
+            print(f"refused: {e}")
+            return 1
+        con.commit()  # the assertion and the action land together, or neither does
+        print(
+            f"action {action}: {args.decision} by {review.credit(con, args.key) or args.reviewer}"
+        )
+        return 0
+
     if args.what == "cited-by":
         rows = (
             project.cited_by(con, work_id=args.work)
@@ -522,6 +587,32 @@ def main(argv: list[str] | None = None) -> int:
     cb_group.add_argument("--docket", type=int, help="a docket_id — THE NORMAL GRAIN")
     cb_group.add_argument("--work", help="an stb_decision_id; thin, see project.cited_by")
     cb.set_defaults(func=_citator)
+    gr = ct_sub.add_parser("grant", help="give the reviewer grant by hand (ADR 0016)")
+    gr.add_argument("email")
+    gr.add_argument("--credit-name", required=True, help="how they are shown — mandatory")
+    gr.add_argument("--note", required=True, help="the operator's reason, in words")
+    gr.set_defaults(func=_citator)
+    rk = ct_sub.add_parser("revoke", help="withdraw a grant; past rows stand")
+    rk.add_argument("reviewer", type=int)
+    rk.set_defaults(func=_citator)
+    rv = ct_sub.add_parser("review", help="what a human is owed (ADR 0017 D5, in its order)")
+    rv.add_argument(
+        "queue", choices=sorted(("citation_exposed", "citation_repaired", "citation_unresolved"))
+    )
+    rv.add_argument("--limit", type=int, default=50)
+    rv.set_defaults(func=_citator)
+    dc = ct_sub.add_parser("decide", help="record one review decision (ADR 0016)")
+    dc.add_argument(
+        "queue", choices=sorted(("citation_exposed", "citation_repaired", "citation_unresolved"))
+    )
+    dc.add_argument("key", help="the rendered key, as `citator review` prints it")
+    dc.add_argument("--reviewer", type=int, required=True, help="a reviewer_id")
+    dc.add_argument(
+        "--decision", required=True, choices=("accepted", "rejected", "corrected", "escalated")
+    )
+    dc.add_argument("--note", required=True, help="why — recorded as the provenance")
+    dc.add_argument("--docket", type=int, help="for `corrected`: the docket it corrects to")
+    dc.set_defaults(func=_citator)
 
     se = sub.add_parser("search", help="the search index (docs/search.md)")
     se_sub = se.add_subparsers(dest="what", required=True)

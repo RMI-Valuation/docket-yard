@@ -33,6 +33,14 @@ RESOLVER = "registry-match"
 RULE_1 = "rule-1"
 RULE_2 = "rule-2-repair"
 
+# The exposure test is a DISTINCT RULE with its own definition and its own history — ADR 0017
+# reconsidered its membership between 3, 5 and 14 before settling on 3 — so it carries its own
+# method and version rather than borrowing the resolver's. Writing `registry-match@rule-1` on
+# an exposure judgement was simply false provenance: that method did not make that judgement,
+# and redefining the class would have rewritten every row in place with no visible change.
+EXPOSURE_METHOD = "exposure-test"
+EXPOSURE_VERSION = "2026-09-01"
+
 # NO FIGURE IS DECLARED IN THIS PACKAGE, and that is the point. ADR 0017 D3: confidence is
 # the measured precision of the class on the checked sheet, carried on the row with a
 # pointer to the exact measurement it was stamped from. A constant here would be a second

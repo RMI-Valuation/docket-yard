@@ -8,19 +8,20 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **`docketyard.citator` is written and uncommitted** — keys, resolver, span test, loader
-  and projection over migration 0014, plus a `citator` CLI verb. Two reviews triaged, the
-  serious findings fixed and pinned by tests; `citation_dryrun.py` now runs the SHIPPED code
-  and reproduces the scorer over all 60 decisions
-- **The figures moved: 91.1% projected / 98.1% precision**, from 89.3%/98.0%.
-  `projection_score.printed()` round-tripped each docket row through a non-idempotent
-  normaliser, dropping the suffix from **2,711 held dockets**, so every finding naming one
-  scored as unresolvable. Fixed both sides, pinned equal. **ADR 0017 § The figures is not
-  re-derivable** — that run directory is not in `data/`
-- **Two things block the citator from production**, both in `citator/__init__.py`: no
-  finder (its `kind` judgement has no vocabulary), and **no review queue** — 0017 D5 routes
-  the exposed class and every repair to a human *before* publication, `review_action` is in
-  no migration, so an exposed edge projects indistinguishably from a clean one
+- **Migration 0015 + `citator.review` are written and uncommitted** — reviewer, token and
+  `review_action`; the exposure test is now a stored judgement and the projection HOLDS an
+  exposed edge until a human answers. On the benchmark that is 3 edges, exactly the three
+  ADR 0017 names: the rule projects 205 of 225 (91.1%), a reader sees 202 (89.8%) until the
+  queue is worked. `docketyard citator review|decide` are the verbs
+- **The figures moved: 91.1% / 98.1%**, from 89.3%/98.0%. `projection_score.printed()`
+  round-tripped each docket row through a non-idempotent normaliser, dropping the suffix
+  from **2,711 held dockets**, so every finding naming one scored as unresolvable. Fixed
+  both sides, pinned equal. **ADR 0017 § The figures is not re-derivable** — that run
+  directory is not in `data/`
+- **Two things still block the citator from production**, both in `citator/__init__.py`: no
+  finder (its `kind` judgement has no vocabulary), and no `/review` or magic-link sign-in —
+  the queue and the decision exist as `docketyard citator review` / `decide`, which serves
+  reviewer zero and nobody else
 - **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not
   in the record" display joining live `citation`; the veto's trigger the day it stops being
   inert. Twelve smaller findings in `docs/deferred.md`
@@ -35,7 +36,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **The finder, and the review queue** — the two blockers above. Neither needs a key
+- **The finder, and `/review` + sign-in** — the two blockers above. Neither needs a key
 - **ADR 0016** accepted 2026-08-28; `reviewer`/`review_action` drafted into
   `schema-draft.md` § 7. **Unblocked** — 0017/0018 accepted; `review_action` needs
   `key_version` and the resolution rendering (0018 D1) before `/review` ships

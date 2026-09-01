@@ -124,6 +124,24 @@ treat AS (                               -- 0018 D7: no outcome term for this fa
     WHERE t.superseded_by IS NULL AND t.confidence_state IN ('measured', 'human')
   ) WHERE rn = 1
 ),
+exposed AS (                             -- 0017 D2 / migration 0015: the exposure gate
+  -- READ WITHOUT the confidence predicate: this judgement SUPPRESSES, and a suppressor
+  -- filtered out of the candidate set is silently inert (0018 D7, on the on-page veto).
+  SELECT DISTINCT citing_document, page, target_kind, target_key
+  FROM citation_judgement
+  WHERE judgement = 'exposed' AND value = 'true' AND superseded_by IS NULL
+),
+reviewed AS (                            -- a human has since answered on this key
+  SELECT DISTINCT citing_document, page, target_kind, target_key
+  FROM citation_resolution
+  WHERE confidence_state = 'human' AND superseded_by IS NULL
+),
+refused AS (                             -- and a human NO stands against every later pass
+  SELECT DISTINCT citing_document, page, target_kind, target_key
+  FROM citation_resolution
+  WHERE confidence_state = 'human' AND superseded_by IS NULL
+    AND outcome NOT IN ('resolved', 'repaired')
+),
 span AS (                                -- 0017 D4 / 0018 D5: the stored span judgement
   SELECT * FROM (
     SELECT j.citing_document, j.page, j.target_kind, j.target_key, j.value,
@@ -182,6 +200,7 @@ JOIN citation_reading rg ON (rg.citing_document, rg.page, rg.target_kind, rg.tar
                           = (rd.citing_document, rd.page, rd.target_kind, rd.target_key)
                         AND rg.reading_channel = rd.reading_channel
                         AND rg.superseded_by IS NULL
+                        AND rg.confidence_state IN ('measured', 'human')
 LEFT JOIN span sp ON (sp.citing_document, sp.page, sp.target_kind, sp.target_key)
                    = (rd.citing_document, rd.page, rd.target_kind, rd.target_key)
 WHERE rd.cited_decision_id = :target_work
@@ -191,4 +210,16 @@ WHERE rd.cited_decision_id = :target_work
   AND NOT (EXISTS (SELECT 1 FROM family f
                     WHERE f.stb_decision_id = cw.citing_work_id
                       AND f.docket_id       = rd.cited_docket_id)
-           AND COALESCE(sp.value, 'false') <> 'true');
+           AND COALESCE(sp.value, 'false') <> 'true')
+  -- 0017 D2 / migration 0015: the exposed class goes to review, and reaches no page until a
+  -- human has answered on the key. A rejection then stands against every later pass.
+  AND NOT (EXISTS (SELECT 1 FROM exposed x
+                    WHERE x.citing_document = rd.citing_document AND x.page = rd.page
+                      AND x.target_kind = rd.target_kind AND x.target_key = rd.target_key)
+           AND NOT EXISTS (SELECT 1 FROM reviewed h
+                            WHERE h.citing_document = rd.citing_document AND h.page = rd.page
+                              AND h.target_kind = rd.target_kind
+                              AND h.target_key = rd.target_key))
+  AND NOT EXISTS (SELECT 1 FROM refused n
+                   WHERE n.citing_document = rd.citing_document AND n.page = rd.page
+                     AND n.target_kind = rd.target_kind AND n.target_key = rd.target_key);

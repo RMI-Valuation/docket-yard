@@ -101,6 +101,40 @@ span AS (
       AND j.confidence_state IN ('measured', 'human')
   ) WHERE rn = 1
 ),
+exposed AS (                             -- ADR 0017 § The exposure test, stored by 0015
+  -- READ WITHOUT the `confidence_state IN ('measured','human')` predicate every other
+  -- family carries, and that is deliberate: this judgement SUPPRESSES, and a suppressor
+  -- filtered out of the candidate set is silently inert — the defect ADR 0018 D7 records
+  -- against the on-page veto one table over. A suppressor is evaluated by its existence.
+  SELECT DISTINCT citing_document, page, target_kind, target_key
+  FROM citation_judgement
+  WHERE judgement = 'exposed' AND value = 'true' AND superseded_by IS NULL
+),
+refused AS (                             -- a human said NO, and no later pass may say yes
+  -- A rejection is written `outcome = 'unresolved'`, and the candidate filter drops that
+  -- outcome BEFORE the rank (0018 D7 requires it, or every rule-2 repair is unreachable).
+  -- So a human "no" does not lose the ranking — it ABSTAINS from it, and the next
+  -- extraction pass writes a fresh machine `resolved` row that wins by default while the
+  -- gate below reads the human row and calls the edge cleared. Reproduced 2026-09-01: the
+  -- rejected edge republished at the machine's answer, with the queue reporting it done.
+  --
+  -- Key-level and post-rank, like the gate: there is no method or channel in it, so no
+  -- lower-ranked row could have rescued the edge and nothing is deleted that would have
+  -- survived.
+  SELECT DISTINCT citing_document, page, target_kind, target_key
+  FROM citation_resolution
+  WHERE confidence_state = 'human' AND superseded_by IS NULL
+    AND outcome NOT IN ('resolved', 'repaired')
+),
+reviewed AS (                            -- what a human has since said about the same key
+  -- schema-draft.md § 7: a review writes a `human` row in the family it corrects, and the
+  -- projection reads `superseded_by IS NULL` WITH NO KNOWLEDGE THAT A REVIEW HAPPENED. So
+  -- the gate below asks only whether a human resolution exists, never what a review said —
+  -- one mechanism, and no second pointer to disagree with the first.
+  SELECT DISTINCT citing_document, page, target_kind, target_key
+  FROM citation_resolution
+  WHERE confidence_state = 'human' AND superseded_by IS NULL
+),
 family AS (                              -- ADR 0017 D4: self, sub-dockets and parent, over
   SELECT dr.stb_decision_id, dr.docket_id FROM decision_record dr   -- every docket a
   UNION                                                             -- consolidated decision
@@ -133,6 +167,27 @@ WHERE NOT (EXISTS (SELECT 1 FROM family f
                     WHERE f.stb_decision_id = cw.citing_work_id
                       AND f.docket_id       = rd.cited_docket_id)
            AND COALESCE(sp.value, 'false') <> 'true')
+  -- ADR 0017 D2, in SQL: the exposed class "goes to review; everything else ships
+  -- unreviewed". Until 0015 there was no queue, so it shipped unreviewed too — an
+  -- `AB 124` with a footnote `2` fused on, resolving confidently to `AB 1242`,
+  -- indistinguishable on the page from a clean edge.
+  AND NOT (EXISTS (SELECT 1 FROM exposed x
+                    WHERE x.citing_document = rd.citing_document
+                      AND x.page            = rd.page
+                      AND x.target_kind     = rd.target_kind
+                      AND x.target_key      = rd.target_key)
+           AND NOT EXISTS (SELECT 1 FROM reviewed h
+                            WHERE h.citing_document = rd.citing_document
+                              AND h.page            = rd.page
+                              AND h.target_kind     = rd.target_kind
+                              AND h.target_key      = rd.target_key))
+  -- and a human NO stands against every later pass: a review that is undone by the next
+  -- backfill wave is not a review
+  AND NOT EXISTS (SELECT 1 FROM refused n
+                   WHERE n.citing_document = rd.citing_document
+                     AND n.page            = rd.page
+                     AND n.target_kind     = rd.target_kind
+                     AND n.target_key      = rd.target_key)
 """
 
 PROJECTION = _TERMS

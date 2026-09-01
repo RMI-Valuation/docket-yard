@@ -30,19 +30,22 @@ measured, and exercised against the sixty-decision benchmark by
 `tools/rmi-ai-machine/citation_dryrun.py`, which imports this package rather than
 reimplementing it.
 
-**AND THIS PACKAGE MUST NOT WRITE TO PRODUCTION YET.** Two things are missing, and the
-second is a promise this project has already made in an accepted record:
+**THE REVIEW GATE IS BUILT** (migration 0015, `review`). ADR 0017 D2 sends the exposed class
+to a human before publication — the whole reason the exposure test was defined, since it
+decides what gets published without a person looking — and until 0015 there was no queue, so
+it published itself. Now `load` stores an `exposed` judgement, `review` computes the queue,
+and `project` holds such an edge until a live `human` resolution exists for it. Measured on
+the benchmark: 3 edges held, exactly the three ADR 0017 § The exposure test names.
 
-  1. There is no finder, per the note above, so nothing produces the findings a load
-     consumes except a replay of the benchmark.
-  2. **There is no review queue.** ADR 0017 D5 routes the exposed class and every rule-2
-     repair to a human BEFORE publication — that is the whole reason the exposure test was
-     defined, since it decides what gets published without a person looking. `load` computes
-     those keys and `citator load` prints them, but `review_action` (ADR 0016) is in no
-     migration, so nothing stores them and nothing gates on them. An exposed edge — `AB 124`
-     with a footnote `2` fused on, resolving confidently to `AB 1242` — projects today
-     indistinguishably from a clean one.
+**WHAT IS STILL MISSING BEFORE THIS WRITES TO PRODUCTION:**
 
-Neither is hard. Both are blocking, and they are in TODO.md as such rather than left for
-whoever runs the first load to discover.
+  1. **The finder**, per the note above, so nothing produces the findings a load consumes
+     except a replay of the benchmark.
+  2. **`/review` and sign-in.** The queue and the decision are here and reachable through
+     `docketyard citator review` / `decide`, which is enough for the operator — reviewer
+     zero, ADR 0016 — and not enough for anyone else. Magic-link sign-in exists in ADR 0011's
+     decision and not yet in code, and until it does, a grant cannot be used by the person it
+     was granted to.
+
+Both are in TODO.md rather than left for whoever runs the first load to discover.
 """

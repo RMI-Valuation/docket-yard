@@ -812,11 +812,43 @@ an event and every event to a capture, "no alerts since date X" decomposes into 
 (delivery broke) — each independently monitorable.
 
 
-## 7. Review (ADR 0016) — drafted 2026-08-30; revised the same day on schema-critic's report
+## 7. Review (ADR 0016) — SHIPPED at migration 0015, 2026-09-01
+
+Drafted 2026-08-30 and revised the same day on the schema-critic's report; built as drafted.
+`src/docketyard/store/0015_review.sql` is what runs, and where it and this section disagree
+the migration governs.
 
 A human review is a derived assertion and must carry *who*; reading stays anonymous
 (ADR 0011) and addresses stay ciphertext (ADR 0014). Two tables: a registry and an
 append-only action log. The first consumers are ADR 0017's queues.
+
+**A QUEUE IS A QUERY, and nothing stores queue items.** `docketyard.citator.review` computes
+each one: every live row matching its kind that no live `human` answer already clears. A
+stored queue would be a second source of truth kept in step with a registry that MOVES —
+waves 2—3 are still adding dockets, so a target that could not resolve last week resolves
+this week and leaves the queue on its own. A derived queue notices; a table would hold
+yesterday's answer and nobody would know it had.
+
+**The exposure test became a stored judgement, and the projection gained a gate.** Migration
+0015 adds `exposed` to `judgement_vocab` (its domain is `boolean`, whose members 0014 already
+seeded, so it adds a question and not a type). ADR 0017 D2 says the exposed class "goes to
+review; everything else ships unreviewed" — and until 0015 there was no queue, so it shipped
+unreviewed too: an `AB 124` with a footnote `2` fused on, resolving confidently to `AB 1242`,
+a real but different proceeding, indistinguishable on the page from a clean edge. The
+projection now holds such an edge until a live `human` resolution exists for it, which is
+§ 7's own mechanism and not a second one: the projection still reads `superseded_by IS NULL`
+with no knowledge that a review happened.
+
+That gate reads the `exposed` judgement WITHOUT the `confidence_state IN ('measured','human')`
+predicate every other family carries. It suppresses, and a suppressor filtered out of the
+candidate set is silently inert — ADR 0018 D7's own argument about the on-page veto, one
+table over. The judgement itself is `not-applicable`: it is not a claim about correctness but
+a mechanical property of the printed form, and ADR 0017 measures how OFTEN it fires (3 of 225,
+3 of 249 emitted), which is a rate and not a precision.
+
+Measured on the sixty-decision benchmark, 2026-09-01: the rule projects **205 of 225
+(91.1%)**, and a reader sees **202 (89.8%)** until those three — `AB 1014`, `AB 1071`,
+`AB 1242`, exactly the three ADR 0017 § The exposure test names — have been reviewed.
 
 ```sql
 reviewer (                         -- a REGISTRY (identity only), not an assertion table

@@ -450,19 +450,14 @@ def test_a_human_resolution_needs_a_human_reading_or_it_projects_nothing(tmp_pat
         "SELECT citing_document, page, target_kind, target_key FROM citation_resolution"
     ).fetchone()
     con.execute(
-        "INSERT INTO assertion_method (target_table, method, method_version, reading_channel,"
-        " role, precedence_rank, rank_version, declared_at)"
-        " VALUES ('citation_resolution', 'human', 'v1', 'human', 'resolve', 0, ?, ?)",
-        (methods.RANK_VERSION, STAMP),
-    )
-    con.execute(
         "INSERT INTO citation_resolution (citing_document, page, target_kind, target_key,"
         " method, method_version, reading_channel, outcome, cited_docket_id, asserted_at,"
-        " confidence, confidence_state) VALUES (?, ?, ?, ?, 'human', 'v1', 'human',"
+        " confidence, confidence_state) VALUES (?, ?, ?, ?, 'human', ?, 'human',"
         " 'resolved', 3, ?, 1.0, 'human')",
-        (*row, STAMP),
+        (*row, methods.HUMAN_VERSION, STAMP),
     )
-    # it outranks the machine (rank 0) and now owns the edge — but it brought no reading
+    # `declare` registered the human resolver at rank 0, so it outranks the machine and now
+    # owns the edge — but it brought no reading, and the reading join is INNER
     assert project.projected(con) == []
     con.execute(
         "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
@@ -472,6 +467,16 @@ def test_a_human_resolution_needs_a_human_reading_or_it_projects_nothing(tmp_pat
         (*row, STAMP),
     )
     assert len(project.projected(con)) == 1
+    # A human answer at a version the registry does not know is DROPPED from the candidate
+    # set, and the machine's answer publishes again — the edge REAPPEARS rather than
+    # vanishing. Pinned because it is not obvious and it is not fail-closed: an unregistered
+    # reviewer method silently un-does the review instead of blocking the edge.
+    con.execute(
+        "UPDATE citation_resolution SET method_version = 'not-declared'"
+        " WHERE confidence_state = 'human'"
+    )
+    back = project.projected(con)
+    assert len(back) == 1 and back[0][6] == "measured"  # the machine's row, not the human's
 
 
 def test_the_projection_and_query_two_share_their_terms(tmp_path):
@@ -660,8 +665,23 @@ def test_a_false_span_judgement_is_not_stamped_with_the_projections_precision(tm
         keys.registry(con),
         stamps,
     )
-    rows = dict(con.execute("SELECT value, confidence_state FROM citation_judgement").fetchall())
+    rows = dict(
+        con.execute(
+            "SELECT value, confidence_state FROM citation_judgement"
+            " WHERE judgement = 'span_names_document'"
+        ).fetchall()
+    )
     assert rows == {"true": "measured", "false": "unmeasured"}
+    # the exposure judgement is `unmeasured` for the same reason the span test's `false` rows
+    # are: ADR 0017 measures how often it FIRES, which is a rate and not a precision, so
+    # nothing has scored it — and it carries its OWN method, never the resolver's
+    assert {
+        r
+        for r in con.execute(
+            "SELECT DISTINCT confidence_state, method, method_version FROM citation_judgement"
+            " WHERE judgement = 'exposed'"
+        )
+    } == {("unmeasured", resolve.EXPOSURE_METHOD, resolve.EXPOSURE_VERSION)}
     # and the outcome is unchanged: an unmeasured judgement is filtered out of the candidate
     # set, so COALESCE defaults to suppress exactly as before
     assert len(project.projected(con)) == 1

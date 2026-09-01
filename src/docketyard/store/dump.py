@@ -43,6 +43,11 @@ PRIVATE_TABLES = (
     "subscription_token",
     "subscription",
     "email_suppression",
+    # A reviewer is not a reader, but the row holds an address: `email_hash` and `email_enc`,
+    # the same pair every other account carries (migration 0015, ADR 0016 under ADR 0014).
+    # Never published, and `_SUSPECT_COLUMN` would fail the dump loudly if this were missed.
+    "reviewer_token",
+    "reviewer",
 )
 # Replication bookkeeping (Litestream keeps two tables in the store); not record, not published.
 TOOL_TABLES = ("_litestream_lock", "_litestream_seq")
@@ -70,6 +75,14 @@ HELD_TABLES = (
     "relationship_vocab",
     "party_name",
     "party",
+    # ADR 0016 publishes a reviewer's CREDIT NAME beside a reviewed assertion, and counts
+    # per reviewer only on opt-in. `review_action` is one row per decision, so publishing it
+    # would give a per-reviewer count nobody consented to — and it is provenance about the
+    # held citator layer besides, so it is held with it.
+    "review_action",
+    "review_decision_vocab",
+    "review_queue_vocab",
+    "review_target_vocab",
     "citation_treatment",
     "citation_judgement",
     "citation_resolution",

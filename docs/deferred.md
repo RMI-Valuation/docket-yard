@@ -279,3 +279,41 @@ The serious ones were fixed in the same session and are pinned by tests in
 - **`WB25-53` keys as `WB 25`**, because `\b` accepts the hyphen as a boundary. That is the
   accepted design — emit, let resolution decide — but if `WB 25` is held it resolves
   confidently, and the exposure test does not cover it because it is not a fusion.
+
+## Found 2026-09-01, schema-critic on migration 0015 (the review queue)
+
+Its Tier 0 and Tier 1 findings were fixed in the same session and are pinned by
+`tests/test_citator_review.py`. These are what was left.
+
+- **`decide()` does not open a transaction, though its docstring says one.** It relies on
+  `sqlite3`'s implicit deferred transaction and on the CLI's `con.commit()`. Nothing loses
+  data today — an uncaught `IntegrityError` rolls back — but the self-pointer window opens
+  the moment a caller uses an autocommit connection, and a self-pointer "cannot be told
+  apart from a deliberate retirement" (migration 0014's own words). An explicit `BEGIN` is
+  the fix; the same is true of `load.load_document`, which at least says so.
+- **The exposed queue is a superset of the gated set.** It applies neither the family/span
+  term nor the confidence predicate, so an exposed edge the family term already suppresses
+  is queued although it can never reach a page. That is the safe direction, but it is the
+  noise ADR 0017 § The exposure test narrowed the definition to avoid — queueing expected
+  non-events "trains a reviewer to skim".
+- **`pending()` materialises the whole queue then slices**, runs one `MIN/MAX` query per row
+  for the held-record test, and has no `DISTINCT`. ADR 0017 projects "a four-figure one-time
+  queue across the backfill", so this is not free. `cli.py` also calls it with `limit=10_000`
+  just to find one key.
+- **ADR 0016's re-attribution is replaced by a rule recorded outside the ADR set.** 0016 says
+  the party seed and joins "**are re-attributed** to the operator's reviewer id when the
+  table exists". The table exists now; 0015 does not create reviewer zero and re-attributes
+  nothing. `schema-draft.md` § 7 substitutes "a `human` assertion no live review action names
+  is the operator's", which has good reasons and no code. **A departure from an accepted
+  record, and the operator's to settle** — recorded here so it does not pass unnoticed.
+- **ADR 0014's rotation promise now covers four tables and says three.** `reviewer` holds
+  `email_enc`; 0014 § Consequences says rotation is "an all-rows pass over three tables that
+  is not yet written", and no code enumerates them. A constant in `alerts/vault` naming the
+  tables is the cheap fix.
+- **`review_action` records the queue but not the question.** All three citation queues write
+  `target_table = 'citation_resolution'`, so `target_key` and `produced_key` are the same
+  string today and "which exposed judgements has a human checked" is answerable only through
+  `queue`. The distinction the column pair exists for pays nothing yet.
+- **No sign-in.** `reviewer_token` has no writer and no reader: magic-link sign-in is in ADR
+  0011's decision and not in code, so a grant cannot be used by the person it was granted to.
+  `docketyard citator grant` and `decide` serve reviewer zero; `/review` is the blocker.
