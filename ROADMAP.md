@@ -41,6 +41,10 @@ the capability map with the whole record held). None is chosen.
 Measured not ripe 2026-08-27: trail-use (D1: no decision type names it; inside `Decision`
 bodies, extraction), deadlines (C4), service metrics and reference data (D6/D3: other
 sources), maps and geography (D2/C3: no geography rows yet), the public on-ramp (P1/P3–P5).
+**The geography verdict is stale and not yet re-taken**: it predates the comment wave, and
+3,730 held captions name a county. What re-taking it must not do is count the 11,821 comment
+locations as the proceeding's geography — a commenter's location is where the commenter is,
+often nowhere near the line (the operator, 2026-09-01).
 
 Later, each waiting for a decision rather than capacity: the geographic index (C3/D2), the
 deadline engine (C4 — needs counsel's review before it ships; a hand-checked fixture of dated

@@ -250,26 +250,35 @@ before the first projection**, which 0017's own re-check said and neither draft 
 
 ---
 
-## G. The one that is the operator's
+## G. Settled by the operator, 2026-09-01
 
-**A NULL confidence narrows ADR 0007, and 0017 does it inside a different record.** 0007 is
-categorical — every extracted fact carries a confidence — and the live convention is stronger:
-`0006_parties.sql` declares `confidence REAL NOT NULL CHECK (confidence > 0 AND confidence <= 1)`
-on all four party tables. Decision 4 permits NULL "where the class is unmeasured", and
-amendment 1 widens that case, because the classes the model keeps are the ones with no readable
-precision.
+**A typed `confidence_state`, and `confidence` stays NOT NULL.** The state is `measured` |
+`unmeasured` | `not-applicable`.
 
-Nothing reaches a reader wrongly — "a NULL confidence is never projected" holds — but a narrowing
-of an accepted ADR belongs in a record of its own. **Three ways, and it is not mine to pick:**
+The question was that decision 4 permitted a NULL confidence "where the class is unmeasured",
+which narrows ADR 0007's categorical text — every extracted fact carries a confidence — inside
+a record that is not 0007, and against the live convention (`0006_parties.sql` declares
+`confidence REAL NOT NULL CHECK (> 0 AND <= 1)` on all four party tables). Amendment 1 widened
+the reach of that NULL, because the classes the model keeps are exactly the ones with no
+readable precision.
 
-1. ADR 0018 narrows 0007 explicitly, and 0017 cites it.
-2. Decision 4 drops the NULL case: an unmeasured class does not ship until it is measured.
-3. A typed `confidence_state` (`measured` | `unmeasured` | `not-applicable`) with `confidence`
-   staying NOT NULL under the live convention. 0007 stays intact, "never projected" becomes a
-   positive predicate rather than a NULL test, and it avoids the trap where
-   `WHERE confidence >= 0.9` and `WHERE NOT (confidence < 0.9)` disagree on NULL rows.
+Three ways were on the table: write ADR 0018 to narrow 0007 explicitly; drop the NULL case so
+an unmeasured class does not ship; or this. It was the schema-critic's suggestion and it was
+not among the options 0017 itself considered. What it buys:
 
----
+- **ADR 0007 is not narrowed at all**, so no second record is owed and 0017 stops making a
+  decision that belongs elsewhere.
+- **"Only a measured confidence is projected" becomes a positive predicate** on the
+  projection view, rather than a NULL test — decision 4's rule enforced by the schema instead
+  of by prose.
+- **It avoids the NULL-comparison trap**, where `WHERE confidence >= 0.9` and
+  `WHERE NOT (confidence < 0.9)` disagree on NULL rows: a real hazard on a projection view
+  that a reader's "cited by" list is built from.
+
+What it costs, and what must be decided with it: an unmeasured class still has to put *some*
+number in `confidence`, and whatever that number is must never be read. The state is the
+predicate; the number is inert. Say so where the column is declared, or the next reader will
+average it.
 
 ## Still open, and named rather than hidden
 

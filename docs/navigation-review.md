@@ -334,11 +334,22 @@ before a year-by-year browse.
 
 - **Place.** 3,730 of 30,184 held captions name a county, parish or borough — concentrated
   exactly where the lay reader is: **52.1% of AB captions (3,158 of 6,056)**, against 6.1% of
-  FD and under 1% of MCF, NOR, ISM and NOM. Alongside them sit 11,821 environmental comments
-  carrying a location as the commenter wrote it. A place index built from those two string
-  sets is quotation, not inference — ADR 0008's "structured rows before there is a map",
-  which is what this would be. Note that `ROADMAP.md`'s "maps and geography: not ripe"
-  measurement is dated 2026-08-27 and predates the comment wave by four days.
+  FD and under 1% of MCF, NOR, ISM and NOM. These are the Board's own words about the
+  proceeding: the county a line runs through is part of what the docket IS.
+
+  **The 11,821 comment locations are not the same kind of thing, and this paragraph
+  originally said they were** (the operator, 2026-09-01). A comment's `location_raw` is
+  where the *commenter* is — often nowhere near the line, because anyone may write to the
+  Board about an abandonment anywhere. Merging the two string sets into one place index
+  would assert that a proceeding is in a place on the strength of who happened to write in
+  about it, which is an inference about the proceeding drawn from a fact about a person: the
+  exact shape of claim this record refuses. Two indexes or one, they are two subjects —
+  *where the line is*, quoted from the caption, and *where a commenter wrote from*, quoted
+  from the cell — and only the first is about the docket.
+
+  `ROADMAP.md`'s "maps and geography: not ripe" measurement is dated 2026-08-27 and predates
+  the comment wave by four days, so it is stale either way; but the caption half is the half
+  that would answer ADR 0008's "structured rows before there is a map".
 - **The Board's own summaries.** 19,833 decisions arrive with a summary written by the
   agency. `docs/research/comparable-platforms.md` records that CourtListener built extraction
   and clustering to obtain the equivalent; here they arrive pre-written and the results page

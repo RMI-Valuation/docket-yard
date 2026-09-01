@@ -1,11 +1,12 @@
 # ADR 0017 — Citation edges ship from the API extractor, at measured confidence, with the registry and a reviewer between the model and the page
 
-- **Status:** Proposed
+- **Status:** Proposed — **amended 2026-09-01 and ready for acceptance**
 - **Date:** 2026-08-30 (drafted; revised the same day after schema-critic review — see
-  § Review; figures and status corrected 2026-08-31 when the batch finished — see
-  § What the finished batch changed). **Acceptance was taken on 2026-08-31 and HELD by the
-  operator the same day, before it left the branch — see § Acceptance, held.** The three
-  amendments are still amendment *candidates*; § Decision stands as proposed, unamended.
+  § Review; figures corrected 2026-08-31 when the batch finished). Acceptance was taken on
+  2026-08-31 and **held** by the operator the same day. On 2026-09-01 the operator settled
+  the one question the hold rested on and directed the amendments to be folded in: they are
+  now **in § Decision**, and the tables they need are proposed in
+  [`../citator-schema.md`](../citator-schema.md). See § Ready for acceptance.
 
 ## Context
 
@@ -67,8 +68,27 @@ not decisions; this record makes them decisions.
 
 ## Decision
 
-1. **The extractor that ships is the API model: `method = 'model:claude-sonnet-5'`,
-   `method_version = <prompt version>` (`2026-08-29` for the measured prompt).** The score
+1. **The docket-shaped class ships from `regex-docket-cite`; the API model is bought for
+   what regex cannot reach.** *(Amended 2026-09-01. The sentence this replaces read "the
+   extractor that ships is the API model" and was written before the batch reported.)* A
+   regular expression over the text layer, validated against the registry, with the
+   own-proceeding rule, scores **95.1%** recall on docket-shaped targets — unbeaten by any of
+   the nine local candidates (best: qwen3:14b, 93.8%) and within half a point of Claude's
+   95.6%, at no per-page cost. The registry is what makes it safe: it emits a docket only
+   where one is held, so it cannot invent a proceeding.
+
+   The API model — `method = 'model:claude-sonnet-5'`, `method_version = <prompt version>`
+   (`2026-08-29` for the measured prompt) — ships for reporter cites, date-named decisions,
+   court citations and dated obligations. **Not the role of a same-docket mention**, which
+   this record's own § What the finished batch changed settles: the record already knows
+   which proceeding a decision sits in, and that is the one thing no extractor should be
+   asked to decide.
+
+   **One owning method per `target_form`**, because decision 2's natural key has no method in
+   it: two extractors emitting the same target on the same page would collide, one row
+   silently dropped or the edge counted twice. A finding outside its method's class is
+   recorded at run level — an `extraction_run` row carrying counts — so "not kept" is an
+   auditable number and never a silent drop. The score
    file that measured a version is recorded beside it in a small `method` registry table
    (method, version, benchmark date, score file) — the draft has none, and confidence
    stamps need one. It reads the publisher's text layer where one exists and Textract's OCR
@@ -115,19 +135,47 @@ not decisions; this record makes them decisions.
    is not the ledger.
 
 4. **Confidence is the measured precision of the resolution's class on the checked sheet,
-   not the model's opinion.** It is stamped on the resolution row, per class, from the
-   `method` registry's benchmark date; NULL where the class is unmeasured, and **a NULL
-   confidence is never projected** — a schema rule on the projection view, not prose. The
-   classes, and what each is fit for:
+   not the model's opinion.** *(Amended 2026-09-01.)* It is **not stamped on the resolution
+   row**: it lives in the `method` registry, keyed
+   `(method, method_version, class, reading_channel, benchmark_date)` and append-only, with
+   the score file beside it, and the resolution row joins it. Stamping it made re-measuring
+   the same version an UPDATE on a published number, and gave one figure two homes.
 
-   | class | measured (2026-08-30) | projected as "cited by" |
-   | --- | --- | --- |
-   | docket, resolved, **not exposed** (the trailing-digit-stripped reading is not a held docket) | 0.953 precision, 0.953 recall, 214 of 225 | **yes, unreviewed** |
-   | docket, resolved, **exposed** (both readings are held: `AB 1242` / `AB 124`), or resolved only by rule 2 | 5 of 225; no wrong edge among them | **after review** |
-   | docket, unresolved | 6 of 171, none invented | **never**; shown as "cites `EP 445` (not in the record)"; queued if in range |
-   | reporter (`4 S.T.B. 303`) or date-named, unresolved to a work | unreadable (the sheet folds the forms) | not in this slice; stored |
-   | `court` | 0.977 recall; precision unreadable | not in this slice; stored, typed |
-   | `record` | not measured | not in this slice; stored; **explicitly not scored** |
+   **Confidence is NOT NULL, and a typed `confidence_state` carries the rest** (the
+   operator, 2026-09-01): `measured` | `unmeasured` | `not-applicable`. The earlier draft
+   permitted NULL "where the class is unmeasured", which narrowed ADR 0007's categorical text
+   — every extracted fact carries a confidence — inside a record that is not 0007, and
+   against the live convention (`0006_parties.sql` declares
+   `confidence REAL NOT NULL CHECK (> 0 AND <= 1)` on all four party tables). A state makes
+   **"only a measured confidence is projected"** a positive predicate on the projection view
+   rather than a NULL test, and avoids the trap where `WHERE confidence >= 0.9` and
+   `WHERE NOT (confidence < 0.9)` disagree on NULL rows.
+
+   `reading_channel` is in the key because every figure below was measured over the **text
+   layer**, and decision 1 ships OCR at 10.8% CER: without it the first backfill would stamp
+   a text-layer confidence on an OCR edge and decision 9 would show it to a reader. OCR is
+   `unmeasured` on every class until somebody measures it, and therefore projects nothing.
+
+   The classes, and what each is fit for:
+
+   | class | reading | measured | projected as "cited by" |
+   | --- | --- | --- | --- |
+   | docket, resolved, **not exposed**, `regex-docket-cite` | text layer | 95.1% recall; **98.2% precision after decision 5** (88.1% as scored) | **yes, unreviewed** |
+   | docket, resolved, **exposed** (both readings are held: `AB 1242` / `AB 124`), or resolved only by rule 2 | text layer | see the note below — the count is stale | **after review** |
+   | any class | OCR | **`unmeasured`** | **never** |
+   | docket, unresolved | text layer | 6 of 171, none invented | **never**; shown as "cites `EP 445` (not in the record)"; queued if in range |
+   | reporter (`4 S.T.B. 303`) or date-named, unresolved to a work | text layer | unreadable (the sheet folds the forms) | not in this slice; stored |
+   | `court` | text layer | 0.977 recall; precision unreadable → `unmeasured` | not in this slice; stored, typed |
+   | `record` | text layer | `unmeasured`; **explicitly not scored** | not in this slice; stored |
+
+   **The exposed count in this record is stale, and the test needs stating.** "5 of 225" was
+   measured against 220 targets, before the scorer's suffix fix moved the docket-shaped truth
+   to 225, and was carried into the new denominator without being re-taken (measured
+   2026-09-01). Under the test as this record describes it — the last-digit-stripped reading
+   is also a held docket — today's figure is **14 of 225** if it applies to any target, or
+   **3** if it applies only to bare numbers with no sub-number (`AB 1014`, `AB 1071`,
+   `AB 1242` — which is what "all four-digit AB numbers" describes). Decision 6 sizes its
+   review queue on this number; the test must be written down once before it does.
 
    The 0.953 is measured *before* the projection rule of decision 5; on the sheet that rule
    absorbs all ten extras, so what readers see is better than the stamp. The stamp stays
@@ -163,7 +211,26 @@ not decisions; this record makes them decisions.
    which supersedes every extraction row**; not a migration, but not free. Reporter cites
    resolve later through a reporter→work table (an addition). Record cites take a nullable
    `cited_filing_id` on the resolution row (an addition; the draft does not yet have it).
-   The decided date (`docs/citator-gate.md`) is a separate decision and is not made here.
+
+   **Human rows survive a re-extraction** *(amended 2026-09-01)*. A re-extraction mints new
+   `citation` rows, so a `citation_resolution` or a `review_action` anchored on a surrogate
+   id would be stranded — and amendment 1 makes that event cheap and frequent, because the
+   docket class now ships from a **free** extractor whose pattern is tweaked whenever the
+   registry grows. Resolutions and review actions therefore anchor on the **natural key**,
+   carried as typed columns and rendered canonically, never digested: the normalisation has
+   already changed once (the suffix fix, 2026-08-30), and under a digest that class of change
+   silently rewrites every key. `key_version` makes such a change a migration somebody can
+   see. One limit, stated: `citing_document` is a sha256, so a review of an edge in the
+   original does not follow into an erratum's bytes.
+
+   **The decided date is extracted in the same pass** *(amended 2026-09-01; it was
+   `citator-gate.md`'s open question and is settled here)*. 55 of the sixty decisions print a
+   `Decided:` line, 5 print none and **none prints two** (measured 2026-09-01), and 34 of 52
+   differ from the service date — so this record and a paper copy disagree today with nothing
+   explaining why. It is stored as an assertion carrying ADR 0007's block, never a
+   `decision_record` column and never a ledger event, both fenced in `citator-gate.md`. The
+   table, its key and its projection rule are proposed in
+   [`../citator-schema.md`](../citator-schema.md) § B.
 
 9. **What a reader sees.** A "cited by" list shows, per edge, the citing passage, its page,
    the extraction method and version, the class and its measured confidence, and the
@@ -226,6 +293,11 @@ self-references projected only at work level, and why nothing below it is projec
   42150; …`); each member is its own row, never the first match only.
 
 ## Amendment candidates (2026-08-30, after the local batch began)
+
+> **Folded into § Decision on 2026-09-01**, at the operator's direction, and corrected where
+> the schema-critic showed them wrong — see § Ready for acceptance. Kept as written because
+> each says what it replaced, and because the third of them (the role of a same-docket
+> mention) was struck rather than adopted.
 
 Measured the same day, after this record was drafted, and left for the operator to fold
 in at acceptance rather than rewritten silently:
@@ -343,192 +415,57 @@ of them. The precondition this record set for its own acceptance is met, and dec
 be taken on the complete table (§ What the finished batch changed). Still the operator's:
 acceptance, and the decided-date placement.
 
-## Acceptance, held (2026-08-31)
+## Ready for acceptance (2026-09-01)
 
-**Nothing in this section is accepted.** The operator accepted this record on 2026-08-31
-with three of the four amendment candidates, the schema-critic reviewed the amended record
-before the status changed, and the operator then held the acceptance the same day. The
-status reverted to Proposed and § Decision was restored to its proposed text; **the
-amendments below are candidates, not decisions**, and `regex-docket-cite` does not ship on
-the strength of anything here.
+The acceptance taken on 2026-08-31 was held the same day because the schema-critic, reviewing
+the amended record, found six things it would have claimed and could not keep. The operator
+settled the one that was his on 2026-09-01 and directed the rest to be folded in. They are:
+§ Decision 1, 4 and 8 above carry the amendments, and the tables they need are proposed in
+[`../citator-schema.md`](../citator-schema.md), which the critic reviewed in turn.
 
-The section is kept rather than deleted with the status, because it is the most complete
-statement of what accepting this record would mean and what it would cost — the work an
-acceptance needs, which does not have to be done twice. Read now as: **what a future
-acceptance would decide, and what it must clear first.**
+**What the hold produced, which is the argument for holding it.** The first draft of those
+proposals published **100% precision after projection** for the shipping method. That was
+wrong: decision 5 does not *absorb* an own-proceeding mention, it suppresses one at docket
+level and **projects one whose span resolves to a different work**. Four of regex's 29 extras
+carry spans like `Decision No. 1, FD 36744 et al., slip op. at 6`, so the honest figure is
+**98.2%**. Two further corrections came with it — the family closure used was a root-level
+comparison that folds unrelated AB siblings together, where the live one is `web/cite.py`'s
+(self, children, parent); and both sides must be normalised by the scorer's own
+`norm_target`, or `EP 328 (2)` and `EP 328 (Sub-No. 2)` read as different dockets.
 
-### What acceptance would decide
+**What is measured now that was asserted before:**
 
-Three of the four amendment candidates; the fourth is untouched.
+- **Neither engine emits an edge to a proceeding the citing decision was not entered in** —
+  29 of 29 regex extras and 10 of 10 Claude extras are own-proceeding. That is
+  `citator-gate.md`'s governing rule measured directly.
+- **1,736 `stb_decision_id`s carry more than one `decision_record` row and not one disagrees**
+  on service date or decision number. Consolidation, not collision — so a `decision_work`
+  registry keyed on that id is safe, and `cited_decision_id` gains the FK target it lacked.
+- **55 of the sixty decisions print one `Decided:` line, 5 print none, none prints two**, so
+  the decided date's projection rule needs no tie-break.
+- **The exposed count is stale**: "5 of 225" was taken against 220 targets before the suffix
+  fix. See decision 4.
 
-1. **The docket class would ship from regex + registry**, amending § Decision 1 — which
-   still reads as proposed, because this was held. The batch is what would decide it: 95.1% against nine local models' best of 93.8%, and the
-   API extractor is bought for the classes regex cannot reach rather than for all of them.
-2. **The on-page rule joins the resolution pass**, not only the scorer. A quoted passage
-   that is not in the decision's own text is not an edge, checked with the scorer's own
-   matcher (`benchmark_score.on_page`). This is a *resolution* test and therefore a
-   `citation_resolution` row like any other (decision 3): the extraction row is never
-   discarded for failing it, and the reason it failed is recorded rather than implied.
-   It exists because a small local model copied the prompt's worked examples onto pages
-   where they do not appear, 13 of 26 extras — a failure rule 1 cannot see, because the
-   docket named is real.
-3. **The decided date is extracted in the same pass.** 55 of the sixty decisions print a
-   `Decided:` line and 34 of 52 differ from the service date, so this record and a paper
-   copy of the same decision disagree today with nothing on the page explaining why. It is
-   stored as an **assertion with the full ADR 0007 block** — never a `decision_record`
-   column (that table mirrors the latest observation and would destroy the history) and
-   never a ledger event (a third clock would replay a decision as existing before the Board
-   served it), both fenced by schema-critic in `citator-gate.md`. Accepting it closes that
-   record's open question. The reason it is folded in *now* rather than later is arithmetic:
-   the pass is already reading the page and the line sits in a fixed position under the
-   caption, so it costs one field today and a ~$1,335 re-run afterwards.
+**Still open, and each named rather than hidden** — none of them blocks acceptance, and all
+of them block the first edge:
 
-**Also not settled: decision 8's supersession path for the human rows.** A
-re-extraction supersedes every extraction row and mints new citation ids under stable
-natural keys, which would strand every human `citation_resolution` and every review action
-pointing at the superseded rows — defeating human-wins in projection while preserving it on
-paper. The migration that creates these tables must let a resolution follow the citation's
-**natural key** through supersession, or projections must chase the chain. It is settled
-before the first review-class edge is written, not after. Nothing else in this record waits
-on it.
+1. **The four projected extras have not been judged.** Sheet omissions, or real wrong edges?
+   Four spans, one sitting. It decides whether 98.2% is the number or a floor.
+2. **The exposure test needs one definition** (3 or 14 today, not 5), because decision 6
+   sizes its human queue on it.
+3. **Q2's join still does not run.** `citation_resolution` is keyed
+   `(citation_id, method, method_version)` with supersession *within* a method, and several
+   resolutions are now live per edge — two methods, plus the on-page veto — with no
+   precedence column, so any "cited by" count is inflated. **A typed outcome and a precedence
+   rule are owed before the first projection.**
+4. **The classifier that produced the measurement is not in the repository.** If the figure is
+   published it must be re-runnable beside `benchmark_score.py`.
+5. **Nothing here is exercised by a validation query.** The decided date serves display, the
+   calendar and paper reconciliation; none is one of the five. Its grain is unvalidated by the
+   mechanism this project uses to validate grain, and this record should not borrow Q4's
+   endorsement for it.
 
-### The amendments re-checked against `../validation-queries.md` (2026-08-31)
-
-The check in § Checked against was the drafter's, against the unamended decisions. This one
-was written at the acceptance that was then held; it is where a future acceptance's check
-starts rather than something it repeats. What the three candidate amendments would change:
-
-- **Amendment 1 changes the method, not the shape.** `method`/`method_version` were already
-  columns on both the extraction and the resolution, and the `method` registry (decision 1)
-  already keys a score file per method — `regex-docket-cite` is a row in it, which is the
-  method name the schema draft has always used. Query 2's join is over resolved edges and
-  is indifferent to which method resolved them; confidence stays per-method rather than
-  becoming one blended number, which is the property query 2 needs to filter on.
-- **Amendment 2 adds no table.** It is a resolution outcome, so it lands in
-  `citation_resolution` with its own ADR 0007 block and its own `superseded_by` — the same
-  row shape queries 2 and 4 were validated against. It strengthens query 2: an edge whose
-  quoted passage is not on the page is exactly the wrong edge `citator-gate.md` exists to
-  prevent.
-- **Amendment 3 follows the record's assertion PATTERN, and has no table yet.** *(Corrected
-  after schema-critic review; the first draft of this bullet said "it is the grain the
-  record already has", which is not supported by `schema-draft.md`.)* A decided
-  date is a quoted assertion about a document, carrying provenance (ADR 0007) and superseded
-  rather than rewritten. It is **not** an event, so **query 3's replay is untouched** — the
-  ledger it reads gains no row, and a decision does not become replayable as existing before
-  the Board served it. That much stands.
-  What does not: every assertion table in `schema-draft.md` § 5 is purpose-shaped with typed
-  value columns (`party_name`, `place_geometry`, `instrument_event`, …), and **none has a
-  `(document, assertion type)` key or a generic value column**. So this amendment names a
-  table that does not exist and leaves the fork undecided — a typed `decision_decided_date`
-  against a generic `document_assertion` EAV row, which this draft has consistently refused
-  elsewhere. It is settled in the migration that creates it; nothing is written until then.
-  **Query 4 gains less than the first draft of this bullet claimed**: `instrument_event.
-  effective_date` is already quoted from the document's own words, not a service date, so a
-  decided date adds little to that join. The trap query 4 caught — a re-extraction silently
-  doubling every NITU — does apply, and `(document, assertion type)` is **not** a sufficient
-  answer to it: a text-layer reading and an OCR reading of the same bytes both produce a
-  decided-date assertion under that key and, at 10.8% CER, can disagree on the date, with no
-  rule ordering two methods asserting at the same time. The key must carry the reading and
-  the source location, as `place_mention`'s `(document_sha256, source_location, raw_text)`
-  already does, and the row must carry the **printed string** as well as the parsed date —
-  dates are quoted, never computed, and recovering the printed form later is the ~$1,335
-  re-run this amendment was folded in now to avoid.
-- **Query 2 is expressible and its join is not yet writable**, which the first draft of this
-  subsection passed over by saying the join was "unchanged". Two columns it needs have no
-  home: `treatment` is enumerated on neither `citation` nor `citation_resolution` (decision 8
-  defers typing to "a later resolution pass" without naming the column), and
-  `cited_decision_id` keys on the work, `stb_decision_id`, which **is not a key of any
-  table** — in the live store it is unique only as `(docket_id, stb_decision_id)`. Nothing
-  therefore stops a resolution naming a work that does not exist, which is the
-  invented-target failure the registry check prevents one level down. Both are settled in
-  the migration; a `decision_work` registry minted from `decision_record` is the obvious
-  home for the second.
-- **Amendment 2 makes `citation_resolution` hold several live rows of different kinds** —
-  a rule-1 resolution, a rule-2 repair at lower confidence, an on-page veto, a role row and
-  a human row can all be live at once under a key of `(citation_id, method,
-  method_version)`, because supersession is *within* a method. Decision 3 says "every
-  projection reads the live resolution", singular, and there is no precedence column: a null
-  `cited_docket_id` now means three different things (not attempted, attempted and failed,
-  vetoed). A typed outcome and a precedence rule are owed before the first projection.
-- **Queries 1 and 5** — untouched; no table they read changes.
-- **ADR 0004's lesson still holds one level down**: a target cell may be a list, and each
-  member is its own row.
-
-### What acceptance must clear first (schema-critic, 2026-08-31)
-
-The critic reviewed the amended record against the five queries. Nothing it found breaks a
-query — but each item below is a claim this record would make and could not keep, and
-together they are why the acceptance is held rather than standing. Six, not four: the first
-two were corrected inside the held acceptance, and reverting the status restored the text
-those corrections had fixed, so they are restated here as work.
-
-**A. Decision 1's class list must not buy the model for the role of a same-docket mention.**
-The candidate amendment listed it; this record's own § What the finished batch changed
-concludes the opposite — "neither beats reading which proceeding the deciding decision sits
-in. The record already knows that, so it is the one thing no extractor should be asked to
-decide" (own-docket rule 95.1%/88.1%, llama3.1:8b 96.9%/79.3%, qwen3:14b 83.1%/95.9%). It
-would also collide on decision 2's natural key, which has no method in it: the model would
-either mint a second `citation` row for a docket target regex already extracted at that
-page, or write `kind` onto a row it did not extract, which § Foreclosed forbids.
-
-**B. Amendment 3 names a table that does not exist.** `schema-draft.md` § 5's assertion
-tables are all purpose-shaped with typed value columns; none has a `(document, assertion
-type)` key or a generic value column, so the fork — a typed `decision_decided_date` against
-a generic `document_assertion` EAV row, which this draft has refused elsewhere — is
-undecided. That key is also insufficient: a text-layer and an OCR reading of the same bytes
-both assert under it and, at 10.8% CER, can disagree on the date, with no rule ordering two
-methods asserting at the same time. It must carry the reading and the source location, as
-`place_mention`'s `(document_sha256, source_location, raw_text)` already does, and the row
-must carry the **printed string** as well as the parsed date — dates are quoted, never
-computed, and recovering the printed form later is the ~$1,335 re-run the amendment exists
-to avoid.
-
-And these four:
-
-1. **Decision 4's confidence table stamps the wrong engine for the class that ships.** Its
-   docket row — "resolved, not exposed → 0.953 precision, 0.953 recall" — is Claude's
-   figure, and after amendment 1 that class ships from `regex-docket-cite`, measured at
-   **95.1% recall / 88.1% precision**. Decision 9 shows a reader the method and its measured
-   confidence side by side, so as it stands a `regex-docket-cite` row would display a
-   number Claude earned. Confidence must be keyed `(method, method_version, class)`, and the
-   regex figures written into the table, before any edge is projected. The precision figure
-   the amendment implies — regex on the unexposed class, after the projection rule — appears
-   nowhere in this record and is a measurement, not a decision.
-2. **Decision 8's supersession path is cheaper to defer than it was, and likelier to bite.**
-   The deferral was priced against a ~$1,335 re-run. Amendment 1 moves the docket class —
-   the only class projected unreviewed, and the one both human queues in decision 6 sit on —
-   onto a **free** extractor, so the event that mints new citation ids and strands human
-   `citation_resolution` and `review_action` rows is now cheap and frequent rather than dear
-   and rare. Amendment 3 shows the fix: anchor on the natural key, not a surrogate id.
-3. **The on-page veto has no declared reading scope.** It was measured on born-digital text
-   (15 failures of 977, all page-spanning quotes) and decision 1 ships OCR at 10.8% CER; a
-   text-layer extraction checked against OCR text would be vetoed spuriously. The veto must
-   name the reading it checked, it must be the extraction's own reading, and its measured
-   pass rate is its confidence.
-4. **A NULL confidence is a narrowing of ADR 0007, and it is written here rather than
-   there.** 0007's Decision is categorical — every extracted fact carries a confidence — and
-   the live convention is stronger: `0006_parties.sql` declares
-   `confidence REAL NOT NULL CHECK (confidence > 0 AND confidence <= 1)` on all four party
-   tables. Decision 4 permits NULL "where the class is unmeasured", and amendment 1 widens
-   the reach of that case, because the classes the model keeps are exactly the ones with no
-   readable precision (court: unreadable; record: unmeasured). "A NULL confidence is never
-   projected" keeps it off the page, so nothing reaches a reader wrongly — but a narrowing
-   of an accepted ADR belongs in a record of its own, not inside this one.
-   **This one is the operator's**: either 0018 narrows 0007 explicitly, or decision 4 drops
-   the NULL case and an unmeasured class simply does not ship until it is measured.
-
-Two more that acceptance would create rather than find, and that the hold defers with it:
-`schema-draft.md`'s citation section is three revisions behind what this record proposes
-(`citation.treatment`, `cited_decision_id` FK to `decision_record`, and the superseded
-natural key), and would have to be revised on acceptance rather than after it. And
-`web/cite.py` carries a promise — "until a decided-date assertion exists, a decided phrase
-resolves to the sheet" — whose trigger amendment 3 creates without setting a coverage
-condition for flipping it; a decided-date lookup against a partial assertion set can
-confidently name the wrong decision, which is the failure the resolver was changed on
-2026-08-30 to avoid. `docs/citator-gate.md` remains accurate while this is Proposed.
-
-*Proposed, not accepted. The acceptance taken on 2026-08-31 was held the same day and
-never left the branch, so no decision here has ever governed anything and there is nothing
-to supersede; § Decision is the proposed text, unamended. Accepting it means folding in the
-amendment candidates, clearing the six items above, and re-checking against
-`../validation-queries.md` — § The amendments re-checked is where that check starts.*
+*Proposed, not accepted. Amended 2026-09-01 at the operator's direction, and reviewed again
+by the schema-critic after amending. Accepting it means § Decision as it now stands, the
+tables in `../citator-schema.md`, and the five open items above carried into the migration
+that creates them.*
