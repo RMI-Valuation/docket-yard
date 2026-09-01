@@ -84,14 +84,20 @@ emissions, those suppressions scored as *misses*, and the bias ran conservative 
 number, not for it. With the check in the resolution pass it runs the other way: a **larger**
 production registry, still growing through waves 2–3, **resolves** more targets, and every
 newly-resolved target is a newly-**projected** edge that was never scored. That is a precision
-risk, not a recall understatement, and the exposure test (below, still undefined) is the only
-thing standing in front of it — which is exactly why defining it is a blocker and not a
-nicety.
+risk, not a recall understatement, and the exposure test is the only thing standing in front
+of it — which is why defining it was a blocker. **It is defined now** (ADR 0017 § The exposure
+test, 2026-09-01): a bare docket number of four digits or fewer whose last-digit-stripped
+reading is a held docket, which is 3 of 225.
 
-**Unreconciled, and it changes a queue size.** 0017 states the exposed class is "5 of 225"; the
-same test applied here (a target whose last-digit-stripped reading is also a held docket) yields
-**14**, and 0017's own "5 + 214" does not sum to 225 either. Decision 6 sizes its human review
-queue on that number. One definition of the exposure test, written once, before acceptance.
+**Settled 2026-09-01, and it was never really two definitions.** This section read "14" and
+0017 read "5". Re-measured against the sheet, the answer is **3 of 225** — `AB 1014`,
+`AB 1071`, `AB 1242` — and the wider readings are excluded by the extractor's own grammar
+rather than by preference: a `DOCKET` match ends in a closing paren, a letter suffix or a bare
+digit run, and only the last can swallow a following digit; `\d{1,5}` then caps the sequence so
+a five-digit docket cannot absorb a sixth. Across 994 printed forms in the 60 decisions exactly
+one carries a fused marker — `Docket No. EP 665 (Sub-No. 2)1`, decision 52526 — and it lands
+after the paren, where the extractor never absorbs it. The "5" was measured against a
+220-target sheet before the scorer's suffix fix. Full argument in ADR 0017.
 
 ---
 
@@ -380,8 +386,8 @@ average it.
 
 - **The four projected extras have not been judged.** Are they sheet omissions or real wrong
   edges? Four spans, one sitting; it decides whether 98.2% is a floor or the number.
-- **The exposure test has two definitions** — 5 in 0017, 14 here — and decision 6's queue is
-  sized on it.
+- ~~**The exposure test has two definitions** — 5 in 0017, 14 here~~ — **settled 2026-09-01
+  as 3 of 225**; see above and ADR 0017 § The exposure test.
 - **The classifier is not in the repository.** It ran from the scratchpad. If the figure is to be
   published it needs to live beside `benchmark_score.py` and be re-runnable.
 - **Nothing here is exercised by a validation query.** `decision_decided_date` serves display,

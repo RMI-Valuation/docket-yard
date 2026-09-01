@@ -1,7 +1,9 @@
 # ADR 0017 — Citation edges ship at measured confidence, with the registry and a reviewer between the model and the page
 
-- **Status:** Proposed — cleared by the schema-critic 2026-09-01 (sixth pass); the operator's
-  decision is outstanding. One blocker is named below and is not resolved.
+- **Status:** Proposed — cleared by the schema-critic (sixth pass) and by a 13-agent
+  multi-agent review, both 2026-09-01; the operator's decision is outstanding. The exposure
+  test that blocked this record is **settled below**; one measurement is still owed before any
+  recall figure may be published.
 - **Date:** 2026-08-30, rewritten 2026-09-01 when the record reached 1,082 lines and stopped
   being readable. The table shapes moved to [ADR 0018](0018-the-citation-assertion-families.md);
   every figure and its method are in [`../citator-gate.md`](../citator-gate.md) and
@@ -95,20 +97,61 @@ published without a human reading it first**, and on what evidence.
    erratum's bytes**. The fold to the work is for edges; a review is anchored to the document
    it was taken on.
 
-## The blocker this decision does not resolve
+## The exposure test, settled 2026-09-01
 
-**The exposure test has no single definition.** An "exposed" target is one whose
-digit-stripped reading is also a held docket (`AB 1242` / `AB 124`), and that class is
-precisely what ships *without* review. The same test yields **3, 5 or 14 of 225** depending
-on the reading, and the "5" on file was measured against a 220-target sheet before a scorer
-fix and never re-taken — which is why the arithmetic in `../citator-gate.md` does not close.
+An **exposed** target is one where a footnote marker may have fused onto the docket number —
+`AB 124` followed by footnote `2` read as `AB 1242` — so the extraction resolves confidently
+to the wrong proceeding. That class goes to review; everything else ships unreviewed, which
+is why this definition decides what gets published without a person looking.
 
-Until it is written down once: no figure may be published against the shipping class, and
-the size of the first review queue is unknown. Moving the registry check into resolution
-(decision 2) *enlarges* what the test must catch, because a fused footnote now always emits
-and resolution decides against a registry that only grows.
+**The test: a bare docket number of four digits or fewer whose last-digit-stripped reading is
+a held docket.** On the sheet that is **3 of 225** — `AB 1014`, `AB 1071`, `AB 1242`.
 
-**This is a measurement decision, and it is the operator's.**
+This record previously offered 3, 5 or 14 and called the choice the operator's. It is not a
+choice; the wider readings are excluded by the extractor's own grammar, on three independent
+checks made 2026-09-01:
+
+- **Measured.** Across **994** printed docket forms in the 60 benchmark decisions, exactly
+  **one** has a digit abutting the complete form: `Docket No. EP 665 (Sub-No. 2)1`
+  (decision 52526, whose footnote 1 reads "These proceedings are not consolidated"). The
+  marker lands **after the closing parenthesis**. Every other form is followed by punctuation
+  or a space.
+- **Mechanical.** `DOCKET` ends a match three ways: a closing paren (`EP 665 (Sub-No. 2)`), a
+  letter suffix (`AB 1296X` — the `[A-Z]` consumes it), or a bare digit run. **Only the third
+  can swallow a following digit.** The extractor proved it on the live case: it emitted no
+  fused value for 52526 at all.
+- **The length cap.** `\d{1,5}` bounds the sequence, so a five-digit docket cannot absorb a
+  sixth digit — greedy matching takes `NOR 42144` and leaves the marker. Only four-digit and
+  shorter bare numbers are at risk, which is exactly the membership above. It is not a
+  coincidence; it is the only shape that *can* be exposed.
+
+So the five suffixed targets a wider reading adds — `AB 1296 (X)`, `AB 1305 (X)`,
+`AB 1321 (X)`, `AB 1339 (X)`, `AB 578 (X)` — cannot be fusions. Flagging them is not caution,
+it is noise in a queue, which trains a reviewer to skim.
+
+**Measured on both populations, because they are not the same set.** The 225 are the *truth*
+targets; what actually ships is the 249 *emitted*. Both give the same three — 1.3% and 1.2% —
+so the figure holds on the denominator that matters.
+
+**This does not contradict `../citator-gate.md`'s "three-digit `EP` dockets are the
+exposure".** That describes which held dockets are *at risk* of being mis-read; this test
+detects the *result* of the mis-reading, which is one digit longer. `EP 445` fused with a
+footnote is emitted as `EP 4451`, a four-digit bare number whose stripped reading is held —
+caught. None occurred in these 60 decisions, which is why the sample's three are all `AB`.
+Registry-wide, **1,160 of 21,807 distinct dockets (5.3%)** are shaped so a fused digit could
+land on another held docket; that is the population at risk, not the rate at which it fires.
+
+**Cost:** ~1.2% of emitted targets, so roughly a dozen review items a month on the forward
+poll, and a four-figure one-time queue across the backfill.
+
+## What is still open
+
+**The projected class has no end-to-end recall figure**, and the 95.1% this record published
+for it was measured before the projection gate (see § Consequences). Two chains put it at
+88–90% and disagree on how the registry-unresolvable class is counted. **No recall figure may
+be published for the shipping class until that one measurement is taken and reconciled** —
+precision after the gate holds at ~98%. This is the last thing owed before any number reaches
+a public page; it blocks publication, not acceptance.
 
 ## Consequences
 
