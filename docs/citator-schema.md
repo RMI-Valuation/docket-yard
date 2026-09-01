@@ -57,10 +57,18 @@ construction.
 **What this figure is, and is not.** It is a property of the **pair** — extractor plus decision
 5 — not of the extractor, and it may only be published with the rule named beside it. It is 60
 decisions, not the corpus. It is measured over the **text layer**; decision 1 ships OCR at
-10.8% CER for image-only files and no figure here covers that reading. And the registry it was
-filtered against is a 2026-08-26 copy holding 32,605 rows against production's 32,623 — a
-smaller registry suppresses emissions, so production will emit targets that were never scored.
-**That bias runs against the number, not for it.**
+10.8% CER for image-only files and no figure here covers that reading.
+
+**And the registry bias inverts once the check leaves the finder** *(corrected 2026-09-01,
+second critic pass)*. The scored run used a 2026-08-26 copy holding 32,605 rows against
+production's 32,623. While the filter sat inside the finder, a smaller registry suppressed
+emissions, those suppressions scored as *misses*, and the bias ran conservative — against the
+number, not for it. With the check in the resolution pass it runs the other way: a **larger**
+production registry, still growing through waves 2–3, **resolves** more targets, and every
+newly-resolved target is a newly-**projected** edge that was never scored. That is a precision
+risk, not a recall understatement, and the exposure test (below, still undefined) is the only
+thing standing in front of it — which is exactly why defining it is a blocker and not a
+nicety.
 
 **Unreconciled, and it changes a queue size.** 0017 states the exposed class is "5 of 225"; the
 same test applied here (a target whose last-digit-stripped reading is also a held docket) yields
@@ -156,13 +164,28 @@ be written down, not implied.**
 
 ## C. Decision 4's confidence table stamps the wrong engine
 
-**Proposal.** Key confidence `(method, method_version, class, reading_channel, benchmark_date)`,
-append-only, carrying the score file — and let the resolution row join it rather than stamping a
-number of its own.
+**Settled in ADR 0017 decision 4, 2026-09-01.** This section originally proposed keying
+confidence `(method, method_version, class, reading_channel, benchmark_date)` and letting the
+resolution row **join** it rather than stamp a number of its own. That is **not** what shipped,
+and this paragraph is corrected rather than left standing, because the acceptance sentence binds
+both documents and they cannot declare two shapes for one table. What the ADR settles:
+
+- The row **carries** `confidence NOT NULL` plus a typed `confidence_state`, because deleting
+  the column departs from ADR 0007 further than the NULL it was avoiding, and because decision
+  9's per-edge display needs a value on the row it is displaying.
+- The registry is **two tables**: `confidence_class (extraction m+v, resolution m+v, class,
+  reading_channel)`, which is what the row's FK names and every component of which a row knows
+  when it is written; and `class_measurement (class, projection_rule_version, benchmark_date,
+  score file, recall, precision)`, append-only. `projection_rule_version` is a fact of the
+  projection, not of the row, so holding it in the FK'd key would force an every-row UPDATE
+  each time decision 5's closure changed — and it has changed once already.
+
+**ADR 0017 governs where the two disagree.**
 
 | method | class | reading | recall | precision after decision 5 | projected? |
 | --- | --- | --- | --- | --- | --- |
-| `regex-docket-cite` | docket, resolved, unexposed | text-layer | **95.1%** (the whole docket-shaped class; the subclass figure needs the exposure test defined) | **98.2%** under `cite.py`'s closure, **97.3%** without the parent | yes |
+| `regex-docket-cite` | docket, resolved, unexposed | text-layer | **97.8%** (the whole docket-shaped class, check in resolution; the subclass figure needs the exposure test defined) | **98.2%** under `cite.py`'s closure, **97.3%** without the parent | yes |
+| `regex-docket-cite` | docket, unresolved | text-layer | — | — | never; to decision 6's second queue |
 | `regex-docket-cite` | docket, resolved, exposed | text-layer | — | — | to the review queue |
 | `regex-docket-cite` | any | ocr | **unmeasured** | **unmeasured** | never, by decision 4's own rule |
 | `model:claude-sonnet-5` | reporter, date-named, court, deadline | text-layer | as `extraction-benchmark.md` | — | not in this slice; stored |
