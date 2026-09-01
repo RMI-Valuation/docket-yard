@@ -1099,7 +1099,10 @@ def create_app(
         parent = identity.parent()
         if parent is not None:  # a sub-docket names the series it sits under
             body["series"] = {
-                "raw_docket": parent.canonical(),
+                # the store's own spelling, as `docket.raw_docket` carries it: `canonical()`
+                # renders a family as `FD_36873_0`, which no other field in the response uses
+                # and no address resolves (code review, 2026-09-01)
+                "raw_docket": f"{parent.prefix}_{parent.sequence}",
                 "printed": urls.printed_docket(parent),
                 "url": f"https://{site_host}{urls.docket_path(parent)}",
             }

@@ -12,7 +12,7 @@ import pathlib
 import pytest
 from fastapi.testclient import TestClient
 
-from docketyard.store import db, search
+from docketyard.store import db, search, sheet
 from docketyard.web import mcp
 from docketyard.web.app import create_app
 from tests.test_enviro_ingest import comment_row
@@ -441,3 +441,28 @@ def test_initialize_falls_back_to_the_version_the_header_negotiated(client):
         headers={"MCP-Protocol-Version": "2025-06-18"},
     )
     assert r.json()["result"]["protocolVersion"] == "2025-06-18"
+
+
+def test_the_machine_surface_answers_a_series_with_its_index(tmp_path):
+    """The page and the JSON both gained an `is_index` branch; this surface did not, so an
+    assistant asking about a series was handed "N filings … held" followed by "Entries,
+    newest first:" and nothing after it (code review, 2026-09-01)."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    parent = con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence) VALUES ('AB_167', 'AB', 167)"
+    ).lastrowid
+    for sub in range(1, sheet.SERIES_SUBS + 2):
+        con.execute(
+            "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, suffix,"
+            " parent_docket_id) VALUES (?, 'AB', 167, ?, 'X', ?)",
+            (f"AB_167_{sub}_X", sub, parent),
+        )
+    con.commit()
+    out = mcp._docket(con, {"docket": "AB 167"}, "docketyard.org")
+    con.close()
+    assert "it holds no record of its own" in out
+    assert "Proceedings under this number:" in out
+    assert "Entries, newest first:" not in out
+    assert "/d/AB-167/sub/1X" in out
+    assert out.rstrip().endswith(mcp._NOT_HELD)  # the caveats still travel with the answer

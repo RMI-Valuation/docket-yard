@@ -147,6 +147,25 @@ def _docket(con: Connection, args: dict, host: str) -> str:
     ]
     if s.last_checked:
         head.append(f"Last checked against the Board: {s.last_checked}.")
+    if s.is_index:
+        # a series carries no entries of its own; the assistant is handed the index the page
+        # and the JSON both carry, not an empty "Entries, newest first:" (code review)
+        head.append(
+            f"This number is a series: it holds no record of its own, and the"
+            f" {len(s.sub_dockets)} proceedings under it each keep their own."
+        )
+        rows = ["Proceedings under this number:"]
+        for m in s.sub_dockets[:limit]:
+            ident = parse_docket_id(m.raw_docket)
+            printed = urls.printed_docket(ident) if ident else m.raw_docket
+            rows.append(
+                f"- {printed} — {m.title or '(caption not yet observed)'}"
+                f" — {_plural(m.filings, 'filing')}, {_plural(m.decisions, 'decision')}"
+                + (f" — {_site(host, urls.docket_path(ident))}" if ident else "")
+            )
+        if len(s.sub_dockets) > limit:
+            rows.append(f"…and {len(s.sub_dockets) - limit} more, listed on the sheet.")
+        return "\n".join(head + rows + ["", _NOT_HELD])
     rows = ["Entries, newest first:"]
     for e in s.entries[:limit]:
         who = e.filed_for_raw or e.submitter or e.organisation or ""
