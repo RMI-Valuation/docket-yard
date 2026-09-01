@@ -80,7 +80,13 @@ published without a human reading it first**, and on what evidence.
    version, the class and its measured confidence, and the reviewer's credit name where a
    human resolved it. **No count is published without its class.**
 
-7. **Not in this slice, doors kept.** Every edge is `cites`; treatment typing, a
+7. **Not in this slice, doors kept — and what that means on day one.** Every edge is `cites`,
+   so **validation query 2 returns nothing until the treatment pass runs**: it joins
+   `citation_treatment` and filters on a negative polarity, and no treatment row exists yet.
+   What ships is "what cites this" — the cited-by list and the citing passage at 89.3%/98.0% —
+   which is the wedge, and is worth shipping. Neither record may present query 2 as the day-one
+   payoff *(stated 2026-09-01 after the multi-agent review; both records had cited Q2 as their
+   justification without saying it returns an empty set on the day they ship)*. treatment typing, a
    reporter→work resolver and record-cite resolution are later passes (ADR 0018). Statutes
    are not extracted — adding them costs a re-extraction (~$1,335), not a migration. The
    decided date **is** extracted in the same pass, because doing it later costs that re-run:
@@ -144,30 +150,55 @@ land on another held docket; that is the population at risk, not the rate at whi
 **Cost:** ~1.2% of emitted targets, so roughly a dozen review items a month on the forward
 poll, and a four-figure one-time queue across the backfill.
 
+## The figures, by stage
+
+Measured 2026-09-01 by `tools/rmi-ai-machine/projection_score.py`, which is in the repository
+so every number here is re-derivable. **Each line is true of a different thing, and quoting one
+for another is the error this record made** — it published 95.1% for the projected class, a
+figure measured before the gate that suppresses edges.
+
+| stage | of 225 | |
+|---|---|---|
+| **extraction** — the finder saw it | 220 | **97.8%** |
+| **resolution** — and the registry resolved it | 210 | **93.3%** (10 real edges to review) |
+| **projection** — and a reader sees it | 201 | **89.3%** |
+
+**Precision of what projects: 201 true of 205 shown = 98.0%.**
+
+The 24-edge gap between what is found and what is shown is not error, and the record must not
+present it as loss: 10 are real edges the registry cannot yet resolve, which go to review and
+appear as "cites `EP 445` (not in the record)"; 9 are own-family self-references decision 4
+suppresses on purpose, because the record already holds that membership; 5 the finder never
+saw.
+
+*(Two of those suppressions were a defect, not the rule: the span test read
+`served\s+\w+\s+\d` and so missed `(STB served Mar. 12, 2021)` — the Board abbreviates the
+month and the period broke the match. Fixed in the committed classifier; it moved projected
+recall from 88.4% to 89.3% and left precision unchanged.)*
+
+**Publish the projection line, never the extraction line.**
+
 ## What is still open
 
-**The projected class has no end-to-end recall figure**, and the 95.1% this record published
-for it was measured before the projection gate (see § Consequences). Two chains put it at
-88–90% and disagree on how the registry-unresolvable class is counted. **No recall figure may
-be published for the shipping class until that one measurement is taken and reconciled** —
-precision after the gate holds at ~98%. This is the last thing owed before any number reaches
-a public page; it blocks publication, not acceptance.
+Nothing blocks acceptance. What is owed before the first edge reaches a page is in ADR 0018's
+§ Owed at the migration, and one honesty item is in decision 7 below: **query 2 returns nothing
+on the day this ships**, because every edge in this slice is `cites` and treatment typing is a
+later pass.
 
 ## Consequences
 
-The first slice can be built, but **its end-to-end recall is not yet measured, and the 95.1%
-this record published for it was wrong** *(multi-agent review, 2026-09-01)*. 95.1% counts hits
-**before** the projection gate; 98.2% is precision **after** it. Quoting them in one sentence
-describes no configuration that exists. Run end to end the gate also suppresses **11 true
-positives** — real edges inside the citing decision's own family whose span names no document —
-and rule 1 drops the registry-unresolvable ones, which two independent measurements put at
-**88–90% projected recall** (199/225 and 203/225; the two chains differ on how the unresolvable
-class is counted and the difference has not been reconciled).
+The first slice can be built and its numbers are known before an edge is stored: **89.3% of
+docket-shaped citations reach a reader, at 98.0% precision** (§ The figures, by stage).
 
-**No recall figure may be published for the projected class until that one measurement is
-taken.** Precision after the gate holds at ~98%. This is the fourth time in this record's life
-that a published figure described a configuration the pipeline does not run, and the pattern —
-measuring a stage and quoting it as the whole — is the one to distrust.
+The 95.1% this record previously published for that class was measured **before** the
+projection gate and was wrong — the fourth time in this record's life a published figure
+described a configuration the pipeline does not run. The pattern is always the same: measure
+one stage, quote it as the whole. The scorer now reports every stage at once so the error is
+harder to repeat than to avoid.
+
+Re-measurement is a scorer run, not a migration. A better extractor supersedes rather than
+rewrites. What becomes hard: every published figure is a property of a **pair** — extractor
+plus projection rule — and may only be published with the rule named beside it.
 Re-measurement is a scorer run, not a migration. A better extractor supersedes rather than
 rewrites. What becomes hard: every published figure is now a property of a **pair** —
 extractor plus projection rule — and may only be published with the rule named beside it.

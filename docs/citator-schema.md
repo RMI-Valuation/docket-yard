@@ -54,6 +54,14 @@ exists to find. So an extra is only absorbed if its quoted span names no documen
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `regex-docket-cite`, as benchmarked (registry filter in the finder) | 225 | 243 | 214 | 95.1% | 88.1% | 25 | 4 | 98.2% |
 | `regex-docket-cite`, **as decision 1 now specifies it** (check in resolution) | 225 | 249 | 220 | **97.8%** | 88.4% | 25 | **4** | **98.2%** |
+
+**That table measures EXTRACTION. It is not what a reader sees** *(added 2026-09-01)*. Running
+the whole chain — resolution, then decision 5's gate — gives **89.3%** projected recall
+(201 of 225) at **98.0%** precision (201 of 205 shown). The 24-edge gap is 10 real edges the
+registry cannot resolve (review queue), 9 own-family self-references suppressed by design, and
+5 the finder never saw. Re-derive with `tools/rmi-ai-machine/projection_score.py`, which
+reports every stage at once precisely so a figure cannot be quoted for a stage it did not
+measure — the error ADR 0017 made four times.
 | `model:claude-sonnet-5` | 225 | 225 | 215 | **95.6%** | 95.6% | 10 | 0 | **100%** |
 
 **Neither engine emits an edge to a proceeding the citing decision was not entered in** — 29 of
@@ -221,7 +229,7 @@ both documents and they cannot declare two shapes for one table. What the ADR se
 | method | class | reading | recall | precision after decision 5 | projected? |
 | --- | --- | --- | --- | --- | --- |
 | `regex-docket-cite` | docket, resolved, unexposed | text-layer | **no figure until the exposure test defines this class** | — | yes |
-| `regex-docket-cite` | docket, resolved, **whole class** (exposed and not) | text-layer | **95.1%** projected (214 of 225; the finder emits 97.8%, which is not what a reader sees) | **98.2%** under `cite.py`'s closure, **97.3%** without the parent | — measurement only |
+| `regex-docket-cite` | docket, resolved, **whole class** (exposed and not) | text-layer | **89.3% projected** (201 of 225) — the finder emits 97.8% and the registry resolves 93.3%; neither is what a reader sees | **98.0%** of what projects (201 of 205), under `cite.py`'s closure | — measurement only |
 | `regex-docket-cite` | docket, unresolved | text-layer | — | — | never; to decision 6's second queue |
 | `regex-docket-cite` | docket, resolved, exposed | text-layer | — | — | to the review queue |
 | `regex-docket-cite` | any | ocr | **unmeasured** | **unmeasured** | never, by decision 4's own rule |
