@@ -79,6 +79,10 @@ one whose caption repeats the parent's folds into the family row.
   | …of which the FTS re-tokenise | 4.5 s (delete 0.3 s, insert 0.6 s, commit 0.3 s) |
   | Whole `search rebuild` | **24.1 s** |
 
+  Confirmed at the v2026.08.45 deploy, on the live store with `INDEX_FORMAT` 3: 96,225 rows
+  rebuilt, 29,542 of them carrying a caption, the poll pass that followed reporting
+  `problems: []`.
+
   Earlier figures — 40 s while a wave ran, 32 s for 61,959 on the v2026.08.42 deploy — are
   whole-command wall times, and `docs/deferred.md` read them as lock time. **They are not.**
   `rebuild()` derives everything on reads first and writes in one short transaction, exactly

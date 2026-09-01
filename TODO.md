@@ -8,8 +8,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **v2026.08.45 merged to `main`, deploy in progress.** Navigation Tiers 1–2. The deploy
-  runs `search rebuild` in the window (`INDEX_FORMAT` 3 forces one anyway)
+- **v2026.08.45 is live** (2026-09-01, navigation Tiers 1–2). Verified on the site: the
+  three walled-off weeks show their 91 filings, 1996 is reachable, `/coverage` names
+  2026-08 alone for filings and decisions, search leads with captions. A pre-deploy copy of
+  the store sits at `/srv/docketyard/pre-v45-backup.sqlite` (296 MB) — delete it once the
+  release has held a day; Litestream is the real answer (ADR 0012)
 - **26,943 comment attachments unfetched, and the poller will never fetch them** (measured
   2026-08-31: all are `backfill`-mode observations and `poll` asks for `observed_in=
   "forward"`). Cameron's go given 2026-08-31, **throttled and after this release**:
