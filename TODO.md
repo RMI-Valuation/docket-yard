@@ -8,10 +8,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **v2026.08.47 is live** (2026-09-01): navigation Tiers 1–2 (v45), A6 (v46), and Tier 3's
-  weeks index and sub-docket breadcrumb (v47), all verified on the site. A pre-deploy copy
-  of the store sits at `/srv/docketyard/pre-v45-backup.sqlite` (296 MB) — delete it once
-  these have held a day; Litestream is the real answer
+- **v2026.08.48 is live** (2026-09-01): navigation Tiers 1–2 (v45), A6 (v46), the weeks
+  index and sub-docket breadcrumb (v47) and `/parties` as a page (v48), all verified on the
+  site. A pre-deploy copy of the store sits at `/srv/docketyard/pre-v45-backup.sqlite`
+  (296 MB) — delete it once these have held a day; Litestream is the real answer
 - **26,943 comment attachments unfetched, and the poller will never fetch them** (measured
   2026-08-31: all are `backfill`-mode observations and `poll` asks for `observed_in=
   "forward"`). Cameron's go given 2026-08-31, **throttled and after this release**:
@@ -47,10 +47,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **ADR 0012 addendum: the blob cache** (S3 the store, the instance a cache; sync + prune)
 - **`docs/navigation-review.md`**: Tiers 1–2 shipped. A7 (a series sheet builds 2,628
   entries and renders none) is one decision with the same item in `docs/deferred.md`.
-  Of Tier 3, the weeks index and the breadcrumb shipped; still open are a docket index by
-  prefix and year (linked from the explainers, which dead-end after "the registry holds
-  6,643 AB dockets") and `/parties` as a page before it is a search. **Tier 4 is his** (the
-  masthead, the home window's unit, what a series sheet is, place)
+  Of Tier 3, the weeks index, the breadcrumb and `/parties` shipped; still open is a docket
+  index by prefix and year, linked from the explainers, which dead-end after "the registry
+  holds 6,643 AB dockets". **Tier 4 is his** (the masthead, the home window's unit, what a
+  series sheet is, place)
 - When this list runs short or a decision makes one of them near-term, pull the next item
   from `docs/deferred.md` (review findings and known gaps, dated, with their context)
 
