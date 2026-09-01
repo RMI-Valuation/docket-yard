@@ -23,9 +23,11 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   heaviest page on the site is not the merger but **`/d/AB-167/sub/1189X` at 2,641,718 bytes
   / 1,861 entries**, 1,533 of them environmental comments. The cost is DOM, not bandwidth —
   Caddy gzips FD 36873 to ~120 KB, while the page carries 27,537 elements and 2,233 inline
-  SVG icons, one per entry link. Price two cheaper moves before pagination: one
-  `<symbol>`/`<use>` pair instead of the repeated SVGs, and a year window. The phone
-  measurement is still the open question (`navigation-review.md` § D).
+  SVG icons, one per entry link. Two cheaper moves were to be priced before pagination:
+  **the `<symbol>`/`<use>` collapse shipped 2026-09-01** — measured on a production copy,
+  FD 36873 fell 1,797,300 to 1,429,672 bytes and ~22,997 to ~18,271 elements (-20%), and
+  `/d/AB-167/sub/1189X` 488,615 to 413,035 bytes. A year window is still unbuilt, and the
+  phone measurement is still the open question (`navigation-review.md` § D).
 
 ## Party module (M10, 2026-08-26)
 
@@ -159,13 +161,6 @@ the next person does not re-derive it.
 Raised on the poll's caption lookup; the blocking findings (asking by family, and asking
 for ever) were fixed before it shipped. These were triaged as not-now:
 
-- **No positive control that the lookup can succeed.** A criteria rename at the Board would
-  answer the no-results envelope for every ask, which `expected_empty=True` reads as
-  benign. `CAPTION_ATTEMPTS` turns that into a problem line after eight tries per docket,
-  which is a floor, not a proof: asking once a pass about a family the record already has a
-  caption for would prove the query still works, at one request.
-- **`{"already_processed": True}` lands in the ingest counts as `1`** (`isinstance(True, int)`),
-  a pre-existing cosmetic wrinkle in `_ingest_pending` that the dockets path now shares.
 - **`_uncaptioned` scans the registry each pass** (~32,600 dockets, index seeks). Free at
   this size, and it will not stay free.
 
@@ -183,11 +178,6 @@ for ever) were fixed before it shipped. These were triaged as not-now:
 
 ## Found 2026-08-31, reviewing the navigation Tier 1–2 release (v2026.08.45)
 
-- **`covered()` ignores `coverage_gap`** (stb-ingest-specialist). The watch is derived from
-  `MIN(captured_at)` alone, so a week inside a recorded poller outage longer than the
-  seven-day poll window renders as covered, with fewer records than the Board posted and no
-  caveat. The `PARTIAL` state this release built is exactly the honest answer for it —
-  `coverage_state()` would need to consult `coverage_gap` as well as the ledger.
 - **`EXPECTED_EMPTY_MONTHS` is a declaration, and `covered()` now rests on it**
   (stb-ingest-specialist). `walk.py` skips the reconciliation proof for a month declared
   expected-empty, so a run with the wrong criteria pair would answer the same envelope and
@@ -204,11 +194,6 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   the worst case and does not fail. Kept here, struck through, because a plausible finding
   that three passes believed is worth leaving visible: the lesson is that a wall-clock
   number is not a lock number, and nobody had measured the difference.
-- **`reconcile_empty_month` is a fourth reader of the slice-key grammar**
-  (stb-ingest-specialist). `walk.py:223` treats only `len(rest) == 7` keys as candidate
-  `done` neighbours, so a month walked to completion as two complementary range slices
-  cannot anchor an empty-month proof. Fails safe — the month records `partial` instead of
-  `empty` — and `slice_days`/`slice_month` now exist beside it to fix it with.
 
 ## Found 2026-09-01, reviewing the AB sub-docket follow (v2026.08.46)
 
@@ -219,3 +204,18 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   the page would alter what an existing consumer receives at an address that has always
   answered this way, so it is a `shape_version` decision and the operator's, not a defect to
   fix quietly. `sheet_json` uses `family_sheet`; the page uses the requested identity.
+
+## Found 2026-09-01, clearing five from this pool
+
+- **The caption control cannot tell a withdrawn row from a broken query.** If the Board ever
+  stops publishing the docket row the control asks about, the pass raises the same problem
+  line for ever: the choice is deterministic (`ORDER BY docket_id LIMIT 1`), there is no
+  attempt budget and no rotation. Two consecutive failures before raising, or a small
+  rotating candidate set, would fix it. Nobody has seen a Board-side withdrawal yet
+  (stb-ingest-specialist).
+- **`gap_shadows` excludes `events` failures, and that is a judgement.** An `events` gap
+  usually means captures arrived and nothing parsed - those are retained and re-consumed, so
+  the days self-heal, and shadowing them would leave a week at `partial` for ever over
+  records the store fully holds. But an `events` gap can also mean captures that quarantined
+  and were never re-asked, which SHOULD shadow. The failure taxonomy cannot tell the two
+  apart; a fifth failure kind, or a quarantine count on the gap, could.

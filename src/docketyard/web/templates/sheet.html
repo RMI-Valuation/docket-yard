@@ -102,6 +102,15 @@
       </div>
     </div>
 
+    {#- One definition per icon, referenced by every entry. Each entry link carried its own
+        inline <svg> with four <path> children: on FD 36873 that is 2,233 copies and roughly
+        11,000 elements of the page's 27,537 — the DOM cost `navigation-review.md` § D
+        measured, and the cheaper of the two moves it asked to be priced before pagination.
+        The markup is identical; only the repetition goes. -#}
+    <svg class="vh" aria-hidden="true" focusable="false"><defs>
+      <symbol id="i-read" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path><path d="M9 12h7"></path><path d="M9 16h7"></path></symbol>
+      <symbol id="i-board" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"></path><path d="M8 11l4 4 4-4"></path><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></symbol>
+    </defs></svg>
     <ol class="plain" id="entries">
     {% for e in sheet.entries %}
     <li class="entry{% if e.kind == 'decision' %} entry-decision{% endif %}" data-kind="{{ e.kind }}" data-type="{{ filter_key(e.kind, e.type) }}" data-parties="{{ e.parties | join(' ') }}">
@@ -124,8 +133,8 @@
       </div>
       <div class="entry-links">
         {% set noun = 'decision' if e.kind == 'decision' else 'environmental comment' if e.kind == 'comment' else 'filing' %}
-        {% set v = viewable_index(e) %}{% if v is not none %}<a class="doc-icon read" href="{{ viewer_path(e.kind, e.record_id, v) }}" target="_blank" rel="noopener" aria-label="Read {{ noun }} {{ e.record_id }} here, beside its record" title="Read it here"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l5 5v13H6z"></path><path d="M14 3v5h5"></path><path d="M9 12h7"></path><path d="M9 16h7"></path></svg></a>{% endif %}
-        {% for a in e.attachments %}<a class="doc-icon board" href="{{ a.url }}" target="_blank" rel="noopener" aria-label="The Board’s own file for {{ noun }} {{ e.record_id }}{% if a.label %} ({{ a.label }}){% endif %} (stb.gov)" title="The Board’s own file (stb.gov)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v10"></path><path d="M8 11l4 4 4-4"></path><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg></a>{% endfor %}
+        {% set v = viewable_index(e) %}{% if v is not none %}<a class="doc-icon read" href="{{ viewer_path(e.kind, e.record_id, v) }}" target="_blank" rel="noopener" aria-label="Read {{ noun }} {{ e.record_id }} here, beside its record" title="Read it here"><svg class="icon" width="18" height="18" aria-hidden="true"><use href="#i-read"></use></svg></a>{% endif %}
+        {% for a in e.attachments %}<a class="doc-icon board" href="{{ a.url }}" target="_blank" rel="noopener" aria-label="The Board’s own file for {{ noun }} {{ e.record_id }}{% if a.label %} ({{ a.label }}){% endif %} (stb.gov)" title="The Board’s own file (stb.gov)"><svg class="icon" width="18" height="18" aria-hidden="true"><use href="#i-board"></use></svg></a>{% endfor %}
       </div>
     </li>
     {% else %}

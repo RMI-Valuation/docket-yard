@@ -239,3 +239,73 @@ def test_the_weeks_index_is_computed_once_per_store_stamp(tmp_path):
         assert calls["n"] == 1  # memoised on the store stamp
     finally:
         home_mod.weeks_index = real
+
+
+def test_an_outage_longer_than_the_poll_window_is_not_covered_by_the_watch(tmp_path):
+    """The poller asks for a trailing seven days each pass, so a short outage costs
+    nothing — the next pass re-asks what the missed ones covered. A LONGER one is never
+    caught up: when the poller resumes it asks for the last seven days and the days before
+    them are never asked again. `covered()` was answering yes for them on the watch alone
+    (stb-ingest-specialist, 2026-08-31)."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    # the watch began before the week under test, so the watch branch is what answers here
+    con.execute(
+        "UPDATE capture SET captured_at = '2026-08-20T00:00:00+00:00' WHERE ingest_mode = 'forward'"
+    )
+    con.commit()
+    today = date(2026, 8, 31)
+    week = (date(2026, 8, 24), date(2026, 8, 30))
+    assert home.covered(con, *week, today)  # the watch answers for it
+    con.execute(
+        "INSERT INTO coverage_gap (started_at, ended_at, failure, note)"
+        " VALUES ('2026-08-01T00:00:00+00:00', '2026-08-30T00:00:00+00:00', 'captures', NULL)"
+    )
+    con.commit()
+    # a month down: everything up to six days before it ended was never asked for
+    assert home.gap_shadows(con, today) == [(date(2026, 8, 1), date(2026, 8, 24))]
+    assert not home.covered(con, *week, today)
+    assert not home.covered(con, date(2026, 8, 10), date(2026, 8, 16), today)
+    # the days the resuming pass re-asked are still covered
+    assert home.covered(con, date(2026, 8, 25), date(2026, 8, 31), today)
+
+    # a SHORT outage shadows nothing: the next pass's own window covers it
+    con.execute("DELETE FROM coverage_gap")
+    con.execute(
+        "INSERT INTO coverage_gap (started_at, ended_at, failure, note)"
+        " VALUES ('2026-08-25T00:00:00+00:00', '2026-08-27T00:00:00+00:00', 'captures', NULL)"
+    )
+    con.commit()
+    assert home.gap_shadows(con, today) == []
+    assert home.covered(con, *week, today)
+
+    # and a failure downstream of the capture ledger shadows nothing either
+    con.execute("DELETE FROM coverage_gap")
+    con.execute(
+        "INSERT INTO coverage_gap (started_at, ended_at, failure, note)"
+        " VALUES ('2026-08-01T00:00:00+00:00', '2026-08-30T00:00:00+00:00', 'delivery', NULL)"
+    )
+    con.commit()
+    assert home.gap_shadows(con, today) == [] and home.covered(con, *week, today)
+    con.close()
+
+
+def test_a_shadowed_week_still_renders_what_it_holds(tmp_path):
+    """The invariant A2 built: the "not covered" sentence is only ever printed over an
+    empty window, whatever put the window in doubt."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    con.execute(
+        "INSERT INTO coverage_gap (started_at, ended_at, failure, note)"
+        " VALUES ('2026-08-01T00:00:00+00:00', '2026-08-30T00:00:00+00:00', 'captures', NULL)"
+    )
+    con.commit()
+    today = date(2026, 8, 31)
+    w = home.calendar_week(con, date(2026, 8, 24))
+    assert w.filings, "fixture precondition: this week holds filings"
+    assert home.coverage_state(con, w, date(2026, 8, 24), date(2026, 8, 30), today) == home.PARTIAL
+    con.close()
+    page = TestClient(create_app(path)).get("/week/2026-08-24").text
+    assert "does not yet cover" not in page  # the sentence never prints over held records
+    assert "filings observed" in page and "FD 36873" in page  # what it holds, rendered
+    assert "A wave has not finished this week" in page  # and the caveat beside them

@@ -132,7 +132,7 @@ def test_the_weekly_digest_goes_once_on_monday_with_the_table(tmp_path):
     counter.record("/d/FD-36873", 200, 70_000, 40.0, "Googlebot/2.1", when)
     counter.record("/nope", 404, 0, 5.0, None, when)
     traffic.flush(counter, path, when)
-    text = traffic.digest_text(path)
+    text = traffic.digest_text(path, now=when)  # the window ends where the fixture does
     assert "sheet" in text and "total" in text and "FD-36873" not in text  # kinds, never pages
     sender = FakeSender()
     monday_early = datetime(2026, 8, 31, 5, 30, tzinfo=UTC)
@@ -148,3 +148,27 @@ def test_the_weekly_digest_goes_once_on_monday_with_the_table(tmp_path):
     # once: a later pass the same Monday sends nothing; next Monday it does again
     assert traffic.send_digest(path, sender, "op@example.org", monday.replace(hour=23)) is False
     assert traffic.digest_due(path, datetime(2026, 9, 7, 6, 5, tzinfo=UTC))
+
+
+def test_the_digest_covers_the_week_its_subject_names(tmp_path):
+    """`send_digest` built its subject from `now` and its table from the wall clock — the
+    same instant in a pass, and two different ones anywhere else, which is why this file's
+    fixture aged out of its own window and started failing a week after it was written
+    (2026-09-01)."""
+    from datetime import UTC, datetime
+
+    path = tmp_path / "traffic.sqlite"
+    counter = traffic.Counter()
+    when = datetime(2026, 8, 25, 10, 0, tzinfo=UTC)
+    counter.record("/d/FD-36873", 200, 70_000, 120.0, "Mozilla/5.0", when)
+    traffic.flush(counter, path, when)
+    # inside the window that ends where the fixture does...
+    assert "sheet" in traffic.digest_text(path, now=when)
+    # ...and outside one that ends a fortnight later, whatever the clock says
+    assert "sheet" not in traffic.digest_text(path, now=when + timedelta(days=14))
+    sender = FakeSender()
+    monday = datetime(2026, 8, 31, 6, 30, tzinfo=UTC)
+    assert traffic.send_digest(path, sender, "op@example.org", monday) is True
+    out = sender.sent[-1]
+    assert "week to 2026-08-31" in out.subject
+    assert "sheet" in out.text  # the subject's week is the table's week
