@@ -16,15 +16,12 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   chunk. **~13 hours, so the original estimate was right and this line's own "2.5 days" was
   wrong** — measured 3,600 in 2h00m55s = **2.02 s each**, attachments averaging 0.23 MB not
   1.46. Done ~02:30 UTC 2026-09-02, needing ~5.4 GB against ~20 GB free
-- **ADR 0017 stays Proposed, declined twice by the schema-critic and corrected twice**
-  (`revive-0017`). Pass 2's D1–D14 are all addressed in d532566: the registry split so no
-  stamp is ever rewritten, precedence moved to the method registry, `citation_reading` +
-  `reading_channel` in the resolution key, `citation_treatment` as treatment's one home,
-  `human` as its own confidence state. Recall is **97.8%**, not 95.1% — the benchmark
-  filtered inside the finder and decision 1 no longer does (5ba275a); the six recovered
-  targets are all real edges. Third pass running. **The one open blocker is the exposure
-  test**, which has no single definition and yields 3, 5 or 14 of 225. **Cameron's**:
-  whether to accept once the critic clears it
+- **ADR 0017 Accepted 2026-09-01** on the sixth critic pass (five declines, corrected
+  between each; branch `revive-0017`, ready to merge). It accepts a **paper shape** and
+  **no number**. **The exposure test is still the bar on the first published edge** — one
+  test, 3 or 5 or 14 of 225, and the `5 + 214` arithmetic will not close until it is
+  settled. **Cameron's.** Eight items are owed at the migration, listed in its § Accepted;
+  four of them the first edge exercises
 - **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against, so
   **a second unseen sample must confirm** before any type ships
 - No Anthropic key exists; any Claude-backed run needs a new one from Cameron

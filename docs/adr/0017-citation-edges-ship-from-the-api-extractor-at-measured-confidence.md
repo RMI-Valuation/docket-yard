@@ -1,7 +1,9 @@
 # ADR 0017 — Citation edges ship from the API extractor, at measured confidence, with the registry and a reviewer between the model and the page
 
-- **Status:** Proposed — amended 2026-09-01, declined by the schema-critic the same day,
-  **and corrected against that review; awaiting a second critic pass**
+- **Status:** **Accepted 2026-09-01**, on the sixth schema-critic pass, after five declines
+  and five rounds of correction. The acceptance is of a **paper shape** — no citator table
+  exists in any migration — and it endorses **no published number**. § Accepted, below, states
+  what it covers, what it does not, and the eight items owed at the migration.
 - **Date:** 2026-08-30 (drafted; revised the same day after schema-critic review — see
   § Review; figures corrected 2026-08-31 when the batch finished). Acceptance was taken on
   2026-08-31 and **held** by the operator the same day. On 2026-09-01 the operator settled
@@ -154,17 +156,22 @@ not decisions; this record makes them decisions.
    it scores, not before.
 
 2. **Every finding is stored as a `citation` row that is never rewritten.** It carries
-   `cited_raw` (the string as printed), `kind` (`citation` or `caption` — the extractor's
-   own *document versus proceeding* call on the text), `target_kind` (`stb`, `court`,
-   `record`) — and, **as `citation_judgement` rows rather than columns here** *(reconciled
-   2026-09-01, fifth critic pass: decision 5 moved them and this paragraph still declared them
-   columns, which is two homes for one value in one record)*, `target_form` (`docket`,
-   `reporter`, `date`, `other` — so the classes below are values, not a regex over `cited_raw`
-   at projection time) and `kind`. **Ownership (decision 1) is determined at insert time from
-   the owning method's own `(target_kind, target_form)` declaration, not from a later
-   judgement row**, or a supersession could move a row out of the class that admitted it, the reading it came from
-   (text layer or OCR method and version), the quoted passage, and ADR 0007's block for the
-   *extraction*. Its **natural key is `(citing_document, page, target_kind, normalised
+   exactly two values and its provenance: `cited_raw` (the string as printed) and
+   `target_kind` (`stb`, `court`, `record`), plus ADR 0007's block for the *extraction*.
+   Both are **identity** (decision 5), and `target_kind` is in the natural key.
+
+   Everything else this paragraph used to carry lives elsewhere, and is listed here so a
+   migration author does not restore a column *(swept 2026-09-01, sixth critic pass — `kind`
+   was named as a column and as a judgement row in one sentence, which is the two-homes defect
+   the previous sweep existed to close)*: `kind` and `target_form` are **`citation_judgement`
+   rows** (decision 5), never columns here; the reading it came from, its `source_location`
+   and the quoted passage are **`citation_reading` rows** (below), and `citation` carries no
+   `source_location` at all — `page` in the natural key is its location, which is a deliberate
+   departure from `schema-draft.md` § 5's uniform block and must not be reversed.
+
+   **Ownership (decision 1) is determined at insert time from the owning method's own
+   `(target_kind, target_form)` declaration, not from a later judgement row**, or a
+   supersession could move a row out of the class that admitted it. Its **natural key is `(citing_document, page, target_kind, normalised
    target key)`** — stable across a text-layer and an OCR reading of the same bytes, which
    differ in the quoted passage (10.8% CER) and would otherwise double every edge on
    re-read. **Each reading is a row of its own in `citation_reading`** *(added 2026-09-01,
@@ -548,6 +555,16 @@ not decisions; this record makes them decisions.
    target)` pairs, so an erratum's second hash does not double an edge and short-form
    density does not inflate a count. Readers cite counts.
 
+   **Measured 2026-09-01, the converse the first evidence did not cover:** 1,736 ids carry
+   several `decision_record` rows with 0 disagreements, and **5 documents of 20,992 hang under
+   two `stb_decision_id`s** — the same bytes published under two decisions served years apart,
+   each with its own URL (e.g. `35412` served 2004-12-22 and `37679` served 2007-06-29, both
+   Section of Environmental Analysis). The `DISTINCT` therefore yields **two** citing works for
+   those five, which is **right, not a doubling**: two decisions each cite the target, and each
+   is entitled to the edge. What is shared is the passage, so a reader sees one quotation
+   displayed under two works. At 0.02% this needs no mechanism, only saying — and it was a
+   conjecture in this record until it was counted.
+
    **A citing document that is not a decision folds to itself, not to nothing.** The fold
    below runs through `decision_attachment`, so an edge mined from a filing or a comment
    attachment joins no `decision_record` row and an inner join drops it silently *(named
@@ -639,7 +656,9 @@ not decisions; this record makes them decisions.
    (`0006_parties.sql:115-122`), and SQLite can neither relax a NOT NULL nor add a CHECK
    without rebuilding the table — under the migration runner's foreign-keys-off plus
    `foreign_key_check` discipline that exists for exactly that. Small, but a migration against
-   a live table rather than a line in a draft, and cheapest now while it holds few rows. Free now; a schema change to a live table after `/review` ships. So: `key_version` is a column; the four
+   a live table rather than a line in a draft, and cheapest now while it holds few rows.
+
+   So: `key_version` is a column; the four
    fields are **also** stored typed on `review_action`, and the rendered string is a display
    and a uniqueness convenience rather than the only place the key exists.
 
@@ -705,6 +724,62 @@ re-runs resolution over kept rows. What cannot be cheaply reversed is a publishe
 by" count that turns out to include self-references, doubled errata or invented dockets:
 readers cite counts. That is why the boundary sits at the measured, unexposed class with
 self-references projected only at work level, and why nothing below it is projected at all.
+
+## Accepted 2026-09-01 (schema-critic, sixth pass)
+
+Six passes: declined on 2026-08-30 and five times on 2026-09-01, corrected between each.
+The declines are kept in this record rather than summarised, because four of them found
+defects that a *previous round's fix* had introduced, and that is the useful history.
+
+**What this acceptance covers.** The grain and identity model: extraction, reading,
+resolution, treatment and judgement as five append-only assertion families over one
+method-free natural key `(citing_document, page, target_kind, normalised target key)`;
+`assertion_method` as the single ordering registry for all of them; `class_measurement` as
+the single home for every score; confidence carried on the assertion row with a typed
+`confidence_state` and a pointer to the measurement it was stamped from. **Validation query 2
+is writable against this shape end to end — the join path was written in full SQL, not
+asserted.** Queries 1, 3 and 5 are untouched by it. Query 4 is expressible, on the stated
+deviation that `citation` carries no `source_location` because `page` is in its key and the
+reading holds the location; that deviation from `schema-draft.md` § 5's uniform block is
+deliberate and must not be reversed by restoring the column.
+
+**What this acceptance explicitly does not cover.** It endorses **no published number** —
+not 95.1%, not 98.2%, not 97.8%, not the exposed count. The exposure test is undefined and
+yields 3, 5 or 14 depending on the reading; this acceptance leaves it exactly where the
+record leaves it: **a bar on the first published edge and on sizing decision 6's queue, not
+on the shape.** It does not endorse the unreconciled ~$1,075 / ~$1,335 extraction figure. It
+does not judge the four projected extras. It does not cover the treatment or judgement
+families' *projection* semantics, which are contradictory as written. It is an acceptance of
+a paper shape: no citator table exists in any migration, so nothing here has yet cost a row.
+
+**Four must be settled in the migration that creates these tables**, because the first edge
+exercises them:
+
+1. `measured_target` goes **into** `class_measurement`'s COALESCE unique index, and `class`
+   gets a `measured_target`-scoped vocabulary. As written, the finder's extraction
+   measurement and the `kind` judgement measurement collide on all six key columns.
+2. The projection predicate is stated **per family**. `citation_treatment` and
+   `citation_judgement` read "highest-ranked live row wins" against decision 4's "unmeasured
+   projects nothing", and `span_names_document` ships with the first edge.
+3. A `resolve` row asserts the **complete** outcome — a later work resolver restates the
+   docket key it resolves under — or `cited_decision_id` moves to its own family before any
+   row is written. Q2 keys on that column.
+4. `citation_judgement`'s natural key is declared, with `value` as payload.
+
+**Three are cheap now and a table rebuild later, so take them now:** an `ordinal` in
+`decision_decided_date`'s key; `(target_kind, target_form)` columns on `assertion_method` so
+the one-owner rule has a table; a home for the on-page veto's false-veto rate.
+
+**One is deferred with its cost named:** nothing dates `assertion_method.rank_version`, so
+the projection binds a version rather than reading one. `projection_rule (rank_version,
+in_force_from, in_force_to)` is an addition available any day; what is **not** recoverable is
+which ranking was in force between the first edge and the day it is added. That makes this
+record's Q3 paragraph true of `measured` rows and untrue of `human` rows, which carry no
+`score_row_id` by decision 4's own CHECK.
+
+**One was a measurement and has been taken** (decision 7): 5 documents of 20,992 hang under
+two `stb_decision_id`s, so the fold yields two citing works for those five — correct, not a
+doubling.
 
 ## Re-checked against `../validation-queries.md` (2026-09-01, against § Decision as amended)
 
