@@ -287,3 +287,45 @@ def test_a_window_that_does_not_reconcile_leaves_the_month_partial(tmp_path):
         con2, client2, FILINGS, d(1996, 6, 1), d(1996, 6, 30), data_dir=tmp_path, log=lambda _: 0
     )
     assert out2["partial"] == 1 and client2.requests == 1
+
+
+def _days_body(days, month=5, year=1996, first_id=300):
+    rows = "".join(
+        filing_row(fid=str(first_id + i), date=f"{month}/{d}/{year}", pdf=f"{first_id + i}.pdf")
+        for i, d in enumerate(days)
+    )
+    return body_of(rows, len(days))
+
+
+def test_a_neighbour_walked_in_two_halves_can_still_prove_a_month_empty(tmp_path):
+    """The proof needs a neighbour month walked WHOLE, and `reconcile_empty_month` decided
+    that with its own `len(rest) == 7` test on the slice key — a fourth hand-rolled reading
+    of the grammar, and the only one blind to a month finished as two complementary range
+    slices. It failed safe, recording `partial` where `empty` was provable
+    (stb-ingest-specialist, 2026-08-31); the grammar now lives beside it."""
+    from datetime import date as d
+
+    from docketyard.capture.stb import FILINGS
+
+    con = db.connect(tmp_path / "s.sqlite")
+    client = WindowStb(
+        {
+            (FILINGS, "05/01/1996", "05/15/1996"): _days_body([1, 2]),
+            (FILINGS, "05/16/1996", "05/31/1996"): _days_body([20], first_id=400),
+            (FILINGS, "05/01/1996", "05/31/1996"): _days_body([1, 2, 20], first_id=500),
+            # the window across May and June returns May's own total: June holds nothing
+            (FILINGS, "05/01/1996", "06/30/1996"): _days_body([1, 2, 20], first_id=600),
+        }
+    )
+    # May walked as two ranges, neither of them a whole-month key
+    for lo, hi in ((d(1996, 5, 1), d(1996, 5, 15)), (d(1996, 5, 16), d(1996, 5, 31))):
+        walk.walk_observations(con, client, FILINGS, lo, hi, data_dir=tmp_path, log=lambda _: 0)
+    keys = [k for (k,) in con.execute("SELECT slice_key FROM walk_slice")]
+    assert all(".." in k for k in keys), keys  # every May key carries a range suffix
+
+    notes = []
+    out = walk.walk_observations(
+        con, client, FILINGS, d(1996, 6, 1), d(1996, 6, 30), data_dir=tmp_path, log=notes.append
+    )
+    assert out["empty"] == 1 and out["partial"] == 0
+    assert any("reconciles" in n or "empty" in n for n in notes), notes

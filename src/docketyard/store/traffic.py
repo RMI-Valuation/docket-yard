@@ -248,10 +248,15 @@ def flush(counter: Counter, path: str | Path, now: datetime) -> int:
     return len(rows)
 
 
-def report(path: str | Path, days: int = 1) -> list[tuple]:
+def report(path: str | Path, days: int = 1, now: datetime | None = None) -> list[tuple]:
     """The operator's view: per route class over the last `days`, requests (readers and
-    crawlers), bytes, and the share answered under 500 ms. Published nowhere."""
-    since = datetime.now(UTC) - timedelta(days=days)
+    crawlers), bytes, and the share answered under 500 ms. Published nowhere.
+
+    `now` is the end of the window, defaulting to the clock. The digest passes its own, so
+    the table it prints covers the week its subject line names — they were computed from
+    two different instants, which is harmless in a pass and made the digest impossible to
+    test against a fixed date (2026-09-01)."""
+    since = (now or datetime.now(UTC)) - timedelta(days=days)
     con = connect(path)
     try:
         return con.execute(
@@ -280,11 +285,11 @@ DIGEST_HOUR = 6  # after the last hourly flush of the week has landed
 DIGEST_GAP_DAYS = 6  # never twice in a week, however many passes run on a Monday
 
 
-def digest_text(path: str | Path, days: int = 7) -> str:
+def digest_text(path: str | Path, days: int = 7, now: datetime | None = None) -> str:
     """The weekly summary the operator reads by email: the same table `docketyard traffic`
     prints, over the last `days`, and the totals. Numbers by kind of page only — nothing
     in it names a reader, a page or a docket (docs/traffic.md)."""
-    rows = report(path, days=days)
+    rows = report(path, days=days, now=now)
     lines = [
         f"Docket Yard traffic, last {days} days (readers = no crawler User-Agent; probes and",
         "monitors count as readers). No identifiers are kept, so this is all there is.",
@@ -335,7 +340,7 @@ def send_digest(path: str | Path, sender, to: str, now: datetime, log=print) -> 
     from docketyard.alerts.mail import Outbound  # the mail module imports nothing from here
 
     subject = f"Docket Yard traffic, week to {now.date().isoformat()}"
-    sender.send(Outbound(to=to, subject=subject, text=digest_text(path)))
+    sender.send(Outbound(to=to, subject=subject, text=digest_text(path, now=now)))
     con = connect(path)
     try:
         _digest_state(con)

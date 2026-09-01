@@ -428,3 +428,79 @@ def test_a_proceeding_first_seen_through_a_comment_gains_its_caption(tmp_path):
     ).fetchone()[0]
     assert title == "UNION PACIFIC — TRACKAGE RIGHTS"  # asked for, and answered
     con.close()
+
+
+def test_a_boolean_flag_is_not_counted_as_one_ingested_row(tmp_path):
+    """`isinstance(True, int)` — a capture already processed returns
+    {"already_processed": True}, which was summing into the pass counts as a 1 and made the
+    log read as though something had been ingested (stb-ingest-specialist, 2026-08-31)."""
+    con = db.connect(tmp_path / "s.sqlite")
+    client = FakeStb(
+        {FILINGS: body_of(filing_row(docket="AB_290_423_X", fid="311981", date="8/25/2026"), 1)}
+    )
+    poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    con.execute("UPDATE capture SET processed_at = NULL WHERE table_action = ?", (FILINGS,))
+    con.commit()
+    assert projections.pending_capture_ids(con, FILINGS), "precondition: a capture to offer"
+
+    # the shape a parser returns for a capture whose body it will not open again — the
+    # real `_ingest_pending`, summing a real parser's answer
+    from docketyard.ingest import observations as obs
+
+    real, obs.ingest_capture = (
+        obs.ingest_capture,
+        lambda *a, **k: {
+            "already_processed": True,
+            "rows": 3,
+        },
+    )
+    try:
+        problems: list[str] = []
+        counts = poll._ingest_pending(con, tmp_path, FILINGS, problems)
+    finally:
+        obs.ingest_capture = real
+    assert problems == []
+    assert counts == {"rows": 3}  # the flag is a flag, not a row
+    assert "already_processed" not in counts
+
+
+def test_the_caption_query_proves_it_still_works_before_reading_silence_as_an_answer(tmp_path):
+    """Every caption ask reads the no-results envelope as benign, because a proceeding the
+    Board has not published a row for is exactly why a caption is missing. That hides one
+    thing: a criteria rename at the Board would answer the same envelope for EVERY ask, for
+    ever, and `CAPTION_ATTEMPTS` reports it only eight tries per docket later — a floor, not
+    a proof (stb-ingest-specialist, 2026-08-31). So a pass that asked anything also asks
+    about a docket whose caption it already holds, and that one must answer."""
+    con = db.connect(tmp_path / "s.sqlite")
+    bodies = {
+        FILINGS: body_of(filing_row(docket="AB_290_423_X", fid="311981", date="8/25/2026"), 1),
+        DECISIONS: body_of(decision_row(docket="AB_290_423_X", did="53210", date="8/24/2026"), 1),
+        DOCKETS: make_body([("AB_290_423_X", "NORFOLK SOUTHERN — ABANDONMENT — POLK CO.")], 1),
+    }
+    client = FakeStb(dict(bodies))
+    # first pass: the caption arrives, so the record now holds one to control against
+    poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    held = con.execute(
+        "SELECT COUNT(*) FROM docket_current WHERE json_extract(latest_payload, '$.title') <> ''"
+    ).fetchone()[0]
+    assert held, "fixture precondition: a caption to control against"
+
+    # a docket with no caption, so the pass has something to ask about...
+    poll.CAPTION_RETRY_HOURS, retry = 0, poll.CAPTION_RETRY_HOURS
+    try:
+        # ...and an endpoint that has stopped answering the caption query at all
+        silent = FakeStb(
+            {
+                **bodies,
+                FILINGS: body_of(
+                    filing_row(docket="AB_55_827_X", fid="311999", date="8/25/2026"), 1
+                ),
+                DOCKETS: NO_RESULTS,
+            }
+        )
+        summary = poll.forward_pass(con, silent, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    finally:
+        poll.CAPTION_RETRY_HOURS = retry
+    assert summary["captions"]["asked"] >= 1
+    assert any("caption control" in p for p in summary["problems"]), summary["problems"]
+    assert any("may have stopped working" in p for p in summary["problems"])

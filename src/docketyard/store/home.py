@@ -227,7 +227,59 @@ def walked_days(con: Connection, action: str, months: set[str]) -> set[date]:
     return days
 
 
-def covered(con: Connection, start: date, end: date) -> bool:
+def gap_shadows(con: Connection, today: date) -> list[tuple[date, date]]:
+    """The day spans a recorded outage left the watch unable to ask for.
+
+    The poller asks for a trailing seven-day window each pass, so a short outage costs
+    nothing: the next pass re-asks the days the missed ones covered, which is why
+    `/coverage` can say entries posted during a gap were caught up afterwards. An outage
+    LONGER than that window is different — when the poller resumes it asks for the last
+    seven days and the days before them are never asked again. Those days are held only
+    to whatever a backfill wave walked, and `covered()` was answering yes for them on the
+    strength of the watch alone (stb-ingest-specialist, 2026-08-31).
+
+    Only a `captures` failure shadows anything, which is a judgement and not a reading of
+    the schema: an `events` gap could also mean captures that quarantined and so were never
+    re-asked, and shadowing those would be right. It is excluded because the commoner case
+    is the opposite. An `events` failure means captures arrived
+    and nothing was parsed from them (`alerts.md`) — those captures are asserted, retained,
+    and re-consumed by the next pass, so the days WERE asked for and the record recovers
+    them; shadowing that would leave every week of a parser outage stuck at `partial` for
+    ever over records the store fully holds (code review, 2026-09-01). Documents and
+    delivery failures are downstream of the ledger entirely. An open gap shadows up to the
+    last window the watch could still be asking for."""
+    spans = []
+    for started, ended in con.execute(
+        "SELECT started_at, ended_at FROM coverage_gap WHERE failure = 'captures'"
+    ):
+        try:
+            lo = date.fromisoformat(started[:10])
+            if ended:
+                # A CLOSED gap: the pass that resumed re-asked its own trailing window, so
+                # the last WEEK_DAYS - 1 days are covered by it. The boundary is
+                # conservative rather than exact — `ended_at` is an instant and the poller's
+                # window is a date, so whether the resuming pass re-asked the end day itself
+                # depends on the clock; shadowing one day too many under-claims coverage,
+                # which is the honest direction (ingest specialist, 2026-09-01).
+                hi = date.fromisoformat(ended[:10]) - timedelta(days=WEEK_DAYS - 1)
+            else:
+                # An OPEN gap: captures are failing NOW. Subtracting the window would credit
+                # a catch-up that has not happened, on exactly the week a reader is most
+                # likely looking at.
+                hi = today
+        except (ValueError, TypeError):  # a row this module cannot read shadows nothing
+            continue
+        if lo <= hi:
+            spans.append((lo, hi))
+    return spans
+
+
+def _shadowed(con: Connection, start: date, end: date, today: date) -> bool:
+    """Whether any day of this window fell in an outage the watch never caught up on."""
+    return any(lo <= end and start <= hi for lo, hi in gap_shadows(con, today))
+
+
+def covered(con: Connection, start: date, end: date, today: date | None = None) -> bool:
     """Whether the record claims this window: the watch has been running across the whole
     of it, or every day of it was walked by a backfill wave for both record tables.
     Anything else is 'not yet covered' — an honest empty page, not a quiet week.
@@ -248,7 +300,14 @@ def covered(con: Connection, start: date, end: date) -> bool:
         (FILINGS, DECISIONS),
     ).fetchone()
     watch = date.fromisoformat(row[0][:10]) if row and row[0] else None
-    if watch and start >= watch - timedelta(days=WEEK_DAYS - 1):
+    # the watch answers for this window unless a recorded outage swallowed part of it; a
+    # shadowed week falls through to the ledger, which is the only thing that can still
+    # claim it
+    if (
+        watch
+        and start >= watch - timedelta(days=WEEK_DAYS - 1)
+        and not _shadowed(con, start, end, today or date.today())
+    ):
         return True
     months, window = _months(start, end), _days(start, end)
     return all(window <= walked_days(con, action, months) for action in (FILINGS, DECISIONS))
@@ -277,7 +336,7 @@ def coverage_state(con: Connection, w: Week, start: date, end: date, today: date
     """
     if start > today:
         return FUTURE
-    if covered(con, start, end):
+    if covered(con, start, end, today):
         return COVERED
     return PARTIAL if (w.filings or w.decision_entries) else UNCOVERED
 

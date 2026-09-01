@@ -206,6 +206,16 @@ def _step(ym: str, delta: int) -> str:
     return f"{y + (m - 1) // 12}-{(m - 1) % 12 + 1:02d}"
 
 
+def _done_keys(con: Connection, action: str) -> list[str]:
+    return [
+        k
+        for (k,) in con.execute(
+            "SELECT slice_key FROM walk_slice WHERE table_action = ? AND status = 'done'",
+            (action,),
+        )
+    ]
+
+
 def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, data_dir, log):
     """The one way a month slice that answered the envelope can be called empty: walk
     outward past any doubted months to the nearest `done` month, then ask for one window
@@ -216,13 +226,18 @@ def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, dat
     as text, or None."""
     spec = observations.SPECS[action]
     first, last = spec.date_criteria
-    done = set()
-    for (key,) in con.execute(
-        "SELECT slice_key FROM walk_slice WHERE table_action = ? AND status = 'done'", (action,)
-    ):
-        rest = key.split(":", 1)[1]
-        if len(rest) == 7:  # a whole month; a partial-range key would not have been ingested
-            done.add(rest)
+    # A neighbour must be a month walked WHOLE, because the proof compares this month's
+    # window against that month's own total. Reading it as `len(rest) == 7` was a fourth
+    # hand-rolled reading of the slice-key grammar and the only one that could not see a
+    # month finished as two complementary range slices — it failed safe, recording
+    # `partial` where `empty` was provable, but the grammar now lives one screen up
+    # (stb-ingest-specialist, 2026-08-31).
+    walked: dict[str, set] = {}
+    for key in _done_keys(con, action):
+        month = slice_month(key)
+        if month is not None:
+            walked.setdefault(month, set()).update(slice_days(key))
+    done = {m for m, days in walked.items() if days == month_days(m)}
     for delta in (1, -1):
         ym = s.month
         for _ in range(12):  # a run of doubted months is bounded; a year is plenty

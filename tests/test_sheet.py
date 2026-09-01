@@ -125,3 +125,21 @@ def test_a_sub_docket_sheet_can_reach_its_series(tmp_path):
     assert '<a href="/d/FD-36873">FD 36873</a>' in page
     assert "Before the Surface Transportation Board" not in page  # the way up replaces it
     assert "Before the Surface Transportation Board" in client.get("/d/FD-36873").text
+
+
+def test_an_entry_icon_is_defined_once_and_referenced(tmp_path):
+    """Every entry link carried its own inline `<svg>` with four `<path>` children: 2,233
+    copies on FD 36873, roughly 11,000 of the page's 27,537 elements. That DOM cost is what
+    `navigation-review.md` § D measured, and the `<symbol>`/`<use>` collapse is the cheaper
+    of the two moves it asked to be priced before pagination."""
+    path = build_store(tmp_path)
+    page = TestClient(create_app(path)).get("/d/FD-36873").text
+    assert page.count("<symbol ") == 2  # one definition per icon
+    assert page.count("<use ") >= 1  # and every link references one
+    assert 'href="#i-board"' in page
+    # the definitions are the only place the paths appear
+    assert page.count('d="M6 3h8l5 5v13H6z"') == 1
+    assert page.count('d="M12 3v10"') == 1
+    # the icons stay hidden from the accessibility tree; the link carries the label
+    assert page.count('<svg class="vh"') == 1
+    assert "The Board’s own file for" in page

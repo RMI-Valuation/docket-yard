@@ -84,7 +84,11 @@ def _ingest_pending(con: Connection, data_dir, action: str, problems: list[str])
                 " under another docket — a permanent address may be ambiguous"
             )
         for key, value in stats.items():
-            if isinstance(value, int):
+            # `isinstance(True, int)` — a capture already processed returns
+            # {"already_processed": True} and was summing into the counts as a 1, so the
+            # pass log read as though something had been ingested (stb-ingest-specialist,
+            # 2026-08-31). Booleans are flags here, never quantities.
+            if isinstance(value, int) and not isinstance(value, bool):
                 counts[key] = counts.get(key, 0) + value
     return counts
 
@@ -261,7 +265,78 @@ def _fill_captions(
         else:
             problems.append(f"caption {prefix} {sequence}: {_describe(result)}")
     asked_ids = [d for d, _, _, _ in due]
+    # Gated on WANTED, not on what was asked. After CAPTION_ATTEMPTS every uncaptioned
+    # docket is skipped and `asked` falls to zero — which is precisely the steady state a
+    # criteria rename produces, so gating on it would switch the control off exactly when
+    # the trap had fully set in. And only once an ask has actually completed: if every ask
+    # raised, the endpoint is down, the pass has already said so once per ask, and a probe
+    # would only burn another three attempts of backoff (code review + ingest specialist,
+    # 2026-09-01).
+    if wanted and (out["answered"] or not out["asked"]):
+        _caption_control(con, client, data_dir, problems=problems, log=log)
     return out | {"wanted": len(wanted), "captioned_ids": asked_ids}
+
+
+def _caption_control(con: Connection, client, data_dir, *, problems: list[str], log) -> None:
+    """One ask about a docket the record ALREADY has a caption for, to prove the query can
+    still succeed.
+
+    Every caption ask reads the no-results envelope as benign, because a proceeding the
+    Board has not published a docket row for is exactly why a caption is missing. That is
+    the right reading and it hides one thing: a criteria rename at the Board would answer
+    the same envelope for every ask, for ever, and `CAPTION_ATTEMPTS` would only report it
+    eight tries per docket later — a floor, not a proof (stb-ingest-specialist,
+    2026-08-31).
+
+    So when the pass asked about anything, it also asks about one docket whose caption it
+    holds. That ask MUST return a row. An envelope there is the endpoint telling us the
+    question stopped working, and it is a problem line the same pass, at one request.
+    """
+    # A SUB-docket, always. The criteria name `docketNum_three`, and without it the
+    # endpoint answers the whole family — 392 rows for AB 290 — which `pages=1` cannot
+    # finish, so the control would record `partial` and cry "the caption query may have
+    # stopped working" on every pass, for ever, while 50 rows sat in the response
+    # (code review, 2026-09-01).
+    row = con.execute(
+        "SELECT d.prefix, d.sequence, d.sub_sequence FROM docket d"
+        " JOIN docket_current c ON c.docket_id = d.docket_id"
+        " WHERE d.sub_sequence IS NOT NULL"
+        " AND TRIM(COALESCE(json_extract(c.latest_payload, '$.title'), '')) <> ''"
+        " ORDER BY d.docket_id LIMIT 1"
+    ).fetchone()
+    if row is None:  # no captioned sub-docket yet: there is no one-row question to ask
+        return
+    prefix, sequence, sub_sequence = row
+    criteria = [("docketNum_one", prefix), ("docketNum_two", str(sequence))]
+    if sub_sequence is not None:
+        criteria.append(("docketNum_three", str(sub_sequence)))
+    named = f"{prefix} {sequence}" + (f" ({sub_sequence})" if sub_sequence else "")
+    try:
+        result = walk.capture_slice(
+            con,
+            client,
+            DOCKETS,
+            criteria,
+            data_dir=data_dir,
+            pages=1,
+            mode="forward",
+            expected_empty=False,  # THE POINT: this one may not answer the envelope
+            log=log,
+        )
+    except Exception as e:  # noqa: BLE001 — the control never fails the pass either
+        con.rollback()
+        problems.append(f"caption control {named}: capture failed ({type(e).__name__}: {e})")
+        return
+    # `total == 1` and not merely "some rows": the criteria name one docket, so anything
+    # else means they did not filter — a family answer would otherwise slip through as
+    # success (code review, 2026-09-01)
+    if result.status != "done" or result.total != 1:
+        problems.append(
+            f"caption control: asking about {named}, whose caption this record holds and"
+            f" whose number names exactly one row, answered {_describe(result)} — the"
+            " caption query itself may have stopped working, and every empty answer this"
+            " pass should be doubted"
+        )
 
 
 # Tables quiet enough that a genuinely empty week is ordinary. The forward window's whole
