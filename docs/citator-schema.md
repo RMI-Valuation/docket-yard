@@ -117,7 +117,11 @@ decision_decided_date (
   printed_text          text NOT NULL, -- "Decided: October 5, 2017", exactly as printed
   decided_date          text NULL,     -- the ISO reading; NULL when the line will not parse
   -- provenance + supersession block (ADR 0007)
-)  -- natural key: (document_sha256, date_kind, source_location, reading_channel,
+)  -- natural key: (document_sha256, date_kind, reading_channel,
+   -- `source_location` REMOVED from the key 2026-09-01 (fifth critic pass): it is JSON, and
+   -- with exactly one `Decided:` line measured per document it buys no uniqueness while a
+   -- layout-parser change would mint a row that supersedes nothing — this section's own
+   -- point 2, one column over. It stays as payload, which is what ADR 0007 requires of it.
    --               method, method_version)
 ```
 
@@ -192,7 +196,8 @@ both documents and they cannot declare two shapes for one table. What the ADR se
 
 | method | class | reading | recall | precision after decision 5 | projected? |
 | --- | --- | --- | --- | --- | --- |
-| `regex-docket-cite` | docket, resolved, unexposed | text-layer | **97.8%** (the whole docket-shaped class, check in resolution; the subclass figure needs the exposure test defined) | **98.2%** under `cite.py`'s closure, **97.3%** without the parent | yes |
+| `regex-docket-cite` | docket, resolved, unexposed | text-layer | **no figure until the exposure test defines this class** | — | yes |
+| `regex-docket-cite` | docket, resolved, **whole class** (exposed and not) | text-layer | **95.1%** projected (214 of 225; the finder emits 97.8%, which is not what a reader sees) | **98.2%** under `cite.py`'s closure, **97.3%** without the parent | — measurement only |
 | `regex-docket-cite` | docket, unresolved | text-layer | — | — | never; to decision 6's second queue |
 | `regex-docket-cite` | docket, resolved, exposed | text-layer | — | — | to the review queue |
 | `regex-docket-cite` | any | ocr | **unmeasured** | **unmeasured** | never, by decision 4's own rule |
@@ -204,10 +209,15 @@ Three corrections to the first draft, all the critic's:
   decision 1 ships OCR at 10.8% CER. Without it the first backfill stamps a text-layer
   confidence on OCR edges and decision 9 shows it to a reader.
 - **`benchmark_date` and the score file belong in it too**, or re-measuring the same
-  `method_version` is an UPDATE on a published number — break A2. Decision 1 already created a
-  `method` registry for exactly this; the first draft dropped it.
-- **One home for the number.** Decision 4 stamps confidence on the row; this table also holds
-  it. The row should carry none and join.
+  `method_version` is an UPDATE on a published number — break A2. *(Corrected 2026-09-01: this
+  cited decision 1's `method` registry, which is **struck** — it overlapped `class_measurement`
+  on every column, and one number may not have two homes.)*
+- **One home for the number, and it is the row plus a pointer.** *(Corrected 2026-09-01, fifth
+  critic pass: this read "The row should carry none and join", which is the position ADR 0017
+  decision 4 was corrected away from — deleting the column departs from ADR 0007 further than
+  the NULL it avoided, and decision 9's per-edge display needs a value on the row it displays.
+  The row carries `confidence` and `score_row_id`; `class_measurement` holds the measurement.
+  One number, one home, one pointer.)*
 
 **On publishing it.** Not as "100%", which the first draft did and which was wrong; and not as
 "no wrong docket in 225 measured edges" either, which overclaims three ways — 225 is the truth
@@ -285,8 +295,9 @@ is worse than no mechanism, because the record would claim to have one.)*
   `citation_resolution`.)* Treatment is an edge-level reading of the citing sentence; resolution
   is target identification. Sharing a row forces a typing pass to restate the resolution or write
   NULLs into a column whose NULL already means three things. *Proposal:* `citation_treatment`,
-  its own assertion table keyed `(citation natural key, method, method_version)` with its own
-  ADR 0007 block — the separation 0017 already made between extraction and resolution, once more.
+  its own assertion table keyed `(citation natural key, method, method_version,
+  reading_channel)` with its own ADR 0007 block *(the channel added 2026-09-01 — stated
+  without it here and with it below, which is two keys for one table)* — the separation 0017 already made between extraction and resolution, once more.
 - **`cited_decision_id` keys on a key of no table.** *Proposal:* `decision_work
   (stb_decision_id text PRIMARY KEY)` **and nothing else** — no attributes, or current state
   enters a registry by the back door; written **only by ingest** from `decision_observed`,
