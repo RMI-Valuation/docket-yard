@@ -1,8 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Week of {{ monday_iso | fmt_date }} — {{ site_name }}{% endblock %}
 {# A week that has not happened yet is an address, not a record: nothing here should be
-   indexed as though the Board had a quiet week four years out. #}
-{% block head %}{% if state == 'future' %}<meta name="robots" content="noindex">{% endif %}<link rel="alternate" type="application/atom+xml" title="Every new filing and decision" href="/feed">{% endblock %}
+   indexed as though the Board had a quiet week four years out.
+
+   `super()`, not a second copy of base's `<link>`: this block ADDS a meta tag, where
+   `party.html` and `sheet.html` override the same block to REPLACE the site feed with the
+   page's own. Copying base's head here instead would drift the moment base gains a tag. #}
+{% block head %}{% if state == 'future' %}<meta name="robots" content="noindex">{% endif %}{{ super() }}{% endblock %}
 {% block main %}
 <section class="week">
   <div class="week-head">

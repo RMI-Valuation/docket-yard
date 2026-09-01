@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{% if query %}{{ query }} — search — {{ site_name }}{% else %}Search — {{ site_name }}{% endif %}{% endblock %}
 {% block description %}Search the record: a docket number, a party's name, or words from a caption or a decision.{% endblock %}
-{% block head %}{% if query %}<meta name="robots" content="noindex">{% endif %}<link rel="alternate" type="application/atom+xml" title="Every new filing and decision" href="/feed">{% endblock %}
+{% block head %}{% if query %}<meta name="robots" content="noindex">{% endif %}{{ super() }}{% endblock %}
 {% block main %}
 <section class="caption">
   <h1 class="serif">Search the record</h1>
