@@ -246,18 +246,25 @@ def test_the_index_carries_no_control_characters(tmp_path):
     rather than an assumption about the Board."""
     path = build_store(tmp_path)
     con = db.connect(path)
-    tainted = f"UP{search.MARK_OPEN}NS{search.MARK_CLOSE}CONTROL"
+    # planted as JSON escapes, not as raw bytes: a literal control character inside a JSON
+    # string is malformed JSON, which `json_extract` rejects outright on some SQLite builds
+    # (and silently tolerated on others — this test passed on Windows and failed on CI).
+    # The record decodes these to the real characters, which is the case under test.
     changed = con.execute(
-        "UPDATE event SET payload = replace(payload, 'UP/NS CONTROL', ?)"
-        " WHERE payload LIKE '%UP/NS CONTROL%'",
-        (tainted,),
+        r"UPDATE event SET payload = replace(payload, 'UP/NS CONTROL', 'UPNSCONTROL')"
+        " WHERE payload LIKE '%UP/NS CONTROL%'"
     ).rowcount
     con.commit()
     assert changed, "fixture precondition: a caption the markers were planted in"
-    assert con.execute(
-        "SELECT COUNT(*) FROM docket_current WHERE latest_payload LIKE ?",
-        (f"%{search.MARK_OPEN}%",),
-    ).fetchone()[0], "precondition: the record itself now carries a marker"
+    captions = [
+        c
+        for (c,) in con.execute(
+            "SELECT json_extract(latest_payload, '$.title') FROM docket_current"
+        )
+    ]
+    assert any(search.MARK_OPEN in (c or "") for c in captions), (
+        "precondition: the record itself now carries a marker"
+    )
     search.rebuild(con, force=True)
     indexed = [v for row in con.execute("SELECT title, body FROM search_doc") for v in row]
     assert any("CONTROL" in v for v in indexed)  # the caption is still indexed...
