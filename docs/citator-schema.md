@@ -92,8 +92,10 @@ that page, or write `kind` onto a row it did not extract, which § Foreclosed fo
 **And the same argument goes further than 0017 uses it.** Claude still ships for other classes
 and will incidentally emit docket-shaped targets that regex owns. Nothing says what becomes of
 them: dropping them contradicts "a row is never discarded", keeping them collides. *Proposal:*
-**one owning method per `target_form`**, with out-of-scope findings recorded at run level — an
-`extraction_run` row carrying counts — so "discarded" is an auditable number and not a silent
+**one owning method per `(target_kind, target_form)`** (settled in ADR 0017 decision 1;
+keyed on the form alone, regex would own `docket` while only ever emitting `target_kind =
+'stb'`, so the model's **court** docket numbers fall out of class), with out-of-scope
+findings recorded at run level — an `extraction_run` row carrying counts — so "discarded" is an auditable number and not a silent
 drop.
 
 ---
@@ -150,7 +152,10 @@ column that does not exist.)
 so a document with no line gets no row — making "read, and there is no printed decided date"
 indistinguishable from "not yet passed over". Both the docket calendar and `web/cite.py`'s
 coverage condition need that distinction. *Proposal:* record the **pass**, not the absence — an
-`extraction_run` row per `(document, method, method_version)`, which § A already wants for a
+`extraction_run` row per `(document, method, method_version, reading_channel)` — the channel
+is in the key from the start (ADR 0017 decision 8), because a text-layer pass and an OCR pass
+over one document at one method version otherwise collide, and re-keying later touches one row
+per document per method across 75,000–125,000 documents — which § A already wants for a
 second reason.
 
 **Projection to the work.** One work can carry rows under an erratum's bytes as well as the
@@ -173,12 +178,15 @@ both documents and they cannot declare two shapes for one table. What the ADR se
 - The row **carries** `confidence NOT NULL` plus a typed `confidence_state`, because deleting
   the column departs from ADR 0007 further than the NULL it was avoiding, and because decision
   9's per-edge display needs a value on the row it is displaying.
-- The registry is **two tables**: `confidence_class (extraction m+v, resolution m+v, class,
-  reading_channel)`, which is what the row's FK names and every component of which a row knows
-  when it is written; and `class_measurement (class, projection_rule_version, benchmark_date,
-  score file, recall, precision)`, append-only. `projection_rule_version` is a fact of the
-  projection, not of the row, so holding it in the FK'd key would force an every-row UPDATE
-  each time decision 5's closure changed — and it has changed once already.
+- The registry is **one append-only table**, `class_measurement`, keyed `(extraction m+v,
+  resolution m+v, class, reading_channel, projection_rule_version, benchmark_date)` and
+  carrying the score file, recall and precision. The row's `score_row_id` names the exact
+  measurement it was stamped from. *(This bullet described a split into `confidence_class` +
+  `class_measurement` and carried its argument — that holding `projection_rule_version` in
+  the FK'd key would force an every-row UPDATE. Both are **withdrawn**, 2026-09-01: a pointer
+  into an append-only table never needs updating, because a rule change mints a measurement
+  and earlier rows keep the historical one, which is the snapshot Q3 wants. `confidence_class`
+  does not exist.)*
 
 **ADR 0017 governs where the two disagree.**
 
@@ -307,7 +315,9 @@ otherwise collides on the whole key, which is the defect § B fixed for
 ## G. Settled by the operator, 2026-09-01
 
 **A typed `confidence_state`, and `confidence` stays NOT NULL.** The state is `measured` |
-`unmeasured` | `not-applicable`.
+`human` | `unmeasured` | `not-applicable` (ADR 0017 decision 4; `human` was added
+2026-09-01 because a review has a confidence, and folding it in with the veto forced every
+reviewed row to zero while `human` sat in the projection predicate).
 
 The question was that decision 4 permitted a NULL confidence "where the class is unmeasured",
 which narrows ADR 0007's categorical text — every extracted fact carries a confidence — inside

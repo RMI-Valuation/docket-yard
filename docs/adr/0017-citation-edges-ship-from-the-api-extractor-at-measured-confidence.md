@@ -57,9 +57,16 @@ What the benchmark settled, all dated after the check:
 - **The fused-footnote exposure is measurable per target.** A resolved target is exposed
   when the reading with its last digit removed is *also* a held docket (`AB 1242` and
   `AB 124` both exist, so `AB 1242` may be `AB 124` plus footnote 2). On the sheet that is
-  **5 of 225** docket targets, all four-digit `AB` numbers; the other 214 — every five-digit
+  **5 of 225** docket targets, all four-digit `AB` numbers; the rest — every five-digit
   docket and every three-digit `EP` — have no held shorter reading. On the 214 Claude scores
   95.3% recall and 95.3% precision, the ten extras being the same self-references.
+
+  *(The arithmetic here does not close and is left visible rather than patched, 2026-09-01:
+  5 exposed of 225 leaves 220, but the figure below it was measured on **214**. One of the
+  three numbers is wrong and which one cannot be settled by editing — it is the same
+  undefined exposure test that yields 3, 5 or 14 elsewhere in this record. Naming a
+  complement here would have invented a denominator for a measured figure. This is the
+  blocker, showing itself as an off-by-six.)*
 - **A consolidated decision carries one `decision_record` row per member docket** (measured:
   1,736 of 19,827 held decisions have more than one; decision 51532 has five, `EP 328
   (Sub-No. 2)` and four `NOR`s). The work is identified by `stb_decision_id`, which the
@@ -132,10 +139,13 @@ not decisions; this record makes them decisions.
    silently dropped or the edge counted twice. A finding outside its method's class is
    recorded at run level — an `extraction_run` row carrying counts — so "not kept" is an
    auditable number and never a silent drop. The score
-   file that measured a version is recorded beside it in a small `method` registry table
-   (method, version, benchmark date, score file) — the draft has none, and confidence
-   stamps need one. It reads the publisher's text layer where one exists and Textract's OCR
-   where the file is image-only; which reading is recorded on the row. **The local model
+   file that measured a version is recorded in **`class_measurement` (decision 4) and nowhere
+   else** *(2026-09-01, fourth critic pass: this named "a small `method` registry table
+   (method, version, benchmark date, score file)", which after decision 4's registry collapsed
+   to one table overlapped it on every column — two homes for one number, which is the
+   discipline this record applies to everything else)*. It reads the publisher's text layer
+   where one exists and Textract's OCR where the file is image-only; the reading is a
+   `citation_reading` row (decision 2), not a column on the parent. **The local model
    does not write citation edges.** RMI-AI-MACHINE remains where anything is tried first,
    at no cost, and a local model may be re-measured against the same sheet; it ships when
    it scores, not before.
@@ -193,14 +203,49 @@ not decisions; this record makes them decisions.
    **observation**: re-ranking, or admitting a sixth pass, becomes an UPDATE of every row on
    an append-only table, and a closed enum has no rank for the three further passes decision
    8 promises (treatment typing, a reporter→work resolver, `cited_filing_id` for record
-   cites). The rank lives in **`resolution_method (method, method_version, precedence_rank)`,
-   a table of its own** — joined at projection. *(Named 2026-09-01, third critic pass: this
+   cites). The rank lives in **`assertion_method (target_table, method, method_version,
+   reading_channel, role, precedence_rank, rank_version)`, one append-only registry for every
+   assertion family** — joined at projection *(generalised 2026-09-01, fourth critic pass;
+   it was `resolution_method (method, method_version, precedence_rank)`, which solved the
+   order for one family out of four)*.
+
+   Four things follow from that shape, each fixing a defect the narrower table had:
+
+   - **`role` is `suppress` or `resolve`, and projection is not "rank 1".** Projection is:
+     *if any live `suppress` row exists, no edge; otherwise the highest-ranked live `resolve`
+     row whose `outcome IN ('resolved','repaired')`.* A flat order read as "rank 1 only" made
+     **every rule-2 repair unreachable** — rule 1 writes a row when it fails
+     (`outcome = 'unresolved'`, and a row is never discarded for failing to resolve), it
+     outranks the repair that exists *because* it failed, so rank 1 was always the unresolved
+     row and decision 6's first queue was a queue whose review could not change what a reader
+     sees. Roles restore the fall-through for rule 2 while letting the veto suppress without
+     being filtered out of the ranking first — the two need opposite semantics and one flat
+     rank expressed neither.
+   - **`reading_channel` is in the rank key**, because `citation_resolution`'s key carries it:
+     without it, rule 1 over the text layer and rule 1 over OCR are two live rows at the same
+     rank and `ROW_NUMBER()` picks arbitrarily — and since OCR is `unmeasured` on every class,
+     the coin flip decides whether the edge projects at all.
+   - **`target_table` is in the key**, so `citation_treatment` and the judgement table get an
+     order too. Treatment inherited the resolution row's order until it moved to a table of
+     its own; without one, two live typing passes return the edge twice, or return two
+     polarities for it, which Q2 cannot read.
+   - **A `suppress` row exists only once its false-veto rate is measured.** § E's clause —
+     "an unmeasured veto must never suppress" — was unenforceable through `confidence_state`,
+     because the veto is `not-applicable` (it carries a false-veto rate, not a confidence)
+     while `unmeasured` was reserved for unscored classes, so an OCR veto whose rate nobody
+     has measured suppressed exactly like a measured one. Absence of the registry row is how
+     the record says "not yet trusted": no row, no suppression, and the edge projects on the
+     resolve side as it would have anyway.
+   - **The registry is append-only, with `rank_version`.** A mutable rank that the projection
+     joins makes "which resolution a reader saw on date D" unreconstructible after any
+     re-rank — the same defect this record levelled at a registry that silently re-dated every
+     projected edge. Re-ranking mints a version; `projection_rule_version` names it. *(Named 2026-09-01, third critic pass: this
    said "the registry decision 1 already creates", and decision 1's registry is keyed on
    **extraction** methods. Putting a rank over resolution methods into it would re-create,
    one decision over, the exact defect decision 4 diagnosed when it moved confidence back
    onto the row: "the registry is keyed on EXTRACTION methods and the row being displayed is
-   a RESOLUTION.")* Adding a pass is one INSERT, re-ranking is one UPDATE of one registry
-   row, and no assertion is ever rewritten. The order it currently holds is a
+   a RESOLUTION.")* Adding a pass is one INSERT, re-ranking is one INSERT at a new
+   `rank_version`, and no assertion is ever rewritten. The order it currently holds is a
    human first, then a veto, then rule 1, then rule 2.
 
    Then the outcome itself: `cited_docket_id` (**rule 1**: the normalised key — prefix, sequence,
@@ -237,6 +282,10 @@ not decisions; this record makes them decisions.
    The registry is **one append-only table**, `class_measurement`, keyed
    `(extraction method+version, resolution method+version, class, reading_channel,
    projection_rule_version, benchmark_date)`, carrying the score file, recall and precision.
+   **`projection_rule_version` names three things together** — the span test's method and
+   version, the family closure's version, and `assertion_method`'s `rank_version` — because
+   after decision 5 the projection is that product, and a version that named fewer would let
+   the rule change under a stamped confidence without saying so.
    **The row's `score_row_id` names the exact measurement it was stamped from** — one target,
    stated once.
 
@@ -275,7 +324,9 @@ not decisions; this record makes them decisions.
    `confidence` without `confidence_state` publishes an invention as a measurement:
    `CHECK ((confidence_state IN ('measured','human') AND confidence > 0 AND confidence <= 1)
    OR (confidence_state IN ('unmeasured','not-applicable') AND confidence = 0))
-   AND ((confidence_state = 'measured') = (score_row_id IS NOT NULL))`. *(Corrected
+   AND ((confidence_state = 'measured') = (score_row_id IS NOT NULL))`, where `score_row_id`
+   references `class_measurement`'s own key — declared once, so a migration author does not
+   choose. *(Corrected
    2026-09-01, third critic pass: the previous form said `confidence_state <> 'measured' AND
    confidence = 0`, which forced **every human row to a confidence of zero** — and `human` is
    in the projection predicate, so the rows carrying the most trust in this design would have
@@ -316,14 +367,24 @@ not decisions; this record makes them decisions.
 
    | class | reading | measured | projected as "cited by" |
    | --- | --- | --- | --- |
-   | docket, resolved, **not exposed**, `regex-docket-cite` | text layer | **95.1%** recall of the 225 (214 projected; 97.7% of the 219 that are registry-resolvable); **98.2% precision after decision 5** (88.4% as scored), under `cite.py`'s family closure | **yes, unreviewed** |
-   | docket, **unresolved**, `regex-docket-cite` | text layer | the 6 targets moving the registry check out of the finder recovers — all real edges, none projectable | never; decision 6's second queue |
+   | docket, resolved, **not exposed**, `regex-docket-cite` | text layer | **no figure until the exposure test is defined** — see below | **yes, unreviewed** |
+   | docket, resolved, **whole class** (exposed and not), `regex-docket-cite` | text layer | **95.1%** recall of the 225 (214 projected; 97.7% of the 219 registry-resolvable); **98.2% precision after decision 5** (88.4% as scored), under `cite.py`'s family closure | — measurement only |
    | docket, resolved, **exposed** (both readings are held: `AB 1242` / `AB 124`), or resolved only by rule 2 | text layer | see the note below — the count is stale | **after review** |
    | any class | OCR | **`unmeasured`** | **never** |
-   | docket, unresolved | text layer | 6 of 171, none invented | **never**; shown as "cites `EP 445` (not in the record)"; queued if in range |
+   | docket, unresolved | text layer | 6 of 171, none invented; these are the six moving the registry check out of the finder recovers — all real edges in the sheet, none projectable | **never**; shown as "cites `EP 445` (not in the record)"; queued if in range |
    | reporter (`4 S.T.B. 303`) or date-named, unresolved to a work | text layer | unreadable (the sheet folds the forms) | not in this slice; stored |
    | `court` | text layer | 0.977 recall; precision unreadable → `unmeasured` | not in this slice; stored, typed |
    | `record` | text layer | `unmeasured`; **explicitly not scored** | not in this slice; stored |
+
+   **The top row carries no figure on purpose** *(2026-09-01, fourth critic pass)*. 95.1% and
+   98.2% were measured over the **whole** docket-shaped class, exposed targets included — the
+   same targets that row routes to review. Printing them against `not exposed` stamps a class
+   row with a measurement of a different class, which `score_row_id` cannot catch because the
+   pointer is valid and only the class is wrong. So the whole-class row holds the measurement
+   and is marked as measurement only, and the shipping row stays blank until the class it
+   names can be delimited. **That is what the exposure test blocks**: not a table shape —
+   `class` is a value on an append-only assertion and re-classifying is a resolution re-run
+   over kept rows — but a published number and the size of decision 6's queue.
 
    **The exposed count in this record is stale, and the test needs stating.** "5 of 225" was
    measured against 220 targets, before the scorer's suffix fix moved the docket-shaped truth
@@ -373,9 +434,23 @@ not decisions; this record makes them decisions.
    different rates, so "`kind` gets a class row" was not expressible as written. Either
    `citation`'s single block covers `cited_raw` only and the other three are separate
    assertion rows, or the table grows per-judgement confidence, state and FK. This record
-   takes the first: `cited_raw` is the extraction, and `kind` is a typed assertion beside
-   `span_names_document`, on the same natural key, each with its own method, version and
-   confidence. It must land in the first edge, because 98.2% is only honest beside it. On top of the
+   takes the first, and divides the four by whether they are **identity or judgement**
+   *(settled 2026-09-01, fourth critic pass)*:
+
+   - `cited_raw` and `target_kind` are **identity**. They sit under `citation`'s own ADR 0007
+     block and are not separately superseded, because `target_kind` is a key component
+     (decision 2) and a judgement inside a key cannot be corrected by supersession — a
+     corrected row would mint a *different* natural key and strand every resolution,
+     treatment and human review anchored on the old one. A misclassification is therefore a
+     **retraction and a fresh assertion**, recorded through the correction path below, never
+     a supersession. That is the one-way door in this decision and it is chosen deliberately:
+     `target_kind` scopes what a target key even means, so it belongs in identity.
+   - `kind`, `target_form` and `span_names_document` are **judgements**, and live in
+     **`citation_judgement (citation natural key, judgement, value, method, method_version,
+     reading_channel)`** with ADR 0007's block, its own `superseded_by`, and an order in
+     `assertion_method`. They are measured at different rates (88.1% for `kind`; the span
+     test is what 98.2% was measured with), they change without changing identity, and one
+     confidence column on the parent could never have carried three. It must land in the first edge, because 98.2% is only honest beside it. On top of the
    span test, a resolved edge whose target docket is in the
    **family — the docket, its sub-dockets, and its parent, which is `web/cite.py`'s closure
    and NOT `schema-draft.md` Q3's CTE** (self plus transitive descendants, no parent; this
@@ -431,8 +506,12 @@ not decisions; this record makes them decisions.
    the typing pass either to restate `cited_decision_id` or to write NULLs into a column
    whose NULL already means three things, and it would have to compete in a precedence order
    that ranks *resolutions*, which a treatment is not. Its own table carries ADR 0007's
-   block, its own `superseded_by`, and a `treatment_vocab` with a polarity, which is what Q2
-   joins.
+   block, its own `superseded_by`, an order in `assertion_method`, and a `treatment_vocab`
+   with a polarity, which is what Q2 joins. **A review may write a `human` treatment row**
+   *(added 2026-09-01, fourth critic pass)*: decision 6 said a review writes a `human`
+   resolution row and nothing else, which left the one column Q2 exists to read with no human
+   correction path — a mis-typed treatment could be seen and not fixed. Its key carries
+   `reading_channel`, for the reason decision 3's does.
 
    **`extraction_run` is a table, not a phrase** *(defined 2026-09-01, second critic pass)*:
    one row per `(document, method, method_version, reading_channel)` that was passed over,
@@ -452,7 +531,7 @@ not decisions; this record makes them decisions.
    `cited_filing_id` on the resolution row (an addition; the draft does not yet have it).
 
    **`review_action` carries `key_version`, and the rendering declares its delimiter**
-   *(added 2026-09-01, second critic pass)*. `schema-draft.md` § 6 declares `target_key`,
+   *(added 2026-09-01, second critic pass)*. `schema-draft.md` § 7 declares `target_key`,
    `produced_key` and `method_version` and no `key_version`, while the supersession path
    below requires one; **a resolution row needs a canonical rendering of its own**, because
    `<sha256>/<page>/<target_kind>/<key>` names a *citation* while `produced_key` must name a
@@ -477,7 +556,9 @@ not decisions; this record makes them decisions.
    — an integer. This decision forbids a surrogate id on `citation_resolution`, so the one
    route by which the operator may correct a human citation row cannot address it. The
    correction path takes the same text key `review_action` carries, under the same
-   `key_version`. Free now; a schema change to a live table after `/review` ships. So: `key_version` is a column; the four
+   `key_version`, with `CHECK (target_id IS NOT NULL) <> (target_key IS NOT NULL)` so exactly
+   one of the two addresses is set and an integer-keyed party row and a natural-keyed citation
+   row cannot be confused for one another. Free now; a schema change to a live table after `/review` ships. So: `key_version` is a column; the four
    fields are **also** stored typed on `review_action`, and the rendered string is a display
    and a uniqueness convenience rather than the only place the key exists.
 
