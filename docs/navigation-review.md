@@ -1,6 +1,12 @@
 # Navigation review — what the record holds and what a reader can reach
 
-> **Status: analysis, 2026-08-31.** Requested by the operator after finding that search
+> **Status: analysis, 2026-08-31. Tiers 1 and 2 shipped as one release the same day** —
+> A1, A2, A3, A4, A5, A8 and § B are fixed; A6 is decided but not built; A7, § C, § D, § E
+> and Tiers 3–4 are unchanged and still the operator's to choose. Every measurement below
+> is left as it was taken, because it is the evidence the fixes were made against; what
+> shipped is recorded in `milestones.md` and in the commit, not by editing the numbers here.
+>
+> Requested by the operator after finding that search
 > returns bare docket numbers, that the home page's "this week" is not the same week as
 > `/week`, and that stepping back through weeks hits a wall at 10 Aug 2026. Nothing here is
 > chosen work; `ROADMAP.md` § Chosen and `TODO.md` remain the record of what is being built.
@@ -47,6 +53,12 @@ is asking "what is this".
 
 ### A1. `covered()` reads the walk ledger with a key the ledger does not always use
 
+**Fixed 2026-08-31.** `_walked_days()` expands each slice to the days it names — the whole
+month for an unsuffixed key, `lo..hi` for a suffixed one — and `covered()` requires every
+day of the window for both tables. It stops hiding what was walked without starting to
+claim what was not. A test now carries a range-suffixed key.
+
+
 `store/home.py:199` matches `slice_key = f"{action}:{month}"` exactly.
 `capture/walk.py:427` appends `:{lo}..{hi}` whenever a wave walked part of a month. August
 2026 is the only month that ever happened to — the wave stopped at the watch start. On
@@ -71,6 +83,12 @@ range-suffixed key — none exists.
 
 ### A2. The "not covered" sentence can be printed over records the page is holding
 
+**Fixed 2026-08-31.** `coverage_state()` is the only thing a week page asks, and it returns
+`uncovered` — the one state that may print the sentence — only when the window's filing and
+decision counts are both zero. A short ledger over held records is `partial`: the records
+render, with a line saying how far the walk reached.
+
+
 Independent of A1, nothing prevents recurrence. The sentence asserts three things and
 measures one: that the ledger is short (measured), that nothing is here (never checked), and
 — by its absence elsewhere — that a covered week is complete (a claim the record cannot make
@@ -78,6 +96,12 @@ anywhere). The invariant is cheap: **the sentence renders only when the window's
 zero.** Otherwise render what is held, with a line saying how far the walk reached.
 
 ### A3. `/coverage` blames filings and decisions for the comment walk's gaps
+
+**Fixed 2026-08-31**, wording approved by the operator. `records_incomplete` and
+`comments_incomplete` are separate, the comment clause sits outside the backfill branch
+because the two walks are independent, and consecutive months collapse to a range so 56 of
+them read as one. `/mcp`'s coverage answer was unioned the same way and is split too.
+
 
 `store/coverage.py:134` unions all three record tables into one `backfill_incomplete` list,
 and the template prints it inside a sentence whose subject is filings and decisions. The
@@ -96,6 +120,12 @@ is fine and 1996 is not.
 
 ### A4. Future weeks claim to be empty; year 1 is a 500
 
+**Fixed 2026-08-31.** A week outside `[1990-01-01, today + 366 days]` is a 404, which ends
+both corridors and both overflows; both bounds are fixed constants, never read from the
+record, so an address that answers 200 cannot later answer 404. A week that has not
+happened yet says so, and is `noindex`.
+
+
 `/week/2030-01-07` renders "0 decisions served, 0 filings observed, in 0 proceedings" — the
 record affirmatively asserting an empty week four years out, because `covered()`'s
 watch-start test has no upper bound. The honest page says the week has not happened yet.
@@ -105,12 +135,24 @@ corridor of pages on a single-process box.
 
 ### A5. Every archive week page is headed "this week"
 
+**Fixed 2026-08-31.** The heading is passed into `_week_body.html`; the home page's window
+is "The latest seven days at the Board" (operator's wording), so "this week" no longer
+names two different units. The home page's `<title>` and `og:title` named the rolling
+window too, and now name the record.
+
+
 `_week_body.html` is shared by the home page and the ~1,590 dated week pages, and the
 heading is a constant. `/week/2010-03-01` is titled "Week of 1 Mar 2010" and then, below it,
 "Proceedings that moved **this week**". The wording problem the operator found on the home
 page is stamped across thirty years of archive.
 
 ### A6. The follow controls on a sub-docket sheet subscribe to two different things
+
+**Decided 2026-08-31, not built.** The operator's call: an AB sub-docket subscription stops
+folding to its family; FD and every other prefix keep folding. It changes what a
+subscription means, so it is its own change with its own review, not part of a corrective
+release. In `TODO.md`.
+
 
 `web/app.py:1105` — `family = identity.parent() or identity` — silently rewrites any
 sub-docket subscription to its family. The form on `/d/AB-55/sub/794X` says **"Follow this
@@ -141,6 +183,8 @@ other, with 1,533 comments vanishing between them.
 
 ### A8. Small and stale
 
+All four fixed or decided 2026-08-31, except the two marked below.
+
 - `/stats` does not mention environmental comments anywhere — 34,257 records, a third of the
   search index, absent from the statistics page. `store/stats.py` contains no reference to
   `enviro_comment`.
@@ -159,6 +203,14 @@ other, with 1,533 comments vanishing between them.
 ---
 
 ## B. The withheld record — everything matched, nothing shown
+
+**Fixed 2026-08-31.** `search_doc.caption` (migration 0013) carries the row's own printed
+name and the template leads with it, the identifier beside it; every row can carry a
+highlighted `snippet()` of the body saying why it matched, dropped when it would only repeat
+the caption. `/suggest` carries the caption too — the promise `search.md` had made since M4
+— and deliberately not the snippet, whose markers are control characters. The caption is a
+column rather than the title because `title` is weighted 8.0 in the ranking and holds the
+number a reader types.
 
 `store/search.py` yields `(kind, ref, path, title, body, fact)` per row.
 `templates/search.html:21` renders `kind`, `title` and `fact`. **It never renders `body`** —

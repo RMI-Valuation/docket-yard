@@ -5,7 +5,9 @@ from datetime import date
 import pytest
 from fastapi.testclient import TestClient
 
-from docketyard.store import coverage, db, stats
+from docketyard.capture import poll
+from docketyard.capture.stb import DECISIONS, DOCKETS, ENVIRO_COMMENTS, FILINGS
+from docketyard.store import coverage, db, home, stats
 from docketyard.web.app import create_app
 from tests.test_web import build_store
 
@@ -101,3 +103,136 @@ def test_stats_page_survives_odd_dates(tmp_path):
     assert s.months and all(m.filings == 0 for m in s.months)
     con.close()
     assert TestClient(create_app(path)).get("/stats").status_code == 200
+
+
+def test_coverage_reports_unfinished_months_by_table_and_never_unioned(tmp_path):
+    """A3: one list under a sentence whose subject is filings and decisions told readers
+    that 56 months were incomplete for them, when every one of those months belonged to the
+    comment walk, whose table does not begin where theirs does."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    for key, action in (
+        ("stb_hook_table_filings:2026-08", FILINGS),
+        ("stb_hook_table_decisions:2026-08", DECISIONS),
+        ("stb_hook_table_environmental_comments:1996-01", ENVIRO_COMMENTS),
+        ("stb_hook_table_environmental_comments:1996-02", ENVIRO_COMMENTS),
+        ("stb_hook_table_environmental_comments:1996-03", ENVIRO_COMMENTS),
+        ("stb_hook_table_environmental_comments:2026-08", ENVIRO_COMMENTS),
+    ):
+        con.execute(
+            "INSERT INTO walk_slice (slice_key, table_action, criteria, status, rows, captures,"
+            " completed_at)"
+            " VALUES (?, ?, '[]', 'partial', 0, 1, 't')",
+            (key, action),
+        )
+    # a wave has run, so the page prints the sentence the month list hangs off
+    con.execute("UPDATE capture SET ingest_mode = 'backfill' WHERE table_action = ?", (FILINGS,))
+    con.commit()
+    cov = coverage.coverage(con)
+    con.close()
+    assert cov.backfill_from, "fixture precondition: a wave has observed something"
+    assert cov.records_incomplete == ("2026-08",)
+    assert cov.comments_incomplete == ("1996-01", "1996-02", "1996-03", "2026-08")
+    # consecutive months print as a range, not as 56 comma-separated strings
+    assert coverage.month_runs(cov.comments_incomplete) == ("1996-01 to 1996-03", "2026-08")
+    r = TestClient(create_app(path)).get("/coverage")
+    assert "months not yet complete for filings and decisions: 2026-08" in r.text
+    assert "months not yet complete for comments: 1996-01 to 1996-03, 2026-08" in r.text.lower()
+    # the comment walk's gaps are not attributed to the tables above it
+    assert "for filings and decisions: 1996" not in r.text
+
+
+def test_month_runs_collapses_only_consecutive_months():
+    assert coverage.month_runs(()) == ()
+    assert coverage.month_runs(("2000-01",)) == ("2000-01",)
+    assert coverage.month_runs(("1999-11", "1999-12", "2000-01")) == ("1999-11 to 2000-01",)
+    assert coverage.month_runs(("2000-01", "2000-03")) == ("2000-01", "2000-03")
+
+
+def test_coverage_says_the_registry_is_topped_up_after_its_one_walk(tmp_path):
+    """The published page described a walk that happens once and never mentioned the
+    caption refresh that has been running against the registry ever since (deferred, the
+    caption-refresh review). Every bound is read from the constants that enforce it."""
+    r = TestClient(create_app(build_store(tmp_path))).get("/coverage")
+    assert "That walk is not repeated" in r.text
+    assert f"at most {poll.CAPTION_LOOKUPS} a pass" in r.text
+    assert f"last {poll.CAPTION_WINDOW_DAYS} days" in r.text
+    assert f"no more than {poll.CAPTION_ATTEMPTS} times each" in r.text
+
+
+def test_stats_counts_the_third_record_table(tmp_path):
+    """A8: 34,257 environmental comments, a third of the search index, and `store/stats.py`
+    did not mention them anywhere."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    s = stats.stats(con, today=date(2026, 10, 15))
+    cov = coverage.coverage(con)
+    assert s.comments == cov.comments  # one number, folded one way, on both pages
+    con.close()
+    r = TestClient(create_app(path)).get("/stats")
+    assert "environmental comments" in r.text
+    assert "The chart below is filings and decisions only" in r.text
+
+
+def test_the_404_points_at_the_corrections_page_that_shipped(client):
+    """A8: the page still said a corrections page "is being written". It shipped, and is in
+    the footer of every page including this one."""
+    r = client.get("/d/FD-99999999")
+    assert r.status_code == 404
+    assert "is being written" not in r.text
+    assert 'href="/corrections"' in r.text.split("<main")[1].split("</main>")[0]
+
+
+def test_a_partly_walked_month_is_unfinished_on_the_coverage_page_too(tmp_path):
+    """`/week` reads the ledger by day and `/coverage` read it by status, so a wave that
+    walked 15–31 July recorded `done` and the page asserted by omission that July was
+    finished — the same defect as A1, pointing the other way (code review, 2026-08-31)."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    for key, action, status in (
+        (f"{FILINGS}:1999-07:1999-07-15..1999-07-31", FILINGS, "done"),
+        (f"{DECISIONS}:1999-07", DECISIONS, "done"),
+        # the dockets walk keys by prefix, not by month: it must not reach this list, and
+        # must not raise on the way past
+        (f"{DOCKETS}:AB", DOCKETS, "done"),
+    ):
+        con.execute(
+            "INSERT INTO walk_slice (slice_key, table_action, criteria, status, rows, captures,"
+            " completed_at) VALUES (?, ?, '[]', ?, 0, 1, 't')",
+            (key, action, status),
+        )
+    con.commit()
+    cov = coverage.coverage(con)
+    con.close()
+    assert cov.records_incomplete == ("1999-07",)  # 14 days were never asked for
+    assert coverage.month_runs(cov.records_incomplete) == ("1999-07",)
+    # and the two modules now agree about it, off one shared grammar
+    con = db.connect(path)
+    # the fortnight the filings wave never asked for is not covered...
+    assert not home.covered(con, date(1999, 7, 5), date(1999, 7, 11))
+    # ...and the days it did ask for are, on both tables
+    assert home.covered(con, date(1999, 7, 19), date(1999, 7, 25))
+    con.close()
+
+
+def test_a_wholly_walked_month_is_finished_however_it_was_sliced(tmp_path):
+    """Two complementary range slices finish a month between them; neither does alone."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+
+    def add(action, suffix):
+        con.execute(
+            "INSERT INTO walk_slice (slice_key, table_action, criteria, status, rows, captures,"
+            " completed_at) VALUES (?, ?, '[]', 'done', 0, 1, 't')",
+            (f"{action}:1999-07:{suffix}", action),
+        )
+
+    for action in (FILINGS, DECISIONS):
+        add(action, "1999-07-01..1999-07-14")
+    assert coverage.coverage(con).records_incomplete == ("1999-07",)
+    for action in (FILINGS, DECISIONS):
+        add(action, "1999-07-15..1999-07-31")
+    con.commit()
+    assert coverage.coverage(con).records_incomplete == ()
+    assert home.covered(con, date(1999, 7, 12), date(1999, 7, 18))  # across the seam
+    con.close()

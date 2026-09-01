@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from docketyard.capture.stb import DECISIONS
 from docketyard.parties import resolve
 from docketyard.store import db, registers
-from docketyard.web import cite
+from docketyard.web import cite, labels
 from docketyard.web.app import create_app
 from tests.test_observations import decision_row, filing_row, ingest
 from tests.test_web import build_store
@@ -143,3 +143,33 @@ def test_the_resolver_reads_every_printed_form_and_never_guesses(tmp_path):
         and j["resolved"]["kind"] == "docket"
     )
     assert client.get("/cite", params={"q": "nothing"}).json()["resolved"] is None
+
+
+def test_a_sheet_points_at_both_registers_by_the_registers_own_rules(tmp_path):
+    """A8: the sheet badged protective orders and nothing else, so 341 court notices across
+    290 dockets sat in a register no sheet entry pointed at. Both badges now read the
+    register modules' matching rules, so a sheet cannot claim a membership the register
+    would deny."""
+    path, con = _store(tmp_path)
+    con.close()
+    client = TestClient(create_app(path))
+    ep = client.get("/d/EP-711").text
+    assert 'href="/court">in the court-action register' in ep
+    fd = client.get("/d/FD-36873").text
+    assert 'href="/protective">in the protective-order register' in fd
+    assert "/court" not in fd.split("<main")[1].split("</main>")[0]  # no badge it cannot back
+    # the rules themselves, mirrored from the register modules and not restated
+    assert labels.register_link("decision", "Notice Of Court Action") == (
+        "/court",
+        "in the court-action register",
+    )
+    assert labels.register_link("filing", "Motion For Protective Order") == (
+        "/protective",
+        "in the protective-order register",
+    )
+    # a decision whose type merely names a protective order is NOT in that register: it
+    # lists filings, and a badge saying otherwise would be a claim the page cannot back
+    assert labels.register_link("decision", "Motion For Protective Order") is None
+    assert labels.register_link("decision", "Notice Of Court Action And More") is None
+    assert labels.register_link("filing", "Reply") is None
+    assert labels.register_link("comment", None) is None

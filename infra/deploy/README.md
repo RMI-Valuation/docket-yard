@@ -61,14 +61,25 @@ is an instance and not the container service.
    The one-shot `migrate` service brings the store to the release's schema before anything
    else starts; `serve` refuses a store that is behind, which is why nothing races it.
 
-   **A release that rebuilds the search index leaves it empty until a pass rebuilds it**,
-   and an empty index answers "Nothing on record" rather than an error — indistinguishable
-   from a genuine miss. Migration 0012 is such a release. Run
+   **A release that rebuilds the search index must rebuild it in the deploy window.** Run
    `docker compose run --rm ingest search rebuild` straight after `migrate` (the image's
-   entrypoint IS `docketyard`, so the subcommand alone is the whole argument), so
-   the index is remade in the same window the schema is rather than at the end of the first
-   full pass. (Docket-number lookups are unaffected either way: they never touch the index.)
-   Measured on the v2026.08.42 deploy: 32s for 61,959 rows.
+   entrypoint IS `docketyard`, so the subcommand alone is the whole argument). Two reasons,
+   and the second is the one that bites:
+
+   - An index left empty answers "Nothing on record" rather than an error —
+     indistinguishable from a genuine miss. Migration 0012 was such a release.
+   - `rebuild()` holds a **write lock** for its whole run and `_connect_rw` waits at most
+     30 s for one, so a rebuild longer than that makes a concurrent `POST /subscribe`
+     **fail**, not merely wait. Measured on the v2026.08.42 deploy: 32 s for 61,959 rows —
+     already over. Doing it in the window means the one slow write happens while you are
+     watching, not inside an unattended pass at an hour nobody chose.
+
+   **This applies to any release that bumps `INDEX_FORMAT` in `store/search.py`, not only
+   to one with a migration.** The format is part of the index's signature, so bumping it
+   makes the next pass rebuild everything whether or not the schema moved; v2026.08.45
+   (`INDEX_FORMAT` 3) is such a release. Take the timing while you are there and put it in
+   `docs/search.md` — the number at the current size, 96,225 rows, is still owed.
+   (Docket-number lookups are unaffected either way: they never touch the index.)
 
    **Rollback is not a tag change for a release that migrates.** `serve` refuses a store
    whose `user_version` differs from the image's in EITHER direction, so once `migrate` has

@@ -25,12 +25,33 @@ MIN_PREFIX = 2  # characters before a prefix query is asked (mirrors the page's 
 _TOKEN = re.compile(r"[^\W_]+")
 
 
+# The snippet's markers. NOT "<mark>": `body` holds text the Board printed and words a
+# commenter wrote, and handing HTML straight to a template would make every environmental
+# comment in the record an injection vector. The web tier escapes the whole string and then
+# turns these two control characters into the tags — so the only markup that can survive is
+# markup this module put there.
+MARK_OPEN, MARK_CLOSE = chr(2), chr(3)
+SNIPPET_TOKENS = 18  # words of context FTS5 windows around the match
+
+# What separates one field from the next inside `body`. A snippet windows 18 tokens across
+# the whole concatenation and the page renders the result `as-printed` — this project's
+# styling for the Board's own words — so a plain space let one window fuse a docket's
+# number spellings onto its caption, two different sub-dockets' captions, or a commenter's
+# location onto their words, and print the run as though the Board had written it
+# (schema-critic, 2026-08-31). `unicode61` treats the middle dot as a separator and
+# discards it, so the token stream, the positions, the ranking and phrase queries are all
+# exactly what they were; only the seam becomes visible.
+FIELD = " · "
+
+
 @dataclass(frozen=True)
 class Hit:
     kind: str
     path: str
     title: str
     fact: str
+    caption: str = ""  # the row's own printed name, where its title is only an identifier
+    snippet: str = ""  # why it matched, marked with MARK_OPEN/MARK_CLOSE; may be empty
 
 
 # --- the index -----------------------------------------------------------------------------
@@ -66,7 +87,7 @@ def _docket_docs(con: Connection):
     for docket_id, raw, parent, caption in rows:
         ident = parse_docket_id(raw)
         if ident is None:
-            yield "skipped", docket_id, "", "", "", ""
+            yield "skipped", docket_id, "", "", "", "", ""
             continue
         caption = caption or ""
         if parent is None:
@@ -78,14 +99,27 @@ def _docket_docs(con: Connection):
         if caption and (p is None or caption != p[1]):
             printed = urls.printed_docket(ident)
             head = urls.printed_docket(p[0]) if p else printed
-            yield "docket", docket_id, urls.docket_path(ident), printed, caption, f"in {head}"
+            # the caption travels as its own field as well as in the body: the body is
+            # what FINDS the row, the caption is what the row is CALLED, and a results
+            # page that prints only the identifier is the whole of navigation-review § B
+            yield (
+                "docket",
+                docket_id,
+                urls.docket_path(ident),
+                printed,
+                caption,
+                f"in {head}",
+                caption,
+            )
     for docket_id, (ident, caption) in parents.items():
         printed = urls.printed_docket(ident)
         n, last = counts.get(docket_id, (0, None))
+        # the spellings go LAST: they are how a number is FOUND, and a snippet centred on
+        # a caption match should open on the caption, not on four renderings of the number
         spellings = f"{printed} {ident.prefix}{ident.sequence}"
-        body = " ".join([spellings, caption, *subs.get(docket_id, [])])
+        body = FIELD.join([p for p in [caption, *subs.get(docket_id, []), spellings] if p])
         fact = f"{n} filings" + (f", last {last}" if last else "")
-        yield "docket", docket_id, urls.docket_path(ident), printed, body, fact
+        yield "docket", docket_id, urls.docket_path(ident), printed, body, fact, caption
 
 
 def _party_docs(con: Connection):
@@ -117,7 +151,16 @@ def _party_docs(con: Connection):
     for rep, held in names.items():
         n, d = len(filings.get(rep, ())), len(dockets.get(rep, ()))
         fact = f"{n} filings in {d} dockets" if n else "on record by name only"
-        yield "party", rep, urls.party_path(rep), comps.display_name(rep), " ".join(held), fact
+        # a party's title is already a name, which is why it is the one kind that reads
+        yield (
+            "party",
+            rep,
+            urls.party_path(rep),
+            comps.display_name(rep),
+            FIELD.join(held),  # one name per field: a snippet must not fuse two of them
+            fact,
+            "",
+        )
 
 
 def _decision_docs(con: Connection):
@@ -142,8 +185,8 @@ def _decision_docs(con: Connection):
         ident = parse_docket_id(raw)
         printed = urls.printed_docket(ident) if ident else raw
         fact = printed + (f", served {date}" if date else "")
-        body = f"{sid} {printed} {summary}"
-        yield "decision", pk, urls.decision_path(sid), f"Decision {sid}", body, fact
+        body = FIELD.join([summary, f"{sid} {printed}"])
+        yield "decision", pk, urls.decision_path(sid), f"Decision {sid}", body, fact, ""
 
 
 # what the Board prints for a cell it has nothing for: never a search term
@@ -187,7 +230,7 @@ def _comment_docs(con: Connection):
         # the organisation cell repeats the submitter verbatim on the Board's own EO rows
         # (measured), and a term counted twice is a term bm25 over-weights
         cells = [submitter, org if org != submitter else None, location, text]
-        words = [w for w in (number, printed, *cells) if (w or "").strip() not in _PLACEHOLDERS]
+        words = [w for w in (*cells, number, printed) if (w or "").strip() not in _PLACEHOLDERS]
         # The title is the number AS PRINTED, with no noun in front of it. `EI` rows are
         # submitted comments and `EO` rows are the Board's own environmental documents
         # (measured, 8 of 50 on FD 36873), and migration 0011 declines to type the row
@@ -197,14 +240,29 @@ def _comment_docs(con: Connection):
         # addressed under its docket: the bare number is ambiguous for two of the 34,255
         # the record holds, so the index points at the address that never is
         path = urls.comment_path(ident, number) if ident else urls.comment_short_path(number)
-        yield "comment", pk, path, number, " ".join(words), fact
+        yield "comment", pk, path, number, FIELD.join(words), fact, ""
 
 
 # Bumped whenever the index's SHAPE changes — a path scheme, a title, what is folded —
 # not just when the record does. Without it `rebuild()` compares only row ids, sees no
 # change on deploy, and serves the old paths until unrelated data happens to move. 2:
-# comments addressed under their docket, folded by (number, row ref).
-INDEX_FORMAT = 2
+# comments addressed under their docket, folded by (number, row ref). 3: rows carry their
+# own caption (migration 0013), which is what fills the new column on the first pass after
+# the deploy — a bump here is the only thing that makes that happen.
+INDEX_FORMAT = 3
+
+
+_CONTROLS = {c: None for c in range(0x20) if c not in (0x09, 0x0A, 0x0D)}
+
+
+def _plain(text: str) -> str:
+    """Text with C0 control characters removed.
+
+    Hygiene, and one invariant: the snippet's markers ARE control characters, and
+    `escape()` passes them through, so a record that carried one would put a stray
+    `<mark>` on the page. Nothing measured in this record contains one; this makes that a
+    property of the index rather than an assumption about the Board."""
+    return text.translate(_CONTROLS)
 
 
 def signature(con: Connection) -> str:
@@ -246,14 +304,15 @@ def rebuild(con: Connection, *, force: bool = False) -> dict:
     rows: list[tuple] = []
     counts = {"docket": 0, "party": 0, "decision": 0, "comment": 0, "skipped": 0}
     for source in (_docket_docs, _party_docs, _decision_docs, _comment_docs):
-        for kind, ref, path, title, body, fact in source(con):
+        for kind, ref, path, title, body, fact, caption in source(con):
             counts[kind] += 1
             if kind != "skipped":
-                rows.append((kind, ref, path, title, body, fact))
+                rows.append((kind, ref, path, _plain(title), _plain(body), fact, caption))
     con.execute("BEGIN IMMEDIATE")
     con.execute("DELETE FROM search_doc")
     con.executemany(
-        "INSERT INTO search_doc (kind, ref, path, title, body, fact) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO search_doc (kind, ref, path, title, body, fact, caption)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
         rows,
     )
     con.execute("INSERT INTO search_fts (search_fts) VALUES ('rebuild')")
@@ -297,23 +356,64 @@ def _match(text: str, prefix: bool) -> str | None:
     return " ".join(quoted)
 
 
-def search(con: Connection, text: str, *, limit: int = LIMIT, prefix: bool = False) -> list[Hit]:
+def _shown_snippet(snippet: str, caption: str) -> str:
+    """The snippet, unless it would only repeat the caption printed beside it.
+
+    A snippet is worth a line when it says something the row's own name does not: which of
+    a family's sub-captions matched, the sentence of a decision summary, the words a
+    commenter wrote. For a docket whose caption IS the matched text, it would print the
+    same string twice, so it is dropped. An unmarked snippet is dropped too — FTS5 returns
+    the leading text of a column it found no match in, and leading text is not a reason."""
+    if MARK_OPEN not in snippet:
+        return ""
+    core = snippet.replace(MARK_OPEN, "").replace(MARK_CLOSE, "").strip("… ")
+    return "" if core and core in caption else snippet
+
+
+def search(
+    con: Connection,
+    text: str,
+    *,
+    limit: int = LIMIT,
+    prefix: bool = False,
+    with_snippet: bool = True,
+) -> list[Hit]:
     """Ranked hits: bm25 with the title weighted above the body; ties by kind then title,
     the kinds ordering as they sort (comment, decision, docket, party). A docket number is
-    the caller's fast path, not this."""
+    the caller's fast path, not this.
+
+    Each row carries WHY it matched: `snippet()` over the body, marked with the two control
+    characters the web tier turns into tags. The index has always held these words — 89.4%
+    of rows have an identifier for a title and the words that found them in the body — and
+    the results page printed none of them (navigation-review.md § B). No schema change and
+    no rebuild is needed for this; the caption beside it is what needed the column."""
     match = _match(text, prefix)
     if match is None:
         return []
+    # `with_snippet=False` is not a micro-optimisation. The ORDER BY is an explicitly
+    # weighted `bm25(...)`, which defeats FTS5's internal rank ordering, so SQLite sorts
+    # externally and evaluates the whole select list for EVERY matching row before the
+    # LIMIT bites — a common word matches tens of thousands, and a third of the index is
+    # comment bodies, the longest text it carries. `/suggest` fires on a two-character
+    # prefix per keystroke from an unauthenticated endpoint and then discards the snippet,
+    # so it must not ask for one (schema-critic, 2026-08-31).
+    excerpt_sql = "snippet(search_fts, 1, ?, ?, '…', ?)" if with_snippet else "''"
+    params: tuple = (MARK_OPEN, MARK_CLOSE, SNIPPET_TOKENS) if with_snippet else ()
     rows = con.execute(
-        """
-        SELECT d.kind, d.path, d.title, d.fact, bm25(search_fts, 8.0, 1.0) AS rank
+        f"""
+        SELECT d.kind, d.path, d.title, d.fact, d.caption,
+               {excerpt_sql} AS excerpt,
+               bm25(search_fts, 8.0, 1.0) AS rank
           FROM search_fts JOIN search_doc d ON d.doc_id = search_fts.rowid
          WHERE search_fts MATCH ?
          ORDER BY rank, d.kind, d.title LIMIT ?
         """,
-        (match, limit),
+        (*params, match, limit),
     ).fetchall()
-    return [Hit(kind, path, title, fact) for kind, path, title, fact, _ in rows]
+    return [
+        Hit(kind, path, title, fact, caption, _shown_snippet(excerpt or "", caption or ""))
+        for kind, path, title, fact, caption, excerpt, _ in rows
+    ]
 
 
 def held_docket(con: Connection, text: str) -> Hit | None:
@@ -333,7 +433,24 @@ def held_docket(con: Connection, text: str) -> Hit | None:
     if typed != number:
         return None
     for candidate in (identity, identity.parent()):
-        if candidate is not None and find_docket(con, candidate) is not None:
-            printed = urls.printed_docket(candidate)
-            return Hit("docket", urls.docket_path(candidate), printed, "the docket sheet")
+        if candidate is None:
+            continue
+        docket_id = find_docket(con, candidate)
+        if docket_id is None:
+            continue
+        printed = urls.printed_docket(candidate)
+        # the caption too: the fast path is the row a reader reaches most often, and it
+        # would be the one row still answering with a bare number
+        row = con.execute(
+            "SELECT json_extract(latest_payload, '$.title') FROM docket_current"
+            " WHERE docket_id = ?",
+            (docket_id,),
+        ).fetchone()
+        return Hit(
+            "docket",
+            urls.docket_path(candidate),
+            printed,
+            "the docket sheet",
+            (row[0] if row else "") or "",
+        )
     return None

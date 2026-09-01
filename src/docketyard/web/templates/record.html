@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% set identity = parse_docket_id(entry.docket_raw) %}
-{% set noun = {'decision': 'Decision', 'comment': 'Environmental comment'}.get(entry.kind, 'Filing') %}
+{# One noun per row across the reader-facing surfaces: the sheet's kind column says
+   "Comment" and so does this page, where it said "Environmental comment" and made
+   two names for one thing. The search index stays untyped on purpose — EI rows are
+   submitted comments and EO rows are the Board's own environmental documents, and
+   migration 0011 declines to type the row because the prefix is inside the number
+   (deferred, 2026-08-31; operator's wording call). #}
+{% set noun = {'decision': 'Decision', 'comment': 'Comment'}.get(entry.kind, 'Filing') %}
 {% block title %}{{ noun }} {{ entry.record_id }} — {{ printed_docket(identity) }} — {{ site_name }}{% endblock %}
 {% block main %}
 <section class="caption">

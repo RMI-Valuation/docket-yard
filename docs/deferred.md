@@ -8,16 +8,20 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 ## Web tier
 
 - **Search rebuild is whole, not a diff** (2026-08-26, v2026.08.28): any moved id rebuilds
-  every row; a diff by `(kind, ref)` would write only what changed. The set has grown with
-  the record — 62k rows at 40 s while a wave ran, 32 s for 61,959 on the v2026.08.42 deploy,
-  **96,225 rows since the comment wave** (2026-08-31), a third of them comment bodies, which
-  are the longest text the index carries. Nobody has timed it at that size: `rebuild()`
-  promises "seconds, not minutes" and holds a write lock throughout, and `_connect_rw` waits
-  up to 30 s on it, so a `/subscribe` during one is slow rather than failed. One timed
-  `docker compose run --rm --entrypoint docketyard ingest --db … search rebuild` on the
-  instance answers both this and whether the promise still holds; the number belongs in
-  `search.md`. **Cheapest moment: `navigation-review.md` Tier 2 bumps `INDEX_FORMAT` and
-  forces a rebuild anyway — time that one rather than paying for a run of its own.**
+  every row; a diff by `(kind, ref)` would write only what changed. **The timing half of this
+  item is answered and the diff half is not.** Timed 2026-08-31 against a 2026-08-26
+  production copy with migration 0013 applied: **7.4 s for 61,898 rows** on the operator's
+  workstation, against 32 s for 61,959 on the instance at the v2026.08.42 deploy — so the
+  instance is roughly 4× that hardware and the local figure is a floor. The number at the
+  current size (96,225 rows, a third of them comment bodies, the longest text the index
+  carries) is taken on the deploy that ships `INDEX_FORMAT` 3, which forces a rebuild anyway;
+  `search.md` carries what is known.
+  **What the timing surfaced, and is the real finding:** `rebuild()` holds a write lock
+  throughout and `_connect_rw` waits at most 30 s for one, so a rebuild longer than 30 s
+  makes a concurrent `/subscribe` **fail**, not merely wait — and 32 s was already measured
+  at two thirds of today's row count. Either the derive is split from the write, or the
+  waiter's timeout outlasts the longest rebuild. The instance measurement decides which, and
+  it is owed at the next deploy.
 - **Two curated "what changed" lists** (2026-08-26): the ETag stamp and the search signature
   each enumerate max ids; one store-level record version (a counter bumped by every writer)
   would make both correct by construction.
@@ -168,26 +172,10 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   benign. `CAPTION_ATTEMPTS` turns that into a problem line after eight tries per docket,
   which is a floor, not a proof: asking once a pass about a family the record already has a
   caption for would prove the query still works, at one request.
-- **`/coverage` still says the registry was walked once on 2026-08-25** while the forward
-  pass now refreshes part of it. One generated sentence, driven off the constants, would
-  keep the published page honest (`coverage.registry_walked_at` is backfill-only, so the
-  date itself is correct). **Same file and same editing pass as `navigation-review.md`
-  A3**, which found `/coverage` attributing the comment walk's 56 partial months to
-  filings and decisions — both are trust-page wording and want one sign-off, not two.
 - **`{"already_processed": True}` lands in the ingest counts as `1`** (`isinstance(True, int)`),
   a pre-existing cosmetic wrinkle in `_ingest_pending` that the dockets path now shares.
 - **`_uncaptioned` scans the registry each pass** (~32,600 dockets, index seeks). Free at
   this size, and it will not stay free.
-
-## Found 2026-08-31, against the environmental-comments milestone (migrations 0011–0012)
-
-- **The site now has two nouns for one row**: the record page says "Environmental comment
-  EI-34282" while the search index titles it `EI-34282` with no noun and the sheet's kind
-  column says "Comment". The index is deliberately untyped (`EO` rows are the Board's own
-  documents, and 0011 declines to type the row); whether the page and the sheet should
-  follow is an operator's wording decision, not a defect. Ask it alongside
-  `navigation-review.md` A5 (every archive week page headed "this week"): both are copy
-  the operator settles, and Tier 1 is already opening those templates.
 
 ## Found 2026-08-31, during the machine-agent surface
 
@@ -200,3 +188,28 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   `VACUUM INTO` and an atomic replace, and the basetemp sits inside the repo on Windows
   where an indexer or scanner can hold a handle briefly. Recorded rather than chased: if it
   recurs, capture the assertion output, which this occurrence did not keep.
+
+## Found 2026-08-31, reviewing the navigation Tier 1–2 release (v2026.08.45)
+
+- **`covered()` ignores `coverage_gap`** (stb-ingest-specialist). The watch is derived from
+  `MIN(captured_at)` alone, so a week inside a recorded poller outage longer than the
+  seven-day poll window renders as covered, with fewer records than the Board posted and no
+  caveat. The `PARTIAL` state this release built is exactly the honest answer for it —
+  `coverage_state()` would need to consult `coverage_gap` as well as the ledger.
+- **`EXPECTED_EMPTY_MONTHS` is a declaration, and `covered()` now rests on it**
+  (stb-ingest-specialist). `walk.py` skips the reconciliation proof for a month declared
+  expected-empty, so a run with the wrong criteria pair would answer the same envelope and
+  be written `empty` with nothing proving it — and `covered()` counts `empty` as walked.
+  Pre-existing and bounded to one measured month (`FILINGS:2025-10`); this release does not
+  widen it. Smallest hardening is in `walk.py`: attempt the proof for expected-empty months
+  too and fall back to the declaration only when the proof cannot be obtained.
+- **`_connect_rw`'s 30 s wait is shorter than a rebuild** (schema-critic, code review). The
+  deploy README now requires the rebuild to happen in the deploy window, which avoids the
+  collision rather than fixing it. The fix is either splitting the derive from the write or
+  raising the waiter's timeout past the longest measured rebuild; the instance measurement
+  owed at the next deploy decides which.
+- **`reconcile_empty_month` is a fourth reader of the slice-key grammar**
+  (stb-ingest-specialist). `walk.py:223` treats only `len(rest) == 7` keys as candidate
+  `done` neighbours, so a month walked to completion as two complementary range slices
+  cannot anchor an empty-month proof. Fails safe — the month records `partial` instead of
+  `empty` — and `slice_days`/`slice_month` now exist beside it to fix it with.

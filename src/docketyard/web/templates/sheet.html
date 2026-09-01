@@ -100,7 +100,7 @@
       <div class="entry-date muted"><time datetime="{{ e.date or '' }}">{{ e.date | fmt_date }}</time>{% if e.date_printed %}<span class="vh"> (printed as {{ e.date_printed }})</span>{% endif %}</div>
       <div class="kind{% if e.kind == 'decision' %} kind-decision{% endif %}">{{ kind_label(e.kind, e.type) }}</div>
       <div class="entry-body">
-        <div class="entry-title"><span class="id">{{ e.record_id }}</span>{% if e.kind == 'comment' %}<a href="{{ entry_path(e.kind, e.record_id, e.docket_raw) }}" aria-label="Environmental comment {{ e.record_id }}: permanent address">{{ e.organisation or e.submitter or 'Environmental comment' }}</a>{% else %}<a href="{{ entry_path(e.kind, e.record_id, e.docket_raw) }}" aria-label="{{ 'Decision' if e.kind == 'decision' else 'Filing' }} {{ e.record_id }}: permanent address">{% if e.kind == 'decision' %}{{ e.deciding_body or 'Decision' }}{% else %}{{ e.type or 'Filing' }}{% endif %}</a>{% endif %}
+        <div class="entry-title"><span class="id">{{ e.record_id }}</span>{% if e.kind == 'comment' %}<a href="{{ entry_path(e.kind, e.record_id, e.docket_raw) }}" aria-label="Comment {{ e.record_id }}: permanent address">{{ e.organisation or e.submitter or 'Comment' }}</a>{% else %}<a href="{{ entry_path(e.kind, e.record_id, e.docket_raw) }}" aria-label="{{ 'Decision' if e.kind == 'decision' else 'Filing' }} {{ e.record_id }}: permanent address">{% if e.kind == 'decision' %}{{ e.deciding_body or 'Decision' }}{% else %}{{ e.type or 'Filing' }}{% endif %}</a>{% endif %}
           {% if e.docket_raw != sheet.raw_docket %}<span class="muted small">· in {{ printed_docket(parse_docket_id(e.docket_raw)) }}</span>{% endif %}
           {% if e.also_in %}<span class="muted small">· also entered in {% for raw in e.also_in %}{{ printed_docket(parse_docket_id(raw)) }}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
         </div>
@@ -112,7 +112,7 @@
           {% set person = e.submitter if e.submitter != named else none %}
           {% if person or e.location %}<div class="entry-for as-printed">{{ person or '' }}{% if person and e.location %} · {% endif %}{{ e.location or '' }}</div>{% endif %}
         {% endif %}
-        {% if e.type and 'protective order' in e.type | lower %}<div class="small"><a class="muted" href="/protective">in the protective-order register</a></div>{% endif %}
+        {% set reg = register_link(e.kind, e.type) %}{% if reg %}<div class="small"><a class="muted" href="{{ reg[0] }}">{{ reg[1] }}</a></div>{% endif %}
       </div>
       <div class="entry-links">
         {% set noun = 'decision' if e.kind == 'decision' else 'environmental comment' if e.kind == 'comment' else 'filing' %}

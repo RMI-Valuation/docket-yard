@@ -6,6 +6,8 @@ display — it says nothing about what a document argues, and never looks at who
 filing from the Board itself is labelled by its type like any other).
 """
 
+from docketyard.store import registers
+
 _RULES: tuple[tuple[str, str], ...] = (
     ("motion", "Motion"),
     ("petition", "Motion"),
@@ -59,6 +61,23 @@ def kind_label(kind: str, filing_type: str | None) -> str:
 def filter_key(kind: str, filing_type: str | None) -> str:
     """The data attribute the filter chips match on."""
     return kind_label(kind, filing_type).lower().rstrip(".")
+
+
+def register_link(kind: str, entry_type: str | None) -> tuple[str, str] | None:
+    """(path, label) of the register an entry belongs to, or None.
+
+    The sheet had a protective-order badge and no court-action one: same machinery, one of
+    the two wired up, so 341 court notices across 290 dockets sat in a register no sheet
+    entry pointed at (navigation-review.md A8). Both badges now read the register modules'
+    own matching rules, so a sheet cannot claim membership the register would deny — and
+    the rules are the Board's own printed type, never an inference about the document.
+    """
+    text = (entry_type or "").lower()
+    if kind == "decision" and text == registers.COURT_ACTION:
+        return "/court", "in the court-action register"
+    if kind == "filing" and registers.PROTECTIVE_ORDER in text:
+        return "/protective", "in the protective-order register"
+    return None
 
 
 def prefix_name(prefix: str) -> str:
