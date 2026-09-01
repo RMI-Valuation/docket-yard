@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{% if query %}{{ query }} — search — {{ site_name }}{% else %}Search — {{ site_name }}{% endif %}{% endblock %}
 {% block description %}Search the record: a docket number, a party's name, or words from a caption or a decision.{% endblock %}
-{% block head %}{% if query %}<meta name="robots" content="noindex">{% endif %}<link rel="alternate" type="application/atom+xml" title="Every new filing and decision" href="/feed">{% endblock %}
+{% block head %}{% if query %}<meta name="robots" content="noindex">{% endif %}{{ super() }}{% endblock %}
 {% block main %}
 <section class="caption">
   <h1 class="serif">Search the record</h1>
@@ -17,8 +17,21 @@
   <table class="moved">
     <thead><tr><th scope="col">Kind</th><th scope="col">Result</th><th scope="col">On record</th></tr></thead>
     <tbody>
+    {#- What the row is CALLED comes first and the identifier sits beside it. 89.4% of index
+        rows have an identifier-only title, and 92.4% of docket rows carry the Board's own
+        caption one field away — which this template never printed, so `FD 30101` published
+        as "FD 30101 — 0 filings" while its caption sat unread (navigation-review.md § B).
+        The snippet below says WHY the row matched, and is dropped when it would only
+        repeat the caption. Both are the Board's words and a commenter's, as printed. -#}
     {% for h in hits %}
-    <tr><td class="dk">{{ h.kind }}</td><td><a href="{{ h.path }}"{% if h.kind != 'party' %} class="as-printed"{% endif %}>{{ h.title }}</a></td><td class="small muted">{{ h.fact }}</td></tr>
+    <tr>
+      <td class="dk">{{ h.kind }}</td>
+      <td>
+        <a href="{{ h.path }}"{% if h.kind != 'party' %} class="as-printed"{% endif %}>{{ h.caption or h.title }}</a>{% if h.caption %} <span class="dk small muted">{{ h.title }}</span>{% endif %}
+        {% if h.snippet %}<div class="small muted as-printed">{{ h.snippet | highlight }}</div>{% endif %}
+      </td>
+      <td class="small muted">{{ h.fact }}</td>
+    </tr>
     {% endfor %}
     </tbody>
   </table>

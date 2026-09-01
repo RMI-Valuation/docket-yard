@@ -45,6 +45,7 @@ class Busiest:
 class Stats:
     filings: int
     decisions: int
+    comments: int  # environmental comments, folded exactly as /coverage folds them
     documents: int
     document_bytes: int
     dockets: int
@@ -129,6 +130,15 @@ def stats(con: Connection, today: date | None = None) -> Stats:
     return Stats(
         filings=one("SELECT COUNT(DISTINCT stb_filing_id) FROM filing"),
         decisions=one("SELECT COUNT(DISTINCT stb_decision_id) FROM decision_record"),
+        # A third record table the statistics page did not mention at all until 2026-08-31
+        # (navigation-review.md A8). Folded by (number, row ref) and NOT by the number
+        # alone — the row ref folds one comment entered in a docket and its sub-docket
+        # while keeping apart the two the Board gave the same number — which is the rule
+        # `coverage` uses, so the two pages publish one number and not two.
+        comments=one(
+            "SELECT COUNT(*) FROM (SELECT 1 FROM enviro_comment"
+            " GROUP BY comment_number, COALESCE(stb_row_ref, ''))"
+        ),
         documents=documents,
         document_bytes=document_bytes,
         dockets=one("SELECT COUNT(*) FROM docket"),

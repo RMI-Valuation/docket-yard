@@ -10,10 +10,23 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from sqlite3 import Connection
 
+from docketyard.capture import walk
 from docketyard.capture.stb import DECISIONS, FILINGS
 from docketyard.store.db import load_json
 
 WEEK_DAYS = 7
+
+# The corridor of week addresses that exist at all (navigation-review.md A4). Without a
+# floor, "← previous week" walks backwards for ever on a single-process box, and
+# `/week/0001-01-01` is a 500 the moment the page subtracts seven days from it; without a
+# horizon, `/week/9999-12-31` is the same 500 going the other way. Both bounds are FIXED,
+# not read from the record: a bound that moved with the waves would let an address that
+# answered 200 start answering 404. The floor sits six years below the Board's own
+# beginning — it was created by the ICC Termination Act of 1995, effective 1 January 1996 —
+# so it can never cut into the record, and the horizon is a year, which is as far ahead as
+# a week is worth naming.
+WEEK_FLOOR = date(1990, 1, 1)
+WEEK_HORIZON_DAYS = 366
 
 
 @dataclass(frozen=True)
@@ -175,33 +188,114 @@ def calendar_week(con: Connection, monday: date) -> Week:
     return week(con, monday.isoformat(), (monday + timedelta(days=6)).isoformat())
 
 
+def _months(start: date, end: date) -> set[str]:
+    """Every YYYY-MM the window touches."""
+    months, cursor = set(), start.replace(day=1)
+    while cursor <= end:
+        months.add(cursor.strftime("%Y-%m"))
+        cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+    return months
+
+
+def _days(start: date, end: date) -> set[date]:
+    days, cursor = set(), start
+    while cursor <= end:
+        days.add(cursor)
+        cursor += timedelta(days=1)
+    return days
+
+
+def walked_days(con: Connection, action: str, months: set[str]) -> set[date]:
+    """The days of `months` a wave actually asked the endpoint for, on one table.
+
+    The grammar is `walk.slice_days`, read from beside the only thing that writes it. This
+    module used to match `f"{action}:{month}"` exactly, which read the ledger's one
+    partly-walked month as never walked — and since that month sat between the reader and
+    everything older, it walled off the whole 1996–2026 archive behind three weeks of
+    records the page was already holding (navigation-review.md A1).
+
+    A range-suffixed slice expands to the days it names and never to the month around them:
+    the fix is to stop hiding what was walked, not to start claiming what was not."""
+    days: set[date] = set()
+    for month in months:
+        for (key,) in con.execute(
+            "SELECT slice_key FROM walk_slice WHERE table_action = ? AND"
+            " (slice_key = ? OR slice_key LIKE ?) AND status IN ('done', 'empty')",
+            (action, f"{action}:{month}", f"{action}:{month}:%"),
+        ):
+            days |= walk.slice_days(key)
+    return days
+
+
 def covered(con: Connection, start: date, end: date) -> bool:
-    """Whether the record claims this window: it ends on or after the day the watch began,
-    or every month it touches was walked to completion by a backfill wave for both
-    record tables. Anything else is 'not yet covered' — an honest empty page, not a
-    quiet week."""
+    """Whether the record claims this window: the watch has been running across the whole
+    of it, or every day of it was walked by a backfill wave for both record tables.
+    Anything else is 'not yet covered' — an honest empty page, not a quiet week.
+
+    The watch test is on `start`, not on `end`. The poller's first pass reaches back a
+    seven-day window, so the watch covers `[watch - 6, ...)` — but this function answers
+    "is EVERY day of this window covered", and testing `end` answered "does this window
+    OVERLAP what the watch covers", which claimed up to six days before the watch ever ran
+    (stb-ingest-specialist, 2026-08-31). A straddling week now falls through to the ledger,
+    which is the authority.
+
+    This is the ledger's answer alone, and the ledger cannot see what the window holds.
+    Callers rendering the 'not covered' sentence must use `coverage_state`, which will not
+    print it over records the page is holding."""
     row = con.execute(
         "SELECT MIN(captured_at) FROM capture WHERE ingest_mode = 'forward'"
         " AND filter_asserted = 1 AND table_action IN (?, ?)",
         (FILINGS, DECISIONS),
     ).fetchone()
     watch = date.fromisoformat(row[0][:10]) if row and row[0] else None
-    if watch and end >= watch - timedelta(days=WEEK_DAYS - 1):
+    if watch and start >= watch - timedelta(days=WEEK_DAYS - 1):
         return True
-    months = set()
-    cursor = start.replace(day=1)
-    while cursor <= end:
-        months.add(cursor.strftime("%Y-%m"))
-        cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
-    for action in (FILINGS, DECISIONS):
-        for m in months:
-            done = con.execute(
-                "SELECT 1 FROM walk_slice WHERE slice_key = ? AND status IN ('done', 'empty')",
-                (f"{action}:{m}",),
-            ).fetchone()
-            if not done:
-                return False
-    return True
+    months, window = _months(start, end), _days(start, end)
+    return all(window <= walked_days(con, action, months) for action in (FILINGS, DECISIONS))
+
+
+# The states a week page can be in. `uncovered` is the only one that may print the sentence
+# claiming the record does not reach here, and it is reachable only when the window holds
+# nothing — the invariant this enum exists to hold (navigation-review.md A2). The sentence
+# asserted three things and measured one: that the ledger was short (measured), that nothing
+# was here (never checked), and that a covered week is complete (a claim the record cannot
+# make anywhere).
+COVERED, PARTIAL, UNCOVERED, FUTURE = "covered", "partial", "uncovered", "future"
+
+
+def coverage_state(con: Connection, w: Week, start: date, end: date, today: date) -> str:
+    """What a week page may say about itself.
+
+    - `future`  — the week has not happened yet; the record is not silent about it, it
+      has nothing to be silent about.
+    - `covered` — the ledger reaches here; render the week.
+    - `partial` — the ledger is short and the window holds records anyway. Render them,
+      and say how far the walk reached. A wave that stopped mid-month is the ordinary
+      cause, and hiding held records behind a coverage sentence is the defect A1 measured.
+    - `uncovered` — the ledger is short and the window is empty. Only here is the sentence
+      true, and it is still a statement about the walk, never about the Board.
+    """
+    if start > today:
+        return FUTURE
+    if covered(con, start, end):
+        return COVERED
+    return PARTIAL if (w.filings or w.decision_entries) else UNCOVERED
+
+
+def walked_through(con: Connection, start: date, end: date) -> date | None:
+    """The last day of an UNBROKEN run from the window's start that a wave walked for both
+    record tables, or None if the window's first day was never walked.
+
+    The contiguity matters because the page prints this as "it walked as far as X". Taking
+    the latest walked day instead would name a date past a hole: two waves leaving
+    01..03 and 05..07 both `done` would print "as far as the 7th" while the 4th was never
+    requested. A statement about the walk has to be true of every day it covers."""
+    months = _months(start, end)
+    walked = walked_days(con, FILINGS, months) & walked_days(con, DECISIONS, months)
+    reached, cursor = None, start
+    while cursor <= end and cursor in walked:
+        reached, cursor = cursor, cursor + timedelta(days=1)
+    return reached
 
 
 def this_week(con: Connection, today: date | None = None) -> Week:

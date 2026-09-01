@@ -1,18 +1,35 @@
 {% extends "base.html" %}
 {% block title %}Week of {{ monday_iso | fmt_date }} — {{ site_name }}{% endblock %}
+{# A week that has not happened yet is an address, not a record: nothing here should be
+   indexed as though the Board had a quiet week four years out.
+
+   `super()`, not a second copy of base's `<link>`: this block ADDS a meta tag, where
+   `party.html` and `sheet.html` override the same block to REPLACE the site feed with the
+   page's own. Copying base's head here instead would drift the moment base gains a tag. #}
+{% block head %}{% if state == 'future' %}<meta name="robots" content="noindex">{% endif %}{{ super() }}{% endblock %}
 {% block main %}
 <section class="week">
   <div class="week-head">
     <h1 class="serif week-title">Week of {{ monday_iso | fmt_date }}</h1>
-    <div class="muted small">{{ fmt_range(week.start, week.end) }} · Monday to Sunday · <a href="{{ prev_path }}">← previous week</a>{% if next_path %} · <a href="{{ next_path }}">next week →</a>{% endif %} · <a href="/">this week</a></div>
+    <div class="muted small">{{ fmt_range(week.start, week.end) }} · Monday to Sunday{% if prev_path %} · <a href="{{ prev_path }}">← previous week</a>{% endif %}{% if next_path %} · <a href="{{ next_path }}">next week →</a>{% endif %} · <a href="/">the latest seven days</a></div>
   </div>
 </section>
-{% if covered %}
-{% include "_week_body.html" %}
-{% else %}
+{% if state == 'future' %}
+<section class="caption">
+  <p>This week has not happened yet. {{ site_name }} publishes what the Board has already posted; when this week arrives, the watch will fill this address in.</p>
+</section>
+{% elif state == 'uncovered' %}
 <section class="caption">
   <p>{{ site_name }}’s record does not yet cover this week. History is being added in dated waves; the <a href="/coverage">coverage page</a> says how far back the record reaches today. This address will fill in when a wave reaches it.</p>
 </section>
+{% else %}
+{% if state == 'partial' %}
+<section class="caption">
+  <p class="small muted">A wave has not finished this week{% if walked_through %}: it walked as far as <time datetime="{{ walked_through }}">{{ walked_through | fmt_date }}</time>{% endif %}. What is below is what the record holds for these seven days, which may not be all the Board posted in them. The <a href="/coverage">coverage page</a> says how far each walk has reached.</p>
+</section>
+{% endif %}
+{% set moved_in = 'in the week of ' ~ monday_iso | fmt_date %}
+{% include "_week_body.html" %}
 {% endif %}
 <section class="caption">
   <p class="small muted">Permanent address: <span class="mono">docketyard.org/week/{{ monday_iso }}</span> — any day of the week resolves here.</p>

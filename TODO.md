@@ -8,19 +8,25 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
+- **v2026.08.45 is committed and not deployed.** Navigation Tiers 1–2. The deploy MUST run
+  `docker compose run --rm ingest search rebuild` in the window (`infra/deploy/README.md`):
+  `INDEX_FORMAT` 3 forces a rebuild, and a rebuild over 30 s makes a concurrent
+  `/subscribe` **fail** — 32 s was measured at two thirds of today's 96,225 rows. **Take
+  that timing and put it in `search.md`**; it is the last owed half of a deferred item
 - **26,943 comment attachments unfetched, and the poller will never fetch them** (measured
-  2026-08-31: all 26,943 are `backfill`-mode observations, and `poll` asks for
-  `observed_in="forward"` — the watch's own files first, a wave's backlog being the wave's).
-  4 are held, all re-seen in the forward window. It needs the loop the documents wave used:
+  2026-08-31: all are `backfill`-mode observations and `poll` asks for `observed_in=
+  "forward"`). Cameron's go given 2026-08-31, **throttled and after this release**:
   `fetch attachments --mode backfill` on the instance, resumable, watching disk (21 GB free
-  against the pruner's 20 GB floor) — **Cameron's go**, it is ~27k requests to the Board
-- **ADR 0017 (Proposed)**: the batch is complete, so it is decidable. Amendments to fold in
-  at acceptance: the docket class ships from regex+registry (95.1%, unbeaten by nine local
-  models); the on-page rule joins the resolution pass; the decided date is extracted in the
-  same pass or costs a ~$1,335 re-run. **Cameron's acceptance**
-- **Party types (F3's first slice)**: design in `docs/party-types.md`, ground truth checked
-  (300 parties), rules v2 at 83.3% — but tuned on the sheet it is scored against, so **a
-  second unseen sample must confirm** before any type ships. Then the model tier
+  against the pruner's 20 GB floor). ~27k requests to the Board — agree the rate first
+- **ADR 0017 stays Proposed.** Acceptance taken 2026-08-31 and **held by Cameron the same
+  day**, before it left the branch; § Decision is unamended. Its § Acceptance, held keeps
+  the work — what acceptance would decide, the amendments re-checked, and the six things it
+  must clear first. Still gates OCR, the citator and the reviewer build
+- **A6 decided 2026-08-31, not built**: an AB sub-docket subscription stops folding to its
+  family; every other prefix keeps folding. It changes what a subscription means, so it is
+  its own change with its own review
+- **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against, so
+  **a second unseen sample must confirm** before any type ships
 - No Anthropic key exists; any Claude-backed run needs a new one from Cameron
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
@@ -28,26 +34,23 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 ## Next
 
 - **ADR 0016** accepted 2026-08-28; `reviewer`/`review_action` drafted into
-  `schema-draft.md` § 7, schema-critic's report folded in. Build after 0017
-- Citator schema gate (`docs/citator-gate.md`) is drafted into ADR 0017; still open after
-  it: record cites' slice, statutes, the decided date's placement
+  `schema-draft.md` § 7. Build after 0017 settles
+- `schema-draft.md`'s citation section is three revisions behind what 0017 proposes
+  (`citation.treatment`, `cited_decision_id` FK, the superseded natural key); revise it on
+  acceptance, not after
 - **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md`,
-  shape measured — Textract bulk + Claude on graphic/tabular/low-confidence, ~$700 for the
-  backfill. Nothing reads into the store before ADR 0017 settles what ships
-- Deadline engine (C4) evidence: decision JSON carries no extracted obligations (verified
-  2026-08-26); a hand-checked fixture of 8 dated obligations for FD 36873 is in
-  `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only; see
-  `docs/upns-tracker-inheritance.md`). Dates quoted, never computed (ADR 0006)
+  ~$700 for the backfill. Still blocked on 0017, and still needs the key
+- Deadline engine (C4): decision JSON carries no extracted obligations (verified
+  2026-08-26); a hand-checked fixture of 8 for FD 36873 is in
+  `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only). Dates quoted, never computed
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
 - Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
-- **ADR 0012 addendum: the blob cache** (S3 the store, the instance a cache; sync + prune).
-  Pulled from `docs/deferred.md` 2026-08-31 — its precondition is met: wave 3 closed, the
-  pruner has held the floor for four days, a pruned blob has been served back from S3
-- **`docs/navigation-review.md`** (2026-08-31): eight measured defects on the live site, of
-  which Tier 1 is corrective and cheap — the `covered()` slice-key match hides 91 filings
-  and walls off the whole 1996–2026 archive; `/coverage` misattributes the comment walk's
-  gaps to filings. **The `/coverage` wording is a trust-page claim and needs Cameron.**
-  Tiers 2–4 are findability, and are his to choose
+- **ADR 0012 addendum: the blob cache** (S3 the store, the instance a cache; sync + prune)
+- **`docs/navigation-review.md`**: Tiers 1–2 shipped. A7 (a series sheet builds 2,628
+  entries and renders none) is one decision with the same item in `docs/deferred.md`.
+  Tier 3 is a front door — weeks index, docket index by prefix and year, `/parties` as a
+  page, the sub-docket → series breadcrumb. **Tier 4 is his** (the masthead, the home
+  window's unit, what a series sheet is, place)
 - When this list runs short or a decision makes one of them near-term, pull the next item
   from `docs/deferred.md` (review findings and known gaps, dated, with their context)
 

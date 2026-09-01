@@ -113,7 +113,12 @@ def _search(con: Connection, args: dict, host: str) -> str:
             "not proof of absence at the Board."
         )
     for h in hits:
-        lines.append(f"[{h.kind}] {h.title} — {h.fact} — {_site(host, h.path)}")
+        # the caption first where there is one, the identifier beside it. An assistant
+        # handed "[docket] FD 30101 — 0 filings" has been told nothing about the
+        # proceeding, which is navigation-review.md § B on the third surface — fixed on
+        # the page and in /suggest, and left here until the schema-critic caught it.
+        named = f"{h.caption} ({h.title})" if h.caption else h.title
+        lines.append(f"[{h.kind}] {named} — {h.fact} — {_site(host, h.path)}")
     return "\n".join(lines)
 
 
@@ -264,9 +269,20 @@ def _coverage(con: Connection, args: dict, host: str) -> str:
         f"- The forward watch has run since {c.forward_since}.\n"
         f"- {c.documents:,} of the Board's own files are held by content hash;"
         f" {c.attachments_unfetched:,} listed files are not yet fetched.\n"
+        # By table, never unioned: a month the comment walk has not finished says nothing
+        # about filings and decisions, and one merged list told the reader it did
+        # (navigation-review.md A3). A machine reading this makes the same mistake a
+        # person does.
         + (
-            f"- Months a backfill has not finished: {', '.join(c.backfill_incomplete)}.\n"
-            if c.backfill_incomplete
+            "- Months a backfill has not finished, for filings and decisions:"
+            f" {', '.join(coverage_store.month_runs(c.records_incomplete))}.\n"
+            if c.records_incomplete
+            else ""
+        )
+        + (
+            "- Months a backfill has not finished, for environmental comments:"
+            f" {', '.join(coverage_store.month_runs(c.comments_incomplete))}.\n"
+            if c.comments_incomplete
             else ""
         )
         + f"\nThe page a person would read: {_site(host, '/coverage')}"

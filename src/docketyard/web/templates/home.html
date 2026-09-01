@@ -1,5 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{{ site_name }} — this week at the Surface Transportation Board{% endblock %}
+{# The bare domain's title is what every search result and link unfurl carries, so it must
+   name the record, not the window this page happens to open on (navigation-review.md A8).
+   It names no span: how far back the record reaches is a measured claim and /coverage is
+   where the record makes it. #}
+{% block title %}{{ site_name }} — filings and decisions of the Surface Transportation Board{% endblock %}
 {% block main %}
 <section class="lead">
   <div>
@@ -14,8 +18,12 @@
 
 <section class="week">
   <div class="week-head">
-    <h2 class="week-title">This week at the Board</h2>
+    {# Not "this week": this window is the seven days ending on the latest activity the
+       record holds, while /week is a Monday–Sunday calendar week. Two units under one
+       name was the wording the operator found (navigation-review.md A5). #}
+    <h2 class="week-title">The latest seven days at the Board</h2>
     <div class="muted small">{{ fmt_range(week.start, week.end) }}{% if week.checked %} · record checked {{ week.checked | fmt_when }}{% endif %} · <a href="/week">past weeks</a></div>
   </div>
+{% set moved_in = 'in these seven days' %}
 {% include "_week_body.html" %}
 {% endblock %}

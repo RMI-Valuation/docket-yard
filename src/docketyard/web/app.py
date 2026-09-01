@@ -27,6 +27,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup, escape
 from starlette.concurrency import run_in_threadpool
 
 from docketyard import __version__
@@ -113,6 +114,27 @@ def fmt_day_month(value: str | None) -> str:
     return f"{d.day} {d.strftime('%b')}"
 
 
+def highlight(snippet: str) -> Markup:
+    """A search snippet, escaped first and marked second.
+
+    `search.py` marks the matched terms with two control characters rather than with tags,
+    because what surrounds them is the Board's own printed text and the words environmental
+    commenters wrote — external input, 34,257 rows of it. Escaping the whole string and
+    only then substituting the tags means the sole markup that can reach the page is the
+    markup this pair of functions put there; a `<script>` in a comment body is escaped like
+    any other text. The control characters cannot arrive from the record: `escape()` leaves
+    them alone, but nothing in the index can contain them — and if one somehow did, the
+    worst it produces is a stray `<mark>` inside a `<div>` we opened, never an attribute or
+    a tag of the record's choosing."""
+    # `str()` matters: `escape()` returns a Markup, and Markup.replace() would escape the
+    # tags being substituted in, printing "&lt;mark&gt;" on the page. Escape first, drop
+    # back to a plain string to substitute, and mark the whole as safe once.
+    marked = str(escape(snippet))
+    return Markup(  # noqa: S704 — every substring below is escaped or a literal
+        marked.replace(search.MARK_OPEN, "<mark>").replace(search.MARK_CLOSE, "</mark>")
+    )
+
+
 def fmt_range(start: str, end: str) -> str:
     """18–25 August 2026, collapsing what the two dates share."""
     try:
@@ -192,6 +214,8 @@ def create_app(
     templates.env.filters["fmt_day_month"] = fmt_day_month
     templates.env.filters["plural"] = labels.plural
     templates.env.filters["commas"] = "{:,}".format
+    templates.env.filters["month_runs"] = coverage.month_runs
+    templates.env.filters["highlight"] = highlight
     templates.env.globals.update(
         fmt_range=fmt_range,
         prefix_name=labels.prefix_name,
@@ -222,6 +246,7 @@ def create_app(
         parse_docket_id=parse_docket_id,
         kind_label=labels.kind_label,
         filter_key=labels.filter_key,
+        register_link=labels.register_link,
         confirm_ttl_hours=subscriptions.CONFIRM_TTL_HOURS,  # the privacy page quotes it
     )
     app.mount("/static", StaticFiles(directory=str(_PKG / "static")), name="static")
@@ -588,24 +613,35 @@ def create_app(
             d = date.fromisoformat(day)
         except ValueError as e:
             raise HTTPException(404) from e
+        today = date.today()
+        # Outside the corridor there is no week address at all (navigation-review.md A4).
+        # Bounding here rather than in the template is what keeps the date arithmetic below
+        # from overflowing at either end of `date`, and stops "← previous week" offering an
+        # endless corridor of pages no record can ever fill.
+        if not (home.WEEK_FLOOR <= d <= today + timedelta(days=home.WEEK_HORIZON_DAYS)):
+            raise HTTPException(404, "There is no week at this address.")
         monday = home.monday_of(d)
         if d != monday:  # any day of the week resolves to the week's one address
             return RedirectResponse(urls.week_path(monday), status_code=301)
         con = _connect(db_path)
         try:
             w = home.calendar_week(con, monday)
-            is_covered = home.covered(con, monday, monday + timedelta(days=6))
+            end = monday + timedelta(days=6)
+            state = home.coverage_state(con, w, monday, end, today)
+            reached = home.walked_through(con, monday, end) if state == home.PARTIAL else None
             latest = home.latest_activity_date(con)
         finally:
             con.close()
         nxt = monday + timedelta(days=7)
+        prev = monday - timedelta(days=7)
         return render(
             request,
             "week.html",
             week=w,
             monday_iso=monday.isoformat(),
-            covered=is_covered,
-            prev_path=urls.week_path(monday - timedelta(days=7)),
+            state=state,
+            walked_through=reached.isoformat() if reached else None,
+            prev_path=urls.week_path(prev) if prev >= home.WEEK_FLOOR else None,
             next_path=urls.week_path(nxt) if nxt <= latest else None,
         )
 
@@ -673,7 +709,18 @@ def create_app(
             cov = coverage.coverage(con)
         finally:
             con.close()
-        return render(request, "coverage.html", cov=cov)
+        # The caption refresh's own bounds, read from the constants that enforce them, so
+        # the published sentence cannot drift from what the poller does (deferred, the
+        # caption-refresh review): the registry was walked once, and the watch has been
+        # topping up captions since.
+        return render(
+            request,
+            "coverage.html",
+            cov=cov,
+            caption_lookups=poll.CAPTION_LOOKUPS,
+            caption_window_days=poll.CAPTION_WINDOW_DAYS,
+            caption_attempts=poll.CAPTION_ATTEMPTS,
+        )
 
     @app.get("/stats")  # the numbers move once a poll; the page may be cached that long
     def stats_page(request: Request):
@@ -1028,12 +1075,29 @@ def create_app(
             con = _connect(db_path)
             try:
                 docket = search.held_docket(con, q)
-                found = search.search(con, q, limit=search.SUGGEST, prefix=True)
+                # no snippet: this endpoint discards it, and asking for one makes the
+                # cheapest-looking query in the system the most expensive
+                found = search.search(con, q, limit=search.SUGGEST, prefix=True, with_snippet=False)
             finally:
                 con.close()
+
+            # Explicit fields, not `asdict`: the row carries a marked-up snippet meant for
+            # one template, and control characters do not belong in a JSON answer. The
+            # caption does — `docs/search.md` has promised as-you-type captions since M4,
+            # and this surface answered `{"title": "AB 3", "fact": "the docket sheet"}`
+            # (navigation-review.md § B).
+            def row(h):
+                return {
+                    "kind": h.kind,
+                    "path": h.path,
+                    "title": h.title,
+                    "fact": h.fact,
+                    "caption": h.caption,
+                }
+
             if docket is not None:
-                hits.append(asdict(docket))
-            hits += [asdict(h) for h in found if docket is None or h.path != docket.path]
+                hits.append(row(docket))
+            hits += [row(h) for h in found if docket is None or h.path != docket.path]
         return JSONResponse({"hits": hits[: search.SUGGEST]}, headers={"Cache-Control": "no-store"})
 
     @app.get("/d/{ident}")

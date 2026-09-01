@@ -3,10 +3,11 @@
 {% block main %}
 <section class="caption">
   <h1 class="serif">The record in numbers</h1>
-  <p class="muted">Every number here is measured from the record as it stands; none is typed. A filing or decision is counted once by the Board’s own identifier, even when it is entered under a parent and a sub-docket. Months are by the Board’s own dates — filed or served — so a month’s number is what this record holds dated in that month, whichever wave observed it; the earliest months fill in as the <a href="/coverage">backfill</a> reaches them. Nothing on this page is about who reads or follows.</p>
+  <p class="muted">Every number here is measured from the record as it stands; none is typed. A filing or decision is counted once by the Board’s own identifier, even when it is entered under a parent and a sub-docket, and an environmental comment once by the Board’s number and row — the same units <a href="/coverage">the coverage page</a> reports. The chart below is filings and decisions only; comments arrive on their own walk and are not yet drawn. Months are by the Board’s own dates — filed or served — so a month’s number is what this record holds dated in that month, whichever wave observed it; the earliest months fill in as the <a href="/coverage">backfill</a> reaches them. Nothing on this page is about who reads or follows.</p>
   <div class="stats">
     <div class="stat"><span class="n serif">{{ s.filings | commas }}</span><span class="l">filings</span></div>
     <div class="stat"><span class="n serif">{{ s.decisions | commas }}</span><span class="l">decisions</span></div>
+    <div class="stat"><span class="n serif">{{ s.comments | commas }}</span><span class="l">environmental comments</span></div>
     <div class="stat"><span class="n serif">{{ s.documents | commas }}</span><span class="l">documents held, {{ '%.1f' | format(s.document_bytes / 1e9) }} GB</span></div>
     <div class="stat"><span class="n serif">{{ s.dockets | commas }}</span><span class="l">dockets in the registry</span></div>
     <div class="stat"><span class="n serif">{{ s.parties | commas }}</span><span class="l">parties on record</span></div>

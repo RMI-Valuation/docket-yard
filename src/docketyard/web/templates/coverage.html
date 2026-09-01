@@ -11,14 +11,30 @@
 
   <h2>The docket registry</h2>
   <p>The registry of proceedings — <strong>{{ '{:,}'.format(cov.dockets) }} dockets</strong> — was walked in full from the Board's dockets table{% if cov.registry_walked_at %} on {{ cov.registry_walked_at | fmt_date }}{% endif %}, one prefix at a time. Six prefixes the Board's search offers return nothing ({{ cov.empty_prefixes | join(', ') }}); they are listed so that their absence here is not mistaken for a gap.</p>
+  {#- The walk happens once; the watch has been topping the registry up ever since, and a
+      page that mentioned only the walk was a year out of date the moment a new proceeding
+      opened. Every bound below is read from the constants that enforce it, so the sentence
+      cannot drift from what the poller does (deferred, the caption-refresh review). -#}
+  <p class="small muted">That walk is not repeated. Since it, the watch fills in what it misses: each pass asks the Board's dockets table about proceedings that hold records but no caption — at most {{ caption_lookups }} a pass, only those opened in the last {{ caption_window_days }} days, and no more than {{ caption_attempts }} times each, after which the silence is reported rather than asked about again. One row per request, so a proceeding that opened after the walk gains its caption without the registry being walked a second time.</p>
 
   <h2>What is not here</h2>
   <ul>
     {% if cov.backfill_from %}
-    <li><strong>History before {{ cov.backfill_from | fmt_date }}.</strong> Filings and decisions dated from {{ cov.backfill_from | fmt_date }} onward are being added in dated waves ({{ cov.backfill_filings | plural('filing') }} and {{ cov.backfill_decisions | plural('decision') }} so far — counted once per docket they were entered in, so a filing entered in a docket and its sub-docket counts twice here and once on <a href="/stats">the statistics page</a>{% if cov.backfill_incomplete %}; months not yet complete: {{ cov.backfill_incomplete | join(', ') }}{% endif %}); before that date a sheet is not the docket's complete history and does not claim to be. Entries added by a wave never trigger an alert.</li>
+    <li><strong>History before {{ cov.backfill_from | fmt_date }}.</strong> Filings and decisions dated from {{ cov.backfill_from | fmt_date }} onward are being added in dated waves ({{ cov.backfill_filings | plural('filing') }} and {{ cov.backfill_decisions | plural('decision') }} so far — counted once per docket they were entered in, so a filing entered in a docket and its sub-docket counts twice here and once on <a href="/stats">the statistics page</a>{% if cov.records_incomplete %}; months not yet complete for filings and decisions: {{ cov.records_incomplete | month_runs | join(', ') }}{% endif %}); before that date a sheet is not the docket's complete history and does not claim to be. Entries added by a wave never trigger an alert.</li>
     <li><strong>What crawlers are told.</strong> The sitemap lists every docket address — families and sub-dockets — every filing and decision, every party page, and every document the record holds at its hash; it is regenerated from the record as it moves.</li>
     {% else %}
     <li><strong>History before the watch began.</strong> A docket's sheet shows what the Board has posted since {{ cov.forward_since | fmt_date }}, plus anything observed while building the registry. Older filings and decisions are real and will be added in dated waves; until then a sheet is not the docket's complete history and does not claim to be.</li>
+    {% endif %}
+    {#- Comments are walked on their own ledger, and their gaps reach four and a half
+        years further back than either record table's. Until 2026-08-31 all three tables
+        shared ONE list, printed under a sentence whose subject is filings and decisions,
+        which told readers that 1996-01 through 2000-08 were incomplete for filings and
+        decisions when every one of those months was a comment month
+        (navigation-review.md A3). This clause sits outside the backfill branch above
+        because the comment walk's state does not depend on that wave's. Both the date
+        and the month list are measured. -#}
+    {% if cov.comments_from or cov.comments_incomplete %}
+    <li><strong>Environmental comments</strong> are walked separately, on their own ledger, and how far that walk has reached says nothing about the filings and decisions above. {% if cov.comments_from %}The earliest comment this record holds is dated {{ cov.comments_from | fmt_date }}.{% else %}This record holds no comment yet.{% endif %}{% if cov.comments_incomplete %} A month the walk has not finished is recorded as unfinished rather than empty — the Board's search answers a month it has nothing for with the same envelope it answers a failed query with, so this record declines to call a month empty it has not probed, and months the Board's own comment table does not reach will stay on this list. Months not yet complete for comments: {{ cov.comments_incomplete | month_runs | join(', ') }}.{% endif %}</li>
     {% endif %}
     <li><strong>Rail recordations</strong>, which the Board keeps in a separate table.</li>
     <li><strong>Document text.</strong> Files are kept and linked; nothing is yet extracted from inside them.</li>

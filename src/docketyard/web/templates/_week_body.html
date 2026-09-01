@@ -34,7 +34,11 @@
 </section>
 
 <section class="moved-section">
-  <h2>Proceedings that moved this week</h2>
+  {# This file is shared by the home page and every dated week page, so the window it is
+     describing has to be passed in. It said "this week" as a constant until 2026-08-31,
+     which put the home page's wording on ~1,590 archive pages: "Week of 1 Mar 2010",
+     followed by "Proceedings that moved this week" (navigation-review.md A5). #}
+  <h2>Proceedings that moved {{ moved_in }}</h2>
   <table class="moved">
     <thead><tr><th scope="col">Docket</th><th scope="col">Proceeding</th><th scope="col" class="num">Filings</th><th scope="col" class="num">Last activity</th></tr></thead>
     <tbody>

@@ -390,3 +390,19 @@ def test_every_freshness_signal_is_actually_watched():
     workflow = Path(".github/workflows/heartbeat.yml").read_text(encoding="utf-8")
     limits = set(re.findall(r'"(last_\w+|oldest_\w+)":\s*\d', workflow))
     assert reported == limits, f"unwatched: {reported - limits}; unknown: {limits - reported}"
+
+
+def test_a_head_override_adds_to_the_shared_head_or_deliberately_replaces_it(tmp_path):
+    """`base.html`'s head block carries the site feed. A page that only wants to ADD a tag
+    must call `super()` — copying the link instead drifts the moment base gains one
+    (Copilot, PR #13). A page with a feed of its OWN replaces the block on purpose, and
+    must not end up advertising two."""
+    client = TestClient(create_app(build_store(tmp_path)))
+    # the head link itself, not the footer's plain link to the same address
+    site_feed = '<link rel="alternate" type="application/atom+xml" title="Every new filing'
+    for path in ("/", "/week/2026-08-24", "/search?q=peoria", "/coverage"):
+        text = client.get(path).text
+        assert text.count(site_feed) == 1, path  # inherited via super(), exactly once
+    # a page with a feed of its own swaps the site's out rather than advertising both
+    sheet = client.get("/d/FD-36873").text
+    assert sheet.count('type="application/atom+xml"') == 1 and site_feed not in sheet

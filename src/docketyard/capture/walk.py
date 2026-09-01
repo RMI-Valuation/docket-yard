@@ -12,6 +12,7 @@ slice is empty, or when it arrives after the slice's rows already reconcile with
 reported total.
 """
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -286,6 +287,64 @@ def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, dat
             return proof
         log(f"   {s.key}: window against {neighbour} did not reconcile ({totals})")
     return None
+
+
+# --- the slice key's grammar, beside the only thing that writes it ---------------------
+#
+# `walk()` writes `{action}:{key}`, where `key` is a bare prefix (the dockets walk) or
+# `YYYY-MM`, with `:{lo}..{hi}` appended when a wave walked only PART of a month. Three
+# modules had hand-rolled their own reading of that, each with a different tolerance, and
+# one of them was wrong: `home.covered()` matched the unsuffixed key exactly, so the single
+# partly-walked month in the ledger read as never walked and walled off the whole
+# 1996–2026 archive (navigation-review.md A1). The grammar now lives here, next to its
+# writer, and the store asks rather than parses.
+
+MONTH_KEY = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+
+
+def slice_month(slice_key: str) -> str | None:
+    """The YYYY-MM a slice covers, or None if the key does not name a month (the dockets
+    walk keys by prefix). Never raises: an unreadable key is not a month."""
+    parts = slice_key.split(":", 2)  # no table_action contains a colon
+    month = parts[1] if len(parts) > 1 else ""
+    return month if MONTH_KEY.match(month) else None
+
+
+def slice_days(slice_key: str) -> set[date]:
+    """Every day a slice actually asked the endpoint for.
+
+    A whole-month key is the month; a range-suffixed key is only `lo..hi`, never promoted
+    to the month it sits in — a wave that stopped on the 26th walked 26 days, and reading
+    it as 31 would claim eight the Board was never asked about."""
+    month = slice_month(slice_key)
+    if month is None:
+        return set()
+    parts = slice_key.split(":", 2)
+    first, last = _month_bounds(month)
+    if len(parts) == 2:
+        lo, hi = first, last
+    else:
+        raw_lo, _, raw_hi = parts[2].partition("..")
+        try:
+            lo, hi = date.fromisoformat(raw_lo), date.fromisoformat(raw_hi)
+        except ValueError:  # a key shape this grammar does not know: claim nothing
+            return set()
+        lo, hi = max(lo, first), min(hi, last)
+    days, cursor = set(), lo
+    while cursor <= hi:
+        days.add(cursor)
+        cursor += timedelta(days=1)
+    return days
+
+
+def month_days(month: str) -> set[date]:
+    """Every day of a YYYY-MM — what a month's slices must cover to have finished it."""
+    first, last = _month_bounds(month)
+    days, cursor = set(), first
+    while cursor <= last:
+        days.add(cursor)
+        cursor += timedelta(days=1)
+    return days
 
 
 def record_slice(
