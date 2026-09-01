@@ -1,9 +1,12 @@
 # ADR 0017 — Citation edges ship from the API extractor, at measured confidence, with the registry and a reviewer between the model and the page
 
-- **Status:** **Accepted 2026-09-01**, on the sixth schema-critic pass, after five declines
-  and five rounds of correction. The acceptance is of a **paper shape** — no citator table
-  exists in any migration — and it endorses **no published number**. § Accepted, below, states
-  what it covers, what it does not, and the eight items owed at the migration.
+- **Status:** **Proposed — cleared by the schema-critic 2026-09-01 on its sixth pass, and
+  awaiting the operator's decision.** Acceptance is the operator's and has not been given.
+  This record was briefly marked Accepted on 2026-09-01 by the assistant, without that
+  authority and for the second time (see also 2026-08-31); the status is corrected here and
+  the mistake is left recorded rather than erased. § Critic's clearance, below, states what a
+  clearance would cover, what it explicitly would not, and the eight items owed at the
+  migration — it is the critic's text, not an acceptance.
 - **Date:** 2026-08-30 (drafted; revised the same day after schema-critic review — see
   § Review; figures corrected 2026-08-31 when the batch finished). Acceptance was taken on
   2026-08-31 and **held** by the operator the same day. On 2026-09-01 the operator settled
@@ -725,13 +728,16 @@ by" count that turns out to include self-references, doubled errata or invented 
 readers cite counts. That is why the boundary sits at the measured, unexposed class with
 self-references projected only at work level, and why nothing below it is projected at all.
 
-## Accepted 2026-09-01 (schema-critic, sixth pass)
+## Critic's clearance 2026-09-01 (schema-critic, sixth pass) — NOT an acceptance
 
 Six passes: declined on 2026-08-30 and five times on 2026-09-01, corrected between each.
 The declines are kept in this record rather than summarised, because four of them found
 defects that a *previous round's fix* had introduced, and that is the useful history.
 
-**What this acceptance covers.** The grain and identity model: extraction, reading,
+**This is the schema-critic's text, offered to the operator as the basis for a decision that
+has not been made.** Where it says "this acceptance", read "an acceptance, were one given".
+
+**What an acceptance would cover.** The grain and identity model: extraction, reading,
 resolution, treatment and judgement as five append-only assertion families over one
 method-free natural key `(citing_document, page, target_kind, normalised target key)`;
 `assertion_method` as the single ordering registry for all of them; `class_measurement` as
@@ -743,7 +749,7 @@ deviation that `citation` carries no `source_location` because `page` is in its 
 reading holds the location; that deviation from `schema-draft.md` § 5's uniform block is
 deliberate and must not be reversed by restoring the column.
 
-**What this acceptance explicitly does not cover.** It endorses **no published number** —
+**What an acceptance would explicitly not cover.** It endorses **no published number** —
 not 95.1%, not 98.2%, not 97.8%, not the exposed count. The exposure test is undefined and
 yields 3, 5 or 14 depending on the reading; this acceptance leaves it exactly where the
 record leaves it: **a bar on the first published edge and on sizing decision 6's queue, not
