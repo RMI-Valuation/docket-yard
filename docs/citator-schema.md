@@ -122,8 +122,11 @@ Four things this settles, three of them corrections the critic made to the first
 
 **Measured, so the projection rule needs no tie-break:** over the sixty decision texts, 55
 print exactly one `Decided:` line, 5 print none, **and none prints two**. So the rule is
-simply: prefer the text-layer reading where `document_page.had_text_layer`, else the
-highest-confidence OCR reading.
+simply: prefer the text-layer reading, else the OCR reading whose own confidence is
+higher. (`document_page.had_text_layer` is paper-only — it is in `schema-draft.md` and in
+no migration — so the rule keys off `reading_channel`, which is in the key, and not off a
+column that does not exist.)
+
 
 **The five that print none have no home here, and need one.** `printed_text NOT NULL` is right,
 so a document with no line gets no row — making "read, and there is no printed decided date"
@@ -149,7 +152,7 @@ number of its own.
 
 | method | class | reading | recall | precision after decision 5 | projected? |
 | --- | --- | --- | --- | --- | --- |
-| `regex-docket-cite` | docket, resolved, unexposed | text-layer | 95.3% | **98.2%** (whole class) | yes |
+| `regex-docket-cite` | docket, resolved, unexposed | text-layer | **95.1%** (the whole docket-shaped class; the subclass figure needs the exposure test defined) | **98.2%** under `cite.py`'s closure, **97.3%** without the parent | yes |
 | `regex-docket-cite` | docket, resolved, exposed | text-layer | — | — | to the review queue |
 | `regex-docket-cite` | any | ocr | **unmeasured** | **unmeasured** | never, by decision 4's own rule |
 | `model:claude-sonnet-5` | reporter, date-named, court, deadline | text-layer | as `extraction-benchmark.md` | — | not in this slice; stored |
