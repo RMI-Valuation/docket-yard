@@ -22,9 +22,12 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   record page and not disallowed in `robots.txt`; detection took 6 h 13 m (`deferred.md`)
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
   heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
-- **ADR 0021 (the OCR text grain) and 0022 (where the text lives) are Proposed**, each
-  schema-critic'd twice. 0022: all text in the store, ~4–5.5 GB, the instance resized with
-  the migration. **Accepting them is Cameron's**; all OCR code waits on 0021
+- **`methods.stamp()` has no channel term** — the first OCR-channel citator load would stamp
+  text-layer measurements onto OCR rows and publish them. A live ADR 0017 D3 violation
+  waiting for a load that has not happened; fix before any OCR pass runs
+- **ADR 0021 (the grain) and 0022 (where the text lives) are Proposed**, cut by half to the
+  four answers: finding aid always shown, assertion gated; cheap second reading, escalation
+  operator-triggered; maps now, tables last. **Cameron's to accept** (`ocr-migration.md`)
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
   sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
@@ -33,14 +36,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **The router is measured and not settled** (§ Step 4): free at 0.05 s, graphic call safe,
-  **blank call unsafe — "no regions" must never mean "skip"**; preprocessing is closed
-  (§ Step 5). **Cameron's**: 200 DPI for the degraded tier (12.7% to 12.1%, +40 h), and more
-  tabular and graphic ground truth — 5 and 9 pages decide nothing, and the tabular route,
-  the router's figures and crop/masking's re-asks all wait on it
-- **HunyuanOCR-1.5 is Cameron's call**: the only free engine that closes the table gap
-  (86.2% cells), but its licence bars the EU/UK/Korea and forbids using outputs to improve
-  any AI model, which the CC0 dump cannot absorb
+- **The router**: free at 0.05 s, graphic call safe, **blank call unsafe — "no regions"
+  must never mean "skip"**. **Cameron's**: 200 DPI for the degraded tier (+40 h), and the
+  ground-truth top-up the tabular route waits on (tables are now read last, not never)
+- **HunyuanOCR-1.5 deferred with the tabular tier**: closes the table gap (86.2% cells), but
+  its licence bars the EU/UK/Korea and forbids using outputs to improve any model
 - **OCR of the 15,085 image-only files** (M3's first slice): **247,923 pages**, censused
   2026-09-02 — 42% over the plan's estimate, so ~187 h of box time and not 132
 - Deadline engine (C4): decision JSON carries no obligations (verified 2026-08-26); a

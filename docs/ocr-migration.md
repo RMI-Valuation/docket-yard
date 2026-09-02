@@ -1,94 +1,172 @@
-# What the OCR migration owes
+# What the OCR migrations owe
 
-The checklist for the migration that creates `document_text` and its neighbours, held here
-rather than in [ADR 0021](adr/0021-the-ocr-text-grain.md) so that accepting the record means
-accepting thirteen decisions and not sixty lines of mechanics. **It becomes the migration's
-header comment when the migration is written**, which is where this project keeps this kind
-of detail (migrations 0014 and 0015 both carry theirs).
+Held here rather than in [ADR 0021](adr/0021-the-ocr-text-grain.md) so that accepting a
+record means accepting decisions, not mechanics. **Each section becomes its migration's
+header comment when that migration is written**, which is where this project keeps this kind
+of detail — migrations 0014 and 0015 both carry theirs.
 
-Nothing here is optional and nothing here is a decision. Each item is work the accepted
-records already imply, written down so it is not rediscovered at three in the morning.
+**The work is split in two, on the operator's decision of 2026-09-02.** Migration A writes
+the text. Migration B builds the review layer, and it is deliberately second because
+`research/ocr-benchmark/README.md` § Step 6 measured the flag rate that shapes it *after* the
+first draft of the review layer had been designed, and the measurement said the design could
+not work: a queue that must be cleared cannot be built on a 20–60% disagreement rate against
+a fifty-page week.
 
-## The rebuilds SQLite forces
+---
 
-1. **`assertion_method`.** Its `target_table` is a hard `CHECK` over five citation tables and
-   SQLite cannot alter a CHECK, so the table is rebuilt: three partial indexes reproduced
-   (`assertion_method_one_owner`, `_identity`, `_rank`), the five-branch `CASE` given an
-   explicit `WHEN 'document_text'` branch rather than letting it fall to the `ELSE`,
-   `route_class` added with its own vocabulary, and the rank index re-formed as
-   `UNIQUE (rank_version, target_table, COALESCE(route_class, ''), precedence_rank)`. The
-   COALESCE is not decoration: SQLite treats NULLs as distinct, so without it the five
-   citation tables lose the rank uniqueness migration 0014 built that index to guarantee.
-   `citator.methods.declare` writes a fixed column list into this table and must move in the
-   same commit.
+# Migration A — write the text
 
-2. **`correction`.** Its CHECK lists the seven natural-keyed tables that must carry a
-   slash-rendered key; `document_text` is not among them, so a correction naming it could
-   carry a bare integer — the exact defect that rebuild existed to stop. Extended in the same
-   transaction, with its key rendering written beside the others migration 0014 lists.
+Four new tables, no rebuilds of anything shipped. That is the point of the split: nothing the
+citator reads is touched before the citator has run its first real load.
 
-Both run inside the migration's single transaction, as every migration before them has.
+## The tables
 
-## The vocabularies and their rows
-
-3. **`review_queue_vocab`** gains `ocr_page`, the name `schema-draft.md` § 7 already uses.
-4. **`review_target_vocab`** gains `document_text`, natural-keyed. The five-segment key form
-   `<sha256>/<page_no>/<method>/<method_version>/<render_profile>` and the page-grained queue
-   exclusion of ADR 0021 D12 are both pinned by tests, or they are conventions nobody
-   enforces.
+1. **`document_text`** — ADR 0021 D1's grain. Append-only; natural key
+   `(document_sha256, page_no, method, method_version, render_profile)` as a **partial**
+   unique index over live rows, never a table-wide `UNIQUE`; surrogate `text_id`;
+   `reading_channel`, `reading_role`, `text`, the engine's own confidence,
+   `confidence_state`, the payload digest and member path, the full ADR 0007 block,
+   `superseded_by` and `superseded_at`.
+   - `CHECK` that `method`, `method_version` and `render_profile` contain no `/`, or a
+     HuggingFace-style engine id renders a review key that cannot be parsed back to columns.
+   - A **trigger** refusing a model row that would displace a `human` one, in the idiom
+     `citation_human_row_is_not_a_model_pass_to_supersede` already uses.
+2. **`document_pagination`** — one row per document: `page_count`, `had_text_layer`, method,
+   version, timestamp. Both values are derived, so both carry provenance (ADR 0007).
+3. **`ocr_run`** — one row per `(document, method, method_version, reading_channel,
+   render_profile)`, typed outcome, pages read, **appending on a re-run** where
+   `extraction_run` replaces. Its header should say why the semantics differ.
+4. **`text_payload`** — the engine payload's digest, size and first-seen, with `document`'s
+   discipline, so a pruned payload is a visible fact and not a dangling hash.
 5. **`measured_target_vocab`** gains `document_text` **with an empty `class_vocab`**, so ADR
-   0021 D8's "nothing published until measured" is enforced by the schema rather than by
-   convention. The classes it will eventually hold are the benchmark's own — CER, WER, docket
-   numbers, dates, at three tiers — and each must be scoped to this stage, or migration
-   0014's lesson repeats and one stage's figure is displayed beside another's.
-6. **`route_class_vocab`**, with `unrouted` as a member rather than a null, because ADR 0021
-   D9 requires an undetected page to be routed to a reader rather than skipped.
+   0021 D7's assertion gate is enforced by the schema. **Note a gap found by review and not
+   yet closed:** `class_measurement` has only `recall`, `precision` and `false_veto_rate`,
+   and the benchmark's figures are CER and WER — so the gate cannot be *opened* through the
+   shipped table. Nothing in Migration A publishes an assertion, so it does not block; it is
+   Migration B's to solve, and it must not be solved by storing a CER in `precision`.
+6. **The page index** — its own FTS5 table over a best-row-per-page view, external content,
+   no prefix index, not wired into `search()` or `/suggest` (ADR 0022 D4).
 
-## The tables that have no home yet
+## `dump.py`, which breaks on deploy day otherwise
 
-7. **`text_agreement`** — the table ADR 0021 D7's confidence rule needs and nothing owns.
-   `citation_judgement` is citation-family and cannot hold it. Keyed on the page, naming both
-   readings, carrying its rule, its rule version and an ADR 0007 block. **Without it the
-   review queue cannot find a flagged page at all.**
-8. **`reader_report`**, if the "report a misreading" path ships with the queue.
-   `schema-draft.md` § 7 names it as the `/contribute` landing that has no table.
-9. **The payload table**, with `document`'s discipline — digest, size, first seen — so a
-   pruned payload is a visible fact and not a dangling hash.
+7. Classify every new table or the nightly snapshot raises `Unsafe`: `document_text` and the
+   page FTS `HELD`, `document_pagination` `PUBLIC`, per ADR 0022 D3.
+8. **The view is invisible to the allowlist**, which enumerates `type = 'table'`. It is never
+   classified, never dropped, and the published `schema.sql` would carry a `CREATE VIEW` over
+   a dropped table. Handle views explicitly.
+9. **The shadow logic is hardcoded** to names beginning `search_fts_`. A second index is a
+   code change either way, and only `HELD` — dropped, taking its shadows with it — is safe.
+10. **`HELD_REASON` becomes per-table.** Today it is one string, rendered verbatim on `/data`
+    and shipped in `index.json`. That makes it a published-shape change: `JSON_SHAPE` bumps,
+    `docs/data.md` moves with it, and `read_manifest` must not return `None` on the old shape.
+11. `search.signature()` reads `MAX(correction_id)`, so a page-text correction would force a
+    full rebuild of the docket/party/decision index and invalidate every cached page
+    site-wide. Split the signature, or exclude corrections naming `document_text`.
 
 ## The passes
 
-10. **A pagination pass over every held PDF** to populate `document_page`. ADR 0021 D4 makes
-    an unread page countable only if a row exists for a document nobody has read, and that is
-    a pass, not a number. `had_text_layer` is a derived assertion — extractors disagree on a
-    page carrying three junk characters — so it carries a method, a version and a timestamp,
-    or it breaks ADR 0007 on arrival.
-11. **An OCR class measurement before any OCR-channel edge projects.** ADR 0017 D3,
-    unchanged. `citator.methods.measure` hardcodes `reading_channel = 'text-layer'`, so
-    today's guard is accidental; it is made explicit here.
+12. **Pagination runs as its own command, not inside the migration.** `migrate` is a service
+    the whole stack blocks on, and every migration to date runs in one transaction; ~104k
+    rows written inside it holds the write lock against `ingest` and Litestream. Batched,
+    resumable, committing per document — the shape `docketyard citator load` already has.
+13. **The loader is new**, page-grained and multi-method. It commits per document as the
+    citator's does; it **streams** rather than parsing a whole directory into memory; and it
+    shares none of `methods.stamp` (raises when a class has no measurement, which is by
+    design here), `methods.declare` (its row list is citation-family) or `methods.owner`
+    (hardcodes `target_table = 'citation'`). `load._retire` and `load._supersede_if_changed`
+    are table-agnostic and should be reused rather than reinvented.
+14. **Escalation is an operator-triggered CLI verb**, not an automatic stage — the operator's
+    decision, 2026-09-02. A paid third reading is a pass with its own method and version,
+    recorded in `ocr_run` like any other. No standing spend, and no authenticated surface
+    added to the reader-facing process.
 
-## The infrastructure that breaks on deploy day
+## The infrastructure
 
-12. **`dump.py`'s allowlist and its shadow handling.** Every new table is classified per ADR
-    0022 D5 or the nightly snapshot raises `Unsafe`. The shadow logic is hardcoded to names
-    beginning `search_fts_`, so a second FTS index is a code change and not an allowlist
-    entry — and only `HELD` (dropped) is safe for it, because a `DERIVED` classification
-    leaves `%_data`/`%_idx` shadows holding a positional index of withheld text.
-    `HELD_REASON` is one string for the whole list and would say something untrue about the
-    text-layer channel; it needs to be per-table or the publication filtered.
-13. **The blob prefix, named.** `prune_blobs.py` lists only `blobs/`, the sync unit copies
-    only `data/blobs`, and the web tier's IAM grant is `s3:GetObject` on `blobs/*` and
-    nothing else. Anything under another prefix is unsynced, unpruned and unreadable by the
-    process that serves readers. Payload objects are content-addressed by their own digest,
-    two levels deep, one per document per pass (ADR 0022 D9).
-14. **The loader.** A new page-grained, multi-method interchange: it commits per document as
-    the citator's does, streams rather than parsing the whole directory, and shares none of
-    `methods.stamp` (which raises when a class has no measurement), `methods.declare` (whose
-    row list is citation-family) or `methods.owner` (which hardcodes
-    `target_table = 'citation'`).
-15. **`docs/search.md`** says document text is not indexed. It is a published-page source, so
-    it moves with the code or the drift rule is broken.
+15. **The blob prefix**, named: payloads are immutable, content-addressed by their own
+    digest, `blobs/<dg[:2]>/<dg>`, one object per document per pass. Anything else is
+    unsynced, unpruned, or unreadable by the process that serves readers.
+16. **The resize, before the migration** (ADR 0022 D5), with the steps that lose data if
+    skipped: maintenance flag on first; `systemctl mask` the dump and blob timers, both
+    `Persistent=true`, or the new box fires every missed run at once on first boot; stop
+    `ingest`, `web` **and `litestream`** before `PRAGMA wal_checkpoint(TRUNCATE)`, because
+    Litestream holds a read transaction that prevents truncation; snapshot; **stop Docker on
+    the old instance and disable it**, or two Litestream processes replicate divergent stores
+    to one path; launch, move the static IP rather than changing DNS; verify; unmask; clear
+    the flag. The TLS certificate lives in the `caddy-data` volume and therefore inside the
+    instance snapshot — say so, because the tempting alternative loses it.
+17. **`SQLITE_TMPDIR` on the dump service.** The plain `VACUUM` after the drops places its
+    temporary database in `/tmp`, which is a tmpfs inside the `web` service's 768 MB limit.
+    Point it at the volume and re-test at scale. The two failure signatures differ and only
+    one leaves a message.
+18. **`OnFailure=` on all four systemd units**, and a Grafana alert on
+    `node_filesystem_avail_bytes`. A failed dump today leaves last night's snapshot served
+    under an unchanged manifest, with nothing saying so.
+19. **Litestream retention** raised for the window, or the pre-resize snapshot kept out of
+    band (ADR 0022 D6).
+20. **The healthcheck during the load.** `webwatch` restarts `web` whenever it reports
+    unhealthy, every minute, uncapped; a slow `/` under load becomes a restart loop. Raise the
+    timeout or run the load behind maintenance.
 
-## The review
+## The published pages, which must move in the same commit
 
-16. **schema-critic before the tables exist.** Grain, identity and provenance at once, which
-    `CLAUDE.md` requires of anything schema-touching.
+21. `coverage.html` — *"nothing is yet extracted from inside them"* becomes wrong.
+22. `methodology.html` — *"Documents are not searched"* becomes wrong, and the page needs a
+    "Document text" entry under *Derived, and how* carrying the per-tier error rate and the
+    caveat that the labelled sample is born-digital, so the figure is a lower bound on
+    real-scan damage.
+23. `docs/search.md` — records that document text is not indexed.
+24. `data.html` and `/llms.txt` — the held layer gains a third member; `data.html`'s prose
+    already omits the citator, which is pre-existing drift to fix while there.
+25. **`robots.txt`.** The party module is disallowed for named AI agents *because* it is held
+    from the CC0 dedication, on the stated ground that a permission handing over what the
+    text withholds contradicts itself. Held page text inherits that rule.
+26. **The `/corrections` promise already covers a misread date.** Decide whether a misreading
+    is a correction under that promise — a person reads every report, usually within seven
+    days — or say plainly on the viewer that it is not.
+
+## Before it ships
+
+27. **schema-critic on the migration**, before the tables exist. Grain, identity and
+    provenance at once, which `CLAUDE.md` requires.
+28. **Tests**: an empty reading writes a row and a failed read does not; `ocr_run` appends
+    where `extraction_run` replaces; the human key is pinned and a model pass cannot displace
+    it; `/` is refused in the three key columns; `document_pagination` publishes with its
+    provenance and `document_text` is dropped, in a real `dump.scrub`; **a view over a held
+    table does not survive into the snapshot**.
+
+---
+
+# Migration B — the review layer
+
+Not scoped here beyond what is owed, because § Step 6 says the design has to be redone
+against the measured flag rate before it is worth specifying. What is known to be owed:
+
+- **The `assertion_method` rebuild** — SQLite cannot alter a `CHECK`. Three indexes
+  reproduced, `route_class` added, and the rank index re-formed as
+  `UNIQUE (rank_version, target_table, COALESCE(route_class, ''), precedence_rank)` — the
+  `COALESCE` because SQLite treats NULLs as distinct, so without it the five citation tables
+  lose the rank uniqueness migration 0014 built that index to guarantee.
+  **`assertion_method_identity` must gain `route_class` too**, or two rank rows differing only
+  in route class collide and the whole decision is unimplementable. `methods._COLUMNS` and
+  `_already_declared` move with it — not `declare`'s INSERT, whose explicit column list is
+  what makes it safe.
+- **`RANK_VERSION` is one module constant shared by the citator and anything else that ranks.**
+  `project.py` inner-joins on it, so bumping it for an OCR re-rank empties the citation
+  projection site-wide, silently. It needs a per-target namespace before a second ranked
+  table exists.
+- **The `correction` CHECK**, extended to `document_text` in the same transaction.
+- **The review queue.** `review.QUEUES`, `_unanswered`, `_base` and `pending()` are all
+  citation-shaped; `/review` filters the vocabulary by `LIKE 'citation_%'`; `owed()`
+  materialises every row as a dict on every page load, which at page grain is the 2026-09-02
+  shape. The page-grained exclusion must be a `GLOB` prefix, not a `LIKE`.
+- **`text_agreement`**, if a stored judgement earns a table once the flag rate is known.
+- **`class_measurement`** needs somewhere to put a CER, or `document_text`'s gate cannot open.
+- **`page_route`**, if anything needs the router's rejected alternatives.
+
+## Live now, and not waiting for either migration
+
+- **`methods.stamp()` has no channel term.** It selects on `(measured_target, class)` only,
+  so the first OCR-channel citator load would stamp every row with the *text-layer*
+  measurement, mark it `measured`, and publish it. `measure()` hardcoding `text-layer` is not
+  a guard; it only stops the figure being *recorded*. This is a live ADR 0017 D3 violation
+  waiting for a load that has not happened yet, and it should be fixed on its own.

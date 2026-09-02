@@ -497,3 +497,22 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
   `retention: 168h` while the bucket keeps noncurrent versions 30 days, so the store's undo
   window is the shorter one (ADR 0022 D10); and `dump.py` keeps one monthly archive for ever
   and prunes none, which at gigabyte scale competes with the blob cache's 20 GB floor.
+
+## Found by the four-lens panel, 2026-09-02 (against the Proposed ADRs 0021/0022)
+
+- **`data/public` is synced nowhere.** `docketyard-blobs.service` copies only `data/blobs`,
+  so the monthly CC0 archives — which `dump.py` writes and never prunes, and which `/data`
+  lists by SHA-256 — exist in exactly one place, on the instance's disk. Losing them makes
+  the page quietly stop listing archives it once published, which is a withdrawn public
+  artefact and the one direction CC0 was chosen to avoid. Nothing to do with OCR; found while
+  measuring for it.
+- **No systemd unit has `OnFailure=`,** and `config.alloy` collects no systemd metrics, so a
+  failed timer is invisible to the detector ADR 0019 built. The dump's failure is worse than
+  absent: `scrub` raising leaves last night's snapshot served under an unchanged manifest, so
+  a third party downloading it has no signal.
+- **`/coverage` is uncached** where `/stats` sets `PUBLIC_CACHE`, and already runs ~20 scalar
+  subqueries per request. Anything counted over `document_text` lands on an uncached public
+  page.
+- **Every future migration pays a full `PRAGMA foreign_key_check`** over the whole database
+  (`db.migrate`), which at ~1.35M new rows makes every subsequent migrating deploy slower —
+  a cost that lands on the rollback story, not just the deploy.

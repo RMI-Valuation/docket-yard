@@ -23,6 +23,35 @@ a real citation the drafter missed scores as a false positive.
 *whatever engine is used, make it as accurate as possible, with a review layer.* This
 document is the plan that meets it; the decision points at the end are the operator's.
 
+## Decided by the operator, 2026-09-02
+
+Four answers that shape everything below, taken after the census, the agreement measurement
+(`research/ocr-benchmark/README.md` § Step 6) and a four-lens review of the draft records.
+
+1. **The text is a finding aid, always shown.** Every read page displays its text, labelled
+   machine-read, with the engine and version, a confidence band and a link to the agency's
+   scan; search covers all of it. Nothing is withheld for being imperfect. **But no derived
+   assertion is published from it until its class is measured** — ADR 0017 D3 unchanged. The
+   scan being one click away is what makes the first half honest, and the split between
+   showing and asserting is what keeps the second half safe. ADR 0021 D7.
+2. **A second reading is bought, and escalation is not automatic.** The second reader is the
+   cheapest non-family engine — about +23% on the backfill, not the doubling assumed here
+   earlier — which buys the per-page confidence signal § Step 6 measures at AUC 0.93–0.97.
+   Claude Sonnet 5 sits above it as a third reader on disagreement, **run by the operator as
+   a batch, never as a standing stage**: roughly $210 at a wide bar, $840 at a narrow one. It
+   is a CLI verb on the box, recorded as a pass with its own method and version — no standing
+   spend and no authenticated surface added to the reader-facing process.
+3. **Maps are read now; tables are read last.** PP-OCRv6 reads 47% of map labels while
+   inventing nothing on all nine graphic pages, and a detector-plus-recogniser cannot write a
+   sentence that is not on the page — its worst case is silence. Tables are deferred, **not
+   abandoned**: they need a bigger sample than five pages and a settled engine, and deferring
+   them also defers HunyuanOCR's licence question, since the only free engine that closes the
+   table gap is the one whose terms the CC0 dump cannot absorb. A tabular page is marked
+   *scanned; contains a table we have not read*, with its image linked.
+4. **The grain ships before the review layer.** ADR 0021 decides what a stored reading is;
+   Migration B redesigns ranking and the queue against the flag rate § Step 6 measured. See
+   `ocr-migration.md`.
+
 ## What is to be read
 
 Measured 2026-08-27 on RMI-AI-MACHINE over the whole held record (80,271 files): 60,360 PDFs
@@ -100,15 +129,23 @@ things, each cheap, each recorded:
 - **The operator's queue.** Flagged pages go to a review page — image beside text, the
   disagreement highlighted — where the operator (or later a trusted contributor) accepts one
   reading or types the correction. A human correction is stored as its own method
-  (`human`, with who and when), supersedes the engines' readings, and is never overwritten
-  by a re-run. The queue is bounded by budget: the plan states how many flagged pages a
-  week the operator will take, and the rest wait rather than publish.
+  (`human`, with who and when), and is never overwritten by a re-run.
+  **The last sentence of this paragraph is superseded, 2026-09-02.** It read: *"The queue is
+  bounded by budget: the plan states how many flagged pages a week the operator will take,
+  and the rest wait rather than publish."* § Step 6 measured the flag rate at 20–60%, which
+  is 19 to 58 years of a fifty-page week, so a queue that waits is a queue that never ends
+  and a record that never publishes. **The queue ranks rather than clears**: the worst pages
+  are reviewed for as long as it is worth doing, and everything else publishes labelled under
+  decision 1 above.
 
-What reaches a reader: only text at or above a confidence threshold the benchmark sets,
-and every published passage carries its confidence and links the page image. Below the
-threshold, the page is searchable by nothing and the sheet says *"scanned; not yet read"*
-rather than showing text that may be wrong. The coverage page counts the three states —
-read, flagged, unread — from the store.
+What reaches a reader — **revised 2026-09-02 by decision 1 above**, which replaces the
+threshold this paragraph originally described. Every read page shows its text with its
+confidence band and a link to the scan; there is no display bar, because a bar would need a
+threshold no measurement supports and would hide the pre-2005 record from search, which is
+the boundary this work exists to cross. What the threshold still governs is *assertion*: an
+unmeasured reading feeds no published edge, no party attribution and no alert. The coverage
+page counts read, flagged and unread from the store, in words that distinguish machine-read
+from published.
 
 ## Shape in the store
 
