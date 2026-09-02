@@ -27,7 +27,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   waiting for a load that has not happened; fix before any OCR pass runs
 - **ADR 0021 (the grain) and 0022 (where the text lives) are Proposed**, cut by half to the
   four answers: finding aid always shown, assertion gated; cheap second reading, escalation
-  operator-triggered; maps now, tables last. **Cameron's to accept** (`ocr-migration.md`)
+  operator-triggered; maps last, tables a later pass. **Cameron's** (`ocr-migration.md`)
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
   sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions

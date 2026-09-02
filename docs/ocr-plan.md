@@ -41,13 +41,19 @@ Four answers that shape everything below, taken after the census, the agreement 
    a batch, never as a standing stage**: roughly $210 at a wide bar, $840 at a narrow one. It
    is a CLI verb on the box, recorded as a pass with its own method and version — no standing
    spend and no authenticated surface added to the reader-facing process.
-3. **Maps are read now; tables are read last.** PP-OCRv6 reads 47% of map labels while
-   inventing nothing on all nine graphic pages, and a detector-plus-recogniser cannot write a
-   sentence that is not on the page — its worst case is silence. Tables are deferred, **not
-   abandoned**: they need a bigger sample than five pages and a settled engine, and deferring
-   them also defers HunyuanOCR's licence question, since the only free engine that closes the
-   table gap is the one whose terms the CC0 dump cannot absorb. A tabular page is marked
-   *scanned; contains a table we have not read*, with its image linked.
+3. **Maps are read last; tables are not in this pass, and not abandoned either.** The order
+   is clean, then degraded, then maps — **prose before pictures**, so the 86% of pages that
+   carry the record's words land first and the tier with the least certain payoff waits until
+   the pipeline has been proven on the easy 53%. Maps are worth reading at all because
+   PP-OCRv6 gets 47% of their labels while inventing nothing on all nine graphic pages: a
+   detector-plus-recogniser cannot write a sentence that is not on the page, so its worst
+   case is silence.
+
+   **Tables wait for their own pass**, not for the end of this one. Five pages decide
+   nothing, no free engine detects an unruled columnar list, and the one that closes the gap
+   carries a licence the CC0 dump cannot absorb — so deferring the tier defers that decision
+   with it. Until then a tabular page is marked *scanned; contains a table we have not read*,
+   with its image linked, which is an honest statement rather than an absence.
 4. **The grain ships before the review layer.** ADR 0021 decides what a stored reading is;
    Migration B redesigns ranking and the queue against the flag rate § Step 6 measured. See
    `ocr-migration.md`.
