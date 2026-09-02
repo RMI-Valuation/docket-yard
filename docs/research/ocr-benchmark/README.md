@@ -444,13 +444,97 @@ tier's share of a random draw of image-only pages:
 | tabular | ~4% | **unsettled** | HunyuanOCR 86.2% and Textract 87.4% both detect all five; dots.mocr 59.3% misses unruled lists |
 | blank | ~1% | any | all engines correct once the harness stopped discarding them |
 
-**The routing needs a classifier that does not exist yet**, and the obvious filter is one this
-benchmark refuses to take: every false table detection is 2-column and every real one 3+, but
-fitting that threshold to the tier labels of the sample being scored is how the party-type
-rules reached 83.3% on their own sheet. `PP-DocLayoutV3` — already on the box as a dependency
-of PaddleOCR-VL, and layout-detection only — emits table/figure/text regions per page and is
-the candidate to measure. The dots models return the same thing as categories alongside the
-text, recorded in `layout.json` by `ocr_run.py`.
+**The routing needs a classifier**, and the obvious filter is one this benchmark refuses to
+take: every false table detection is 2-column and every real one 3+, but fitting that
+threshold to the tier labels of the sample being scored is how the party-type rules reached
+83.3% on their own sheet. `PP-DocLayoutV3` — already on the box as a dependency of
+PaddleOCR-VL, and layout-detection only — was the candidate, and **step 4 below measures it**:
+free at 0.05 s a page, safe on the graphic call, unsafe on the blank one, and carrying an
+unconfirmed signal on the clean/degraded split it was assumed blind to. The dots models return
+the same categories alongside their text, recorded in `layout.json` by `ocr_run.py`, and are
+the second candidate — not yet measured this way.
+
+## Step 4 — the page router, measured
+
+Run 2026-09-02 by `tools/rmi-ai-machine/ocr_router_probe.py` over the same 90 checked pages,
+`PP-DocLayoutV3` through PaddlePaddle with no recogniser and no vLLM server behind it;
+999 regions, 16 distinct labels; `runs/router/{regions.json,run.json}`.
+
+**It is effectively free, which was the first thing that had to be true.** 0.05 s a page
+(median 0.04 s, worst 0.48 s) — an eighth of PP-OCRv6's read and a hundred-and-thirtieth of
+dots.mocr's. A router that cost as much as the read it chooses would not be worth having;
+this one is a rounding error on either.
+
+The rule below was **fixed before the first run** and no threshold in it is fitted: no content
+region → blank; else any `table` region → tabular; else figure area at least half the content
+area → graphic; else text. Column count is not used, for the reason Step 3 gives.
+
+| operator tier | pages | ≥1 table | ≥1 figure | no content | regions/page |
+| --- | --- | --- | --- | --- | --- |
+| clean | 38 | 0 | 9 | 1 | 8.5 |
+| degraded | 37 | 1 | 24 | 0 | 16.5 |
+| tabular | 5 | **4** | 1 | 0 | 9.2 |
+| graphic | 9 | 1 | 6 | **2** | 2.1 |
+| blank | 1 | 0 | 0 | 1 | 0.0 |
+
+| class | pages that are | pages called | precision | recall |
+| --- | --- | --- | --- | --- |
+| text (clean ∪ degraded) | 75 | 75 | 97.3% | 97.3% |
+| graphic | 9 | 5 | **100%** | 55.6% |
+| tabular | 5 | 6 | 66.7% | 80.0% |
+| blank | 1 | 4 | **25.0%** | 100% |
+
+**What it can do: say which pages are pictures, and never say it of a page that is not.**
+Graphic precision is 100% — every page it calls graphic is one. Recall is 55.6%, so it misses
+four of nine, but the errors are one-directional and that is the useful shape: a missed map
+is read by the wrong engine, whereas a false one would send prose to a reader chosen for
+labels.
+
+**What it cannot do: be trusted when it finds nothing.** Three of the four pages it calls
+blank are not blank — two maps and a clean typescript page whose only regions were page
+numbers. Only one true blank exists in the sample, so 25.0% precision is one page's worth of
+evidence, but the direction is the point: **"no regions" must never be wired to "skip this
+page"**, or a map's labels leave the record silently. Route an empty detection to a reader,
+not to a decision.
+
+**The table miss is the one Step 3 already named, now seen directly.** Of five real
+tables it detects four; the miss is `7ab81af43a79_p3`, the unruled three-column errata list,
+which comes back as nineteen separate `text` blocks. Step 3 inferred that from the engine
+outputs; this is the detector's own answer, so it is the same model confirming itself rather than a
+second opinion — the top-up is what would test it. Against it are two false tables — a
+degraded page and a *graphic* one — for 66.7% precision, which is the same weakness Textract's
+`analyze-document` shows and the reason the tabular route stays unsettled. **Five tabular and
+nine graphic pages decide nothing**; both figures move on a top-up.
+
+**And the claim this probe was built on turned out to be too strong.** The rule folds clean and
+degraded into one class because layout detection is structure and the difference is image
+quality. The raw counts disagree: a degraded page fragments into roughly twice the regions of
+a clean one (median 18.0 against 8.5), and is about twice as likely to pick up a spurious
+picture region — 18 of 37 carry a literal `image` against 8 of 38 clean, or 24 against 9 if
+letterhead (`header_image`/`footer_image`) is counted as a picture too.
+
+| quantity | clean median | degraded median | AUC |
+| --- | --- | --- | --- |
+| regions per page | 8.5 | 18.0 | **0.843** |
+| figure regions, any label | 0.0 | 1.0 | 0.720 |
+| figure regions, literal `image` | 0.0 | 0.0 | 0.646 |
+
+The figure row is given both ways because the answer moves with the definition: counting a
+letterhead as a picture is a judgement, and it is worth 0.074 of the AUC. The region count,
+which needs no such judgement, is the stronger signal anyway.
+
+AUC is reported **instead of** a threshold, deliberately — it commits to no cut-off, so there
+is nothing in it to tune, and each quantity was a column the probe printed before the
+question was asked. 0.843 is a real signal on the split that matters most: clean and degraded
+are ~86% of a random draw and they route to different engines, so this is the largest routing
+decision in the pipeline and the one a layout model was assumed unable to make. **It is a
+lead, not a rule.** Turning it into a cut-off against these same 90 pages is exactly the
+party-type mistake; it needs the second, unseen sample first.
+
+So the router is not settled, but it is no longer nothing: the structural half is measurable
+and cheap, the graphic call is safe in the direction that matters, the blank call is not safe
+at all, and the clean/degraded split — the expensive one — has a free signal in it that has
+yet to be confirmed on pages nobody has scored.
 
 ## Are these the right versions, run the right way?
 

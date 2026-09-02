@@ -1,0 +1,43 @@
+{
+ "engine": "pp-doclayoutv3",
+ "purpose": "page router candidate, layout detection only",
+ "weights": "PP-DocLayoutV3",
+ "run_at": "2026-09-02T02:11:35+00:00",
+ "host": "rmi-ai-machine",
+ "pages": "pages",
+ "pages_detected": 90,
+ "python": "3.12.14",
+ "packages": {
+  "paddleocr": "3.7.0",
+  "paddlex": "3.7.2",
+  "paddlepaddle-gpu": "3.3.1"
+ },
+ "rule": {
+  "order": [
+   "blank if no content region",
+   "tabular if any table",
+   "graphic if figure area >= 0.5 of content area",
+   "text otherwise"
+  ],
+  "fitted": false,
+  "note": "stated before the first run; in-sample figures until a second sample"
+ },
+ "figure_labels": [
+  "chart",
+  "figure",
+  "footer_image",
+  "header_image",
+  "image"
+ ],
+ "table_labels": [
+  "table"
+ ],
+ "furniture_labels": [
+  "aside_text",
+  "footer",
+  "header",
+  "number",
+  "page_number",
+  "seal"
+ ]
+}
