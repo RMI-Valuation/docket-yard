@@ -26,11 +26,36 @@ document is the plan that meets it; the decision points at the end are the opera
 ## What is to be read
 
 Measured 2026-08-27 on RMI-AI-MACHINE over the whole held record (80,271 files): 60,360 PDFs
-carry a text layer; **13,604 (22.5%) are image-only** and ~330 are not PDFs. The image-only
-set is almost entirely the older record (pre-2005 scans; wave 1 had 2 of 4,273). It is what
-capability M3 ("OCR the pre-2000 record") names: the boundary at which search, the citation
-graph and the registers all degrade. Until it is read, a 1998 decision can be viewed but not
-searched, cited by text, or mined for citations.
+carry a text layer; **13,604 (22.5%) are image-only** and ~330 are not PDFs.
+
+**Superseded by a census of the extraction output, 2026-09-02** —
+`tools/rmi-ai-machine/text_layer_census.py` over `/data/docketyard/text`, which reads the
+header of every extraction JSON. The three figures above are one *run's* manifest, and that
+run skipped 13,936 files as already extracted, so its counts are a subset:
+
+| | documents | pages | characters | per page |
+| --- | --- | --- | --- | --- |
+| image-only | **15,085** (plus one 0-page PDF) | **247,923** | ~0 | — |
+| text layer | **59,210** | **857,012** | 1,369,267,089 | **1,598** |
+
+- **The image-only page count is 247,923, not ~175,000** — 42% higher, and it is the number
+  every cost in this document is multiplied by. At the routed 2.71 s a page the backfill is
+  about **187 hours**, not 132; `research/ocr-benchmark/README.md` § Step 5's "132 to 172
+  hours over 175,000 pages" scales the same way, to about 187–244.
+- **15,085 image-only documents**, which is exactly what the benchmark README recorded on
+  2026-08-28 and which the 13,604 above never contradicted — it counted one run.
+- **~5,975 files are not PDFs, not ~330.** 74,296 of the 80,271 held files have extraction
+  output; the remainder were seen and skipped as non-PDF.
+- The 22.5% is 13,604 over 60,360, which is that run's image-only share of the PDFs it
+  extracted. Against the corpus the share is **20.3%** (15,085 of 74,296 PDFs).
+- Both page counts are lower bounds for what needs OCR: `image_only` is a *document*-level
+  flag, so image pages inside an otherwise text-layer document are counted on the text-layer
+  side and read as blank.
+
+The image-only set is almost entirely the older record (pre-2005 scans; wave 1 had 2 of
+4,273). It is what capability M3 ("OCR the pre-2000 record") names: the boundary at which
+search, the citation graph and the registers all degrade. Until it is read, a 1998 decision
+can be viewed but not searched, cited by text, or mined for citations.
 
 ## The discipline (the same as extraction's)
 

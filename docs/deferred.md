@@ -478,3 +478,22 @@ this file** — it took production down twice and stopped the record being kept 
   cannot take `ingest` and `litestream` down with it — that is the difference between "the
   site blipped" and "the record stopped for seven hours" — and something that acts on the
   healthcheck, which correctly reported `unhealthy` while nothing restarted it.
+
+## The instance resize (2026-09-02, v2026.09.1)
+
+**ADR 0022 D7 now resizes it with the OCR migration** rather than leaving a trigger to watch:
+the store crosses ~1 GB on rows alone under D6. What stays here is the operational half.
+
+- **Not a response to 2026-09-02.** That outage was a quadratic query, and a larger box would
+  have absorbed more crawler traffic before failing — the same fault, later and worse. Fixed
+  (`sheet.one_entry`). Recording the temptation is the point.
+- **A resize is a rebuild, not a slider.** Lightsail has no in-place resize: snapshot, launch
+  the larger instance, move the static IP. Maintenance-window work; ADR 0020 gives the window.
+  Check plan pricing at the time rather than assuming the ladder.
+- **Where it stands, measured 2026-09-02**: the schema-16 restore in `data/` is **152 MB**,
+  `web` is capped at 768 MB of the instance's 2 GB, and the blob cache holds ~32 GB against a
+  corpus heading for 150–250 GB with the prune keeping 20 GB free.
+- **Two things the resize does not fix**, so they need their own answer: `litestream` keeps
+  `retention: 168h` while the bucket keeps noncurrent versions 30 days, so the store's undo
+  window is the shorter one (ADR 0022 D10); and `dump.py` keeps one monthly archive for ever
+  and prunes none, which at gigabyte scale competes with the blob cache's 20 GB floor.

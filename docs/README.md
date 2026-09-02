@@ -24,7 +24,7 @@ Documentation that isn't load-bearing is drag.
 
 | # | Document | Purpose | Status |
 | --- | --- | --- | --- |
-| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0016 accepted (**0016** 2026-08-28, a reviewer has an identity; reading stays anonymous); **0017 and 0018 accepted** 2026-09-01 — what citation edges ship at, and the five assertion families that hold them; **0019 and 0020 Accepted** 2026-09-02 — telemetry after the outage the heartbeat took 6 h 13 m to notice, and maintenance as a state the record does not share; both addenda to 0012 |
+| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0016 accepted (**0016** 2026-08-28, a reviewer has an identity; reading stays anonymous); **0017 and 0018 accepted** 2026-09-01 — what citation edges ship at, and the five assertion families that hold them; **0019 and 0020 Accepted** 2026-09-02 — telemetry after the outage the heartbeat took 6 h 13 m to notice, and maintenance as a state the record does not share; both addenda to 0012; **0021 and 0022 Proposed** 2026-09-02 — the OCR text grain, and where the record's text lives (a third addendum to 0012); both the operator's to accept |
 | 02 | [`document-ir.md`](document-ir.md) | What the PDF→JSON layer captures | stub |
 | 03 | [`methodology.md`](methodology.md) | Extraction rules; doubles as the published methodology page | page published 2026-08-26 (`web/templates/methodology.html`); extraction rules await extraction |
 | 04 | [`licensing.md`](licensing.md) | Code, data and trademark terms | drafted |
