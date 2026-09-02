@@ -16,7 +16,7 @@
 // decomposition is written against. `/metrics` is a 404 until DY_METRICS_TOKEN is set, so an
 // unconfigured deployment scrapes nothing and says so plainly in Alloy's own logs.
 prometheus.scrape "web" {
-	targets         = [{"__address__" = "web:8000", "instance" = "docketyard"}]
+	targets         = [{"__address__" = "web:8000", "instance" = "web"}]
 	metrics_path    = "/metrics"
 	scrape_interval = "60s"
 
@@ -61,6 +61,15 @@ prometheus.scrape "host" {
 }
 
 prometheus.remote_write "grafana_cloud" {
+	// STAMPED HERE, ON EVERYTHING, because the free tier is one stack and RMI Valuation
+	// already points the sibling platform at it. Without this the host series (node_cpu,
+	// node_memory, node_filesystem) arrive indistinguishable from any other host writing to
+	// the same Prometheus, and an alert meant for this box would match whichever one
+	// answered. One label in one place beats remembering it per scrape.
+	external_labels = {
+		service = "docketyard",
+	}
+
 	endpoint {
 		url = sys.env("GRAFANA_REMOTE_WRITE_URL")
 
