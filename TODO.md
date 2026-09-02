@@ -16,15 +16,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   in the record" display joining live `citation`; the veto's trigger. More in `deferred.md`
 - **Drain done**: 124 left — 121 resting refusals, 3 en-dash rows that fetch on the next
   deploy. **The class behind the 3 is open**, Cameron's (`docs/deferred.md`)
-- **THE COMMENT PAGE IS O(DOCKET)** — three outages 2026-09-02. Every record page builds its
-  whole docket sheet to read `sheet.title`; FD 35087 holds 12,031 comments, so each costs
-  21.5 s and our sitemap invites the crawl. **Contained** by a Caddy 503 on that path (delete
-  it with the fix); **the fix needs the deploy**. Top item in `docs/deferred.md`
-- **Outage 2026-09-02, 03:26-10:18 UTC**, gap 1 recorded, nothing missed. **Detection took
-  6 h 13 m**: GitHub runs the "hourly" heartbeat every 3-5 h. Guards still owed: a memory cap
-  on `web` so it cannot take `ingest` down, and something acting on the healthcheck
-- **ADR 0019 Proposed** — telemetry via Grafana Cloud + Alloy, primary detector an alert on
-  absent metrics. **Cameron's: accept, and a Grafana Cloud credential**
+- **THE COMMENT PAGE WAS O(DOCKET)** — three outages 2026-09-02; gap 1 recorded, nothing
+  missed. **Fixed in `main` (`sheet.one_entry`), waiting on the deploy**; contained until
+  then by a Caddy 503 on `/d/FD-35087/comment/*` — **delete that block with the fix**. Guards
+  live (768 MB cap, 1-min webwatch). Detection took 6 h 13 m; the viewer is still O(docket)
+- **ADR 0019 and 0020 Proposed**, both addenda to 0012 — telemetry via Grafana Cloud + Alloy
+  with absence as the primary detector, and maintenance mode (readers off, record still
+  kept), which makes the held deploy safer. **Cameron's: accept; 0019 needs a credential**
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
   sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
