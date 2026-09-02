@@ -79,9 +79,12 @@ the confidence. The drafted shape cannot hold it.
    channel-dependent page number would mint two keys for one edge.
 
    The count lives in **`document_pagination`** — one row per document, carrying
-   `page_count`, `had_text_layer`, and its own method, version and timestamp because both are
-   derived. An unread page is `page_count` minus its readings, at the grain the coverage page
-   reports at anyway. **This is a deliberate shrink**: a per-page table would be ~1.10M rows
+   `page_count`, `had_text_layer`, its own method, version and timestamp because both are
+   derived, and **a typed outcome**. The outcome is not decoration: without it, a document
+   with no row is *not a PDF*, *not yet paginated* and *failed to open* all at once, which is
+   decision 5's own rule — absence is not a measurement — broken one level up from where
+   decision 5 enforces it. A non-PDF gets a row saying so. An unread page is then
+   `page_count` minus its readings, over documents whose pagination succeeded. **This is a deliberate shrink**: a per-page table would be ~1.10M rows
    and ~400 MB of the measured row budget, to hold a `rotation` column no code reads and a
    flag the existing pipeline already computes per document. Per-page rows remain a later
    projection from the same PDFs — an addition, never a re-read.
