@@ -1,7 +1,11 @@
 # ADR 0019 — Telemetry, and what watches the box
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-02
+- **Accepted:** 2026-09-02 (the operator: "ADR 0019 and 0020 approved")
+- **Owed at acceptance:** a Grafana Cloud credential — the endpoint, username and
+  token the Alloy container reads from the environment. Nothing ships to a sink
+  without it, and `/metrics` stays a 404 until a token is set.
 
 ## Context
 

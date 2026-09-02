@@ -111,6 +111,11 @@ services:
     ports: ["80:80", "443:443"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # maintenance (ADR 0020): the flag directory the proxy checks per request, and the
+      # page it serves. Both read-only to caddy — the toggle is `touch`/`rm` on the host,
+      # so entering maintenance never depends on the application being up.
+      - ./data/flags:/flags:ro
+      - ./maintenance.html:/srv/maintenance/maintenance.html:ro
       - caddy-data:/data
       - caddy-config:/config
     environment:

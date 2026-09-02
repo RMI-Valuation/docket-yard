@@ -1,7 +1,8 @@
 # ADR 0020 — Maintenance is a state the record does not share
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-02
+- **Accepted:** 2026-09-02 (the operator: "ADR 0019 and 0020 approved")
 - **Addendum to:** [ADR 0012](0012-deployment-topology.md), which stands unchanged
 
 ## Context
@@ -27,7 +28,7 @@ the store is simultaneously being read.
 
 Two other pressures point the same way. The containment applied today — Caddy answering one
 docket's comment pages with a 503 — is a hand-cut, single-path version of exactly this
-mechanism, and it wants generalising rather than repeating. And ADR 0019 proposes moving the
+mechanism, and it wants generalising rather than repeating. And ADR 0019 moves the
 primary death detector to an alert on absent metrics; a planned outage that looks identical
 to an unplanned one will page the operator about work the operator is doing.
 
@@ -101,7 +102,7 @@ the blob path and the pull-based deploy are all unchanged.
 Against **ADR 0013**: permanence holds. Every address that answers 503 during maintenance
 answers exactly as before afterwards, which is what 503 means and what 404 would not.
 
-Against **ADR 0019** (proposed): the two are complementary and slightly in tension, and the
+Against **ADR 0019** (accepted the same day): the two are complementary and slightly in tension, and the
 tension is resolved here rather than left for the first incident to find. Maintenance must be
 visible to the monitor — hence `/health` staying up and saying so — so that a planned window
 does not fire an absent-metric alert and teach the operator to disregard it.

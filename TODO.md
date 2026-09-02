@@ -20,9 +20,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   missed. **Fixed in `main` (`sheet.one_entry`), waiting on the deploy**; contained until
   then by a Caddy 503 on `/d/FD-35087/comment/*` — **delete that block with the fix**. Guards
   live (768 MB cap, 1-min webwatch). Detection took 6 h 13 m; the viewer is still O(docket)
-- **ADR 0019 and 0020 Proposed**, both addenda to 0012 — telemetry via Grafana Cloud + Alloy
-  with absence as the primary detector, and maintenance mode (readers off, record still
-  kept), which makes the held deploy safer. **Cameron's: accept; 0019 needs a credential**
+- **ADR 0019 and 0020 Accepted 2026-09-02.** **0020 is built and live**: `touch
+  data/flags/maintenance` walls the readers off in one step and the record keeps being kept
+  (proved with `web` stopped); the migrating-deploy runbook is in `infra/deploy/README.md`.
+  **0019 needs a Grafana Cloud credential from Cameron** before anything ships to a sink
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
   sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions

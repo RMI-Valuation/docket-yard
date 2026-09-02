@@ -13,6 +13,7 @@ pull-based: change `DY_TAG` in `.env`, pull, up. Nothing pushes to production.
 | `litestream` | `litestream/litestream:0.3` | streams the store's WAL to S3 every 10 s |
 | `caddy` | `caddy:2-alpine` | TLS (Let's Encrypt), reverse proxy, access log without IPs |
 | host timer | `docketyard-dump.timer` | nightly 04:10 UTC: `docketyard dump` cuts the public snapshot into `data/public` (served at `/data/files/`) |
+| maintenance | `data/flags/maintenance` | ADR 0020. `touch` it and the proxy answers every path except `/health` with a 503 and the maintenance page, per request and with no reload; `rm` it to come back. `ingest` and `litestream` never observe it, so the record keeps being kept — verified 2026-09-02 with `web` stopped outright |
 | host timer | `docketyard-webwatch.timer` | every minute: restarts `web` if its healthcheck says `unhealthy`. Docker does not do this itself — `restart:` reacts to a process exiting, not to failing health — and on 2026-09-02 the container reported `unhealthy` for hours while nothing acted on it. `web` alone, never the stack: `ingest` and `litestream` keep the record either way |
 | host timer | `docketyard-blobs.timer` | every 30 min: `aws s3 sync` of `data/blobs`, then `prune_blobs.py` deletes local blobs S3 holds (older than 30 days, or oldest-first below 20 GB free) — S3 is the store, the instance is a cache |
 
@@ -51,6 +52,26 @@ is an instance and not the container service.
    sudo cp /srv/docketyard/docketyard-webwatch.* /etc/systemd/system/
    sudo systemctl enable --now docketyard-webwatch.timer  # restart web when it is unhealthy
    ```
+
+### Deploying a migrating release (ADR 0020)
+
+A release that carries migrations rolls back by Litestream restore, not by a tag change, so
+it is deployed behind the wall rather than under readers:
+
+```sh
+cd /srv/docketyard
+touch data/flags/maintenance                 # readers get 503 + the page, immediately
+curl -sD- -o /dev/null https://docketyard.org/ | head -1   # confirm: 503
+# `ingest` and `litestream` keep running throughout — the record is still being kept
+$EDITOR .env                                 # set DY_TAG to the new release
+docker compose pull && docker compose up -d
+docker compose logs migrate                  # the migrations ran, and what they said
+curl -s https://docketyard.org/health        # answers throughout; check `schema`
+rm data/flags/maintenance                    # back
+```
+
+Verify against the live store *before* clearing the flag: that is the whole point of the
+window. If the migration is wrong, restore from Litestream while nothing else is writing.
 
 4. **Seed the store** from rmi-ai-machine — a copy, not a migration (ADR 0012). Stop any
    writer on the source first so the WAL is checkpointed:

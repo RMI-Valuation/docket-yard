@@ -2,6 +2,42 @@
 # (infra/cf_redirects.py); only the canonical host reaches this box.
 {$DY_HOST} {
 	encode zstd gzip
+	# ---- maintenance (ADR 0020) -------------------------------------------------------
+	# `touch data/flags/maintenance` turns it on and `rm` turns it off, with no reload: the
+	# file matcher is evaluated per request. The toggle lives here rather than in the
+	# application because entering maintenance must not depend on the thing that may be
+	# broken — and this way it works when `web` will not start at all, which is the case that
+	# needs it most.
+	@maintenance file {
+		root /flags
+		try_files maintenance
+	}
+	# Every response says so, including a 502 from a stopped `web`. This is the
+	# machine-readable signal that survives the app being down, which is exactly when a
+	# monitor most needs to tell a planned window from an outage (ADR 0020 § 4).
+	header @maintenance X-Docketyard-Maintenance "1"
+	# /health is deliberately NOT behind the wall: it answers with the record's real freshness
+	# throughout, because the record is still being kept and the record-keeping alarm stays
+	# armed. Only the reading surface is silenced.
+	@maintenance_wall {
+		file {
+			root /flags
+			try_files maintenance
+		}
+		not path /health
+	}
+	handle @maintenance_wall {
+		# 503 and never 200: a 200 would invite every crawler to index the apology as the
+		# content of every address. 503 says *not now*, where 404 would say *not here*, and
+		# ADR 0013's permanence is untouched.
+		header Retry-After "1800"
+		root * /srv/maintenance
+		rewrite * /maintenance.html
+		file_server {
+			status 503
+		}
+	}
+
 	# the site's headers, deferred (they delete Server) — so they must not match the one
 	# path whose framing policy differs, or they would re-apply over it at response time
 	@page not path /document/*
