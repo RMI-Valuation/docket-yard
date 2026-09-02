@@ -1,7 +1,8 @@
 # ADR 0022 — Where the record's text lives
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-02
+- **Accepted:** 2026-09-02 (the operator: "ADR 0021 & 0022 are APPROVED")
 - **Addendum to:** [ADR 0012](0012-deployment-topology.md), which stands unchanged
 - **Companion to:** [ADR 0021](0021-the-ocr-text-grain.md), which decides what a row means
 - **Drafted three times, and the lineage is kept because the mistake repeated.** The first
@@ -218,5 +219,7 @@ cannot become held.
 
 ---
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-`../validation-queries.md`.*
+*Accepted 2026-09-02, after the check against `../validation-queries.md` recorded in
+§ Validation. Two consequences were accepted deliberately with it: the resize opens a
+recorded coverage gap, and the dump classification is one-way in one direction — held can
+become public, public cannot become held.*

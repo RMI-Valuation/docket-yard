@@ -1,7 +1,8 @@
 # ADR 0021 — The OCR text grain
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-02
+- **Accepted:** 2026-09-02 (the operator: "ADR 0021 & 0022 are APPROVED")
 - **Scope:** the grain, and what a reader is shown. Ranking as registry data, the review
   queue, and the rebuilds of two shipped tables are **deliberately not here**; see § What
   this record does not decide.
@@ -279,5 +280,7 @@ rows written under them assume supersession.
 
 ---
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-`../validation-queries.md`.*
+*Accepted 2026-09-02, after the check against `../validation-queries.md` recorded in
+§ Validation. The migration this record authorises is scoped in
+[`../ocr-migration.md`](../ocr-migration.md) § Migration A, and schema-critic reviews it
+before the tables exist.*

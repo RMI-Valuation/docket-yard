@@ -5,7 +5,9 @@ record means accepting decisions, not mechanics. **Each section becomes its migr
 header comment when that migration is written**, which is where this project keeps this kind
 of detail — migrations 0014 and 0015 both carry theirs.
 
-**The work is split in two, on the operator's decision of 2026-09-02.** Migration A writes
+**ADR 0021 and ADR 0022 were Accepted 2026-09-02**, so what follows is authorised work
+rather than a proposal. **The work is split in two, on the operator's decision of the same
+day.** Migration A writes
 the text. Migration B builds the review layer, and it is deliberately second because
 `research/ocr-benchmark/README.md` § Step 6 measured the flag rate that shapes it *after* the
 first draft of the review layer had been designed, and the measurement said the design could

@@ -25,9 +25,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **`methods.stamp()` has no channel term** — the first OCR-channel citator load would stamp
   text-layer measurements onto OCR rows and publish them. A live ADR 0017 D3 violation
   waiting for a load that has not happened; fix before any OCR pass runs
-- **ADR 0021 (the grain) and 0022 (where the text lives) are Proposed**, cut by half to the
-  four answers: finding aid always shown, assertion gated; cheap second reading, escalation
-  operator-triggered; maps last, tables a later pass. **Cameron's** (`ocr-migration.md`)
+- **ADR 0021 and 0022 Accepted** (2026-09-02). Next is **Migration A** — four tables, no
+  rebuild of anything shipped, search on its own path, a page-grained address that does not
+  exist yet (`ocr-migration.md`). **schema-critic before the tables exist**; then ultra
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
   sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
@@ -48,7 +48,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   (read-only). Dates quoted, never computed
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
 - Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
-- **ADR 0012 addendum: the blob cache** (S3 store, instance cache) — ADR 0021 D14 leans on it
+- **ADR 0012 addendum: the blob cache** (S3 store, instance cache) — ADR 0022 D2 leans on it
 - **`docs/navigation-review.md`: Tiers 1–3 and A7 are built**, home keeps its rolling seven
   days (Cameron, 2026-09-01). Left is **his**: the masthead, and whether a place index is ripe
 - When this list runs short or a decision makes one of them near-term, pull the next item
