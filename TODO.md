@@ -15,12 +15,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not
   in the record" display joining live `citation`; the veto's trigger the day it stops being
   inert. Twelve smaller findings in `docs/deferred.md`
-- **Drain stopped at its floor 2026-09-02**, 26,940 down to 124 unfetched — 121 genuine
-  refusals resting 7 days, and **3** the en-dash rows, which fetch on the next deploy
-  carrying `_wire_url`. **The class behind the 3 is open**: Cameron's, in `docs/deferred.md`
-- **OCR bench done, 2026-09-01** — 13 runs, 10 engines; **three free local engines beat
-  Textract**, so the ~$260 line goes to ~$0. **dots.mocr** is the one to build on (8.2% CER,
-  MIT, nothing invented, 100% dockets). No engine wins every tier: § Step 3 of the bench
+- **Drain done**: 124 unfetched left, 121 resting refusals and 3 en-dash rows that fetch on
+  the next deploy. **The class behind the 3 is open** — Cameron's, in `docs/deferred.md`
+- **Outage 2026-09-02, 03:26-10:18 UTC** — box wedged (load 15-21 from 02:10, cause never
+  established; logs died with the containers), rebooted by hand. Gap 1 recorded, nothing
+  missed. **Detection took 6 h 13 m**: GitHub runs the "hourly" heartbeat every 3-5 h
+- **ADR 0019 Proposed** — telemetry via Grafana Cloud + Alloy, primary detector an alert on
+  absent metrics. **Cameron's: accept, and a Grafana Cloud credential**
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
   sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
@@ -29,10 +30,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **The router, measured 2026-09-02** (§ Step 4): PP-DocLayoutV3 free at 0.05 s a page,
-  graphic call safe, **blank call unsafe — "no regions" must never mean "skip"**; plus an
-  unconfirmed clean-vs-degraded signal (AUC 0.843) it was assumed blind to. dots.mocr
-  layout-only is 75x dearer for no net gain. Left: **the second unseen sample**
+- **The router, measured** (§ Step 4): PP-DocLayoutV3 free at 0.05 s, graphic call safe,
+  **blank call unsafe — "no regions" must never mean "skip"**; unconfirmed clean/degraded
+  signal (AUC 0.843). dots layout-only is 75x dearer. Left: **the second unseen sample**
 - **Preprocessing measured, 2026-09-02** (§ Step 5): no image operation earns its place —
   crop cuts CER but invents, masking does not invent but loses 5 dates. **Cameron's call:
   the degraded tier at 200 DPI** (dots 12.7% to 12.1%, dockets held, +40 h); 300 OOMs

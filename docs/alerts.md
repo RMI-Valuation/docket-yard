@@ -23,8 +23,19 @@ table (`docs/traffic.md` § The weekly digest). It shares the SES sender and not
 
 **A dead box cannot report its own death** (ADR 0012), so the check runs off-box: the
 `Heartbeat` GitHub Actions workflow (`.github/workflows/heartbeat.yml`) asks
-`https://docketyard.org/health` every hour, as any reader would, and fails the run when a
-threshold is crossed. A failed scheduled run emails the workflow file's last committer.
+`https://docketyard.org/health` **on an hourly cron**, as any reader would, and fails the run
+when a threshold is crossed. A failed scheduled run emails the workflow file's last committer.
+
+**The thresholds below are not detection times, and this document used to imply they were.**
+GitHub deprioritises scheduled workflows, and the measured cadence is three to five hours,
+not one: over 2026-09-01 the runs landed at 05:11, 10:08, 14:54, 18:32, 21:47 and 00:15. So a
+three-hour threshold detects in three hours **plus however long the scheduler takes to look**.
+Measured against the outage of 2026-09-02, in which the record stopped being kept at 03:26
+UTC: the heartbeat failed at 09:39, a detection time of **6 h 13 m**. A threshold states when
+a silence becomes a failure; it does not state when anyone finds out. **ADR 0019** proposes
+moving the primary detector to an alert on absent metrics evaluated in Grafana Cloud, which
+looks every minute, and demoting this workflow to a cheap second opinion that is independent
+of both the box and that sink.
 
 `/health` reports three timestamps and their ages, and always answers 200 — the monitor
 judges, the box only reports, so a stale store is visible rather than hidden behind a 5xx
