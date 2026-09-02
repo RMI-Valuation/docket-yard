@@ -15,42 +15,42 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not
   in the record" display joining live `citation`; the veto's trigger the day it stops being
   inert. Twelve smaller findings in `docs/deferred.md`
-- **Drain RUNNING, healthy** — due ~02:30 UTC 2026-09-02. Do not deploy across it: a
-  migrating release rolls back only by Litestream restore, not a tag change
+- **Drain stopped at its floor 2026-09-02**, 26,940 down to 124 unfetched — 121 genuine
+  refusals resting 7 days, and **3** the en-dash rows, which fetch on the next deploy
+  carrying `_wire_url`. **The class behind the 3 is open**: Cameron's, in `docs/deferred.md`
 - **OCR bench done, 2026-09-01** — 13 runs, 10 engines; **three free local engines beat
-  Textract**, so the ~$260 OCR line goes to ~$0 and buys more accuracy. **dots.mocr** is the
-  one to build on (8.2% CER, MIT, no invented text, 100% docket recall). No engine wins every
-  tier: `docs/research/ocr-benchmark/README.md` § Step 3
-- **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against —
-  **a second unseen sample must confirm** before any type ships
+  Textract**, so the ~$260 line goes to ~$0. **dots.mocr** is the one to build on (8.2% CER,
+  MIT, nothing invented, 100% dockets). No engine wins every tier: § Step 3 of the bench
+- **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
+  sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - No Anthropic key exists; any Claude-backed run needs a new one from Cameron
 - Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
 
 ## Next
 
-- **The page router** — the open piece the bench routes to. `PP-DocLayoutV3` is already on
-  the box and emits table/figure/text regions; measure it rather than fitting a column-count
-  rule to the sample being scored
+- **The router, measured 2026-09-02** (§ Step 4): PP-DocLayoutV3 free at 0.05 s a page,
+  graphic call safe, **blank call unsafe — "no regions" must never mean "skip"**; plus an
+  unconfirmed clean-vs-degraded signal (AUC 0.843) it was assumed blind to. dots.mocr
+  layout-only is 75x dearer for no net gain. Left: **the second unseen sample**
 - **Preprocessing**, per engine class not once: 150 DPI against the usual 300 floor,
-  crop-to-content (55-76% of the render), binarisation, deskew, denoise
-- **More tabular and graphic ground truth** — 5 and 9 pages decide nothing, and the tabular
-  routing cannot be settled without it. **Needs Cameron's check**
+  crop-to-content (55-76% of the render), binarisation, deskew, denoise. Cheap on PP-OCRv6
+  (~36 s a variant), ~10 min a variant on dots.mocr with the vLLM server up
+- **More tabular and graphic ground truth** — 5 and 9 pages decide nothing; the tabular
+  routing and the router's own figures both wait on it. **Needs Cameron's check**
 - **HunyuanOCR-1.5 is Cameron's call**: the only free engine that closes the table gap
   (86.2% cells), but its licence bars the EU/UK/Korea and forbids using outputs to improve
   any AI model, which the CC0 dump cannot absorb
-- **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md`.
-  The tiered read the bench points at — free local on clean, paid on degraded — is not
-  costed yet; the plan's ~$1,335 assumes one engine everywhere
-- Deadline engine (C4): decision JSON carries no extracted obligations (verified
-  2026-08-26); a hand-checked fixture of 8 for FD 36873 is in
-  `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only). Dates quoted, never computed
+- **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md`. The
+  tiered read is not costed yet; the plan's ~$1,335 assumes one engine everywhere
+- Deadline engine (C4): decision JSON carries no obligations (verified 2026-08-26); a
+  hand-checked fixture of 8 for FD 36873 sits in `../up-ns-merger-tracker/briefs/2026-08-25.md`
+  (read-only). Dates quoted, never computed
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
 - Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
 - **ADR 0012 addendum: the blob cache** (S3 the store, the instance a cache; sync + prune)
-- **`docs/navigation-review.md`: Tiers 1–3 and A7 are built**, and the home window keeps its
-  rolling seven days (Cameron, 2026-09-01). What is left is **Cameron's**: the masthead's
-  shape, and whether a place index is ripe
+- **`docs/navigation-review.md`: Tiers 1–3 and A7 are built**, home keeps its rolling seven
+  days (Cameron, 2026-09-01). Left is **his**: the masthead, and whether a place index is ripe
 - When this list runs short or a decision makes one of them near-term, pull the next item
   from `docs/deferred.md` (review findings and known gaps, dated, with their context)
 

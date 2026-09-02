@@ -59,6 +59,7 @@ FURNITURE_LABELS = {"header", "footer", "page_number", "number", "aside_text", "
 
 TIERS = ("clean", "degraded", "tabular", "graphic", "blank")
 TIMINGS_KEY = "_seconds"  # not a page: `report` lifts it out before counting
+FAILURES_KEY = "_failures"  # ditto; present only when a page did not land, and loud in `report`
 
 
 def selected_pages(sample_path: Path) -> dict[str, str]:
@@ -133,6 +134,175 @@ def detect(pages: Path, names: list[str], model_name: str) -> dict:
         )
     out[TIMINGS_KEY] = timings
     return out
+
+
+# dots.ocr/dots.mocr answer in their own vocabulary. Mapped onto PP-DocLayoutV3's so that
+# ONE rule scores both and the comparison is of the detectors, not of two rules. Recorded in
+# `run.json` so the mapping is auditable rather than buried here.
+DOTS_TO_PP = {
+    "Picture": "image",
+    "Table": "table",
+    "Page-header": "header",
+    "Page-footer": "footer",
+    "Caption": "figure_title",
+    "Footnote": "footnote",
+    "Formula": "formula",
+    "List-item": "text",
+    "Section-header": "paragraph_title",
+    "Text": "text",
+    "Title": "doc_title",
+}
+
+# The model's layout-only prompt: the same contract as `DOTS_PROMPT` in `ocr_run.py` with the
+# text field dropped. Asking for categories WITHOUT the transcription is the whole question —
+# if the categories are all a router needs, there is no reason to pay for the reading.
+DOTS_LAYOUT_PROMPT = """Please output the layout information from the PDF image, including \
+each layout element's bbox and its category.
+
+1. Bbox format: [x1, y1, x2, y2]
+
+2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', \
+'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', \
+'Title'].
+
+3. Do NOT output the text content of any element. Bbox and category only.
+
+4. All layout elements must be sorted according to human reading order.
+
+5. Final Output: The entire output must be a single JSON object."""
+
+
+def detect_dots(pages: Path, names: list[str], server: str, model: str) -> dict:
+    """dots.mocr asked for layout ONLY — no transcription — through the same vLLM server.
+
+    Serve it exactly as `ocr_run.py`'s `run_dots_ocr` documents; this only changes the prompt.
+    A truncated answer is raised rather than scored, for the reason that runner gives: a
+    partial page read as a whole one understates the engine silently.
+    """
+    import base64  # noqa: PLC0415
+    import time  # noqa: PLC0415
+    import urllib.request  # noqa: PLC0415
+
+    out: dict = {}
+    timings: dict[str, float] = {}
+    failures: list[str] = []
+    for n, name in enumerate(names, 1):
+        path = pages / name
+        if not path.is_file():
+            print(f"  MISSING {name}", flush=True)
+            failures.append(f"{name}: not on disk")
+            continue
+        body = json.dumps(
+            {
+                "model": model,
+                "max_tokens": 8192,
+                "temperature": 0.0,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": "data:image/png;base64,"
+                                    + base64.b64encode(path.read_bytes()).decode()
+                                },
+                            },
+                            {"type": "text", "text": DOTS_LAYOUT_PROMPT},
+                        ],
+                    }
+                ],
+            }
+        ).encode()
+        req = urllib.request.Request(
+            server + "/chat/completions", data=body, headers={"Content-Type": "application/json"}
+        )
+        started = time.perf_counter()
+        try:
+            with urllib.request.urlopen(req, timeout=600) as resp:
+                answer = json.loads(resp.read())
+        except Exception as e:  # noqa: BLE001 — one page must not end the run
+            print(f"  FAILED {name} ({type(e).__name__}: {e})", flush=True)
+            failures.append(f"{name}: {type(e).__name__}: {e}")
+            continue
+        elapsed = time.perf_counter() - started
+        choice = answer["choices"][0]
+        if choice.get("finish_reason") not in (None, "stop"):
+            # A page truncated at max_tokens is a partial answer. Dropping it quietly would
+            # shrink the tier denominators, and it would shrink them exactly where the
+            # comparison is decided — the dense tabular and degraded pages are the ones that
+            # run long. Recorded as a failure so the run cannot be read as complete.
+            print(f"  TRUNCATED {name} ({choice.get('finish_reason')})", flush=True)
+            failures.append(f"{name}: truncated ({choice.get('finish_reason')})")
+            continue
+        blocks = _json_array(choice["message"]["content"])
+        if blocks is None:
+            print(f"  NOT JSON {name} (answered in prose)", flush=True)
+            failures.append(f"{name}: answered in prose, not JSON")
+            continue
+        regions = []
+        for b in blocks:
+            if not isinstance(b, dict):
+                continue
+            bbox = b.get("bbox") or []
+            poly = (
+                [
+                    [bbox[0], bbox[1]],
+                    [bbox[2], bbox[1]],
+                    [bbox[2], bbox[3]],
+                    [bbox[0], bbox[3]],
+                ]
+                if len(bbox) == 4
+                else []
+            )
+            category = str(b.get("category"))
+            regions.append(
+                {
+                    "label": DOTS_TO_PP.get(category, category.lower()),
+                    "dots_category": category,
+                    "score": None,  # the model returns no confidence
+                    "area": round(_area(poly), 1),
+                }
+            )
+        timings[name] = round(elapsed, 4)
+        out[name] = regions
+        if n % 10 == 0 or n == len(names):
+            print(f"  {n}/{len(names)}", flush=True)
+    # The same positive assertions `detect` makes, for the same reason. A server that is down
+    # or on the wrong port answers every page with a refused connection, and without this the
+    # tool would write an empty regions.json, a run.json saying `pages_detected: 0`, and exit
+    # 0 — a complete-looking run of nothing. A bbox under a different key would be subtler
+    # still: every area 0.0, the graphic branch never reached, every page called `text`.
+    if not [p for p in out if p != TIMINGS_KEY]:
+        raise RuntimeError(
+            f"no page was detected — is {server} serving {model}? "
+            f"first failure: {failures[0] if failures else 'none recorded'}"
+        )
+    if not any(r["area"] > 0 for v in out.values() for r in v):
+        raise RuntimeError(
+            "every region has zero area — the bbox is not where this tool looks for it; "
+            "the graphic rule would silently never fire"
+        )
+    out[TIMINGS_KEY] = timings
+    if failures:
+        out[FAILURES_KEY] = failures
+    return out
+
+
+def _json_array(raw: str) -> list | None:
+    """The JSON array in a model's answer, however it wrapped it. Mirrors `ocr_run.py`."""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1] if "```" in text[3:] else text[3:]
+        text = text.removeprefix("json").strip()
+    start, end = text.find("["), text.rfind("]")
+    if start < 0 or end < start:
+        return None
+    try:
+        parsed = json.loads(text[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, list) else None
 
 
 def classify(regions: list[dict]) -> str:
@@ -215,6 +385,13 @@ def report(regions_by_page: dict, tiers: dict[str, str]) -> None:
     """The raw signal first, the fixed rule second. The raw table is the measurement."""
     regions_by_page = dict(regions_by_page)  # the timings come out of a copy, not the caller's
     seconds = regions_by_page.pop(TIMINGS_KEY, None)
+    failures = regions_by_page.pop(FAILURES_KEY, None)
+    if failures:
+        # Printed FIRST and unmissably: every figure below is over a shrunken denominator.
+        print(f"!! {len(failures)} PAGES DID NOT LAND — this run is not the full sample:")
+        for f in failures[:10]:
+            print(f"     {f}")
+        print()
     pages = [p for p in tiers if p in regions_by_page]
     missing = [p for p in tiers if p not in regions_by_page]
     if missing:
@@ -321,8 +498,9 @@ def _provenance(args: argparse.Namespace, model_name: str, pages: int) -> dict:
         except Exception:  # noqa: BLE001 — an absent package is a fact, not a failure
             return None
 
-    return {
-        "engine": "pp-doclayoutv3",
+    dots = args.cmd == "run-dots"
+    run = {
+        "engine": model_name if dots else "pp-doclayoutv3",
         "purpose": "page router candidate, layout detection only",
         "weights": model_name,
         "run_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -332,7 +510,7 @@ def _provenance(args: argparse.Namespace, model_name: str, pages: int) -> dict:
         "python": platform.python_version(),
         "packages": {
             m: version(m)
-            for m in ("paddleocr", "paddlex", "paddlepaddle-gpu", "paddlepaddle")
+            for m in ("paddleocr", "paddlex", "paddlepaddle-gpu", "paddlepaddle", "vllm", "torch")
             if version(m)
         },
         "rule": {
@@ -349,6 +527,32 @@ def _provenance(args: argparse.Namespace, model_name: str, pages: int) -> dict:
         "table_labels": sorted(TABLE_LABELS),
         "furniture_labels": sorted(FURNITURE_LABELS),
     }
+    if dots:
+        # The comparison is only honest if one rule scores both, so dots' vocabulary is
+        # mapped onto PP-DocLayoutV3's. The mapping is a judgement and belongs in the record.
+        run["prompt"] = "layout only, no text"
+        run["server"] = args.dots_server
+        run["sampling"] = {"max_tokens": 8192, "temperature": 0.0}
+        run["category_mapping"] = dict(sorted(DOTS_TO_PP.items()))
+        # ASKED OF THE LIVE SERVER, as `ocr_run.py` asks the live PaddleOCR-VL pipeline:
+        # `--served-model-name` is an alias the operator chose, so recording it alone would
+        # say nothing about which weights answered. The server knows its own model id.
+        served = _served_model(args.dots_server)
+        run["weights"] = served or f"{model_name} (alias only; server was not reachable)"
+    return run
+
+
+def _served_model(server: str) -> str | None:
+    """What the vLLM server says it is serving, or None if it cannot be asked."""
+    import urllib.request  # noqa: PLC0415
+
+    try:
+        with urllib.request.urlopen(server.rstrip("/") + "/models", timeout=10) as resp:
+            data = json.loads(resp.read())
+    except Exception:  # noqa: BLE001 — an unreachable server is a fact for the record
+        return None
+    served = [m.get("root") or m.get("id") for m in data.get("data") or []]
+    return ", ".join(str(m) for m in served if m) or None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -361,6 +565,13 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--sample", type=Path, default=SAMPLE)
     r.add_argument("--model", default="PP-DocLayoutV3")
 
+    d = sub.add_parser("run-dots", help="the same, from dots.mocr asked for layout only")
+    d.add_argument("--pages", type=Path, required=True)
+    d.add_argument("--out", type=Path, required=True)
+    d.add_argument("--sample", type=Path, default=SAMPLE)
+    d.add_argument("--dots-server", default="http://127.0.0.1:8120/v1")
+    d.add_argument("--dots-model", default="dots-mocr")
+
     p = sub.add_parser("report", help="the contingency table and the fixed rule")
     p.add_argument("--regions", type=Path, required=True)
     p.add_argument("--sample", type=Path, default=SAMPLE)
@@ -368,11 +579,16 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     tiers = selected_pages(args.sample)
 
-    if args.cmd == "run":
+    if args.cmd in ("run", "run-dots"):
         args.out.mkdir(parents=True, exist_ok=True)
         names = sorted(tiers)
-        print(f"{len(names)} selected pages, model {args.model}")
-        regions = detect(args.pages, names, args.model)
+        if args.cmd == "run-dots":
+            print(f"{len(names)} selected pages, {args.dots_model} (layout only)")
+            regions = detect_dots(args.pages, names, args.dots_server, args.dots_model)
+            args.model = args.dots_model
+        else:
+            print(f"{len(names)} selected pages, model {args.model}")
+            regions = detect(args.pages, names, args.model)
         out = args.out / "regions.json"
         out.write_text(json.dumps(regions, indent=1), encoding="utf-8", newline="\n")
         run = _provenance(args, args.model, len(regions) - 1)

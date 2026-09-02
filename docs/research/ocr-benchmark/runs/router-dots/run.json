@@ -1,0 +1,60 @@
+{
+ "engine": "dots-mocr",
+ "purpose": "page router candidate, layout detection only",
+ "weights": "rednote-hilab/dots.mocr",
+ "run_at": "2026-09-02T02:57:51+00:00",
+ "host": "rmi-ai-machine",
+ "pages": "pages",
+ "pages_detected": 90,
+ "python": "3.12.14",
+ "packages": {
+  "torch": "2.13.0+cu132"
+ },
+ "rule": {
+  "order": [
+   "blank if no content region",
+   "tabular if any table",
+   "graphic if figure area >= 0.5 of content area",
+   "text otherwise"
+  ],
+  "fitted": false,
+  "note": "stated before the first run; in-sample figures until a second sample"
+ },
+ "figure_labels": [
+  "chart",
+  "figure",
+  "footer_image",
+  "header_image",
+  "image"
+ ],
+ "table_labels": [
+  "table"
+ ],
+ "furniture_labels": [
+  "aside_text",
+  "footer",
+  "header",
+  "number",
+  "page_number",
+  "seal"
+ ],
+ "prompt": "layout only, no text",
+ "server": "http://127.0.0.1:8120/v1",
+ "sampling": {
+  "max_tokens": 8192,
+  "temperature": 0.0
+ },
+ "category_mapping": {
+  "Caption": "figure_title",
+  "Footnote": "footnote",
+  "Formula": "formula",
+  "List-item": "text",
+  "Page-footer": "footer",
+  "Page-header": "header",
+  "Picture": "image",
+  "Section-header": "paragraph_title",
+  "Table": "table",
+  "Text": "text",
+  "Title": "doc_title"
+ }
+}

@@ -451,8 +451,8 @@ threshold to the tier labels of the sample being scored is how the party-type ru
 PaddleOCR-VL, and layout-detection only — was the candidate, and **step 4 below measures it**:
 free at 0.05 s a page, safe on the graphic call, unsafe on the blank one, and carrying an
 unconfirmed signal on the clean/degraded split it was assumed blind to. The dots models return
-the same categories alongside their text, recorded in `layout.json` by `ocr_run.py`, and are
-the second candidate — not yet measured this way.
+the same categories alongside their text, and were the second candidate; § Step 4 measures
+dots.mocr asked for layout alone and finds it 75× dearer for no net gain.
 
 ## Step 4 — the page router, measured
 
@@ -535,6 +535,69 @@ So the router is not settled, but it is no longer nothing: the structural half i
 and cheap, the graphic call is safe in the direction that matters, the blank call is not safe
 at all, and the clean/degraded split — the expensive one — has a free signal in it that has
 yet to be confirmed on pages nobody has scored.
+
+### Can dots.mocr just classify? Yes — and it is still not the router
+
+Asked 2026-09-02, because the dots models return a category per block and it would be tidy if
+the router were the same family as the reader. The model's prompt contract has a layout-only
+mode: bbox and category, no text field. `ocr_router_probe.py run-dots` uses it, mapping dots'
+vocabulary onto PP-DocLayoutV3's so **one rule scores both** and the comparison is of
+detectors rather than of two rules; the mapping is recorded in `run.json`.
+
+It works, and it is genuinely cheaper than reading: **3.78 s a page against the 6.5 s full
+read**, so dropping the transcription saves about 42%. But it is **75× PP-DocLayoutV3's
+0.05 s**, and that is what decides it.
+
+| | PP-DocLayoutV3 | dots.mocr, layout only |
+| --- | --- | --- |
+| cost a page | **0.05 s** | 3.78 s |
+| graphic | 100% precision, 55.6% recall | 88.9% / **88.9%** |
+| tabular | **66.7%** / 80.0% | 36.4% / 80.0% |
+| blank | 25.0% / 100% | never called (misses the one blank) |
+| text | **97.3% / 97.3%** | 98.6% / 92.0% |
+| clean vs degraded, AUC | 0.843 | **0.873** |
+
+**Where dots is better it is really better.** It finds eight of the nine maps against
+PP-DocLayoutV3's five, and it never returns an empty page — so it does not have the
+false-blank failure that is PP-DocLayoutV3's worst property. It reads the clean/degraded
+difference slightly better too.
+
+**Where it is worse, it is worse in the generative way.** It calls eleven pages tabular and is
+right about four: it puts a `table` region on ordinary correspondence — `text ×17` plus a
+lone `table` — on six separate pages of the text tier. That is the same invention risk the
+text side shows on graphic pages, moved into the structural channel — and it makes the tier
+the routing most needs settled the tier it is least trustworthy on. It also misses the same
+unruled errata list, coming back
+with three `text` blocks where PP-DocLayoutV3 gives nineteen.
+
+**The economics close the question.** Routing to the engines § What the measurements route to
+names, the expected read is 2.66 s a page. Add the router:
+
+| pipeline | cost a page |
+| --- | --- |
+| PP-DocLayoutV3 + routed read | **2.71 s** |
+| dots.mocr layout-only + routed read | 6.44 s |
+| no router, dots.mocr everywhere | 6.50 s |
+
+**dots.mocr as the router saves 1% over having no router at all.** And the split it is best at
+is the one it cannot economically serve: paying 3.78 s of dots.mocr to decide whether to pay
+6.5 s of dots.mocr is most of the read to avoid the read.
+
+**Asking for layout alone does sharpen it**, which is worth knowing for anyone who uses dots
+at all. The scored `dots-mocr` read already recorded a category per block as a byproduct
+(`runs/dots-mocr-layout/layout.json`); against the layout-only run on the 87 pages both cover,
+scored by the same count-based rule — *not* the area rule the table above uses, because the
+byproduct carries no bboxes — the graphic call goes from 66.7% precision at 22.2% recall to
+80.0% at 44.4%, and tabular is unchanged. The model classifies better when it is not also
+transcribing. (Those numbers are lower than the table's because the count rule is weaker than
+the area rule on this tier, not because the run is different.)
+
+Two caveats, both against dots rather than for it being dismissed. Both engines were timed one
+page at a time; vLLM batches well and PP-DocLayoutV3's lead would narrow under concurrency,
+though not by 75×. And its graphic recall is a real advantage — if the false-blank problem
+proves to be the thing that matters, a cheap detector plus a dots second opinion on the pages
+that come back empty would cost far less than routing everything through it. That is a
+composition worth measuring; running dots.mocr as *the* classifier is not.
 
 ## Are these the right versions, run the right way?
 

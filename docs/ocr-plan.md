@@ -129,9 +129,12 @@ backfill is about 63 hours of box time.
 labels while inventing nothing, where every VL model is blind to a map; on tables only
 HunyuanOCR-1.5 (86.2%) and Textract (87.4%) detect all five, because the VL layout models
 will not call an unruled columnar list a table and agency filings are full of them. So the
-plan's OCR step becomes a routed one, and **the router is the open piece** — see
-`research/ocr-benchmark/README.md` § What the measurements route to, which also records why a
-column-count rule fitted to this sample was refused.
+plan's OCR step becomes a routed one. **The router was measured 2026-09-02** and is cheap
+enough to be free — PP-DocLayoutV3 at 0.05 s a page, an eighth of the read it chooses — but it
+is not settled: it is safe on the graphic call, unsafe on the blank one, and the split that
+carries 86% of the pages is one it was assumed unable to make and partly can (AUC 0.843,
+unconfirmed). See `research/ocr-benchmark/README.md` § What the measurements route to and
+§ Step 4, which also record why a column-count rule fitted to this sample was refused.
 
 **One engine carries a licence the record cannot absorb.** HunyuanOCR-1.5 is the only free
 engine that closes the table gap, but the Tencent Hunyuan Community License excludes the EU,
