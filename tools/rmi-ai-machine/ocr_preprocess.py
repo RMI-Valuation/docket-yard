@@ -23,6 +23,13 @@ WHAT EACH VARIANT IS, and why it might matter on this record:
     crop        crop to the content bounding box. Content is 55-76% of the render on half
                 the sample, so a VLM tokenising the whole page spends much of its budget on
                 margin.
+    maskfig     white out the regions PP-DocLayoutV3 calls a picture, IN PLACE, leaving the
+                page its canvas. A figure carries no prose, so nothing the ground truth
+                records is lost and the question is clean: does removing a distractor help
+                the text around it?
+    masktab     the same, plus tables. This one MUST lose characters, because a table's text
+                is in the ground truth — it measures the price of sending tables to a second
+                pass rather than reading them in place.
 
 `binarise` and `denoise` are computed FROM the greyscale, so each is greyscale plus one
 operation. Their comparison baseline is therefore `grey`, not the colour render — read
@@ -48,7 +55,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SAMPLE = ROOT / "docs/research/ocr-benchmark/sample.json"
 
-OPS = ("grey", "binarise", "deskew", "denoise", "crop")
+OPS = ("grey", "binarise", "deskew", "denoise", "crop", "maskfig", "masktab")
+
+# What `maskfig` and `masktab` white out, in PP-DocLayoutV3's vocabulary. The split is the
+# whole point of having two ops: a figure carries no prose, so removing one cannot cost the
+# transcription anything and the measurement is clean. A table carries text the ground truth
+# records, so removing one MUST lose characters — `masktab` measures how many, which is the
+# price of sending tables to a second pass.
+MASK_FIGURE = {"image", "figure", "chart"}
+MASK_TABLE = {"table"}
 
 
 def selected(sample_path: Path) -> list[dict]:
@@ -137,12 +152,81 @@ def _deskew_angle(grey, limit: float = 8.0, step: float = 0.25) -> float:
     return best_angle
 
 
+def _layout_regions(src_dir: Path, names: list[str]) -> dict[str, list[tuple]]:
+    """PP-DocLayoutV3's boxes per page, as `(label, x0, y0, x1, y1)`.
+
+    The router already measured this detector (§ Step 4): 0.05 s a page, and its graphic call
+    is 100% precise, which is the property that matters here — a region it calls a picture is
+    one, so whiting it out does not white out prose.
+    """
+    from paddleocr import LayoutDetection  # noqa: PLC0415
+
+    model = LayoutDetection(model_name="PP-DocLayoutV3")
+    found: dict[str, list[tuple]] = {}
+    for n, name in enumerate(names, 1):
+        boxes = []
+        for res in model.predict(str(src_dir / name)):
+            for box in res.json["res"].get("boxes") or []:
+                poly = box.get("polygon_points") or []
+                if len(poly) < 3:
+                    continue
+                xs = [pt[0] for pt in poly]
+                ys = [pt[1] for pt in poly]
+                boxes.append((box.get("label"), min(xs), min(ys), max(xs), max(ys)))
+        found[name] = boxes
+        if n % 20 == 0 or n == len(names):
+            print(f"  detected {n}/{len(names)}", flush=True)
+    # THE SAME POSITIVE ASSERTION `ocr_router_probe.py` MAKES, for the same reason. If a
+    # PaddleX build names the geometry field something else, every page comes back with no
+    # boxes, the mask paints nothing, and the variant is written as byte-identical copies of
+    # the base — which scores as a perfect tie and reads as "masking changes nothing".
+    # A silent no-op is the one result this must never produce.
+    if not any(found.values()):
+        raise RuntimeError(
+            f"{len(names)} pages detected and not one region among them — the geometry field "
+            "is not where this tool looks for it; every mask would be a no-op"
+        )
+    return found
+
+
 def derive(pages: list[dict], src_dir: Path, out: Path, op: str) -> int:
     """One image operation over a page set, writing the same file names into `out`."""
     import cv2  # noqa: PLC0415
     import numpy as np  # noqa: PLC0415
 
     out.mkdir(parents=True, exist_ok=True)
+    absent = [p["png"] for p in pages if not (src_dir / p["png"]).is_file()]
+    if absent:
+        # Checked before the layout pass, which costs a GPU model load and 90 detections.
+        raise RuntimeError(f"{len(absent)} pages are not in {src_dir}: {', '.join(absent[:5])}")
+    regions: dict[str, list[tuple]] = {}
+    if op in ("maskfig", "masktab"):
+        regions = _layout_regions(src_dir, [p["png"] for p in pages])
+        wanted = MASK_FIGURE | (MASK_TABLE if op == "masktab" else set())
+        masked_pages = sum(1 for b in regions.values() if any(x[0] in wanted for x in b))
+        print(f"  {op}: {masked_pages} of {len(pages)} pages have something to mask")
+        # WRITTEN BESIDE THE PAGES, because the published account of this variant is "33 of
+        # 90 pages, 6.0% of the page on average, 8 clean and 18 degraded" — and a figure
+        # nothing records cannot be checked afterwards. Same argument as `run.json`.
+        tiers = {p["png"]: p["tier"] for p in pages}
+        masked = {
+            name: {
+                "tier": tiers[name],
+                "regions": [
+                    {"label": lb, "box": [x0, y0, x1, y1]}
+                    for lb, x0, y0, x1, y1 in boxes
+                    if lb in wanted
+                ],
+            }
+            for name, boxes in regions.items()
+            if any(x[0] in wanted for x in boxes)
+        }
+        (out / "masked.json").parent.mkdir(parents=True, exist_ok=True)
+        (out / "masked.json").write_text(
+            json.dumps({"op": op, "labels": sorted(wanted), "pages": masked}, indent=1),
+            encoding="utf-8",
+            newline="\n",
+        )
     done = 0
     for n, page in enumerate(pages, 1):
         path = src_dir / page["png"]
@@ -183,6 +267,20 @@ def derive(pages: list[dict], src_dir: Path, out: Path, op: str) -> int:
                 y0, y1 = max(0, y - pad), min(img.shape[0], y + h + pad)
                 x0, x1 = max(0, x - pad), min(img.shape[1], x + w + pad)
                 result = img[y0:y1, x0:x1]
+        elif op in ("maskfig", "masktab"):
+            # THE PAGE KEEPS ITS CANVAS. That is the difference from `crop`, which shrank the
+            # page and thereby removed the margin that tells a model where the scan ends — the
+            # cut lines it then completed are why crop was not carried forward. Whiting a
+            # region out in place leaves every edge where it was.
+            wanted = MASK_FIGURE | (MASK_TABLE if op == "masktab" else set())
+            result = img.copy()
+            for label, x0, y0, x1, y1 in regions.get(page["png"], []):
+                if label not in wanted:
+                    continue
+                a, b = max(0, int(y0)), min(img.shape[0], int(y1))
+                c, d = max(0, int(x0)), min(img.shape[1], int(x1))
+                if b > a and d > c:
+                    result[a:b, c:d] = 255
         else:
             raise ValueError(f"unknown op {op}")
         cv2.imwrite(str(out / page["png"]), result)
@@ -197,10 +295,14 @@ def derive(pages: list[dict], src_dir: Path, out: Path, op: str) -> int:
 # in every case: `binarise` and `denoise` are computed from the greyscale, so scoring them
 # against colour would credit each with whatever greyscale alone is worth.
 VARIANT_BASE = {
+    "dpi200": "base",
+    "dpi250": "base",
     "dpi300": "base",
     "grey": "base",
     "deskew": "base",
     "crop": "base",
+    "maskfig": "base",
+    "masktab": "base",
     "binarise": "grey",
     "denoise": "grey",
 }
@@ -213,7 +315,9 @@ def _pct(block: dict | None, key: str) -> str:
     return f"{value * 100:5.1f}%" if isinstance(value, (int, float)) else "  n/a"
 
 
-def compare(scores: Path, engine: str, base: Path | None = None) -> None:
+def compare(
+    scores: Path, engine: str, base: Path | None = None, tiers: set[str] | None = None
+) -> None:
     """The variant table and the paired per-page test, from the scored runs.
 
     THE PAIRED TEST IS THE POINT. Every variant reads the same 90 pages, so the per-page
@@ -254,21 +358,29 @@ def compare(scores: Path, engine: str, base: Path | None = None) -> None:
     )
     print(
         f"\n{'variant':10s} {'CER':>6s} {'clean':>6s} {'degr':>6s} {'tab':>6s} "
-        f"{'dockets':>9s} {'dates':>9s} {'labels':>7s} {'invent':>7s} {'completed':>10s}"
+        f"{'dockets':>9s} {'dates':>9s} {'labels':>7s} {'invents (worst)':>15s} {'completed':>10s}"
     )
     for v in loaded:
         o, bt = loaded[v]["overall"], loaded[v]["by_tier"]
-        # INVENTION IS READ FROM `by_tier.graphic`, THE ONLY PLACE IT EXISTS. Reading
-        # `overall.false_chars` — a key the scorer never writes — printed a confident 0 for
-        # every variant, and that table was used to publish "neither engine invented a
-        # single character under any variant". `crop` had invented four.
+        # INVENTION IS COUNTED FROM THE PER-PAGE ROWS, NOT TAKEN FROM `by_tier`. Two ways of
+        # getting this wrong have already been published. `overall.false_chars` is a key the
+        # scorer never writes, so reading it printed a confident 0 everywhere; and
+        # `by_tier.graphic.false_chars` is a MEAN over nine pages, so printing it turned
+        # "36 characters on one page" into "4". Step 3 states the rule this obeys: report a
+        # count of pages and the worst page, never a mean, because the distribution is eight
+        # zeros and an outlier and a mean of that says nothing.
+        graphic = [p for p in loaded[v]["pages"].values() if p.get("tier") == "graphic"]
+        invented = [p.get("false_chars") or 0 for p in graphic]
+        hits = sum(1 for c in invented if c > 0)
+        worst = max(invented, default=0)
         g = bt.get("graphic") or {}
         print(
             f"{v:10s} {_pct(o, 'cer')} {_pct(bt.get('clean'), 'cer')} "
             f"{_pct(bt.get('degraded'), 'cer')} {_pct(bt.get('tabular'), 'cer')} "
             f"{o['dockets']['hit']:5d}/{o['dockets']['truth']:<3d} "
             f"{o['dates']['hit']:5d}/{o['dates']['truth']:<3d} "
-            f"{_pct(g.get('labels'), 'recall')} {g.get('false_chars') or 0:7.0f} "
+            f"{_pct(g.get('labels'), 'recall')} "
+            f"{f'{hits} of {len(graphic)} ({worst:.0f})':>15s} "
             f"{o.get('cut_completed') or 0:10d}"
         )
     print("\n  `invent` is characters asserted on a graphic page that carries none and")
@@ -290,8 +402,14 @@ def compare(scores: Path, engine: str, base: Path | None = None) -> None:
         common = [
             k
             for k in pb
-            if k in pv and pb[k].get("cer") is not None and pv[k].get("cer") is not None
+            if k in pv
+            and pb[k].get("cer") is not None
+            and pv[k].get("cer") is not None
+            and (tiers is None or pb[k].get("tier") in tiers)
         ]
+        if not common:
+            print(f"{v:10s} {against:>7s}    no page matches the tier filter")
+            continue
         deltas = [pv[k]["cer"] - pb[k]["cer"] for k in common]  # negative: the variant read better
         better = sum(1 for d in deltas if d < -1e-9)
         worse = sum(1 for d in deltas if d > 1e-9)
@@ -326,10 +444,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     c.add_argument("--engine", required=True, help="which engine these scores are of")
     c.add_argument("--base", type=Path, default=None, help="the unpreprocessed run, if elsewhere")
+    c.add_argument(
+        "--tiers",
+        default=None,
+        help="restrict the paired test to these tiers, e.g. clean,degraded — the primarily "
+        "text pages, which is where masking a figure is meant to be used",
+    )
 
     args = ap.parse_args(argv)
     if args.cmd == "compare":
-        compare(args.scores, args.engine, args.base)
+        tiers = set(args.tiers.split(",")) if args.tiers else None
+        compare(args.scores, args.engine, args.base, tiers)
         return 0
     pages = selected(args.sample)
     print(f"{len(pages)} selected pages")

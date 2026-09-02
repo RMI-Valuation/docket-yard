@@ -33,11 +33,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   graphic call safe, **blank call unsafe — "no regions" must never mean "skip"**; plus an
   unconfirmed clean-vs-degraded signal (AUC 0.843) it was assumed blind to. dots.mocr
   layout-only is 75x dearer for no net gain. Left: **the second unseen sample**
-- **Preprocessing is closed, 2026-09-02** (§ Step 5): no stage earns its place, and crop —
-  the only one that cuts CER — raises invention, so it is not carried forward
+- **Preprocessing measured, 2026-09-02** (§ Step 5): no image operation earns its place —
+  crop cuts CER but invents, masking does not invent but loses 5 dates. **Cameron's call:
+  the degraded tier at 200 DPI** (dots 12.7% to 12.1%, dockets held, +40 h); 300 OOMs
 - **More tabular and graphic ground truth** — 5 and 9 pages decide nothing. The tabular
-  routing, the router's figures and the one re-ask left of preprocessing (does crop's
-  invented text scale?) all wait on it. **Needs Cameron's check**
+  routing, the router's figures and preprocessing's re-asks all wait on it. **Cameron's**
 - **HunyuanOCR-1.5 is Cameron's call**: the only free engine that closes the table gap
   (86.2% cells), but its licence bars the EU/UK/Korea and forbids using outputs to improve
   any AI model, which the CC0 dump cannot absorb

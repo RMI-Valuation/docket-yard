@@ -649,10 +649,113 @@ and `denoise` are measured for the recogniser class only, and `dpi300` could not
 | grey | base | 0 | 0 | 81 | +0.00pp |
 | crop | base | 21 | 14 | 46 | **−0.29pp** |
 
+### The DPI curve has an optimum, and it is 200
+
+Added 2026-09-02, because the first pass tested only 150 and 300 and found a wash at one and a
+crash at the other. Between them the picture is different, and it is different per engine.
+
+| DPI | PP-OCRv6 CER | clean | degraded | tabular | dots.mocr CER | clean | degraded | tabular | dots a page |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 150 | 11.8% | 2.6% | 17.9% | 38.2% | 8.2% | 3.3% | 12.7% | 13.4% | 6.5 s |
+| 200 | 11.7% | 2.6% | 17.8% | **37.0%** | **7.9%** | 3.2% | **12.1%** | 13.4% | 9.0 s |
+| 250 | **11.6%** | **2.5%** | 17.8% | 37.4% | 8.3% | 3.9% | 12.4% | **12.0%** | 12.2 s |
+| 300 | 11.7% | 2.6% | 18.0% | 37.4% | — OOM — | | | | — |
+
+**PP-OCRv6 is flat, and its best CER comes with something the CER does not show.** Every DPI
+lands within 0.2pp of every other, and the paired tests agree: 200 is 39 pages better and 28
+worse, 250 is 36 and 29, 300 is 39 and 29. But at 200 and 250 it starts reading marks off a
+map as characters — **90 and 154 of them on one graphic page**, where 150 and 300 read none.
+It is one page and the effect is not monotonic, so it is noise rather than a trend; it is
+recorded because 250 is the row with the best CER and that is not the whole of what it did.
+There is no resolution this engine wants that 150 does not give it. It is also the engine
+the router sends the clean tier to, which is 53% of the record, so **the largest share of
+pages should stay at 150 DPI** and the cheapest render is the right one.
+
+**dots.mocr has a real optimum at 200, and 250 overshoots it.** At 200 the degraded tier — the
+third of the record this engine exists for — goes 12.7% to **12.1%**, the paired test is 20
+better against 11 worse, all 34 docket numbers survive, tables are untouched, nothing is
+invented and `completed` does not move. **It is the only change measured in this section that
+improves an engine while leaving both invention probes exactly where they were.**
+
+At 250 it reverses: clean goes 3.2% to 3.9%, the overall mean turns positive (+0.22pp on the
+text tiers), and one docket is lost. The curve is not monotonic and the peak
+is narrow.
+
+**250 does buy the one thing 200 does not**: tabular CER 13.4% to **12.0%**, the best tabular
+figure dots has posted, and 223 of 246 dates against 219. If the tabular route ever settles on
+dots rather than Textract or HunyuanOCR, it should settle at 250 DPI — a per-tier render, not
+a per-record one.
+
+**300 DPI is where it stops.** `torch.OutOfMemoryError` in the vision rotary embedding, nine
+pages in, the engine core dead. 200 and 250 both complete 90 of 90 with no failures, so the
+ceiling on a 12 GB card at `--gpu-memory-utilization 0.95` and 16,384 context is between 250
+and 300.
+
+**What it costs.** dots at 200 is 9.0 s a page against 6.5 s. Through the router's tier shares
+the whole pipeline goes from **2.71 s to 3.54 s a page** — 132 hours to 172 hours over 175,000
+pages, on a box nobody pays for. That is the trade for 0.6pp on the tier that hurts, and it is
+the operator's to make rather than mine.
+
+### Masking the non-text regions, rather than cropping to them
+
+The `crop` result raised the obvious follow-up: cropping fails because it removes the page
+margin, so cut lines stop looking cut. **Masking the non-prose regions in place has the same
+motive and does not touch the margins.** `maskfig` whites out what PP-DocLayoutV3 calls a
+picture; `masktab` whites out tables too, which is the shape of reading tables in a separate
+later pass. The router already measured that detector at 0.05 s a page, so the masks are
+nearly free to produce.
+
+It reaches 33 of the 90 pages (8 clean, 18 degraded, 6 graphic, 1 tabular) over 39 regions,
+whiting out a mean 6.0% of the page; `masktab` reaches 37 pages and 46 regions at 6.5%. Which
+page and which box is recorded in `runs/preprocess/masks/`, so those counts are re-derivable
+rather than asserted.
+
+| variant | engine | CER | clean | degraded | tabular | dockets | dates | invents | completed |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| base | PP-OCRv6 | 11.8% | 2.6% | 17.9% | 38.2% | 31/34 | 222/246 | 0 of 9 | 1 |
+| maskfig | PP-OCRv6 | 11.7% | **2.4%** | 17.9% | 38.2% | 28/34 | 218/246 | 0 of 9 | **1** |
+| masktab | PP-OCRv6 | 12.3% | **2.4%** | 18.0% | 47.2% | 28/34 | 217/246 | 0 of 9 | **1** |
+| base | dots.mocr | 8.2% | 3.3% | 12.7% | 13.4% | 34/34 | 219/246 | 0 of 9 | 7 |
+| maskfig | dots.mocr | **7.9%** | **2.6%** | 12.7% | 13.4% | 30/34 | 219/246 | 0 of 9 | 8 |
+
+**On the pages it is meant for, it works.** Restricted to the clean and degraded tiers and to
+the pages a figure was actually masked on, PP-OCRv6 is 15 better against 9 worse, mean
+−0.26pp; on the clean tier alone, 5 better against 3 worse at −0.61pp. dots.mocr reaches its
+**best clean-tier figure of anything measured, 2.6%**, better than crop's 2.8%.
+
+**It escapes most of crop's invention, but not all of it.** `completed` stays at **1** for
+PP-OCRv6 where crop took it to 4, and neither engine asserts a character on a graphic page
+where crop had dots.mocr writing 36. But dots.mocr's `completed` goes 7 to **8 — exactly
+crop's figure**, so on that engine masking finishes the same extra cut line. One line is one
+line and does not separate the two techniques; what separates them is the graphic-page
+invention and PP-OCRv6's fourfold `completed`, both of which masking avoids.
+
+**The cost is real and it is not where it looks.** Both engines lose docket numbers under
+`maskfig` — PP-OCRv6 31→28, dots 34→30 — and **every one of those losses is on a graphic
+page**, where masking the figure removes the map the docket is printed on. Those pages would
+never be routed through masking: this is a technique for primarily-text pages by construction,
+and on those pages dots keeps all its dockets. What it does cost on text pages is **dates: 5
+of 246 across four degraded pages**, where a stamp or a letterhead the detector called a
+picture had a date inside it.
+
+**`masktab` prices the second pass.** Tabular CER goes 38.2% to **47.2%** and the overall mean
+turns +1.45pp: that is the table text simply not being read, which is what a later pass would
+have to recover. The prose is unaffected — on the text tiers `masktab` and `maskfig` are within
+0.05pp of each other — so splitting the page costs nothing but the tables themselves, exactly
+as the idea assumes. Whether the second pass earns it depends on the tabular route, which is
+still unsettled between Textract (87.4% cells) and HunyuanOCR (86.2%).
+
+**Where this leaves it.** Masking is better-behaved than cropping and the gain is small: about
+a quarter of a point on a third of the pages, at the price of a handful of dates. It is worth
+re-asking on the second sample alongside crop, and the question to ask is whether the date loss
+scales — because a date is quoted, never computed, and one lost to a whited-out stamp is a
+fact the record no longer holds. **Nothing here is adopted on 90 pages.**
+
 ### What it settles
 
-**Nothing here earns a place in the pipeline.** That is the finding, and the two rightmost
-columns are why the one variant that looked like an exception is not.
+**Nothing here is adopted, and one thing is now worth deciding.** No image operation earns a
+place in the pipeline; the render resolution is a different matter, because dots.mocr has a
+real optimum at 200 DPI and the choice is a cost question rather than a measurement one.
 
 **Greyscale is a no-op on this record, and the reason is the record rather than the engines.**
 It ties on 80 of 81 pages for PP-OCRv6 and on **all 81** for dots.mocr, because **86 of the 90
@@ -662,13 +765,10 @@ This also re-frames the one prior result: greyscale moved Claude from 6.6% to 5.
 it removes no information here, whatever it did for Claude came from the channel count or the
 encoding rather than from the image. No pipeline should spend a pass on it.
 
-**300 DPI is not worth it for one engine and is not runnable for the other.** For PP-OCRv6 it
-is a wash — 39 pages better, 29 worse, −0.02pp — at double the time (0.6 s against 0.3 s a
-page). For dots.mocr it **killed the server**: `torch.OutOfMemoryError` in the vision rotary
-embedding nine pages in, the engine core dead and every later request a 500. That is a 12 GB
-card at `--gpu-memory-utilization 0.95` and 16,384 context, so it is a statement about this
-box and this configuration rather than about 300 DPI in principle — but it is the box the
-backfill would run on. The usual "300 DPI floor" advice does not survive contact with either
+**Resolution is per engine and the optimum is not 300** — see the DPI curve above. PP-OCRv6
+is flat from 150 to 300, so the 53% of pages routed to it should stay at the cheapest render.
+dots.mocr peaks at 200, gaining 0.6pp on the degraded tier for 38% more time, and 300 kills
+the server outright. The usual "300 DPI floor" advice does not survive contact with either
 engine here.
 
 **Binarise and denoise are real losses.** Both lose the majority of pages outright (44 and 50
@@ -688,22 +788,23 @@ the 90 pages, where the broken one mostly did nothing. **Correctly deskewed, it 
 small net loss**: 11 pages better, 17 worse, +0.13pp. Resampling blur costs this engine more
 than alignment buys it.
 
-**Crop looks like the exception, and the invention columns say it is not.** It is the only
-variant that improves CER for either engine — PP-OCRv6 to 11.6%, and dots.mocr from 8.2% to
-7.9% with clean 3.3% to 2.8% and degraded 12.7% to 12.3%, winning 21 pages to 14. But it is
-also the only variant that makes **both** invention measures worse. `completed` — `[cut]`
+**Crop improves CER and pays for it by inventing.** dots.mocr goes 8.2% to 7.9%, clean 3.3%
+to 2.8% and degraded 12.7% to 12.3%, winning 21 pages to 14. But it is the only variant that
+makes **both** invention measures worse. `completed` — `[cut]`
 lines an engine finished, which the scorer calls the sharpest probe in the benchmark — goes
-from 1 to 4 on PP-OCRv6 and 7 to 8 on dots.mocr, and dots.mocr asserts **4 characters on a
-graphic page that carries none** where the base asserts nothing. The mechanism is the obvious
+from 1 to 4 on PP-OCRv6 and 7 to 8 on dots.mocr, and dots.mocr asserts **36 characters on
+one graphic page that carries none** where the base asserts nothing. The mechanism is the obvious
 one once seen: cropping to the content box removes the margin that tells a model where the
 scan ends, so a line running off the edge of the page stops looking cut and gets completed.
 **Step 3's whole argument about the graphic tier is that a rare, confident fabrication is
 worse than a percentage point of character error**, and crop buys 0.3pp by trading exactly
 that. It is not carried forward on this evidence.
 
-So the plan should add no preprocessing stage. If any variant is revisited on the second,
-unseen sample it is crop, and the question to ask of it is not CER but whether the invented
-text scales.
+So the plan should add no image-processing stage. Two things are worth re-asking on the
+second, unseen sample: **crop**, where the question is not CER but whether the invented text
+scales, and **masking**, where it is whether the lost dates do. The render resolution is the
+one live decision, and it is a cost question: 200 DPI for the degraded tier buys 0.6pp for
+40 hours over the whole backfill.
 
 **Two limits on all of the above.** Every figure is 90 pages, and the paired counts are the
 honest read of how thin some of these margins are. And the dots.mocr baseline is the scored

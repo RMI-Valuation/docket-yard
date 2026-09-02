@@ -140,10 +140,19 @@ unconfirmed). See `research/ocr-benchmark/README.md` § What the measurements ro
 (§ Step 5). Greyscale is a no-op because 86 of the 90 pages are already monochrome; 300 DPI
 is a wash for PP-OCRv6 at twice the time and OOMs dots.mocr on the 12 GB card; binarise and
 denoise lose outright, and deskew is a small loss once it is measured with an estimator that
-actually deskews. Crop-to-content is the only variant that improves CER — dots.mocr 8.2% to
-7.9% — and it is **not** carried forward, because it is also the only one that raises both
-invention measures: it finishes `[cut]` lines and asserts text on a graphic page, since
-cropping removes the margin that tells a model where the scan ends.
+actually deskews. Crop-to-content improves CER — dots.mocr 8.2% to 7.9% — and is **not**
+carried forward, because it is also the only variant that raises both invention measures: it
+finishes `[cut]` lines and asserts text on a graphic page, since cropping removes the margin
+that tells a model where the scan ends. Masking the non-prose regions in place has the same
+motive without that cost and gives dots its best clean tier (2.6%), but it loses five dates to
+whited-out stamps; it is a re-ask for the second sample, not a decision.
+
+**Resolution is the one live choice, and it is per engine.** PP-OCRv6 is flat from 150 to 300,
+so the clean tier stays at the cheapest render. dots.mocr peaks at **200 DPI** — degraded
+12.7% to 12.1%, all 34 dockets held, nothing invented — where 250 overshoots and 300 exhausts
+the 12 GB card. Through the router's tier shares that takes the pipeline from 2.71 s to 3.54 s
+a page, about 132 hours to 172 hours over 175,000 pages of box time nobody pays for. **The
+operator's call, not a measurement.**
 
 **One engine carries a licence the record cannot absorb.** HunyuanOCR-1.5 is the only free
 engine that closes the table gap, but the Tencent Hunyuan Community License excludes the EU,

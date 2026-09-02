@@ -1,0 +1,2151 @@
+{
+ "engine": "dots-dpi250",
+ "run": {
+  "engine": "dots-ocr",
+  "run_at": "2026-09-02T09:41:34+00:00",
+  "host": "rmi-ai-machine",
+  "pages": "pages-dpi250",
+  "python": "3.12.14",
+  "packages": {
+   "transformers": "5.16.1",
+   "torch": "2.13.0+cu132",
+   "python-doctr": "1.1.0"
+  },
+  "weights": "dots-mocr",
+  "backend": {
+   "dots_server": "http://127.0.0.1:8120/v1"
+  }
+ },
+ "pages_scored": 90,
+ "pages_missing": [],
+ "by_tier": {
+  "blank": {
+   "pages": 1,
+   "cer": 0.0,
+   "wer": 0.0,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "labels": null,
+   "cells": null,
+   "false_chars": 0.0,
+   "cut_completed": 0
+  },
+  "clean": {
+   "pages": 38,
+   "cer": 0.03941322595780237,
+   "wer": 0.0475452925215773,
+   "dockets": {
+    "truth": 7,
+    "found": 7,
+    "hit": 7,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 62,
+    "found": 60,
+    "hit": 60,
+    "recall": 0.967741935483871,
+    "precision": 1.0
+   },
+   "labels": null,
+   "cells": null,
+   "false_chars": null,
+   "cut_completed": 0
+  },
+  "degraded": {
+   "pages": 37,
+   "cer": 0.1242237579153112,
+   "wer": 0.1429931994376004,
+   "dockets": {
+    "truth": 22,
+    "found": 22,
+    "hit": 22,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 178,
+    "found": 172,
+    "hit": 158,
+    "recall": 0.8876404494382022,
+    "precision": 0.9186046511627907
+   },
+   "labels": null,
+   "cells": null,
+   "false_chars": null,
+   "cut_completed": 6
+  },
+  "graphic": {
+   "pages": 9,
+   "cer": null,
+   "wer": null,
+   "dockets": {
+    "truth": 5,
+    "found": 4,
+    "hit": 4,
+    "recall": 0.8,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 1,
+    "found": 2,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 0.5
+   },
+   "labels": {
+    "truth": 914,
+    "found": 61,
+    "hit": 46,
+    "recall": 0.05032822757111598,
+    "precision": 0.7540983606557377
+   },
+   "cells": null,
+   "false_chars": 0.0,
+   "cut_completed": 0
+  },
+  "tabular": {
+   "pages": 5,
+   "cer": 0.11987900064648978,
+   "wer": 0.2484469219388008,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 5,
+    "found": 4,
+    "hit": 4,
+    "recall": 0.8,
+    "precision": 1.0
+   },
+   "labels": null,
+   "cells": {
+    "truth": 167,
+    "found": 148,
+    "hit": 96,
+    "recall": 0.5748502994011976,
+    "precision": 0.6486486486486487
+   },
+   "false_chars": null,
+   "cut_completed": 0
+  }
+ },
+ "overall": {
+  "cer": 0.08263427941352412,
+  "wer": 0.10295930993463155,
+  "dockets": {
+   "truth": 34,
+   "found": 33,
+   "hit": 33,
+   "recall": 0.9705882352941176,
+   "precision": 1.0
+  },
+  "dates": {
+   "truth": 246,
+   "found": 238,
+   "hit": 223,
+   "recall": 0.9065040650406504,
+   "precision": 0.9369747899159664
+  },
+  "cut_completed": 6
+ },
+ "pages": {
+  "027702076aa9_p1.txt": {
+   "tier": "degraded",
+   "chars": 733,
+   "cer": 0.06548431105047749,
+   "wer": 0.07547169811320754,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 3,
+    "found": 2,
+    "hit": 2,
+    "recall": 0.6666666666666666,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "05f6d15d9485_p1.txt": {
+   "tier": "degraded",
+   "chars": 3127,
+   "cer": 0.10617204988807163,
+   "wer": 0.10973084886128365,
+   "dockets": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 4,
+    "found": 5,
+    "hit": 4,
+    "recall": 1.0,
+    "precision": 0.8
+   },
+   "cut_completed": 0
+  },
+  "06e622ab85b5_p180.txt": {
+   "tier": "tabular",
+   "chars": 2450,
+   "cer": 0.15346938775510205,
+   "wer": 0.18156424581005587,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0,
+   "cells": {
+    "truth": 21,
+    "found": 25,
+    "hit": 9,
+    "recall": 0.42857142857142855,
+    "precision": 0.36
+   }
+  },
+  "0d9c90b8c3f0_p1.txt": {
+   "tier": "graphic",
+   "chars": 1598,
+   "dockets": {
+    "truth": 1,
+    "found": 0,
+    "hit": 0,
+    "recall": 0.0,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0,
+   "labels": {
+    "truth": 165,
+    "found": 4,
+    "hit": 3,
+    "recall": 0.01818181818181818,
+    "precision": 0.75
+   },
+   "false_chars": 0
+  },
+  "1079eebc2f03_p1.txt": {
+   "tier": "degraded",
+   "chars": 2079,
+   "cer": 0.10004810004810005,
+   "wer": 0.12732919254658384,
+   "dockets": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 6,
+    "found": 5,
+    "hit": 5,
+    "recall": 0.8333333333333334,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "148db94d1812_p2.txt": {
+   "tier": "clean",
+   "chars": 1324,
+   "cer": 0.04682779456193353,
+   "wer": 0.04072398190045249,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 5,
+    "found": 5,
+    "hit": 5,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "17010c2e1198_p176.txt": {
+   "tier": "degraded",
+   "chars": 1087,
+   "cer": 0.0,
+   "wer": 0.0,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "17c496e62aaf_p1.txt": {
+   "tier": "degraded",
+   "chars": 2579,
+   "cer": 0.06242729740209384,
+   "wer": 0.0688836104513064,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 26,
+    "found": 26,
+    "hit": 26,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "1b10f9126a9c_p2.txt": {
+   "tier": "degraded",
+   "chars": 2583,
+   "cer": 0.020905923344947737,
+   "wer": 0.03194103194103194,
+   "dockets": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 1,
+    "found": 2,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 0.5
+   },
+   "cut_completed": 0
+  },
+  "259f4477d110_p3.txt": {
+   "tier": "clean",
+   "chars": 1274,
+   "cer": 0.005494505494505495,
+   "wer": 0.024752475247524754,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "290cd94cee44_p4.txt": {
+   "tier": "clean",
+   "chars": 300,
+   "cer": 0.08333333333333333,
+   "wer": 0.11538461538461539,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "2eb438fe8bff_p7.txt": {
+   "tier": "clean",
+   "chars": 3252,
+   "cer": 0.0,
+   "wer": 0.0,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "34cf145bcdc7_p5.txt": {
+   "tier": "clean",
+   "chars": 182,
+   "cer": 0.0,
+   "wer": 0.0,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "369593fa97fe_p1.txt": {
+   "tier": "degraded",
+   "chars": 1218,
+   "cer": 0.19458128078817735,
+   "wer": 0.19689119170984457,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 3,
+    "found": 3,
+    "hit": 3,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "36ec6f858051_p3.txt": {
+   "tier": "clean",
+   "chars": 617,
+   "cer": 0.0713128038897893,
+   "wer": 0.06818181818181818,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "38618cb536af_p4.txt": {
+   "tier": "graphic",
+   "chars": 2080,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0,
+   "labels": {
+    "truth": 234,
+    "found": 2,
+    "hit": 1,
+    "recall": 0.004273504273504274,
+    "precision": 0.5
+   },
+   "false_chars": 0
+  },
+  "39b87df18661_p3.txt": {
+   "tier": "clean",
+   "chars": 480,
+   "cer": 0.22083333333333333,
+   "wer": 0.24675324675324675,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "41c4d29815ea_p3.txt": {
+   "tier": "clean",
+   "chars": 620,
+   "cer": 0.07096774193548387,
+   "wer": 0.06818181818181818,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "447c74a8b667_p1.txt": {
+   "tier": "degraded",
+   "chars": 1684,
+   "cer": 0.08432304038004751,
+   "wer": 0.09022556390977443,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 16,
+    "found": 16,
+    "hit": 16,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "4663d79a23ce_p1.txt": {
+   "tier": "graphic",
+   "chars": 1465,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 0,
+    "found": 1,
+    "hit": 0,
+    "recall": null,
+    "precision": 0.0
+   },
+   "cut_completed": 0,
+   "labels": {
+    "truth": 131,
+    "found": 33,
+    "hit": 22,
+    "recall": 0.16793893129770993,
+    "precision": 0.6666666666666666
+   },
+   "false_chars": 0
+  },
+  "471668e9328e_p7.txt": {
+   "tier": "clean",
+   "chars": 1681,
+   "cer": 0.001189767995240928,
+   "wer": 0.003663003663003663,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "4ef44d0656fc_p4.txt": {
+   "tier": "clean",
+   "chars": 410,
+   "cer": 0.28536585365853656,
+   "wer": 0.2537313432835821,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "50fcf31b4e35_p3.txt": {
+   "tier": "clean",
+   "chars": 1247,
+   "cer": 0.0016038492381716118,
+   "wer": 0.005025125628140704,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 4,
+    "found": 4,
+    "hit": 4,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "52089d8f7285_p1.txt": {
+   "tier": "clean",
+   "chars": 1375,
+   "cer": 0.005818181818181818,
+   "wer": 0.009174311926605505,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 4,
+    "found": 4,
+    "hit": 4,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "536c61e63e6a_p1.txt": {
+   "tier": "degraded",
+   "chars": 1042,
+   "cer": 0.07677543186180422,
+   "wer": 0.08588957055214724,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 1,
+    "hit": 1,
+    "recall": 0.5,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "584f8299989e_p1.txt": {
+   "tier": "degraded",
+   "chars": 1623,
+   "cer": 0.07640172520024646,
+   "wer": 0.06666666666666667,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 4,
+    "found": 3,
+    "hit": 3,
+    "recall": 0.75,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "5997d0df7793_p4.txt": {
+   "tier": "clean",
+   "chars": 1675,
+   "cer": 0.004776119402985075,
+   "wer": 0.022727272727272728,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "5f1dd45a4293_p2.txt": {
+   "tier": "degraded",
+   "chars": 1497,
+   "cer": 0.02738810955243821,
+   "wer": 0.0430622009569378,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 2,
+    "hit": 1,
+    "recall": 0.5,
+    "precision": 0.5
+   },
+   "cut_completed": 0
+  },
+  "651a0e4fc60c_p32.txt": {
+   "tier": "degraded",
+   "chars": 650,
+   "cer": 0.3707692307692308,
+   "wer": 0.4148936170212766,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 1,
+    "hit": 1,
+    "recall": 0.5,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "69e1780fd3b9_p2.txt": {
+   "tier": "clean",
+   "chars": 1418,
+   "cer": 0.05218617771509168,
+   "wer": 0.06818181818181818,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 4,
+    "found": 3,
+    "hit": 3,
+    "recall": 0.75,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "6dd642eaa32e_p1.txt": {
+   "tier": "degraded",
+   "chars": 2160,
+   "cer": 0.01898148148148148,
+   "wer": 0.02127659574468085,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 6,
+    "found": 5,
+    "hit": 5,
+    "recall": 0.8333333333333334,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "736374a1f49c_p1.txt": {
+   "tier": "degraded",
+   "chars": 1614,
+   "cer": 0.06505576208178439,
+   "wer": 0.061068702290076333,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 3,
+    "found": 2,
+    "hit": 2,
+    "recall": 0.6666666666666666,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "754d117aafb9_p1.txt": {
+   "tier": "blank",
+   "chars": 0,
+   "cer": 0.0,
+   "wer": 0.0,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0,
+   "false_chars": 0
+  },
+  "78825b1ad03d_p4.txt": {
+   "tier": "clean",
+   "chars": 653,
+   "cer": 0.004594180704441042,
+   "wer": 0.026785714285714284,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "79ba39576ee7_p1.txt": {
+   "tier": "degraded",
+   "chars": 1552,
+   "cer": 0.06507731958762887,
+   "wer": 0.07258064516129033,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 3,
+    "found": 3,
+    "hit": 3,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "7ab81af43a79_p3.txt": {
+   "tier": "tabular",
+   "chars": 786,
+   "cer": 0.2035623409669211,
+   "wer": 0.7075471698113207,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0,
+   "cells": {
+    "truth": 54,
+    "found": 0,
+    "hit": 0,
+    "recall": 0.0,
+    "precision": null
+   }
+  },
+  "7e1e4ef5724d_p6.txt": {
+   "tier": "clean",
+   "chars": 1183,
+   "cer": 0.02197802197802198,
+   "wer": 0.022222222222222223,
+   "dockets": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "80179b693867_p3.txt": {
+   "tier": "clean",
+   "chars": 1077,
+   "cer": 0.0,
+   "wer": 0.0,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 9,
+    "found": 9,
+    "hit": 9,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "80507f745410_p1.txt": {
+   "tier": "degraded",
+   "chars": 1908,
+   "cer": 0.1278825995807128,
+   "wer": 0.15081967213114755,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 4,
+    "found": 4,
+    "hit": 4,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 6
+  },
+  "81a285dd33be_p1.txt": {
+   "tier": "tabular",
+   "chars": 748,
+   "cer": 0.053475935828877004,
+   "wer": 0.08661417322834646,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 3,
+    "found": 2,
+    "hit": 2,
+    "recall": 0.6666666666666666,
+    "precision": 1.0
+   },
+   "cut_completed": 0,
+   "cells": {
+    "truth": 12,
+    "found": 26,
+    "hit": 10,
+    "recall": 0.8333333333333334,
+    "precision": 0.38461538461538464
+   }
+  },
+  "821095556bf7_p3.txt": {
+   "tier": "clean",
+   "chars": 1073,
+   "cer": 0.012115563839701771,
+   "wer": 0.044585987261146494,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "837caa0945d8_p16.txt": {
+   "tier": "clean",
+   "chars": 1521,
+   "cer": 0.0039447731755424065,
+   "wer": 0.00909090909090909,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "83aeaa44fb18_p6.txt": {
+   "tier": "clean",
+   "chars": 1772,
+   "cer": 0.010158013544018058,
+   "wer": 0.025454545454545455,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "896858de680e_p25.txt": {
+   "tier": "clean",
+   "chars": 56,
+   "cer": 0.0,
+   "wer": 0.0,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "897ee737c3a7_p1.txt": {
+   "tier": "degraded",
+   "chars": 2591,
+   "cer": 0.6715553840216133,
+   "wer": 0.8461538461538461,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 3,
+    "found": 3,
+    "hit": 2,
+    "recall": 0.6666666666666666,
+    "precision": 0.6666666666666666
+   },
+   "cut_completed": 0
+  },
+  "8e2720f933f4_p1.txt": {
+   "tier": "degraded",
+   "chars": 1776,
+   "cer": 0.23592342342342343,
+   "wer": 0.27106227106227104,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 8,
+    "found": 8,
+    "hit": 8,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "8f08c0de3b9d_p1.txt": {
+   "tier": "clean",
+   "chars": 1203,
+   "cer": 0.08229426433915212,
+   "wer": 0.10344827586206896,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 1,
+    "hit": 1,
+    "recall": 0.5,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "8fa6dd572233_p1.txt": {
+   "tier": "degraded",
+   "chars": 1108,
+   "cer": 0.148014440433213,
+   "wer": 0.1695906432748538,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 6,
+    "found": 5,
+    "hit": 5,
+    "recall": 0.8333333333333334,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "91ae6422761e_p1.txt": {
+   "tier": "degraded",
+   "chars": 2714,
+   "cer": 0.08658806190125276,
+   "wer": 0.07981220657276995,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 25,
+    "found": 24,
+    "hit": 24,
+    "recall": 0.96,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "91bd3ad08f8f_p1.txt": {
+   "tier": "graphic",
+   "chars": 310,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0,
+   "labels": {
+    "truth": 29,
+    "found": 3,
+    "hit": 3,
+    "recall": 0.10344827586206896,
+    "precision": 1.0
+   },
+   "false_chars": 0
+  },
+  "944c8a652666_p8.txt": {
+   "tier": "clean",
+   "chars": 1895,
+   "cer": 0.004221635883905013,
+   "wer": 0.02258064516129032,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "987b1a15a3f5_p1.txt": {
+   "tier": "graphic",
+   "chars": 519,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0,
+   "labels": {
+    "truth": 25,
+    "found": 9,
+    "hit": 9,
+    "recall": 0.36,
+    "precision": 1.0
+   },
+   "false_chars": 0
+  },
+  "9b00fb3fd0d3_p13.txt": {
+   "tier": "clean",
+   "chars": 870,
+   "cer": 0.04942528735632184,
+   "wer": 0.06201550387596899,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "9e3dccb2ed8e_p5.txt": {
+   "tier": "clean",
+   "chars": 4386,
+   "cer": 0.005699954400364797,
+   "wer": 0.028875379939209727,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 3,
+    "found": 3,
+    "hit": 3,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "9e7dcfd15662_p1.txt": {
+   "tier": "graphic",
+   "chars": 1106,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0,
+   "labels": {
+    "truth": 112,
+    "found": 2,
+    "hit": 2,
+    "recall": 0.017857142857142856,
+    "precision": 1.0
+   },
+   "false_chars": 0
+  },
+  "a1d264ffffc4_p6.txt": {
+   "tier": "clean",
+   "chars": 242,
+   "cer": 0.008264462809917356,
+   "wer": 0.029411764705882353,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "a28efb4fe55b_p24.txt": {
+   "tier": "degraded",
+   "chars": 2365,
+   "cer": 0.004651162790697674,
+   "wer": 0.010526315789473684,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 3,
+    "found": 3,
+    "hit": 3,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "a3519cc91b0f_p1.txt": {
+   "tier": "degraded",
+   "chars": 2706,
+   "cer": 0.14523281596452328,
+   "wer": 0.1466346153846154,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 8,
+    "found": 8,
+    "hit": 8,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "a4ca31c99452_p1.txt": {
+   "tier": "degraded",
+   "chars": 2560,
+   "cer": 0.651171875,
+   "wer": 0.7810026385224275,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 3,
+    "found": 2,
+    "hit": 2,
+    "recall": 0.6666666666666666,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "aa59bdafb508_p46.txt": {
+   "tier": "degraded",
+   "chars": 6184,
+   "cer": 0.17609961190168175,
+   "wer": 0.2618296529968454,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 10,
+    "hit": 0,
+    "recall": 0.0,
+    "precision": 0.0
+   },
+   "cut_completed": 0
+  },
+  "aac567e53a2a_p6.txt": {
+   "tier": "clean",
+   "chars": 348,
+   "cer": 0.04885057471264368,
+   "wer": 0.05263157894736842,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "b0f39c3ae0d7_p3.txt": {
+   "tier": "tabular",
+   "chars": 1175,
+   "cer": 0.09872340425531916,
+   "wer": 0.07575757575757576,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0,
+   "cells": {
+    "truth": 37,
+    "found": 42,
+    "hit": 37,
+    "recall": 1.0,
+    "precision": 0.8809523809523809
+   }
+  },
+  "b20263998181_p3.txt": {
+   "tier": "degraded",
+   "chars": 773,
+   "cer": 0.11254851228978008,
+   "wer": 0.104,
+   "dockets": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 2,
+    "found": 1,
+    "hit": 1,
+    "recall": 0.5,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "bc02acfb1bbd_p2.txt": {
+   "tier": "clean",
+   "chars": 999,
+   "cer": 0.01001001001001001,
+   "wer": 0.018867924528301886,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "bdde3dfe4ef6_p1.txt": {
+   "tier": "degraded",
+   "chars": 1454,
+   "cer": 0.050206327372764786,
+   "wer": 0.049107142857142856,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 5,
+    "found": 4,
+    "hit": 4,
+    "recall": 0.8,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "be38ef84d4a4_p1.txt": {
+   "tier": "graphic",
+   "chars": 786,
+   "dockets": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0,
+   "labels": {
+    "truth": 67,
+    "found": 4,
+    "hit": 4,
+    "recall": 0.05970149253731343,
+    "precision": 1.0
+   },
+   "false_chars": 0
+  },
+  "c1827d197c67_p1.txt": {
+   "tier": "degraded",
+   "chars": 1297,
+   "cer": 0.15805705474171164,
+   "wer": 0.16923076923076924,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 1,
+    "hit": 1,
+    "recall": 0.5,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "c260e8f88444_p1.txt": {
+   "tier": "degraded",
+   "chars": 962,
+   "cer": 0.04054054054054054,
+   "wer": 0.06962025316455696,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "c866f887808a_p4.txt": {
+   "tier": "clean",
+   "chars": 1419,
+   "cer": 0.0035236081747709656,
+   "wer": 0.01327433628318584,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "c929309d7ac0_p2.txt": {
+   "tier": "degraded",
+   "chars": 991,
+   "cer": 0.05247225025227043,
+   "wer": 0.03680981595092025,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "ce94b675ed0e_p3.txt": {
+   "tier": "clean",
+   "chars": 1253,
+   "cer": 0.0015961691939345571,
+   "wer": 0.005235602094240838,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "d1742d75720d_p1.txt": {
+   "tier": "graphic",
+   "chars": 549,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0,
+   "labels": {
+    "truth": 74,
+    "found": 2,
+    "hit": 2,
+    "recall": 0.02702702702702703,
+    "precision": 1.0
+   },
+   "false_chars": 0
+  },
+  "d36400384613_p18.txt": {
+   "tier": "clean",
+   "chars": 3519,
+   "cer": 0.00312588803637397,
+   "wer": 0.009057971014492754,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "d4b1f3b1aa46_p1.txt": {
+   "tier": "degraded",
+   "chars": 2161,
+   "cer": 0.07589079130032392,
+   "wer": 0.07854984894259819,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 3,
+    "found": 3,
+    "hit": 3,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "ddc8fe6b21b8_p1.txt": {
+   "tier": "degraded",
+   "chars": 1548,
+   "cer": 0.004521963824289405,
+   "wer": 0.004347826086956522,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "e5cf0cad232f_p1.txt": {
+   "tier": "degraded",
+   "chars": 960,
+   "cer": 0.034375,
+   "wer": 0.06962025316455696,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "e692e9b675ce_p4.txt": {
+   "tier": "clean",
+   "chars": 1810,
+   "cer": 0.0022099447513812156,
+   "wer": 0.013651877133105802,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "e6b417ceffd9_p1.txt": {
+   "tier": "degraded",
+   "chars": 1719,
+   "cer": 0.06922629435718441,
+   "wer": 0.06884057971014493,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 3,
+    "found": 2,
+    "hit": 2,
+    "recall": 0.6666666666666666,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "ead661b6d49e_p1.txt": {
+   "tier": "degraded",
+   "chars": 1384,
+   "cer": 0.1365606936416185,
+   "wer": 0.14423076923076922,
+   "dockets": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 4,
+    "found": 3,
+    "hit": 3,
+    "recall": 0.75,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "eb4d59b949a5_p10.txt": {
+   "tier": "tabular",
+   "chars": 1098,
+   "cer": 0.09016393442622951,
+   "wer": 0.1907514450867052,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0,
+   "cells": {
+    "truth": 43,
+    "found": 55,
+    "hit": 40,
+    "recall": 0.9302325581395349,
+    "precision": 0.7272727272727273
+   }
+  },
+  "ee129ac2a730_p1.txt": {
+   "tier": "degraded",
+   "chars": 1609,
+   "cer": 0.07582349285270354,
+   "wer": 0.09541984732824428,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 6,
+    "found": 5,
+    "hit": 5,
+    "recall": 0.8333333333333334,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "ef94ea0f431f_p169.txt": {
+   "tier": "clean",
+   "chars": 2312,
+   "cer": 0.006055363321799308,
+   "wer": 0.03003003003003003,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "f0b0e90b4d4a_p3.txt": {
+   "tier": "clean",
+   "chars": 279,
+   "cer": 0.07526881720430108,
+   "wer": 0.057692307692307696,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "f1ae9fd80699_p4.txt": {
+   "tier": "clean",
+   "chars": 1803,
+   "cer": 0.0022185246810870773,
+   "wer": 0.003355704697986577,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "f3a518875dd2_p4.txt": {
+   "tier": "clean",
+   "chars": 1853,
+   "cer": 0.0032379924446842958,
+   "wer": 0.006600660066006601,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0
+  },
+  "f4c44a9d52af_p1.txt": {
+   "tier": "clean",
+   "chars": 1292,
+   "cer": 0.04953560371517028,
+   "wer": 0.04639175257731959,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 2,
+    "found": 2,
+    "hit": 2,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "f7a2a79dadd7_p2.txt": {
+   "tier": "degraded",
+   "chars": 461,
+   "cer": 0.08459869848156182,
+   "wer": 0.09210526315789473,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "fc07f26dac51_p1.txt": {
+   "tier": "clean",
+   "chars": 1669,
+   "cer": 0.2396644697423607,
+   "wer": 0.24897959183673468,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 6,
+    "found": 6,
+    "hit": 6,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  },
+  "ff2e1ab52ca3_p1.txt": {
+   "tier": "graphic",
+   "chars": 609,
+   "dockets": {
+    "truth": 1,
+    "found": 1,
+    "hit": 1,
+    "recall": 1.0,
+    "precision": 1.0
+   },
+   "dates": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "cut_completed": 0,
+   "labels": {
+    "truth": 77,
+    "found": 2,
+    "hit": 0,
+    "recall": 0.0,
+    "precision": 0.0
+   },
+   "false_chars": 0
+  },
+  "ffc293c3150c_p1.txt": {
+   "tier": "degraded",
+   "chars": 1509,
+   "cer": 0.11994698475811796,
+   "wer": 0.12552301255230125,
+   "dockets": {
+    "truth": 0,
+    "found": 0,
+    "hit": 0,
+    "recall": null,
+    "precision": null
+   },
+   "dates": {
+    "truth": 5,
+    "found": 4,
+    "hit": 4,
+    "recall": 0.8,
+    "precision": 1.0
+   },
+   "cut_completed": 0
+  }
+ }
+}
