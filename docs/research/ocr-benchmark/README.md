@@ -812,6 +812,67 @@ run of 2026-09-01, which predates `run.json` and so records no weights or server
 configuration, where the variants beside it do. Re-running that baseline would close the gap;
 it is free and it has not been done.
 
+## Step 6 — agreement as confidence, measured
+
+Run 2026-09-02 by `tools/rmi-ai-machine/ocr_agreement.py` over the same checked pages, using
+this benchmark's own `normalise` and `edit_distance` so the comparison sits on the footing
+every other figure here does. **81 of the 90 pages**: the graphic tier carries no CER, being
+scored on invention instead, so it cannot enter a discrimination measure.
+
+`ocr-plan.md` § The review layer proposes agreement as the confidence signal — two engines
+read every page, matching readings ship, differing readings are flagged. It is the reason a
+second reading is worth 187 hours of box time, and **it had never been measured**. It is two
+questions, and they have opposite answers.
+
+**Does disagreement predict error? Yes, strongly.** AUC of the normalised distance between
+dots.mocr and PP-OCRv6 medium against dots.mocr's own measured CER:
+
+| predicting | AUC | positives |
+| --- | --- | --- |
+| CER > 5% | **0.972** | 43 of 81 |
+| CER > 10% | 0.946 | 21 of 81 |
+| CER > 20% | 0.934 | 7 of 81 |
+
+**And it is not merely detecting the degraded tier**, which was the obvious objection since
+degraded pages both disagree more and read worse. Split each tier at *its own* median CER,
+so the tier is held constant: clean **0.936** (n=38), degraded **0.933** (n=37). Within a
+tier, the disagreement still ranks the worse half above the better one — a stronger signal
+than the 0.843 the router's region count gives for a coarser question. On the tabular tier it
+inverts (0.167, n=5), which five pages cannot settle either way.
+
+AUC is reported instead of a threshold, deliberately and for § Step 4's reason: a cut-off
+fitted to the 81 pages it is scored on is the party-type mistake.
+
+**Can the flagged pages be reviewed? No, by two to three orders of magnitude.** The same
+distances, as a flag rate, against the census's 247,923 image-only pages and the review
+budget `ocr-plan.md` records — about fifty pages a week:
+
+| flag when distance > | pages flagged | share | at 50 a week |
+| --- | --- | --- | --- |
+| 0.05 | 149,978 | 60.5% | 58 years |
+| 0.10 | 101,006 | 40.7% | 39 years |
+| 0.20 | 48,972 | 19.8% | 19 years |
+| 0.30 | 21,425 | 8.6% | 8 years |
+| 0.50 | 12,243 | 4.9% | 4.7 years |
+
+There is no threshold that both catches the errors and fits the budget, because the
+disagreement is not rare: its median is **0.078** overall and **0.158** on the degraded tier.
+Two engines reading a faint photocopy differ on roughly a sixth of its characters, and most
+of that difference is real error in one of them — which is what the AUC says.
+
+**So the signal is good and the queue is impossible, and that is a design finding rather than
+a measurement failure.** A review layer that must clear its queue cannot use this. A review
+layer that *ranks* — the operator reviews the worst fifty pages this week, for as long as it
+is worth doing, and the rest publish with a stated confidence or do not publish at all — can
+use it exactly as measured. Which of those the record is choosing is the operator's, and
+neither `ocr-plan.md` nor ADR 0021 currently says.
+
+**Two cautions.** The pair matters: dots.mocr against dots.ocr — the same family, one
+rebranded from the other — has a median distance of **0.003** and a much weaker AUC (0.792),
+so two readings from one lineage agree by construction and measure little. And PP-OCRv6 as
+the second reader is the cheap choice (0.4 s a page) rather than the best one; PaddleOCR-VL
+gives a slightly lower flag rate (46.9% at 0.05) at 1.3 s.
+
 ## Are these the right versions, run the right way?
 
 Asked deliberately 2026-09-01, because two engines had already been caught running wrongly —

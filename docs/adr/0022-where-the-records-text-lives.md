@@ -75,28 +75,23 @@ row two as the shipped configuration; `search_fts` ships external content **and*
 
 ## Why two drafts were wrong in the same way
 
-Both moved bytes out of the store on the grounds that they were re-derivable or unread. Both
-were wrong because they never asked what *reads* them:
+Both moved bytes out of the store because they were re-derivable or unread, and both failed
+to ask what *reads* them.
 
 1. **Search cannot quote what is not there.** Tested on SQLite 3.50.4: with an
    external-content FTS whose content column has been emptied, `MATCH` still finds the row,
    but `snippet()` returns a replacement character and `INSERT INTO fts(fts)
    VALUES('rebuild')` leaves the index matching **nothing** — and `search.py` rebuilds the
    index whole whenever the record changes, so the destructive case is the normal path.
-2. **Agreement is not digest equality.** `ocr-plan.md` defines it as normalised text within
-   a small edit distance, so the comparison needs both readings' bytes.
-3. **The review page is a read path.** `ocr-plan.md` requires *image beside text, the
-   disagreement highlighted*. The runner-up is not unread; it is the whole point of the page
-   the review layer exists to serve.
-4. **A re-rank reopens the comparison.** ADR 0021 D11 makes ranking data, re-issued under a
-   new `rank_version`, and `ocr-plan.md` allows a third reading as a tie-break. "The
-   runner-up" is not a stable role, so evacuating it destroys an operand a later decision
-   needs.
-5. **An evacuated row overloads a value ADR 0021 D5 spent a paragraph defining.** After the
-   move there would be three causes of empty text — correctly blank, evacuated, not yet read
-   — with no column telling them apart, in a table 0021 D1 declares append-only. That is a
-   hidden current-state column, and the discriminator costs nothing now and an every-row
-   migration later.
+2. **The runner-up is not unread.** Agreement is an edit distance over normalised text, not a
+   digest comparison, and `ocr-plan.md`'s review page exists to show *image beside text, the
+   disagreement highlighted*. ADR 0021 D11 also makes ranking data that gets re-issued, and
+   `ocr-plan.md` allows a third reading as a tie-break, so "the runner-up" is not even a
+   stable role — evacuating it destroys an operand a later decision needs.
+3. **An evacuated row overloads a value ADR 0021 D5 spent a paragraph defining.** There would
+   be three causes of empty text — correctly blank, evacuated, not yet read — with no column
+   telling them apart, in a table 0021 D1 declares append-only. That is a hidden
+   current-state column, free to prevent now and an every-row migration later.
 
 ## Decision
 
@@ -115,8 +110,8 @@ were wrong because they never asked what *reads* them:
    keyed on the page and naming both readings, carrying its rule, its rule version and an
    ADR 0007 block. This is now an efficiency rather than a necessity — the operands stay in
    the store, so a re-rank or a third reading recomputes rather than being stranded — and it
-   keeps an edit-distance comparison off the read path. **ADR 0021's Owed list gains this
-   table**; without it the review queue has no way to find a flagged page.
+   keeps an edit-distance comparison off the read path. The table is item 7 of
+   `docs/ocr-migration.md`; without it the review queue has no way to find a flagged page.
 
 4. **The page index is a separate FTS5 table over a best-row-per-page view, and nothing
    reads it yet.** External content, no prefix index, and *not* wired into `search()` or
@@ -155,21 +150,26 @@ were wrong because they never asked what *reads* them:
      freely-dedicated bucket. Either a per-table reason, or a filtered publication of the
      text-layer channel alone. Withholding is defensible; the stated reason must be true.
 
-6. **The store is expected to reach 4–5.5 GB, which is larger than either earlier draft
-   said.** Measured and counted rather than estimated:
+6. **The store reaches ~4.6 GB, and every component of that is now measured.** The row
+   overhead was the one figure in this record that had only ever been reasoned out, and it
+   was the one deciding a resize, so it was built and weighed: the proposed schema at the
+   census's real row counts, realistic key values, `text` left empty.
 
-   | component | size |
+   | component | measured |
    | --- | --- |
    | the store today | 346 MB (+132 MB WAL) |
-   | text-layer text | 1.37 GB |
-   | OCR text, two readings of 247,923 pages | ~0.76 GB |
-   | rows and their indexes — ~3.2M across six tables | 1.2–1.9 GB |
-   | the page FTS at 0.44x of what it indexes | ~0.77 GB |
+   | rows and indexes — 3.45M rows across six tables, no text | **1,258 MB** |
+   | text-layer text (1.37 GB at the 1.051x SQLite stores it for) | 1,439 MB |
+   | OCR text, two readings of 247,923 pages | 797 MB |
+   | the page FTS at 0.44x of what it indexes | 769 MB |
+   | | **≈ 4.6 GB** |
 
-   The row count is the part both earlier drafts got wrong: `document_text` is ~1.35M rows,
-   but `document_page` is another ~1.10M (ADR 0021 D4 needs one per page of every held PDF),
-   `page_route` ~248k, plus `ocr_run`, `text_agreement` and the payload table. Moving bytes
-   was never going to touch that; the rows stay wherever the text goes.
+   Two things fall out of the measurement. **Rows and indexes alone are 1.26 GB before a
+   character of text** — 365 B a row, and `document_page` contributes 1.10M of those rows
+   because ADR 0021 D4 needs one per page of every held PDF. And **text costs 1.051x its own
+   bytes**, so nothing here turns on page-overflow behaviour. Moving bytes between tiers was
+   never going to touch the first number, which is why the earlier drafts' saving was
+   illusory.
 
 7. **So the instance is resized, and it is a writer-stopping operation, not an ADR 0020
    window.** Not in response to the outage of 2026-09-02 — that was a quadratic query, and a

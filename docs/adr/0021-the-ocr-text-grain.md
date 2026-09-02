@@ -20,18 +20,15 @@ not a table added beside an existing one: it is the first place the record's own
 and its grain is a one-way door in exactly ADR 0003's sense. Reversing it means re-running
 the read over the archive.
 
-**What is to be read is now counted, not estimated.** A census of the extraction output
-(`tools/rmi-ai-machine/text_layer_census.py`, 2026-09-02, recorded in `ocr-plan.md` § What is
-to be read) finds **15,085 image-only documents holding 247,923 pages**, and 59,210
-text-layer documents holding 857,012. The plan's earlier 13,604 was one run's manifest, which
-had skipped 13,936 already-extracted files; the benchmark README's 15,085 was right all
-along. **The page count is the figure that moves: 247,923, not the ~175,000 every cost in the
-plan is multiplied by** — 42% higher, and at the routed 2.71 s a page that is about 187 hours
-of reading rather than 132. It is almost entirely the pre-2005 record, and the boundary at
-which search, the citation graph and the registers all degrade. Both counts are lower bounds:
-production holds 104,091 `document` rows against the 80,271 files the pass ran over, waves
-2–3 are still landing, and `image_only` is a *document*-level flag, so an image page inside
-an otherwise text-layer document is counted on the text-layer side.
+**What is to be read is counted, not estimated** — a census of the extraction output
+(`tools/rmi-ai-machine/text_layer_census.py`, 2026-09-02, with the corrections it forces
+recorded in `ocr-plan.md`): **15,085 image-only documents holding 247,923 pages**, against
+59,210 text-layer documents holding 857,012. **247,923 is the figure that moves**, because it
+is 42% above the ~175,000 every cost in the plan is multiplied by — about 187 hours of routed
+reading rather than 132. It is almost entirely the pre-2005 record, the boundary at which
+search, the citation graph and the registers all degrade, and it is a lower bound:
+`image_only` is a *document*-level flag, so an image page inside an otherwise text-layer
+document is counted on the other side.
 
 **The benchmark settled the engines and deliberately unsettled the pipeline**
 (`docs/research/ocr-benchmark/README.md` § Steps 3–5, which is authoritative for every
@@ -47,10 +44,9 @@ where 250 overshoots and 300 exhausts the 12 GB card — while PP-OCRv6 is flat 
 300 (§ Step 5). Crop-to-content moves dots.mocr 8.2% to 7.9% and masking gives it its best
 clean tier at 2.6%. These are the same engine at the same version producing different text.
 
-**The consequence for the store is the point of this record.** A schema that names one
-engine per page encodes a routing decision the measurements refuse to make, and a schema
-that omits the render cannot hold two readings the measurements say differ — both in the one
-place that cannot be re-run cheaply.
+So a schema that names one engine per page encodes a routing decision the measurements
+refuse to make, and one that omits the render cannot hold two readings the measurements say
+differ — both in the one place that cannot be re-run cheaply.
 
 **The paper schema predates all of it.** `docs/schema-draft.md` § 2 drafts
 
@@ -84,6 +80,13 @@ record answers is not what to build; it is what not to build a second time.
    re-run at a new version or a new render lands beside the old rather than on it. The
    plan's agreement-as-confidence is then a query over rows rather than a decision taken
    before anything is written.
+
+   **A human row's key is pinned**: `method = 'human'`, `method_version = 'unversioned'`,
+   `render_profile = 'human'`. The shipped convention for a human assertion is
+   `citator.methods.HUMAN_VERSION`, a *dated* queue-convention version — and carried into
+   this key it would put two live human rows on one page the day that date changes, and a
+   third if two reviewers worked from different renders. The version of what a reviewer was
+   shown belongs in `review_action.method_version`, which is the row that records it.
 
    **The natural key is a partial unique index over live rows, not a table-wide one**, and
    the record says so rather than leaving it to the migration: a table-wide `UNIQUE` forbids
@@ -137,7 +140,10 @@ record answers is not what to build; it is what not to build a second time.
    `document_text` row, so without it the coverage promise cannot be kept); and it is what
    separates "this page has no text layer" from "the text-layer pass has not run here". A
    file with no pagination — `media_type` records `zip` and `xlsx` among the held bytes —
-   gets no `document_page` rows and therefore no readings.
+   gets no `document_page` rows and therefore no readings. **This costs a pagination pass
+   over every held PDF** — a row for a document nobody has read is the whole point — and
+   `had_text_layer` is itself a derived assertion carrying a method, a version and a
+   timestamp, or it breaks ADR 0007 on arrival.
 
 5. **An empty reading is a row; a failed read is not.** A page an engine correctly reads as
    blank writes a `document_text` row with empty text. A page whose read failed — the OOM at
@@ -185,8 +191,9 @@ record answers is not what to build; it is what not to build a second time.
    **is never shown to a reader as a number**. What governs display is `confidence_state` —
    `measured | human | unmeasured | not-applicable`, the vocabulary `citation` already uses —
    with the state as the predicate and the number inert beside it. Agreement between two
-   readings is a *rule with a version*, computed over rows; it is not a number an engine gave
-   itself.
+   readings is a *rule with a version*, and it is stored — in `text_agreement`, a table
+   nothing owns today and which the review queue cannot find a flagged page without. It is
+   not a number an engine gave itself.
 
 8. **Nothing published until something is measured.** `document_text` joins
    `measured_target_vocab`; its `class_vocab` rows are **left empty**, so no row can claim
@@ -288,7 +295,6 @@ record answers is not what to build; it is what not to build a second time.
 13. **`document_page.ocr_method` and `page_block` are withdrawn from the paper schema by
     this record**; the rest of `document_page` is kept by decision 4.
 
-
 ## Not decided here, and deliberately
 
 Which engine reads which tier; whether the degraded tier renders at 200 DPI; HunyuanOCR-1.5's
@@ -329,6 +335,14 @@ with failures typed in `ocr_run` rather than looking like absence.
 - **Two shipped tables are rebuilt**, one of which the citator reads on every projection, at
   schema 17 in production.
 
+- **Decision 2's argument does not reach `citation_reading`, and this record does not fix
+  it.** That table's live index is `(key, reading_channel)` and its reading method is payload
+  by ADR 0018 D3, so a re-render at a better DPI produces an `ocr` reading that *supersedes*
+  the earlier one: the evidence `document_text` keeps is destroyed one join over, and which
+  render produced the surviving `cited_raw` is recoverable only through the `text_id`
+  pointer. Widening that key is ADR 0018's to revisit. Until it is, the pipeline's rule is
+  that a re-render does not re-extract without a new method version.
+
 **What this forecloses.** A store where one page has one text. Any pipeline that decides its
 engine once, globally. And the shape where a re-run improves the record by overwriting it —
 which would have made the 90-page benchmark unrepeatable against the store it fed.
@@ -361,74 +375,16 @@ re-checked after the schema-critic pass that produced decisions 1, 2, 4, 5, 9, 1
 
 ## Owed at the migration
 
-In ADR 0018 § Owed's form, so the migration has a checklist rather than a memory.
+**The checklist lives in [`../ocr-migration.md`](../ocr-migration.md)** — sixteen items
+across two forced table rebuilds, six vocabulary changes, three tables that have no home yet,
+two passes, the infrastructure that breaks on deploy day, and schema-critic before the tables
+exist. It is held there so that accepting this record means accepting thirteen decisions
+rather than sixty lines of mechanics, and it becomes the migration's header comment when the
+migration is written, which is where migrations 0014 and 0015 keep theirs.
 
-1. **The text-layer record's page count**, measured on the box. ADR 0022 decides which tier
-   it lands in; this number says whether that decision is comfortable or tight.
-2. **The `assertion_method` rebuild** — three partial indexes, the `CASE` branch for
-   `document_text`, `route_class`, and the rank index re-formed per route class — written,
-   tested against a populated database, and run inside the migration's one transaction.
-3. **The `correction` CHECK**, extended to `document_text` in the same transaction, with the
-   key rendering written beside the others migration 0014 lists.
-4. **The queue** (`ocr_page`, the name `schema-draft.md` § 7 already uses) in
-   `review_queue_vocab`, `document_text` in `review_target_vocab`, the five-segment key form
-   and the page-grained exclusion of decision 12 both pinned by tests.
-5. **`measured_target_vocab` with an empty `class_vocab`** for `document_text`, so decision 8
-   is enforced by the schema. The classes it will eventually hold are the benchmark's own —
-   CER, WER, docket numbers, dates, at three tiers — and each must be scoped to this stage or
-   migration 0014's lesson repeats: a class attached to the wrong stage displays one figure
-   for another.
-6. **The `reader_report` table** if the "report a misreading" path ships with the queue;
-   `schema-draft.md` § 7 names it as the `/contribute` landing that has no table.
-7. **A human row's key is pinned, and the first draft got this wrong.** `'unversioned'` is
-   the default on `correction.method_version` alone; the shipped convention for a human
-   *assertion* is `citator.methods.HUMAN_VERSION`, a dated queue-convention version, kept
-   dated on purpose — *"a reviewer who saw less than today's reviewer saw decided a different
-   question"*. Carried into this key that produces **two live human rows** on one page the
-   day the convention date changes, and a third if two reviewers worked from different
-   renders. So the human row's key is fixed — `method = 'human'`, `method_version =
-   'unversioned'`, `render_profile = 'human'` — and the queue-convention version lives where
-   it already does, in `review_action.method_version`, which is the row that records what the
-   reviewer was shown. A second correction then supersedes the first on one key, as intended.
-8. **`superseded_at` and the self-pointer.** Retirement with no successor is the
-   `0009_party_ids_permanent.sql` idiom of pointing a row at itself; `deferred.md` records
-   that this is the case with no date at all. Here it has one.
-9. **An OCR class measurement before any OCR-channel edge projects.** ADR 0017 D3, unchanged;
-   `methods.measure` hardcodes `reading_channel = 'text-layer'` (`deferred.md`), so today's
-   guard is accidental and must be made explicit.
-10. **The blob path and retention for engine payloads** — ADR 0022 D2 and D9 put them in the
-    blob tier under the `blobs/` prefix and bundle them per document; decision 6's whole
-    argument rests on those payloads existing and being fetchable after the 30-day prune.
-11. **`dump.py`'s allowlist — every new table, and it is a publication decision rather than
-    bookkeeping.** ADR 0022 D5 classifies them and states the reasoning; what is owed here is
-    the code, including the shadow handling that is hardcoded to `search_fts_` names and the
-    `HELD_REASON` string that would otherwise say something untrue about the text-layer
-    channel.
-12. **A pass that populates `document_page`.** Decision 4 makes an unread page countable only
-    if a row exists for documents nobody has read, and that is a pagination pass over every
-    held PDF, not the single page-count number owed at item 1. `had_text_layer` is also a
-    derived assertion — extractors disagree on a page carrying three junk characters — so it
-    carries a method, a version and a timestamp, or it breaks ADR 0007 on arrival.
-13. **The blob prefix, named.** `prune_blobs.py` lists only `blobs/`, the sync unit copies
-    only `data/blobs`, and the web tier's IAM grant is `s3:GetObject` on `blobs/*` and
-    nothing else. Anything written under another prefix is unsynced, unpruned and unreadable
-    by the process that serves readers — three silent failures, so the prefix is a decision
-    and not an implementation detail.
-14. **`text_agreement`, the table decision 7's confidence rule needs and nothing owns.**
-    ADR 0022 D3 computes agreement at handover and stores it; no table holds it today,
-    `citation_judgement` is citation-family and cannot, and without it the review queue
-    cannot find a flagged page at all. Keyed on the page, naming both readings, carrying its
-    rule, its rule version and an ADR 0007 block.
-15. **Decision 2's argument does not reach `citation_reading`, and that is stated rather
-    than fixed here.** Its live index is `(key, reading_channel)` and its reading method is
-    payload by ADR 0018 D3, so a re-render at a better DPI produces an `ocr` reading that
-    **supersedes** the earlier one — the evidence this record keeps in `document_text` is
-    destroyed one join over, and which render produced the surviving `cited_raw` is
-    recoverable only through the `text_id` pointer. Widening that key is ADR 0018's to
-    revisit, not this record's; the pipeline's rule until then is that a re-render does not
-    re-extract without a new method version.
-16. **schema-critic on the migration**, before the table exists — grain, identity and
-    provenance at once, which `CLAUDE.md` requires.
+Three of its items are consequences of decisions above rather than mechanics, so they are
+stated where they belong: the pinned human key in decision 1, the pagination pass in decision
+4, and `text_agreement` in decision 7.
 
 ## Cost of reversing
 
