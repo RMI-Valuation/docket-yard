@@ -224,6 +224,88 @@ def _last_checked(con: Connection, ids: list[int]) -> str | None:
     ).fetchone()[0]
 
 
+# The three row-to-Entry builders, used by BOTH `docket_sheet` and `one_entry`. They are
+# module-level and shared on purpose: a record page that built its entry differently from
+# the sheet that lists it would drift silently, and the two would disagree about the same
+# record. One construction, two callers.
+
+FILING_COLUMNS = (
+    "filing_pk, docket_id, stb_filing_id, filing_type, filed_date, filed_for_raw, observed_in_event"
+)
+DECISION_COLUMNS = (
+    "decision_pk, docket_id, stb_decision_id, decision_type, deciding_body, service_date,"
+    " observed_in_event"
+)
+COMMENT_COLUMNS = (
+    "comment_pk, docket_id, comment_number, date_received_or_sent, submitter_raw,"
+    " organisation_raw, location_raw, comment_text_printed, observed_in_event"
+)
+
+
+def _raw_of(family: list[SubDocket], docket_id: int) -> str:
+    return next(m.raw_docket for m in family if m.docket_id == docket_id)
+
+
+def _filing_entry(con: Connection, row, family: list[SubDocket], parties: list[int]) -> Entry:
+    pk, fam_docket, fid, ftype, fdate, filed_for, event_id = row
+    p = _latest_payload(con, event_id)
+    return Entry(
+        kind="filing",
+        date=fdate,
+        date_printed=p.get("date_printed"),
+        docket_raw=_raw_of(family, fam_docket),
+        record_id=fid,
+        type=ftype,
+        filed_for_raw=filed_for,
+        deciding_body=None,
+        summary=None,
+        attachments=_attachments(con, "filing_attachment", "filing_pk", pk),
+        parties=parties,
+    )
+
+
+def _decision_entry(con: Connection, row, family: list[SubDocket]) -> Entry:
+    pk, fam_docket, did, dtype, body, sdate, event_id = row
+    p = _latest_payload(con, event_id)
+    return Entry(
+        kind="decision",
+        date=sdate,
+        date_printed=p.get("date_printed"),
+        docket_raw=_raw_of(family, fam_docket),
+        record_id=did,
+        type=dtype,
+        filed_for_raw=None,
+        deciding_body=body,
+        summary=p.get("summary"),
+        attachments=_attachments(con, "decision_attachment", "decision_pk", pk),
+    )
+
+
+def _comment_entry(con: Connection, row, family: list[SubDocket]) -> Entry:
+    pk, fam_docket, number, cdate, submitter, org, location, text, event_id = row
+    p = _latest_payload(con, event_id)
+    return Entry(
+        kind="comment",
+        date=cdate,
+        date_printed=p.get("date_printed"),
+        docket_raw=_raw_of(family, fam_docket),
+        record_id=number,
+        type=None,
+        filed_for_raw=None,
+        deciding_body=None,
+        summary=None,
+        attachments=_attachments(con, "enviro_comment_attachment", "comment_pk", pk),
+        # the Board prints "--" for a cell it has nothing for. That is an ABSENCE, and
+        # printing it as a person's name or a place ("Pamela Underwood, --") states
+        # something the record does not. The store keeps the cell exactly as printed; this
+        # projection is where a placeholder stops being content.
+        submitter=present(submitter),
+        organisation=present(org),
+        location=present(location),
+        comment_text=present(text),
+    )
+
+
 def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
     head = con.execute(
         "SELECT raw_docket, prefix, sequence, latest_payload FROM docket_current"
@@ -281,77 +363,28 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
 
     entries: list[Entry] = []
     filing_rows = con.execute(
-        f"SELECT filing_pk, docket_id, stb_filing_id, filing_type, filed_date,"
-        f" filed_for_raw, observed_in_event FROM filing WHERE docket_id IN ({marks})",
-        ids,
+        f"SELECT {FILING_COLUMNS} FROM filing WHERE docket_id IN ({marks})", ids
     ).fetchall()
-    party_map = resolve.components_of_filings(con, [r[0] for r in filing_rows])
-    for pk, fam_docket, fid, ftype, fdate, filed_for, event_id in filing_rows:
-        p = _latest_payload(con, event_id)
-        entries.append(
-            Entry(
-                kind="filing",
-                date=fdate,
-                date_printed=p.get("date_printed"),
-                docket_raw=next(m.raw_docket for m in family if m.docket_id == fam_docket),
-                record_id=fid,
-                type=ftype,
-                filed_for_raw=filed_for,
-                deciding_body=None,
-                summary=None,
-                attachments=_attachments(con, "filing_attachment", "filing_pk", pk),
-                parties=party_map.get(pk, []),
-            )
-        )
-    for pk, fam_docket, did, dtype, body, sdate, event_id in con.execute(
-        f"SELECT decision_pk, docket_id, stb_decision_id, decision_type, deciding_body,"
-        f" service_date, observed_in_event FROM decision_record WHERE docket_id IN ({marks})",
-        ids,
-    ).fetchall():
-        p = _latest_payload(con, event_id)
-        entries.append(
-            Entry(
-                kind="decision",
-                date=sdate,
-                date_printed=p.get("date_printed"),
-                docket_raw=next(m.raw_docket for m in family if m.docket_id == fam_docket),
-                record_id=did,
-                type=dtype,
-                filed_for_raw=None,
-                deciding_body=body,
-                summary=p.get("summary"),
-                attachments=_attachments(con, "decision_attachment", "decision_pk", pk),
-            )
-        )
-    for pk, fam_docket, number, cdate, submitter, org, location, text, event_id in con.execute(
-        f"SELECT comment_pk, docket_id, comment_number, date_received_or_sent, submitter_raw,"
-        f" organisation_raw, location_raw, comment_text_printed, observed_in_event"
-        f" FROM enviro_comment WHERE docket_id IN ({marks})",
-        ids,
-    ).fetchall():
-        p = _latest_payload(con, event_id)
-        entries.append(
-            Entry(
-                kind="comment",
-                date=cdate,
-                date_printed=p.get("date_printed"),
-                docket_raw=next(m.raw_docket for m in family if m.docket_id == fam_docket),
-                record_id=number,
-                type=None,
-                filed_for_raw=None,
-                deciding_body=None,
-                summary=None,
-                attachments=_attachments(con, "enviro_comment_attachment", "comment_pk", pk),
-                # the Board prints "--" for a cell it has nothing for. That is an ABSENCE,
-                # and printing it as a person's name or a place ("Pamela Underwood, --")
-                # states something the record does not. The store keeps the cell exactly as
-                # printed; this projection is where a placeholder stops being content.
-                submitter=present(submitter),
-                organisation=present(org),
-                location=present(location),
-                comment_text=present(text),
-            )
-        )
+    # THE FAMILY'S DOCKET IDS, NOT THE FILING PKS. `components_of_filings` filters
+    # `WHERE f.docket_id IN (...)`, and this passed `filing_pk` values until 2026-09-02.
+    # It returned the right answer by accident — the map is keyed by filing_pk and a store's
+    # pk range usually covers its docket ids, so the lookup still hit — while making the join
+    # scan every filing with a party span on every sheet built. `one_entry` passing a single
+    # pk is where the accident stopped working: it matched no docket and answered `[]`.
+    party_map = resolve.components_of_filings(con, ids)
+    entries += [_filing_entry(con, r, family, party_map.get(r[0], [])) for r in filing_rows]
+    entries += [
+        _decision_entry(con, r, family)
+        for r in con.execute(
+            f"SELECT {DECISION_COLUMNS} FROM decision_record WHERE docket_id IN ({marks})", ids
+        ).fetchall()
+    ]
+    entries += [
+        _comment_entry(con, r, family)
+        for r in con.execute(
+            f"SELECT {COMMENT_COLUMNS} FROM enviro_comment WHERE docket_id IN ({marks})", ids
+        ).fetchall()
+    ]
     # a record entered in the docket and its sub-docket is one record: fold to the copy
     # nearest the parent (family order) and note where else it was entered
     entries = _fold_family_duplicates(entries, [m.raw_docket for m in family])
@@ -406,3 +439,100 @@ def _fold_family_duplicates(entries: list[Entry], family_order: list[str]) -> li
             head = Entry(**{**head.__dict__, "also_in": [c.docket_raw for c in copies[1:]]})
         folded.append(head)
     return folded
+
+
+@dataclass(frozen=True)
+class EntryContext:
+    """Enough of a sheet to render or serialise ONE record: the docket it is addressed
+    under, and that docket's title. Nothing else, because everything else on `DocketSheet`
+    costs the whole docket to compute."""
+
+    docket_id: int
+    raw_docket: str
+    prefix: str
+    sequence: int
+    title: str | None
+
+
+def one_entry(
+    con: Connection, docket_id: int, kind: str, record_id: str
+) -> tuple[EntryContext, Entry] | None:
+    """One record's entry, without building the sheet that lists it.
+
+    THIS EXISTS BECAUSE BUILDING THE SHEET TO READ ONE ROW OFF IT TOOK PRODUCTION DOWN.
+    The record page and its JSON twin want an entry and the docket's title; they used to
+    call `docket_sheet` and scan `entries` for it, which assembles every filing, decision
+    and comment in the family — with a payload and an attachment query EACH — and throws
+    the rest away. On FD 35087, which holds 12,031 of the record's 34,255 comments, that
+    was 21.5 seconds a page (measured 2026-09-02), and this site's own sitemap offers a
+    crawler all 12,031 of those addresses. Three outages in a day, one of them 6 h 52 m in
+    which the record stopped being kept.
+
+    The cost here is the number of COPIES of this one record across the family — one,
+    usually — not the size of the docket.
+
+    It mirrors `docket_sheet` deliberately in the two places where the answer could
+    otherwise differ: a series builds no entries, so it has none to give; and a record
+    entered in both a docket and its sub-docket is ONE record, folded to the copy nearest
+    the parent with the others named in `also_in` (ADR 0005). The Entry itself is built by
+    the same three functions the sheet uses, so the page cannot drift from the list.
+    """
+    head = con.execute(
+        "SELECT raw_docket, prefix, sequence, latest_payload FROM docket_current"
+        " WHERE docket_id = ?",
+        (docket_id,),
+    ).fetchone()
+    if head is None:
+        return None
+    raw, prefix, sequence, payload = head
+    family = _family(con, docket_id)
+    own = next((m for m in family if m.docket_id == docket_id), None)
+    # A series holds no records of its own and `docket_sheet` returns it with `entries=[]`,
+    # so nothing is addressable under it. Same answer here, reached the same way.
+    if (
+        own is not None
+        and own.filings == 0
+        and own.decisions == 0
+        and own.comments == 0
+        and len(family) - 1 >= SERIES_SUBS
+    ):
+        return None
+
+    ids = [m.docket_id for m in family]
+    marks = ",".join("?" for _ in ids)
+    if kind == "filing":
+        rows = con.execute(
+            f"SELECT {FILING_COLUMNS} FROM filing"
+            f" WHERE stb_filing_id = ? AND docket_id IN ({marks})",
+            (record_id, *ids),
+        ).fetchall()
+        parties = resolve.components_of_filings(con, ids)  # family docket ids — see above
+        copies = [_filing_entry(con, r, family, parties.get(r[0], [])) for r in rows]
+    elif kind == "decision":
+        rows = con.execute(
+            f"SELECT {DECISION_COLUMNS} FROM decision_record"
+            f" WHERE stb_decision_id = ? AND docket_id IN ({marks})",
+            (record_id, *ids),
+        ).fetchall()
+        copies = [_decision_entry(con, r, family) for r in rows]
+    elif kind == "comment":
+        rows = con.execute(
+            f"SELECT {COMMENT_COLUMNS} FROM enviro_comment"
+            f" WHERE comment_number = ? AND docket_id IN ({marks})",
+            (record_id, *ids),
+        ).fetchall()
+        copies = [_comment_entry(con, r, family) for r in rows]
+    else:
+        raise ValueError(f"unknown kind {kind!r}")
+
+    if not copies:
+        return None
+    folded = _fold_family_duplicates(copies, [m.raw_docket for m in family])
+    context = EntryContext(
+        docket_id=docket_id,
+        raw_docket=raw,
+        prefix=prefix,
+        sequence=sequence,
+        title=load_json(payload)["title"] if payload else None,
+    )
+    return context, folded[0]

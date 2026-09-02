@@ -457,6 +457,15 @@ this file** — it took production down twice and stopped the record being kept 
   `Retry-After` for `/d/FD-35087/comment/*`. Costs a reader nothing they had — those pages
   already time out unanswered — and 503 rather than 404 because the address is permanent
   (ADR 0013). Applying it needs a write on the instance. **Delete that block with the fix.**
+- **The viewer still builds the whole sheet, and it is one click away.** `/filing/<id>/view`
+  and `/decision/<id>/view` need the entry's neighbours (prev/next) and the sheet's Parties
+  block, so they cannot use `one_entry` and still call `docket_sheet` — on FD 35087 that is
+  the same ~12,600-entry assembly the record pages just stopped doing. Narrower than the
+  comment pages (549 filings and 43 decisions there, not 12,031) and a comment has no
+  `/view` route at all, so the crawl that caused the outages cannot reach it; but "Read it
+  here" links to it from every record page and it is not disallowed in `robots.txt`. Fixing
+  it needs a cheap ordered neighbour query, and the sheet's order is computed in Python
+  (`_numeric` over comment numbers), so it is not a straight translation to SQL.
 - **Two guards worth having whatever the fix is**: a memory cap on the `web` container, so it
   cannot take `ingest` and `litestream` down with it — that is the difference between "the
   site blipped" and "the record stopped for seven hours" — and something that acts on the

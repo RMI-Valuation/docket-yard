@@ -182,3 +182,90 @@ def test_a_series_sheet_does_not_build_the_entries_it_never_renders(tmp_path):
     body = client.get("/d/AB-167.json").json()
     assert body["docket"]["entries"] == [] and body["docket"]["is_index"] is True
     assert len(body["docket"]["sub_dockets"]) == sheet.SERIES_SUBS + 1
+
+
+def test_one_entry_agrees_with_the_sheet_and_does_not_build_it(tmp_path):
+    """A record page reading one row off a fully-built sheet took production down three
+    times on 2026-09-02: FD 35087 holds 12,031 of the record's 34,255 comments, every
+    comment page assembled all of them — a payload and an attachment query EACH — at a
+    measured 21.5 s a page, and this site's own sitemap offers a crawler all 12,031
+    addresses. `one_entry` fetches the copies of the ONE record instead.
+
+    Both halves are asserted, because either alone would be worthless: the entry must be
+    the SAME entry the sheet lists (or the page quietly disagrees with the list it came
+    from), and getting it must not cost the whole docket."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    case = con.execute("SELECT docket_id FROM docket WHERE raw_docket = 'FD_36873'").fetchone()[0]
+
+    full = sheet.docket_sheet(con, case)
+    assert full is not None and full.entries
+    for listed in full.entries:
+        got = sheet.one_entry(con, case, listed.kind, listed.record_id)
+        assert got is not None, f"{listed.kind} {listed.record_id} is on the sheet but not found"
+        context, entry = got
+        # the same entry, field for field — including the family fold's `also_in`
+        assert entry == listed
+        assert (context.raw_docket, context.title) == (full.raw_docket, full.title)
+
+    # and it does not assemble the docket to find one row. `_attachments` runs once per
+    # entry the sheet builds, so counting it counts the work: the whole sheet against one.
+    calls: list[str] = []
+    real = sheet._attachments
+
+    def counted(*a, **k):
+        calls.append(a[1])
+        return real(*a, **k)
+
+    sheet._attachments = counted
+    try:
+        pick = full.entries[0]
+        calls.clear()
+        sheet.one_entry(con, case, pick.kind, pick.record_id)
+        targeted = len(calls)
+        calls.clear()
+        sheet.docket_sheet(con, case)
+        whole = len(calls)
+    finally:
+        sheet._attachments = real
+    con.close()
+    # the cost is the number of COPIES of that one record across the family — one, unless
+    # it was entered in a docket AND its sub-docket, which is the fold `also_in` records
+    assert targeted == 1 + len(pick.also_in)
+    assert whole > targeted  # the sheet builds every entry; the lookup builds one record's
+
+    # unknown records are a miss, not a crash, and the kind is checked
+    con = db.connect(path)
+    assert sheet.one_entry(con, case, "comment", "EI-000000") is None
+    assert sheet.one_entry(con, case, "filing", "no-such-id") is None
+    with pytest.raises(ValueError):
+        sheet.one_entry(con, case, "nonsense", "1")
+    con.close()
+
+
+def test_one_entry_agrees_about_parties_too(tmp_path):
+    """The equivalence test above cannot see this: `build_store` seeds no party spans, so
+    `parties` is `[]` on both sides and agrees vacuously. This one uses a store that has
+    resolved parties.
+
+    It is the case that caught a real defect. `components_of_filings` filters
+    `WHERE f.docket_id IN (...)`, and `docket_sheet` passed it `filing_pk` values — right by
+    accident, because the map is keyed by filing_pk and a store's pk range usually covers
+    its docket ids. `one_entry` passing ONE pk matched no docket and answered `[]`, so the
+    record page would have shown a filing as filed for nobody while the sheet listing it
+    named the party."""
+    from tests.test_registers import _store
+
+    _, con = _store(tmp_path)
+    seen = 0
+    for docket_id in [r[0] for r in con.execute("SELECT docket_id FROM docket")]:
+        s = sheet.docket_sheet(con, docket_id)
+        if s is None:
+            continue
+        for listed in s.entries:
+            got = sheet.one_entry(con, docket_id, listed.kind, listed.record_id)
+            assert got is not None
+            assert got[1] == listed, f"{listed.record_id}: {got[1].parties} != {listed.parties}"
+            seen += 1 if listed.parties else 0
+    con.close()
+    assert seen, "the fixture resolved no parties — this test would prove nothing"

@@ -1726,7 +1726,7 @@ def create_app(
         return FileResponse(path, media_type=mime, headers=headers, stat_result=stat)
 
     def viewer(request: Request, kind: str, stb_id: str, file: int):
-        s, entry = _record_entry(db_path, kind, stb_id)
+        s, entry = _record_sheet_and_entry(db_path, kind, stb_id)
         first = documents.viewable_index(entry)
         current = None
         if first is not None:
@@ -1779,25 +1779,48 @@ def create_app(
     return app
 
 
-def _record_entry(db_path, kind: str, stb_id: str):
-    """A record's family sheet and its entry, or 404 — one lookup for the page and JSON."""
+def _record_docket(con, kind: str, stb_id: str) -> int:
+    """The docket a record is addressed under: entered in a docket AND its sub-docket, it is
+    one record and the parent headlines it (ADR 0005). 404 if nothing holds it."""
     table, column = (
         ("decision_record", "stb_decision_id")
         if kind == "decision"
         else ("filing", "stb_filing_id")
     )
+    row = con.execute(
+        f"SELECT r.docket_id FROM {table} r JOIN docket d ON d.docket_id = r.docket_id"
+        f" WHERE r.{column} = ?"
+        " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, '') LIMIT 1",
+        (stb_id,),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(404)
+    return row[0]
+
+
+def _record_entry(db_path, kind: str, stb_id: str):
+    """A record's entry and enough of its docket to render it — WITHOUT building the sheet.
+
+    See `sheet.one_entry`: reading one row off a fully-built sheet is what took production
+    down on 2026-09-02. The viewer still needs the whole sheet, because it shows the
+    neighbouring entries; the page and the JSON do not, and they are what a crawler walks.
+    """
     con = _connect(db_path)
     try:
-        # a record entered in a docket and its sub-docket is one record: headline the parent
-        row = con.execute(
-            f"SELECT r.docket_id FROM {table} r JOIN docket d ON d.docket_id = r.docket_id"
-            f" WHERE r.{column} = ?"
-            " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, '') LIMIT 1",
-            (stb_id,),
-        ).fetchone()
-        if row is None:
-            raise HTTPException(404)
-        s = sheet.docket_sheet(con, row[0])
+        got = sheet.one_entry(con, _record_docket(con, kind, stb_id), kind, stb_id)
+    finally:
+        con.close()
+    if got is None:
+        raise HTTPException(404)
+    return got
+
+
+def _record_sheet_and_entry(db_path, kind: str, stb_id: str):
+    """The full sheet and the entry, for the viewer — which needs the entry's neighbours and
+    the sheet's Parties block, so it cannot use the targeted lookup."""
+    con = _connect(db_path)
+    try:
+        s = sheet.docket_sheet(con, _record_docket(con, kind, stb_id))
     finally:
         con.close()
     assert s is not None
@@ -1870,7 +1893,13 @@ def _addressing_docket(db_path, identity, number: str):
 
 
 def _comment_entry(db_path, identity, number: str):
-    """One comment's family sheet and its entry, addressed by (docket, number)."""
+    """One comment's entry and enough of its docket to render it, addressed by
+    (docket, number) — WITHOUT building the sheet that lists it.
+
+    This is the path that took production down three times on 2026-09-02: FD 35087 holds
+    12,031 comments and every one of these requests assembled all of them. See
+    `sheet.one_entry`.
+    """
     con = _connect(db_path)
     try:
         row = con.execute(
@@ -1883,14 +1912,12 @@ def _comment_entry(db_path, identity, number: str):
         ).fetchone()
         if row is None:
             raise HTTPException(404)
-        s = sheet.docket_sheet(con, row[0])
+        got = sheet.one_entry(con, row[0], "comment", number)
     finally:
         con.close()
-    assert s is not None
-    entry = next((e for e in s.entries if e.kind == "comment" and e.record_id == number), None)
-    if entry is None:
+    if got is None:
         raise HTTPException(404)
-    return s, entry
+    return got
 
 
 def _comment_page(request, db_path, render, identity, number: str):
