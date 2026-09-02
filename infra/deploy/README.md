@@ -73,6 +73,23 @@ rm data/flags/maintenance                    # back
 Verify against the live store *before* clearing the flag: that is the whole point of the
 window. If the migration is wrong, restore from Litestream while nothing else is writing.
 
+**Both halves of that were rehearsed on 2026-09-02 against the real store**, because neither
+had ever been tested and the whole hesitation about a migrating deploy rested on them:
+
+- **The rollback works.** `litestream restore` reconstructed the store from S3 into a scratch
+  path, and the result matched the live database on every fact checked — schema, and the row
+  counts of `capture` (110,118), `event` (145,522), `docket` (32,627), `filing` (54,642),
+  `decision_record` (23,716), `enviro_comment` (34,381), `enviro_comment_attachment` (26,949)
+  and `document` (104,091) — with `integrity_check` ok and zero foreign-key violations. No
+  differences. The restore is the reason a migrating deploy is survivable, and it is now a
+  measurement rather than an assumption.
+- **Migrations 0014-0017 apply to that data in 2.2 s**, landing at schema 17 with
+  `integrity_check` ok and zero foreign-key violations, and the whole site then serves from
+  the migrated store: home, `/coverage`, `/methodology`, `/parties`, `/dockets`, `/stats`,
+  `/api`, `/llms.txt`, the docket sheets and the record pages, all 200.
+
+Rehearse it again if the release carries a migration this one did not.
+
 4. **Seed the store** from rmi-ai-machine — a copy, not a migration (ADR 0012). Stop any
    writer on the source first so the WAL is checkpointed:
 

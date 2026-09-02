@@ -457,6 +457,14 @@ this file** — it took production down twice and stopped the record being kept 
   `Retry-After` for `/d/FD-35087/comment/*`. Costs a reader nothing they had — those pages
   already time out unanswered — and 503 rather than 404 because the address is permanent
   (ADR 0013). Applying it needs a write on the instance. **Delete that block with the fix.**
+- **The fix is measured on the real store now, 2026-09-02.** Against a Litestream restore of
+  production at schema 17: the busiest FD 35087 member holds **12,031 comments** and the old
+  path built **12,633 entries** to answer for one; `one_entry` is **34x** faster on the same
+  data and returns the identical entry. End to end through the app the comment page renders
+  in **19 ms** where production measured 21.5 s — though the two are not the same
+  measurement, because 21.5 s was taken while forty threads contended on two vCPUs and this
+  was one request on an idle machine. What the fix removes is the quadratic that made the
+  contention possible, not 21 seconds of any single request.
 - **The viewer still builds the whole sheet, and it is one click away.** `/filing/<id>/view`
   and `/decision/<id>/view` need the entry's neighbours (prev/next) and the sheet's Parties
   block, so they cannot use `one_entry` and still call `docket_sheet` — on FD 35087 that is
