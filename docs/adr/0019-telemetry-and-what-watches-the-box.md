@@ -86,6 +86,24 @@ places where this project's shape differs.
 6. **Bounded cardinality is a design rule, not an optimisation** — no docket number, party id
    or URL ever becomes a label.
 
+7. **The grammar is `docket_yard_*`** (operator, 2026-09-02), and everything written carries
+   `service="docket_yard"` as an external label. The free tier is one stack and the sibling
+   platform already writes to it under `rmi_*`, so the prefix is what keeps two systems'
+   series apart in one Prometheus — and the label is what keeps *host* series apart, since
+   `node_cpu` from this box is otherwise indistinguishable from `node_cpu` from any other.
+   The names are:
+
+   | series | what it says |
+   | --- | --- |
+   | `docket_yard_up` | 1 when the web process answered the scrape |
+   | `docket_yard_schema_version` | the store's own `PRAGMA user_version` |
+   | `docket_yard_schema_expected` | the migration this build wants; the gap is a deploy in flight |
+   | `docket_yard_freshness_known{kind}` | 0 when that thing has never happened — an empty alert queue is the normal case |
+   | `docket_yard_freshness_age_seconds{kind}` | seconds since the newest row of that kind |
+
+   The grammar outliving the sink is ADR 0022's argument and it holds here: changing sink
+   means pointing a different scraper at the same names.
+
 ## Consequences
 
 Detection of a dead box goes from hours to minutes, and detection of a *stale but serving*

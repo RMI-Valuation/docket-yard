@@ -240,8 +240,8 @@ def test_metrics_is_absent_until_a_token_is_set(tmp_path, monkeypatch):
     assert ok.headers["cache-control"] == "no-store"
 
     body = ok.text
-    assert "docketyard_up 1" in body
-    assert "# TYPE docketyard_freshness_age_seconds gauge" in body
+    assert "docket_yard_up 1" in body
+    assert "# TYPE docket_yard_freshness_age_seconds gauge" in body
     # the label set is closed — bounded cardinality is the design rule, not an optimisation
     labels = {
         line.split('kind="')[1].split('"')[0] for line in body.splitlines() if 'kind="' in line
@@ -261,10 +261,10 @@ def test_metrics_is_absent_until_a_token_is_set(tmp_path, monkeypatch):
     # `oldest_pending_alert` is NULL in the NORMAL state (an empty queue), so it carries a
     # `_known 0` rather than vanishing — otherwise ADR 0019's alert-on-absence fires on it
     # for ever, gets muted, and takes the real signal with it
-    assert 'docketyard_freshness_known{kind="oldest_pending_alert"} 0' in body
-    assert 'docketyard_freshness_age_seconds{kind="oldest_pending_alert"}' not in body
+    assert 'docket_yard_freshness_known{kind="oldest_pending_alert"} 0' in body
+    assert 'docket_yard_freshness_age_seconds{kind="oldest_pending_alert"}' not in body
     # the store's own version is reported, not just the build's expectation
-    assert "docketyard_schema_version " in body and "docketyard_schema_expected " in body
+    assert "docket_yard_schema_version " in body and "docket_yard_schema_expected " in body
 
 
 def test_metrics_is_never_cached_and_is_not_advertised(tmp_path, monkeypatch):

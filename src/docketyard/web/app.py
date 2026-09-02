@@ -998,18 +998,18 @@ def create_app(
             con.close()
         now = datetime.now(UTC)
         lines = [
-            "# HELP docketyard_up 1 when the web process answered this scrape.",
-            "# TYPE docketyard_up gauge",
-            "docketyard_up 1",
+            "# HELP docket_yard_up 1 when the web process answered this scrape.",
+            "# TYPE docket_yard_up gauge",
+            "docket_yard_up 1",
             # THE STORE'S VERSION, NOT THE BUILD'S EXPECTATION. `MIGRATIONS[-1][0]` is what
             # this image was built to want; between `migrate` running and `web` restarting
             # the two differ, and that gap is exactly what a deploy wants to watch.
-            "# HELP docketyard_schema_version PRAGMA user_version of the store being served.",
-            "# TYPE docketyard_schema_version gauge",
-            f"docketyard_schema_version {schema}",
-            "# HELP docketyard_schema_expected The migration this build expects.",
-            "# TYPE docketyard_schema_expected gauge",
-            f"docketyard_schema_expected {MIGRATIONS[-1][0]}",
+            "# HELP docket_yard_schema_version PRAGMA user_version of the store being served.",
+            "# TYPE docket_yard_schema_version gauge",
+            f"docket_yard_schema_version {schema}",
+            "# HELP docket_yard_schema_expected The migration this build expects.",
+            "# TYPE docket_yard_schema_expected gauge",
+            f"docket_yard_schema_expected {MIGRATIONS[-1][0]}",
         ]
         # TWO SERIES, BECAUSE ABSENCE HAS TWO MEANINGS AND THE ALERT TURNS ON THE DIFFERENCE.
         # `oldest_pending_alert` is NULL in the NORMAL state — an empty queue — so emitting
@@ -1018,8 +1018,8 @@ def create_app(
         # with it. `_known` is always emitted: 0 says "this has never happened", where a
         # vanished series says "the scrape stopped".
         lines += [
-            "# HELP docketyard_freshness_known 1 when the store has a timestamp of this kind.",
-            "# TYPE docketyard_freshness_known gauge",
+            "# HELP docket_yard_freshness_known 1 when the store has a timestamp of this kind.",
+            "# TYPE docket_yard_freshness_known gauge",
         ]
         ages: dict[str, int] = {}
         for key, value in sorted(fresh.items()):
@@ -1027,14 +1027,14 @@ def create_app(
                 ages[key] = int((now - datetime.fromisoformat(value)).total_seconds())
             except (TypeError, ValueError):
                 pass
-            lines.append(f'docketyard_freshness_known{{kind="{key}"}} {int(key in ages)}')
+            lines.append(f'docket_yard_freshness_known{{kind="{key}"}} {int(key in ages)}')
         lines += [
-            "# HELP docketyard_freshness_age_seconds Seconds since the newest row of a kind,"
+            "# HELP docket_yard_freshness_age_seconds Seconds since the newest row of a kind,"
             " where one exists.",
-            "# TYPE docketyard_freshness_age_seconds gauge",
+            "# TYPE docket_yard_freshness_age_seconds gauge",
         ]
         for key, age in sorted(ages.items()):
-            lines.append(f'docketyard_freshness_age_seconds{{kind="{key}"}} {age}')
+            lines.append(f'docket_yard_freshness_age_seconds{{kind="{key}"}} {age}')
         body = "\n".join(lines) + "\n"
         return PlainTextResponse(
             body,

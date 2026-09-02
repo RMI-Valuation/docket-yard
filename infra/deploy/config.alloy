@@ -67,7 +67,7 @@ prometheus.remote_write "grafana_cloud" {
 	// the same Prometheus, and an alert meant for this box would match whichever one
 	// answered. One label in one place beats remembering it per scrape.
 	external_labels = {
-		service = "docketyard",
+		service = "docket_yard",
 	}
 
 	endpoint {
