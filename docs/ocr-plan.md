@@ -136,6 +136,15 @@ carries 86% of the pages is one it was assumed unable to make and partly can (AU
 unconfirmed). See `research/ocr-benchmark/README.md` § What the measurements route to and
 § Step 4, which also record why a column-count rule fitted to this sample was refused.
 
+**Preprocessing was measured 2026-09-02 and the plan should not add a stage for it**
+(§ Step 5). Greyscale is a no-op because 86 of the 90 pages are already monochrome; 300 DPI
+is a wash for PP-OCRv6 at twice the time and OOMs dots.mocr on the 12 GB card; binarise and
+denoise lose outright, and deskew is a small loss once it is measured with an estimator that
+actually deskews. Crop-to-content is the only variant that improves CER — dots.mocr 8.2% to
+7.9% — and it is **not** carried forward, because it is also the only one that raises both
+invention measures: it finishes `[cut]` lines and asserts text on a graphic page, since
+cropping removes the margin that tells a model where the scan ends.
+
 **One engine carries a licence the record cannot absorb.** HunyuanOCR-1.5 is the only free
 engine that closes the table gap, but the Tencent Hunyuan Community License excludes the EU,
 UK and South Korea from its grant and forbids using outputs to improve any AI model — which

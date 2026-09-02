@@ -599,6 +599,118 @@ proves to be the thing that matters, a cheap detector plus a dots second opinion
 that come back empty would cost far less than routing everything through it. That is a
 composition worth measuring; running dots.mocr as *the* classifier is not.
 
+## Step 5 — preprocessing, measured per engine class
+
+Run 2026-09-02. Seven renderings of the same 90 pages built by
+`tools/rmi-ai-machine/ocr_preprocess.py`, read by the two engines the routing actually uses —
+**PP-OCRv6 medium** for the detector-plus-recogniser class and **dots.mocr** for the VLM class
+— and scored against the one ground truth, which every variant leaves valid because none of
+them changes what is printed. Scores in `runs/preprocess/`; both tables come from
+`ocr_preprocess.py compare`, not from a throwaway script.
+
+**Read the paired columns, not the means.** Every variant reads the same pages, so the
+per-page differences are paired, and a mean over them hides how it was earned: `binarise` has
+the *better* mean of the two and loses on 44 pages of 81. Win/loss/tie says which happened.
+
+### PP-OCRv6 medium
+
+| variant | CER | clean | degraded | tabular | dockets | dates | map labels | invent | completed |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| base (150 DPI, colour) | 11.8% | 2.6% | 17.9% | 38.2% | 31/34 | 222/246 | 47.2% | 0 | 1 |
+| dpi300 | 11.7% | 2.6% | 18.0% | **37.4%** | 31/34 | 220/246 | 44.6% | 0 | **0** |
+| grey | 11.8% | 2.6% | 17.9% | 38.2% | 31/34 | 222/246 | 47.3% | 0 | 1 |
+| deskew | 11.9% | 2.6% | 18.1% | 39.2% | 31/34 | 220/246 | 46.6% | 0 | 2 |
+| crop | **11.6%** | **2.4%** | **17.6%** | 39.4% | 30/34 | 221/246 | 45.5% | 0 | **4** |
+| binarise | 11.7% | 2.6% | **17.8%** | 38.1% | 30/34 | 212/246 | 33.3% | 0 | 1 |
+| denoise | 12.1% | 2.8% | 18.2% | 40.8% | 30/34 | 213/246 | 29.2% | 0 | 1 |
+
+| variant | vs | better | worse | tie | mean delta |
+| --- | --- | --- | --- | --- | --- |
+| dpi300 | base | 39 | 29 | 13 | −0.02pp |
+| grey | base | 0 | 1 | 80 | +0.00pp |
+| deskew | base | 11 | 17 | 53 | +0.13pp |
+| crop | base | 35 | 22 | 24 | **−0.16pp** |
+| binarise | grey | 24 | 44 | 13 | −0.04pp |
+| denoise | grey | 20 | 50 | 11 | +0.37pp |
+
+### dots.mocr
+
+Only the three variants with a mechanism for a VLM were run against it; `deskew`, `binarise`
+and `denoise` are measured for the recogniser class only, and `dpi300` could not be run at all.
+
+| variant | CER | clean | degraded | tabular | dockets | dates | map labels | invent | completed |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| base | 8.2% | 3.3% | 12.7% | **13.4%** | 34/34 | 219/246 | 5.5% | **0** | **7** |
+| grey | 8.2% | 3.3% | 12.7% | **13.4%** | 34/34 | 219/246 | 5.5% | **0** | **7** |
+| crop | **7.9%** | **2.8%** | **12.3%** | 15.3% | 34/34 | 220/246 | 6.2% | 4 | 8 |
+
+| variant | vs | better | worse | tie | mean delta |
+| --- | --- | --- | --- | --- | --- |
+| grey | base | 0 | 0 | 81 | +0.00pp |
+| crop | base | 21 | 14 | 46 | **−0.29pp** |
+
+### What it settles
+
+**Nothing here earns a place in the pipeline.** That is the finding, and the two rightmost
+columns are why the one variant that looked like an exception is not.
+
+**Greyscale is a no-op on this record, and the reason is the record rather than the engines.**
+It ties on 80 of 81 pages for PP-OCRv6 and on **all 81** for dots.mocr, because **86 of the 90
+pages are already exactly R == G == B** — the Board's scanned record is monochrome, and
+greyscaling it produces the same pixels. Only two pages carry real colour, both coloured maps.
+This also re-frames the one prior result: greyscale moved Claude from 6.6% to 5.9%, and since
+it removes no information here, whatever it did for Claude came from the channel count or the
+encoding rather than from the image. No pipeline should spend a pass on it.
+
+**300 DPI is not worth it for one engine and is not runnable for the other.** For PP-OCRv6 it
+is a wash — 39 pages better, 29 worse, −0.02pp — at double the time (0.6 s against 0.3 s a
+page). For dots.mocr it **killed the server**: `torch.OutOfMemoryError` in the vision rotary
+embedding nine pages in, the engine core dead and every later request a 500. That is a 12 GB
+card at `--gpu-memory-utilization 0.95` and 16,384 context, so it is a statement about this
+box and this configuration rather than about 300 DPI in principle — but it is the box the
+backfill would run on. The usual "300 DPI floor" advice does not survive contact with either
+engine here.
+
+**Binarise and denoise are real losses.** Both lose the majority of pages outright (44 and 50
+of 81), both drop about ten of the 246 dates, and both collapse map-label recall — 47.2% to
+33.3% and to 29.2%. Otsu and a median blur eat thin strokes, which is what a faint photocopy
+is made of.
+
+**Deskew was measured twice, because the first measurement was of a bug.** The obvious
+implementation — `minAreaRect` over `np.where(mask)` — feeds (row, col) into a function
+expecting (x, y), which reflects the frame and negates the angle, and OpenCV has changed that
+return value's sign convention between versions besides. Injecting a known −3° skew, it
+estimated −5.8° and the correction left a **−11.7° residual: it amplified skew**. The
+replacement does not derive an angle from geometry at all — it rotates by each candidate and
+keeps whichever makes the horizontal ink profile most peaked, so the sign cannot be wrong by
+construction, and it recovers injected angles to within its 0.25° step. It now rotates 40 of
+the 90 pages, where the broken one mostly did nothing. **Correctly deskewed, it is still a
+small net loss**: 11 pages better, 17 worse, +0.13pp. Resampling blur costs this engine more
+than alignment buys it.
+
+**Crop looks like the exception, and the invention columns say it is not.** It is the only
+variant that improves CER for either engine — PP-OCRv6 to 11.6%, and dots.mocr from 8.2% to
+7.9% with clean 3.3% to 2.8% and degraded 12.7% to 12.3%, winning 21 pages to 14. But it is
+also the only variant that makes **both** invention measures worse. `completed` — `[cut]`
+lines an engine finished, which the scorer calls the sharpest probe in the benchmark — goes
+from 1 to 4 on PP-OCRv6 and 7 to 8 on dots.mocr, and dots.mocr asserts **4 characters on a
+graphic page that carries none** where the base asserts nothing. The mechanism is the obvious
+one once seen: cropping to the content box removes the margin that tells a model where the
+scan ends, so a line running off the edge of the page stops looking cut and gets completed.
+**Step 3's whole argument about the graphic tier is that a rare, confident fabrication is
+worse than a percentage point of character error**, and crop buys 0.3pp by trading exactly
+that. It is not carried forward on this evidence.
+
+So the plan should add no preprocessing stage. If any variant is revisited on the second,
+unseen sample it is crop, and the question to ask of it is not CER but whether the invented
+text scales.
+
+**Two limits on all of the above.** Every figure is 90 pages, and the paired counts are the
+honest read of how thin some of these margins are. And the dots.mocr baseline is the scored
+run of 2026-09-01, which predates `run.json` and so records no weights or server
+configuration, where the variants beside it do. Re-running that baseline would close the gap;
+it is free and it has not been done.
+
 ## Are these the right versions, run the right way?
 
 Asked deliberately 2026-09-01, because two engines had already been caught running wrongly —

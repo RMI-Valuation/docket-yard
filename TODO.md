@@ -33,11 +33,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   graphic call safe, **blank call unsafe — "no regions" must never mean "skip"**; plus an
   unconfirmed clean-vs-degraded signal (AUC 0.843) it was assumed blind to. dots.mocr
   layout-only is 75x dearer for no net gain. Left: **the second unseen sample**
-- **Preprocessing**, per engine class not once: 150 DPI against the usual 300 floor,
-  crop-to-content (55-76% of the render), binarisation, deskew, denoise. Cheap on PP-OCRv6
-  (~36 s a variant), ~10 min a variant on dots.mocr with the vLLM server up
-- **More tabular and graphic ground truth** — 5 and 9 pages decide nothing; the tabular
-  routing and the router's own figures both wait on it. **Needs Cameron's check**
+- **Preprocessing is closed, 2026-09-02** (§ Step 5): no stage earns its place, and crop —
+  the only one that cuts CER — raises invention, so it is not carried forward
+- **More tabular and graphic ground truth** — 5 and 9 pages decide nothing. The tabular
+  routing, the router's figures and the one re-ask left of preprocessing (does crop's
+  invented text scale?) all wait on it. **Needs Cameron's check**
 - **HunyuanOCR-1.5 is Cameron's call**: the only free engine that closes the table gap
   (86.2% cells), but its licence bars the EU/UK/Korea and forbids using outputs to improve
   any AI model, which the CC0 dump cannot absorb

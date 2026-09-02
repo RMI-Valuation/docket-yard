@@ -26,12 +26,17 @@ where the directory holds one <page>.txt per page image, named as the ground tru
 
 import argparse
 import json
+import os
 import re
 import unicodedata
 from collections import Counter
 from pathlib import Path
 
-ROOT = Path("e:/DevProjects/docket-yard")
+# The repository this file sits in, not a machine. It was an absolute Windows path until
+# 2026-09-02, which meant the scorer ran on exactly one box and failed on RMI-AI-MACHINE with
+# a FileNotFoundError naming a drive letter — so every run had to be copied back before it
+# could be scored. `DY_ROOT` overrides it for a checkout somewhere else.
+ROOT = Path(os.environ.get("DY_ROOT") or Path(__file__).resolve().parents[2])
 TRUTH = ROOT / "docs/research/ocr-benchmark/ground-truth"
 SAMPLE = ROOT / "docs/research/ocr-benchmark/sample.json"
 
