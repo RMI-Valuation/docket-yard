@@ -10,21 +10,21 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 - **The figures: 94.7% projected / 97.7% precision by the rule, 93.3% to a reader.** Three
   causes, each separated in migration 0016's header, which is the one to quote
-- **Nothing in the code blocks the citator from production** (migrations 0014-0017). Nobody
-  has run the first real load, and production is four migrations behind at schema 13
+- **The citator is in production at schema 17 and has never run a real load.** Nothing in
+  the code blocks it; the first load is Cameron's to start
 - **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not
   in the record" display joining live `citation`; the veto's trigger. More in `deferred.md`
-- **Drain done**: 124 left — 121 resting refusals, 3 en-dash rows that fetch on the next
-  deploy. **The class behind the 3 is open**, Cameron's (`docs/deferred.md`)
-- **THE COMMENT PAGE WAS O(DOCKET)** — three outages 2026-09-02; gap 1 recorded, nothing
-  missed. **Fixed in `main` (`sheet.one_entry`), waiting on the deploy**; contained until
-  then by a Caddy 503 on `/d/FD-35087/comment/*` — **delete that block with the fix**. Guards
-  live (768 MB cap, 1-min webwatch). Detection took 6 h 13 m; the viewer is still O(docket)
-- **ADR 0019 and 0020 Accepted 2026-09-02, both built.** **0020 is live**: `touch
-  data/flags/maintenance` walls readers off and the record keeps being kept (proved with
-  `web` stopped); migrating-deploy runbook in `infra/deploy/README.md`. **0019 is code-ready
-  and inert** — `/metrics` 404s and alloy sits behind the `metrics` profile until **Cameron
-  supplies a Grafana Cloud credential**; the alert rules are his to write there too
+- **Drain closed**: 121 unfetched, every one a genuine refusal resting 7 days; the 3
+  en-dash rows fetched on the deploy. **The class behind them is still open** — an
+  unanswered attempt leaves no capture, so nothing rests it. Cameron's (`deferred.md`)
+- **The O(docket) record page is fixed and deployed** (`sheet.one_entry`) — three outages
+  2026-09-02, gap 1 recorded, nothing missed; the page now answers in 0.12 s where it cost
+  21.5 s, and the Caddy containment is removed. Guards live (768 MB cap, 1-min webwatch).
+  **The viewer is still O(docket)** and detection still took 6 h 13 m (`deferred.md`)
+- **ADR 0019 and 0020 accepted and live.** Maintenance: `touch data/flags/maintenance`
+  (used for the v2026.09.1 deploy — 2 m 50 s, no gap). Telemetry: `docket_yard_*` and the
+  host's vitals reach Grafana Cloud. **The alert rules are Cameron's to write, and the
+  no-data one is the point** — it replaces the heartbeat that took 6 h 13 m
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
   sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
