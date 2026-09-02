@@ -114,20 +114,30 @@ most ~$140 against a managed service that needs no instance, no driver and no sp
 interruption handling.
 
 **Superseded on the OCR line, 2026-09-01.** The reasoning above holds; the conclusion was
-drawn before anything both adequate and free had been measured. **PaddleOCR-VL 1.6 on the
-box reads better than Textract and costs nothing** — 8.8% CER against 10.8%, and on the
-degraded tier 12.0% against 18.4%, within 1.5 points of Claude. At 1.3 s a page the whole
-backfill is about 63 hours of box time, so the ~$260 OCR line goes to ~$0 and buys *more*
-accuracy rather than less. Tesseract, the baseline nothing had until that day, sits at 13.3%
-and shows Textract's margin over free software was always modest. Two caveats decide the
-routing rather than the engine: Textract with TABLES still recovers 87.4% of table cells
-against PaddleOCR-VL's 57.5%; and on the graphic tier PaddleOCR-VL has a rare, catastrophic
-failure — **one page of nine, on which it invented 20,368 characters**, against Textract's
-worst of 1,794 and Tesseract's none. It is silent on the other eight, so this is a tail to
-gate behind the confidence layer rather than an inability to be routed around, and **nine
-pages cannot establish how often it happens** — the frequency is what would decide between
-gating and routing, and it is not measured. The full table, and how PaddleOCR-VL has to be
-run to reach that speed, is in `research/ocr-benchmark/README.md` § Step 3.
+drawn before anything both adequate and free had been measured. Thirteen runs later, **three
+free local engines beat Textract outright and the ~$260 OCR line goes to ~$0 while buying
+MORE accuracy**. Tesseract, the baseline nothing had until that day, sits at 13.3% and shows
+Textract's margin over free software was always modest.
+
+**dots.mocr is the engine to build on**: 8.2% CER against Textract's 10.8%, 12.7% on the
+degraded tier against 18.4%, MIT-licensed, no invented text on any graphic page, and **every
+docket number on all 90 pages at 100% recall and precision** — which only Claude also
+manages, at $0.0171 a page. PaddleOCR-VL 1.6 is faster (1.3 s) at 8.8%, so a 175k-page
+backfill is about 63 hours of box time.
+
+**No single engine wins, and that is the finding.** PP-OCRv6 medium reads 47.2% of map
+labels while inventing nothing, where every VL model is blind to a map; on tables only
+HunyuanOCR-1.5 (86.2%) and Textract (87.4%) detect all five, because the VL layout models
+will not call an unruled columnar list a table and agency filings are full of them. So the
+plan's OCR step becomes a routed one, and **the router is the open piece** — see
+`research/ocr-benchmark/README.md` § What the measurements route to, which also records why a
+column-count rule fitted to this sample was refused.
+
+**One engine carries a licence the record cannot absorb.** HunyuanOCR-1.5 is the only free
+engine that closes the table gap, but the Tencent Hunyuan Community License excludes the EU,
+UK and South Korea from its grant and forbids using outputs to improve any AI model — which
+cannot be reconciled with publishing them in a CC0 dump. Measured, not adopted; the decision
+is the operator's.
 
 The box keeps two jobs: it is free, so it is where anything gets tried first, and
 qwen2.5vl:7b is a usable bulk reader (9.2% CER, better than Textract's 10.8%) **provided

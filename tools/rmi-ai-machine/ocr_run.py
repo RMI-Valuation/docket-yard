@@ -146,14 +146,272 @@ def _table_block(html_text: str) -> list:
     return out
 
 
+DOTS_PROMPT = """Please output the layout information from the PDF image, including each \
+layout element's bbox, its category, and the corresponding text content within the bbox.
+
+1. Bbox format: [x1, y1, x2, y2]
+
+2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', \
+'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', \
+'Title'].
+
+3. Text Extraction & Formatting Rules:
+    - Picture: For the 'Picture' category, the text field should be omitted.
+    - Formula: Format its text as LaTeX.
+    - Table: Format its text as HTML.
+    - All Others (Text, Title, etc.): Format their text as Markdown.
+
+4. Constraints:
+    - The output text must be the original text from the image, with no translation.
+    - All layout elements must be sorted according to human reading order.
+
+5. Final Output: The entire output must be a single JSON object."""
+
+
+def run_dots_ocr(image: Path, cfg: dict) -> str:
+    """dots.ocr and dots.mocr (both MIT), served by vLLM and asked for layout-plus-text.
+
+    **dots.mocr is the one to run** — it is dots.ocr-1.5 rebranded, and it reads every docket
+    number on all 90 benchmark pages where dots.ocr manages 94.1%. Same weights family, same
+    prompt, same output contract, so one engine serves both and `--dots-model` selects which
+    is up:
+
+        VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve rednote-hilab/dots.mocr \\
+            --served-model-name dots-mocr --trust-remote-code \\
+            --chat-template-content-format string --port 8120 \\
+            --gpu-memory-utilization 0.95 --max-model-len 16384
+        ocr_run.py --engine dots-ocr --dots-model dots-mocr \\
+            --dots-server http://127.0.0.1:8120/v1 ...
+
+    The predecessor is `rednote-hilab/dots.ocr`, served the same way. 0.95 utilisation is
+    not decoration: at 0.85 the engine refuses to start because the KV cache will not hold
+    one request at this context length.
+
+    It answers with one element per layout block, each carrying a category, so a table
+    arrives as HTML and goes through the same `[table]` conversion PaddleOCR-VL's does. The
+    CATEGORY IS THE INTERESTING PART BEYOND CER: it is a per-block page description of the
+    kind a router would need, produced by the same pass that reads the text.
+    """
+    import base64  # noqa: PLC0415
+    import urllib.request  # noqa: PLC0415
+
+    body = json.dumps(
+        {
+            "model": cfg.get("dots_model", "dots-ocr"),
+            "max_tokens": 8192,
+            "temperature": 0.0,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": "data:image/png;base64,"
+                                + base64.b64encode(image.read_bytes()).decode()
+                            },
+                        },
+                        {"type": "text", "text": DOTS_PROMPT},
+                    ],
+                }
+            ],
+        }
+    ).encode()
+    req = urllib.request.Request(
+        cfg.get("dots_server", "http://127.0.0.1:8119/v1") + "/chat/completions",
+        data=body,
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=cfg.get("timeout", 600)) as resp:
+        answer = json.loads(resp.read())
+    raw = answer["choices"][0]["message"]["content"]
+    stop = answer["choices"][0].get("finish_reason")
+    if stop not in (None, "stop"):
+        # a page truncated at max_tokens is a partial read, and scoring it as a whole one
+        # understates the engine silently
+        raise RuntimeError(f"finish_reason {stop}")
+
+    blocks = _json_array(raw)
+    if blocks is None:
+        return raw.strip()  # it answered in prose; score what it said rather than nothing
+    out = []
+    for b in blocks:
+        if not isinstance(b, dict):
+            continue
+        text = b.get("text") or ""
+        if b.get("category") == "Table" and "<table" in text:
+            out += _table_block(text)
+        elif text.strip():
+            out.append(text)
+    # the categories cost nothing to keep and are the router's raw material
+    cfg.setdefault("_layout", {})[image.stem] = [
+        b.get("category") for b in blocks if isinstance(b, dict)
+    ]
+    return "\n".join(out)
+
+
+# The model's shipped document-parsing prompt, with 其中页眉、页脚部分忽略 ("ignore the
+# header and footer parts") replaced by 包括页眉和页脚 ("include the header and the footer").
+HUNYUAN_PROMPT = (
+    "提取文档图片中正文的所有信息用markdown格式表示，包括页眉和页脚，"
+    "表格用html格式表达，文档中公式用latex格式表示，按照阅读顺序组织进行解析。"
+)
+
+
+def run_hunyuan_ocr(image: Path, cfg: dict) -> str:
+    """HunyuanOCR-1.5 (1B), through transformers. Markdown out, with tables as HTML.
+
+    NOT THROUGH vLLM, though the model ships a serving script for it: vLLM 0.28's
+    HunYuanVL implementation raises `forward() missing 1 required positional argument:
+    'intermediate_tensors'` on engine start. At 1B and 2.0 GB of VRAM it runs a full page
+    in about five seconds under transformers, so the server buys nothing here. It needs
+    transformers 5.x, and PaddleOCR-VL's own transformers path does not survive 5.16 (see
+    `run_paddleocr_vl`), which is why the two do not share an environment.
+
+    THE PROMPT IS THE SHIPPED CHINESE ONE WITH ONE CLAUSE CHANGED, and both halves of that
+    matter. An English instruction selects the model's `layout` task instead, which returns
+    bounding boxes and no text at all. And the shipped prompt says to IGNORE headers and
+    footers, which this benchmark's ground truth transcribes — so that clause asks for them
+    instead. The run is therefore comparable to the other engines here, NOT to the vendor's
+    published numbers.
+
+    LICENCE, because it is not like the others: the Tencent Hunyuan Community License
+    excludes the EU, UK and South Korea from its grant, and forbids using the outputs to
+    improve any other AI model — which is in tension with publishing them in a CC0 dump.
+    Measured to see whether that conversation is worth having; nothing is deployed on it.
+    """
+    import torch  # noqa: PLC0415
+    from PIL import Image  # noqa: PLC0415
+    from transformers import AutoModelForImageTextToText, AutoProcessor  # noqa: PLC0415
+
+    model = cfg.get("_hunyuan")
+    if model is None:
+        name = cfg.get("hunyuan_model", "tencent/HunyuanOCR")
+        cfg["_hunyuan_proc"] = AutoProcessor.from_pretrained(name, trust_remote_code=True)
+        cfg["_hunyuan"] = model = (
+            AutoModelForImageTextToText.from_pretrained(
+                name, trust_remote_code=True, dtype=torch.bfloat16
+            )
+            .to("cuda")
+            .eval()
+        )
+    proc = cfg["_hunyuan_proc"]
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": Image.open(image).convert("RGB")},
+                {"type": "text", "text": HUNYUAN_PROMPT},
+            ],
+        }
+    ]
+    inputs = proc.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to("cuda")
+    out = model.generate(**inputs, max_new_tokens=4096, do_sample=False)
+    text = proc.decode(out[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True)
+    return _markdown_tables(text)
+
+
+def _markdown_tables(text: str) -> str:
+    """Markdown with embedded HTML tables, rewritten into the ground truth's `[table]`
+    blocks. Text outside a table is passed through untouched."""
+    out, last = [], 0
+    for m in re.finditer(r"<table[\s>].*?</table>", text, re.S | re.I):
+        before = text[last : m.start()].strip("\n")
+        if before.strip():
+            out.append(before)
+        out += _table_block(m.group(0))
+        last = m.end()
+    tail = text[last:].strip("\n")
+    if tail.strip():
+        out.append(tail)
+    return "\n".join(out)
+
+
+def _json_array(raw: str):
+    """The JSON array in a model's answer, or None. It may arrive fenced, prefaced, or with
+    trailing prose, so the outermost brackets are taken rather than the whole string."""
+    start, end = raw.find("["), raw.rfind("]")
+    if start < 0 or end <= start:
+        return None
+    try:
+        parsed = json.loads(raw[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, list) else None
+
+
+def run_ppocr(image: Path, cfg: dict) -> str:
+    """PP-OCRv6 medium, PaddleOCR's classic detect-then-recognise pipeline — NOT the VL model.
+
+    It is here for the axis the CER column does not show. A detector-plus-recogniser reads
+    the pixels that are there and cannot write a sentence that is not, so its worst case on
+    a map is silence; the generative readers' worst case is a fluent invented page. That is
+    what makes it the engine for the tiers where invention is the risk rather than the error
+    rate — it reads 47.2% of the labels on a map and invents nothing on any of the nine.
+
+    THE MODELS ARE NAMED RATHER THAN DEFAULTED. `PaddleOCR()` picks whatever the installed
+    package's current default is — v6 medium today, something else on the next release — so
+    a figure published against "PaddleOCR" would silently stop describing the engine that
+    produced it. Naming them pins the measurement to a reproducible pair.
+
+    Lines come back with their boxes, and are ordered top to bottom, then left to right, so
+    a two-column caption reads as a person would read it rather than in detection order.
+    """
+    ocr = cfg.get("_ppocr")
+    if ocr is None:
+        from paddleocr import PaddleOCR  # noqa: PLC0415
+
+        cfg["_ppocr"] = ocr = PaddleOCR(
+            text_detection_model_name=cfg.get("ppocr_det", "PP-OCRv6_medium_det"),
+            text_recognition_model_name=cfg.get("ppocr_rec", "PP-OCRv6_medium_rec"),
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+            use_textline_orientation=False,
+        )
+    lines = []
+    for res in ocr.predict(str(image)):
+        r = res.json["res"]
+        texts = r.get("rec_texts") or []
+        boxes = r.get("rec_polys") or r.get("dt_polys") or []
+        placed = []
+        for i, text in enumerate(texts):
+            box = boxes[i] if i < len(boxes) else None
+            if box is not None and len(box):
+                ys = [float(p[1]) for p in box]
+                xs = [float(p[0]) for p in box]
+                placed.append((round(sum(ys) / len(ys) / 10), min(xs), i, text))
+            else:
+                # A LINE WITHOUT A BOX SORTS LAST, keeping its detection order among its
+                # kind. The first key is a ten-pixel vertical band, so putting the list
+                # index there instead would drop a box-less line at an arbitrary height in
+                # the middle of the page and charge the reading-order error to the engine.
+                placed.append((float("inf"), 0.0, i, text))
+        lines += [t for *_, t in sorted(placed, key=lambda p: p[:3])]
+    return "\n".join(lines)
+
+
 def run_paddleocr_vl(image: Path, cfg: dict) -> str:
-    """PaddleOCR-VL, through its own pipeline: PP-DocLayoutV3 detects the layout, and each
-    element is recognised by the 0.9B model.
+    """PaddleOCR-VL 1.6, through its own pipeline: PP-DocLayoutV3 detects the layout, and
+    each element is recognised by the 0.9B model.
 
     IT MUST BE THE PIPELINE, NOT THE MODEL. The 0.9B alone is an element recogniser: fed a
-    whole 150-DPI page through `transformers` it tokenises at native resolution, holds the
-    GPU for over 27 minutes and then runs out of memory on a 12 GB card. The pipeline is
-    what the weights are for.
+    whole 150-DPI page it tokenises at native resolution, holds the GPU for over 27 minutes
+    and then runs out of memory on a 12 GB card. The pipeline is what the weights are for.
+
+    THE `transformers` PATH IS NOT THE ONE TO TAKE, and its version window is narrow enough
+    to be a trap. The model card asks for `transformers>=5.0.0` and
+    `AutoModelForImageTextToText`; under 5.16.1 the bundled code still raises
+    `'PaddleOCRVLConfig' object has no attribute 'text_config'`, and under 4.x it raises
+    `KeyError: 'default'` in `ROPE_INIT_FUNCTIONS`. Both the HF repo and the copy paddlex
+    mirrors behave the same way. NONE OF THAT IS IN THIS PATH: the pipeline runs the layout
+    model through PaddlePaddle and the VL model through a vLLM server, so no `transformers`
+    version participates in a scored run.
 
     AND THE BACKEND MUST BE A SERVER. The pipeline's `native` generation backend needs over
     eight minutes a page on a 4070; the same page through a vLLM server takes 1.1 seconds.
@@ -506,7 +764,24 @@ ENGINES = {
     "textract": run_textract,
     "textract-tables": run_textract_tables,
     "paddleocr-vl": run_paddleocr_vl,
+    "ppocr": run_ppocr,
+    "dots-ocr": run_dots_ocr,
+    "hunyuan-ocr": run_hunyuan_ocr,
 }
+
+
+def _write_json(out: Path, name: str, data: dict) -> Path:
+    """Merge over whatever is already recorded and replace the file atomically."""
+    path = out / name
+    if path.is_file():
+        try:
+            data = {**json.loads(path.read_text(encoding="utf-8")), **data}
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"  existing {path.name} unreadable ({type(e).__name__}), replacing it")
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, indent=1), encoding="utf-8", newline="\n")
+    os.replace(tmp, path)
+    return path
 
 
 def _write_conf(out: Path, conf: dict) -> Path:
@@ -534,6 +809,8 @@ def main() -> int:
     ap.add_argument("--host", default="http://127.0.0.1:11434", help="vlm only")
     ap.add_argument("--vl-backend", default="vllm-server", help="paddleocr-vl only")
     ap.add_argument("--vl-server", default="http://127.0.0.1:8118/v1", help="paddleocr-vl only")
+    ap.add_argument("--dots-server", default="http://127.0.0.1:8119/v1")
+    ap.add_argument("--dots-model", default="dots-ocr", help="the --served-model-name in use")
     ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
 
@@ -553,6 +830,8 @@ def main() -> int:
         "_out_dir": args.out,
         "vl_backend": args.vl_backend,
         "vl_server": args.vl_server,
+        "dots_server": args.dots_server,
+        "dots_model": args.dots_model,
     }
     if args.engine == "claude":
         cfg["_key"] = _api_key()  # fails now, not on page 1 of 90
@@ -607,6 +886,15 @@ def main() -> int:
         )
     if cfg.get("_conf"):
         print(f"  per-word confidence recorded: {_write_conf(args.out, cfg['_conf'])}")
+    if cfg.get("_layout"):
+        # The per-block layout categories an engine returned alongside the text. Kept for
+        # the page router: a classifier that has to decide which engine reads a page needs
+        # a description of the page, and this is one produced by a pass already being run.
+        # MERGED, not overwritten, for the reason `_write_conf` merges: a resumed run only
+        # re-reads the pages missing their text, so writing this file fresh would drop every
+        # category the earlier pass recorded.
+        path = _write_json(args.out, "layout.json", cfg["_layout"])
+        print(f"  layout categories recorded: {path}")
     print(f"  -> {args.out}")
     return 1 if failed else 0
 

@@ -8,25 +8,19 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Now
 
-- **The review gate holds** (migration 0015): the exposure test is a stored judgement and an
-  exposed edge waits for a human. Five held on the benchmark
 - **The figures: 94.7% projected / 97.7% precision by the rule, 93.3% to a reader.** Three
-  causes, separated in 0016's header: the scorer's registry dropped the suffix from 2,711
-  dockets; the finder now joins every occurrence on a page, not the first; and precision
-  FELL, which is the honest trade for finding more
-- **Nothing in the code blocks the citator from production** (migrations 0014-0017). What
-  remains is operational: nobody has run the first real load, and production is four
-  migrations behind at schema 13. Migration 0016's header is the figures to quote
+  causes, each separated in migration 0016's header, which is the one to quote
+- **Nothing in the code blocks the citator from production** (migrations 0014-0017). Nobody
+  has run the first real load, and production is four migrations behind at schema 13
 - **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not
   in the record" display joining live `citation`; the veto's trigger the day it stops being
   inert. Twelve smaller findings in `docs/deferred.md`
-- **Settled 2026-09-01 (Cameron):** citator held from the CC0 dump; 0018 D7's "88.4%"
-  stands (fixed registry measures 88.1%); `class_measurement` keeps D8's key
 - **Drain RUNNING, healthy** — due ~02:30 UTC 2026-09-02. Do not deploy across it: a
   migrating release rolls back only by Litestream restore, not a tag change
-- **OCR bench, 2026-09-01**: Tesseract 5.5.0 is the baseline at last (13.3% CER); Textract
-  `analyze-document` TABLES took table cells 0.0% -> **87.4%**, and the 0.0% was our harness,
-  not the engines. `docs/research/ocr-benchmark/README.md` § Step 3 has the table
+- **OCR bench done, 2026-09-01** — 13 runs, 10 engines; **three free local engines beat
+  Textract**, so the ~$260 OCR line goes to ~$0 and buys more accuracy. **dots.mocr** is the
+  one to build on (8.2% CER, MIT, no invented text, 100% docket recall). No engine wins every
+  tier: `docs/research/ocr-benchmark/README.md` § Step 3
 - **Party types (F3)**: rules v2 at 83.3%, tuned on the sheet it is scored against —
   **a second unseen sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
@@ -35,10 +29,16 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **Finish the OCR bench**: PaddleOCR-VL (env stood up on the box; the 0.9B alone is an
-  element recogniser, so it needs the layout pipeline, and that needs a vLLM backend to be
-  practical), dots.ocr, docTR. None needs a key. Then: more tabular ground truth, which
-  needs Cameron's check, and preprocessing, which is a separate experiment
+- **The page router** — the open piece the bench routes to. `PP-DocLayoutV3` is already on
+  the box and emits table/figure/text regions; measure it rather than fitting a column-count
+  rule to the sample being scored
+- **Preprocessing**, per engine class not once: 150 DPI against the usual 300 floor,
+  crop-to-content (55-76% of the render), binarisation, deskew, denoise
+- **More tabular and graphic ground truth** — 5 and 9 pages decide nothing, and the tabular
+  routing cannot be settled without it. **Needs Cameron's check**
+- **HunyuanOCR-1.5 is Cameron's call**: the only free engine that closes the table gap
+  (86.2% cells), but its licence bars the EU/UK/Korea and forbids using outputs to improve
+  any AI model, which the CC0 dump cannot absorb
 - **OCR of the 13,604 image-only files** (M3's first slice): plan in `docs/ocr-plan.md`.
   The tiered read the bench points at — free local on clean, paid on degraded — is not
   costed yet; the plan's ~$1,335 assumes one engine everywhere

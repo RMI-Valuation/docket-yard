@@ -293,54 +293,95 @@ the five tabular pages, which is the only structural metric here.
 with the worst page in brackets — reported as a count and a maximum rather than a mean,
 because the distribution is eight zeros and an outlier and a mean of that says nothing.
 
-| engine | where | per page | CER | clean | degraded | cells | invents (worst) | dockets | dates |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Claude Sonnet 5 (greyscale) | API $0.0171 | ~5 s | **5.9%** | **1.7%** | **10.5%** | 0.0% | 1 of 9 (52) | **100%** | **89.8%** |
-| Claude Sonnet 5 | API $0.0171 | ~5 s | 6.6% | 1.8% | 11.9% | 0.0% | 1 of 9 (139) | **100%** | 89.0% |
-| **PaddleOCR-VL 1.6** | **box, free** | **1.3 s** | **8.8%** | 2.6% | **12.0%** | 57.5% | 1 of 9 (20,368) | 91.2% | 85.0% |
-| qwen2.5vl:7b (greyscale) | box, free | 8.2 s | 9.2% | 2.1% | 14.5% | 0.0% | **3 of 9** (16,470) | 91.2% | 86.2% |
-| Textract `detect-document-text` | API $0.0015 | 4.3 s | 10.8% | 2.5% | 18.4% | 0.0% | 3 of 9 (1,794) | **97.1%** | 87.0% |
-| Textract `analyze-document` TABLES | API $0.015 | 4.3 s | 12.3% | 3.7% | 20.0% | **87.4%** | 3 of 9 (1,798) | 91.2% | 87.0% |
-| **Tesseract 5.5.0** | box, free | 0.8 s | 13.3% | 3.2% | 21.9% | 0.0% | **0 of 9** | 85.3% | 73.2% |
+| engine | where | per page | CER | clean | degraded | cells | map labels | invents (worst) | dockets | dates |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Claude Sonnet 5 (greyscale) | API $0.0171 | ~5 s | **5.9%** | **1.7%** | **10.5%** | — | 60.1% | 1 of 9 (52) | **100%** | 89.8% |
+| Claude Sonnet 5 | API $0.0171 | ~5 s | 6.6% | 1.8% | 11.9% | — | 60.7% | 1 of 9 (139) | **100%** | 89.0% |
+| dots.ocr | box, free (MIT) | 6.5 s | **8.0%** | 3.3% | **11.9%** | 58.7% | 5.1% | **0 of 9** | 94.1% | 88.2% |
+| **dots.mocr** | **box, free (MIT)** | 6.5 s | 8.2% | 3.3% | 12.7% | 59.3% | 5.5% | **0 of 9** | **100%** | 89.0% |
+| PaddleOCR-VL 1.6 | box, free (Apache) | **1.3 s** | 8.8% | 2.6% | 12.0% | 57.5% | 4.2% | 1 of 9 (20,368) | 91.2% | 85.0% |
+| qwen2.5vl:7b (greyscale) | box, free | 8.2 s | 9.2% | 2.1% | 14.5% | — | 14.9% | **3 of 9** (16,470) | 91.2% | 86.2% |
+| Textract `detect-document-text` | API $0.0015 | 4.3 s | 10.8% | 2.5% | 18.4% | — | **63.0%** | 3 of 9 (1,794) | 97.1% | 87.0% |
+| **PP-OCRv6 medium** | box, free (Apache) | **0.4 s** | 11.8% | 2.6% | 17.9% | — | 47.2% | **0 of 9** | 91.2% | **90.2%** |
+| HunyuanOCR-1.5 | box, **restricted** | 6.6 s | 11.9% | 7.1% | 16.3% | **86.2%** | 4.6% | 1 of 9 (5,206) | 94.1% | 81.3% |
+| docTR 1.1.0 | box, free (Apache) | 1.4 s | 12.0% | 2.6% | 18.5% | — | 16.4% | **0 of 9** | 88.2% | 77.6% |
+| Textract `analyze-document` TABLES | API $0.015 | 4.3 s | 12.3% | 3.7% | 20.0% | **87.4%** | 29.9% | 3 of 9 (1,798) | 91.2% | 87.0% |
+| Tesseract 5.5.0 | box, free (Apache) | 0.8 s | 13.3% | 3.2% | 21.9% | — | 2.3% | **0 of 9** | 85.3% | 73.2% |
+
+A dash under `cells` means the engine emits no table structure at all, so the tier is
+unscoreable for it rather than scored at zero — see the harness note below.
 
 **The baseline finally exists** (2026-09-01). Tesseract is the number every study reports
 against, and until now nothing here had one — so no figure in this benchmark could be
 compared with anyone else's. It anchors the rest.
 
 **And with it in place, the managed service is no longer the cheap-and-adequate choice: it
-is neither.** PaddleOCR-VL 1.6, run through its own layout pipeline on the box, reads at
-**8.8% against Textract's 10.8%**, and on the degraded tier — the third of the record that
-actually hurts — at **12.0% against 18.4%**, which is within 1.5 points of Claude at about a
-thousandth of the cost. It does it in 1.3 s a page on a 4070, so the whole 175k-page backfill
-is roughly 63 hours of box time that nobody has to pay for. `ocr-plan.md`'s reasoning stands
-— OCR should be as cheap as is adequate — but its conclusion was drawn before anything
-adequate and free had been measured.
+is neither.** Three free local engines beat Textract's 10.8% outright, and on the degraded
+tier — the third of the record that actually hurts — **dots.ocr reads at 11.9% against
+Textract's 18.4%**, within 1.4 points of Claude at about a thousandth of the cost.
+PaddleOCR-VL does 8.8% in 1.3 s a page, so a 175k-page backfill is roughly 63 hours of box
+time nobody pays for. `ocr-plan.md`'s reasoning stands — OCR should be as cheap as is
+adequate — but its conclusion was drawn before anything adequate and free had been measured.
 
-**Two things Textract still wins, and they decide the routing rather than the engine.** Its
-docket-number recall is the best of any non-Claude engine (97.1%), and with TABLES it
-recovers 87.4% of table cells against PaddleOCR-VL's 57.5% — the gap is one page of five,
-where PP-DocLayoutV3 read an unruled three-column errata list as nineteen separate text
-blocks and never called it a table at all. On the four it does detect, it returns HTML with
-`rowspan`/`colspan`, which is richer structure than Textract's flat grid.
+**dots.mocr is the one to build on.** It reads at 8.2%, invents nothing on any graphic page,
+is MIT, and **gets every docket number on all 90 pages — 100% recall and 100% precision**,
+which only Claude also manages. On this record that is not one column among many: a docket
+number is the identity key an edge resolves against, and a misread digit does not degrade a
+page, it points at a different proceeding. That is the `AB 124` → `AB 1242` failure ADR 0017's
+exposure test exists for. It supersedes dots.ocr (its own predecessor, rebranded from
+dots.ocr-1.5), which is marginally better on characters and materially worse on dockets.
+
+**Table structure is the one place a paid service still led, and the reason is systematic.**
+Textract detects all five real tables; **dots.mocr and PaddleOCR-VL both detect four and miss
+the same one** — an unruled three-column errata list, which PP-DocLayoutV3 read as nineteen
+separate text blocks. The VLM layout models want visual rules before they will call something
+a table; Textract goes on alignment. Unruled columnar lists — errata sheets, service lists,
+schedules — are ordinary in agency filings, so that is a structural weakness, not one awkward
+page. Where they do detect a table they return `rowspan`/`colspan` HTML, which is richer than
+Textract's flat grid.
+
+**HunyuanOCR-1.5 closes that gap and opens a licence question instead.** At 1B parameters and
+2.0 GB of VRAM it is the only free engine that detects all five tables, at **86.2% cell recall
+against Textract's 87.4%** — but it reads ordinary prose distinctly worse than the others
+(7.1% on the clean tier, more than double every engine but Tesseract), reads dates worse than
+anything except Tesseract and docTR, and invents 5,206 characters on a graphic page. And its Tencent Hunyuan Community License excludes
+the EU, UK and South Korea from the grant and forbids using outputs to improve any AI model,
+which cannot be reconciled with publishing them in a CC0 dump. **That is an operator decision,
+not a measurement**; it is recorded here so the decision has numbers under it.
+
+**docTR is dominated and can be closed out.** PP-OCRv6 medium reads the same clean tier,
+a better degraded one, three times the map labels and 90.2% against 77.6% on date recall,
+while being three times faster. docTR edges it on two minor measures — tabular CER 37.4%
+against 38.2%, and date *precision* 98.5% against 97.4% — neither of which describes a tier
+anyone would route to it. There is no tier where docTR is the right choice.
 
 **The graphic tier inverts the ranking, and what it measures is a tail risk rather than an
-accuracy one.** Only Tesseract invents nothing on all nine pages. Every other engine invents
-on at least one, and the severity is what separates them: Claude adds 52 characters at
-worst, Textract 1,794, **PaddleOCR-VL 20,368 on a single page** — a whole invented page of
-prose about a map. Read carefully, though: **PaddleOCR-VL does that on one page of nine, and
-is silent on the other eight.** Only qwen fails repeatedly, on three of nine.
+accuracy one.** Five engines invent nothing on all nine pages — Tesseract, docTR, PP-OCRv6
+and, alone among the generative models, **dots.ocr and dots.mocr**. The rest invent on at
+least one, and severity separates them: Claude 52 characters at worst, HunyuanOCR 5,206,
+**PaddleOCR-VL 20,368 on a single page** — a whole invented page of prose about a map. Read
+carefully, though: PaddleOCR-VL does that on one page of nine and is silent on the other
+eight. Only qwen fails repeatedly, on three of nine.
 
-So the honest reading is that a local VLM carries a rare, catastrophic failure mode on
-graphic pages, not a general inability to handle them — and *rare and catastrophic* is
-exactly what a confidence layer is for, since one such page would otherwise enter the record
-as fluent, plausible, wholly fabricated text. **Nine graphic pages cannot settle how often it
+So the honest reading is that *most* generative readers carry a rare, catastrophic failure
+mode on graphic pages rather than a general inability — and *rare and catastrophic* is exactly
+what a confidence layer is for, since one such page would otherwise enter the record as
+fluent, plausible, wholly fabricated text. That the dots models avoid it entirely is the
+single strongest point in their favour. **Nine graphic pages cannot settle how often it
 happens**, and the frequency is what decides whether routing or gating is the answer. That
 needs a larger graphic sample before any rule is built on it.
 
+**PP-OCRv6 medium is the engine for those pages, and not because of its CER.** It reads
+**47.2% of map labels while inventing nothing**, where every VL model is effectively blind to
+a map (4–6%) and Textract reads more (63.0%) but invents on three pages of nine. A detector
+plus a recogniser cannot write a sentence that is not on the page; its worst case is silence.
+At 0.4 s a page it is also the fastest thing measured.
+
 **The aggregate hides the shape, and the shape is what decides the pipeline.** On clean
-typescript — about 53% of a random draw of image-only pages — **every engine lands between
-1.7% and 3.2%**, and the two free local ones (qwen 2.1%, PaddleOCR-VL 2.6%) sit inside that
-band alongside Textract's 2.5%. Nothing on that tier is worth paying for. On degraded scans,
+typescript — about 53% of a random draw of image-only pages — **every engine but HunyuanOCR
+lands between 1.7% and 3.3%**, and the free local ones (qwen 2.1%, PaddleOCR-VL and PP-OCRv6
+2.6%, dots 3.3%) sit inside that band alongside Textract's 2.5%. Nothing on that tier is
+worth paying for. On degraded scans,
 a third of the draw, the spread is 11 points: 10.5% to 21.9%, with the paid reader best and
 free software worst. A single engine over the whole record therefore either overpays for the
 clean tier or underreads the degraded one. Both are avoidable, and the plan's own
@@ -374,14 +415,49 @@ prose about a map keeps all nine. Fixed 2026-09-01; an empty read is written and
 every engine above is now scored on all 90 pages.
 
 **How PaddleOCR-VL has to be run**, because two obvious ways both fail. The 0.9B weights are
-an *element* recogniser: fed a whole 150-DPI page through `transformers` it tokenises at
-native resolution, holds the GPU for over 27 minutes and then runs out of memory on a 12 GB
-card. And the pipeline's own `native` generation backend needs over eight minutes a page.
-The same page through a **vLLM server** takes 1.1 s — a factor of roughly 450, and the
-difference between unusable and the fastest engine in the table. `run_paddleocr_vl` in
-`ocr_run.py` carries the invocation.
+an *element* recogniser: fed a whole 150-DPI page it tokenises at native resolution, holds
+the GPU for over 27 minutes and then runs out of memory on a 12 GB card. And the pipeline's
+own `native` generation backend needs over eight minutes a page. The same page through a
+**vLLM server** takes 1.1 s — a factor of roughly 450, and the difference between unusable
+and the fastest engine in the table. `run_paddleocr_vl` in `ocr_run.py` carries the
+invocation.
 
-**Still open.** The tabular tier rests on five pages — too thin to conclude from, and drawing
-more needs fresh ground truth the operator checks. dots.ocr and docTR are not in the table
-yet. Preprocessing is not evaluated at all, though the greyscale runs are already one result
-in that direction: greyscale took Claude from 6.6% to 5.9%.
+The version measured is **PaddleOCR-VL 1.6** with **PP-DocLayoutV3** in front of it, both
+the current defaults of the `paddleocr` package. Its `transformers` path is a trap worth
+naming: the model card asks for `transformers>=5.0.0` and `AutoModelForImageTextToText`, but
+5.16.1 raises `'PaddleOCRVLConfig' object has no attribute 'text_config'` and 4.x raises
+`KeyError: 'default'` in `ROPE_INIT_FUNCTIONS` — the same on the HF repo and on the copy
+paddlex mirrors. **No `transformers` version participates in a scored run**, because the
+pipeline drives the layout model through PaddlePaddle and the VL model through vLLM.
+
+## What the measurements route to
+
+Not a recommendation of one engine — the tiers disagree about which is best, and that is the
+finding. Each line below is the engine this benchmark measured as best for that tier, at the
+tier's share of a random draw of image-only pages:
+
+| tier | share | engine | why |
+| --- | --- | --- | --- |
+| clean | ~53% | **PP-OCRv6 medium** | every engine but HunyuanOCR lands 1.7–3.3%; take the fastest that cannot invent (0.4 s, free) |
+| degraded | ~33% | **dots.mocr** | 12.7% free, against Textract's 18.4%; no invention; perfect dockets |
+| graphic | ~9% | **PP-OCRv6 medium** | 47.2% of labels with zero invention; every VL model is blind here and some fabricate |
+| tabular | ~4% | **unsettled** | HunyuanOCR 86.2% and Textract 87.4% both detect all five; dots.mocr 59.3% misses unruled lists |
+| blank | ~1% | any | all engines correct once the harness stopped discarding them |
+
+**The routing needs a classifier that does not exist yet**, and the obvious filter is one this
+benchmark refuses to take: every false table detection is 2-column and every real one 3+, but
+fitting that threshold to the tier labels of the sample being scored is how the party-type
+rules reached 83.3% on their own sheet. `PP-DocLayoutV3` — already on the box as a dependency
+of PaddleOCR-VL, and layout-detection only — emits table/figure/text regions per page and is
+the candidate to measure. The dots models return the same thing as categories alongside the
+text, recorded in `layout.json` by `ocr_run.py`.
+
+**Still open.** The tabular tier rests on five pages and the graphic tier on nine — both too
+thin to conclude from, and drawing more needs fresh ground truth the operator checks; the
+tabular routing above cannot be settled without it. Preprocessing is not evaluated at all,
+though the greyscale runs are one result in that direction — greyscale took Claude from 6.6%
+to 5.9% and changed Textract by nothing, which is itself evidence that preprocessing has to be
+measured per engine class rather than chosen once. The pages are rendered at **150 DPI** where
+the usual floor is 300, and `ocr_page_images.py` records that content occupies only 55–76% of
+the render on half the sample while explicitly deferring cropping as "a step 2 preprocessing
+variable to measure".
