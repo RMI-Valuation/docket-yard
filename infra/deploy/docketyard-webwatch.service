@@ -1,0 +1,32 @@
+# /etc/systemd/system/docketyard-webwatch.service — restart the reader-facing container when
+# it reports itself unhealthy.
+#
+# WHY THIS EXISTS. Compose already gives `web` a healthcheck, and on 2026-09-02 it correctly
+# reported `unhealthy` — and nothing acted on it, because Docker does not restart a container
+# for failing its healthcheck (`restart:` reacts to exit, not to health). The site stayed down
+# until a person noticed. Twice that day the whole remedy was `docker compose restart web`.
+#
+# It is deliberately not an autoheal image: this box is public-facing and a third-party
+# container that holds the Docker socket is a larger thing to trust than eight lines of shell.
+# The socket stays with root and systemd, where the rest of this deployment's periodic work
+# already lives (docketyard-blobs, -dump, -prune).
+#
+# `web` alone is restarted, never the stack: `ingest` and `litestream` keep the record and its
+# replication going, and the incident this answers is precisely one where they were fine.
+[Unit]
+Description=Docket Yard: restart the web container if it is unhealthy
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/docketyard
+# `docker inspect` prints the health state; anything but `unhealthy` is left alone, including
+# `starting` (a restart during the start period would loop) and a missing container (compose
+# is mid-deploy, and interrupting that is worse than waiting a minute).
+ExecStart=/bin/sh -c 'state=$(docker inspect -f "{{.State.Health.Status}}" docketyard-web-1 2>/dev/null || echo absent); \
+  if [ "$state" = "unhealthy" ]; then \
+    echo "web is $state — restarting"; docker compose restart web; \
+  else \
+    echo "web is $state"; \
+  fi'

@@ -1,0 +1,14 @@
+# /etc/systemd/system/docketyard-webwatch.timer
+# Every minute: the healthcheck runs on a 60s interval, so checking faster only reads a
+# staler answer. Detection-to-restart is therefore about two minutes at worst, against the
+# 5 h and 55 min that the two unattended wedges of 2026-09-02 actually took.
+[Unit]
+Description=Docket Yard: watch the web container's health
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=1min
+Persistent=false
+
+[Install]
+WantedBy=timers.target

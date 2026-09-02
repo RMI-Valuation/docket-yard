@@ -13,6 +13,7 @@ pull-based: change `DY_TAG` in `.env`, pull, up. Nothing pushes to production.
 | `litestream` | `litestream/litestream:0.3` | streams the store's WAL to S3 every 10 s |
 | `caddy` | `caddy:2-alpine` | TLS (Let's Encrypt), reverse proxy, access log without IPs |
 | host timer | `docketyard-dump.timer` | nightly 04:10 UTC: `docketyard dump` cuts the public snapshot into `data/public` (served at `/data/files/`) |
+| host timer | `docketyard-webwatch.timer` | every minute: restarts `web` if its healthcheck says `unhealthy`. Docker does not do this itself — `restart:` reacts to a process exiting, not to failing health — and on 2026-09-02 the container reported `unhealthy` for hours while nothing acted on it. `web` alone, never the stack: `ingest` and `litestream` keep the record either way |
 | host timer | `docketyard-blobs.timer` | every 30 min: `aws s3 sync` of `data/blobs`, then `prune_blobs.py` deletes local blobs S3 holds (older than 30 days, or oldest-first below 20 GB free) — S3 is the store, the instance is a cache |
 
 One store, two processes: `ingest` writes, `web` reads through a `mode=ro` URI. SQLite WAL
@@ -47,6 +48,8 @@ is an instance and not the container service.
    sudo systemctl enable --now docketyard-blobs.timer
    sudo cp /srv/docketyard/docketyard-dump.* /etc/systemd/system/
    sudo systemctl enable --now docketyard-dump.timer   # nightly public snapshot (M9)
+   sudo cp /srv/docketyard/docketyard-webwatch.* /etc/systemd/system/
+   sudo systemctl enable --now docketyard-webwatch.timer  # restart web when it is unhealthy
    ```
 
 4. **Seed the store** from rmi-ai-machine — a copy, not a migration (ADR 0012). Stop any
