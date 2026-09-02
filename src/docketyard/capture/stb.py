@@ -38,6 +38,12 @@ DISPLAY_CAP = 10_000
 PAGE_CLAMP = 50
 CHUNK = records.CHUNK  # bytes per read when a document is streamed to disk
 
+# What `_wire_url` leaves alone: the printable ASCII bytes EXCEPT the space. `%` is in the
+# range, so escapes already in a stored URL are not doubled. The space is deliberately out:
+# http.client rejects one in the request line as a control character (InvalidURL), which is
+# the same never-fetchable failure the function exists to close.
+_WIRE_SAFE = "".join(map(chr, range(0x21, 0x7F)))
+
 # The stable sort per table. The default order is NOT repeatable (measured), so every
 # multi-page walk pins one of these. Dockets ascend so a walk is resumable by inspection;
 # filings/decisions descend so forward polling sees the newest first.
@@ -111,6 +117,31 @@ def build_fields(
     return fields
 
 
+def _wire_url(url: str) -> str:
+    """The request-line form of a stored URL.
+
+    The Board's tables hand back the document URL as it was typed, and three comment
+    attachments carry a raw en dash (U+2013) in the file name — the only non-ASCII
+    characters in the production store's 110,110 attachment rows, counted there
+    2026-09-02T01:40Z. urllib puts the request line on the wire as ASCII, so such a URL
+    raises UnicodeEncodeError before a byte is sent; a raw space, the likelier as-typed
+    defect, raises InvalidURL a moment later. Either way the fetch fails locally, forever,
+    and no capture is recorded to rest it — which is why the drain could not reach zero.
+    Percent-encoding those bytes (as UTF-8, which is what the bucket's keys are) fetches
+    them: verified 200 and PDF bytes on all three, 2026-09-02.
+
+    Only the wire form is rewritten. The stored URL stays verbatim, so it remains the key
+    that groups attachment rows and finds errata; identity is untouched.
+
+    The netloc is quoted along with the path, which is a no-op on every host that exists
+    (measured 2026-09-02: 110,107 rows on dcms-external.s3.amazonaws.com and 3 on
+    dcms-external.s3.us-east-1.amazonaws.com, both ASCII). A non-ASCII host would need
+    IDNA, and percent-encoding it would give an unresolvable name — so do not reuse this
+    on a host that arrives from data without splitting the parts first.
+    """
+    return urllib.parse.quote(url, safe=_WIRE_SAFE)
+
+
 class StbClient:
     """Rate-limited client. One instance per run; nonces are cached per instance only."""
 
@@ -173,7 +204,7 @@ class StbClient:
             self._throttle()
             self._last_request = time.monotonic()
             try:
-                req = urllib.request.Request(url, data=data, headers=headers)
+                req = urllib.request.Request(_wire_url(url), data=data, headers=headers)
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                     return consume(resp)
             except urllib.error.HTTPError as e:

@@ -390,6 +390,36 @@ def test_download_streams_to_disk_and_a_streamed_file_is_hashed_in_place(
     assert records.blob_path(tmp_path, sha).exists()
 
 
+def test_a_url_with_a_raw_en_dash_goes_on_the_wire_percent_encoded(tmp_path, monkeypatch):
+    """The Board hands back the URL as it was typed. Three comment attachments carry a raw
+    en dash (U+2013) in the file name — the only non-ASCII in the production store's
+    110,110 attachment rows, counted 2026-09-02T01:40Z — and urllib writes the request line
+    as ASCII, so the raw form raises UnicodeEncodeError before a byte leaves the box: a
+    failure no retry and no refusal-rest can clear, which is why the drain could not reach
+    zero. A raw space is the same class by another exception, so it is encoded too. Only
+    the wire form is rewritten; the stored URL stays the key that groups rows and finds
+    errata."""
+    from docketyard.capture import stb
+
+    url = f"{S3}/74980/Docket%20No.%20AB%20290%20–%20Comments.pdf"
+    sent = []
+
+    def urlopen(req, timeout=None):
+        sent.append(req.full_url)
+        return _FakeResponse(b"%PDF-x")
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    client = stb.StbClient(min_interval=0)
+    status, path = client.download(url, tmp_path)
+    assert status == 200 and path.read_bytes() == b"%PDF-x"
+    assert sent == [url.replace("–", "%E2%80%93")]  # UTF-8, which is what S3 keys are
+    assert sent[0].isascii() and "%20" in sent[0]  # escapes already there are not doubled
+    # a raw space is the likelier as-typed defect and fails the same way: http.client calls
+    # it a control character in the request line, so it must not survive into the wire form
+    assert stb._wire_url("https://x/a b.pdf") == "https://x/a%20b.pdf"
+    assert stb._wire_url(sent[0]) == sent[0]  # applying it to a wire URL changes nothing
+
+
 def test_a_body_cut_short_is_retried_and_leaves_no_staging_file(tmp_path, monkeypatch):
     from docketyard.capture import stb
 

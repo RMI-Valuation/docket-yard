@@ -378,3 +378,45 @@ The silent-data findings were fixed the same session and are pinned by
 - **A backfill pass and a forward pass over one document are indistinguishable afterwards.**
   `extraction_run` carries no `ingest_mode`. Citation edges reach no alert join, so the
   trap's usual hazard is absent, but the distinction is gone.
+
+## Found 2026-09-02, fixing the drain's un-fetchable URLs (stb-ingest-specialist + code-review medium)
+
+The en-dash fix (`_wire_url`, `capture/stb.py`) closed two causes of a never-fetchable URL.
+The reviewer's point is that the *class* is wider than its two causes, and these are what is
+left of it.
+
+- **An unanswered attempt leaves no capture, so nothing rests it — this is the mechanism, and
+  it is still open.** `capture/documents.py:106` records the status-0 attempt only `if
+  refresh`. On the drain and forward paths a failure that produced no response is invisible to
+  the ledger, so `recently_refused` never sees the URL and `attachments(unfetched_only=True)`
+  re-selects it every pass. Still reachable: an S3 5xx or 429 surviving three retries, a reset
+  or read timeout doing the same, a disk-full `OSError` inside `consume` (not retried at all),
+  and a lone surrogate in a stored URL, which makes `quote` itself raise (**measured
+  2026-09-02: 0 of 110,110 attachment URLs carry one**, so that cause is theoretical today).
+  In a poll pass the cost is bounded by `--limit`; in a `remaining == 0` drain loop it is the
+  same non-termination, with a different first line in the log. **Dropping the `if refresh:`
+  guard is the small fix and it is not obviously right**: a network outage mid-drain would
+  then rest every URL it touched for `REFUSAL_REST_DAYS`, and a backlog that merely went quiet
+  would read as drained. Capture-first says the attempt belongs on record either way, which
+  makes this a provenance-grain question — **Cameron's, and schema-critic's before his.** The
+  other half is `drain.sh` (instance-only, not in this repo): it should stop on a pass that
+  makes no progress, not only on `remaining == 0`.
+- **`_wire_url` percent-encodes the netloc along with the path.** A no-op on the two hosts that
+  exist (measured 2026-09-02: 110,107 `dcms-external.s3.amazonaws.com`, 3
+  `dcms-external.s3.us-east-1.amazonaws.com`, both ASCII), and the docstring now says so. A
+  non-ASCII host would need IDNA, which percent-encoding would break into an unresolvable
+  name; split-and-quote-per-part is the fix if a host ever arrives from data.
+- **`html.unescape` on the href could in principle mangle a URL into a fetchable wrong one.**
+  The legacy semicolon-less entities (`&reg`, `&copy`, `&sect`, `&times`, …) resolve inside a
+  query string at parse time (`ingest/observations.py:226`). Before `_wire_url` such a URL was
+  a hard local stop; now it would be sent. **Measured 2026-09-02 and it is currently empty: 0
+  of 110,110 URLs match a legacy entity or move under `html.unescape`** (80 contain an `&`,
+  every one of them a railroad in a file name — DM&E, EJ&E, "Kevin & Mary"). Recorded because
+  the parser, not the client, is where it would be fixed: unescape only the five named and the
+  numeric references on an href, leaving `clean()` its full unescape for cell text.
+- **The ledger records the stored URL, never the wire URL.** `documents.py:113-123` passes the
+  stored form as both `endpoint` and `request_params`. `endpoint` **must** stay that way —
+  `recently_refused` and `recheck_urls` join it against `source_url` — but `request_params` is
+  free, and for the three en-dash rows the capture will not show what was actually requested.
+  Reproducibility survives (`_wire_url` is deterministic and in-repo); one line adding
+  `("wire_url", wire)` when it differs would make the capture self-describing.
