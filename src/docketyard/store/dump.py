@@ -51,6 +51,19 @@ PRIVATE_TABLES = (
 )
 # Replication bookkeeping (Litestream keeps two tables in the store); not record, not published.
 TOOL_TABLES = ("_litestream_lock", "_litestream_seq")
+# VIEWS ARE NOT TABLES, and they need their own tuple for the second reason below rather than
+# the first. `DROP TABLE` on a view RAISES — "use DROP VIEW to delete view <name>", and
+# `IF EXISTS` does not suppress it, only "no such table" — so a held view mis-filed among the
+# tables fails the dump loudly, which is the property we want. What it would NOT do is get
+# noticed: the unknown check below enumerates `type = 'table'`, so an unclassified view was
+# invisible, and the snapshot would ship a `CREATE VIEW` over a table it had just dropped.
+# Migration 0018's display view selects from `document_text`, which is held, so it goes too.
+HELD_VIEWS = ("document_text_display",)
+# And the views that stay. `docket_current` has been in the snapshot since migration 0001 and
+# had never been classified, because until the check below counted views there was nothing to
+# classify it against — it is a projection over `docket` and `event`, both public, so it was
+# right by luck rather than by decision. Named now, which is the point of an allowlist.
+PUBLIC_VIEWS = frozenset({"docket_current"})
 # The search index (migrations 0010 and 0012): derived, rebuilt from the record when it
 # changes, and it carries party names — the held layer — so the snapshot ships it EMPTY: the
 # tables stay (a restored copy is at the release's schema and `docketyard search rebuild`
@@ -69,6 +82,24 @@ DERIVED_TABLES = ("search_doc", "search_meta")
 # after. Listed children before parents: `scrub` drops with foreign keys OFF, so the order
 # is not required today — it is kept so the list stays correct if that ever changes.
 HELD_TABLES = (
+    # Migration 0018, ADR 0022 D3. A machine transcription of a US government work is a
+    # derived assertion with a measured error rate, not the Board's own words, and
+    # `licensing.md` places it in neither of its two buckets — so it is held while that
+    # question is open. Held can become public later; public cannot become held.
+    #
+    # `page_fts` is held rather than emptied because only held is SAFE for it: emptied and
+    # rebuilt errors on an external-content index whose content view has just been dropped,
+    # and its surviving %_data/%_idx shadows would hold a positional inverted index from
+    # which the withheld text is largely reconstructible. Dropping takes the shadows with it.
+    #
+    # `text_payload` holds digests of blob-tier objects that carry that same text, so
+    # publishing it would name the withheld artefacts one indirection away.
+    "page_fts",
+    "document_text",
+    # its only referrer is `document_text`, so publishing it would ship an orphan taxonomy of
+    # the held layer's own method. The tiers are public on /methodology; the table is not.
+    "route_class_vocab",
+    "text_payload",
     "filing_party_link",
     "filing_party_span",
     "party_relationship",
@@ -123,6 +154,15 @@ PUBLIC_TABLES = frozenset(
         "document_source",
         "walk_slice",
         "coverage_gap",
+        # Migration 0018, ADR 0022 D3. Pagination of a federal document, carrying its own
+        # method, version and timestamp — it publishes WITH its provenance, which is what a
+        # per-page table without one would not have done. `ocr_run` says which documents are
+        # image-only and which reads failed, which is coverage and belongs beside
+        # `coverage_gap`. Their vocabularies come with them or the DDL does not load.
+        "document_pagination",
+        "pagination_outcome_vocab",
+        "ocr_run",
+        "run_outcome_vocab",
         "correction",
         "enviro_comment",
         "enviro_comment_attachment",
@@ -177,8 +217,14 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
     out = sqlite3.connect(dst)
     try:
         out.execute("PRAGMA foreign_keys = OFF")
+        # Tables first, then views: an external-content FTS5 index names its content source,
+        # so `page_fts` goes before `document_text_display` does. FTS5's xDestroy does not
+        # read the source, so the order is not load-bearing today — it is free insurance
+        # against a future index that does.
         for table in PRIVATE_TABLES + HELD_TABLES + TOOL_TABLES:
             out.execute(f"DROP TABLE IF EXISTS {table}")
+        for view in HELD_VIEWS:
+            out.execute(f"DROP VIEW IF EXISTS {view}")
         # A correction NAMES the row it amends, and since migration 0014 it names it by the
         # row's own key — `<sha256>/<page>/<target_kind>/<target_key>` for a citation. So a
         # correction against a held table republishes the held row's identity through a
@@ -194,9 +240,13 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
         out.commit()
         out.execute("VACUUM")
         q = out.execute
+        # Views are enumerated beside tables, so an unclassified one raises `Unsafe` like
+        # anything else. Before migration 0018 the store held none and this read `type =
+        # 'table'`; a view over a dropped table is a broken `schema.sql` and the check that
+        # exists to catch exactly that could not see it.
         left = {
             r[0]
-            for r in q("SELECT name FROM sqlite_master WHERE type = 'table'")
+            for r in q("SELECT name FROM sqlite_master WHERE type IN ('table', 'view')")
             if not r[0].startswith("sqlite_")
         }
         # the FTS index and its shadows (see the note above PUBLIC_TABLES): `search_fts`
@@ -208,7 +258,7 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
             for _, name, kind, *_ in q("PRAGMA table_list")
             if kind == "shadow" and name.startswith("search_fts_")
         }
-        unknown = left - PUBLIC_TABLES - shadows
+        unknown = left - PUBLIC_TABLES - PUBLIC_VIEWS - shadows
         if unknown:
             raise Unsafe(f"tables not on the public allowlist: {sorted(unknown)}")
         for table in sorted(left):

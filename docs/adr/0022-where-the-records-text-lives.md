@@ -69,7 +69,8 @@ labelling row two as the shipped configuration.
 Both moved bytes out because they were re-derivable or unread, and both failed to ask what
 reads them.
 
-1. **Search cannot quote what is not there.** Tested on SQLite 3.50.4: with an
+1. **Search cannot quote what is not there.** Tested on SQLite 3.50.4, and on the 3.46.1
+   production actually links: with an
    external-content FTS whose content column has been emptied, `MATCH` still finds the row,
    but `snippet()` returns a replacement character and `INSERT INTO fts(fts)
    VALUES('rebuild')` leaves the index matching **nothing** — and `search.py` rebuilds whole

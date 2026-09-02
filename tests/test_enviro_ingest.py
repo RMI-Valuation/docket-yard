@@ -565,9 +565,14 @@ def test_migrating_a_populated_index_leaves_it_empty_and_knowing_it(tmp_path):
     assert signature == "" and build == 7  # stale on purpose; the ETag counter carries on
     assert search.rebuild(con).get("unchanged") is not True  # so the next pass rebuilds
 
-    # the recreated FTS5 index owns its shadows, and nothing is orphaned beside them
+    # Every FTS5 index owns its shadows, and nothing is orphaned beside them. Migration 0018
+    # added the second index, so this is two prefixes now rather than one — and `dump.py`
+    # exempts only `search_fts_`, which is safe because `page_fts` is HELD and dropping the
+    # virtual table takes its shadows with it before the allowlist is computed.
     shadows = {name for _, name, kind, *_ in con.execute("PRAGMA table_list") if kind == "shadow"}
-    assert shadows and all(s.startswith("search_fts_") for s in shadows)
+    assert shadows and all(s.startswith(("search_fts_", "page_fts_")) for s in shadows), sorted(
+        shadows
+    )
     con.close()
     dump.dump(path, tmp_path / "public")  # the allowlist still passes over the new tables
 
