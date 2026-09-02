@@ -19,6 +19,8 @@ address (ADR 0011); those three handlers open a writable connection and nothing 
 """
 
 import hashlib
+import os
+import secrets
 import sqlite3
 import time
 from contextlib import asynccontextmanager
@@ -29,7 +31,13 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import Body, FastAPI, Form, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -63,7 +71,7 @@ _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 2  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
 POLL_MINUTES = 30  # the watch's cadence, as /coverage states it (compose: --interval 30)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
-NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/suggest", "/review")
+NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/metrics", "/suggest", "/review")
 # tokens, consent, and the one signed-in surface
 MOUNTS = ("/static/", "/data/files/")  # StaticFiles: streams, validates and HEADs itself
 DISCOVERY_CACHE = 86400  # robots and sitemaps: a day
@@ -322,6 +330,11 @@ def create_app(
         request is forgotten (docs/traffic.md; the sentence on /privacy). Counting must
         never cost a page."""
         path = _path(request)
+        if path == "/metrics":
+            # a scrape is not a page view. Alloy asks once a minute (ADR 0019), which would
+            # put ~1,440 synthetic "readers" a day into the weekly operator digest and make
+            # every traffic figure a report on our own monitoring.
+            return
         if path == review_routes.PREFIX or path.startswith(review_routes.PREFIX + "/"):
             # ADR 0016: the review surfaces "log the actions above and nothing else; no page
             # views, no timing beyond the action's own timestamp". A count carries no
@@ -383,7 +396,10 @@ def create_app(
     @app.get("/robots.txt")
     def robots():
         # the paths a cache must not keep are the paths a crawler must not index
-        disallow = [f"Disallow: {p}" for p in NEVER_CACHE if p != "/health"]
+        # /health is public by design and /metrics is the opposite: naming it here would
+        # advertise the path an unconfigured deployment answers 404 for, which is exactly the
+        # disclosure that posture exists to avoid (ADR 0019).
+        disallow = [f"Disallow: {p}" for p in NEVER_CACHE if p not in ("/health", "/metrics")]
         lines = ["User-agent: *", *disallow, ""]
         # The named agents also get the party module's paths disallowed, so the RULE says
         # what the prose below says. The party module is derived work held back from the
@@ -944,6 +960,87 @@ def create_app(
     @app.get("/privacy")
     def privacy_page(request: Request):
         return render(request, "privacy.html")
+
+    @app.get("/metrics", include_in_schema=False)
+    def metrics(request: Request):
+        """The freshness `/health` reports, in the Prometheus text exposition format
+        (ADR 0019).
+
+        FOUR THINGS ABOUT THIS ROUTE ARE DELIBERATE.
+
+        It is **404, not 401, when no token is configured** — the surface does not exist
+        unless it is deliberately turned on, which is the sibling platform's posture in its
+        ADR 0022 and the reason an unconfigured deployment leaks nothing, not even the fact
+        that it could.
+
+        There is **no `prometheus_client` dependency**. Six gauges in a documented text
+        format is standard-library work, and this project's rule is that a dependency earns
+        its place. The metric *grammar* is what outlives the sink.
+
+        The numbers are **the ones the record already computes** — `projections.freshness()`,
+        the same source `/health` and `docs/alerts.md`'s decomposition use. A second
+        definition of "is the poller alive" is how two answers to one question begin.
+
+        And **the label set is closed**: no docket number, party id or URL ever becomes a
+        label. Bounded cardinality is a design rule here, not an optimisation — the sink is
+        a free tier at 10,000 series, and an unbounded label would exhaust it in a day.
+        """
+        token = os.environ.get("DY_METRICS_TOKEN", "")
+        if not token:
+            raise HTTPException(404)
+        if not secrets.compare_digest(request.headers.get("authorization", ""), f"Bearer {token}"):
+            raise HTTPException(401)
+        con = _connect(db_path)
+        try:
+            fresh = projections.freshness(con)
+            schema = con.execute("PRAGMA user_version").fetchone()[0]
+        finally:
+            con.close()
+        now = datetime.now(UTC)
+        lines = [
+            "# HELP docketyard_up 1 when the web process answered this scrape.",
+            "# TYPE docketyard_up gauge",
+            "docketyard_up 1",
+            # THE STORE'S VERSION, NOT THE BUILD'S EXPECTATION. `MIGRATIONS[-1][0]` is what
+            # this image was built to want; between `migrate` running and `web` restarting
+            # the two differ, and that gap is exactly what a deploy wants to watch.
+            "# HELP docketyard_schema_version PRAGMA user_version of the store being served.",
+            "# TYPE docketyard_schema_version gauge",
+            f"docketyard_schema_version {schema}",
+            "# HELP docketyard_schema_expected The migration this build expects.",
+            "# TYPE docketyard_schema_expected gauge",
+            f"docketyard_schema_expected {MIGRATIONS[-1][0]}",
+        ]
+        # TWO SERIES, BECAUSE ABSENCE HAS TWO MEANINGS AND THE ALERT TURNS ON THE DIFFERENCE.
+        # `oldest_pending_alert` is NULL in the NORMAL state — an empty queue — so emitting
+        # only an age would leave that series permanently missing, and ADR 0019's
+        # alert-on-absence would fire on it for ever and be muted, taking the real signal
+        # with it. `_known` is always emitted: 0 says "this has never happened", where a
+        # vanished series says "the scrape stopped".
+        lines += [
+            "# HELP docketyard_freshness_known 1 when the store has a timestamp of this kind.",
+            "# TYPE docketyard_freshness_known gauge",
+        ]
+        ages: dict[str, int] = {}
+        for key, value in sorted(fresh.items()):
+            try:
+                ages[key] = int((now - datetime.fromisoformat(value)).total_seconds())
+            except (TypeError, ValueError):
+                pass
+            lines.append(f'docketyard_freshness_known{{kind="{key}"}} {int(key in ages)}')
+        lines += [
+            "# HELP docketyard_freshness_age_seconds Seconds since the newest row of a kind,"
+            " where one exists.",
+            "# TYPE docketyard_freshness_age_seconds gauge",
+        ]
+        for key, age in sorted(ages.items()):
+            lines.append(f'docketyard_freshness_age_seconds{{kind="{key}"}} {age}')
+        body = "\n".join(lines) + "\n"
+        return PlainTextResponse(
+            body,
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/health")
     def health():

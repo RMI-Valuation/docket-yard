@@ -36,6 +36,9 @@ services:
     environment:
       <<: *mail  # the confirmation email is sent by the web process
       DY_S3_BUCKET: ${DY_S3_BUCKET}  # a pruned document is fetched from the store on view
+      # ADR 0019: unset means /metrics is a 404 — the surface does not exist until it is
+      # deliberately turned on, so an unconfigured deployment leaks nothing, not even that
+      DY_METRICS_TOKEN: ${DY_METRICS_TOKEN:-}
       # the internet-facing process holds its own key: read blobs and send mail, nothing
       # that writes, deletes or lists (IAM user docketyard-web); the ingest keys stay out
       AWS_ACCESS_KEY_ID: ${DY_WEB_AWS_ACCESS_KEY_ID:?the web tier needs its own key}
@@ -106,6 +109,39 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  alloy:
+    # ADR 0019: scrapes web's /metrics and the host's vital signs, and remote_writes them to
+    # Grafana Cloud. It is NOT what detects a dead box — it dies with the box; the detector
+    # is an alert in Grafana Cloud on these series ceasing to arrive, which is off the box.
+    # Under the `metrics` profile so the stack runs unchanged until the credential exists:
+    #   docker compose --profile metrics up -d alloy
+    # pinned like every other service here: this is the thing that watches the box, and a
+    # pull-based deploy taking a config-breaking major would leave it crash-looping quietly
+    image: grafana/alloy:v1.10.0
+    # --storage.path or the remote_write WAL lands in the container layer and every recreate
+    # silently drops whatever it had buffered — which is exactly the metrics from an incident
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      # the unix exporter reads the host, not the container
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+    environment:
+      DY_METRICS_TOKEN: ${DY_METRICS_TOKEN:-}
+      GRAFANA_REMOTE_WRITE_URL: ${GRAFANA_REMOTE_WRITE_URL:-}
+      GRAFANA_REMOTE_WRITE_USER: ${GRAFANA_REMOTE_WRITE_USER:-}
+      GRAFANA_REMOTE_WRITE_TOKEN: ${GRAFANA_REMOTE_WRITE_TOKEN:-}
+    profiles: [metrics]
+    restart: unless-stopped
+    # it watches the box; it must never be what strains it
+    mem_limit: 256m
+
   caddy:
     image: caddy:2-alpine
     ports: ["80:80", "443:443"]
@@ -124,5 +160,6 @@ services:
     depends_on: [web]
 
 volumes:
+  alloy-data:
   caddy-data:
   caddy-config:

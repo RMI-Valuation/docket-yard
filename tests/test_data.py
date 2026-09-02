@@ -217,3 +217,71 @@ def test_every_template_is_packaged():
     for f in (web / "templates").iterdir():
         rel = f.relative_to(web).as_posix()
         assert any(fnmatch.fnmatch(rel, p) for p in patterns), f"{rel} is not in package-data"
+
+
+def test_metrics_is_absent_until_a_token_is_set(tmp_path, monkeypatch):
+    """ADR 0019. The exposition carries the freshness `/health` already reports, and the
+    surface does not exist unless it is deliberately turned on: **404, not 401**, when no
+    token is configured, so an unconfigured deployment does not leak even the fact that it
+    could serve this."""
+    from tests.test_web import build_store
+
+    monkeypatch.delenv("DY_METRICS_TOKEN", raising=False)
+    client = TestClient(create_app(build_store(tmp_path)))
+    assert client.get("/metrics").status_code == 404
+
+    monkeypatch.setenv("DY_METRICS_TOKEN", "s3cret")
+    client = TestClient(create_app(build_store(tmp_path)))
+    assert client.get("/metrics").status_code == 401  # configured, so it exists and refuses
+    assert client.get("/metrics", headers={"Authorization": "Bearer wrong"}).status_code == 401
+    ok = client.get("/metrics", headers={"Authorization": "Bearer s3cret"})
+    assert ok.status_code == 200
+    assert ok.headers["content-type"].startswith("text/plain")
+    assert ok.headers["cache-control"] == "no-store"
+
+    body = ok.text
+    assert "docketyard_up 1" in body
+    assert "# TYPE docketyard_freshness_age_seconds gauge" in body
+    # the label set is closed — bounded cardinality is the design rule, not an optimisation
+    labels = {
+        line.split('kind="')[1].split('"')[0] for line in body.splitlines() if 'kind="' in line
+    }
+    assert labels and labels <= {
+        "last_forward_capture",
+        "last_event",
+        "last_enviro_capture",
+        "last_enviro_event",
+        "last_document",
+        "oldest_pending_alert",
+    }
+    # every line is exposition or comment: a stray print would corrupt the scrape
+    for line in body.splitlines():
+        assert line.startswith("#") or " " in line, line
+
+    # `oldest_pending_alert` is NULL in the NORMAL state (an empty queue), so it carries a
+    # `_known 0` rather than vanishing — otherwise ADR 0019's alert-on-absence fires on it
+    # for ever, gets muted, and takes the real signal with it
+    assert 'docketyard_freshness_known{kind="oldest_pending_alert"} 0' in body
+    assert 'docketyard_freshness_age_seconds{kind="oldest_pending_alert"}' not in body
+    # the store's own version is reported, not just the build's expectation
+    assert "docketyard_schema_version " in body and "docketyard_schema_expected " in body
+
+
+def test_metrics_is_never_cached_and_is_not_advertised(tmp_path, monkeypatch):
+    """It answers `no-store`, and robots.txt does NOT name it.
+
+    Naming it would undo the whole 404 posture: a deployment with no token configured would
+    publish, in a file anyone reads, the path it then denies exists. `/health` is excluded
+    from the disallow list because it is public by design; `/metrics` is excluded because it
+    is meant to be invisible."""
+    from docketyard.web import app as app_module
+    from tests.test_web import build_store
+
+    assert "/metrics" in app_module.NEVER_CACHE  # still no-store
+    for token in ("", "t"):
+        if token:
+            monkeypatch.setenv("DY_METRICS_TOKEN", token)
+        else:
+            monkeypatch.delenv("DY_METRICS_TOKEN", raising=False)
+        client = TestClient(create_app(build_store(tmp_path)))
+        assert "/metrics" not in client.get("/robots.txt").text

@@ -79,6 +79,12 @@
 		header Retry-After "86400"
 		respond "This comment page is temporarily unavailable while a performance defect is fixed. It has not moved: the docket sheet at /d/FD-35087 still lists this comment, and this address will answer again." 503
 	}
+	# /metrics is scraped by Alloy over the compose network at web:8000 and has no reason to
+	# be reachable from outside (ADR 0019). Publishing it would also make the 404-when-
+	# unconfigured posture observable in reverse: a public 401 would say a token IS set.
+	handle /metrics {
+		respond 404
+	}
 	handle /static/* {
 		header Cache-Control "public, max-age=604800"
 		reverse_proxy web:8000

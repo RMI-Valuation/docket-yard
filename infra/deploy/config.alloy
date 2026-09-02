@@ -1,0 +1,72 @@
+// Grafana Alloy — this deployment's metrics scraper (ADR 0019).
+//
+// Rides beside web, ingest, litestream and caddy on the one instance. Secrets arrive as
+// environment variables from the sibling `.env`; none of them is ever in this file or the
+// image, because this repository is public.
+//
+// WHAT ACTUALLY DETECTS A DEAD BOX IS NOT HERE. Alloy runs on the box and dies with it; it
+// cannot report the death. The primary detector is an alert in Grafana Cloud on these
+// series ceasing to arrive, which is evaluated off the box — ADR 0012's "a dead box cannot
+// report its own death" is unchanged, and only its mechanism moved. Nothing in this file
+// judges anything.
+//
+// 60s, not the 15s default: one small instance and a free tier bounded at 10,000 series.
+
+// The application's own freshness — the numbers `docs/alerts.md`'s silent-failure
+// decomposition is written against. `/metrics` is a 404 until DY_METRICS_TOKEN is set, so an
+// unconfigured deployment scrapes nothing and says so plainly in Alloy's own logs.
+prometheus.scrape "web" {
+	targets         = [{"__address__" = "web:8000", "instance" = "docketyard"}]
+	metrics_path    = "/metrics"
+	scrape_interval = "60s"
+
+	authorization {
+		type        = "Bearer"
+		credentials = sys.env("DY_METRICS_TOKEN")
+	}
+
+	forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// The host's vital signs. THE SIBLING PLATFORM CANNOT DO THIS — it runs on a Lightsail
+// container service — and this is the half that would have given warning on 2026-09-02:
+// load left 0.45 and reached 13 at 02:10, seventy-five minutes before the record stopped
+// being kept and nearly three hours before the site fell over.
+//
+// The collector set is chosen, not defaulted. The unix exporter's defaults emit thousands of
+// series and the free tier holds ten thousand; `filesystem`, `loadavg`, `meminfo`, `cpu` and
+// `diskstats` are what the incident actually needed.
+prometheus.exporter.unix "host" {
+	// WITHOUT THESE THREE THE MOUNTS BELOW ARE DECORATION. The exporter reads /proc, /sys
+	// and / of whatever it is told to; left at their defaults it reads the CONTAINER's and
+	// reports a container's memory and a container's filesystems while the compose file
+	// claims otherwise. `rootfs_path` also strips the prefix, so a filesystem series comes
+	// back as mountpoint="/" and an alert written against "/" matches — which is the point.
+	procfs_path = "/host/proc"
+	sysfs_path  = "/host/sys"
+	rootfs_path = "/host/root"
+
+	set_collectors = ["cpu", "loadavg", "meminfo", "filesystem", "diskstats"]
+
+	filesystem {
+		mount_points_exclude = "^/(dev|proc|sys|run|var/lib/docker/.+)($|/)"
+		fs_types_exclude     = "^(autofs|binfmt_misc|cgroup.*|devpts|overlay|proc|sysfs|tmpfs)$"
+	}
+}
+
+prometheus.scrape "host" {
+	targets         = prometheus.exporter.unix.host.targets
+	scrape_interval = "60s"
+	forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+	endpoint {
+		url = sys.env("GRAFANA_REMOTE_WRITE_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_REMOTE_WRITE_USER")
+			password = sys.env("GRAFANA_REMOTE_WRITE_TOKEN")
+		}
+	}
+}
