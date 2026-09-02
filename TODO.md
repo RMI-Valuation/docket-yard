@@ -13,13 +13,16 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Nothing in the code blocks the citator from production** (migrations 0014-0017). Nobody
   has run the first real load, and production is four migrations behind at schema 13
 - **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not
-  in the record" display joining live `citation`; the veto's trigger the day it stops being
-  inert. Twelve smaller findings in `docs/deferred.md`
-- **Drain done**: 124 unfetched left, 121 resting refusals and 3 en-dash rows that fetch on
-  the next deploy. **The class behind the 3 is open** — Cameron's, in `docs/deferred.md`
-- **Outage 2026-09-02, 03:26-10:18 UTC** — box wedged (load 15-21 from 02:10, cause never
-  established; logs died with the containers), rebooted by hand. Gap 1 recorded, nothing
-  missed. **Detection took 6 h 13 m**: GitHub runs the "hourly" heartbeat every 3-5 h
+  in the record" display joining live `citation`; the veto's trigger. More in `deferred.md`
+- **Drain done**: 124 left — 121 resting refusals, 3 en-dash rows that fetch on the next
+  deploy. **The class behind the 3 is open**, Cameron's (`docs/deferred.md`)
+- **THE COMMENT PAGE IS O(DOCKET)** — three outages 2026-09-02. Every record page builds its
+  whole docket sheet to read `sheet.title`; FD 35087 holds 12,031 comments, so each costs
+  21.5 s and our sitemap invites the crawl. **Contained** by a Caddy 503 on that path (delete
+  it with the fix); **the fix needs the deploy**. Top item in `docs/deferred.md`
+- **Outage 2026-09-02, 03:26-10:18 UTC**, gap 1 recorded, nothing missed. **Detection took
+  6 h 13 m**: GitHub runs the "hourly" heartbeat every 3-5 h. Guards still owed: a memory cap
+  on `web` so it cannot take `ingest` down, and something acting on the healthcheck
 - **ADR 0019 Proposed** — telemetry via Grafana Cloud + Alloy, primary detector an alert on
   absent metrics. **Cameron's: accept, and a Grafana Cloud credential**
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
@@ -31,13 +34,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 ## Next
 
 - **The router, measured** (§ Step 4): PP-DocLayoutV3 free at 0.05 s, graphic call safe,
-  **blank call unsafe — "no regions" must never mean "skip"**; unconfirmed clean/degraded
-  signal (AUC 0.843). dots layout-only is 75x dearer. Left: **the second unseen sample**
-- **Preprocessing measured, 2026-09-02** (§ Step 5): no image operation earns its place —
-  crop cuts CER but invents, masking does not invent but loses 5 dates. **Cameron's call:
-  the degraded tier at 200 DPI** (dots 12.7% to 12.1%, dockets held, +40 h); 300 OOMs
-- **More tabular and graphic ground truth** — 5 and 9 pages decide nothing. The tabular
-  routing, the router's figures and preprocessing's re-asks all wait on it. **Cameron's**
+  **blank call unsafe — "no regions" must never mean "skip"**. Preprocessing is closed
+  (§ Step 5) but **200 DPI for the degraded tier is Cameron's call** (12.7% to 12.1%, +40 h)
+- **More tabular and graphic ground truth** — 5 and 9 pages decide nothing; the tabular
+  route, the router's figures and crop/masking's re-asks all wait on it. **Cameron's**
 - **HunyuanOCR-1.5 is Cameron's call**: the only free engine that closes the table gap
   (86.2% cells), but its licence bars the EU/UK/Korea and forbids using outputs to improve
   any AI model, which the CC0 dump cannot absorb

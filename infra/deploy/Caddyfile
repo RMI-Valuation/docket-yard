@@ -29,6 +29,20 @@
 		}
 		reverse_proxy web:8000
 	}
+	# INCIDENT CONTAINMENT, 2026-09-02 — DELETE THIS BLOCK WITH THE FIX.
+	# Every comment page builds its whole docket sheet to read one field off it
+	# (`_comment_entry` in web/app.py), so the cost of one page is the size of the docket.
+	# FD 35087 holds 12,031 of the record's 34,255 comments, and this site's own sitemap
+	# offers all 12,031 addresses to crawlers. Measured 2026-09-02: median 21.5 s a page,
+	# p90 25.0 s, and it took production down twice — once for 6 h 52 m, in which the record
+	# stopped being kept (coverage gap 1).
+	# The block costs a reader nothing they had: those pages already time out unanswered.
+	# 503 and not 404 or 410 — the address is permanent (ADR 0013) and will answer again.
+	@big_docket_comments path /d/FD-35087/comment/* /d/FD-35087/sub/*/comment/*
+	handle @big_docket_comments {
+		header Retry-After "86400"
+		respond "This comment page is temporarily unavailable while a performance defect is fixed. It has not moved: the docket sheet at /d/FD-35087 still lists this comment, and this address will answer again." 503
+	}
 	handle /static/* {
 		header Cache-Control "public, max-age=604800"
 		reverse_proxy web:8000

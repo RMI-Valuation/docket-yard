@@ -420,3 +420,44 @@ left of it.
   free, and for the three en-dash rows the capture will not show what was actually requested.
   Reproducibility survives (`_wire_url` is deterministic and in-repo); one line adding
   `("wire_url", wire)` when it differs would make the capture self-describing.
+
+## Found 2026-09-02, three production outages: the comment page is O(docket)
+
+The defect, its blast radius and its containment. **This is the highest-priority open item in
+this file** — it took production down twice and stopped the record being kept for 6 h 52 m.
+
+- **A record page builds its entire docket sheet to read one field off it.**
+  `_comment_entry` (`web/app.py`) calls `sheet.docket_sheet()`, which assembles every filing,
+  decision and comment on the docket with attachments, documents and parties joined, then
+  linear-scans `s.entries` for the single entry it wants. `_record_entry` does the same for
+  filings and decisions. **`record.html` uses exactly one field of that sheet: `sheet.title`.**
+  So the cost of one page is the size of its docket, and a crawler walking a docket is
+  quadratic in it.
+- **The record has a docket that makes this fatal.** FD 35087 holds **12,031 of the 34,255
+  comments** (next largest 4,245; then 2,044). Each of its comment pages builds a
+  ~12,600-entry sheet. **Measured 2026-09-02: median 21.5 s a page, p90 25.0 s.** With
+  uvicorn's 40-thread sync pool, roughly two requests a second saturates the box.
+- **The site invites the crawl.** Every comment address is published in our own paginated
+  sitemap, so a well-behaved crawler walking FD 35087 asks for all 12,031.
+- **The attachment drain sharpened it.** Before 2026-09-01 those comments' attachments were
+  unfetched; the drain fetched 26,816 of them, so every entry in that sheet now carries a
+  document to join and render. The first crawl to meet the heavier sheet was the 02:10 load
+  climb on 2026-09-02.
+- **What it cost.** Load 15-21 on two vCPUs from 02:10 to 06:40; captures stopped at 03:26
+  while the site still answered until 05:06; the box wedged until a manual reboot at 10:18
+  (coverage gap 1, 6 h 52 m). It recurred twice more within the hour, each cleared by
+  `docker compose restart web`. The poller and Litestream were never at fault and kept
+  working whenever the box had CPU.
+- **The fix** is to fetch the one entry and the docket's title directly instead of building
+  the sheet. It is not a one-liner: `_fold_family_duplicates` means an entry's identity
+  depends on its family, so the targeted lookup has to reproduce that or document why it need
+  not. Both call sites want the same helper. **It cannot ship without a deploy**, and
+  production is four migrations behind (schema 13 against 17).
+- **Containment, written and NOT YET APPLIED** (`infra/deploy/Caddyfile`): a 503 with
+  `Retry-After` for `/d/FD-35087/comment/*`. Costs a reader nothing they had — those pages
+  already time out unanswered — and 503 rather than 404 because the address is permanent
+  (ADR 0013). Applying it needs a write on the instance. **Delete that block with the fix.**
+- **Two guards worth having whatever the fix is**: a memory cap on the `web` container, so it
+  cannot take `ingest` and `litestream` down with it — that is the difference between "the
+  site blipped" and "the record stopped for seven hours" — and something that acts on the
+  healthcheck, which correctly reported `unhealthy` while nothing restarted it.
