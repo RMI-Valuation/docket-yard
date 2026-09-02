@@ -311,8 +311,21 @@ def main() -> None:
             "precision": h / f if f else None,
         }
 
+    # WHAT PRODUCED THIS FIGURE TRAVELS WITH IT. `ocr_run.py` writes `run.json` beside the
+    # text it read — the weights it named, the flags, the package versions — and it is
+    # copied in here so a published number can be checked against the engine that made it
+    # rather than against an engine label whose package default has since moved.
+    run_file = args.dir / "run.json"
+    provenance = None
+    if run_file.is_file():
+        try:
+            provenance = json.loads(run_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"  {run_file.name} unreadable ({type(e).__name__}); scoring without it")
+
     report = {
         "engine": args.engine,
+        "run": provenance,
         "pages_scored": len(pages),
         "pages_missing": missing,
         "by_tier": {

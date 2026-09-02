@@ -367,12 +367,17 @@ def run_ppocr(image: Path, cfg: dict) -> str:
     if ocr is None:
         from paddleocr import PaddleOCR  # noqa: PLC0415
 
+        # The three toggles are the package's own preprocessing — page orientation, page
+        # unwarping, and per-line orientation. They are OFF by default here because they
+        # cost time, and `--ppocr-preprocess` turns them on: whether they earn it on a
+        # degraded scan is a measurement, not an assumption.
+        pre = bool(cfg.get("ppocr_preprocess"))
         cfg["_ppocr"] = ocr = PaddleOCR(
             text_detection_model_name=cfg.get("ppocr_det", "PP-OCRv6_medium_det"),
             text_recognition_model_name=cfg.get("ppocr_rec", "PP-OCRv6_medium_rec"),
-            use_doc_orientation_classify=False,
-            use_doc_unwarping=False,
-            use_textline_orientation=False,
+            use_doc_orientation_classify=pre,
+            use_doc_unwarping=pre,
+            use_textline_orientation=pre,
         )
     lines = []
     for res in ocr.predict(str(image)):
@@ -770,6 +775,64 @@ ENGINES = {
 }
 
 
+def _provenance(args: argparse.Namespace, cfg: dict) -> dict:
+    """What actually produced this run: the engine, the weights it named, and the versions
+    around it.
+
+    A run file recording only `"engine": "ppocr"` cannot be checked afterwards — the package
+    default it resolved to moves between releases, so a published figure would quietly stop
+    describing the engine that produced it. THIS IS THE FILE THAT MAKES A FIGURE AUDITABLE.
+    """
+    import platform  # noqa: PLC0415
+    from datetime import UTC, datetime  # noqa: PLC0415
+
+    def version(module: str) -> str | None:
+        try:
+            import importlib.metadata as md  # noqa: PLC0415
+
+            return md.version(module)
+        except Exception:  # noqa: BLE001 — an absent package is a fact, not a failure
+            return None
+
+    run = {
+        "engine": args.engine,
+        "run_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "host": platform.node(),
+        "pages": str(args.pages),
+        "python": platform.python_version(),
+        "packages": {
+            m: version(m)
+            for m in ("transformers", "torch", "paddleocr", "paddlepaddle-gpu", "python-doctr")
+            if version(m)
+        },
+    }
+    if args.engine == "tesseract":
+        out = subprocess.run(
+            ["tesseract", "--version"], capture_output=True, text=True, check=False
+        )
+        run["weights"] = out.stdout.splitlines()[0].strip() if out.stdout else None
+    elif args.engine == "ppocr":
+        run["weights"] = {"det": args.ppocr_det, "rec": args.ppocr_rec}
+        run["preprocess"] = bool(args.ppocr_preprocess)
+    elif args.engine == "paddleocr-vl":
+        # ASKED OF THE LIVE PIPELINE, not written down from the docs. Which weights the
+        # package resolves to is a function of its version, and "PaddleOCR-VL" as a label
+        # would not distinguish v1 from v1.6 in a published figure.
+        pipeline = cfg.get("_paddleocr_vl")
+        resolved = getattr(pipeline, "_paddlex_pipeline_name", None) if pipeline else None
+        run["weights"] = resolved or "PaddleOCR-VL (pipeline default)"
+        run["pipeline_version"] = getattr(pipeline, "pipeline_version", None)
+        run["backend"] = {"vl_backend": args.vl_backend, "vl_server": args.vl_server}
+    elif args.engine == "dots-ocr":
+        run["weights"] = args.dots_model
+        run["backend"] = {"dots_server": args.dots_server}
+    elif args.engine in ("vlm", "claude"):
+        run["weights"] = args.model
+    elif args.engine == "hunyuan-ocr":
+        run["weights"] = cfg.get("hunyuan_model", "tencent/HunyuanOCR")
+    return run
+
+
 def _write_json(out: Path, name: str, data: dict) -> Path:
     """Merge over whatever is already recorded and replace the file atomically."""
     path = out / name
@@ -811,6 +874,13 @@ def main() -> int:
     ap.add_argument("--vl-server", default="http://127.0.0.1:8118/v1", help="paddleocr-vl only")
     ap.add_argument("--dots-server", default="http://127.0.0.1:8119/v1")
     ap.add_argument("--dots-model", default="dots-ocr", help="the --served-model-name in use")
+    ap.add_argument("--ppocr-det", default="PP-OCRv6_medium_det")
+    ap.add_argument("--ppocr-rec", default="PP-OCRv6_medium_rec")
+    ap.add_argument(
+        "--ppocr-preprocess",
+        action="store_true",
+        help="page orientation, unwarping and textline orientation (ppocr only)",
+    )
     ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
 
@@ -832,6 +902,9 @@ def main() -> int:
         "vl_server": args.vl_server,
         "dots_server": args.dots_server,
         "dots_model": args.dots_model,
+        "ppocr_det": args.ppocr_det,
+        "ppocr_rec": args.ppocr_rec,
+        "ppocr_preprocess": args.ppocr_preprocess,
     }
     if args.engine == "claude":
         cfg["_key"] = _api_key()  # fails now, not on page 1 of 90
@@ -895,6 +968,9 @@ def main() -> int:
         # category the earlier pass recorded.
         path = _write_json(args.out, "layout.json", cfg["_layout"])
         print(f"  layout categories recorded: {path}")
+    run = _provenance(args, cfg)
+    (args.out / "run.json").write_text(json.dumps(run, indent=1), encoding="utf-8", newline="\n")
+    print(f"  run recorded: {args.out / 'run.json'} ({run.get('weights')})")
     print(f"  -> {args.out}")
     return 1 if failed else 0
 

@@ -452,6 +452,45 @@ of PaddleOCR-VL, and layout-detection only — emits table/figure/text regions p
 the candidate to measure. The dots models return the same thing as categories alongside the
 text, recorded in `layout.json` by `ocr_run.py`.
 
+## Are these the right versions, run the right way?
+
+Asked deliberately 2026-09-01, because two engines had already been caught running wrongly —
+PaddleOCR-VL fed whole pages when it is an element recogniser, and HunyuanOCR given an English
+prompt that silently selected its `layout` task and returned no text at all. A figure from a
+misconfigured engine is worse than no figure.
+
+**Versions confirmed current**: PaddleOCR-VL **1.6** (`_DEFAULT_PIPELINE_VERSION`, newest of
+`v1`/`v1.5`/`v1.6`; a live instance reports `pipeline_version = v1.6`, which maps to
+`PaddleOCR-VL-1.6`, and the pipeline requests `PaddleOCR-VL-1.6-0.9B` from the server) with
+**PP-DocLayoutV3**, the newest layout model; **dots.mocr**, which is dots.ocr-1.5 rebranded;
+**HunyuanOCR** at the 1.5 weights; Tesseract 5.5.0; docTR 1.1.0. PaddleOCR's own tutorial
+recommends the full pipeline plus a dedicated VLM service, which is what is run here, and
+documents `use_doc_orientation_classify` and `use_doc_unwarping` as defaulting to off, which
+is how they were left.
+
+**The package default was checked rather than trusted, and it held.** `PaddleOCR()` resolves
+to PP-OCRv6 medium — the largest of the v6 line (tiny/small/medium) — but `PP-OCRv5_server`
+models also exist and are larger. Both alternatives are worse:
+
+| PP-OCR configuration | CER | clean | degraded | dockets | dates |
+| --- | --- | --- | --- | --- | --- |
+| **v6 medium, preprocessing off** | **11.8%** | **2.6%** | **17.9%** | 91.2% | **90.2%** |
+| v6 medium, preprocessing on | 12.3% | 4.4% | 18.8% | 82.4% | 85.8% |
+| v5 server det+rec | 13.4% | 3.7% | 20.0% | **94.1%** | 53.3% |
+
+**PaddleOCR's own preprocessing hurts this corpus** — page orientation, unwarping and textline
+orientation together take the clean tier from 2.6% to 4.4% and drop docket recall nine points.
+That is a result for the preprocessing question below, not just a configuration note: the
+obvious preprocessing is not free, and on scans of this kind it costs.
+
+**And the runs now record what produced them.** Until 2026-09-01 a run file said
+`"engine": "ppocr"` and nothing else — no weights, no flags, no versions — so a published
+figure could not be checked against the engine that made it, and a package default that moved
+between releases would break the link silently. `ocr_run.py` writes a `run.json` beside the
+text (weights, flags, package versions, host, timestamp) and `ocr_score.py` copies it into the
+scored output. **The runs above predate that record**; the free engines can be re-run to
+backfill it.
+
 **Still open.** The tabular tier rests on five pages and the graphic tier on nine — both too
 thin to conclude from, and drawing more needs fresh ground truth the operator checks; the
 tabular routing above cannot be settled without it. Preprocessing is not evaluated at all,
