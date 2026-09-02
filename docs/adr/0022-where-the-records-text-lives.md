@@ -110,8 +110,11 @@ reads them.
      government work is a derived assertion with a measured error rate, not the Board's own
      words. Held keeps the question open; public closes it by accident.
    - **`document_pagination` is `PUBLIC`.** ADR 0021 D4 gives it its own method, version and
-     timestamp, so it publishes with its provenance rather than as a bare machine claim —
-     which is what a per-page table without provenance would have done.
+     timestamp, so it publishes with its provenance rather than as a bare machine claim,
+     which is what a per-page table without provenance would have done. **Being public makes
+     its shape published too**: the DDL enters the snapshot's `schema.sql` and third parties
+     hold it, so D4's typed outcome needs a declared vocabulary and its supersession columns
+     from the first row, not added later as a published-shape change.
    - **The page index is `HELD` too, and only `HELD` is safe.** Classified `DERIVED` it would
      be emptied and rebuilt, which errors on an external-content table whose content table
      has just been dropped, and its surviving `%_data`/`%_idx` shadows hold a positional
@@ -122,19 +125,36 @@ reads them.
      verbatim on `/data`, and ships in `index.json` that third parties hold. Page text needs
      its own reason, so the field becomes per-table — which changes a published JSON shape
      and moves with `docs/data.md`'s version.
+   - **`ocr_run` is `PUBLIC` and `text_payload` is `HELD`.** Both were unclassified in an
+     earlier draft, which would have failed the nightly snapshot on its first run — loudly,
+     which is what the allowlist is for, but leaving a publication decision to whoever is
+     unblocking a broken dump at three in the morning. `ocr_run` says which documents are
+     image-only and which reads failed, which is coverage and belongs beside `coverage_gap`;
+     `text_payload` holds digests of objects carrying the text `document_text` is held for,
+     so publishing it would name the withheld artefacts.
    - **A view is invisible to this check.** `dump.py` enumerates `type = 'table'`, so
      decision 4's view is never classified and never dropped, and the published `schema.sql`
      would carry a `CREATE VIEW` over a table the snapshot does not contain.
 
-4. **The page index is its own FTS5 table over a best-row-per-page view, external content,
-   no prefix index, and not wired into `search()` or `/suggest`.** Indexing the raw table
-   would return a human correction and the engine text it corrects as duplicate hits, which
-   is why `ocr-plan.md` specified a view. It stays out of the existing search path because
-   `search.py`'s own comments record that its `bm25()` in `ORDER BY` defeats FTS5's internal
-   ordering and evaluates the select list for every matching row before `LIMIT` — the shape
-   of the 2026-09-02 fault, which must not be handed a million more rows before the query
-   surface is decided. Dropping the prefix index is a **query-surface** choice, not a storage
-   saving: prefix queries still work, they fall back to a vocabulary scan.
+4. **The page index is its own FTS5 table over the display view, external content, no prefix
+   index — and it reaches readers through its own query path.** ADR 0021 D7 puts search in
+   the same migration as the text, because findability is what the work is for. The
+   conditions are what keep that safe.
+
+   It indexes a **view selecting the row ADR 0021 D9 displays**, not the raw table, or a
+   human correction and the engine text it corrects both come back as hits. It is **not
+   joined to the shipped `search()`**, whose own comments record that `bm25()` in `ORDER BY`
+   defeats FTS5's internal ordering and evaluates the select list for every matching row
+   before `LIMIT` — the shape of the 2026-09-02 fault, which must not be handed a million
+   more rows. **No OCR text reaches `/search`, `/suggest` or MCP until `search.Hit` carries
+   the label, the band and the scan link**: it has `kind, path, title, fact, caption,
+   snippet` today, and `web/mcp.py`'s `_search` passes the same object to a language model.
+
+   It needs **its own signature**, because `search.signature()` names none of these tables
+   and would neither notice a new reading nor rebuild for one — and because the view *is* the
+   display rule, so its version belongs in that signature. Dropping the prefix index is a
+   **query-surface** choice rather than a storage saving: prefix queries still work, falling
+   back to a vocabulary scan.
 
 5. **The instance is resized, and it is a precondition rather than a companion.** Not in
    response to the outage of 2026-09-02 — that was a quadratic query, and a larger box would
@@ -142,8 +162,9 @@ reads them.
    later and worse. It is resized because the permanent +3.9 GB puts free disk **under**
    `prune_blobs.py`'s floor, so the first prune after the migration evicts roughly a third of
    the blob cache, oldest first — which under decision 2 means evicting reader-facing PDFs to
-   keep cold payload bundles. The dump's transient compounds it: `VACUUM INTO` copies the
-   whole store *before* any table is dropped, and the plain `VACUUM` that follows places its
+   keep cold payload bundles. The dump's transient compounds it, and it recurs nightly rather
+   than once: `VACUUM INTO` copies the **whole** ~4.2 GB store before any table is dropped,
+   then the plain `VACUUM` that follows places its
    temporary database in `/tmp`, which in the `web` service is a tmpfs inside a 768 MB limit.
 
    **ADR 0020's window does not cover it.** That record's defining property is that `ingest`
