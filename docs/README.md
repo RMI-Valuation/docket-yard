@@ -7,7 +7,8 @@
 | [`capability-map.md`](capability-map.md) | 28 capabilities in five tiers, with effort and status. **A menu, not a roadmap.** |
 | [`research/comparable-platforms.md`](research/comparable-platforms.md) | The evidence base — what CourtListener, FERC, the Federal Register and the paid products solved, what failed, and what sustains these projects. |
 | [`stb-data-source.md`](stb-data-source.md) | The AJAX endpoint, its traps, and everything measured about the corpus. |
-| [`ocr-plan.md`](ocr-plan.md) | OCR of the image-only record (M3): ground truth, measured candidates, the review layer. Proposed 2026-08-27, not chosen. |
+| [`ocr-plan.md`](ocr-plan.md) | OCR of the image-only record (M3): ground truth, measured candidates, the review layer. Chosen 2026-08-28; the operator's four framing answers recorded 2026-09-02, and the census that corrects its page count by 42%. |
+| [`ocr-migration.md`](ocr-migration.md) | What the OCR migration owes: the two forced table rebuilds, the vocabularies, the tables with no home yet, and the infrastructure that breaks on deploy day. Held out of ADR 0021 so accepting it means accepting decisions, not mechanics; becomes the migration's header when it is written. |
 | [`explainers.md`](explainers.md) | The docket-type explainers (P2): the reviewed text behind `/about/prefixes` and `/about/<PREFIX>`, graded by source. Published 2026-08-28. |
 | [`machine-surface.md`](machine-surface.md) | The machine-agent surface (F7): the read-only MCP server, the protocol choices and why, and the AI-crawler policy. Chosen 2026-08-31. |
 | [`registers.md`](registers.md) | The registers (court actions, protective orders) and the citation resolver: rule, measurements, what they do not say. Published 2026-08-27. |
@@ -24,7 +25,7 @@ Documentation that isn't load-bearing is drag.
 
 | # | Document | Purpose | Status |
 | --- | --- | --- | --- |
-| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0016 accepted (**0016** 2026-08-28, a reviewer has an identity; reading stays anonymous); **0017 and 0018 accepted** 2026-09-01 — what citation edges ship at, and the five assertion families that hold them; **0019 and 0020 Accepted** 2026-09-02 — telemetry after the outage the heartbeat took 6 h 13 m to notice, and maintenance as a state the record does not share; both addenda to 0012 |
+| 01 | [`adr/`](adr/) | Schema and architecture decision records | 0001–0016 accepted (**0016** 2026-08-28, a reviewer has an identity; reading stays anonymous); **0017 and 0018 accepted** 2026-09-01 — what citation edges ship at, and the five assertion families that hold them; **0019 and 0020 Accepted** 2026-09-02 — telemetry after the outage the heartbeat took 6 h 13 m to notice, and maintenance as a state the record does not share; both addenda to 0012; **0021 and 0022 Accepted** 2026-09-02 — the OCR text grain, and where the record's text lives (a third addendum to 0012). Four critic passes and a four-lens panel; the review layer is Migration B in `ocr-migration.md`; **0023 Accepted** 2026-09-03 — the render and the engine's name in a quoted date's key, and why migration 0019 rebuilds the table rather than altering it |
 | 02 | [`document-ir.md`](document-ir.md) | What the PDF→JSON layer captures | stub |
 | 03 | [`methodology.md`](methodology.md) | Extraction rules; doubles as the published methodology page | page published 2026-08-26 (`web/templates/methodology.html`); extraction rules await extraction |
 | 04 | [`licensing.md`](licensing.md) | Code, data and trademark terms | drafted |

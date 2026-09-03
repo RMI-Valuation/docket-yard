@@ -23,14 +23,74 @@ a real citation the drafter missed scores as a false positive.
 *whatever engine is used, make it as accurate as possible, with a review layer.* This
 document is the plan that meets it; the decision points at the end are the operator's.
 
+## Decided by the operator, 2026-09-02
+
+Four answers that shape everything below, taken after the census, the agreement measurement
+(`research/ocr-benchmark/README.md` § Step 6) and a four-lens review of the draft records.
+
+1. **The text is a finding aid, always shown.** Every read page displays its text, labelled
+   machine-read, with the engine and version, a confidence band and a link to the agency's
+   scan; search covers all of it. Nothing is withheld for being imperfect. **But no derived
+   assertion is published from it until its class is measured** — ADR 0017 D3 unchanged. The
+   scan being one click away is what makes the first half honest, and the split between
+   showing and asserting is what keeps the second half safe. ADR 0021 D7.
+2. **A second reading is bought, and escalation is not automatic.** The second reader is the
+   cheapest non-family engine — about +23% on the backfill, not the doubling assumed here
+   earlier — which buys the per-page confidence signal § Step 6 measures at AUC 0.93–0.97.
+   Claude Sonnet 5 sits above it as a third reader on disagreement, **run by the operator as
+   a batch, never as a standing stage**: roughly $210 at a wide bar, $840 at a narrow one. It
+   is a CLI verb on the box, recorded as a pass with its own method and version — no standing
+   spend and no authenticated surface added to the reader-facing process.
+3. **Maps are read last; tables are not in this pass, and not abandoned either.** The order
+   is clean, then degraded, then maps — **prose before pictures**, so the 86% of pages that
+   carry the record's words land first and the tier with the least certain payoff waits until
+   the pipeline has been proven on the easy 53%. Maps are worth reading at all because
+   PP-OCRv6 gets 47% of their labels while inventing nothing on all nine graphic pages: a
+   detector-plus-recogniser cannot write a sentence that is not on the page, so its worst
+   case is silence.
+
+   **Tables wait for their own pass**, not for the end of this one. Five pages decide
+   nothing, no free engine detects an unruled columnar list, and the one that closes the gap
+   carries a licence the CC0 dump cannot absorb — so deferring the tier defers that decision
+   with it. Until then a tabular page is marked *scanned; contains a table we have not read*,
+   with its image linked, which is an honest statement rather than an absence.
+4. **The grain ships before the review layer.** ADR 0021 decides what a stored reading is;
+   Migration B redesigns ranking and the queue against the flag rate § Step 6 measured. See
+   `ocr-migration.md`.
+
 ## What is to be read
 
 Measured 2026-08-27 on RMI-AI-MACHINE over the whole held record (80,271 files): 60,360 PDFs
-carry a text layer; **13,604 (22.5%) are image-only** and ~330 are not PDFs. The image-only
-set is almost entirely the older record (pre-2005 scans; wave 1 had 2 of 4,273). It is what
-capability M3 ("OCR the pre-2000 record") names: the boundary at which search, the citation
-graph and the registers all degrade. Until it is read, a 1998 decision can be viewed but not
-searched, cited by text, or mined for citations.
+carry a text layer; **13,604 (22.5%) are image-only** and ~330 are not PDFs.
+
+**Superseded by a census of the extraction output, 2026-09-02** —
+`tools/rmi-ai-machine/text_layer_census.py` over `/data/docketyard/text`, which reads the
+header of every extraction JSON. The three figures above are one *run's* manifest, and that
+run skipped 13,936 files as already extracted, so its counts are a subset:
+
+| | documents | pages | characters | per page |
+| --- | --- | --- | --- | --- |
+| image-only | **15,085** (plus one 0-page PDF) | **247,923** | ~0 | — |
+| text layer | **59,210** | **857,012** | 1,369,267,089 | **1,598** |
+
+- **The image-only page count is 247,923, not ~175,000** — 42% higher, and it is the number
+  every cost in this document is multiplied by. At the routed 2.71 s a page the backfill is
+  about **187 hours**, not 132; `research/ocr-benchmark/README.md` § Step 5's "132 to 172
+  hours over 175,000 pages" scales the same way, to about 187–244.
+- **15,085 image-only documents**, which is exactly what the benchmark README recorded on
+  2026-08-28 and which the 13,604 above never contradicted — it counted one run.
+- **~5,975 files are not PDFs, not ~330.** 74,296 of the 80,271 held files have extraction
+  output; the remainder were seen and skipped as non-PDF.
+- The 22.5% is 13,604 over 60,360, which is that run's image-only share of the PDFs it
+  extracted. Against the corpus the share is **20.3%** (15,085 of 74,296 PDFs).
+- Both page counts are lower bounds for what needs OCR: `image_only` is a *document*-level
+  flag, so image pages inside an otherwise text-layer document are counted on the text-layer
+  side and read as blank.
+
+The image-only set is almost entirely the older record (pre-2005 scans; wave 1 had 2 of
+4,273). It is what capability M3 ("OCR the pre-2000 record") names: the boundary at which
+search, the citation graph and the registers all degrade. Until it is read, a 1998 decision
+can be viewed but not searched, cited by text, or mined for citations.
 
 ## The discipline (the same as extraction's)
 
@@ -75,15 +135,23 @@ things, each cheap, each recorded:
 - **The operator's queue.** Flagged pages go to a review page — image beside text, the
   disagreement highlighted — where the operator (or later a trusted contributor) accepts one
   reading or types the correction. A human correction is stored as its own method
-  (`human`, with who and when), supersedes the engines' readings, and is never overwritten
-  by a re-run. The queue is bounded by budget: the plan states how many flagged pages a
-  week the operator will take, and the rest wait rather than publish.
+  (`human`, with who and when), and is never overwritten by a re-run.
+  **The last sentence of this paragraph is superseded, 2026-09-02.** It read: *"The queue is
+  bounded by budget: the plan states how many flagged pages a week the operator will take,
+  and the rest wait rather than publish."* § Step 6 measured the flag rate at 20–60%, which
+  is 19 to 58 years of a fifty-page week, so a queue that waits is a queue that never ends
+  and a record that never publishes. **The queue ranks rather than clears**: the worst pages
+  are reviewed for as long as it is worth doing, and everything else publishes labelled under
+  decision 1 above.
 
-What reaches a reader: only text at or above a confidence threshold the benchmark sets,
-and every published passage carries its confidence and links the page image. Below the
-threshold, the page is searchable by nothing and the sheet says *"scanned; not yet read"*
-rather than showing text that may be wrong. The coverage page counts the three states —
-read, flagged, unread — from the store.
+What reaches a reader — **revised 2026-09-02 by decision 1 above**, which replaces the
+threshold this paragraph originally described. Every read page shows its text with its
+confidence band and a link to the scan; there is no display bar, because a bar would need a
+threshold no measurement supports and would hide the pre-2005 record from search, which is
+the boundary this work exists to cross. What the threshold still governs is *assertion*: an
+unmeasured reading feeds no published edge, no party attribution and no alert. The coverage
+page counts read, flagged and unread from the store, in words that distinguish machine-read
+from published.
 
 ## Shape in the store
 

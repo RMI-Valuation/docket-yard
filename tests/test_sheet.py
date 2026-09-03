@@ -269,3 +269,60 @@ def test_one_entry_agrees_about_parties_too(tmp_path):
             seen += 1 if listed.parties else 0
     con.close()
     assert seen, "the fixture resolved no parties — this test would prove nothing"
+
+
+def test_neighbours_agree_with_the_sheet_for_every_entry(con, tmp_path):
+    """THE DRIFT GUARD for the viewer's targeted read. `entry_and_neighbours` orders the
+    family from three small queries so the viewer stops building a whole sheet to show one
+    record; if its order or its family-fold ever diverged from `docket_sheet`'s, "next" would
+    point at something the sheet does not list — silently, and only on the dockets where the
+    two disagree. `sort_key` is shared for that reason; this asserts the sharing works.
+
+    Measured on a production copy 2026-09-03: 232.6 ms to 21.5 ms on FD 35087 (12,633
+    entries), 10.8x, with the same neighbours at every sampled position."""
+    build(con, tmp_path)
+    parent = con.execute("SELECT docket_id FROM docket WHERE raw_docket='FD_36873'").fetchone()[0]
+    s = sheet.docket_sheet(con, parent)
+    assert s is not None and len(s.entries) == 4
+
+    for i, entry in enumerate(s.entries):
+        got = sheet.entry_and_neighbours(con, parent, entry.kind, entry.record_id)
+        assert got is not None, f"{entry.kind} {entry.record_id} is on the sheet and unfindable"
+        here, prev, nxt = got.entry, got.prev, got.next
+        assert (here.kind, here.record_id) == (entry.kind, entry.record_id)
+        want_prev = s.entries[i - 1] if i > 0 else None
+        want_next = s.entries[i + 1] if i + 1 < len(s.entries) else None
+        for got_side, want in ((prev, want_prev), (nxt, want_next)):
+            if want is None:
+                assert got_side is None
+            else:
+                assert got_side is not None
+                assert (got_side.kind, got_side.record_id) == (want.kind, want.record_id)
+                # the neighbour is built by the same three builders, so its links work
+                assert got_side.docket_raw == want.docket_raw
+                assert [a.url for a in got_side.attachments] == [a.url for a in want.attachments]
+
+    # the ends are ends, not wrap-arounds
+    first = sheet.entry_and_neighbours(con, parent, s.entries[0].kind, s.entries[0].record_id)
+    last = sheet.entry_and_neighbours(con, parent, s.entries[-1].kind, s.entries[-1].record_id)
+    assert first is not None and first.prev is None
+    assert last is not None and last.next is None
+
+
+def test_neighbours_reach_the_sub_dockets_entry_from_the_parent(con, tmp_path):
+    """The sheet merges the family, so the entry after the parent's last filing is the
+    SUB-DOCKET's — and the viewer's "next" has to cross that boundary exactly as the sheet
+    does, or the last record of a parent looks like the end of the proceeding."""
+    build(con, tmp_path)
+    parent = con.execute("SELECT docket_id FROM docket WHERE raw_docket='FD_36873'").fetchone()[0]
+    got = sheet.entry_and_neighbours(con, parent, "filing", "311977")
+    assert got is not None
+    nxt = got.next
+    assert nxt is not None
+    assert (nxt.kind, nxt.record_id, nxt.docket_raw) == ("filing", "311900", "FD_36873_1")
+
+
+def test_neighbours_of_an_unknown_record_are_nothing(con, tmp_path):
+    build(con, tmp_path)
+    parent = con.execute("SELECT docket_id FROM docket WHERE raw_docket='FD_36873'").fetchone()[0]
+    assert sheet.entry_and_neighbours(con, parent, "filing", "no-such-id") is None

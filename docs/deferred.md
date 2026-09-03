@@ -478,3 +478,73 @@ this file** — it took production down twice and stopped the record being kept 
   cannot take `ingest` and `litestream` down with it — that is the difference between "the
   site blipped" and "the record stopped for seven hours" — and something that acts on the
   healthcheck, which correctly reported `unhealthy` while nothing restarted it.
+
+## The instance resize (2026-09-02, v2026.09.1)
+
+**ADR 0022 D7 now resizes it with the OCR migration** rather than leaving a trigger to watch:
+the store crosses ~1 GB on rows alone under D6. What stays here is the operational half.
+
+- **Not a response to 2026-09-02.** That outage was a quadratic query, and a larger box would
+  have absorbed more crawler traffic before failing — the same fault, later and worse. Fixed
+  (`sheet.one_entry`). Recording the temptation is the point.
+- **A resize is a rebuild, not a slider.** Lightsail has no in-place resize: snapshot, launch
+  the larger instance, move the static IP. Maintenance-window work; ADR 0020 gives the window.
+  Check plan pricing at the time rather than assuming the ladder.
+- **Where it stands, measured 2026-09-02**: the schema-16 restore in `data/` is **152 MB**,
+  `web` is capped at 768 MB of the instance's 2 GB, and the blob cache holds ~32 GB against a
+  corpus heading for 150–250 GB with the prune keeping 20 GB free.
+- **Two things the resize does not fix**, so they need their own answer: `litestream` keeps
+  `retention: 168h` while the bucket keeps noncurrent versions 30 days, so the store's undo
+  window is the shorter one (ADR 0022 D10); and `dump.py` keeps one monthly archive for ever
+  and prunes none, which at gigabyte scale competes with the blob cache's 20 GB floor.
+
+## Found by the four-lens panel, 2026-09-02 (against the Proposed ADRs 0021/0022)
+
+- **`data/public` is synced nowhere.** `docketyard-blobs.service` copies only `data/blobs`,
+  so the monthly CC0 archives — which `dump.py` writes and never prunes, and which `/data`
+  lists by SHA-256 — exist in exactly one place, on the instance's disk. Losing them makes
+  the page quietly stop listing archives it once published, which is a withdrawn public
+  artefact and the one direction CC0 was chosen to avoid. Nothing to do with OCR; found while
+  measuring for it.
+- **No systemd unit has `OnFailure=`,** and `config.alloy` collects no systemd metrics, so a
+  failed timer is invisible to the detector ADR 0019 built. The dump's failure is worse than
+  absent: `scrub` raising leaves last night's snapshot served under an unchanged manifest, so
+  a third party downloading it has no signal.
+- **`/coverage` is uncached** where `/stats` sets `PUBLIC_CACHE`, and already runs ~20 scalar
+  subqueries per request. Anything counted over `document_text` lands on an uncached public
+  page.
+- **Every future migration pays a full `PRAGMA foreign_key_check`** over the whole database
+  (`db.migrate`), which at ~1.35M new rows makes every subsequent migrating deploy slower —
+  a cost that lands on the rollback story, not just the deploy.
+
+## Found by code review, 2026-09-02 (against migrations 0018/0019, unreleased)
+
+- **A restored public snapshot cannot be migrated forward.** Every migration that touches a
+  held table names it unconditionally — migration 0019 does `DROP TABLE decision_decided_date`
+  and selects from it; 0018 inserts into `measured_target_vocab` and `review_target_vocab` —
+  but `dump.py` DROPS every `HELD_TABLE` from the snapshot while `PRAGMA user_version` is
+  stamped at the release's schema. So a third party who restores an archive and opens it with
+  a later release gets a bare `no such table`, not a message. Pre-existing and class-level: it
+  affects every held table and every future migration, not 0019, which is why it is recorded
+  here rather than worked around in one script. The fix is a decision about what a published
+  snapshot IS — a readable artefact at a pinned schema, or a store the code will migrate —
+  and `dump.py`'s docstring currently implies the second ("a restored copy is at the release's
+  schema and `docketyard search rebuild` remakes it").
+
+## Found by schema-critic against migration 0018's `document_pagination`, 2026-09-03
+
+- **Four tables may be held for no reason anyone weighed, and unholding them would restore a
+  real foreign key.** `dump.py` classifies "the citator block (migration 0014)" wholesale, so
+  `reading_vocab`, `measured_target_vocab`, `class_vocab` and `class_measurement` are HELD.
+  `docs/licensing.md` names entity resolution, the carrier registry, the citation graph,
+  classifications and extracted deadlines — **it does not name the measurement registry**,
+  whose contents (recall, precision, benchmark date, score file) the site already publishes
+  verbatim on `/methodology` and in ADR 0017 § The figures. The cost of the current
+  classification is concrete: `document_pagination` cannot point at `class_measurement` to earn
+  `'measured'` and `ocr_run.reading_channel` is a CHECK where the house idiom wants a foreign
+  key, both because a PUBLISHED table may not reference a HELD one. The four move together or a
+  new dangler appears (`class_measurement` references the other two).
+
+  **The operator's, and one-way in one direction only**: held can become public later, public
+  cannot become held, so deferring costs nothing and acting is irreversible. Recorded because
+  it was suggested and not taken, not because it should be.

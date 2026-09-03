@@ -1823,7 +1823,7 @@ def create_app(
         return FileResponse(path, media_type=mime, headers=headers, stat_result=stat)
 
     def viewer(request: Request, kind: str, stb_id: str, file: int):
-        s, entry = _record_sheet_and_entry(db_path, kind, stb_id)
+        context, entry, prev, nxt, parties = _record_entry_and_neighbours(db_path, kind, stb_id)
         first = documents.viewable_index(entry)
         current = None
         if first is not None:
@@ -1834,18 +1834,18 @@ def create_app(
                 else None
             )
             current = asked or entry.attachments[first]
-        i = next(i for i, e in enumerate(s.entries) if e is entry)
-        names = {p["party_id"]: p["name"] for p in s.parties}  # the sheet's own Parties block
-        parties = [{"party_id": p, "name": names[p]} for p in entry.parties if p in names]
         return render(
             request,
             "viewer.html",
-            sheet=s,
+            # an `EntryContext`, not a `DocketSheet`: the template reads `sheet.title` and
+            # `sheet.raw_docket` and nothing else off it, and those are the two fields that
+            # do not cost the whole docket to compute
+            sheet=context,
             entry=entry,
             current=current,
             parties=parties,
-            prev=s.entries[i - 1] if i > 0 else None,
-            next=s.entries[i + 1] if i + 1 < len(s.entries) else None,
+            prev=prev,
+            next=nxt,
             canonical=urls.viewer_path(kind, stb_id),
         )
 
@@ -1912,19 +1912,39 @@ def _record_entry(db_path, kind: str, stb_id: str):
     return got
 
 
-def _record_sheet_and_entry(db_path, kind: str, stb_id: str):
-    """The full sheet and the entry, for the viewer — which needs the entry's neighbours and
-    the sheet's Parties block, so it cannot use the targeted lookup."""
+def _record_entry_and_neighbours(db_path, kind: str, stb_id: str):
+    """Everything the viewer renders, and not one docket's worth more.
+
+    THIS WAS THE LAST PAGE THAT BUILT A WHOLE SHEET TO SHOW ONE RECORD. It needed two things
+    the record page does not — the entry's neighbours, and the names of the parties on it —
+    and took the entire `docket_sheet` to get them, one click from every record page and not
+    disallowed in `robots.txt`. Both now have targeted answers: `sheet.entry_and_neighbours`
+    orders the family from three small queries instead of assembling entries it discards, and
+    its own `party_names` names the two or three components on THIS entry instead of resolving
+    the family's whole Parties block to look them up in it.
+
+    Measured on a production copy, 2026-09-03 (FD 35087, 12,633 entries): `docket_sheet`
+    239 ms, of which the viewer used two fields; the ordering pass reads the same records in
+    8.0 ms. On FD 36873 the Parties block alone was 65.4 ms of a 92.8 ms sheet.
+
+    One connection for all of it, because three sequential opens on a page a crawler walks is
+    the cost this function exists to remove, paid a different way.
+    """
     con = _connect(db_path)
     try:
-        s = sheet.docket_sheet(con, _record_docket(con, kind, stb_id))
+        view = sheet.entry_and_neighbours(con, _record_docket(con, kind, stb_id), kind, stb_id)
     finally:
         con.close()
-    assert s is not None
-    entry = next((e for e in s.entries if e.kind == kind and e.record_id == stb_id), None)
-    if entry is None:
+    if view is None:
         raise HTTPException(404)
-    return s, entry
+    # the entry's own order. A component with no live name renders as `party <id>`, which is
+    # `Components.display_name`'s last resort and is what the sheet's Parties block shows too
+    parties = [
+        {"party_id": p, "name": view.party_names[p]}
+        for p in view.entry.parties
+        if p in view.party_names
+    ]
+    return view.context, view.entry, view.prev, view.next, parties
 
 
 def _comments_numbered(db_path, number: str) -> list:

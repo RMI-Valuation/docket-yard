@@ -20,7 +20,7 @@ recorded in `docs/milestones.md`. Production operations: `infra/deploy/README.md
 | `docs/README.md` | Index of the whole document set, with status per document |
 | `docs/validation-queries.md` | **The five queries the schema must answer.** All five answered on paper 2026-08-25. |
 | `docs/schema-draft.md` | The paper schema the queries were validated against; revision history included |
-| `docs/adr/` | **0001-0015 all Accepted** (0002-0008 and 0010-0015 carry Validation sections); **0016 Accepted** 2026-08-28 (reviewer identity); **0017 and 0018 Accepted** 2026-09-01 — what citation edges ship at (89.3% projected, 98.0% precision) and the five assertion families that hold them; eight items owed at the migration, in 0018 § Owed; **0019 and 0020 Accepted** 2026-09-02 — telemetry and detection, and maintenance mode; both addenda to 0012, which now points at them |
+| `docs/adr/` | **0001-0015 all Accepted** (0002-0008 and 0010-0015 carry Validation sections); **0016 Accepted** 2026-08-28 (reviewer identity); **0017 and 0018 Accepted** 2026-09-01 — what citation edges ship at (89.3% projected, 98.0% precision) and the five assertion families that hold them; eight items owed at the migration, in 0018 § Owed; **0019 and 0020 Accepted** 2026-09-02 — telemetry and detection, and maintenance mode; both addenda to 0012, which now points at them; **0021 and 0022 Accepted** 2026-09-02 — the OCR text grain, and where the record's text lives (a third addendum to 0012). The migration they authorise is scoped in `docs/ocr-migration.md` § Migration A; **0023 Accepted** 2026-09-03 — the render and the engine's NAME in a quoted date's key, and the rebuild that reaches what an ALTER cannot (migration 0019). Its pick rule is RECOMMENDED, not decided: nothing may publish a single decided date until the operator settles it |
 | `docs/stb-data-source.md` | Endpoint mechanics, its silent-failure traps, and every measurement taken |
 | `docs/capability-map.md` | The 28 capabilities. A menu, not a roadmap. |
 | `docs/research/comparable-platforms.md` | What CourtListener, FERC and others solved; what failed and why |
@@ -79,7 +79,9 @@ Also accepted: **0001** (record architecture decisions), **0009** (name and doma
 **0010** (CalVer releases), **0011** (reading is anonymous; an account is an email address),
 **0012** (deployment topology), **0013** (permanent URLs), **0014** (subscriber addresses are
 ciphertext at rest under an operator-held key), **0015** (a party has a permanent address,
-`/p/<id>`, never reused; 301 from folded ids).
+`/p/<id>`, never reused; 301 from folded ids), **0021** (a page's text is one row per reading,
+the render in the key; display is ungated and assertion is gated), **0022** (all of the text
+lives in the store; only the engine payload goes to the blob tier).
 
 ## Rules that are not negotiable
 
