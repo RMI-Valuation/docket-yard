@@ -53,7 +53,10 @@
 -- is not costly, it is refused.
 --
 -- THE ENGINE'S NAME IS IN THE KEY; ITS VERSION IS NOT (ADR 0023 D6, the operator's decision
--- 2026-09-02). 0014 had both as payload on one argument: a re-OCR at a better version must
+-- 2026-09-02, and PUT TO HIM AGAIN 2026-09-03 with the cost stated — that a version bump
+-- reading a date WORSE than its predecessor deletes the better string — and confirmed. The
+-- window is still open until the citator's first load; it is open and declined, not
+-- unexamined). 0014 had both as payload on one argument: a re-OCR at a better version must
 -- MATCH and supersede rather than doubling the live rows over 1,480 of 9,663 image-only
 -- files. That argument is about a VERSION BUMP — one reader improving, so the readings are
 -- ordered and the newer wins — and it is preserved here exactly, because

@@ -133,7 +133,9 @@ INSERT INTO route_class_vocab VALUES
 -- measurement registry is published, which is the LICENCE question in `docs/licensing.md` and
 -- not a schema one, and then rebuilding a published table.
 --
--- WHAT THE CORRECTION PATH COSTS A REVIEWER, recorded rather than fixed. The two welded
+-- WHAT THE CORRECTION PATH COSTS A REVIEWER. Put to the operator 2026-09-03 against the
+-- alternative of splitting the two facts apart, and this is the answer he chose: asked and
+-- settled, not merely unexamined. The two welded
 -- CHECKs below make `page_count` and `had_text_layer` exist together, which was right while
 -- this table was machine-only and is a burden now: a reviewer correcting a page count must
 -- also assert `had_text_layer`, a judgement about junk characters they cannot make from a
@@ -159,6 +161,11 @@ CREATE TABLE document_pagination (
     -- about a page carrying three junk characters — and NOT `page_count`, which is a library
     -- call on bytes that either opened or did not. One row, two derived facts, one number:
     -- read it as the flag's, and read the count's certainty off `outcome`.
+    --
+    -- ONE PAIR AND NOT TWO, put to the operator 2026-09-03 and settled: a second pair would
+    -- be a second thing nothing can ever score, because no state here can say 'measured'
+    -- while the registry that would earn it is withheld. That question comes first; this one
+    -- follows from it.
     confidence      REAL NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
     confidence_state TEXT NOT NULL
                      REFERENCES confidence_state_vocab (confidence_state),
