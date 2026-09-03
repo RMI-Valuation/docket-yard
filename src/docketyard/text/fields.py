@@ -52,6 +52,6 @@ def read_head(path: Path) -> dict:
     with path.open("rb") as f:
         head = f.read(HEAD).decode("utf-8", "replace")
     cut = head.find('"page_text"')
-    if cut < 0:
-        return json.loads(path.read_text(encoding="utf-8"))
+    if cut < 0 or not head[:cut].rstrip().rstrip(",").strip().lstrip("{").strip():
+        return json.loads(path.read_text(encoding="utf-8"))  # no marker, or nothing before it
     return json.loads(head[:cut].rstrip().rstrip(",") + "}")

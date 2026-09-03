@@ -78,7 +78,14 @@ from docketyard.capture import records
 from docketyard.citator import methods
 from docketyard.store import batches, page_index, supersede
 from docketyard.store.db import utcnow
-from docketyard.text.fields import Unreadable, read_head, sha_field, text_field, text_sha256
+from docketyard.text.fields import (
+    HEAD,
+    Unreadable,
+    read_head,
+    sha_field,
+    text_field,
+    text_sha256,
+)
 
 ROLES = ("primary", "second")  # what a model pass may write; 'human' is the review layer's
 RUN_OUTCOMES = ("read", "failed", "skipped")
@@ -277,15 +284,29 @@ def from_extraction(record: dict, payload: bytes) -> Reading:
     return Reading(header, body=(payload, pages_of_extraction(record, header)))
 
 
+def _is_extraction(path: Path) -> bool:
+    """Told from the first 4 KB without parsing: an extraction record's header names its
+    `tool` and never a `reading_role`; a reading document names its role, and its engine
+    payload may say anything — including the string `"page_text"` — so the marker alone
+    cannot decide, and a reading document is never cut at it."""
+    with path.open("rb") as f:
+        head = f.read(HEAD).decode("utf-8", "replace")
+    return '"tool"' in head and '"reading_role"' not in head
+
+
 def read_file(path: Path) -> Reading:
     """One file. An extraction record yields its header from the first 4 KB and its body
-    on demand; a reading document is parsed whole. Either must be filed under its sha."""
-    head = read_head(path)
-    if isinstance(head, dict) and ("page_text" in head or "tool" in head):
-        reading = Reading(header_of_extraction(head), path=path)
+    on demand; a reading document is parsed whole, once. Either must be filed under its
+    sha."""
+    if _is_extraction(path):
+        reading = Reading(header_of_extraction(read_head(path)), path=path)
     else:
         payload = path.read_bytes()
-        reading = from_reading(json.loads(payload), payload)
+        doc = json.loads(payload)
+        if isinstance(doc, dict) and "page_text" in doc:  # a stub, or a record read whole
+            reading = from_extraction(doc, payload)
+        else:
+            reading = from_reading(doc, payload)
     if reading.header.document_sha256 != path.stem:
         raise Unreadable(f"names {reading.header.document_sha256[:12]}, filed as {path.stem[:12]}")
     return reading
@@ -299,18 +320,21 @@ class Live(NamedTuple):
     role: str
     key: Key
     text_sha256: str
+    agreement: tuple  # (against, distance, method, version), or four Nones
 
 
 def _live(con, sha: str) -> tuple[dict[tuple[int, str], Live], dict[tuple[int, Key], Live]]:
     """The document's live rows, once: by (page, role) and by (page, natural key)."""
     by_role: dict[tuple[int, str], Live] = {}
     by_key: dict[tuple[int, Key], Live] = {}
-    for text_id, no, role, m, v, r, digest in con.execute(
+    for text_id, no, role, m, v, r, digest, *agreement in con.execute(
         "SELECT text_id, page_no, reading_role, method, method_version, render_profile,"
-        " text_sha256 FROM document_text WHERE document_sha256 = ? AND superseded_by IS NULL",
+        " text_sha256, agreement_against, agreement_distance, agreement_method,"
+        " agreement_method_version FROM document_text"
+        " WHERE document_sha256 = ? AND superseded_by IS NULL",
         (sha,),
     ):
-        row = Live(text_id, role, Key(m, v, r), digest)
+        row = Live(text_id, role, Key(m, v, r), digest, tuple(agreement))
         by_role[(no, role)] = row
         by_key[(no, row.key)] = row
     return by_role, by_key
@@ -384,15 +408,12 @@ def load_reading(con, data_dir, reading: Reading, now: str | None = None, *, mac
 def _load_page(con, h: Header, page: Page, digest: str, now: str, by_role, by_key) -> int:
     sha, no, role = h.document_sha256, page.page_no, h.reading_role
     holder = by_role.get((no, role))  # the page's live row OF THIS ROLE, whatever its key
-    if holder is not None and holder.key == h.key and holder.text_sha256 == page.text_sha256:
-        return 0  # this pass already said this
     same_key = by_key.get((no, h.key))
     if same_key is not None and (holder is None or same_key.text_id != holder.text_id):
         raise Unreadable(
             f"page {no}: {'/'.join(h.key)} is live as {same_key.role!r}; a reading does not"
             f" change role by being posted again as {role!r}"
         )
-    visible = role == "primary" and (no, "human") not in by_role
     against = None
     if page.agreement is not None:
         primary = by_role.get((no, "primary"))
@@ -405,6 +426,19 @@ def _load_page(con, h: Header, page: Page, digest: str, now: str, by_role, by_ke
                 f" {'/'.join(primary.key)}"
             )
         against = primary.text_id
+    a = page.agreement
+    agreement = (against, a.distance, a.method, a.method_version) if a else (None,) * 4
+    # "this pass already said this" is the TEXT and the AGREEMENT: a second re-posted with
+    # the same text but measured against the page's replacement primary is a new row, or
+    # the live row keeps pointing its distance at the retired one (code review, 2026-09-03)
+    if (
+        holder is not None
+        and holder.key == h.key
+        and holder.text_sha256 == page.text_sha256
+        and holder.agreement == agreement
+    ):
+        return 0
+    visible = role == "primary" and (no, "human") not in by_role
     if holder is not None:
         # CROSS-KEY OR SAME-KEY, the order is the same: retire at itself, insert, repoint —
         # and `superseded_at` in the same statement, or the biconditional refuses it

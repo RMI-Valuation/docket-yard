@@ -482,3 +482,62 @@ def test_the_pass_walks_the_directory_and_the_verb_reports(tmp_path, capsys):
     ns.root = str(tmp_path / "nowhere")
     assert cli._text(ns) == 1
     assert "directory of readings" in capsys.readouterr().out
+
+
+def test_a_second_re_posted_against_the_replacement_primary_is_a_new_row(tmp_path):
+    """Same text, new agreement: the short-circuit that compared text alone kept the live
+    second pointing its distance at the retired primary — the false number on a page the
+    loader's docstring says it refuses."""
+    con = _store(tmp_path)
+    load.load_reading(con, tmp_path, _reading(_ocr(SHA_A)))
+    against = {"method": "dots.mocr", "method_version": "1.5", "render_profile": "150"}
+    second = _ocr(
+        SHA_A,
+        texts=("abandonment in Perry Country",),
+        role="second",
+        method="ppocrv6",
+        method_version="6",
+    )
+    second["pages"][0]["agreement"] = {
+        "distance": 0.04,
+        "method": "d",
+        "method_version": "1",
+        "against": against,
+    }
+    load.load_reading(con, tmp_path, _reading(second))
+    newer = _ocr(SHA_A, texts=("abandonment in Perry County.",), method_version="1.6", ran_at=LATER)
+    load.load_reading(con, tmp_path, _reading(newer))
+    second["pages"][0]["agreement"] = {
+        "distance": 0.05,
+        "method": "d",
+        "method_version": "1",
+        "against": dict(against, method_version="1.6"),
+    }
+    second["ran_at"] = "2026-09-04T00:00:00+00:00"
+    assert load.load_reading(con, tmp_path, _reading(second)) == "loaded"
+    new_primary = con.execute(
+        "SELECT text_id FROM document_text WHERE method_version = '1.6'"
+    ).fetchone()[0]
+    rows = con.execute(
+        "SELECT agreement_against, agreement_distance, superseded_by IS NULL FROM document_text"
+        " WHERE reading_role = 'second' ORDER BY text_id"
+    ).fetchall()
+    assert rows == [(1, 0.04, 0), (new_primary, 0.05, 1)]
+    # and the very same second again is unchanged
+    second["ran_at"] = "2026-09-05T00:00:00+00:00"
+    assert load.load_reading(con, tmp_path, _reading(second)) == "unchanged"
+
+
+def test_a_reading_document_is_parsed_once_and_never_cut_at_a_page_text_string(tmp_path):
+    """The extraction shape is told from the head without parsing; a reading document
+    whose engine payload happens to contain the string "page_text" is not cut there."""
+    root = tmp_path / "text"
+    doc = _ocr(SHA_A) | {"engine": {"note": 'here "page_text" is the engine word for it'}}
+    path = _write(root, doc)
+    assert path.read_text(encoding="utf-8").index("page_text") < 4096
+    reading = load.read_file(path)
+    assert reading.header.key.method == "dots.mocr" and reading.body()[1][0].text
+    # a stub whose FIRST member is page_text is parsed whole, not cut to an empty header
+    rest = {k: v for k, v in _extraction(SHA_B).items() if k != "page_text"}
+    path = _write(root, {"page_text": ["p"], **rest})
+    assert load.read_file(path).header.key.method == "pymupdf"
