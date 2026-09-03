@@ -22,7 +22,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Migration A's SCHEMA is on `main` and undeployed** (PR #20, 2026-09-03): migrations 0018
   and 0019, ADRs 0021–0023 Accepted. Production stays at schema 17 until a deploy is run, and
   that deploy is when the free amendments stop being free. **Left to build**: the loader, the
-  pagination pass, the search wiring, the page-text render (`ocr-migration.md` 11–13, § Search)
+  search wiring, the page-text render (`ocr-migration.md` 11, 13, § Search). The pagination
+  pass landed 2026-09-03 (`docketyard text paginate <root>`) over the extraction directory
+- **`extract_text.py` emits no record for a non-PDF or a failed open**, so `paginate` cannot
+  write `not-paginable`/`failed` rows and the coverage denominator is the paginated set
 - **ADR 0023's pick rule is recommended, not decided** — **nothing may publish a single decided
   date until Cameron settles it**. No consumer needs it yet; `cite.py` sends `decided` to the sheet
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen

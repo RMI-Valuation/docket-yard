@@ -549,6 +549,12 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
   enters `citation_exposed`/`repaired`/`unresolved` although it can never project; a
   document read on both channels queues one question twice. Moot while the CLI refuses
   unranked channels; live for any direct caller.
+- **The channel/measurement agreement is Python, not schema.** Migration 0014 made
+  `(measurement_id, measured_target)` UNIQUE so every assertion table could FK the stage
+  pair; the channel is the same shape of error and is held by `load.WrongChannel` and the
+  CLI. The schema fix is widening that pair to include `reading_channel` and re-pointing
+  the four channel-keyed families' FK — a rebuild of held tables in the 0019 pattern, for
+  Migration B's `assertion_method` rebuild to carry.
 
 ## Found by schema-critic against migration 0018's `document_pagination`, 2026-09-03
 

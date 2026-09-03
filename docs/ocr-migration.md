@@ -137,18 +137,26 @@ citator reads is touched before the citator has run its first real load.
     the whole stack blocks on, and every migration to date runs in one transaction; ~104k
     rows written inside it holds the write lock against `ingest` and Litestream. Batched,
     resumable, committing per document — the shape `docketyard citator load` already has.
+    **Landed 2026-09-03** as `docketyard text paginate <root>` (`docketyard/text/paginate.py`)
+    over the extraction directory `extract_text.py` writes, reading each record's head and
+    never its text; `method` is the tool. A re-run by the same tool that agrees writes
+    nothing; a changed answer or a different tool supersedes with `superseded_at`; a human
+    row is held and counted. The commit is per batch of 200 with a savepoint per document
+    (measured: 1.2 ms a row per-row against 0.028 ms batched), and a store that cannot be
+    written aborts the pass rather than counting each remaining document as failed. It runs
+    on the instance AFTER the deploy that applies 0018: `db.connect` migrates, as every verb
+    does. The extractor emits no record for a non-PDF or a failed open, so `not-paginable`
+    and `failed` wait on it.
 13. **The loader is new**, page-grained and multi-method. It commits per document as the
     citator's does; it **streams** rather than parsing a whole directory into memory; and it
     shares none of `methods.stamp` (raises when a class has no measurement, which is by
     design here), `methods.declare` (its row list is citation-family) or `methods.owner`
-    (hardcodes `target_table = 'citation'`). `load._retire` and `load._supersede_if_changed`
-    are table-agnostic in shape — **but not reusable unmodified**, which migration 0018's
-    header asserts this item already said and it did not. `_retire` writes only
-    `superseded_by`, and both `document_text` (0018) and `decision_decided_date` (0019, ADR
-    0023 D2) carry `CHECK ((superseded_by IS NULL) = (superseded_at IS NULL))`, which refuses
-    that write. Either the helper sets `superseded_at` in the same statement, or the loader
-    does not call it. Reuse the *idiom* — retire at itself, insert, repoint, in one
-    transaction — rather than the function as shipped.
+    (hardcodes `target_table = 'citation'`). **The retire/insert/repoint helpers moved to
+    `store/supersede.py` on 2026-09-03** — `retire(..., at=)` and `if_changed(...,
+    retire_at=)` write `superseded_at` in the same statement when asked, so the
+    biconditional both `document_text` (0018) and `decision_decided_date` (0019, ADR 0023
+    D2) carry no longer refuses them; `text/paginate.py` is the first caller outside the
+    citator. Pass `retire_at`: without it the write is refused, which is the right failure.
 14. **Escalation is an operator-triggered CLI verb**, not an automatic stage — the operator's
     decision, 2026-09-02. A paid third reading is a pass with its own method and version,
     recorded in `ocr_run` like any other. No standing spend, and no authenticated surface

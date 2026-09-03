@@ -7,7 +7,9 @@ per document:
       "document_sha256": "<64 hex>",       the CITING DOCUMENT: bytes, never a record row
       "method": "regex-docket-cite",       who found these
       "method_version": "2026-08-30",
-      "reading_channel": "text-layer",     FK reading_vocab
+      "reading_channel": "text-layer",     FK reading_vocab; REQUIRED, because the channel
+                                           is in every key below (ADR 0018 D3) and a default
+                                           would claim the text layer for an OCR reading
       "reading_method": null,              the OCR engine, and its version, when the channel
       "reading_method_version": null,      is 'ocr' — payload, never key (ADR 0018 D3)
       "pages_read": 33,                    so "read and found nothing" is not "not yet read"
@@ -30,6 +32,7 @@ construction.
 from dataclasses import dataclass, field
 
 from docketyard.citator import judge, keys, methods, resolve
+from docketyard.store import supersede
 from docketyard.store.db import dump_json, utcnow
 
 
@@ -74,50 +77,6 @@ def _live_citation(con, sha: str, page: int, key: str):
     ).fetchone()
 
 
-def _retire(con, table: str, id_col: str, row_id: int) -> None:
-    """0006_parties.sql's order, forced by the partial live index: retire the old row by
-    pointing it at ITSELF so the replacement can take the key, then repoint it once the new
-    id exists. Inserting first fails, because for that instant two rows on one key would be
-    live. The caller holds the transaction — a crash between the two steps leaves a
-    self-pointer that cannot be told apart from a deliberate retirement."""
-    con.execute(f"UPDATE {table} SET superseded_by = ? WHERE {id_col} = ?", (row_id, row_id))
-
-
-def _supersede_if_changed(
-    con,
-    *,
-    table: str,
-    id_col: str,
-    where: str,
-    where_args: tuple,
-    compare: str,
-    values: tuple,
-    insert: str,
-    insert_args: tuple,
-) -> bool:
-    """Write an assertion only if it says something the live row does not. Returns True when
-    a row was written.
-
-    The alternative — `INSERT OR IGNORE` on the live key — keeps the FIRST answer for ever,
-    and for a target the registry did not yet hold the first answer is `unresolved`. Waves
-    2-3 are still adding dockets, so that would quietly cap what the citator can ever show.
-    """
-    live = con.execute(
-        f"SELECT {id_col}, {compare} FROM {table} WHERE {where} AND superseded_by IS NULL",
-        where_args,
-    ).fetchone()
-    if live is not None and tuple(live[1:]) == tuple(values):
-        return False  # the same answer, already asserted at this method and version
-    if live is not None:
-        _retire(con, table, id_col, live[0])
-    cur = con.execute(insert, insert_args)
-    if live is not None:
-        con.execute(
-            f"UPDATE {table} SET superseded_by = ? WHERE {id_col} = ?", (cur.lastrowid, live[0])
-        )
-    return True
-
-
 def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
     """One findings document, through citation_key and the four live families.
 
@@ -133,7 +92,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
     that promise is kept.
     """
     sha = doc["document_sha256"]
-    channel = doc.get("reading_channel", methods.CHANNEL_TEXT)
+    channel = doc.get("reading_channel")  # no default: a document that does not say is refused
     method, version = doc["method"], doc["method_version"]
     now = utcnow()
     out = Loaded(document_sha256=sha)
@@ -141,25 +100,33 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
     # THE CHANNEL IS VALIDATED FIRST, because the store's own checks come too late: a
     # document carrying `"reading_channel": null` reaches `citation_reading`'s NOT NULL
     # only after the identity row is written, and `'human'` is legal in `reading_vocab`
-    # but is never what a model pass read from. And a NULL would pass the `<>` below.
+    # but is never what a model pass read from. A MISSING key is refused the same way — a
+    # default here would write an OCR finder's rows as text-layer, stamped `measured` from
+    # the text-layer figure, which is the violation this guard exists to close.
     machine = methods.machine_channels(con)
     if channel not in machine:
         raise WrongChannel(
             f"{sha[:12]} says reading_channel {channel!r}; a model pass reads on one of"
             f" {sorted(machine)}"
         )
-    # THE STAMPS MUST BE OF THIS DOCUMENT'S CHANNEL, checked against the measurement rows
-    # themselves and not against whatever the caller believes it asked `stamp` for. The
-    # CLI refuses a batch that mixes channels; this is the guard that holds when the loader
-    # is called from anywhere else, and it is what stops a text-layer precision being
-    # written onto OCR rows as `measured` (ADR 0017 D3). Three rowid lookups, against a
-    # per-document commit: not the cost in this loop.
-    ids = [measurement_id for measurement_id, _precision in stamps.values()]
-    borrowed = con.execute(
+    # THE STAMPS MUST BE WHOLE AND OF THIS DOCUMENT'S CHANNEL, checked against the
+    # measurement rows themselves and not against whatever the caller believes it asked
+    # `stamp` for. The CLI refuses a batch that mixes channels; this is the guard that holds
+    # when the loader is called from anywhere else, and it is what stops a text-layer
+    # precision being written onto OCR rows as `measured` (ADR 0017 D3). Three rowid
+    # lookups per document, against a commit: not the cost in this loop.
+    missing = [stage for stage in methods.STAGES if stage not in stamps]
+    if missing:
+        raise methods.Unscored(f"the stamps carry no {missing}; a row of each is written")
+    ids = sorted({stamps[stage][0] for stage in methods.STAGES})
+    found = con.execute(
         "SELECT measured_target, reading_channel FROM class_measurement"
-        f" WHERE measurement_id IN ({','.join('?' for _ in ids)}) AND reading_channel <> ?",
-        (*ids, channel),
+        f" WHERE measurement_id IN ({','.join('?' for _ in ids)})",
+        ids,
     ).fetchall()
+    if len(found) != len(ids):
+        raise methods.Unscored("the stamps point at measurements the store does not hold")
+    borrowed = [(stage, c) for stage, c in found if c != channel]
     if borrowed:
         raise WrongChannel(
             f"{sha[:12]} was read on channel {channel!r} but the stamps for"
@@ -255,7 +222,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
             continue
         else:
             if live is not None:
-                _retire(con, "citation", "citation_id", live[0])
+                supersede.retire(con, "citation", "citation_id", live[0])
             cur = con.execute(
                 "INSERT INTO citation (citing_document, page, target_kind, target_key,"
                 " asserted_from_document, method, method_version, asserted_at, confidence,"
@@ -277,7 +244,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
             (sha, page, key, channel),
         ).fetchone()
         if old_reading:
-            _retire(con, "citation_reading", "reading_id", old_reading[0])
+            supersede.retire(con, "citation_reading", "reading_id", old_reading[0])
         new_reading = con.execute(
             "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
             " reading_channel, reading_method, reading_method_version, cited_raw,"
@@ -315,7 +282,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
         # it unresolved, resolve it later" would have had no later. Instead the live row is
         # compared and superseded when the ANSWER changed.
         r = resolve.resolve(key, held)
-        _supersede_if_changed(
+        supersede.if_changed(
             con,
             table="citation_resolution",
             id_col="resolution_id",
@@ -360,7 +327,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
         # outcome is identical either way: an unmeasured judgement is filtered out of the
         # projection's candidate set, `sp.value` is NULL, and the default suppresses.
         names = judge.names_document(passage)
-        _supersede_if_changed(
+        supersede.if_changed(
             con,
             table="citation_judgement",
             id_col="judgement_id",
@@ -412,7 +379,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
         # `false` rows already carry. The projection reads this row WITHOUT the confidence
         # predicate in any case: it suppresses, and a suppressor filtered out of the
         # candidate set is silently inert (ADR 0018 D7, on the on-page veto).
-        _supersede_if_changed(
+        supersede.if_changed(
             con,
             table="citation_judgement",
             id_col="judgement_id",
@@ -457,7 +424,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
         # test's own figure), so keeping both is what makes a disagreement visible. Nothing
         # reads it yet; the projection's document-versus-proceeding term is the span test.
         if kinds.get((page, key)) in ("citation", "caption"):
-            _supersede_if_changed(
+            supersede.if_changed(
                 con,
                 table="citation_judgement",
                 id_col="judgement_id",

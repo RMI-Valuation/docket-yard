@@ -357,9 +357,11 @@ def _citator(args: argparse.Namespace) -> int:
     for path in batch:
         try:
             doc = json.loads(path.read_text(encoding="utf-8"))
-            for required in ("document_sha256", "method", "method_version"):
+            for required in ("document_sha256", "method", "method_version", "reading_channel"):
                 if not doc[required]:
                     raise KeyError(required)
+                if not isinstance(doc[required], str):
+                    raise TypeError(f"{required} is not a string")
         except (ValueError, KeyError, TypeError, OSError) as e:
             print(f"  skipped {path.name}: {type(e).__name__} {e}")
             unreadable += 1
@@ -374,10 +376,7 @@ def _citator(args: argparse.Namespace) -> int:
     # part of the same key: the stamps are taken once per batch and a measurement is of one
     # channel (ADR 0018 D8), so a text-layer document beside an OCR document would leave
     # the second stamped with the first's precision.
-    passes = {
-        (d["method"], d["method_version"], d.get("reading_channel", methods.CHANNEL_TEXT))
-        for _, d in docs
-    }
+    passes = {(d["method"], d["method_version"], d["reading_channel"]) for _, d in docs}
     if len(passes) > 1:
         print(f"refused: the batch mixes {sorted(passes, key=str)} — one pass per load")
         return 1
@@ -394,20 +393,22 @@ def _citator(args: argparse.Namespace) -> int:
         # carries no precision, which is what a row is stamped with.
         stamps = methods.stamp(con, channel=channel)
         methods.declare(con, version, extractor=method)
+        # A MEASURED CHANNEL NOBODY HAS RANKED stores rows the projection drops on its
+        # channel joins, with this verb exiting 0 and `extraction_run` saying "read". That
+        # is not ADR 0017 D3's "stored and unprojected" — that phrase is for the UNMEASURED —
+        # so it is refused here, symmetrically with `Unscored`, and BEFORE the commit: a
+        # refused load must leave no declaration behind, or the next load at the rightful
+        # owner meets `Conflict` for a pass that never ran. `declare` ranks the text layer
+        # only; a rank for another channel is a new rank_version (ADR 0018 D7), a decision.
+        if not methods.ranked(con, channel):
+            raise methods.Unscored(
+                f"no resolver and span test are ranked on channel {channel!r}"
+                " — nothing loaded here could project"
+            )
         con.commit()
     except (methods.Unscored, methods.Conflict) as e:
+        con.rollback()
         print(f"refused: {e}")
-        return 1
-    # A MEASURED CHANNEL NOBODY HAS RANKED stores rows the projection drops on its channel
-    # join, with this verb exiting 0 and `extraction_run` saying "read". That is not ADR
-    # 0017 D3's "stored and unprojected" — that phrase is for the UNMEASURED — so it is
-    # refused here, symmetrically with `Unscored`. `declare` ranks the text layer only; a
-    # rank for another channel is a new rank_version (ADR 0018 D7), which is a decision.
-    if not methods.ranked(con, channel):
-        print(
-            f"refused: no resolver is ranked on channel {channel!r} — nothing loaded here"
-            " could project"
-        )
         return 1
 
     held = keys.registry(con)
@@ -447,6 +448,48 @@ def _search_rebuild(args: argparse.Namespace) -> int:
 
 def _vault_new_key(args: argparse.Namespace) -> int:
     print(vault.Vault.new_key())
+    return 0
+
+
+def _text(args: argparse.Namespace) -> int:
+    """The record's own text (ADR 0021, 0022; migration 0018): the passes that fill it.
+
+    `paginate` is the first, and it runs HERE and not inside `migrate` (ocr-migration.md
+    item 12): a pass over every held document, committing per batch of 200 so the write
+    lock is held for tens of milliseconds at a time and a kill loses one batch.
+
+    THE EXIT STATUS IS FOR A CRON. 0 means every record met its document and the store
+    took it; 1 names why not — the store refused a document, the store could not be
+    written, or nothing was attached (a wrong `--db`, an empty root), which is not a
+    success just because the loop ran.
+    """
+    from docketyard.text import paginate
+
+    root = Path(args.root)
+    if not root.is_dir():
+        print(f"refused: {root} is not a directory of extraction records")
+        return 1
+    con = db.connect(args.db)
+    totals = paginate.run(con, root)
+    print(dict(totals))
+    attached = sum(totals[k] for k in paginate.ATTACHED)
+    if totals["aborted"]:
+        print("aborted: the store could not be written; re-run when it is free")
+        return 1
+    if totals["failed"]:
+        print(f"the store refused {totals['failed']} document(s); see the lines above")
+        return 1
+    if not attached:
+        if totals["unknown_document"]:
+            print(
+                f"refused: none of {totals['unknown_document']} record(s) names a document"
+                " this store holds — is --db the right store?"
+            )
+        elif totals["unreadable"]:
+            print(f"refused: {totals['unreadable']} record(s) found and none readable")
+        else:
+            print("refused: no extraction record under that root")
+        return 1
     return 0
 
 
@@ -639,6 +682,11 @@ def main(argv: list[str] | None = None) -> int:
     dc.add_argument("--docket", type=int, help="for `corrected`: the docket it corrects to")
     dc.set_defaults(func=_citator)
 
+    tx = sub.add_parser("text", help="the record's own text (ADR 0021, 0022; migration 0018)")
+    tx_sub = tx.add_subparsers(dest="what", required=True)
+    pg = tx_sub.add_parser("paginate", help="one page count per document, from the extraction")
+    pg.add_argument("root", help="the extraction directory: <root>/<xx>/<sha>.json")
+    pg.set_defaults(func=_text)
     se = sub.add_parser("search", help="the search index (docs/search.md)")
     se_sub = se.add_subparsers(dest="what", required=True)
     se_sub.add_parser("rebuild", help="rebuild the index from the store").set_defaults(

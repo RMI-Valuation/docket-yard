@@ -509,8 +509,8 @@ def test_a_primary_may_not_carry_a_band(tmp_path):
 
 
 def test_supersession_columns_travel_together(tmp_path):
-    """The CHECK that makes `citator.load._retire` unusable here as shipped: it writes
-    `superseded_by` alone."""
+    """The CHECK that made the citator's retire helper unusable here as first shipped (it
+    wrote `superseded_by` alone); `store.supersede.retire` takes `at` for it now."""
     con = _store(tmp_path)
     row = _reading(con)
     with pytest.raises(sqlite3.IntegrityError):

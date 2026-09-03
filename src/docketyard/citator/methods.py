@@ -172,24 +172,34 @@ def machine_channels(con) -> set[str]:
     return {
         c
         for (c,) in con.execute(
-            "SELECT reading_channel FROM reading_vocab WHERE reading_channel <> 'human'"
+            "SELECT reading_channel FROM reading_vocab WHERE reading_channel <> ?", (HUMAN,)
         )
     }
 
 
 def ranked(con, channel: str, *, rank_version: str = RANK_VERSION) -> bool:
-    """Whether any resolver is ranked on this channel. The projection INNER-joins every
-    resolution and judgement to its rank row ON THE CHANNEL, so a channel with no rank row
-    stores rows that can never reach a page — silently, with the load exiting 0. `declare`
-    ranks the text layer only (RANKS); ranking OCR is a new `rank_version`, not a default."""
+    """Whether the projection could show an edge read on this channel: a resolver ranked
+    on it AND the span test ranked on it, because `project._TERMS` INNER-joins BOTH
+    `citation_resolution` and `citation_judgement` to their rank rows on the channel, and
+    an in-family edge whose span judgement has no rank row is suppressed by default. A
+    channel with neither, or with one, stores rows no page can show — silently, with the
+    load exiting 0. `declare` ranks the text layer only (RANKS and the span row); ranking
+    OCR is a new `rank_version`, not a default."""
     return (
         con.execute(
-            "SELECT 1 FROM assertion_method WHERE target_table = 'citation_resolution'"
-            " AND role = 'resolve' AND reading_channel = ? AND rank_version = ? LIMIT 1",
-            (channel, rank_version),
-        ).fetchone()
-        is not None
+            "SELECT EXISTS (SELECT 1 FROM assertion_method"
+            "   WHERE target_table = 'citation_resolution' AND role = 'resolve'"
+            "     AND reading_channel = ? AND rank_version = ?)"
+            " AND EXISTS (SELECT 1 FROM assertion_method"
+            "   WHERE target_table = 'citation_judgement' AND method = ?"
+            "     AND reading_channel = ? AND rank_version = ?)",
+            (channel, rank_version, SPAN_METHOD, channel, rank_version),
+        ).fetchone()[0]
+        == 1
     )
+
+
+STAGES = ("citation", "citation_resolution", "projection")  # every row is stamped from one
 
 
 class Unscored(RuntimeError):
@@ -199,7 +209,7 @@ class Unscored(RuntimeError):
 
 def stamp(
     con,
-    stages=("citation", "citation_resolution", "projection"),
+    stages=STAGES,
     cls="docket",
     *,
     channel: str = CHANNEL_TEXT,
