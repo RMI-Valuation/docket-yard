@@ -12,22 +12,22 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   separated in migration 0016's header, which is the one to quote
 - **The citator is in production at schema 17 and has never run a real load.** Nothing in
   the code blocks it; the first load is Cameron's to start
-- **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not
-  in the record" display joining live `citation`; the veto's trigger. More in `deferred.md`
+- **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not in
+  the record" display joining live `citation`; the veto's trigger. More in `deferred.md`
 - **Drain closed**: 121 unfetched, every one a genuine refusal resting 7 days. **The class
   behind them is open** — an unanswered attempt leaves no capture. Cameron's (`deferred.md`)
-- **The viewer's O(docket) read is fixed, uncommitted** (2026-09-03): `entry_and_neighbours`
-  is 10.7x on FD 35087 (224→21 ms), same order at every sampled position. **Cameron's**:
-  whether `/view` 301s to `/filing/<id>` (ADR 0013)
+- **Cameron's**: whether `/view` 301s to `/filing/<id>` (ADR 0013). The O(docket) read is gone
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
   heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
 - **`methods.stamp()` has no channel term** — the first OCR-channel citator load would stamp
   text-layer measurements onto OCR rows and publish them. A live ADR 0017 D3 violation
   waiting for a load that has not happened; fix before any OCR pass runs
-- **Migration A** is the work — four tables, search on its own path, a page-grained address
-  (`ocr-migration.md`); schema-critic before the tables exist, then ultra. **ADR 0023 Accepted
-  2026-09-03**; its pick rule is recommended, not decided, and **nothing may publish a single
-  decided date until Cameron settles it** — no consumer needs it yet
+- **Migration A's SCHEMA is on `main` and undeployed** (PR #20, 2026-09-03): migrations 0018
+  and 0019, ADRs 0021–0023 Accepted. Production stays at schema 17 until a deploy is run, and
+  that deploy is when the free amendments stop being free. **Left to build**: the loader, the
+  pagination pass, the search wiring, the page-text render (`ocr-migration.md` 11–13, § Search)
+- **ADR 0023's pick rule is recommended, not decided** — **nothing may publish a single decided
+  date until Cameron settles it**. No consumer needs it yet; `cite.py` sends `decided` to the sheet
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
   sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
