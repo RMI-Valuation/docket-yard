@@ -21,9 +21,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
 - **Migration A's SCHEMA is on `main` and undeployed** (PR #20, 2026-09-03): migrations 0018
   and 0019, ADRs 0021–0023 Accepted. Production stays at schema 17 until a deploy is run, and
-  that deploy is when the free amendments stop being free. **Left to build**: the loader, the
-  search wiring, the page-text render (`ocr-migration.md` 11, 13, § Search). The pagination
-  pass landed 2026-09-03 (`docketyard text paginate <root>`) over the extraction directory
+  that deploy is when the free amendments stop being free. **Left to build**: the search
+  wiring and the page-text render (`ocr-migration.md` 11, § Search). `text paginate` and
+  `text load` landed 2026-09-03 over the extraction directory; nothing has run them
 - **`extract_text.py` emits no record for a non-PDF or a failed open**, so `paginate` cannot
   write `not-paginable`/`failed` rows and the coverage denominator is the paginated set
 - **ADR 0023's pick rule is recommended, not decided** — **nothing may publish a single decided

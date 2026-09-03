@@ -147,8 +147,9 @@ citator reads is touched before the citator has run its first real load.
     on the instance AFTER the deploy that applies 0018: `db.connect` migrates, as every verb
     does. The extractor emits no record for a non-PDF or a failed open, so `not-paginable`
     and `failed` wait on it.
-13. **The loader is new**, page-grained and multi-method. It commits per document as the
-    citator's does; it **streams** rather than parsing a whole directory into memory; and it
+13. **The loader is new**, page-grained and multi-method. It commits per batch with a
+    savepoint per document (`store/batches.py`); it **streams** rather than parsing a whole
+    directory into memory; and it
     shares none of `methods.stamp` (raises when a class has no measurement, which is by
     design here), `methods.declare` (its row list is citation-family) or `methods.owner`
     (hardcodes `target_table = 'citation'`). **The retire/insert/repoint helpers moved to
@@ -157,6 +158,17 @@ citator reads is touched before the citator has run its first real load.
     biconditional both `document_text` (0018) and `decision_decided_date` (0019, ADR 0023
     D2) carry no longer refuses them; `text/paginate.py` is the first caller outside the
     citator. Pass `retire_at`: without it the write is refused, which is the right failure.
+    **Landed 2026-09-03** as `docketyard text load <root>` (`docketyard/text/load.py`): one
+    reading per file, page by page; the extraction record is the text layer's reading and a
+    general reading document is the OCR pass's (its shape is the module's docstring); the
+    file itself is the payload, content-addressed into the blob tier and recorded in
+    `text_payload`; a primary of another key is displaced cross-key with `superseded_at`;
+    `page_fts` is kept in step (`store/page_index.py`, one definition for every writer);
+    `ocr_run` appends on `ran_at`, and an existing run row is the restart check — one
+    lookup, the body unread. An agreement names the primary it was measured against, by
+    key, and is refused when the live primary differs. The loop is `store/batches.py`,
+    shared with `paginate`. Not here: the human writer's half of the index obligation
+    (Migration B), and `search_meta.page_built` (item 11).
 14. **Escalation is an operator-triggered CLI verb**, not an automatic stage — the operator's
     decision, 2026-09-02. A paid third reading is a pass with its own method and version,
     recorded in `ocr_run` like any other. No standing spend, and no authenticated surface

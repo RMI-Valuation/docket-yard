@@ -454,25 +454,29 @@ def _vault_new_key(args: argparse.Namespace) -> int:
 def _text(args: argparse.Namespace) -> int:
     """The record's own text (ADR 0021, 0022; migration 0018): the passes that fill it.
 
-    `paginate` is the first, and it runs HERE and not inside `migrate` (ocr-migration.md
-    item 12): a pass over every held document, committing per batch of 200 so the write
-    lock is held for tens of milliseconds at a time and a kill loses one batch.
+    `paginate` and `load` both run HERE and not inside `migrate` (ocr-migration.md items
+    12-13), through `store.batches`: one document at a time, committed per batch, so the
+    write lock is held for tens of milliseconds at a time and a kill loses one batch.
 
     THE EXIT STATUS IS FOR A CRON. 0 means every record met its document and the store
     took it; 1 names why not — the store refused a document, the store could not be
     written, or nothing was attached (a wrong `--db`, an empty root), which is not a
     success just because the loop ran.
     """
-    from docketyard.text import paginate
+    from docketyard.text import load, paginate
 
+    pass_ = load if args.what == "load" else paginate
     root = Path(args.root)
     if not root.is_dir():
-        print(f"refused: {root} is not a directory of extraction records")
+        print(f"refused: {root} is not a directory of {pass_.NOUN}s")
         return 1
     con = db.connect(args.db)
-    totals = paginate.run(con, root)
+    if pass_ is load:
+        totals = load.run(con, root, args.data_dir)
+    else:
+        totals = paginate.run(con, root)
     print(dict(totals))
-    attached = sum(totals[k] for k in paginate.ATTACHED)
+    attached = sum(totals[k] for k in pass_.ATTACHED)
     if totals["aborted"]:
         print("aborted: the store could not be written; re-run when it is free")
         return 1
@@ -482,13 +486,13 @@ def _text(args: argparse.Namespace) -> int:
     if not attached:
         if totals["unknown_document"]:
             print(
-                f"refused: none of {totals['unknown_document']} record(s) names a document"
-                " this store holds — is --db the right store?"
+                f"refused: none of {totals['unknown_document']} {pass_.NOUN}(s) names a"
+                " document this store holds — is --db the right store?"
             )
         elif totals["unreadable"]:
-            print(f"refused: {totals['unreadable']} record(s) found and none readable")
+            print(f"refused: {totals['unreadable']} {pass_.NOUN}(s) found and none readable")
         else:
-            print("refused: no extraction record under that root")
+            print(f"refused: no {pass_.NOUN} under that root")
         return 1
     return 0
 
@@ -687,6 +691,9 @@ def main(argv: list[str] | None = None) -> int:
     pg = tx_sub.add_parser("paginate", help="one page count per document, from the extraction")
     pg.add_argument("root", help="the extraction directory: <root>/<xx>/<sha>.json")
     pg.set_defaults(func=_text)
+    ld = tx_sub.add_parser("load", help="one reading per file into document_text, page by page")
+    ld.add_argument("root", help="the readings directory: <root>/<xx>/<sha>.json")
+    ld.set_defaults(func=_text)
     se = sub.add_parser("search", help="the search index (docs/search.md)")
     se_sub = se.add_subparsers(dest="what", required=True)
     se_sub.add_parser("rebuild", help="rebuild the index from the store").set_defaults(

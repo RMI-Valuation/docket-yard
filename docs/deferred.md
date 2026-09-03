@@ -556,6 +556,23 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
   the four channel-keyed families' FK — a rebuild of held tables in the 0019 pattern, for
   Migration B's `assertion_method` rebuild to carry.
 
+## Found 2026-09-03, code review on the pagination pass and the loader (unreleased)
+
+- **`citator load` still runs its own loop.** `store/batches.py` was hoisted for the two
+  text passes; the citator's loop in `cli._citator` commits per document (the measured
+  1.2 ms a row) and counts an `OperationalError` per document — the wait-fail-count-for-hours
+  shape `batches` exists to refuse. Folding it needs `load.Loaded` mapped to an outcome word.
+- **`page_index.visible` infers, it does not record.** Whether a primary is in `page_fts`
+  is read off the display view's rule as it stands, so a human row inserted without
+  `leave(primary)` leaves the index holding text the view no longer shows and the loader
+  cannot tell. The review layer's human writer (Migration B) owes `leave`/`enter`; until
+  then a hand-written human row owes them by hand.
+- **A batch aborted after `save_blob` leaves its readings' files under `blobs/`** with no
+  `text_payload` row, shipped by the sync and never pruned. Bounded by one batch and
+  re-derived to the same address on the re-run; an orphan audit must join `text_payload`.
+- **`ATTACHED`/`NOUN` per pass are the exit-status contract**, read by `cli._text`; a new
+  outcome word in a pass that is not added to its `ATTACHED` exits 1 on a successful run.
+
 ## Found by schema-critic against migration 0018's `document_pagination`, 2026-09-03
 
 - **Four tables may be held for no reason anyone weighed, and unholding them would restore a
