@@ -10,7 +10,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 - **The figures: 94.7% projected / 97.7% precision, 93.3% to a reader.** Three causes,
   separated in migration 0016's header, which is the one to quote
-- **The citator is in production at schema 17 and has never run a real load.** Nothing in
+- **The citator is in production at schema 19 and has never run a real load.** Nothing in
   the code blocks it; the first load is Cameron's to start
 - **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not in
   the record" display joining live `citation`; the veto's trigger. More in `deferred.md`
@@ -18,11 +18,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   behind them is open** — an unanswered attempt leaves no capture. Cameron's (`deferred.md`)
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
   heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
-- **Migration A's SCHEMA is on `main` and undeployed** (PR #20, 2026-09-03): migrations 0018
-  and 0019, ADRs 0021–0023 Accepted. Production stays at schema 17 until a deploy is run, and
-  that deploy is when the free amendments stop being free. **Left**: the page search path
-  (`Hit` lacks label/band/scan link). `text paginate`/`load`, the split signature and
-  `/filing/<id>/text` landed 2026-09-03; the extractor must re-run at v2 (stubs); unrun
+- **Migration A is deployed** (v2026.09.2, 2026-09-03, schema 19; PRs #20–22): its tables
+  are empty until the passes run, and the passes wait for the resize (`ocr-migration.md` 16)
+  and the extractor's v2 re-run on the box. **Left**: the page search path (`Hit` lacks
+  label/band/scan link)
 - **ADR 0023's pick rule is decided (2026-09-03): compare values** — publish only when every
   live reading agrees. No consumer built yet; `cite.py` sends `decided` to the sheet unchanged
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
