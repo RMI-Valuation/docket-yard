@@ -272,8 +272,10 @@ def _plain(text: str) -> str:
 # as a set, because migration 0018 gave both tables a `review_target_vocab` row: excluding one
 # would leave the other. `page_signature()` below is where they count.
 PAGE_TABLES = ("document_text", "document_pagination")
-_NOT_PAGES = "target_table NOT IN (" + ",".join("?" for _ in PAGE_TABLES) + ")"
-_PAGES = "target_table IN (" + ",".join("?" for _ in PAGE_TABLES) + ")"
+# the predicates, with their placeholders derived from the set — bind PAGE_TABLES to either.
+# `web/app.py`'s validators import these rather than spelling the marks out (bughunter, 2026-09-03)
+NOT_PAGES = "target_table NOT IN (" + ",".join("?" for _ in PAGE_TABLES) + ")"
+IN_PAGES = "target_table IN (" + ",".join("?" for _ in PAGE_TABLES) + ")"
 
 # The page index's format: the display view IS the rule (migration 0018), so the view's
 # version belongs here, and a change to what the view shows is a change to what search
@@ -292,7 +294,7 @@ def signature(con: Connection) -> str:
             "SELECT (SELECT MAX(event_id) FROM event), (SELECT MAX(name_id) FROM party_name),"
             " (SELECT MAX(link_id) FROM filing_party_link),"
             " (SELECT MAX(edge_id) FROM party_relationship),"
-            f" (SELECT MAX(correction_id) FROM correction WHERE {_NOT_PAGES}),"
+            f" (SELECT MAX(correction_id) FROM correction WHERE {NOT_PAGES}),"
             " (SELECT COUNT(*) FROM party_name WHERE superseded_by IS NOT NULL),"
             " (SELECT COUNT(*) FROM filing_party_link WHERE superseded_by IS NOT NULL),"
             " (SELECT COUNT(*) FROM filing_party_span WHERE superseded_by IS NOT NULL),"
@@ -312,7 +314,7 @@ def page_signature(con: Connection) -> str:
         for v in con.execute(
             "SELECT (SELECT MAX(text_id) FROM document_text),"
             " (SELECT COUNT(*) FROM document_text WHERE superseded_by IS NOT NULL),"
-            f" (SELECT MAX(correction_id) FROM correction WHERE {_PAGES})",
+            f" (SELECT MAX(correction_id) FROM correction WHERE {IN_PAGES})",
             PAGE_TABLES,
         ).fetchone()
     )

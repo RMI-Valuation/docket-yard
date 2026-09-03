@@ -126,6 +126,13 @@ VIEWABLE_KINDS = ("filing", "decision")
 PAGINABLE = {"pdf"}  # what the text passes read: a page count and a text layer come from a PDF
 
 
+def text_index(entry) -> int | None:
+    """The first file the text page can show, or None — the gate for offering the text
+    page at all. A static property of the file list, so a page validated by `stamp()` may
+    read it without depending on the page tables (docs/deferred.md, 2026-09-03)."""
+    return pick(entry, 0, PAGINABLE)
+
+
 def pick(entry, file: int, kinds) -> int | None:
     """The attachment `?file=N` means — or the first of the wanted kinds, or None. ONE rule
     for the viewer (`INLINE`) and the text page (`PAGINABLE`), so `?file=N` names the same

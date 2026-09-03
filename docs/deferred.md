@@ -604,3 +604,24 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
   **The operator's, and one-way in one direction only**: held can become public later, public
   cannot become held, so deferring costs nothing and acting is irreversible. Recorded because
   it was suggested and not taken, not because it should be.
+
+## Found by the cloud bughunter review, 2026-09-03 (branch `migration-a-passes`, unreleased)
+
+Twenty-eight agents over the five commits since `682fe97`; the run hit its wall clock with
+four confirmed, all nits, three reported and one dropped by its quality cap. Nothing blocking.
+
+- **"The text" is offered for records whose only viewable file is a JPG.** `record.html`
+  gates the button on `viewable_index`, whose set is `INLINE = {pdf, jpg}`; the text route
+  picks from `PAGINABLE = {pdf}`. `viewer.html` links the text page unconditionally. A
+  JPG-only record shows the affordance and lands on the "not a kind whose text is read"
+  fallback. Gate both on a PAGINABLE pick — a static property of the file list, so it does
+  not run into the `stamp()` rule the item above records.
+- **`_page` accepts a bool as `agreement.distance`.** `load.py` checks the distance with a
+  bare `isinstance(x, int | float)`; every other numeric field in the loader (`page_no`,
+  `engine_confidence`, `pages_failed`) pairs it with a bool guard. A JSON `true` passes and
+  is stored as `1.0`, inside the CHECK's range, shown to a reader as a band operand.
+- **`_STAMP_TERMS` spells out `NOT IN (?, ?)`** where `search._NOT_PAGES` derives its
+  placeholders from `PAGE_TABLES`. Both `stamp()` and `page_stamp()` bind the tuple into the
+  two literal marks, so the page-tier table Migration B adds (the `PAGE_TABLES` item above)
+  would raise a binding-count error on every reader page until both sites agree. Derive the
+  placeholders once, in `search`, and import them.

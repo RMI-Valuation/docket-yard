@@ -22,7 +22,7 @@
     <p class="small muted">The Board publishes this comment in its environmental-comment table for this proceeding. It is quoted here as printed; nothing is inferred from it, and it states the commenter's own position in their own words, not this record's.</p>
   {% endif %}
   <p>
-    {% set v = viewable_index(entry) %}{% if v is not none %}<a class="btn" href="{{ viewer_path(entry.kind, entry.record_id, v) }}">Read it here</a> <a class="btn" href="{{ text_path(entry.kind, entry.record_id) }}">The text</a> {% endif %}
+    {% set v = viewable_index(entry) %}{% if v is not none %}<a class="btn" href="{{ viewer_path(entry.kind, entry.record_id, v) }}">Read it here</a> {% endif %}{% set t = text_index(entry) %}{% if t is not none %}<a class="btn" href="{{ text_path(entry.kind, entry.record_id, t) }}">The text</a> {% endif %}
     {% for a in entry.attachments %}<a class="btn" href="{{ a.url }}">{{ a.label or 'The Board’s own file' }} ↓</a> {% endfor %}
   </p>
   <p class="small muted">Permanent address <span class="mono">docketyard.org{{ entry_path(entry.kind, entry.record_id, entry.docket_raw) }}</span>{% for a in entry.attachments if a.document_sha256 %}<br>File <span class="mono">docketyard.org{{ document_path(a.document_sha256, a.media_type) }}</span>{% endfor %} · <a href="{{ docket_path(identity) }}">back to the docket sheet</a></p>

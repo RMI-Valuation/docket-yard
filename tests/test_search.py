@@ -306,6 +306,16 @@ def test_a_page_text_correction_moves_neither_the_record_index_nor_the_site_etag
     assert client.get("/").headers["etag"] != etag
 
 
+def test_the_validators_derive_their_placeholders_from_the_page_set():
+    """A page-tier table added to PAGE_TABLES must not raise a binding-count error on every
+    reader page: the marks are derived once, in `search`, and the web tier imports them."""
+    from docketyard.web import app
+
+    assert search.NOT_PAGES in app._STAMP_TERMS
+    assert search.NOT_PAGES.count("?") == len(search.PAGE_TABLES)
+    assert search.IN_PAGES.count("?") == len(search.PAGE_TABLES)
+
+
 def test_the_page_index_has_its_own_signature_build_and_rebuild(tmp_path):
     """Two indexes sharing one signature means either rebuilds the other (migration 0018).
     The page signature moves on a new reading, on a supersession (the view changes with no

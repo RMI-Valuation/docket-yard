@@ -133,6 +133,17 @@ def test_the_extraction_record_is_the_text_layers_reading():
     assert pages[0].text_sha256 == hashlib.sha256(b"abandonment in Perry County").hexdigest()
 
 
+def _second_with_distance(distance):
+    doc = _ocr(SHA_A, role="second")
+    doc["pages"][0]["agreement"] = {
+        "distance": distance,
+        "method": "d",
+        "method_version": "1",
+        "against": {"method": "dots.mocr", "method_version": "1.5", "render_profile": "150"},
+    }
+    return doc
+
+
 def test_a_reading_is_validated_and_never_guessed():
     second = _ocr(SHA_A, role="second")
     second["pages"][0]["agreement"] = {"distance": 0.1, "method": "d", "method_version": "1"}
@@ -147,6 +158,7 @@ def test_a_reading_is_validated_and_never_guessed():
         _ocr(SHA_A) | {"pages": [{"page_no": 1, "text": "a"}]},  # no member path
         _ocr(SHA_A, texts=("\ud83d",)),  # a lone surrogate: JSON permits it, UTF-8 cannot hold it
         _ocr(SHA_A) | {"outcome": "ok"},
+        _second_with_distance(True),  # a JSON true is not a distance
         _ocr(SHA_A) | {"pages_failed": -1},
         {k: v for k, v in _ocr(SHA_A).items() if k != "payload_kind"},  # the shape is not a guess
         second,  # an agreement that does not name what it was measured against

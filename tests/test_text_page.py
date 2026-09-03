@@ -215,6 +215,14 @@ def test_only_a_pdf_is_a_text_pages_file_and_the_viewer_agrees_on_which(tmp_path
     html = client.get("/filing/311981/text").text
     assert "not a kind whose text is read" in html and "no text is read from it" in html
     assert 'href="/filing/311981/view"' not in html  # no scan of a spreadsheet
+    # and the record page and the viewer do not offer the text of a file that has none:
+    # a JPG is viewable but not paginable, so the affordance is gated on the text's own set
+    con = db.connect(path)
+    con.execute("UPDATE document SET media_type = 'jpg' WHERE document_sha256 = ?", (sha,))
+    con.commit()
+    con.close()
+    assert 'href="/filing/311981/text"' not in client.get("/filing/311981").text
+    assert 'href="/filing/311981/text"' not in client.get("/filing/311981/view").text
 
 
 def test_a_record_with_no_file_or_no_reading_still_has_a_page(tmp_path):

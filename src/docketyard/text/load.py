@@ -216,7 +216,8 @@ def _page(d, i: int, header: Header) -> Page:
         raise Unreadable(f"page {no}: engine_confidence is {conf!r}")
     agreement = None
     if (a := d.get("agreement")) is not None:
-        if not isinstance(a, dict) or not isinstance(a.get("distance"), int | float):
+        dist = a.get("distance") if isinstance(a, dict) else None
+        if isinstance(dist, bool) or not isinstance(dist, int | float):  # a JSON true is 1
             raise Unreadable(f"page {no}: agreement is not {{distance, method, ..., against}}")
         if not isinstance(a.get("against"), dict):
             raise Unreadable(f"page {no}: an agreement names the primary it was measured against")

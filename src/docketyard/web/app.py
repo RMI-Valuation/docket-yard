@@ -81,7 +81,7 @@ DISCOVERY_CACHE = 86400  # robots and sitemaps: a day
 _STAMP_TERMS = (
     "(SELECT MAX(capture_id) FROM capture), (SELECT MAX(event_id) FROM event),"
     " (SELECT MAX(edge_id) FROM party_relationship),"
-    " (SELECT MAX(correction_id) FROM correction WHERE target_table NOT IN (?, ?)),"
+    f" (SELECT MAX(correction_id) FROM correction WHERE {search.NOT_PAGES}),"
     " (SELECT build FROM search_meta WHERE key = 'built')"
 )
 
@@ -280,6 +280,7 @@ def create_app(
         entry_viewer_path=urls.entry_viewer_path,
         document_path=urls.document_path,
         viewable_index=documents.viewable_index,
+        text_index=documents.text_index,
         explainer_path=urls.explainer_path,
         parse_docket_id=parse_docket_id,
         kind_label=labels.kind_label,
