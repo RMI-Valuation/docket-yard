@@ -530,3 +530,21 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
   snapshot IS — a readable artefact at a pinned schema, or a store the code will migrate —
   and `dump.py`'s docstring currently implies the second ("a restored copy is at the release's
   schema and `docketyard search rebuild` remakes it").
+
+## Found by schema-critic against migration 0018's `document_pagination`, 2026-09-03
+
+- **Four tables may be held for no reason anyone weighed, and unholding them would restore a
+  real foreign key.** `dump.py` classifies "the citator block (migration 0014)" wholesale, so
+  `reading_vocab`, `measured_target_vocab`, `class_vocab` and `class_measurement` are HELD.
+  `docs/licensing.md` names entity resolution, the carrier registry, the citation graph,
+  classifications and extracted deadlines — **it does not name the measurement registry**,
+  whose contents (recall, precision, benchmark date, score file) the site already publishes
+  verbatim on `/methodology` and in ADR 0017 § The figures. The cost of the current
+  classification is concrete: `document_pagination` cannot point at `class_measurement` to earn
+  `'measured'` and `ocr_run.reading_channel` is a CHECK where the house idiom wants a foreign
+  key, both because a PUBLISHED table may not reference a HELD one. The four move together or a
+  new dangler appears (`class_measurement` references the other two).
+
+  **The operator's, and one-way in one direction only**: held can become public later, public
+  cannot become held, so deferring costs nothing and acting is irreversible. Recorded because
+  it was suggested and not taken, not because it should be.
