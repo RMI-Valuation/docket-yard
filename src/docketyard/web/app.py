@@ -292,20 +292,43 @@ def create_app(
     def stamp() -> str:
         """The store's version as one cheap number: the newest capture and event ids. Every
         reader page is a function of the store, so this is a valid validator for all of
-        them — and it costs two primary-key lookups, not a render."""
+        them — and it costs a few primary-key lookups, not a render.
+
+        NOT the page-text tables. A correction to one page's text, or one page count, is a
+        change to that page's text render and nothing else (ocr-migration.md item 11);
+        counted here it would invalidate every cached page site-wide. `page_stamp` carries
+        those terms for the routes that show page text."""
         con = _connect(db_path)
         try:
             c, e, r, k, s = con.execute(
                 "SELECT (SELECT MAX(capture_id) FROM capture), (SELECT MAX(event_id) FROM event),"
                 " (SELECT MAX(edge_id) FROM party_relationship),"
-                " (SELECT MAX(correction_id) FROM correction),"
-                " (SELECT build FROM search_meta WHERE key = 'built')"
+                " (SELECT MAX(correction_id) FROM correction WHERE target_table NOT IN (?, ?)),"
+                " (SELECT build FROM search_meta WHERE key = 'built')",
+                search.PAGE_TABLES,
             ).fetchone()
         finally:
             con.close()
         # an operator's join or unjoin (ADR 0015) moves addresses without a capture, and a
         # search rebuild changes result pages: both are part of the version
         return f"{c or 0}.{e or 0}.{r or 0}.{k or 0}.{s or 0}"
+
+    def page_stamp() -> str:
+        """`stamp` plus the page-text terms, for a route that renders page text: the newest
+        reading, the retired count (a supersession moves the display with no newer id), the
+        newest page-text correction, and the page index's build."""
+        con = _connect(db_path)
+        try:
+            t, d, k, b = con.execute(
+                "SELECT (SELECT MAX(text_id) FROM document_text),"
+                " (SELECT COUNT(*) FROM document_text WHERE superseded_by IS NOT NULL),"
+                " (SELECT MAX(correction_id) FROM correction WHERE target_table IN (?, ?)),"
+                " (SELECT build FROM search_meta WHERE key = 'page_built')",
+                search.PAGE_TABLES,
+            ).fetchone()
+        finally:
+            con.close()
+        return f"{stamp()}.{t or 0}.{d or 0}.{k or 0}.{b or 0}"
 
     @app.middleware("http")
     async def http_hygiene(request: Request, call_next):

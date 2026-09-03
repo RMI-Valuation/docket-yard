@@ -446,6 +446,11 @@ def _search_rebuild(args: argparse.Namespace) -> int:
     return 0
 
 
+def _search_rebuild_pages(args: argparse.Namespace) -> int:
+    print(search.rebuild_pages(db.connect(args.db), force=args.force))
+    return 0
+
+
 def _vault_new_key(args: argparse.Namespace) -> int:
     print(vault.Vault.new_key())
     return 0
@@ -696,6 +701,9 @@ def main(argv: list[str] | None = None) -> int:
     ld.set_defaults(func=_text)
     se = sub.add_parser("search", help="the search index (docs/search.md)")
     se_sub = se.add_subparsers(dest="what", required=True)
+    rp = se_sub.add_parser("rebuild-pages", help="the page index, whole, from the display view")
+    rp.add_argument("--force", action="store_true", help="even when its signature is unchanged")
+    rp.set_defaults(func=_search_rebuild_pages)
     se_sub.add_parser("rebuild", help="rebuild the index from the store").set_defaults(
         func=_search_rebuild
     )

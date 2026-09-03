@@ -101,6 +101,10 @@ citator reads is touched before the citator has run its first real load.
     effect, and `search.py:279` / `app.py:301` both read the max unfiltered. So the second
     remedy above is not enough as written — excluding one table would leave the other. Either
     split the signature, or exclude by a SET of table names and keep it beside this item.
+    **Landed 2026-09-03**: `search.PAGE_TABLES` is the set; `signature()` and the web tier's
+    `stamp()` exclude corrections naming it, and the page index has `page_signature()`,
+    `page_built`, `rebuild_pages()` (`search rebuild-pages`) and `page_stamp()` for the
+    text render's validator.
 
 ## The review vocabulary, without importing the queue
 
@@ -129,7 +133,8 @@ citator reads is touched before the citator has run its first real load.
   so it would neither rebuild for a new reading nor notice one; and `search_meta` keys its
   build on the single row `'built'`. The page index needs both of its own — and because
   the indexed view *is* ADR 0021 D9's display rule, that rule's version belongs in the
-  signature.
+  signature. **Landed 2026-09-03** (`PAGE_INDEX_FORMAT = 'display@0018'`). The page-grained
+  address and `Hit`'s extension above are still owed.
 
 ## The passes
 
