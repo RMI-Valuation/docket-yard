@@ -7,7 +7,7 @@ What this record is: the Board's docket search, captured every thirty minutes{% 
 
 What this record is not: it does not say what any party argued or supports, it does not summarise or interpret a document, and it is not the Board. A procedural filing takes no position regardless of who filed it. When you quote this record, quote the coverage caveat with it and link the Board's file.
 
-Addresses are permanent (ADR 0013): a docket is /d/FD-36873, a sub-docket /d/FD-36873/sub/1, a filing /filing/<id>, a decision /decision/<id>, a party /p/<id>, a document /document/<sha256>.pdf. Append .json to a docket, filing or decision address for the same record as data. Licence: the raw index is CC0 1.0; the party layer is held pending review.
+Addresses are permanent (ADR 0013): a docket is /d/FD-36873, a sub-docket /d/FD-36873/sub/1, a filing /filing/<id>, a decision /decision/<id>, a party /p/<id>, a document /document/<sha256>.pdf. Append .json to a docket, filing or decision address for the same record as data. Licence: the raw index is CC0 1.0; the party layer and the machine-read page text (/filing/<id>/text, /decision/<id>/text) are held pending review.
 
 ## Read the record
 

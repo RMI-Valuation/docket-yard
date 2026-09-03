@@ -136,9 +136,10 @@ HELD_TABLES: tuple[str, ...] = (
     "decision_work",
 )
 HELD_REASON = (
-    "The party module (entity resolution, aliases, successions) and the citator (citation"
-    " edges, their readings, resolutions and judgements) are derived work whose licence"
-    " awaits review; they are withheld until then, not dedicated by default."
+    "The party module (entity resolution, aliases, successions), the citator (citation"
+    " edges, their readings, resolutions and judgements) and the machine-read text of the"
+    " record's documents (every reading, its payload and its index) are derived work whose"
+    " licence awaits review; they are withheld until then, not dedicated by default."
 )
 PUBLIC_TABLES = frozenset(
     {

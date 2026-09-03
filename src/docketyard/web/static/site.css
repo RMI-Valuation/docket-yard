@@ -60,6 +60,11 @@ main { padding: 0 56px; }
 .viewer-rail { display: grid; gap: 20px; align-content: start; }
 .viewer-rail h1 { font-size: 26px; margin: 4px 0 6px; }
 .viewer-fallback { margin-top: 8px; }
+.pages { display: grid; gap: 28px; align-content: start; }
+.page-heading { font-size: 15px; margin: 0 0 4px; }
+.page-heading .anchor { color: var(--muted); text-decoration: none; margin-left: 6px; }
+.page-label { margin: 0 0 8px; }
+.page-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.45; margin: 0; padding: 12px; border: 1px solid var(--hair); border-radius: 4px; background: var(--paper); }
 .entry-links .view { margin-right: 8px; text-decoration: underline; }
 /* two icons, two meanings: a page with text reads it here, a tray-and-arrow fetches the
    Board's own file. Sized and spaced as touch targets, not decorations. */

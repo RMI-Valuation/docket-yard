@@ -122,7 +122,17 @@ citator reads is touched before the citator has run its first real load.
 - **A page-grained permanent address.** The viewer is `/decision/<id>/view` and
   `/filing/<id>/view`, whole-document; ADR 0021 D7 needs a per-page address carrying the
   text, the label, the band, the scan link and the report control. Under ADR 0013 that is
-  a permanent URL and therefore a commitment.
+  a permanent URL and therefore a commitment. **Landed 2026-09-03 as `/filing/<id>/text`
+  and `/decision/<id>/text`** (the operator's address): ONE address per record with
+  `?file=N` for a further attachment and `#p<n>` per page — not one address per page,
+  because 1.1M page addresses against 74k records is a crawler's address space, and a
+  crawler walking one is this site's one real outage. Each read page carries its text,
+  the label (the publisher's text layer, read once; or the engine, version, render and
+  route), the band's OPERAND where a second reading exists (D8: the distance, its method
+  and version, never a threshold nobody has decided), the scan and the report link; a page
+  in the count with no reading says "not yet read"; a human row is labelled and dated. Its
+  validator is `page_stamp`. Held from the dedication with the party module in
+  `robots.txt`; not in the sitemap. `store/pages.py` is the read side.
 - **Its own query path, and `search.Hit` extended.** `Hit` carries `kind, path, title,
   fact, caption, snippet` — no engine, no version, no band, no scan link. Until it carries
   them, no OCR text may reach `/search`, `/suggest` or `web/mcp.py`'s `_search`, which

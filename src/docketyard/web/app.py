@@ -64,6 +64,7 @@ from docketyard.store import (
     stats,
     traffic,
 )
+from docketyard.store import pages as store_pages
 from docketyard.store.db import MIGRATIONS, dump_json, utcnow
 from docketyard.web import cite, documents, feeds, labels, mcp, review_routes, sitemaps, urls
 
@@ -75,6 +76,23 @@ NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/metrics", "/suggest", 
 # tokens, consent, and the one signed-in surface
 MOUNTS = ("/static/", "/data/files/")  # StaticFiles: streams, validates and HEADs itself
 DISCOVERY_CACHE = 86400  # robots and sitemaps: a day
+
+# the store's version, as `stamp` reads it; `page_stamp` appends one document's terms
+_STAMP_TERMS = (
+    "(SELECT MAX(capture_id) FROM capture), (SELECT MAX(event_id) FROM event),"
+    " (SELECT MAX(edge_id) FROM party_relationship),"
+    " (SELECT MAX(correction_id) FROM correction WHERE target_table NOT IN (?, ?)),"
+    " (SELECT build FROM search_meta WHERE key = 'built')"
+)
+
+
+def _self_validated(path: str) -> bool:
+    """The page-text routes compute their own validator (`page_stamp`); the middleware's
+    site-wide one can never match theirs, so running it there is a wasted store read."""
+    parts = path.split("/")
+    return len(parts) == 4 and parts[1] in ("filing", "decision") and parts[3] == "text"
+
+
 PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move once a poll
 # outside intake is GitHub Issues (CLAUDE.md); the form template carries the fields
 CORRECTIONS_URL = (
@@ -257,6 +275,7 @@ def create_app(
         party_feed_path=urls.party_feed_path,
         record_path=urls.record_path,
         viewer_path=urls.viewer_path,
+        text_path=urls.text_path,
         entry_path=urls.entry_path,  # a sheet entry's address, whatever kind it is
         entry_viewer_path=urls.entry_viewer_path,
         document_path=urls.document_path,
@@ -289,6 +308,11 @@ def create_app(
             headers=PUBLIC_CACHE,
         )
 
+    def _matches(request: Request, etag: str) -> bool:
+        """Whether the client already holds this version: one parse of If-None-Match."""
+        sent = request.headers.get("if-none-match")
+        return bool(sent) and etag in [v.strip() for v in sent.split(",")]
+
     def stamp() -> str:
         """The store's version as one cheap number: the newest capture and event ids. Every
         reader page is a function of the store, so this is a valid validator for all of
@@ -297,38 +321,42 @@ def create_app(
         NOT the page-text tables. A correction to one page's text, or one page count, is a
         change to that page's text render and nothing else (ocr-migration.md item 11);
         counted here it would invalidate every cached page site-wide. `page_stamp` carries
-        those terms for the routes that show page text."""
+        those terms for the routes that show page text, and no other route reads the page
+        tables — a page that did would answer 304 with a pre-load rendering."""
         con = _connect(db_path)
         try:
-            c, e, r, k, s = con.execute(
-                "SELECT (SELECT MAX(capture_id) FROM capture), (SELECT MAX(event_id) FROM event),"
-                " (SELECT MAX(edge_id) FROM party_relationship),"
-                " (SELECT MAX(correction_id) FROM correction WHERE target_table NOT IN (?, ?)),"
-                " (SELECT build FROM search_meta WHERE key = 'built')",
-                search.PAGE_TABLES,
-            ).fetchone()
+            row = con.execute(f"SELECT {_STAMP_TERMS}", search.PAGE_TABLES).fetchone()
         finally:
             con.close()
         # an operator's join or unjoin (ADR 0015) moves addresses without a capture, and a
         # search rebuild changes result pages: both are part of the version
-        return f"{c or 0}.{e or 0}.{r or 0}.{k or 0}.{s or 0}"
+        return ".".join(str(v or 0) for v in row)
 
-    def page_stamp() -> str:
-        """`stamp` plus the page-text terms, for a route that renders page text: the newest
-        reading, the retired count (a supersession moves the display with no newer id), the
-        newest page-text correction, and the page index's build."""
-        con = _connect(db_path)
-        try:
-            t, d, k, b = con.execute(
-                "SELECT (SELECT MAX(text_id) FROM document_text),"
-                " (SELECT COUNT(*) FROM document_text WHERE superseded_by IS NOT NULL),"
-                " (SELECT MAX(correction_id) FROM correction WHERE target_table IN (?, ?)),"
-                " (SELECT build FROM search_meta WHERE key = 'page_built')",
-                search.PAGE_TABLES,
-            ).fetchone()
-        finally:
-            con.close()
-        return f"{stamp()}.{t or 0}.{d or 0}.{k or 0}.{b or 0}"
+    def page_stamp(con, sha: str) -> str:
+        """`stamp` plus ONE DOCUMENT's page-text terms, on the route's own connection: its
+        newest live reading and how many are live (a retirement with no newer id — a human
+        row withdrawn — moves the count), its live pagination row, the corrections naming
+        its text or its count, and the page index's build. Per document, because a count
+        of every retired row in the table is a full scan of ~1.1M text-bearing rows on
+        every request, 304s included (code review, 2026-09-03, measured); every term here is
+        served by the partial live indexes or a primary key."""
+        row = con.execute(
+            f"SELECT {_STAMP_TERMS},"
+            " (SELECT MAX(text_id) FROM document_text"
+            "   WHERE document_sha256 = ? AND superseded_by IS NULL),"
+            " (SELECT COUNT(*) FROM document_text"
+            "   WHERE document_sha256 = ? AND superseded_by IS NULL),"
+            " (SELECT MAX(pagination_id) FROM document_pagination"
+            "   WHERE document_sha256 = ? AND superseded_by IS NULL),"
+            " (SELECT MAX(correction_id) FROM correction"
+            "   WHERE (target_table = 'document_text' AND target_key GLOB ?)"
+            "      OR (target_table = 'document_pagination' AND target_key IN"
+            "          (SELECT CAST(pagination_id AS TEXT) FROM document_pagination"
+            "            WHERE document_sha256 = ?))),"
+            " (SELECT build FROM search_meta WHERE key = 'page_built')",
+            (*search.PAGE_TABLES, sha, sha, sha, f"{sha}/*", sha),
+        ).fetchone()
+        return ".".join(str(v or 0) for v in row)
 
     @app.middleware("http")
     async def http_hygiene(request: Request, call_next):
@@ -384,10 +412,10 @@ def create_app(
             response = await call_next(request)
             response.headers["Cache-Control"] = "no-store"
             return response
+        if _self_validated(path):
+            return await call_next(request)  # the route's validator is its own; see page_stamp
         etag = f'W/"{stamp()}"'
-        if request.headers.get("if-none-match") and etag in [
-            v.strip() for v in request.headers["if-none-match"].split(",")
-        ]:
+        if _matches(request, etag):
             return Response(status_code=304, headers={"ETag": etag})
         response = await call_next(request)
         if response.status_code == 200 and "etag" not in response.headers:
@@ -430,7 +458,15 @@ def create_app(
         # whose rules hand it over anyway would be a promise contradicted by its own file.
         # It stays readable to people and to ordinary crawlers — this is about the
         # dedication, not secrecy.
-        held = ["Disallow: /p/", "Disallow: /parties"]
+        # and the page text: derived work held from the dedication with the party module
+        # (ADR 0022 D3), so the permission that hands over the raw index does not hand it
+        # over. Readable by people and ordinary crawlers, as the party pages are.
+        held = [
+            "Disallow: /p/",
+            "Disallow: /parties",
+            "Disallow: /filing/*/text",
+            "Disallow: /decision/*/text",
+        ]
         for agent in AI_AGENTS:
             lines += [f"User-agent: {agent}", *disallow, *held, ""]
         lines += [
@@ -439,8 +475,9 @@ def create_app(
             "#",
             "# AI crawlers are welcome, and training on the raw index is permitted: it is",
             "# dedicated to the public domain under CC0 1.0. No permission or attribution",
-            "# is needed. The party module (/p/, /parties) is held back from that",
-            "# dedication pending a licence review, so it is disallowed above for the",
+            "# is needed. The party module (/p/, /parties) and the machine-read page",
+            "# text (/filing/<id>/text, /decision/<id>/text) are held back from that",
+            "# dedication pending a licence review, so they are disallowed above for the",
             "# agents named here — readable by people, not offered for training.",
             "#",
             "# If you answer questions from this record, please carry what a reader would",
@@ -1847,16 +1884,8 @@ def create_app(
 
     def viewer(request: Request, kind: str, stb_id: str, file: int):
         context, entry, prev, nxt, parties = _record_entry_and_neighbours(db_path, kind, stb_id)
-        first = documents.viewable_index(entry)
-        current = None
-        if first is not None:
-            pick = entry.attachments[file] if 0 <= file < len(entry.attachments) else None
-            asked = (
-                pick
-                if pick and pick.document_sha256 and pick.media_type in documents.INLINE
-                else None
-            )
-            current = asked or entry.attachments[first]
+        index = documents.pick(entry, file, documents.INLINE)
+        current = entry.attachments[index] if index is not None else None
         return render(
             request,
             "viewer.html",
@@ -1879,6 +1908,60 @@ def create_app(
     @app.get("/filing/{stb_id}/view")
     def filing_viewer(request: Request, stb_id: str, file: int = 0):
         return viewer(request, "filing", stb_id, file)
+
+    def text_page(request: Request, kind: str, stb_id: str, file: int):
+        """The record's text, page by page (ADR 0021 D7): every read page shows its text,
+        labelled with who read it and how, the scan one click away, a way to report a
+        misreading, and the band's operand where there is one (D8). Display is the view's
+        rule (D9); nothing here is asserted, and nothing here reaches search.
+
+        ONE ADDRESS PER RECORD, `#p<n>` per page — `urls.text_path` says why. ONE
+        CONNECTION for the record, the validator and the pages, and the 304 is answered
+        before a page of text is read. The record's entry is read WITHOUT its neighbours:
+        this page is one click from every record page, so it costs what the record page
+        costs, plus the document's own rows.
+        """
+        con = _connect(db_path)
+        try:
+            got = sheet.one_entry(con, _record_docket(con, kind, stb_id), kind, stb_id)
+            if got is None:
+                raise HTTPException(404)
+            context, entry = got
+            index = documents.pick(entry, file, documents.PAGINABLE)
+            current = entry.attachments[index] if index is not None else None
+            sha = current.document_sha256 if current else ""
+            etag = f'W/"{page_stamp(con, sha)}"'
+            if _matches(request, etag):
+                return Response(status_code=304, headers={"ETag": etag})
+            pages = store_pages.readings(con, sha) if current else []
+            count = store_pages.pagination(con, sha) if current else None
+        finally:
+            con.close()
+        by_page = {p.page_no: p for p in pages}
+        last = max(max(by_page, default=0), (count.page_count or 0) if count else 0)
+        response = render(
+            request,
+            "text.html",
+            sheet_title=context.title,
+            entry=entry,
+            current=current,
+            index=index or 0,
+            rows=[(n, by_page.get(n)) for n in range(1, last + 1)],
+            read=len(pages),
+            pagination=count,
+            canonical=urls.text_path(kind, stb_id, index or 0),
+        )
+        response.headers["ETag"] = etag
+        response.headers["Cache-Control"] = f"public, max-age={PAGE_CACHE}"
+        return response
+
+    @app.get("/decision/{stb_id}/text")
+    def decision_text(request: Request, stb_id: str, file: int = 0):
+        return text_page(request, "decision", stb_id, file)
+
+    @app.get("/filing/{stb_id}/text")
+    def filing_text(request: Request, stb_id: str, file: int = 0):
+        return text_page(request, "filing", stb_id, file)
 
     # `/review` last, so its `/{queue}` catch-all cannot shadow a named route above it, and
     # in its own module because its rules are not this one's (ADR 0016).

@@ -572,6 +572,20 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
   re-derived to the same address on the re-run; an orphan audit must join `text_payload`.
 - **`ATTACHED`/`NOUN` per pass are the exit-status contract**, read by `cli._text`; a new
   outcome word in a pass that is not added to its `ATTACHED` exits 1 on a successful run.
+- **`search.PAGE_TABLES` is a literal list**, not derived from `review_target_vocab`: a
+  page-tier table Migration B adds a correction path for is counted against the record
+  index and the site-wide ETag again until it is added here, and its page keeps its old
+  validator. A test asserting the set against the vocabulary would need "page-tier" named
+  somewhere the schema can read.
+- **The text page renders a document whole.** The mean is ~15 pages; the tail (EIS volumes,
+  merger applications) runs to hundreds, ~2-4 MB of HTML per request at 300 s cache life.
+  A bounded window without new addresses is a query address family (`?from=`), which is the
+  address-space question the one-address rule was adopted against — the operator's.
+- **The record page and the viewer link the text page unconditionally**, never on whether
+  readings exist: `stamp()` no longer moves on the page tables, so a link conditioned on
+  them would answer 304 with the pre-load rendering. Nothing under `stamp()` may read them.
+- **Item 22's methodology entry** (the per-tier error rate and the born-digital caveat) is
+  still owed; the page's sentence on document text was corrected, the entry was not added.
 
 ## Found by schema-critic against migration 0018's `document_pagination`, 2026-09-03
 
