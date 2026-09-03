@@ -398,3 +398,12 @@ single-valued on two axes, so a document can carry two decided dates that disagr
 rule that resolves them is recommended here and not decided, and until it is, nothing may
 publish a single decided date; and the engine's VERSION stays out of the key, so a re-OCR at a
 better version of one engine still replaces the quotation it read before.*
+
+## Addendum (2026-09-03): the pick rule, decided
+
+The operator settled the rule this record recommended and did not decide: **compare
+values.** A single decided date publishes only when every live reading of it agrees; a
+disagreement publishes nothing and is queued for a person. Readers are not ranked against
+each other for this purpose. No consumer needs the rule yet — `cite.py` sends `decided` to
+the sheet unchanged — so nothing publishes a single decided date today; when something
+does, this is the rule it implements, with its method and version on the row.

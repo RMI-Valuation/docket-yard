@@ -16,18 +16,15 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   the record" display joining live `citation`; the veto's trigger. More in `deferred.md`
 - **Drain closed**: 121 unfetched, every one a genuine refusal resting 7 days. **The class
   behind them is open** — an unanswered attempt leaves no capture. Cameron's (`deferred.md`)
-- **Cameron's**: whether `/view` 301s to `/filing/<id>` (ADR 0013). The O(docket) read is gone
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
   heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
 - **Migration A's SCHEMA is on `main` and undeployed** (PR #20, 2026-09-03): migrations 0018
   and 0019, ADRs 0021–0023 Accepted. Production stays at schema 17 until a deploy is run, and
   that deploy is when the free amendments stop being free. **Left**: the page search path
-  (`Hit` lacks label/band/scan link) and the published pages (`ocr-migration.md` 21–26).
-  `text paginate`/`load`, the split signature, `/filing/<id>/text` landed 2026-09-03; unrun
-- **`extract_text.py` emits no record for a non-PDF or a failed open**, so `paginate` cannot
-  write `not-paginable`/`failed` rows and the coverage denominator is the paginated set
-- **ADR 0023's pick rule is recommended, not decided** — **nothing may publish a single decided
-  date until Cameron settles it**. No consumer needs it yet; `cite.py` sends `decided` to the sheet
+  (`Hit` lacks label/band/scan link). `text paginate`/`load`, the split signature and
+  `/filing/<id>/text` landed 2026-09-03; the extractor must re-run at v2 (stubs); unrun
+- **ADR 0023's pick rule is decided (2026-09-03): compare values** — publish only when every
+  live reading agrees. No consumer built yet; `cite.py` sends `decided` to the sheet unchanged
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
   sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions

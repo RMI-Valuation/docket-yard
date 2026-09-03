@@ -250,6 +250,12 @@ def header_of_extraction(record: dict) -> Header:
     extraction's name for itself (`text-layer`), which is the channel."""
     if not isinstance(record, dict):
         raise Unreadable("not a JSON object")
+    # extract_text.py v2 writes a stub with `outcome` for a file it read nothing from: a
+    # non-PDF (`not-paginable`) or a PDF that would not open (`failed`). Its run is recorded
+    # as `skipped` or `failed`; it has no pages.
+    outcome = {"not-paginable": "skipped", "failed": "failed"}.get(
+        record.get("outcome", "paginated"), "read"
+    )
     return Header(
         sha_field(record),
         Key(
@@ -260,7 +266,7 @@ def header_of_extraction(record: dict) -> Header:
         "text-layer",
         "primary",
         text_field(record, "extracted_at"),
-        "read",
+        outcome,
         0,
         "extract_text.json",
     )
@@ -268,6 +274,8 @@ def header_of_extraction(record: dict) -> Header:
 
 def pages_of_extraction(record: dict, header: Header) -> tuple[Page, ...]:
     texts = record.get("page_text") if isinstance(record, dict) else None
+    if texts is None and header.outcome != "read":
+        return ()  # a stub: the extractor saw the file and read nothing (extract_text.py v2)
     if not isinstance(texts, list) or not all(isinstance(t, str) for t in texts):
         raise Unreadable("page_text is not a list of strings")
     return tuple(
@@ -292,7 +300,7 @@ def _is_extraction(path: Path) -> bool:
     cannot decide, and a reading document is never cut at it."""
     with path.open("rb") as f:
         head = f.read(HEAD).decode("utf-8", "replace")
-    return '"tool"' in head and '"reading_role"' not in head
+    return '"tool"' in head and '"reading_role"' not in head  # a stub has `"tool"` too
 
 
 def read_file(path: Path) -> Reading:

@@ -105,3 +105,13 @@ a sub-address of a record that already exists and adds no class; unlike the view
 named there) and is not listed in the sitemap. Its validator is the document's own
 (`page_stamp`), so a corrected page moves that page and nothing else. What the page says
 about a misreading and `/corrections` is `docs/ocr-migration.md` item 26, undecided.
+
+## Addendum (2026-09-03): the viewer address retires into the record
+
+Decided by the operator, put as a question once the O(docket) read behind the viewer was
+gone: **the record page carries the frame.** `/filing/{id}` and `/decision/{id}` show the
+record's file beside the record, with `?file=N` picking among several and `#file` landing on
+the frame; `/filing/{id}/view` and `/decision/{id}/view` answer **301** to that, carrying
+`?file=N`, because a permanent address never dies. What the viewer showed and the record
+page does not — the neighbours on the sheet, the follow form — is the sheet's; the text page
+keeps its scan link, which now lands on the record.

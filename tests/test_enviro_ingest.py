@@ -769,8 +769,8 @@ def test_a_sheet_entry_is_addressed_by_its_kind_in_one_place():
     # a docket that will not parse is not a reason to raise inside a link
     assert urls.entry_path("comment", "EI-34280", "not a docket") == "/comment/EI-34280"
     # and the neighbour link: the file when there is one, the record when there is not
-    assert urls.entry_viewer_path("filing", "311981", "FD_36873", 0) == "/filing/311981/view"
-    assert urls.entry_viewer_path("filing", "311981", "FD_36873", 2) == "/filing/311981/view?file=2"
+    assert urls.entry_viewer_path("filing", "311981", "FD_36873", 0) == "/filing/311981#file"
+    assert urls.entry_viewer_path("filing", "311981", "FD_36873", 2) == "/filing/311981?file=2#file"
     assert urls.entry_viewer_path("filing", "311981", "FD_36873", None) == "/filing/311981"
     # `viewable_index` answers None for every comment (it has no viewer page), so a
     # comment always leaves through `entry_path` — never `/comment/EI-34280/view`

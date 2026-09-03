@@ -118,12 +118,18 @@ def headers_for(sha256: str, ext: str) -> tuple[str, dict[str, str]]:
     }
 
 
-# kinds with a /view route. A comment has none — it is addressed at /comment/<number> and
-# links the Board's own file — so the rule lives HERE rather than at each call site: the
-# sheet, the record page and the viewer's own prev/next all ask this one function, and
-# guarding them one at a time is how the third one gets missed (code review, 2026-08-31).
+# kinds whose record page shows the file in a frame. A comment's does not — it is addressed
+# at /comment/<number> and links the Board's own file — so the rule lives HERE rather than
+# at each call site: the sheet, the record page and the text page all ask this one function,
+# and guarding them one at a time is how the third one gets missed (code review, 2026-08-31).
 VIEWABLE_KINDS = ("filing", "decision")
 PAGINABLE = {"pdf"}  # what the text passes read: a page count and a text layer come from a PDF
+
+
+def has_frame(entry) -> bool:
+    """Whether the record's page shows a file in a frame at all — the one rule, in the one
+    place, rather than a kind list repeated in a template."""
+    return entry.kind in VIEWABLE_KINDS
 
 
 def text_index(entry) -> int | None:
@@ -135,10 +141,9 @@ def text_index(entry) -> int | None:
 
 def pick(entry, file: int, kinds) -> int | None:
     """The attachment `?file=N` means — or the first of the wanted kinds, or None. ONE rule
-    for the viewer (`INLINE`) and the text page (`PAGINABLE`), so `?file=N` names the same
-    file on both wherever it can, and the text page's scan link lands on the file whose
-    text is shown. A `file` outside the wanted set falls back to the first, as the viewer
-    always has."""
+    for the record page's frame (`INLINE`) and the text page (`PAGINABLE`), so `?file=N`
+    names the same file on both wherever it can, and the text page's scan link lands on the
+    file whose text is shown. A `file` outside the wanted set falls back to the first."""
     if entry.kind not in VIEWABLE_KINDS:
         return None
     ok = [i for i, a in enumerate(entry.attachments) if a.document_sha256 and a.media_type in kinds]
@@ -148,9 +153,9 @@ def pick(entry, file: int, kinds) -> int | None:
 
 
 def viewable_index(entry) -> int | None:
-    """The first attachment a viewer page can show — fetched, of a kind a browser renders,
-    on a record kind that HAS a viewer — or None. One rule for the sheet's link, the
-    record's button, the viewer page and its prev/next."""
+    """The first attachment a record page can frame — fetched, of a kind a browser renders,
+    on a record kind that HAS a frame — or None. One rule for the sheet's link and the
+    record's button."""
     if entry.kind not in VIEWABLE_KINDS:
         return None
     for i, a in enumerate(entry.attachments):
