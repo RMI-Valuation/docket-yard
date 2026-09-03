@@ -501,9 +501,9 @@ def test_a_decided_date_is_quoted_and_its_ordinal_is_in_the_key(tmp_path):
     con = _store(tmp_path)
     sql = (
         "INSERT INTO decision_decided_date (document_sha256, date_kind, ordinal,"
-        " reading_channel, method, method_version, printed_text, decided_date,"
-        " asserted_at, confidence, confidence_state) VALUES (?, 'decided', ?, 'text-layer',"
-        " 'layout', 'v1', ?, ?, ?, 0.9, 'unmeasured')"
+        " reading_channel, method, method_version, render_profile, printed_text,"
+        " decided_date, asserted_at, confidence, confidence_state) VALUES (?, 'decided', ?,"
+        " 'text-layer', 'layout', 'v1', 'native', ?, ?, ?, 0.9, 'unmeasured')"
     )
     con.execute(sql, (KEY[0], 0, "Decided: October 5, 2017", "2017-10-05", STAMP))
     with pytest.raises(sqlite3.IntegrityError):
@@ -512,8 +512,9 @@ def test_a_decided_date_is_quoted_and_its_ordinal_is_in_the_key(tmp_path):
     with pytest.raises(sqlite3.IntegrityError):  # a row with no printed form is a computation
         con.execute(
             "INSERT INTO decision_decided_date (document_sha256, date_kind, reading_channel,"
-            " method, method_version, decided_date, asserted_at, confidence, confidence_state)"
-            " VALUES (?, 'decided', 'text-layer', 'layout', 'v2', '2017-10-05', ?, 0.9, 'x')",
+            " method, method_version, render_profile, decided_date, asserted_at, confidence,"
+            " confidence_state) VALUES (?, 'decided', 'text-layer', 'layout', 'v2', 'native',"
+            " '2017-10-05', ?, 0.9, 'x')",
             (KEY[0], STAMP),
         )
     assert "decided_date" not in {r[1] for r in con.execute("PRAGMA table_info(decision_record)")}
@@ -523,6 +524,268 @@ def test_a_decided_date_is_quoted_and_its_ordinal_is_in_the_key(tmp_path):
         "SELECT COUNT(*) FROM class_vocab WHERE measured_target = 'decision_decided_date'"
     ).fetchone()[0]
     assert got == 0
+
+
+def test_a_re_read_at_a_better_render_sits_beside_the_earlier_quotation(tmp_path):
+    """Migration 0019 — ADR 0021 D2's argument reaching the table ADR 0021 § Consequences
+    said it did not reach. Two renders of one page through one engine at one version are
+    DIFFERENT TEXT, so the dates read off them are different QUOTATIONS; without the render
+    in the live key the second write supersedes the first and destroys a `printed_text` that
+    is NOT NULL precisely because dates are quoted and never computed.
+
+    `method`/`method_version` are the DATE EXTRACTOR's and the OCR engine stays payload in
+    `reading_method`/`reading_method_version`, where 0014 had BOTH as payload. 0019 moves the
+    engine's NAME into the key and leaves its VERSION out (ADR 0023 D6), so this test pins the
+    RENDER axis alone: one engine at one version, read twice at different DPI."""
+    con = _store(tmp_path)
+    sql = (
+        "INSERT INTO decision_decided_date (document_sha256, date_kind, ordinal,"
+        " reading_channel, method, method_version, render_profile, reading_method,"
+        " reading_method_version, printed_text, decided_date, asserted_at, confidence,"
+        " confidence_state) VALUES (?, 'decided', 0, 'ocr', 'layout', 'v1', ?, 'dots.mocr',"
+        " '1.5', ?, ?, ?, 0.9, 'unmeasured')"
+    )
+    con.execute(sql, (KEY[0], "150", "Decided: October 5, 2Ol7", None, STAMP))
+    con.execute(sql, (KEY[0], "200", "Decided: October 5, 2017", "2017-10-05", STAMP))
+    live = con.execute(
+        "SELECT render_profile, printed_text FROM decision_decided_date"
+        " WHERE superseded_by IS NULL ORDER BY render_profile"
+    ).fetchall()
+    assert live == [("150", "Decided: October 5, 2Ol7"), ("200", "Decided: October 5, 2017")]
+    with pytest.raises(sqlite3.IntegrityError):  # the SAME render still supersedes, or collides
+        con.execute(sql, (KEY[0], "200", "Decided: October 6, 2017", "2017-10-06", STAMP))
+
+
+def _decided(con, **over):
+    row = {
+        "document_sha256": KEY[0],
+        "date_kind": "decided",
+        "ordinal": 0,
+        "reading_channel": "ocr",
+        "method": "layout",
+        "method_version": "v1",
+        "render_profile": "200",
+        "reading_method": "dots.mocr",
+        "reading_method_version": "1.5",
+        "printed_text": "Decided: October 5, 2017",
+        "decided_date": "2017-10-05",
+        "asserted_at": STAMP,
+        "confidence": 0.9,
+        "confidence_state": "unmeasured",
+    }
+    row.update(over)
+    # the engine and the channel are a biconditional: only an `ocr` row was read by one, and
+    # only an `ocr` row may name one. The default row is `ocr`, so a caller switching the
+    # channel clears the engine unless it says otherwise — mirroring the schema rather than
+    # making every non-OCR call pass two explicit Nones.
+    if row["reading_channel"] != "ocr" and "reading_method" not in over:
+        row["reading_method"] = row["reading_method_version"] = None
+    cols = ", ".join(row)
+    con.execute(
+        f"INSERT INTO decision_decided_date ({cols}) VALUES ({', '.join('?' * len(row))})",
+        list(row.values()),
+    )
+    return con.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+def test_a_decided_date_written_without_a_render_is_refused(tmp_path):
+    """Why 0019 is a REBUILD and not an `ADD COLUMN`: under `NOT NULL`, `ADD COLUMN` requires
+    a non-NULL default, so the render would have had one — and an `ocr` writer that omitted
+    the column would take 'native' silently, stamping a false render on a quoted date.
+    `document_text` gives the same column no default (migration 0018); this now matches it,
+    and SQLite has no `ALTER COLUMN`, so getting here later was this same rebuild."""
+    con = _store(tmp_path)
+    with pytest.raises(sqlite3.IntegrityError):
+        con.execute(
+            "INSERT INTO decision_decided_date (document_sha256, date_kind, ordinal,"
+            " reading_channel, method, method_version, printed_text, decided_date,"
+            " asserted_at, confidence, confidence_state) VALUES (?, 'decided', 0, 'ocr',"
+            " 'layout', 'v1', 'Decided: October 5, 2017', '2017-10-05', ?, 0.9, 'unmeasured')",
+            (KEY[0], STAMP),
+        )
+
+
+def test_a_key_column_that_would_not_parse_back_out_of_the_rendered_key_is_refused(tmp_path):
+    """`review_action.target_key` and `correction.target_key` render this row as its key
+    columns joined by '/'. A HuggingFace-style engine id (`rednote-hilab/dots.ocr`) in any of
+    them renders a key that cannot be parsed back into columns and can collide with a
+    different split — the defect migration 0018 pins for `document_text`. `ADD COLUMN` could
+    have reached `render_profile` and never `method`/`method_version`, which is the second
+    reason this is a rebuild."""
+    con = _store(tmp_path)
+    for col in ("method", "method_version", "render_profile", "reading_method"):
+        with pytest.raises(sqlite3.IntegrityError):
+            _decided(con, **{col: "rmi/date-layout"})
+        with pytest.raises(sqlite3.IntegrityError):
+            _decided(con, **{col: ""})
+    # `reading_method` joined the key at 0019, so the HuggingFace case is live HERE too: the
+    # engine's published id carries a slash, and the short name is what may be stored
+    with pytest.raises(sqlite3.IntegrityError):
+        _decided(con, reading_method="rednote-hilab/dots.ocr")
+    # the VERSION stays payload and is unconstrained, because it is not in the key
+    _decided(con, reading_method_version="1.5/rc2")
+
+
+def test_an_ocr_reading_must_name_the_engine_that_read_it(tmp_path):
+    """ADR 0007, which CLAUDE.md lists as non-negotiable: every derived assertion carries its
+    method. The pairing biconditional alone let an `ocr` row store a quotation as 'read by
+    OCR' with the engine unrecorded — the hole migration 0018 closes for `document_text`."""
+    con = _store(tmp_path)
+    with pytest.raises(sqlite3.IntegrityError):
+        _decided(con, reading_method=None, reading_method_version=None)
+    _decided(
+        con,
+        reading_channel="text-layer",
+        render_profile="native",
+        reading_method=None,
+        reading_method_version=None,
+    )  # the text layer has no engine to name
+    # AND THE OTHER WAY, which is load-bearing now that `reading_method` is IN the key: a
+    # text-layer row naming an engine and one naming none differ in a key column, so both
+    # would be LIVE and the key would enforce nothing for them (code review, 2026-09-02)
+    with pytest.raises(sqlite3.IntegrityError):
+        _decided(
+            con,
+            ordinal=1,
+            reading_channel="text-layer",
+            render_profile="native",
+            reading_method="dots.mocr",
+            reading_method_version="1.5",
+        )
+
+
+def test_the_text_layer_and_a_human_reading_are_pinned_to_their_own_renders(tmp_path):
+    """ADR 0021 D3 ties the text layer to 'native', and migration 0018 says an unenforced
+    decision is a comment. A human row is pinned separately: a person read a page, not a DPI,
+    and without the pin a human quotation records that it was read off the publisher's text
+    layer at native render — a claim nobody made."""
+    con = _store(tmp_path)
+    with pytest.raises(sqlite3.IntegrityError):
+        _decided(con, reading_channel="text-layer", render_profile="300")
+    _decided(con, reading_channel="text-layer", render_profile="native")
+    with pytest.raises(sqlite3.IntegrityError):  # 'human' is three columns, bound together
+        _decided(con, reading_channel="human", render_profile="human")
+    with pytest.raises(sqlite3.IntegrityError):
+        _decided(con, reading_channel="human", method="human", render_profile="native")
+    _decided(
+        con,
+        reading_channel="human",
+        method="human",
+        render_profile="human",
+        confidence=1.0,
+        confidence_state="human",
+    )
+
+
+def test_two_engines_disagreeing_about_a_date_both_survive(tmp_path):
+    """ADR 0023 D6, and the operator's question that forced it: an engine can read a page
+    BETTER overall and get the DATE wrong. No page-level score orders those two readings — a
+    decided date is one line — so an engine disagreement is a finding for a person, not a tie
+    to break, and it is only a finding if both rows are still there."""
+    con = _store(tmp_path)
+    _decided(
+        con, reading_method="dots.mocr", printed_text="Decided: October 5, 2Ol7", decided_date=None
+    )
+    _decided(con, reading_method="pp-ocrv6", printed_text="Decided: October 5, 2017")
+    assert _live(con, "decision_decided_date") == 2
+    # a VERSION bump of ONE engine is the case 0014 protected: one reader improving, so the
+    # readings are ordered and the newer must MATCH and supersede rather than sitting beside
+    with pytest.raises(sqlite3.IntegrityError):
+        _decided(con, reading_method="dots.mocr", reading_method_version="1.6")
+
+
+def test_the_live_key_is_enforced_for_readings_that_name_no_engine(tmp_path):
+    """SQLite holds NULLs DISTINCT in a unique index, so the bare column would have left every
+    text-layer and human row — which have no engine — unconstrained by the key it is part of,
+    silently. The index coalesces to '' for exactly this reason."""
+    con = _store(tmp_path)
+    layer = {
+        "reading_channel": "text-layer",
+        "render_profile": "native",
+        "reading_method": None,
+        "reading_method_version": None,
+    }
+    _decided(con, **layer)
+    with pytest.raises(sqlite3.IntegrityError):
+        _decided(con, **layer)  # two live text-layer readings of one date, on one key
+    assert _live(con, "decision_decided_date") == 1
+
+
+def test_only_one_human_reading_of_a_date_is_live_at_a_time(tmp_path):
+    """ADR 0023 D4. The live key cannot enforce this: `citator.methods.HUMAN_VERSION` is a
+    DATED string sitting in `method_version`, so the day it changes a second human correction
+    of one date is a second LIVE row and the display has two human answers. `document_text`
+    pins human rows to 'unversioned' instead; this table cannot, because the same convention
+    sits in four shipped citator keys. The index does that work and leaves them alone."""
+    con = _store(tmp_path)
+    human = {
+        "reading_channel": "human",
+        "method": "human",
+        "render_profile": "human",
+        "confidence": 1.0,
+        "confidence_state": "human",
+        "reading_method": None,
+        "reading_method_version": None,
+    }
+    first = _decided(con, method_version="2026-09-01", **human)
+    with pytest.raises(sqlite3.IntegrityError):  # the day HUMAN_VERSION is bumped
+        _decided(con, method_version="2026-10-01", **human)
+    con.execute(
+        "UPDATE decision_decided_date SET superseded_by = ?, superseded_at = ?"
+        " WHERE decided_id = ?",
+        (first, STAMP, first),
+    )
+    _decided(con, method_version="2026-10-01", **human)  # once the first is retired
+    # a different ordinal is a different date instance and is unaffected
+    _decided(con, ordinal=1, method_version="2026-10-01", **human)
+
+
+def test_a_page_is_recorded_where_source_location_held_it_in_json(tmp_path):
+    """ADR 0023 D2. Typed, nullable and OUTSIDE the key: a re-read that paginates differently
+    would otherwise mint a row that supersedes nothing — the defect `source_location` was
+    taken out of the key for. ADR 0021 D4 is what makes it channel-independent: the sha fixes
+    the byte stream, so page order is a property of the bytes."""
+    con = _store(tmp_path)
+    _decided(con, page_no=4)
+    _decided(con, ordinal=1, page_no=None)  # no writer exists to be held to it yet
+    for bad in (0, -1):
+        with pytest.raises(sqlite3.IntegrityError):
+            _decided(con, ordinal=2, page_no=bad)
+    # not in the key: two renders of ONE page are two rows, and repaginating is not a new one
+    assert _live(con, "decision_decided_date") == 2
+
+
+def test_a_model_pass_may_not_supersede_a_human_decided_date(tmp_path):
+    """The rule `citation` carries at 0014 and `document_text` at 0018, in the same idiom and
+    for a sharper reason: what this table holds is a quotation. `superseded_at` travels in the
+    same statement or the biconditional refuses it — which is why `citator.load._retire`, as
+    shipped, is not reusable against this table."""
+    con = _store(tmp_path)
+    human = _decided(
+        con,
+        reading_channel="human",
+        method="human",
+        render_profile="human",
+        confidence=1.0,
+        confidence_state="human",
+    )
+    model = _decided(con, ordinal=1)
+    with pytest.raises(sqlite3.IntegrityError):  # superseded_by without superseded_at
+        con.execute(
+            "UPDATE decision_decided_date SET superseded_by = ? WHERE decided_id = ?",
+            (model, model),
+        )
+    con.execute(  # a row retired at ITSELF passes the trigger's guard, human or not
+        "UPDATE decision_decided_date SET superseded_by = ?, superseded_at = ?"
+        " WHERE decided_id = ?",
+        (human, STAMP, human),
+    )
+    with pytest.raises(sqlite3.IntegrityError):
+        con.execute(
+            "UPDATE decision_decided_date SET superseded_by = ?, superseded_at = ?"
+            " WHERE decided_id = ?",
+            (model, STAMP, human),
+        )
 
 
 def test_an_extraction_run_separates_read_and_found_nothing_from_not_yet_read(tmp_path):

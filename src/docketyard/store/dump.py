@@ -58,7 +58,7 @@ TOOL_TABLES = ("_litestream_lock", "_litestream_seq")
 # noticed: the unknown check below enumerates `type = 'table'`, so an unclassified view was
 # invisible, and the snapshot would ship a `CREATE VIEW` over a table it had just dropped.
 # Migration 0018's display view selects from `document_text`, which is held, so it goes too.
-HELD_VIEWS = ("document_text_display",)
+HELD_VIEWS: tuple[str, ...] = ("document_text_display",)
 # And the views that stay. `docket_current` has been in the snapshot since migration 0001 and
 # had never been classified, because until the check below counted views there was nothing to
 # classify it against — it is a projection over `docket` and `event`, both public, so it was
@@ -81,7 +81,7 @@ DERIVED_TABLES = ("search_doc", "search_meta")
 # back now means the licence question is answered before an edge is published rather than
 # after. Listed children before parents: `scrub` drops with foreign keys OFF, so the order
 # is not required today — it is kept so the list stays correct if that ever changes.
-HELD_TABLES = (
+HELD_TABLES: tuple[str, ...] = (
     # Migration 0018, ADR 0022 D3. A machine transcription of a US government work is a
     # derived assertion with a measured error rate, not the Board's own words, and
     # `licensing.md` places it in neither of its two buckets — so it is held while that
@@ -161,6 +161,12 @@ PUBLIC_TABLES = frozenset(
         # `coverage_gap`. Their vocabularies come with them or the DDL does not load.
         "document_pagination",
         "pagination_outcome_vocab",
+        # and the third of `document_pagination`'s vocabularies: it types `confidence_state`,
+        # so it comes with the table for the same reason the other two do — the DDL does not
+        # load without it. It is a closed set of three words with a note on each, and no part
+        # of the enriched layer: what it says about a page count is what the snapshot already
+        # publishes about that count anyway.
+        "confidence_state_vocab",
         "ocr_run",
         "run_outcome_vocab",
         "correction",
@@ -354,7 +360,11 @@ def dump(
         schema_version=version,
         counts=counts,
         omitted_tables=list(PRIVATE_TABLES),
-        held_tables=list(HELD_TABLES),
+        # HELD_VIEWS too: `document_text_display` is dropped from the snapshot alongside the
+        # tables, so a manifest that named only the tables would withhold an object without
+        # saying it had (code review, 2026-09-02). What is held is published as a list of
+        # what is held, or the list is not the claim it says it is.
+        held_tables=list[str](HELD_TABLES + HELD_VIEWS),
         held_reason=HELD_REASON,
         latest=File(LATEST, (out_dir / LATEST).stat().st_size, _sha256(out_dir / LATEST)),
         dated=[_file(p, known) for p in sorted(dated, reverse=True)],

@@ -85,7 +85,12 @@ def test_snapshot_omits_readers_and_measures_itself(tmp_path):
     assert s.execute("SELECT COUNT(*) FROM search_doc").fetchone()[0] == 0
     empty = "SELECT COUNT(*) FROM search_fts WHERE search_fts MATCH 'a*'"
     assert s.execute(empty).fetchone()[0] == 0
-    assert "parties" not in m.counts and m.held_tables == list(dump.HELD_TABLES)
+    # the manifest names the held VIEW too, not only the held tables: it is dropped from the
+    # snapshot alongside them, and a list of what is withheld that omits one is not the claim
+    # it says it is (code review, 2026-09-02)
+    assert "parties" not in m.counts
+    assert m.held_tables == list(dump.HELD_TABLES) + list(dump.HELD_VIEWS)
+    assert "document_text_display" in m.held_tables
     assert s.execute("SELECT COUNT(DISTINCT stb_filing_id) FROM filing").fetchone()[0] == 2
     s.close()
     idx = json.loads((out / "index.json").read_text())

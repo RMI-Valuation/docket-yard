@@ -516,3 +516,17 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
 - **Every future migration pays a full `PRAGMA foreign_key_check`** over the whole database
   (`db.migrate`), which at ~1.35M new rows makes every subsequent migrating deploy slower —
   a cost that lands on the rollback story, not just the deploy.
+
+## Found by code review, 2026-09-02 (against migrations 0018/0019, unreleased)
+
+- **A restored public snapshot cannot be migrated forward.** Every migration that touches a
+  held table names it unconditionally — migration 0019 does `DROP TABLE decision_decided_date`
+  and selects from it; 0018 inserts into `measured_target_vocab` and `review_target_vocab` —
+  but `dump.py` DROPS every `HELD_TABLE` from the snapshot while `PRAGMA user_version` is
+  stamped at the release's schema. So a third party who restores an archive and opens it with
+  a later release gets a bare `no such table`, not a message. Pre-existing and class-level: it
+  affects every held table and every future migration, not 0019, which is why it is recorded
+  here rather than worked around in one script. The fix is a decision about what a published
+  snapshot IS — a readable artefact at a pinned schema, or a store the code will migrate —
+  and `dump.py`'s docstring currently implies the second ("a restored copy is at the release's
+  schema and `docketyard search rebuild` remakes it").

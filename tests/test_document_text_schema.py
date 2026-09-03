@@ -128,6 +128,30 @@ def test_a_re_run_may_take_the_page_once_the_outgoing_primary_is_retired(tmp_pat
     assert live == [(new,)]
 
 
+def test_two_live_second_readings_on_one_page_are_refused(tmp_path):
+    """`one_primary` and `one_human` shipped without a `one_second` to match, and the SECOND
+    row is the one that carries `agreement_distance` — the operand of the confidence band a
+    reader sees. Two live seconds are two bands with no tie-break. Confirmed by execution
+    before it was fixed: a re-run at a new method_version left 0.1 and 0.4 both live."""
+    con = _store(tmp_path)
+    primary = _reading(con)
+    band = {
+        "reading_role": "second",
+        "method": "pp-ocrv6",
+        "agreement_method": "cer",
+        "agreement_method_version": "v1",
+        "agreement_against": primary,
+    }
+    _reading(con, method_version="6.0", agreement_distance=0.1, **band)
+    with pytest.raises(sqlite3.IntegrityError):
+        _reading(con, method_version="6.1", agreement_distance=0.4, **band)
+    live = con.execute(
+        "SELECT agreement_distance FROM document_text"
+        " WHERE superseded_by IS NULL AND reading_role = 'second'"
+    ).fetchall()
+    assert live == [(0.1,)], "the band a reader sees must be single-valued"
+
+
 def test_the_text_layer_and_an_ocr_reading_cannot_both_be_primary(tmp_path):
     """A born-digital page that is also OCR'd would have two primaries by construction."""
     con = _store(tmp_path)
@@ -229,14 +253,16 @@ def test_pagination_records_why_a_document_has_no_page_count(tmp_path):
     con = _store(tmp_path)
     con.execute(
         "INSERT INTO document_pagination (document_sha256, outcome, method, method_version,"
-        " asserted_at) VALUES (?, 'not-paginable', 'pymupdf', '1.28.2', ?)",
+        " asserted_at, confidence, confidence_state)"
+        " VALUES (?, 'not-paginable', 'pymupdf', '1.28.2', ?, 0, 'unmeasured')",
         (SHA, STAMP),
     )
     assert con.execute("SELECT page_count FROM document_pagination").fetchone()[0] is None
     with pytest.raises(sqlite3.IntegrityError):
         con.execute(  # 'paginated' without a count is the ambiguity the outcome removes
             "INSERT INTO document_pagination (document_sha256, outcome, method,"
-            " method_version, asserted_at) VALUES (?, 'paginated', 'pymupdf', '1', ?)",
+            " method_version, asserted_at, confidence, confidence_state)"
+            " VALUES (?, 'paginated', 'pymupdf', '1', ?, 0, 'unmeasured')",
             (SHA, STAMP),
         )
 
@@ -249,8 +275,9 @@ def test_a_re_pagination_supersedes_rather_than_updating(tmp_path):
     def paginate(count):
         con.execute(
             "INSERT INTO document_pagination (document_sha256, outcome, page_count,"
-            " had_text_layer, method, method_version, asserted_at)"
-            " VALUES (?, 'paginated', ?, 1, 'pymupdf', '1.28.2', ?)",
+            " had_text_layer, method, method_version, asserted_at, confidence,"
+            " confidence_state)"
+            " VALUES (?, 'paginated', ?, 1, 'pymupdf', '1.28.2', ?, 0, 'unmeasured')",
             (SHA, count, STAMP),
         )
         return con.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -290,6 +317,121 @@ def test_the_text_is_held_and_the_pagination_is_published(tmp_path):
     for held in ("document_text", "page_fts", "text_payload"):
         assert held not in ddl, f"{held} must not reach the CC0 snapshot"
     assert manifest.schema_version == db.MIGRATIONS[-1][0]
+
+
+def test_a_page_count_carries_provenance_and_cannot_claim_a_benchmark(tmp_path):
+    """`CLAUDE.md`'s non-negotiable: every derived assertion carries confidence. `page_count`
+    is the DENOMINATOR of the coverage arithmetic and shipped without it.
+
+    'measured' is absent from the vocabulary rather than gated by an empty `class_vocab`, and
+    the reason is the one thing that makes this table unlike every other: ADR 0022 D3
+    publishes it while the measurement registry is held, so the pointer that would earn
+    'measured' cannot exist without putting a dangling REFERENCES into the CC0 schema."""
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO document_pagination (document_sha256, outcome, page_count,"
+        " had_text_layer, method, method_version, asserted_at, confidence, confidence_state)"
+        " VALUES (?, 'paginated', 9, 1, 'pymupdf', '1.28.2', ?, 0, 'unmeasured')",
+        (SHA, STAMP),
+    )
+    with pytest.raises(sqlite3.IntegrityError):  # 'measured' is not in the vocabulary
+        con.execute(
+            "INSERT INTO document_pagination (document_sha256, outcome, page_count,"
+            " had_text_layer, method, method_version, asserted_at, confidence,"
+            " confidence_state)"
+            " VALUES (?, 'paginated', 9, 1, 'pymupdf', '1.29', ?, 0.99, 'measured')",
+            (SHA, STAMP),
+        )
+    assert "document_pagination" not in {
+        r[0] for r in con.execute("SELECT measured_target FROM measured_target_vocab")
+    }, "a declared stage no row can reach reads as a gate waiting to open"
+    # A VOCABULARY AND NOT AN INLINE CHECK, which is this migration's own stated rule for a
+    # PUBLISHED typed column: SQLite cannot ALTER a CHECK, so widening one is a rebuild of a
+    # table third parties hold under CC0, where widening a vocabulary is an INSERT. The first
+    # draft of this change wrote the CHECK inline (schema-critic, 2026-09-03).
+    assert {r[0] for r in con.execute("SELECT confidence_state FROM confidence_state_vocab")} == {
+        "unmeasured",
+        "human",
+        "not-applicable",
+    }
+    # and the pointer columns exist, unreachable, so opening the gate stays an INSERT
+    cols = {r[1] for r in con.execute("PRAGMA table_info(document_pagination)")}
+    assert {"measured_target", "score_row_id"} <= cols
+
+
+def test_a_re_pagination_may_not_overwrite_a_corrected_page_count(tmp_path):
+    """Giving this table a correction path is what creates the possibility of a human row,
+    and re-pagination is a ROUTINE pass over every document at whatever pymupdf version is
+    current. Without the trigger that pass retires a corrected count and replaces it with its
+    own, satisfying the live index and saying nothing — against ADR 0007 § Validation, which
+    says human assertions are never overwritten by model re-runs."""
+    con = _store(tmp_path)
+
+    def paginate(count, method="pymupdf", state="unmeasured", conf=0.0):
+        con.execute(
+            "INSERT INTO document_pagination (document_sha256, outcome, page_count,"
+            " had_text_layer, method, method_version, asserted_at, confidence,"
+            " confidence_state) VALUES (?, 'paginated', ?, 1, ?, '1.28.2', ?, ?, ?)",
+            (SHA, count, method, STAMP, conf, state),
+        )
+        return con.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+    machine = paginate(12)
+    con.execute(
+        "UPDATE document_pagination SET superseded_by = ?, superseded_at = ?"
+        " WHERE pagination_id = ?",
+        (machine, STAMP, machine),
+    )
+    human = paginate(9, method="human", state="human", conf=1.0)
+    con.execute(
+        "UPDATE document_pagination SET superseded_by = ? WHERE pagination_id = ?",
+        (human, machine),
+    )
+    # now the routine pass comes back round
+    con.execute(
+        "UPDATE document_pagination SET superseded_by = ?, superseded_at = ?"
+        " WHERE pagination_id = ?",
+        (human, STAMP, human),
+    )  # retired at itself: allowed, the guard reads the pre-update row
+    model = paginate(12, method="pymupdf")
+    with pytest.raises(sqlite3.IntegrityError):
+        con.execute(
+            "UPDATE document_pagination SET superseded_by = ? WHERE pagination_id = ?",
+            (model, human),
+        )
+    # and the two encodings of "human" are bound, so a model row cannot borrow the protection
+    with pytest.raises(sqlite3.IntegrityError):
+        paginate(3, method="pymupdf", state="human", conf=1.0)
+    with pytest.raises(sqlite3.IntegrityError):
+        paginate(3, method="human", state="unmeasured")
+
+
+def test_a_page_count_has_a_correction_path_on_the_day_it_ships(tmp_path):
+    """The second half of what migration 0018's header owed. SURROGATE, unlike
+    `document_text`: the live index is `UNIQUE (document_sha256)`, so the natural key is a
+    bare sha — one segment where `review_action`'s shape check wants four, and nothing
+    separating a superseded row from its replacement."""
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO reviewer (email_hash, email_enc, credit_name, granted_at, granted_note)"
+        " VALUES ('h', 'e', 'The operator', ?, 'seed')",
+        (STAMP,),
+    )
+    con.execute(
+        "INSERT INTO document_pagination (document_sha256, outcome, page_count,"
+        " had_text_layer, method, method_version, asserted_at, confidence, confidence_state)"
+        " VALUES (?, 'paginated', 9, 1, 'pymupdf', '1.28.2', ?, 0, 'unmeasured')",
+        (SHA, STAMP),
+    )
+    pid = con.execute("SELECT pagination_id FROM document_pagination").fetchone()[0]
+    con.execute(
+        "INSERT INTO review_action (reviewer_id, queue, target_table, target_keyed,"
+        " target_key, target_key_version, method_version, decision, asserted_at)"
+        " SELECT reviewer_id, queue, 'document_pagination', 'surrogate', ?, 'v1', 'v1',"
+        " decision, ? FROM reviewer, review_queue_vocab, review_decision_vocab LIMIT 1",
+        (str(pid), STAMP),
+    )
+    assert con.execute("SELECT COUNT(*) FROM review_action").fetchone()[0] == 1
 
 
 def test_a_view_over_a_held_table_does_not_survive_into_the_snapshot(tmp_path):
@@ -435,6 +577,13 @@ def test_the_published_schema_has_no_dangling_foreign_key(tmp_path):
     con.close()
     dump.dump(Path(tmp_path / "s.sqlite"), out_dir=tmp_path / "public")
     ddl = (tmp_path / "public" / "schema.sql").read_text(encoding="utf-8")
+    # QUOTES NORMALISED FIRST. SQLite rewrites a renamed table's stored DDL with the new name
+    # DOUBLE-QUOTED, and rewrites every child's FK clause to match — `correction` (renamed at
+    # 0014) and `decision_decided_date` (renamed at 0019) both land as `CREATE TABLE "name"`.
+    # Without this the `\w+` patterns skip them on both sides, so the day a migration renames
+    # a HELD table and a published child's clause is rewritten to `REFERENCES "held"`, the
+    # real dangler ships and this test stays green (schema-critic, 2026-09-03).
+    ddl = ddl.replace('"', "")
     present = set(re.findall(r"CREATE (?:VIRTUAL )?TABLE (\w+)", ddl))
     assert not set(re.findall(r"REFERENCES (\w+)", ddl)) - present
 
@@ -442,7 +591,7 @@ def test_the_published_schema_has_no_dangling_foreign_key(tmp_path):
 # --- the migration path production actually takes ------------------------------------------
 
 
-def test_a_populated_store_migrates_from_17_to_18(tmp_path):
+def test_a_populated_store_migrates_from_17_to_head(tmp_path):
     """Every other test builds from scratch. This one exercises `db.migrate`'s post-script
     `PRAGMA foreign_key_check` over a store that already holds rows."""
     path = tmp_path / "s.sqlite"
@@ -455,9 +604,132 @@ def test_a_populated_store_migrates_from_17_to_18(tmp_path):
     con.commit()
     con.close()
     con = db.connect(path)  # the migration production will run
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 18
+    assert con.execute("PRAGMA user_version").fetchone()[0] == db.MIGRATIONS[-1][0]
     assert con.execute("PRAGMA foreign_key_check").fetchall() == []
     _reading(con)
+
+
+def test_migration_0019_carries_a_decided_date_row_across_the_rebuild(tmp_path):
+    """0019 rebuilds `decision_decided_date`, and the `INSERT ... SELECT` that copies it runs
+    over 0 rows in production and in every other test — so a misaligned column, a 'native'
+    landing in the wrong slot, or a dropped `REFERENCES` clause would pass the whole suite
+    (schema-critic, 2026-09-02). This is the one place the copy is executed."""
+    path = tmp_path / "s.sqlite"
+    con = db.connect(path, upto=18)  # the shape before the rebuild: no render, no timestamp
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'pdf', ?)",
+        (SHA, STAMP),
+    )
+    con.execute(
+        "INSERT INTO decision_decided_date (document_sha256, date_kind, ordinal,"
+        " reading_channel, method, method_version, reading_method, reading_method_version,"
+        " printed_text, decided_date, source_location, asserted_at, confidence,"
+        " confidence_state) VALUES (?, 'decided', 0, 'text-layer', 'layout', 'v1', NULL,"
+        " NULL, 'Decided: October 5, 2017', '2017-10-05', '{\"page\": 1}', ?, 0.9,"
+        " 'unmeasured')",
+        (SHA, STAMP),
+    )
+    con.commit()
+    con.close()
+
+    con = db.connect(path)
+    row = con.execute(
+        "SELECT date_kind, ordinal, reading_channel, method, method_version, render_profile,"
+        " printed_text, decided_date, page_no, source_location, confidence, confidence_state,"
+        " superseded_by, superseded_at FROM decision_decided_date"
+    ).fetchone()
+    assert row == (
+        "decided",
+        0,
+        "text-layer",
+        "layout",
+        "v1",
+        "native",
+        "Decided: October 5, 2017",
+        "2017-10-05",
+        None,  # page_no: the column did not exist, so no row can be said to have had one
+        '{"page": 1}',  # and the JSON that held it is carried across untouched
+        0.9,
+        "unmeasured",
+        None,
+        None,
+    )
+    assert con.execute("PRAGMA foreign_key_check").fetchall() == []
+    # every foreign key of the 0014 table survived the rebuild and the rename, including the
+    # self-reference and the composite one into `class_measurement` — which reports as TWO
+    # rows sharing one id, so the constraints are the distinct ids and not the row count
+    fks = con.execute("PRAGMA foreign_key_list(decision_decided_date)").fetchall()
+    assert {r[2] for r in fks} == {
+        "class_measurement",
+        "document",
+        "capture",
+        "reading_vocab",
+        "date_kind_vocab",
+        "decision_decided_date",  # the self-reference, rewritten by the RENAME
+    }
+    assert len({r[0] for r in fks}) == 7
+
+
+def test_migration_0019_refuses_a_store_whose_decided_date_was_read_by_ocr(tmp_path):
+    """The backfill must not invent a render. A bare `'native'` literal would have stamped the
+    TEXT LAYER's render on an `ocr` row that never had one — the same silent falsehood the
+    migration refuses `ADD COLUMN … DEFAULT 'native'` for, committed by the copy instead (code
+    review, 2026-09-02). Only a text-layer row's render is recoverable; anything else is NULL
+    and refused, which is the stance the migration takes on `superseded_at` too."""
+    path = tmp_path / "s.sqlite"
+    con = db.connect(path, upto=18)
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'pdf', ?)",
+        (SHA, STAMP),
+    )
+    con.execute(
+        "INSERT INTO decision_decided_date (document_sha256, date_kind, ordinal,"
+        " reading_channel, method, method_version, reading_method, reading_method_version,"
+        " printed_text, decided_date, asserted_at, confidence, confidence_state)"
+        " VALUES (?, 'decided', 0, 'ocr', 'layout', 'v1', 'dots.mocr', '1.5',"
+        " 'Decided: October 5, 2017', '2017-10-05', ?, 0.9, 'unmeasured')",
+        (SHA, STAMP),
+    )
+    con.commit()
+    con.close()
+
+    with pytest.raises(sqlite3.IntegrityError):
+        db.connect(path)
+    con = sqlite3.connect(path)
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 18
+
+
+def test_migration_0019_refuses_a_store_holding_a_retired_decided_date(tmp_path):
+    """ADR 0023 § Consequences promises this refusal rather than a guess: `superseded_at` has
+    no value to recover for a row already retired, and inventing one would be a computed date
+    in the one table whose whole rule is that nothing is computed. It rolls back whole."""
+    path = tmp_path / "s.sqlite"
+    con = db.connect(path, upto=18)
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'pdf', ?)",
+        (SHA, STAMP),
+    )
+    con.execute(
+        "INSERT INTO decision_decided_date (document_sha256, date_kind, ordinal,"
+        " reading_channel, method, method_version, printed_text, decided_date, asserted_at,"
+        " confidence, confidence_state) VALUES (?, 'decided', 0, 'text-layer', 'layout',"
+        " 'v1', 'Decided: October 5, 2017', '2017-10-05', ?, 0.9, 'unmeasured')",
+        (SHA, STAMP),
+    )
+    rid = con.execute("SELECT decided_id FROM decision_decided_date").fetchone()[0]
+    con.execute(  # retired at itself, the shipped `_retire` idiom, with no timestamp to keep
+        "UPDATE decision_decided_date SET superseded_by = ? WHERE decided_id = ?", (rid, rid)
+    )
+    con.commit()
+    con.close()
+
+    with pytest.raises(sqlite3.IntegrityError):
+        db.connect(path)
+    con = sqlite3.connect(path)  # and the store is untouched: the script rolled back whole
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 18
 
 
 # --- the page index, on whatever SQLite is running -----------------------------------------

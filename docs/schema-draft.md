@@ -669,6 +669,13 @@ confidence; what it lacks is a *benchmark*. Because unmeasured rows carry `0`, t
 cannot reuse `0006_parties.sql`'s `CHECK (confidence > 0)` idiom, and **`confidence` is never
 selected without `confidence_state`** — the projection is the only supported path to it.
 
+**One exception, and it is the published one.** `document_pagination` (migration 0018) carries
+the pair but has no `'measured'` state and no live `score_row_id`: ADR 0022 D3 publishes that
+table while the measurement registry is held, so the pointer that earns `'measured'` would put
+a `REFERENCES` to a missing table into the CC0 `schema.sql`. Its state is a **vocabulary table**
+rather than a CHECK, so adding `'measured'` later is an INSERT and not a rebuild of a table
+third parties hold. Every held assertion table follows the idiom above unchanged.
+
 **The projection formula, stated per family, because they do not share one.** For the resolution
 family: *if any live `suppress` row exists **for the same reading channel**, no edge; else the
 highest-ranked live `resolve` row whose `outcome IN ('resolved','repaired')`.* A flat rank made
@@ -810,7 +817,6 @@ Silent-failure detection (`docs/alerts.md`, stub): because every alert joins a s
 an event and every event to a capture, "no alerts since date X" decomposes into "no captures"
 (ingest broke) vs "captures but no events" (parser broke) vs "events but no deliveries"
 (delivery broke) — each independently monitorable.
-
 
 ## 7. Review (ADR 0016) — SHIPPED at migration 0015, 2026-09-01
 

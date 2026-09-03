@@ -46,6 +46,28 @@ INSERT INTO run_outcome_vocab VALUES
     ('failed',  'the pass could not read this document at all'),
     ('skipped', 'the pass declined it — not image-only, or a tier not read in this pass');
 
+-- ADR 0007's state, for `document_pagination` — and a TABLE rather than the inline CHECK
+-- every other assertion table in this project uses, for the reason stated two blocks up:
+-- those tables are HELD, this one is PUBLISHED, and a published typed column cannot be
+-- widened without a rebuild. A first draft of the pagination change wrote the CHECK inline
+-- and would have made widening a rebuild of a table third parties hold under CC0
+-- (schema-critic, 2026-09-03).
+--
+-- 'measured' IS DELIBERATELY ABSENT, and that absence is this stage's gate. Every other
+-- assertion table earns 'measured' by pointing at `class_measurement`; this one cannot hold
+-- that pointer, because the registry is held and the pointer would put a `REFERENCES` to a
+-- missing table into the published `schema.sql`. Opening the gate is therefore two INSERTs —
+-- this row, and the `class_vocab` row that scores the stage — and not a rebuild, which is
+-- the whole point of spending a table on it.
+CREATE TABLE confidence_state_vocab (
+    confidence_state TEXT PRIMARY KEY,
+    note             TEXT NOT NULL
+);
+INSERT INTO confidence_state_vocab VALUES
+    ('unmeasured',     'nobody has scored this class: the number beside it is inert'),
+    ('human',          'a person asserted it, and `method` says so too'),
+    ('not-applicable', 'no confidence is meaningful for this row');
+
 -- ADR 0021 D4. The engine does NOT recover the route: PP-OCRv6 medium is the routed reader
 -- for BOTH the clean and the graphic tier, whose error profiles are not comparable — one is
 -- scored on CER, the other on whether it invented text at all. Every CER the benchmark
@@ -87,12 +109,43 @@ INSERT INTO route_class_vocab VALUES
 -- arithmetic — unread pages are `page_count` minus readings — so a mutable count would move
 -- a published number with nothing recording that it moved.
 --
--- OWED TO THE OPERATOR, not fixed here because it departs from what ADR 0021 D4 enumerates:
--- this is a PUBLISHED derived claim carrying no `confidence`/`confidence_state`, where
--- `CLAUDE.md`'s non-negotiable names confidence explicitly and every citator family carries
--- it. It also has no `review_target_vocab` row, so a published page count has no human
--- correction path on the day it ships while page TEXT does. Both are shape changes to a
--- published table, so they are cheap now and a rebuild later.
+-- BOTH ITEMS THIS HEADER ONCE OWED ARE TAKEN (the operator, 2026-09-02), and they are taken
+-- HERE rather than in a later migration because this table has never been deployed —
+-- production is at schema 17 — so amending 0018 costs nothing where a shape change to a
+-- PUBLISHED table (ADR 0022 D3 publishes this one) would be a rebuild.
+--
+--   1. It is a derived claim and now carries `confidence`/`confidence_state`, which
+--      `CLAUDE.md`'s non-negotiable names explicitly and every citator family carries.
+--   2. It has a `review_target_vocab` row, so a published page count has a human correction
+--      path on the day it ships, as page TEXT does.
+--
+-- ITS GATE IS SHUT BY CONSTRUCTION, NOT BY AN EMPTY VOCABULARY, and this is the one place it
+-- differs from every other assertion table here. `document_text` earns 'measured' by pointing
+-- at `class_measurement`. This table cannot hold that pointer: ADR 0022 D3 PUBLISHES it while
+-- the measurement registry is held with the citator (`dump.py`), so the composite foreign key
+-- would put a `REFERENCES` to a missing table into the published `schema.sql` — broken DDL for
+-- anyone restoring an archive. The first draft of this change did exactly that and
+-- `test_the_published_schema_has_no_dangling_foreign_key` caught it.
+--
+-- So 'measured' is left out of the state vocabulary entirely, which is the honest statement: a
+-- page count may not claim a benchmark while the registry that would hold it is unpublished.
+-- The cost is named rather than hidden — opening this gate later means deciding whether the
+-- measurement registry is published, which is the LICENCE question in `docs/licensing.md` and
+-- not a schema one, and then rebuilding a published table.
+--
+-- WHAT THE CORRECTION PATH COSTS A REVIEWER, recorded rather than fixed. The two welded
+-- CHECKs below make `page_count` and `had_text_layer` exist together, which was right while
+-- this table was machine-only and is a burden now: a reviewer correcting a page count must
+-- also assert `had_text_layer`, a judgement about junk characters they cannot make from a
+-- scan. `document_text` has no such problem — a human row there supplies `text` and nothing
+-- else. Until the weld is revisited (a grain change, and the operator's), the rule is that a
+-- human `corrected` row CARRIES THE MACHINE'S PRIOR `had_text_layer` UNCHANGED. It is not
+-- the reviewer's assertion and must not be read as one.
+--
+-- A NOTE ON WHERE COMMENTS GO, learned here: SQLite keeps the text of a `CREATE TABLE`
+-- verbatim in `sqlite_master`, comments included, and `dump.py` publishes that text. Prose
+-- inside the parentheses below therefore SHIPS to the CC0 snapshot; prose up here does not.
+-- Anything naming the held layer belongs above the statement.
 CREATE TABLE document_pagination (
     pagination_id   INTEGER PRIMARY KEY,
     document_sha256 TEXT NOT NULL REFERENCES document (document_sha256),
@@ -101,6 +154,23 @@ CREATE TABLE document_pagination (
     had_text_layer  INTEGER CHECK (had_text_layer IN (0, 1)),
     method          TEXT NOT NULL CHECK (method <> ''),
     method_version  TEXT NOT NULL CHECK (method_version <> ''),
+    -- ADR 0007's block. The state is the predicate; the number beside it is inert. The pair
+    -- qualifies `had_text_layer`, which is the contested judgement — extractors disagree
+    -- about a page carrying three junk characters — and NOT `page_count`, which is a library
+    -- call on bytes that either opened or did not. One row, two derived facts, one number:
+    -- read it as the flag's, and read the count's certainty off `outcome`.
+    confidence      REAL NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
+    confidence_state TEXT NOT NULL
+                     REFERENCES confidence_state_vocab (confidence_state),
+    -- Declared and unreachable, on purpose. 'measured' is not in the vocabulary, so the
+    -- biconditional below pins `score_row_id` to NULL — the gate is shut by the missing
+    -- vocabulary row, exactly as `class_vocab`'s emptiness shuts the citator's. Declaring
+    -- them costs nothing now and saves rebuilding a PUBLISHED table the day a page count is
+    -- scored. No foreign key to `class_measurement`: that registry is held, and a published
+    -- `schema.sql` may not name a table the snapshot does not carry.
+    measured_target TEXT CHECK (measured_target IS NULL
+                                OR measured_target = 'document_pagination'),
+    score_row_id    INTEGER,
     asserted_at     TEXT NOT NULL,
     superseded_by   INTEGER REFERENCES document_pagination (pagination_id),
     superseded_at   TEXT,
@@ -111,10 +181,38 @@ CREATE TABLE document_pagination (
     CHECK ((outcome = 'paginated') = (page_count IS NOT NULL)),
     CHECK ((outcome = 'paginated') = (had_text_layer IS NOT NULL)),
     CHECK (page_count IS NULL OR page_count >= 0),
-    CHECK ((superseded_by IS NULL) = (superseded_at IS NULL))
+    CHECK ((superseded_by IS NULL) = (superseded_at IS NULL)),
+    -- the house pair, inert while 'measured' is out of the vocabulary and correct the moment
+    -- it is added — which is what makes opening the gate an INSERT
+    CHECK ((confidence_state = 'measured') = (score_row_id IS NOT NULL)),
+    CHECK ((score_row_id IS NULL) = (measured_target IS NULL)),
+    -- "human" is encoded twice here and the two are bound: a model row that set
+    -- `confidence_state = 'human'` alone would be protected by the trigger below without a
+    -- person having written it, and a human row that left `method` alone would not be
+    -- protected at all
+    CHECK ((method = 'human') = (confidence_state = 'human'))
 );
 CREATE UNIQUE INDEX document_pagination_live
     ON document_pagination (document_sha256) WHERE superseded_by IS NULL;
+
+-- The rule `citation` carries at 0014 and `document_text` carries below, and this table now
+-- needs it for the first time: giving it a `review_target_vocab` row is what creates the
+-- possibility of a human row here, and re-pagination is a ROUTINE automated pass over every
+-- document at whatever pymupdf version is current. Without this, that pass would retire a
+-- corrected page count and replace it with its own, satisfying the live index and saying
+-- nothing — against ADR 0007 § Validation ("human assertions are never overwritten by model
+-- re-runs") and `CLAUDE.md`. Found before the first correction could be written
+-- (schema-critic, 2026-09-03). A row retired at ITSELF still passes: in a BEFORE UPDATE the
+-- subquery reads the pre-update row.
+CREATE TRIGGER document_pagination_human_row_is_not_a_model_pass_to_supersede
+BEFORE UPDATE OF superseded_by ON document_pagination
+WHEN OLD.confidence_state = 'human'
+ AND NEW.superseded_by IS NOT NULL
+ AND (SELECT confidence_state FROM document_pagination
+       WHERE pagination_id = NEW.superseded_by) <> 'human'
+BEGIN
+    SELECT RAISE(ABORT, 'ADR 0007: a human page count may only be superseded by a human');
+END;
 
 -- ---------------------------------------------------------------------------
 -- text_payload — the engine's own output, kept whole (ADR 0021 D6, ADR 0022 D2)
@@ -283,6 +381,14 @@ CREATE UNIQUE INDEX document_text_one_primary ON document_text (document_sha256,
     WHERE superseded_by IS NULL AND reading_role = 'primary';
 CREATE UNIQUE INDEX document_text_one_human ON document_text (document_sha256, page_no)
     WHERE superseded_by IS NULL AND reading_role = 'human';
+-- AND ONE LIVE `second`, which the pair above missed. `agreement_distance` is the operand of
+-- the confidence band a reader sees, and the band is read straight off the live `second` row
+-- for the page — so two live seconds are two bands with no tie-break, which is the same
+-- defect `document_text_one_primary` exists to prevent, on the row that carries the NUMBER.
+-- Confirmed by execution rather than argued (code review, 2026-09-02): a re-run of the second
+-- reading at a new `method_version` left bands 0.1 and 0.4 both live on one page.
+CREATE UNIQUE INDEX document_text_one_second ON document_text (document_sha256, page_no)
+    WHERE superseded_by IS NULL AND reading_role = 'second';
 
 -- (document_sha256, page_no), not document_sha256 alone: the viewer reads a document's live
 -- readings in page order, and the narrower index would be ~1.35M entries serving nothing the
@@ -350,6 +456,10 @@ CREATE TABLE ocr_run (
 -- not block; it is Migration B's to solve, and it must not be solved by storing a CER in
 -- `precision` — `methods.stamp` reads that column as a precision and says so.
 INSERT INTO measured_target_vocab VALUES ('document_text');
+-- and NOT `document_pagination`, deliberately: nothing in that table can point at a
+-- measurement (see its own header — the registry is held and the table is published), so a
+-- vocabulary row for it would name a stage no row can ever claim. A declared stage that is
+-- unreachable is worse than an absent one; it reads as a gate waiting to open.
 
 -- A human correction needs an author on the day the table ships. `review_action` foreign-keys
 -- (target_table, target_keyed) to this vocabulary, so without the row there is nowhere to
@@ -363,6 +473,27 @@ INSERT INTO measured_target_vocab VALUES ('document_text');
 -- ship apart: a page-text correction becomes WRITABLE here while `search.signature()`'s split
 -- (`ocr-migration.md` item 11) is still owed, so nothing must write one until it lands.
 INSERT INTO review_target_vocab VALUES ('document_text', 'natural');
+
+-- `document_pagination` is SURROGATE, and the asymmetry with the line above is deliberate.
+-- Its live index is `UNIQUE (document_sha256)` — one live row per document, whatever method
+-- produced it — so its natural key is a bare sha256: ONE segment, where `review_action`'s
+-- shape CHECK wants at least four. That is the whole argument. (An earlier draft added
+-- "and nothing distinguishes a superseded row from its replacement", which is true here and
+-- equally true of `document_text`, which is natural anyway — it corroborates nothing.) This
+-- is the `party_relationship` case of migration 0015, not the `document_text` case.
+--
+-- SO `pagination_id` IS THE ANCHOR A CORRECTION NAMES, and that fact ships: `correction` is
+-- published, and its rows naming this table are NOT dropped from the snapshot the way rows
+-- naming a held table are. Two things make the integer followable and both are load-bearing:
+-- `pagination_id` is an explicit `INTEGER PRIMARY KEY`, which is what SQLite guarantees to
+-- preserve across `VACUUM`, and this table stays public. A third party reading a correction
+-- against it has no other way to resolve the number.
+--
+-- The alternative was to widen the live key to `(document_sha256, method, method_version)`
+-- and declare it natural. That is a GRAIN change — it would let two paginators disagree
+-- about one document with both answers live, and `page_count` is the coverage denominator —
+-- so it is the operator's, not this migration's, and it is recorded rather than taken.
+INSERT INTO review_target_vocab VALUES ('document_pagination', 'surrogate');
 
 -- ---------------------------------------------------------------------------
 -- What a reader sees, and what search indexes (ADR 0021 D9, ADR 0022 D4)

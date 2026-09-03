@@ -388,11 +388,7 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
     # a record entered in the docket and its sub-docket is one record: fold to the copy
     # nearest the parent (family order) and note where else it was entered
     entries = _fold_family_duplicates(entries, [m.raw_docket for m in family])
-    # newest first; within a day, decisions before filings, then by record id descending —
-    # a stable, explainable order, not a claim about the order things happened within a day
-    entries.sort(
-        key=lambda e: (e.date or "", e.kind == "decision", _numeric(e.record_id)), reverse=True
-    )
+    entries.sort(key=lambda e: sort_key(e.kind, e.date, e.record_id), reverse=True)
     last = _last_checked(con, ids)
     return DocketSheet(
         docket_id=docket_id,
@@ -413,6 +409,21 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
 
 
 _DIGITS = re.compile(r"\d+")
+
+
+def sort_key(kind: str, date: str | None, record_id: str) -> tuple:
+    """THE SHEET'S ORDER, in one place, because two callers now compute it.
+
+    Newest first; within a day, decisions before filings, then by record id descending — a
+    stable, explainable order, not a claim about the order things happened within a day.
+    Callers sort `reverse=True`.
+
+    `docket_sheet` applies this to fully-built `Entry` objects. `neighbours` applies it to
+    bare tuples read straight from SQL, because building the entries to find two of them is
+    what makes the viewer O(docket). If those two ever computed the order differently, the
+    viewer's "next" would point somewhere the sheet does not list it — the same silent drift
+    the shared entry builders above exist to prevent, one function along."""
+    return (date or "", kind == "decision", _numeric(record_id))
 
 
 def _numeric(record_id: str) -> int:
@@ -455,7 +466,12 @@ class EntryContext:
 
 
 def one_entry(
-    con: Connection, docket_id: int, kind: str, record_id: str
+    con: Connection,
+    docket_id: int,
+    kind: str,
+    record_id: str,
+    family: list[SubDocket] | None = None,
+    party_map: dict[int, list[int]] | None = None,
 ) -> tuple[EntryContext, Entry] | None:
     """One record's entry, without building the sheet that lists it.
 
@@ -485,7 +501,11 @@ def one_entry(
     if head is None:
         return None
     raw, prefix, sequence, payload = head
-    family = _family(con, docket_id)
+    # `neighbours` has already computed this and passes it in: it builds THREE entries from
+    # one family (the record and its two neighbours), and `_family` runs four grouped
+    # queries over every member. Recomputing it per entry was most of what the viewer's
+    # targeted path still cost after the sheet went away.
+    family = _family(con, docket_id) if family is None else family
     own = next((m for m in family if m.docket_id == docket_id), None)
     # A series holds no records of its own and `docket_sheet` returns it with `entries=[]`,
     # so nothing is addressable under it. Same answer here, reached the same way.
@@ -506,7 +526,10 @@ def one_entry(
             f" WHERE stb_filing_id = ? AND docket_id IN ({marks})",
             (record_id, *ids),
         ).fetchall()
-        parties = resolve.components_of_filings(con, ids)  # family docket ids — see above
+        # family docket ids — see above. `entry_and_neighbours` builds this ONCE for the
+        # three entries it assembles: the join is family-wide and the union-find behind it
+        # is store-wide, so paying it per entry put most of the cost back.
+        parties = resolve.components_of_filings(con, ids) if party_map is None else party_map
         copies = [_filing_entry(con, r, family, parties.get(r[0], [])) for r in rows]
     elif kind == "decision":
         rows = con.execute(
@@ -536,3 +559,133 @@ def one_entry(
         title=load_json(payload)["title"] if payload else None,
     )
     return context, folded[0]
+
+
+# The three record tables as the ORDERING pass reads them: enough to sort by and to name a
+# row with, and nothing else. `docket_sheet` reads the same tables through the column lists
+# above and then builds an Entry per row, with a payload query and an attachment query EACH;
+# that is the cost this pass exists to avoid.
+_ORDER_SOURCES = (
+    ("filing", "stb_filing_id", "filed_date", "filing"),
+    ("decision_record", "stb_decision_id", "service_date", "decision"),
+    ("enviro_comment", "comment_number", "date_received_or_sent", "comment"),
+)
+
+
+@dataclass(frozen=True)
+class RecordView:
+    """Everything a page about ONE record renders, and not a docket's worth more."""
+
+    context: EntryContext
+    entry: Entry
+    prev: Entry | None
+    next: Entry | None
+    party_names: dict[int, str]  # rep -> display name, the entry's own components only
+
+
+def entry_and_neighbours(
+    con: Connection, docket_id: int, kind: str, record_id: str
+) -> RecordView | None:
+    """One record, and the records either side of it in sheet order, WITHOUT the sheet.
+
+    THE VIEWER WAS THE LAST O(docket) READ. `/filing/<id>` and `/decision/<id>` were made
+    cheap with `one_entry` after building the sheet to read one row off it took production
+    down (2026-09-02); the VIEWER at `/…/<id>/view` still called `docket_sheet`, because it
+    shows the entry's neighbours and it is one click from every record page. Measured on a
+    production copy 2026-09-03: `docket_sheet` on FD 35087 costs 239 ms against `one_entry`'s
+    8.2 ms — 29x — and the ordering pass below reads the same 12,786 records in 8.0 ms in
+    three queries, because it never assembles an entry it is going to throw away.
+
+    The order is `sort_key`'s, and the fold is `docket_sheet`'s: a record entered in a docket
+    AND its sub-docket is ONE record, kept as the copy nearest the parent (ADR 0005). Both
+    have to match the sheet exactly, or "next" points at something the sheet does not list.
+
+    Returns FULLY-BUILT entries, the target's and both neighbours', because the template
+    needs each one's attachments to choose which file its link opens. All three go through
+    `one_entry`, so they are constructed by the same three builders the sheet uses and cannot
+    drift from it — and all three share one `family`, which is why they are one call and not
+    three: `_family` runs four grouped queries over every member of the family, and paying
+    that per entry was most of what this path still cost once the sheet was gone.
+
+    `None` when nothing is addressable here — a series, or no such record.
+    """
+    family = _family(con, docket_id)
+    own = next((m for m in family if m.docket_id == docket_id), None)
+    # A series builds no entries, so nothing is addressable under it and nothing neighbours
+    # anything. `docket_sheet` and `one_entry` reach the same answer the same way.
+    if (
+        own is not None
+        and own.filings == 0
+        and own.decisions == 0
+        and own.comments == 0
+        and len(family) - 1 >= SERIES_SUBS
+    ):
+        return None
+
+    ids = [m.docket_id for m in family]
+    marks = ",".join("?" for _ in ids)
+    raw_of = {m.docket_id: m.raw_docket for m in family}
+    rank = {m.raw_docket: i for i, m in enumerate(family)}
+
+    # THE ORDERING PASS RUNS FIRST, before anything is built. If the record is not in the
+    # order there is nothing to build, and when it is, this is what says which three entries
+    # to assemble — so nothing is assembled and discarded.
+    best: dict[tuple[str, str], tuple[str, str, str, str | None]] = {}
+    for table, id_col, date_col, entry_kind in _ORDER_SOURCES:
+        for row_docket, rid, date in con.execute(
+            f"SELECT docket_id, {id_col}, {date_col} FROM {table} WHERE docket_id IN ({marks})",
+            ids,
+        ):
+            raw = raw_of[row_docket]
+            key = (entry_kind, rid)
+            prior = best.get(key)
+            # the fold, by the same rule `_fold_family_duplicates` uses: family order, which
+            # is the copy nearest the parent. `also_in` is not computed — the neighbour links
+            # do not show it, and the entry the reader is ON is built by `one_entry`.
+            if prior is None or rank.get(raw, len(rank)) < rank.get(prior[2], len(rank)):
+                best[key] = (entry_kind, rid, raw, date)
+
+    ordered = sorted(best.values(), key=lambda r: sort_key(r[0], r[3], r[1]), reverse=True)
+    here = next((i for i, r in enumerate(ordered) if r[0] == kind and r[1] == record_id), None)
+    if here is None:
+        return None
+
+    sides = [i for i in (here - 1, here + 1) if 0 <= i < len(ordered)]
+    # Built ONCE for the three entries, and ONLY when one of them is a filing — a decision or
+    # a comment is not filed for anybody, so a comment-only stretch of a sheet pays nothing.
+    # `components_of_filings` runs a family-wide join over a store-wide union-find, and
+    # `one_entry` builds both per call, so three calls rebuilt them three times (code review,
+    # 2026-09-03).
+    comps = None
+    party_map = None
+    if "filing" in {kind, *(ordered[i][0] for i in sides)}:
+        comps = resolve.Components(con)
+        party_map = resolve.components_of_filings(con, ids, comps)
+
+    def entry_at(i: int) -> Entry | None:
+        got = one_entry(
+            con, docket_id, ordered[i][0], ordered[i][1], family=family, party_map=party_map
+        )
+        return got[1] if got else None
+
+    here_got = one_entry(con, docket_id, kind, record_id, family=family, party_map=party_map)
+    if here_got is None:  # in the order and unbuildable: the sheet would not list it either
+        return None
+    context, entry = here_got
+
+    # the entry's OWN components, named from the union-find already built. A component with
+    # no live name renders as `party <id>` — `Components.display_name`'s documented last
+    # resort, and what the sheet's Parties block shows too, so the viewer says what the list
+    # says rather than dropping the link (code review, 2026-09-03).
+    names = (
+        {rep: comps.display_name(rep) for rep in dict.fromkeys(entry.parties)}
+        if comps is not None
+        else {}
+    )
+    return RecordView(
+        context,
+        entry,
+        entry_at(here - 1) if here > 0 else None,
+        entry_at(here + 1) if here + 1 < len(ordered) else None,
+        names,
+    )

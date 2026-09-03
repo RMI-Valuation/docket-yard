@@ -53,6 +53,16 @@ citator reads is touched before the citator has run its first real load.
    index: without the vocabulary an undeclared typed column enters a **published** table, and
    without the supersession a re-pagination is an UPDATE — current state under the coverage
    denominator, in the only new table the snapshot publishes.
+   **Two more, taken 2026-09-02/03 and recorded here because this checklist is the spec the
+   migration's header answers to.** The row carries `confidence`/`confidence_state` like every
+   other derived assertion — the pair qualifies `had_text_layer`, not `page_count` — and the
+   state is a **`confidence_state_vocab` table**, not an inline CHECK, by this item's own
+   published-typed-column rule. `'measured'` is absent from it: the gate cannot be opened by a
+   pointer, because the measurement registry is held and a published `schema.sql` may not name
+   a table the snapshot omits, so opening it later is an INSERT rather than a rebuild. And the
+   table is in **`review_target_vocab` as `surrogate`** — its live key is a bare sha, one
+   segment against `review_action`'s floor of four — which brings a human row into a table
+   that had none, so it gains the human-supersession trigger `citation` carries.
 3. **`ocr_run`** — one row per `(document, method, method_version, reading_channel,
    render_profile, ran_at)`. **`ran_at` is in the key**, which is what makes it append where
    `extraction_run` replaces; the coverage read takes the latest. Typed outcome, `pages_read`
@@ -86,6 +96,11 @@ citator reads is touched before the citator has run its first real load.
 11. `search.signature()` reads `MAX(correction_id)`, so a page-text correction would force a
     full rebuild of the docket/party/decision index and invalidate every cached page
     site-wide. Split the signature, or exclude corrections naming `document_text`.
+    **`document_pagination` is now in this too** (2026-09-03): migration 0018 gives it a
+    `review_target_vocab` row, so a corrected page count is a `correction` row with the same
+    effect, and `search.py:279` / `app.py:301` both read the max unfiltered. So the second
+    remedy above is not enough as written — excluding one table would leave the other. Either
+    split the signature, or exclude by a SET of table names and keep it beside this item.
 
 ## The review vocabulary, without importing the queue
 
@@ -127,7 +142,13 @@ citator reads is touched before the citator has run its first real load.
     shares none of `methods.stamp` (raises when a class has no measurement, which is by
     design here), `methods.declare` (its row list is citation-family) or `methods.owner`
     (hardcodes `target_table = 'citation'`). `load._retire` and `load._supersede_if_changed`
-    are table-agnostic and should be reused rather than reinvented.
+    are table-agnostic in shape — **but not reusable unmodified**, which migration 0018's
+    header asserts this item already said and it did not. `_retire` writes only
+    `superseded_by`, and both `document_text` (0018) and `decision_decided_date` (0019, ADR
+    0023 D2) carry `CHECK ((superseded_by IS NULL) = (superseded_at IS NULL))`, which refuses
+    that write. Either the helper sets `superseded_at` in the same statement, or the loader
+    does not call it. Reuse the *idiom* — retire at itself, insert, repoint, in one
+    transaction — rather than the function as shipped.
 14. **Escalation is an operator-triggered CLI verb**, not an automatic stage — the operator's
     decision, 2026-09-02. A paid third reading is a pass with its own method and version,
     recorded in `ocr_run` like any other. No standing spend, and no authenticated surface
