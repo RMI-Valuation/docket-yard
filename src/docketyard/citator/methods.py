@@ -164,13 +164,65 @@ def declare(
             ) from None
 
 
+def machine_channels(con) -> set[str]:
+    """The channels a MODEL pass may say it read on: `reading_vocab` less 'human'. The
+    third value exists so a review row has a legal key (ADR 0018 D3); it is never what a
+    findings document was read from, and a model row carrying it would be found by
+    `review._human_reading` and reused as a reviewer's evidence."""
+    return {
+        c
+        for (c,) in con.execute(
+            "SELECT reading_channel FROM reading_vocab WHERE reading_channel <> ?", (HUMAN,)
+        )
+    }
+
+
+def ranked(con, channel: str, *, rank_version: str = RANK_VERSION) -> bool:
+    """Whether the projection could show an edge read on this channel: a resolver ranked
+    on it AND the span test ranked on it, because `project._TERMS` INNER-joins BOTH
+    `citation_resolution` and `citation_judgement` to their rank rows on the channel, and
+    an in-family edge whose span judgement has no rank row is suppressed by default. A
+    channel with neither, or with one, stores rows no page can show — silently, with the
+    load exiting 0. `declare` ranks the text layer only (RANKS and the span row); ranking
+    OCR is a new `rank_version`, not a default."""
+    return (
+        con.execute(
+            "SELECT EXISTS (SELECT 1 FROM assertion_method"
+            "   WHERE target_table = 'citation_resolution' AND role = 'resolve'"
+            "     AND reading_channel = ? AND rank_version = ?)"
+            " AND EXISTS (SELECT 1 FROM assertion_method"
+            "   WHERE target_table = 'citation_judgement' AND method = ?"
+            "     AND reading_channel = ? AND rank_version = ?)",
+            (channel, rank_version, SPAN_METHOD, channel, rank_version),
+        ).fetchone()[0]
+        == 1
+    )
+
+
+STAGES = ("citation", "citation_resolution", "projection")  # every row is stamped from one
+
+
 class Unscored(RuntimeError):
     """A class nobody has scored, asked to stamp a row. ADR 0017 D3: such a class is
     `unmeasured` and PROJECTS NOTHING, so refusing here is the rule, not an inconvenience."""
 
 
-def stamp(con, stages=("citation", "citation_resolution", "projection"), cls="docket"):
+def stamp(
+    con,
+    stages=STAGES,
+    cls="docket",
+    *,
+    channel: str = CHANNEL_TEXT,
+):
     """The measurement each stage's rows are stamped from: {stage: (id, precision)}.
+
+    THE CHANNEL IS A TERM OF THE LOOKUP. A measurement is of one reading channel (ADR 0018
+    D8 keys `class_measurement` on it), and a figure measured on the text layer says
+    nothing about what the same method finds in OCR text at 10.8% CER. Until 2026-09-03
+    this selected on `(measured_target, class)` alone, so the first OCR-channel load would
+    have stamped every row with the text-layer precision, marked it `measured` and
+    published it — the ADR 0017 D3 violation `docs/ocr-migration.md` recorded. A channel
+    nobody has scored is `Unscored` exactly as a class nobody has scored is.
 
     THE VALUE IS A PRECISION, never a recall. ADR 0017 D3 is explicit — "confidence is the
     measured precision of the resolution's class on the checked sheet" — and a recall
@@ -186,14 +238,17 @@ def stamp(con, stages=("citation", "citation_resolution", "projection"), cls="do
     for stage in stages:
         row = con.execute(
             "SELECT measurement_id, precision FROM class_measurement"
-            " WHERE measured_target = ? AND class = ?"
+            " WHERE measured_target = ? AND class = ? AND reading_channel = ?"
             " ORDER BY benchmark_date DESC, measurement_id DESC LIMIT 1",
-            (stage, cls),
+            (stage, cls, channel),
         ).fetchone()
         if row is None:
-            raise Unscored(f"no class_measurement for ({stage}, {cls})")
+            raise Unscored(f"no class_measurement for ({stage}, {cls}) on channel {channel!r}")
         if row[1] is None:
-            raise Unscored(f"({stage}, {cls}) has been measured but carries no precision")
+            raise Unscored(
+                f"({stage}, {cls}) on channel {channel!r} has been measured but carries no"
+                " precision"
+            )
         out[stage] = (row[0], row[1])
     return out
 
@@ -206,6 +261,7 @@ def measure(
     extractor_version: str,
     score_file: str,
     benchmark_date: str,
+    reading_channel: str = CHANNEL_TEXT,
     recall: float | None = None,
     precision: float | None = None,
     false_veto_rate: float | None = None,
@@ -219,6 +275,9 @@ def measure(
     foreign-key the (id, stage) pair — so a row cannot be stamped from another stage's
     number. That is the error ADR 0017 made four times, and it is why this function will
     not let a caller pass a figure without saying what it measures.
+
+    `reading_channel` says WHICH TEXT the figure was measured on, and `stamp` selects on it:
+    a score recorded here for 'ocr' is the only thing that lets an OCR row be `measured`.
     """
     is_projection = measured_target == "projection"
     return con.execute(
@@ -234,7 +293,7 @@ def measure(
             extractor_version,
             None if measured_target == "citation" else resolve.RESOLVER,
             None if measured_target == "citation" else resolve.RULE_1,
-            CHANNEL_TEXT,
+            reading_channel,
             PROJECTION_RULE if is_projection else None,
             benchmark_date,
             score_file,

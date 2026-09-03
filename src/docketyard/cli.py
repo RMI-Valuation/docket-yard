@@ -357,9 +357,11 @@ def _citator(args: argparse.Namespace) -> int:
     for path in batch:
         try:
             doc = json.loads(path.read_text(encoding="utf-8"))
-            for required in ("document_sha256", "method", "method_version"):
+            for required in ("document_sha256", "method", "method_version", "reading_channel"):
                 if not doc[required]:
                     raise KeyError(required)
+                if not isinstance(doc[required], str):
+                    raise TypeError(f"{required} is not a string")
         except (ValueError, KeyError, TypeError, OSError) as e:
             print(f"  skipped {path.name}: {type(e).__name__} {e}")
             unreadable += 1
@@ -370,21 +372,42 @@ def _citator(args: argparse.Namespace) -> int:
         return 1
     # A MIXED BATCH IS REFUSED rather than half-declared. `declare` records one owner per
     # class per rank_version, so loading two extractor versions in one wave would leave the
-    # second writing rows the registry says it does not own (ADR 0018 D1).
-    passes = {(d["method"], d["method_version"]) for _, d in docs}
+    # second writing rows the registry says it does not own (ADR 0018 D1). The CHANNEL is
+    # part of the same key: the stamps are taken once per batch and a measurement is of one
+    # channel (ADR 0018 D8), so a text-layer document beside an OCR document would leave
+    # the second stamped with the first's precision.
+    passes = {(d["method"], d["method_version"], d["reading_channel"]) for _, d in docs}
     if len(passes) > 1:
-        print(f"refused: the batch mixes {sorted(passes)} — one pass per load")
+        print(f"refused: the batch mixes {sorted(passes, key=str)} — one pass per load")
         return 1
-    method, version = passes.pop()
+    method, version, channel = passes.pop()
+    machine = methods.machine_channels(con)
+    if channel not in machine:  # a null, a typo, or 'human' on a model pass
+        print(f"refused: reading_channel {channel!r} is not one of {sorted(machine)}")
+        return 1
 
     try:
         # The measurement must exist before an edge may point at it: a class nobody has
-        # scored is unmeasured and PROJECTS NOTHING (ADR 0017 D3). `stamp` also refuses a
-        # measurement that carries no precision, which is what a row is stamped with.
-        stamps = methods.stamp(con)
+        # scored is unmeasured and PROJECTS NOTHING (ADR 0017 D3), and a class scored on
+        # another channel is unscored on this one. `stamp` also refuses a measurement that
+        # carries no precision, which is what a row is stamped with.
+        stamps = methods.stamp(con, channel=channel)
         methods.declare(con, version, extractor=method)
+        # A MEASURED CHANNEL NOBODY HAS RANKED stores rows the projection drops on its
+        # channel joins, with this verb exiting 0 and `extraction_run` saying "read". That
+        # is not ADR 0017 D3's "stored and unprojected" — that phrase is for the UNMEASURED —
+        # so it is refused here, symmetrically with `Unscored`, and BEFORE the commit: a
+        # refused load must leave no declaration behind, or the next load at the rightful
+        # owner meets `Conflict` for a pass that never ran. `declare` ranks the text layer
+        # only; a rank for another channel is a new rank_version (ADR 0018 D7), a decision.
+        if not methods.ranked(con, channel):
+            raise methods.Unscored(
+                f"no resolver and span test are ranked on channel {channel!r}"
+                " — nothing loaded here could project"
+            )
         con.commit()
     except (methods.Unscored, methods.Conflict) as e:
+        con.rollback()
         print(f"refused: {e}")
         return 1
 
@@ -423,8 +446,59 @@ def _search_rebuild(args: argparse.Namespace) -> int:
     return 0
 
 
+def _search_rebuild_pages(args: argparse.Namespace) -> int:
+    print(search.rebuild_pages(db.connect(args.db), force=args.force))
+    return 0
+
+
 def _vault_new_key(args: argparse.Namespace) -> int:
     print(vault.Vault.new_key())
+    return 0
+
+
+def _text(args: argparse.Namespace) -> int:
+    """The record's own text (ADR 0021, 0022; migration 0018): the passes that fill it.
+
+    `paginate` and `load` both run HERE and not inside `migrate` (ocr-migration.md items
+    12-13), through `store.batches`: one document at a time, committed per batch, so the
+    write lock is held for tens of milliseconds at a time and a kill loses one batch.
+
+    THE EXIT STATUS IS FOR A CRON. 0 means every record met its document and the store
+    took it; 1 names why not — the store refused a document, the store could not be
+    written, or nothing was attached (a wrong `--db`, an empty root), which is not a
+    success just because the loop ran.
+    """
+    from docketyard.text import load, paginate
+
+    pass_ = load if args.what == "load" else paginate
+    root = Path(args.root)
+    if not root.is_dir():
+        print(f"refused: {root} is not a directory of {pass_.NOUN}s")
+        return 1
+    con = db.connect(args.db)
+    if pass_ is load:
+        totals = load.run(con, root, args.data_dir)
+    else:
+        totals = paginate.run(con, root)
+    print(dict(totals))
+    attached = sum(totals[k] for k in pass_.ATTACHED)
+    if totals["aborted"]:
+        print("aborted: the store could not be written; re-run when it is free")
+        return 1
+    if totals["failed"]:
+        print(f"the store refused {totals['failed']} document(s); see the lines above")
+        return 1
+    if not attached:
+        if totals["unknown_document"]:
+            print(
+                f"refused: none of {totals['unknown_document']} {pass_.NOUN}(s) names a"
+                " document this store holds — is --db the right store?"
+            )
+        elif totals["unreadable"]:
+            print(f"refused: {totals['unreadable']} {pass_.NOUN}(s) found and none readable")
+        else:
+            print(f"refused: no {pass_.NOUN} under that root")
+        return 1
     return 0
 
 
@@ -617,8 +691,19 @@ def main(argv: list[str] | None = None) -> int:
     dc.add_argument("--docket", type=int, help="for `corrected`: the docket it corrects to")
     dc.set_defaults(func=_citator)
 
+    tx = sub.add_parser("text", help="the record's own text (ADR 0021, 0022; migration 0018)")
+    tx_sub = tx.add_subparsers(dest="what", required=True)
+    pg = tx_sub.add_parser("paginate", help="one page count per document, from the extraction")
+    pg.add_argument("root", help="the extraction directory: <root>/<xx>/<sha>.json")
+    pg.set_defaults(func=_text)
+    ld = tx_sub.add_parser("load", help="one reading per file into document_text, page by page")
+    ld.add_argument("root", help="the readings directory: <root>/<xx>/<sha>.json")
+    ld.set_defaults(func=_text)
     se = sub.add_parser("search", help="the search index (docs/search.md)")
     se_sub = se.add_subparsers(dest="what", required=True)
+    rp = se_sub.add_parser("rebuild-pages", help="the page index, whole, from the display view")
+    rp.add_argument("--force", action="store_true", help="even when its signature is unchanged")
+    rp.set_defaults(func=_search_rebuild_pages)
     se_sub.add_parser("rebuild", help="rebuild the index from the store").set_defaults(
         func=_search_rebuild
     )

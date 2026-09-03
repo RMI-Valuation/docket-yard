@@ -19,13 +19,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Cameron's**: whether `/view` 301s to `/filing/<id>` (ADR 0013). The O(docket) read is gone
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
   heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
-- **`methods.stamp()` has no channel term** — the first OCR-channel citator load would stamp
-  text-layer measurements onto OCR rows and publish them. A live ADR 0017 D3 violation
-  waiting for a load that has not happened; fix before any OCR pass runs
 - **Migration A's SCHEMA is on `main` and undeployed** (PR #20, 2026-09-03): migrations 0018
   and 0019, ADRs 0021–0023 Accepted. Production stays at schema 17 until a deploy is run, and
-  that deploy is when the free amendments stop being free. **Left to build**: the loader, the
-  pagination pass, the search wiring, the page-text render (`ocr-migration.md` 11–13, § Search)
+  that deploy is when the free amendments stop being free. **Left**: the page search path
+  (`Hit` lacks label/band/scan link) and the published pages (`ocr-migration.md` 21–26).
+  `text paginate`/`load`, the split signature, `/filing/<id>/text` landed 2026-09-03; unrun
+- **`extract_text.py` emits no record for a non-PDF or a failed open**, so `paginate` cannot
+  write `not-paginable`/`failed` rows and the coverage denominator is the paginated set
 - **ADR 0023's pick rule is recommended, not decided** — **nothing may publish a single decided
   date until Cameron settles it**. No consumer needs it yet; `cite.py` sends `decided` to the sheet
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen

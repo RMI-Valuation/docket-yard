@@ -758,8 +758,8 @@ def test_a_page_is_recorded_where_source_location_held_it_in_json(tmp_path):
 def test_a_model_pass_may_not_supersede_a_human_decided_date(tmp_path):
     """The rule `citation` carries at 0014 and `document_text` at 0018, in the same idiom and
     for a sharper reason: what this table holds is a quotation. `superseded_at` travels in the
-    same statement or the biconditional refuses it — which is why `citator.load._retire`, as
-    shipped, is not reusable against this table."""
+    same statement or the biconditional refuses it — which is why `store.supersede.retire`
+    takes `at`, and this table's writer must pass it."""
     con = _store(tmp_path)
     human = _decided(
         con,

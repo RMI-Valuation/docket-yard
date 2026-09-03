@@ -101,6 +101,10 @@ citator reads is touched before the citator has run its first real load.
     effect, and `search.py:279` / `app.py:301` both read the max unfiltered. So the second
     remedy above is not enough as written — excluding one table would leave the other. Either
     split the signature, or exclude by a SET of table names and keep it beside this item.
+    **Landed 2026-09-03**: `search.PAGE_TABLES` is the set; `signature()` and the web tier's
+    `stamp()` exclude corrections naming it, and the page index has `page_signature()`,
+    `page_built`, `rebuild_pages()` (`search rebuild-pages`) and `page_stamp()` for the
+    text render's validator.
 
 ## The review vocabulary, without importing the queue
 
@@ -118,7 +122,17 @@ citator reads is touched before the citator has run its first real load.
 - **A page-grained permanent address.** The viewer is `/decision/<id>/view` and
   `/filing/<id>/view`, whole-document; ADR 0021 D7 needs a per-page address carrying the
   text, the label, the band, the scan link and the report control. Under ADR 0013 that is
-  a permanent URL and therefore a commitment.
+  a permanent URL and therefore a commitment. **Landed 2026-09-03 as `/filing/<id>/text`
+  and `/decision/<id>/text`** (the operator's address): ONE address per record with
+  `?file=N` for a further attachment and `#p<n>` per page — not one address per page,
+  because 1.1M page addresses against 74k records is a crawler's address space, and a
+  crawler walking one is this site's one real outage. Each read page carries its text,
+  the label (the publisher's text layer, read once; or the engine, version, render and
+  route), the band's OPERAND where a second reading exists (D8: the distance, its method
+  and version, never a threshold nobody has decided), the scan and the report link; a page
+  in the count with no reading says "not yet read"; a human row is labelled and dated. Its
+  validator is `page_stamp`. Held from the dedication with the party module in
+  `robots.txt`; not in the sitemap. `store/pages.py` is the read side.
 - **Its own query path, and `search.Hit` extended.** `Hit` carries `kind, path, title,
   fact, caption, snippet` — no engine, no version, no band, no scan link. Until it carries
   them, no OCR text may reach `/search`, `/suggest` or `web/mcp.py`'s `_search`, which
@@ -129,7 +143,8 @@ citator reads is touched before the citator has run its first real load.
   so it would neither rebuild for a new reading nor notice one; and `search_meta` keys its
   build on the single row `'built'`. The page index needs both of its own — and because
   the indexed view *is* ADR 0021 D9's display rule, that rule's version belongs in the
-  signature.
+  signature. **Landed 2026-09-03** (`PAGE_INDEX_FORMAT = 'display@0018'`). The page-grained
+  address and `Hit`'s extension above are still owed.
 
 ## The passes
 
@@ -137,18 +152,38 @@ citator reads is touched before the citator has run its first real load.
     the whole stack blocks on, and every migration to date runs in one transaction; ~104k
     rows written inside it holds the write lock against `ingest` and Litestream. Batched,
     resumable, committing per document — the shape `docketyard citator load` already has.
-13. **The loader is new**, page-grained and multi-method. It commits per document as the
-    citator's does; it **streams** rather than parsing a whole directory into memory; and it
+    **Landed 2026-09-03** as `docketyard text paginate <root>` (`docketyard/text/paginate.py`)
+    over the extraction directory `extract_text.py` writes, reading each record's head and
+    never its text; `method` is the tool. A re-run by the same tool that agrees writes
+    nothing; a changed answer or a different tool supersedes with `superseded_at`; a human
+    row is held and counted. The commit is per batch of 200 with a savepoint per document
+    (measured: 1.2 ms a row per-row against 0.028 ms batched), and a store that cannot be
+    written aborts the pass rather than counting each remaining document as failed. It runs
+    on the instance AFTER the deploy that applies 0018: `db.connect` migrates, as every verb
+    does. The extractor emits no record for a non-PDF or a failed open, so `not-paginable`
+    and `failed` wait on it.
+13. **The loader is new**, page-grained and multi-method. It commits per batch with a
+    savepoint per document (`store/batches.py`); it **streams** rather than parsing a whole
+    directory into memory; and it
     shares none of `methods.stamp` (raises when a class has no measurement, which is by
     design here), `methods.declare` (its row list is citation-family) or `methods.owner`
-    (hardcodes `target_table = 'citation'`). `load._retire` and `load._supersede_if_changed`
-    are table-agnostic in shape — **but not reusable unmodified**, which migration 0018's
-    header asserts this item already said and it did not. `_retire` writes only
-    `superseded_by`, and both `document_text` (0018) and `decision_decided_date` (0019, ADR
-    0023 D2) carry `CHECK ((superseded_by IS NULL) = (superseded_at IS NULL))`, which refuses
-    that write. Either the helper sets `superseded_at` in the same statement, or the loader
-    does not call it. Reuse the *idiom* — retire at itself, insert, repoint, in one
-    transaction — rather than the function as shipped.
+    (hardcodes `target_table = 'citation'`). **The retire/insert/repoint helpers moved to
+    `store/supersede.py` on 2026-09-03** — `retire(..., at=)` and `if_changed(...,
+    retire_at=)` write `superseded_at` in the same statement when asked, so the
+    biconditional both `document_text` (0018) and `decision_decided_date` (0019, ADR 0023
+    D2) carry no longer refuses them; `text/paginate.py` is the first caller outside the
+    citator. Pass `retire_at`: without it the write is refused, which is the right failure.
+    **Landed 2026-09-03** as `docketyard text load <root>` (`docketyard/text/load.py`): one
+    reading per file, page by page; the extraction record is the text layer's reading and a
+    general reading document is the OCR pass's (its shape is the module's docstring); the
+    file itself is the payload, content-addressed into the blob tier and recorded in
+    `text_payload`; a primary of another key is displaced cross-key with `superseded_at`;
+    `page_fts` is kept in step (`store/page_index.py`, one definition for every writer);
+    `ocr_run` appends on `ran_at`, and an existing run row is the restart check — one
+    lookup, the body unread. An agreement names the primary it was measured against, by
+    key, and is refused when the live primary differs. The loop is `store/batches.py`,
+    shared with `paginate`. Not here: the human writer's half of the index obligation
+    (Migration B), and `search_meta.page_built` (item 11).
 14. **Escalation is an operator-triggered CLI verb**, not an automatic stage — the operator's
     decision, 2026-09-02. A paid third reading is a pass with its own method and version,
     recorded in `ocr_run` like any other. No standing spend, and no authenticated surface
@@ -239,8 +274,18 @@ against the measured flag rate before it is worth specifying. What is known to b
 
 ## Live now, and not waiting for either migration
 
-- **`methods.stamp()` has no channel term.** It selects on `(measured_target, class)` only,
-  so the first OCR-channel citator load would stamp every row with the *text-layer*
-  measurement, mark it `measured`, and publish it. `measure()` hardcoding `text-layer` is not
-  a guard; it only stops the figure being *recorded*. This is a live ADR 0017 D3 violation
-  waiting for a load that has not happened yet, and it should be fixed on its own.
+- **`methods.stamp()` has a channel term since 2026-09-03.** Until then it selected on
+  `(measured_target, class)` only, so the first OCR-channel citator load would have stamped
+  every row with the *text-layer* measurement, marked it `measured`, and published it — a
+  live ADR 0017 D3 violation waiting for a load that had not happened. Now `stamp` and
+  `measure` both carry the channel, `citator load` refuses a batch that mixes channels, and
+  the loader checks the stamps it is handed against the measurement rows themselves
+  (`load.WrongChannel`), which also refuses a null or `human` channel on a model pass. An
+  OCR load is therefore `Unscored` until somebody measures the OCR channel, which is ADR
+  0017 D3's "stored and unprojected until measured" read as a refusal rather than as an
+  unmeasured row; if the OCR pass is to *store* unmeasured rows, that is a deliberate flag
+  on the load verb, not a fallback inside `stamp`. And a measured channel nobody has
+  *ranked* is refused too (`methods.ranked`): `declare` ranks the text layer only, and the
+  projection's rank join is channel-matched, so the alternative was rows no page shows and
+  an exit of 0. Ranking OCR is a new `rank_version` (ADR 0018 D7) — the namespace question
+  item 8 above already holds.

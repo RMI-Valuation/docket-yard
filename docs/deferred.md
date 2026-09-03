@@ -270,10 +270,6 @@ The serious ones were fixed in the same session and are pinned by tests in
   `extraction_run` records no payload hash, so an edge traces to `(method, version)` and not
   to the enrichment run that produced it — the capture-first invariant met by convention
   rather than by the store. The file's sha256 in `extraction_run.note` is the cheap fix.
-- **`methods.measure` hardcodes `reading_channel = 'text-layer'`** and `methods.stamp` takes
-  no channel, so an OCR pass would silently borrow the text-layer measurement. Harmless
-  today — `declare` ranks no OCR resolution, so an OCR edge fails closed — but the guard is
-  accidental rather than stated.
 - **An empty `quoted_passage` can project.** A finding with no `quoted` text passes NOT NULL
   as `''`, and the edge then reaches a reader with no citing passage, against ADR 0017 D6.
 - **`WB25-53` keys as `WB 25`**, because `\b` accepts the hyphen as a boundary. That is the
@@ -531,6 +527,66 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
   and `dump.py`'s docstring currently implies the second ("a restored copy is at the release's
   schema and `docketyard search rebuild` remakes it").
 
+## Found 2026-09-03, code review on `methods.stamp`'s channel term (main at 682fe97, unreleased)
+
+- **`declare` ranks no channel but the text layer.** RANKS carries `text-layer` only and the
+  projection INNER-joins every resolution and judgement to its rank row on the channel, so
+  a measured OCR load would store rows no page can show. `citator load` now refuses an
+  unranked channel (`methods.ranked`), so the failure is loud; the gap itself is a new
+  `rank_version` carrying OCR at ranks 3 and 4 under ADR 0018 D7, which waits on the
+  namespace question in `ocr-migration.md` item 8. A decision, not a default.
+- **The `citation` identity row takes the stamp of whichever pass asserted it.** The key
+  carries no channel and `unchanged` is keyed on (method, version) alone, so a document
+  read OCR-first keeps the OCR figure through a same-version text-layer pass, and a newer
+  version on OCR re-stamps it while the live text-layer resolution still projects. Nothing
+  published reads that figure — the projection takes `confidence` from the channel-keyed
+  resolution and uses this row as a state gate — but validation query 3's "what stood
+  behind this edge" answers per family. Either the identity row is stamped from a
+  channel-independent measurement (not expressible: `reading_channel` is NOT NULL) or its
+  semantics are stated in 0014's § citation. Comment at the insert in `load.py`.
+- **The review queues have no registry join.** `review._base` joins resolution to reading
+  on the channel and never to `assertion_method`, so a resolution on an unranked channel
+  enters `citation_exposed`/`repaired`/`unresolved` although it can never project; a
+  document read on both channels queues one question twice. Moot while the CLI refuses
+  unranked channels; live for any direct caller.
+- **The channel/measurement agreement is Python, not schema.** Migration 0014 made
+  `(measurement_id, measured_target)` UNIQUE so every assertion table could FK the stage
+  pair; the channel is the same shape of error and is held by `load.WrongChannel` and the
+  CLI. The schema fix is widening that pair to include `reading_channel` and re-pointing
+  the four channel-keyed families' FK — a rebuild of held tables in the 0019 pattern, for
+  Migration B's `assertion_method` rebuild to carry.
+
+## Found 2026-09-03, code review on the pagination pass and the loader (unreleased)
+
+- **`citator load` still runs its own loop.** `store/batches.py` was hoisted for the two
+  text passes; the citator's loop in `cli._citator` commits per document (the measured
+  1.2 ms a row) and counts an `OperationalError` per document — the wait-fail-count-for-hours
+  shape `batches` exists to refuse. Folding it needs `load.Loaded` mapped to an outcome word.
+- **`page_index.visible` infers, it does not record.** Whether a primary is in `page_fts`
+  is read off the display view's rule as it stands, so a human row inserted without
+  `leave(primary)` leaves the index holding text the view no longer shows and the loader
+  cannot tell. The review layer's human writer (Migration B) owes `leave`/`enter`; until
+  then a hand-written human row owes them by hand.
+- **A batch aborted after `save_blob` leaves its readings' files under `blobs/`** with no
+  `text_payload` row, shipped by the sync and never pruned. Bounded by one batch and
+  re-derived to the same address on the re-run; an orphan audit must join `text_payload`.
+- **`ATTACHED`/`NOUN` per pass are the exit-status contract**, read by `cli._text`; a new
+  outcome word in a pass that is not added to its `ATTACHED` exits 1 on a successful run.
+- **`search.PAGE_TABLES` is a literal list**, not derived from `review_target_vocab`: a
+  page-tier table Migration B adds a correction path for is counted against the record
+  index and the site-wide ETag again until it is added here, and its page keeps its old
+  validator. A test asserting the set against the vocabulary would need "page-tier" named
+  somewhere the schema can read.
+- **The text page renders a document whole.** The mean is ~15 pages; the tail (EIS volumes,
+  merger applications) runs to hundreds, ~2-4 MB of HTML per request at 300 s cache life.
+  A bounded window without new addresses is a query address family (`?from=`), which is the
+  address-space question the one-address rule was adopted against — the operator's.
+- **The record page and the viewer link the text page unconditionally**, never on whether
+  readings exist: `stamp()` no longer moves on the page tables, so a link conditioned on
+  them would answer 304 with the pre-load rendering. Nothing under `stamp()` may read them.
+- **Item 22's methodology entry** (the per-tier error rate and the born-digital caveat) is
+  still owed; the page's sentence on document text was corrected, the entry was not added.
+
 ## Found by schema-critic against migration 0018's `document_pagination`, 2026-09-03
 
 - **Four tables may be held for no reason anyone weighed, and unholding them would restore a
@@ -548,3 +604,24 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
   **The operator's, and one-way in one direction only**: held can become public later, public
   cannot become held, so deferring costs nothing and acting is irreversible. Recorded because
   it was suggested and not taken, not because it should be.
+
+## Found by the cloud bughunter review, 2026-09-03 (branch `migration-a-passes`, unreleased)
+
+Twenty-eight agents over the five commits since `682fe97`; the run hit its wall clock with
+four confirmed, all nits, three reported and one dropped by its quality cap. Nothing blocking.
+
+- **"The text" is offered for records whose only viewable file is a JPG.** `record.html`
+  gates the button on `viewable_index`, whose set is `INLINE = {pdf, jpg}`; the text route
+  picks from `PAGINABLE = {pdf}`. `viewer.html` links the text page unconditionally. A
+  JPG-only record shows the affordance and lands on the "not a kind whose text is read"
+  fallback. Gate both on a PAGINABLE pick — a static property of the file list, so it does
+  not run into the `stamp()` rule the item above records.
+- **`_page` accepts a bool as `agreement.distance`.** `load.py` checks the distance with a
+  bare `isinstance(x, int | float)`; every other numeric field in the loader (`page_no`,
+  `engine_confidence`, `pages_failed`) pairs it with a bool guard. A JSON `true` passes and
+  is stored as `1.0`, inside the CHECK's range, shown to a reader as a band operand.
+- **`_STAMP_TERMS` spells out `NOT IN (?, ?)`** where `search._NOT_PAGES` derives its
+  placeholders from `PAGE_TABLES`. Both `stamp()` and `page_stamp()` bind the tuple into the
+  two literal marks, so the page-tier table Migration B adds (the `PAGE_TABLES` item above)
+  would raise a binding-count error on every reader page until both sites agree. Derive the
+  placeholders once, in `search`, and import them.

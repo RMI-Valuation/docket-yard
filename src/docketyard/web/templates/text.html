@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% set identity = parse_docket_id(entry.docket_raw) %}
+{% set printed = printed_docket(identity) %}
+{% set label = 'Decision' if entry.kind == 'decision' else 'Filing' %}
+{% set here = text_path(entry.kind, entry.record_id, index) %}
+{% set scan = viewer_path(entry.kind, entry.record_id, index) %}
+{% block title %}Text of {{ label | lower }} {{ entry.record_id }} — {{ printed }} — {{ site_name }}{% endblock %}
+{% block description %}The text of {{ label | lower }} {{ entry.record_id }} in {{ printed }}, page by page, as read by machine from the Board's file — labelled, with the scan one click away.{% endblock %}
+{% block main %}
+<section class="viewer">
+  <div class="viewer-doc pages">
+    {% if current and (rows or pagination) %}
+    <p class="small muted">{% if pagination and pagination.page_count is not none %}{% if read <= pagination.page_count %}{{ read }} of {{ pagination.page_count }} page{{ 's' if pagination.page_count != 1 }} read{% else %}{{ read }} pages read; the file was counted at {{ pagination.page_count }}{% endif %}{% elif pagination %}The file did not paginate ({{ pagination.outcome }}){% if read %}; {{ read }} page{{ 's' if read != 1 }} read{% endif %}{% else %}{{ read }} page{{ 's' if read != 1 }} read; the page count is not yet recorded{% endif %}. Nothing here is the Board's text: it is what a machine read from the Board's file, shown so it can be found and checked, and <a href="{{ scan }}">the scan</a> is the record. <a href="/corrections">Report a misreading</a> with the page's address.</p>
+    {% for n, page in rows %}
+    <article class="page" id="p{{ n }}">
+      <h2 class="page-heading">Page {{ n }} <a class="anchor" href="{{ here }}#p{{ n }}" title="This page's address">¶</a></h2>
+      {% if page %}
+      <p class="small muted page-label">
+        {%- if page.reading_role == 'human' %}Corrected by a person ({{ page.asserted_at[:10] }}).
+        {%- elif page.reading_channel == 'text-layer' %}The publisher's own text layer, read by {{ page.method }} {{ page.method_version }}.
+        {%- else %}Machine-read by {{ page.method }} {{ page.method_version }} at render {{ page.render_profile }}{% if page.route_class %}, routed as {{ page.route_class }}{% endif %}.
+        {%- endif %}
+        {%- if page.reading_role != 'human' %}
+          {%- if page.second and page.second.distance is not none and page.second.against_shown %} Distance from the second reading ({{ page.second.method }} {{ page.second.method_version }}): {{ '%.3f' | format(page.second.distance) }} by {{ page.second.distance_method }} {{ page.second.distance_method_version }} — 0 is agreement.
+          {%- elif page.second and page.second.distance is not none %} A second reading exists ({{ page.second.method }} {{ page.second.method_version }}); its distance was measured against an earlier reading of this page, so no band.
+          {%- elif page.second %} A second reading exists ({{ page.second.method }} {{ page.second.method_version }}); its distance from this one has not been computed, so no band.
+          {%- elif page.reading_channel == 'text-layer' %} Read once; no second reading to compare it with, so no band.
+          {%- else %} No second reading yet, so no band.
+          {%- endif %}
+        {%- endif %}
+        <a href="{{ scan }}">Scan</a>
+      </p>
+      {% if page.text %}<pre class="page-text as-printed">{{ page.text }}</pre>{% else %}<p class="small muted">Read as blank.</p>{% endif %}
+      {% else %}
+      <p class="small muted page-label">Not yet read.</p>
+      {% endif %}
+    </article>
+    {% endfor %}
+    {% elif current %}
+    <p class="muted viewer-fallback">Nothing has been read from this record's file yet. <a href="{{ scan }}">The scan</a> is here.</p>
+    {% else %}
+    <p class="muted viewer-fallback">{% if entry.attachments | selectattr('document_sha256') | list %}This record's file is not a kind whose text is read (a PDF); it is offered as a download in the sidebar{% else %}This record's file has not been fetched into the record yet{% if entry.attachments %}; the Board's own copy is linked in the sidebar{% endif %}{% endif %}.</p>
+    {% endif %}
+  </div>
+  <aside class="rail viewer-rail">
+    <div>
+      <div class="caption-meta"><span class="label">{{ prefix_name(identity.prefix) }}</span><span>{{ label }} {{ entry.record_id }}</span></div>
+      <h1 class="serif docket-number"><a href="{{ docket_path(identity) }}">{{ printed }}</a></h1>
+      {% if sheet_title %}<p class="small as-printed">{{ sheet_title }}</p>{% endif %}
+      <p class="small"><time datetime="{{ entry.date or '' }}">{{ entry.date | fmt_date }}</time>{% if entry.date_printed %} <span class="muted">(printed as {{ entry.date_printed }})</span>{% endif %}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}</p>
+      <p class="small"><a href="{{ record_path(entry.kind, entry.record_id) }}">The record</a>{% if current %} · <a href="{{ scan }}">The scan</a> · <a href="{{ document_path(current.document_sha256, current.media_type) }}">The file</a>{% endif %}</p>
+    </div>
+    <div>
+      <h2>Files</h2>
+      <ul class="plain small">
+      {% for a in entry.attachments %}
+        <li>{% if a.document_sha256 and a.media_type == 'pdf' %}<a href="{{ text_path(entry.kind, entry.record_id, loop.index0) }}"{% if a is sameas current %} aria-current="true"{% endif %}>{{ a.label or 'The file' }}</a>{% elif a.document_sha256 %}<a href="{{ document_path(a.document_sha256, a.media_type) }}">{{ a.label or 'The file' }}</a> <span class="muted">(download, .{{ a.media_type or 'bin' }}; no text is read from it)</span>{% else %}{{ a.label or 'The file' }} <span class="muted">(not yet held here)</span>{% endif %} · <a href="{{ a.url }}" rel="noopener">the Board’s copy</a></li>
+      {% endfor %}
+      </ul>
+    </div>
+    <div>
+      <h2 id="cite">Cite</h2>
+      <p class="cite serif" id="cite-line">{{ label }} {{ entry.record_id }}, {{ cite_docket(identity) }}{% if entry.date %} ({{ entry.date | fmt_date }}){% endif %}</p>
+      <p class="small muted">Text <span class="mono">docketyard.org{{ here }}</span>; add <span class="mono">#p4</span> for page 4. The text is machine-read; cite the Board's file.</p>
+    </div>
+    <div>
+      <h2>Something wrong?</h2>
+      <p class="small"><a href="/corrections">Report a misreading</a>, with the page's address.</p>
+    </div>
+  </aside>
+</section>
+{% endblock %}

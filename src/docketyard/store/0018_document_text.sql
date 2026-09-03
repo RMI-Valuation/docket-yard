@@ -2,9 +2,10 @@
 -- live), both Accepted by the operator 2026-09-02. Migration A of the two the operator split
 -- the work into; `docs/ocr-migration.md` is the checklist this header discharges.
 --
--- NOTHING WRITES TO THESE TABLES YET, as with migration 0014. What ships is the shape, so
--- the first reading has somewhere correct to land. The loader, the pagination pass, the
--- search wiring and the page-grained address are the next pieces of work.
+-- WHAT WRITES HERE (2026-09-03, before the first deploy of this schema): `docketyard text
+-- paginate` fills `document_pagination` and `docketyard text load` fills `document_text`,
+-- `text_payload`, `ocr_run` and `page_fts` (`docketyard/text/`). Neither has run against
+-- production. The search wiring and the page-grained address are the next pieces of work.
 --
 -- FOUR NEW TABLES AND NO REBUILD OF ANYTHING SHIPPED. That is the point of the A/B split:
 -- `assertion_method` is the table `citator/project.py` reads on every projection, at schema
@@ -377,8 +378,8 @@ CREATE UNIQUE INDEX document_text_live ON document_text
 --      between the first and the third leaves a self-pointer that cannot be told apart from
 --      a deliberate retirement with no successor.
 --   2. `superseded_at` IS SET IN THE SAME STATEMENT as `superseded_by`, or the CHECK above
---      refuses it. `citator.load._retire` as shipped writes only `superseded_by`, so it is
---      NOT reusable here unmodified — `docs/ocr-migration.md` item 13 is corrected to say so.
+--      refuses it. `store.supersede.retire` takes `at` for exactly this (2026-09-03); the
+--      citator's original helper wrote only `superseded_by` and could not be used here.
 --
 -- `document_text_one_human` is redundant as a CONSTRAINT — the pinned human key plus
 -- `document_text_live` already permit only one live human row per page — and is kept as an

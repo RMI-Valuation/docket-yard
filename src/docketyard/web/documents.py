@@ -123,6 +123,28 @@ def headers_for(sha256: str, ext: str) -> tuple[str, dict[str, str]]:
 # sheet, the record page and the viewer's own prev/next all ask this one function, and
 # guarding them one at a time is how the third one gets missed (code review, 2026-08-31).
 VIEWABLE_KINDS = ("filing", "decision")
+PAGINABLE = {"pdf"}  # what the text passes read: a page count and a text layer come from a PDF
+
+
+def text_index(entry) -> int | None:
+    """The first file the text page can show, or None — the gate for offering the text
+    page at all. A static property of the file list, so a page validated by `stamp()` may
+    read it without depending on the page tables (docs/deferred.md, 2026-09-03)."""
+    return pick(entry, 0, PAGINABLE)
+
+
+def pick(entry, file: int, kinds) -> int | None:
+    """The attachment `?file=N` means — or the first of the wanted kinds, or None. ONE rule
+    for the viewer (`INLINE`) and the text page (`PAGINABLE`), so `?file=N` names the same
+    file on both wherever it can, and the text page's scan link lands on the file whose
+    text is shown. A `file` outside the wanted set falls back to the first, as the viewer
+    always has."""
+    if entry.kind not in VIEWABLE_KINDS:
+        return None
+    ok = [i for i, a in enumerate(entry.attachments) if a.document_sha256 and a.media_type in kinds]
+    if not ok:
+        return None
+    return file if file in ok else ok[0]
 
 
 def viewable_index(entry) -> int | None:

@@ -270,3 +270,114 @@ def test_the_index_carries_no_control_characters(tmp_path):
     assert any("CONTROL" in v for v in indexed)  # the caption is still indexed...
     assert not any(search.MARK_OPEN in v or search.MARK_CLOSE in v for v in indexed)  # ...clean
     con.close()
+
+
+# --- the page-text tables and the two signatures (ocr-migration.md item 11) ---------------
+
+
+def _page_correction(con, table="document_text", key="a/1/pymupdf/1/native"):
+    con.execute(
+        "INSERT INTO correction (target_table, target_key, note, asserted_at)"
+        " VALUES (?, ?, 'a misread word', '2026-09-03T00:00:00+00:00')",
+        (table, key),
+    )
+    con.commit()
+
+
+def test_a_page_text_correction_moves_neither_the_record_index_nor_the_site_etag(tmp_path):
+    """`signature()` and the ETag both read MAX(correction_id): a human correction to one
+    page's text — or one page count — would rebuild the docket/party/decision index and
+    invalidate every cached page site-wide. Excluded as a SET (`search.PAGE_TABLES`),
+    because migration 0018 gave both tables a correction path: one alone leaves the other."""
+    path, _ = _indexed(tmp_path)
+    client = TestClient(create_app(path))
+    con = db.connect(path)
+    before = search.signature(con)
+    etag = client.get("/").headers["etag"]
+    for table in search.PAGE_TABLES:
+        _page_correction(con, table, key="7" if table == "document_pagination" else "a/1/m/1/n")
+        assert search.signature(con) == before, table
+        assert search.rebuild(con) == {"unchanged": True, "build": 1}
+        assert client.get("/").headers["etag"] == etag, table
+        assert client.get("/", headers={"if-none-match": etag}).status_code == 304
+    # a correction to anything else is still a change to both
+    _page_correction(con, "party", key="12")
+    assert search.signature(con) != before
+    assert client.get("/").headers["etag"] != etag
+
+
+def test_the_validators_derive_their_placeholders_from_the_page_set():
+    """A page-tier table added to PAGE_TABLES must not raise a binding-count error on every
+    reader page: the marks are derived once, in `search`, and the web tier imports them."""
+    from docketyard.web import app
+
+    assert search.NOT_PAGES in app._STAMP_TERMS
+    assert search.NOT_PAGES.count("?") == len(search.PAGE_TABLES)
+    assert search.IN_PAGES.count("?") == len(search.PAGE_TABLES)
+
+
+def test_the_page_index_has_its_own_signature_build_and_rebuild(tmp_path):
+    """Two indexes sharing one signature means either rebuilds the other (migration 0018).
+    The page signature moves on a new reading, on a supersession (the view changes with no
+    newer id) and on a page-text correction; the record signature moves on none of them."""
+    path, _ = _indexed(tmp_path)
+    con = db.connect(path)
+    record = search.signature(con)
+    assert search.page_built(con) == ("", 0)  # migration 0018's own row, never built
+    first = search.page_signature(con)
+    assert first.startswith(search.PAGE_INDEX_FORMAT + ".")
+    sha = "d" * 64
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'pdf', '2026-09-03T00:00:00+00:00')",
+        (sha,),
+    )
+
+    def reading(version, text):
+        con.execute(
+            "INSERT INTO document_text (document_sha256, page_no, method, method_version,"
+            " render_profile, reading_channel, reading_role, text, text_sha256, confidence,"
+            " confidence_state, asserted_at) VALUES (?, 1, 'pymupdf', ?, 'native', 'text-layer',"
+            " 'primary', ?, 'x', 0, 'unmeasured', '2026-09-03T00:00:00+00:00')",
+            (sha, version, text),
+        )
+        return con.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+    old = reading("1", "abandonment in Perry County")
+    con.commit()
+    second = search.page_signature(con)
+    assert second != first and search.signature(con) == record
+    # a rebuild fills the index from the view and records what it was built from
+    assert search.rebuild_pages(con) == {"build": 1, "pages": 1}
+    assert search.page_built(con) == (second, 1)
+    assert search.rebuild_pages(con) == {"unchanged": True, "build": 1}
+    assert [
+        r[0] for r in con.execute("SELECT rowid FROM page_fts WHERE page_fts MATCH 'Perry'")
+    ] == [old]
+    # a supersession moves the signature with no newer id
+    con.execute(
+        "UPDATE document_text SET superseded_by = ?, superseded_at = '2026-09-03T01:00:00+00:00'"
+        " WHERE text_id = ?",
+        (old, old),
+    )
+    new = reading("2", "abandonment in Ferry County")
+    con.execute("UPDATE document_text SET superseded_by = ? WHERE text_id = ?", (new, old))
+    con.commit()
+    third = search.page_signature(con)
+    assert third != second
+    assert search.rebuild_pages(con)["build"] == 2
+    assert [
+        r[0] for r in con.execute("SELECT rowid FROM page_fts WHERE page_fts MATCH 'Ferry'")
+    ] == [new]
+    assert (
+        con.execute("SELECT COUNT(*) FROM page_fts WHERE page_fts MATCH 'Perry'").fetchone()[0] == 0
+    )
+    # and a page-text correction moves it too, while the record index stays put
+    _page_correction(con)
+    assert search.page_signature(con) != third and search.signature(con) == record
+    # the verb
+    import argparse
+
+    from docketyard import cli
+
+    assert cli._search_rebuild_pages(argparse.Namespace(db=str(path), force=False)) == 0

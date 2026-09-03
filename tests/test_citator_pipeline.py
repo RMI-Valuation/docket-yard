@@ -5,10 +5,13 @@ benchmark is exercised by `tools/rmi-ai-machine/citation_dryrun.py`, which impor
 code. Between them, a change that alters what a reader is shown breaks something.
 """
 
+import argparse
+import json
 import sqlite3
 
 import pytest
 
+from docketyard import cli
 from docketyard.citator import judge, keys, load, methods, project, resolve
 from docketyard.store import db
 
@@ -69,9 +72,15 @@ def _store(tmp_path):
     return con
 
 
-def _scored(con, precision=0.981):
-    """Score every stage, because an unscored class projects nothing (ADR 0017 D3)."""
-    for stage in ("citation", "citation_resolution", "projection"):
+def _scored(
+    con,
+    precision=0.981,
+    channel=methods.CHANNEL_TEXT,
+    stages=("citation", "citation_resolution", "projection"),
+):
+    """Score every stage, because an unscored class projects nothing (ADR 0017 D3) — on ONE
+    channel, because a measurement is of the text it was taken on (ADR 0018 D8)."""
+    for stage in stages:
         methods.measure(
             con,
             measured_target=stage,
@@ -79,11 +88,29 @@ def _scored(con, precision=0.981):
             extractor_version="v1",
             score_file="test",
             benchmark_date="2026-09-01",
+            reading_channel=channel,
             recall=0.911,
             precision=precision,
         )
     methods.declare(con, "v1")
-    return methods.stamp(con)
+    return methods.stamp(con, stages=stages, channel=channel)
+
+
+def _batch(tmp_path, **docs):
+    """A findings directory: each keyword is a file, a dict is dumped and a str written raw."""
+    batch = tmp_path / "findings"
+    batch.mkdir(exist_ok=True)
+    for name, doc in docs.items():
+        body = doc if isinstance(doc, str) else json.dumps(doc)
+        (batch / f"{name}.json").write_text(body, encoding="utf-8")
+    return batch
+
+
+def _load_verb(tmp_path, batch) -> int:
+    """`docketyard citator load` against the store `_store` built, as the CLI calls it."""
+    return cli._citator(
+        argparse.Namespace(db=str(tmp_path / "s.sqlite"), what="load", findings=str(batch))
+    )
 
 
 def _findings(*findings):
@@ -220,6 +247,173 @@ def test_an_unscored_class_cannot_stamp_a_row(tmp_path):
     # measured, but with a recall and no precision — and a row is stamped with a PRECISION
     with pytest.raises(methods.Unscored, match="no precision"):
         methods.stamp(con, stages=("citation",))
+
+
+def test_a_measurement_of_another_channel_cannot_stamp_a_row(tmp_path):
+    """`stamp` selected on (measured_target, class) alone until 2026-09-03, so the first
+    OCR-channel load would have stamped every row with the TEXT-LAYER precision, marked it
+    `measured` and published it — the ADR 0017 D3 violation `docs/ocr-migration.md` held as
+    live. A channel nobody has scored is unscored, whatever another channel measured."""
+    con = _store(tmp_path)
+    _scored(con)  # every stage, on the text layer
+    assert methods.stamp(con)  # the default channel is the text layer
+    with pytest.raises(methods.Unscored, match="'ocr'"):
+        methods.stamp(con, channel="ocr")
+    # score the OCR channel and the OCR stamp is that row, not the text layer's
+    ocr = _scored(con, precision=0.5, channel="ocr", stages=("citation",))
+    assert ocr["citation"][1] == 0.5
+    assert methods.stamp(con, stages=("citation",))["citation"][1] == 0.981
+
+
+def test_the_loader_refuses_stamps_measured_on_another_channel(tmp_path):
+    """The CLI stamps once per batch; the loader checks the stamps it is handed against the
+    measurement rows themselves, so a caller that stamped the wrong channel — or a batch
+    the CLI's own refusal did not see — writes nothing rather than a borrowed figure."""
+    con = _store(tmp_path)
+    stamps = _scored(con)  # text-layer stamps
+    doc = _findings({"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."})
+    doc["reading_channel"] = "ocr"
+    with pytest.raises(load.WrongChannel, match="'ocr'"):
+        load.load_document(con, doc, keys.registry(con), stamps)
+    for table in ("citation", "citation_reading", "citation_resolution", "citation_judgement"):
+        assert con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+
+
+def test_the_loader_refuses_a_channel_a_model_pass_cannot_read_on(tmp_path):
+    """A null channel passed the store check — `reading_channel <> NULL` matches nothing —
+    and then died on `citation_reading`'s NOT NULL with the identity row already written.
+    'human' is legal in `reading_vocab` but is never what a model pass read from: a model
+    row carrying it is what `review._human_reading` finds and reuses as evidence. And a
+    MISSING key is refused rather than defaulted: a default would write an OCR finder's
+    rows as text-layer, stamped from the text-layer figure."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    doc = _findings({"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."})
+    for channel in (None, "human", "text_layer"):
+        with pytest.raises(load.WrongChannel, match=repr(channel)):
+            load.load_document(con, dict(doc, reading_channel=channel), keys.registry(con), stamps)
+    del doc["reading_channel"]
+    with pytest.raises(load.WrongChannel, match="None"):
+        load.load_document(con, doc, keys.registry(con), stamps)
+    assert con.execute("SELECT COUNT(*) FROM citation").fetchone()[0] == 0
+
+
+def test_the_loader_refuses_stamps_that_are_partial_or_point_at_nothing(tmp_path):
+    """The guard proves the stamps' channel against the rows; it must also prove the rows
+    exist and cover every stage, or a partial dict passes it and dies on a KeyError with
+    the identity row written, and a stale id passes it and dies on the FK per document."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    doc = _findings({"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."})
+    with pytest.raises(methods.Unscored, match="carry no"):
+        load.load_document(con, doc, keys.registry(con), {"citation": stamps["citation"]})
+    stale = dict(stamps, projection=(9999, 0.9))
+    with pytest.raises(methods.Unscored, match="does not hold"):
+        load.load_document(con, doc, keys.registry(con), stale)
+    assert con.execute("SELECT COUNT(*) FROM citation_key").fetchone()[0] == 0
+
+
+def test_the_load_verb_refuses_a_batch_that_mixes_channels(tmp_path, capsys):
+    """One channel per load, as one pass per load: the stamps are taken once for the batch
+    and a measurement is of one channel (ADR 0018 D8). A document with no channel, a null
+    one or a non-string one is skipped as unreadable like any document missing a required
+    key — never sorted against a string (a TypeError inside the refusal message) and never
+    defaulted."""
+    con = _store(tmp_path)
+    _scored(con)
+    con.commit()
+    con.close()
+    text_doc = _findings({"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."})
+    batch = _batch(tmp_path, a=text_doc, b=dict(text_doc, reading_channel="ocr"))
+    assert _load_verb(tmp_path, batch) == 1  # mixed: refused before any stamp is taken
+    assert "mixes" in capsys.readouterr().out
+    unsaid = {k: v for k, v in text_doc.items() if k != "reading_channel"}
+    batch = _batch(
+        tmp_path,
+        a=unsaid,
+        b=dict(text_doc, reading_channel=None),
+        c=dict(text_doc, reading_channel=["ocr"]),
+    )
+    assert _load_verb(tmp_path, batch) == 1
+    out = capsys.readouterr().out
+    assert out.count("skipped") == 3 and "no readable findings" in out
+    batch = _batch(tmp_path, a=dict(text_doc, reading_channel="textlayer"))
+    assert _load_verb(tmp_path, batch) == 1
+    assert "not one of" in capsys.readouterr().out
+    con = db.connect(tmp_path / "s.sqlite")
+    assert con.execute("SELECT COUNT(*) FROM citation_reading").fetchone()[0] == 0
+
+
+def test_the_load_verb_refuses_a_channel_nobody_scored_or_ranked(tmp_path, capsys):
+    """Unscored: refused as before. Scored but UNRANKED: `declare` ranks the text layer
+    only, and the projection INNER-joins each resolution and judgement to its rank row on
+    the channel, so an OCR load would have stored `measured` rows no page can ever show,
+    and exited 0. And the refusal leaves NO DECLARATION BEHIND: `declare` ran before the
+    rank check, so a refused load by another method used to commit that method as the
+    class's owner, and the rightful owner's next load met `Conflict`."""
+    con = _store(tmp_path)
+    _scored(con)
+    con.commit()
+    con.close()
+    doc = _findings({"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."})
+    batch = _batch(tmp_path, a=dict(doc, reading_channel="ocr"))
+    assert _load_verb(tmp_path, batch) == 1
+    assert "no class_measurement" in capsys.readouterr().out
+    con = db.connect(tmp_path / "s.sqlite")
+    _scored(con, precision=0.5, channel="ocr")
+    con.commit()
+    con.close()
+    assert _load_verb(tmp_path, batch) == 1
+    assert "ranked on channel 'ocr'" in capsys.readouterr().out
+    con = db.connect(tmp_path / "s.sqlite")
+    assert con.execute("SELECT COUNT(*) FROM citation_reading").fetchone()[0] == 0
+    con.close()
+    # a store nobody has declared on, scored on OCR only, loaded by another method
+    fresh = tmp_path / "fresh"
+    fresh.mkdir()
+    con = _store(fresh)
+    for stage in ("citation", "citation_resolution", "projection"):
+        methods.measure(
+            con,
+            measured_target=stage,
+            cls="docket",
+            extractor_version="v9",
+            score_file="t",
+            benchmark_date="2026-09-01",
+            reading_channel="ocr",
+            precision=0.5,
+        )
+    con.commit()
+    con.close()
+    other = dict(doc, reading_channel="ocr", method="model:x", method_version="v9")
+    batch = _batch(fresh, a=other)
+    assert _load_verb(fresh, batch) == 1
+    con = db.connect(fresh / "s.sqlite")
+    assert con.execute("SELECT COUNT(*) FROM assertion_method").fetchone()[0] == 0
+
+
+def test_a_channel_is_ranked_only_when_both_of_the_projections_joins_would_hold(tmp_path):
+    """`ranked` mirrors `project._TERMS`: a resolver rank alone would let a load through
+    whose in-family edges the span join then drops, the failure `declare` records for a
+    bumped SPAN_VERSION."""
+    con = _store(tmp_path)
+    methods.declare(con, "v1")
+    assert methods.ranked(con, methods.CHANNEL_TEXT)
+    assert not methods.ranked(con, "ocr")
+    con.execute(
+        "INSERT INTO assertion_method (target_table, method, method_version, reading_channel,"
+        " role, precedence_rank, rank_version, declared_at) VALUES ('citation_resolution',"
+        " ?, ?, 'ocr', 'resolve', 3, 'v1', 't')",
+        (resolve.RESOLVER, resolve.RULE_1),
+    )
+    assert not methods.ranked(con, "ocr")  # half of the join
+    con.execute(
+        "INSERT INTO assertion_method (target_table, method, method_version, reading_channel,"
+        " role, precedence_rank, rank_version, declared_at) VALUES ('citation_judgement',"
+        " ?, ?, 'ocr', NULL, 3, 'v1', 't')",
+        (methods.SPAN_METHOD, judge.SPAN_VERSION),
+    )
+    assert methods.ranked(con, "ocr")
 
 
 def test_the_confidence_on_a_row_is_the_one_the_measurement_holds(tmp_path):
@@ -616,11 +810,26 @@ def test_a_second_reading_channel_is_written_even_though_the_key_is_unchanged(tm
         "reading_method": "tesseract",
         "reading_method_version": "5.3",
     }
-    result = load.load_document(con, ocr, keys.registry(con), stamps)
+    # stamped from the OCR channel's OWN measurement: the text-layer stamps are refused
+    ocr_stamps = _scored(con, precision=0.5, channel="ocr")
+    result = load.load_document(con, ocr, keys.registry(con), ocr_stamps)
     assert result.unchanged == 1  # the identity was already asserted...
     channels = {r[0] for r in con.execute("SELECT reading_channel FROM citation_reading")}
     assert channels == {"text-layer", "ocr"}  # ...and the reading still landed
     assert con.execute("SELECT COUNT(*) FROM citation").fetchone()[0] == 1
+    # and each reading carries the precision of the channel it was read on, not the other's
+    by_channel = dict(
+        con.execute(
+            "SELECT r.reading_channel, m.reading_channel FROM citation_reading r"
+            " JOIN class_measurement m ON m.measurement_id = r.score_row_id"
+        )
+    )
+    assert by_channel == {"text-layer": "text-layer", "ocr": "ocr"}
+    # THE OCR ROWS DO NOT PROJECT: nothing ranks a resolver on that channel, so the
+    # projection's channel-matched rank join drops them. `citator load` refuses an unranked
+    # channel for this reason; a direct caller stores rows no page shows.
+    assert not methods.ranked(con, "ocr")
+    assert {r[10] for r in project.cited_by(con, docket_id=3)} == {"text-layer"}
 
 
 def test_declare_refuses_a_declaration_that_contradicts_the_registry(tmp_path):
@@ -708,25 +917,15 @@ def test_a_cited_by_count_is_pairs_and_not_passages(tmp_path):
 def test_the_load_verb_runs_end_to_end(tmp_path):
     """`citator load` passed bare measurement ids where the loader wanted (id, precision), so
     the verb raised TypeError on its first finding and no test covered the path."""
-    import argparse
-    import json
-
-    from docketyard import cli
-
     con = _store(tmp_path)
     _scored(con)
     con.commit()
     con.close()
-    batch = tmp_path / "findings"
-    batch.mkdir()
-    (batch / "a.json").write_text(
-        json.dumps(_findings({"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."})),
-        encoding="utf-8",
+    batch = _batch(
+        tmp_path,
+        a=_findings({"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."}),
+        b_broken="{not json",
     )
-    (batch / "b-broken.json").write_text("{not json", encoding="utf-8")
-    code = cli._citator(
-        argparse.Namespace(db=str(tmp_path / "s.sqlite"), what="load", findings=str(batch))
-    )
-    assert code == 0  # the malformed file is skipped, not fatal
+    assert _load_verb(tmp_path, batch) == 0  # the malformed file is skipped, not fatal
     con = db.connect(tmp_path / "s.sqlite")
     assert len(project.projected(con)) == 1

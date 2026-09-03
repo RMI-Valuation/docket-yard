@@ -21,6 +21,7 @@
       {% if sheet.title %}<p class="small as-printed">{{ sheet.title }}</p>{% endif %}
       <p class="small"><time datetime="{{ entry.date or '' }}">{{ entry.date | fmt_date }}</time>{% if entry.date_printed %} <span class="muted">(printed as {{ entry.date_printed }})</span>{% endif %}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}{% if entry.docket_raw != sheet.raw_docket %} · in {{ printed }}{% endif %}</p>
       {% if entry.summary %}<p class="small serif as-printed">{{ entry.summary }}</p>{% endif %}
+      {% set t = text_index(entry) %}{% if t is not none %}<p class="small"><a href="{{ text_path(entry.kind, entry.record_id, t) }}">The text</a>, page by page, as a machine read it.</p>{% endif %}
       {% if entry.filed_for_raw %}<p class="small">Filed for: <span class="as-printed">{{ display_filed_for(entry.filed_for_raw) }}</span>{% if parties %} — {% for p in parties %}<a href="{{ party_path(p.party_id) }}">{{ p.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</p>{% endif %}
     </div>
     <div>

@@ -68,6 +68,17 @@ one whose caption repeats the parent's folds into the family row.
   Measured on the production copy: the first version took 227 s (correlated subqueries);
   the one-pass version is what shipped.
 
+  **The page index is its own** (`page_fts`, migration 0018; ADR 0022 D4): external content
+  over the display view, kept in step row by row by the loader (`store/page_index.py`), with
+  its own signature and build row (`search_meta.page_built`, `search.page_signature`) and
+  its own rebuild (`docketyard search rebuild-pages`, for recovery or a change to the view —
+  `PAGE_INDEX_FORMAT` is the view's version). Corrections naming `document_text` or
+  `document_pagination` count toward the page signature and NOT the record index's, nor the
+  site-wide ETag: a corrected page moves its own render's validator (`page_stamp`) and
+  nothing else. No page text reaches `/search`, `/suggest` or the MCP surface: `Hit` cannot
+  yet carry the label, the band and the scan link (ADR 0021 D7), and the page index is not
+  joined to `search()`, whose `bm25()` in `ORDER BY` must not be handed a million more rows.
+
   **How long a rebuild takes, and how long it locks.** Measured on the instance
   2026-08-31, against a `VACUUM INTO` snapshot of the production store at **96,225 rows**
   (a third of them comment bodies, the longest text the index carries):

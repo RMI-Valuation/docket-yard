@@ -265,24 +265,88 @@ def _plain(text: str) -> str:
     return text.translate(_CONTROLS)
 
 
+# THE PAGE-TEXT TABLES, whose corrections never touch the record index (docs/ocr-migration.md
+# item 11). `signature()` and the web tier's ETag both read MAX(correction_id), so a human
+# correction to one page's text — or to one page count — would force a full rebuild of the
+# docket/party/decision index and invalidate every cached page site-wide. Excluded by NAME,
+# as a set, because migration 0018 gave both tables a `review_target_vocab` row: excluding one
+# would leave the other. `page_signature()` below is where they count.
+PAGE_TABLES = ("document_text", "document_pagination")
+# the predicates, with their placeholders derived from the set — bind PAGE_TABLES to either.
+# `web/app.py`'s validators import these rather than spelling the marks out (bughunter, 2026-09-03)
+NOT_PAGES = "target_table NOT IN (" + ",".join("?" for _ in PAGE_TABLES) + ")"
+IN_PAGES = "target_table IN (" + ",".join("?" for _ in PAGE_TABLES) + ")"
+
+# The page index's format: the display view IS the rule (migration 0018), so the view's
+# version belongs here, and a change to what the view shows is a change to what search
+# matched. Bump it when the view changes; nothing dates which version was in force on a day.
+PAGE_INDEX_FORMAT = "display@0018"
+
+
 def signature(con: Connection) -> str:
     """What the index depends on, as one string: the newest event, name, link, edge and
     correction, and how many names, links and edges have been retired (a re-split or a
     withdrawal supersedes rows without inserting any). Unchanged signature, unchanged
-    index."""
+    index. A correction naming a page-text table is not a change to THIS index."""
     return f"{INDEX_FORMAT}." + ".".join(
         str(v or 0)
         for v in con.execute(
             "SELECT (SELECT MAX(event_id) FROM event), (SELECT MAX(name_id) FROM party_name),"
             " (SELECT MAX(link_id) FROM filing_party_link),"
             " (SELECT MAX(edge_id) FROM party_relationship),"
-            " (SELECT MAX(correction_id) FROM correction),"
+            f" (SELECT MAX(correction_id) FROM correction WHERE {NOT_PAGES}),"
             " (SELECT COUNT(*) FROM party_name WHERE superseded_by IS NOT NULL),"
             " (SELECT COUNT(*) FROM filing_party_link WHERE superseded_by IS NOT NULL),"
             " (SELECT COUNT(*) FROM filing_party_span WHERE superseded_by IS NOT NULL),"
-            " (SELECT COUNT(*) FROM party_relationship WHERE superseded_by IS NOT NULL)"
+            " (SELECT COUNT(*) FROM party_relationship WHERE superseded_by IS NOT NULL)",
+            PAGE_TABLES,
         ).fetchone()
     )
+
+
+def page_signature(con: Connection) -> str:
+    """What the PAGE index depends on: the newest reading, how many readings have been
+    retired (a supersession changes what the view shows without a newer id), and the
+    newest correction naming a page-text table. Its own signature, because two indexes
+    sharing one means either rebuilds the other (migration 0018)."""
+    return f"{PAGE_INDEX_FORMAT}." + ".".join(
+        str(v or 0)
+        for v in con.execute(
+            "SELECT (SELECT MAX(text_id) FROM document_text),"
+            " (SELECT COUNT(*) FROM document_text WHERE superseded_by IS NOT NULL),"
+            f" (SELECT MAX(correction_id) FROM correction WHERE {IN_PAGES})",
+            PAGE_TABLES,
+        ).fetchone()
+    )
+
+
+def page_built(con: Connection) -> tuple[str | None, int]:
+    """(signature the page index was last rebuilt from, its build number)."""
+    row = con.execute(
+        "SELECT signature, build FROM search_meta WHERE key = 'page_built'"
+    ).fetchone()
+    return (row[0], row[1]) if row else (None, 0)
+
+
+def rebuild_pages(con: Connection, *, force: bool = False) -> dict:
+    """The page index from the display view, whole. The loader keeps `page_fts` in step
+    row by row (`store.page_index`), so this is for recovery and for a change to the view —
+    a `PAGE_INDEX_FORMAT` bump — not for every pass; ~1.1M rows is minutes, not seconds.
+    FTS5's 'rebuild' reads the content view inside one transaction."""
+    sig = page_signature(con)
+    last, build = page_built(con)
+    if sig == last and not force:
+        return {"unchanged": True, "build": build}
+    con.execute("BEGIN IMMEDIATE")
+    con.execute("INSERT INTO page_fts (page_fts) VALUES ('rebuild')")
+    con.execute(
+        "INSERT INTO search_meta (key, signature, build, built_at) VALUES ('page_built', ?, ?, ?)"
+        " ON CONFLICT (key) DO UPDATE SET signature = excluded.signature,"
+        " build = excluded.build, built_at = excluded.built_at",
+        (sig, build + 1, utcnow()),
+    )
+    con.commit()
+    return {"build": build + 1, "pages": con.execute("SELECT COUNT(*) FROM page_fts").fetchone()[0]}
 
 
 def built(con: Connection) -> tuple[str | None, int]:

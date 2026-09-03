@@ -92,3 +92,16 @@ kept in `document_source`. The address is offered in the cite box and listed in 
 It carries no derived claim; it is the primary source itself. The viewer page a reader opens
 from a sheet — `/filing/{id}/view`, `/decision/{id}/view` — is a sub-address of a record
 that already exists and adds no class.
+
+## Addendum (2026-09-03): the record's text
+
+`/filing/{id}/text` and `/decision/{id}/text` show what a machine read from the record's
+file, page by page (ADR 0021 D7). **One address per record, not per page** — the operator's
+decision, 2026-09-03: `?file=N` picks among several files as the viewer's does, and `#p<n>`
+anchors a page. 1.1M page addresses against 74k records would be a crawler's address space,
+and a crawler walking one is this site's one real outage (2026-09-02). Like the viewer it is
+a sub-address of a record that already exists and adds no class; unlike the viewer it is
+**held** from the CC0 dedication with the party module (`robots.txt` names it for the agents
+named there) and is not listed in the sitemap. Its validator is the document's own
+(`page_stamp`), so a corrected page moves that page and nothing else. What the page says
+about a misreading and `/corrections` is `docs/ocr-migration.md` item 26, undecided.

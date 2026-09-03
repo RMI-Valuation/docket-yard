@@ -157,6 +157,14 @@ def viewer_path(kind: str, record_id: str, index: int = 0) -> str:
     return record_path(kind, record_id) + "/view" + (f"?file={index}" if index else "")
 
 
+def text_path(kind: str, record_id: str, index: int = 0) -> str:
+    """The record's text, page by page, beside the record (ADR 0021 D7): one address per
+    record and not per page — `#p4` anchors the page. 1.1M page addresses against 74k
+    records would be a crawler's address space, and a crawler walking one is this site's
+    one real outage (2026-09-02). `index` picks among several files, as the viewer does."""
+    return record_path(kind, record_id) + "/text" + (f"?file={index}" if index else "")
+
+
 def entry_path(kind: str, record_id: str, docket_raw: str) -> str:
     """The permanent address of a sheet entry, whatever kind it turns out to be.
 
