@@ -86,6 +86,16 @@ _STAMP_TERMS = (
 )
 
 
+def _file_index(raw: str) -> int:
+    """`?file=N` as a number, or 0. A permanent address never answers 422 to a query it
+    does not understand (ADR 0013): a malformed value means the first file, as an
+    out-of-range one already does through `documents.pick`."""
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _self_validated(path: str) -> bool:
     """The page-text routes compute their own validator (`page_stamp`); the middleware's
     site-wide one can never match theirs, so running it there is a wasted store read."""
@@ -281,6 +291,7 @@ def create_app(
         document_path=urls.document_path,
         viewable_index=documents.viewable_index,
         text_index=documents.text_index,
+        has_frame=documents.has_frame,
         explainer_path=urls.explainer_path,
         parse_docket_id=parse_docket_id,
         kind_label=labels.kind_label,
@@ -1780,12 +1791,12 @@ def create_app(
         return JSONResponse({"ok": outcome})
 
     @app.get("/decision/{stb_id}")
-    def decision_page(request: Request, stb_id: str):
-        return _record_page(request, db_path, render, "decision", stb_id)
+    def decision_page(request: Request, stb_id: str, file: str = "0"):
+        return _record_page(request, db_path, render, "decision", stb_id, _file_index(file))
 
     @app.get("/filing/{stb_id}")
-    def filing_page(request: Request, stb_id: str):
-        return _record_page(request, db_path, render, "filing", stb_id)
+    def filing_page(request: Request, stb_id: str, file: str = "0"):
+        return _record_page(request, db_path, render, "filing", stb_id, _file_index(file))
 
     def _comment_canonical(
         request: Request, ident: str, sub: str | None, number: str, suffix: str = ""
@@ -1883,32 +1894,18 @@ def create_app(
             raise HTTPException(503, "the document is not on hand right now") from e
         return FileResponse(path, media_type=mime, headers=headers, stat_result=stat)
 
-    def viewer(request: Request, kind: str, stb_id: str, file: int):
-        context, entry, prev, nxt, parties = _record_entry_and_neighbours(db_path, kind, stb_id)
-        index = documents.pick(entry, file, documents.INLINE)
-        current = entry.attachments[index] if index is not None else None
-        return render(
-            request,
-            "viewer.html",
-            # an `EntryContext`, not a `DocketSheet`: the template reads `sheet.title` and
-            # `sheet.raw_docket` and nothing else off it, and those are the two fields that
-            # do not cost the whole docket to compute
-            sheet=context,
-            entry=entry,
-            current=current,
-            parties=parties,
-            prev=prev,
-            next=nxt,
-            canonical=urls.viewer_path(kind, stb_id),
-        )
-
+    # THE VIEWER ADDRESS RETIRED 2026-09-03 (the operator; ADR 0013 addendum): the record
+    # page carries the frame. A permanent address never dies, so `/view` answers 301 to where
+    # the file is shown now, carrying `?file=N` with it.
     @app.get("/decision/{stb_id}/view")
-    def decision_viewer(request: Request, stb_id: str, file: int = 0):
-        return viewer(request, "decision", stb_id, file)
+    def decision_viewer(stb_id: str, file: str = "0"):
+        to = urls.viewer_path("decision", stb_id, _file_index(file))
+        return RedirectResponse(to, status_code=301)
 
     @app.get("/filing/{stb_id}/view")
-    def filing_viewer(request: Request, stb_id: str, file: int = 0):
-        return viewer(request, "filing", stb_id, file)
+    def filing_viewer(stb_id: str, file: str = "0"):
+        to = urls.viewer_path("filing", stb_id, _file_index(file))
+        return RedirectResponse(to, status_code=301)
 
     def text_page(request: Request, kind: str, stb_id: str, file: int):
         """The record's text, page by page (ADR 0021 D7): every read page shows its text,
@@ -1957,12 +1954,12 @@ def create_app(
         return response
 
     @app.get("/decision/{stb_id}/text")
-    def decision_text(request: Request, stb_id: str, file: int = 0):
-        return text_page(request, "decision", stb_id, file)
+    def decision_text(request: Request, stb_id: str, file: str = "0"):
+        return text_page(request, "decision", stb_id, _file_index(file))
 
     @app.get("/filing/{stb_id}/text")
-    def filing_text(request: Request, stb_id: str, file: int = 0):
-        return text_page(request, "filing", stb_id, file)
+    def filing_text(request: Request, stb_id: str, file: str = "0"):
+        return text_page(request, "filing", stb_id, _file_index(file))
 
     # `/review` last, so its `/{queue}` catch-all cannot shadow a named route above it, and
     # in its own module because its rules are not this one's (ADR 0016).
@@ -2017,41 +2014,6 @@ def _record_entry(db_path, kind: str, stb_id: str):
     if got is None:
         raise HTTPException(404)
     return got
-
-
-def _record_entry_and_neighbours(db_path, kind: str, stb_id: str):
-    """Everything the viewer renders, and not one docket's worth more.
-
-    THIS WAS THE LAST PAGE THAT BUILT A WHOLE SHEET TO SHOW ONE RECORD. It needed two things
-    the record page does not — the entry's neighbours, and the names of the parties on it —
-    and took the entire `docket_sheet` to get them, one click from every record page and not
-    disallowed in `robots.txt`. Both now have targeted answers: `sheet.entry_and_neighbours`
-    orders the family from three small queries instead of assembling entries it discards, and
-    its own `party_names` names the two or three components on THIS entry instead of resolving
-    the family's whole Parties block to look them up in it.
-
-    Measured on a production copy, 2026-09-03 (FD 35087, 12,633 entries): `docket_sheet`
-    239 ms, of which the viewer used two fields; the ordering pass reads the same records in
-    8.0 ms. On FD 36873 the Parties block alone was 65.4 ms of a 92.8 ms sheet.
-
-    One connection for all of it, because three sequential opens on a page a crawler walks is
-    the cost this function exists to remove, paid a different way.
-    """
-    con = _connect(db_path)
-    try:
-        view = sheet.entry_and_neighbours(con, _record_docket(con, kind, stb_id), kind, stb_id)
-    finally:
-        con.close()
-    if view is None:
-        raise HTTPException(404)
-    # the entry's own order. A component with no live name renders as `party <id>`, which is
-    # `Components.display_name`'s last resort and is what the sheet's Parties block shows too
-    parties = [
-        {"party_id": p, "name": view.party_names[p]}
-        for p in view.entry.parties
-        if p in view.party_names
-    ]
-    return view.context, view.entry, view.prev, view.next, parties
 
 
 def _comments_numbered(db_path, number: str) -> list:
@@ -2149,6 +2111,11 @@ def _comment_page(request, db_path, render, identity, number: str):
     return render(request, "record.html", sheet=s, entry=entry)
 
 
-def _record_page(request, db_path, render, kind: str, stb_id: str):
+def _record_page(request, db_path, render, kind: str, stb_id: str, file: int = 0):
+    """The record, with its file in a frame (ADR 0013 addendum, 2026-09-03: the viewer
+    retired into this page). `?file=N` picks among several files by the one rule the sheet
+    and the text page use (`documents.pick`); out of range falls back to the first."""
     s, entry = _record_entry(db_path, kind, stb_id)
-    return render(request, "record.html", sheet=s, entry=entry)
+    index = documents.pick(entry, file, documents.INLINE)
+    current = entry.attachments[index] if index is not None else None
+    return render(request, "record.html", sheet=s, entry=entry, current=current)

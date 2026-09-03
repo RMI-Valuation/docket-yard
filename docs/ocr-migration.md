@@ -232,6 +232,12 @@ citator reads is touched before the citator has run its first real load.
 26. **The `/corrections` promise already covers a misread date.** Decide whether a misreading
     is a correction under that promise — a person reads every report, usually within seven
     days — or say plainly on the viewer that it is not.
+    **Items 21–26 landed 2026-09-03.** 21, 23, 24 (with the citator named on `data.html`),
+    25 as the code changed; 22 with the benchmark's per-tier figures and TWO caveats — the
+    transcription was checked at reading speed, so the figures rank rather than state an
+    accuracy, and nothing is measured yet on the pages read at scale; 26 decided by the
+    operator: **reports welcome, no promise** — a misreading is read but sits outside the
+    seven-day expectation, said on the text page and on `/corrections`.
 
 ## Before it ships
 

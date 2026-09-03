@@ -66,16 +66,15 @@ def test_the_text_page_shows_every_read_page_labelled_with_the_scan_one_click_aw
     assert "pymupdf 1.24.10" in html and "Read once" in html
     assert "Read as blank." in html  # page 2: an empty reading is a row, not an absence
     assert "Not yet read." in html  # page 4: in the count, no reading
-    assert 'href="/filing/311981/view"' in html and f"/document/{sha}.pdf" in html  # the scan
+    assert 'href="/filing/311981#file"' in html and f"/document/{sha}.pdf" in html  # the scan
     assert 'href="/corrections"' in html and "Report a misreading" in html
     assert "docketyard.org/filing/311981/text" in html and "#p4" in html
     assert '<link rel="canonical" href="https://docketyard.org/filing/311981/text">' in html
     assert "FD 36873" in html and "UP/NS CONTROL" in html
     assert "On this sheet" not in html  # the neighbours are not read for this page
     assert client.head("/filing/311981/text").status_code == 200
-    # and the page is one click from the record and from the viewer, unconditionally
+    # and the page is one click from the record page
     assert 'href="/filing/311981/text"' in client.get("/filing/311981").text
-    assert 'href="/filing/311981/text"' in client.get("/filing/311981/view").text
 
 
 def test_an_ocr_page_names_its_engine_route_and_band_operand_or_says_it_has_none(tmp_path):
@@ -214,7 +213,7 @@ def test_only_a_pdf_is_a_text_pages_file_and_the_viewer_agrees_on_which(tmp_path
     client = TestClient(create_app(path))
     html = client.get("/filing/311981/text").text
     assert "not a kind whose text is read" in html and "no text is read from it" in html
-    assert 'href="/filing/311981/view"' not in html  # no scan of a spreadsheet
+    assert 'href="/filing/311981#file"' not in html  # no scan of a spreadsheet
     # and the record page and the viewer do not offer the text of a file that has none:
     # a JPG is viewable but not paginable, so the affordance is gated on the text's own set
     con = db.connect(path)
@@ -222,7 +221,6 @@ def test_only_a_pdf_is_a_text_pages_file_and_the_viewer_agrees_on_which(tmp_path
     con.commit()
     con.close()
     assert 'href="/filing/311981/text"' not in client.get("/filing/311981").text
-    assert 'href="/filing/311981/text"' not in client.get("/filing/311981/view").text
 
 
 def test_a_record_with_no_file_or_no_reading_still_has_a_page(tmp_path):

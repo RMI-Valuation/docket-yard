@@ -86,30 +86,43 @@ def test_a_pruned_document_is_fetched_from_the_store_and_verified(tmp_path):
     assert TestClient(create_app(path)).get(f"/document/{sha}.pdf").status_code == 503
 
 
-def test_viewer_page_shows_the_file_beside_the_record(tmp_path):
+def test_the_record_page_shows_the_file_and_the_viewer_address_redirects_to_it(tmp_path):
+    """ADR 0013 addendum (2026-09-03): the record page carries the frame; `/view` is a
+    permanent address and answers 301 to where the file is shown now."""
     path, sha = _store_with_document(tmp_path)
     client = TestClient(create_app(path))
-    r = client.get("/filing/311981/view")
+    r = client.get("/filing/311981")
     assert r.status_code == 200
     assert f'<iframe class="viewer-frame" src="/document/{sha}.pdf#toolbar=1"' in r.text
+    assert 'id="file"' in r.text and 'href="#file">Read it here' in r.text
     assert "FD 36873" in r.text and "UP/NS CONTROL" in r.text and "Motion" in r.text
-    assert 'href="/p/' in r.text  # the resolved party links to its page
-    assert f"docketyard.org/document/{sha}.pdf" in r.text  # the cite box carries the file
-    assert 'action="/subscribe"' in r.text and 'name="docket" value="FD 36873"' in r.text
-    # the neighbour on the sheet (its file is held too: the fixture shares one URL)
-    assert "On this sheet" in r.text and 'href="/filing/311900/view"' in r.text
-    assert '<link rel="canonical" href="https://docketyard.org/filing/311981/view">' in r.text
+    assert f"docketyard.org/document/{sha}.pdf" in r.text  # the file's permanent address
+    assert '<link rel="canonical" href="https://docketyard.org/filing/311981">' in r.text
+    for old, new in (
+        ("/filing/311981/view", "/filing/311981#file"),
+        ("/filing/311981/view?file=2", "/filing/311981?file=2#file"),
+        ("/decision/53210/view", "/decision/53210#file"),
+        ("/filing/999999/view", "/filing/999999#file"),  # the redirect is unconditional
+    ):
+        r = client.get(old, follow_redirects=False)
+        assert r.status_code == 301 and r.headers["location"] == new, old
+    assert client.get("/filing/999999").status_code == 404
     # a record whose file is not held yet still has a page, without the frame (the
     # decision's file answered 404 and was refused, never stored)
-    r = client.get("/decision/53210/view")
+    r = client.get("/decision/53210")
     assert r.status_code == 200 and "<iframe" not in r.text and "not been fetched" in r.text
-    assert client.get("/filing/999999/view").status_code == 404
-    # the sheet and the record page open the viewer in a new tab
+    # the sheet opens the record's frame in a new tab; nothing links a file it cannot show
     sheet = client.get("/d/FD-36873").text
-    assert 'href="/filing/311981/view" target="_blank"' in sheet
-    assert 'href="/decision/53210/view"' not in sheet  # nothing to view yet
-    record = client.get("/filing/311981").text
-    assert 'href="/filing/311981/view"' in record and f"/document/{sha}.pdf" in record
+    assert 'href="/filing/311981#file" target="_blank"' in sheet
+    assert 'href="/decision/53210#file"' not in sheet  # nothing to view yet
+    # ?file=N out of range, or not a number, falls back to the first file the page can
+    # show: a permanent address never answers 422 to a query it does not understand
+    for q in ("?file=9", "?file=abc", "?file=-1", "?file="):
+        r = client.get(f"/filing/311981{q}")
+        assert r.status_code == 200 and f'src="/document/{sha}.pdf#toolbar=1"' in r.text, q
+    r = client.get("/filing/311981/view?file=abc", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == "/filing/311981#file"
+    assert client.get("/filing/311981/text?file=abc").status_code == 200
     # the sitemap lists the document
     con = db.connect(path)
     assert f"/document/{sha}.pdf<" in sitemaps.section(con, "docketyard.org", "documents", 1, "t")
@@ -156,8 +169,8 @@ def test_the_suffix_says_what_the_bytes_are_and_the_hash_validates(tmp_path):
     assert r.status_code == 304 and r.headers["etag"] == f'"{sha}"'
     r = client.get(f"/document/{sha}.pdf", headers={"If-None-Match": '"other"'})
     assert r.status_code == 200 and r.headers["etag"] == f'"{sha}"'  # not the page stamp
-    # the viewer shows a picture; the sitemap lists every kind at its own suffix
-    assert "<iframe" in client.get("/decision/53210/view").text
+    # the record page frames a picture; the sitemap lists every kind at its own suffix
+    assert "<iframe" in client.get("/decision/53210").text
     con = db.connect(path)
     listed = sitemaps.section(
         con, "docketyard.org", "documents", 1, "t2"
@@ -179,9 +192,9 @@ def test_viewable_is_the_first_held_file_a_browser_shows():
     assert documents.viewable_index(E(A("x", "zip"), A("y", "jpg"))) == 1
     assert documents.viewable_index(E(A("x", "zip"), A(None, None))) is None
     assert documents.viewable_index(E(A("x", "pdf"), kind="decision")) == 0
-    # a comment has no /view route, so a held PDF is still not viewable HERE. The rule
-    # lives in this one function because the sheet, the record page and the viewer's own
-    # prev/next all ask it — guarding them one at a time is how one gets missed
+    # a comment's page has no frame, so a held PDF is still not viewable HERE. The rule
+    # lives in this one function because the sheet, the record page and the text page
+    # all ask it — guarding them one at a time is how one gets missed
     assert documents.viewable_index(E(A("x", "pdf"), kind="comment")) is None
     assert set(fetcher._EXTENSION_TYPES.values()) <= set(documents.MEDIA)
 
@@ -253,12 +266,13 @@ def test_one_fetch_per_hash_however_many_ask(tmp_path):
     assert r.status_code == 503 and "retry-after" not in r.headers
 
 
-def test_a_viewer_page_beside_a_comment_still_answers(tmp_path):
-    """A sheet has held comments since migration 0011, so a viewer page's neighbour can be
-    one — and `viewer.html` asked `record_path` for whatever kind it found. A comment
-    raises there (its address needs the docket it was entered in), so every viewer page
-    next to a comment answered 500: `/filing/240630/view` in AB 290 (Sub-No. 324X),
-    reported 2026-08-31, with ~32,600 records sitting on sheets that hold comments.
+def test_a_record_page_beside_a_comment_still_answers(tmp_path):
+    """A sheet has held comments since migration 0011, so a record's neighbour can be one —
+    and the viewer once asked `record_path` for whatever kind it found; a comment raises
+    there (its address needs the docket it was entered in), so every viewer page next to a
+    comment answered 500 (`/filing/240630/view` in AB 290 (Sub-No. 324X), reported
+    2026-08-31). The viewer retired into the record page (2026-09-03); the record pages
+    beside a comment answer, and the sheet addresses the comment where it lives.
     """
     from tests.test_enviro_ingest import comment_row
     from tests.test_enviro_ingest import ingest as ingest_comments
@@ -269,14 +283,10 @@ def test_a_viewer_page_beside_a_comment_still_answers(tmp_path):
     con.close()
     client = TestClient(create_app(path))
     pages = {}
-    for address in ("/filing/311981/view", "/filing/311900/view", "/decision/53210/view"):
+    for address in ("/filing/311981", "/filing/311900", "/decision/53210"):
         r = client.get(address)
         assert r.status_code == 200, f"{address} answered {r.status_code}"
         pages[address] = r.text
-    both = "".join(pages.values())
-    # the neighbour is linked where a comment is actually addressed, and nowhere else
-    assert 'href="/d/FD-36873/comment/EI-34280"' in both
-    assert "/filing/EI-34280" not in both and "/comment/EI-34280/view" not in both
     # the sheet and its JSON twin say the same thing, from the same helper
     assert 'href="/d/FD-36873/comment/EI-34280"' in client.get("/d/FD-36873").text
     urls_in_json = [e["url"] for e in client.get("/d/FD-36873.json").json()["docket"]["entries"]]
