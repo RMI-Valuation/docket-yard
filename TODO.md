@@ -19,9 +19,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Cameron's**: whether `/view` 301s to `/filing/<id>` (ADR 0013). The O(docket) read is gone
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
   heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
-- **`methods.stamp()` has no channel term** — the first OCR-channel citator load would stamp
-  text-layer measurements onto OCR rows and publish them. A live ADR 0017 D3 violation
-  waiting for a load that has not happened; fix before any OCR pass runs
 - **Migration A's SCHEMA is on `main` and undeployed** (PR #20, 2026-09-03): migrations 0018
   and 0019, ADRs 0021–0023 Accepted. Production stays at schema 17 until a deploy is run, and
   that deploy is when the free amendments stop being free. **Left to build**: the loader, the

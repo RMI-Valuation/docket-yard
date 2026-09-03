@@ -270,10 +270,6 @@ The serious ones were fixed in the same session and are pinned by tests in
   `extraction_run` records no payload hash, so an edge traces to `(method, version)` and not
   to the enrichment run that produced it — the capture-first invariant met by convention
   rather than by the store. The file's sha256 in `extraction_run.note` is the cheap fix.
-- **`methods.measure` hardcodes `reading_channel = 'text-layer'`** and `methods.stamp` takes
-  no channel, so an OCR pass would silently borrow the text-layer measurement. Harmless
-  today — `declare` ranks no OCR resolution, so an OCR edge fails closed — but the guard is
-  accidental rather than stated.
 - **An empty `quoted_passage` can project.** A finding with no `quoted` text passes NOT NULL
   as `''`, and the edge then reaches a reader with no citing passage, against ADR 0017 D6.
 - **`WB25-53` keys as `WB 25`**, because `\b` accepts the hyphen as a boundary. That is the
@@ -530,6 +526,29 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
   snapshot IS — a readable artefact at a pinned schema, or a store the code will migrate —
   and `dump.py`'s docstring currently implies the second ("a restored copy is at the release's
   schema and `docketyard search rebuild` remakes it").
+
+## Found 2026-09-03, code review on `methods.stamp`'s channel term (main at 682fe97, unreleased)
+
+- **`declare` ranks no channel but the text layer.** RANKS carries `text-layer` only and the
+  projection INNER-joins every resolution and judgement to its rank row on the channel, so
+  a measured OCR load would store rows no page can show. `citator load` now refuses an
+  unranked channel (`methods.ranked`), so the failure is loud; the gap itself is a new
+  `rank_version` carrying OCR at ranks 3 and 4 under ADR 0018 D7, which waits on the
+  namespace question in `ocr-migration.md` item 8. A decision, not a default.
+- **The `citation` identity row takes the stamp of whichever pass asserted it.** The key
+  carries no channel and `unchanged` is keyed on (method, version) alone, so a document
+  read OCR-first keeps the OCR figure through a same-version text-layer pass, and a newer
+  version on OCR re-stamps it while the live text-layer resolution still projects. Nothing
+  published reads that figure — the projection takes `confidence` from the channel-keyed
+  resolution and uses this row as a state gate — but validation query 3's "what stood
+  behind this edge" answers per family. Either the identity row is stamped from a
+  channel-independent measurement (not expressible: `reading_channel` is NOT NULL) or its
+  semantics are stated in 0014's § citation. Comment at the insert in `load.py`.
+- **The review queues have no registry join.** `review._base` joins resolution to reading
+  on the channel and never to `assertion_method`, so a resolution on an unranked channel
+  enters `citation_exposed`/`repaired`/`unresolved` although it can never project; a
+  document read on both channels queues one question twice. Moot while the CLI refuses
+  unranked channels; live for any direct caller.
 
 ## Found by schema-critic against migration 0018's `document_pagination`, 2026-09-03
 

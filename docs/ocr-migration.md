@@ -239,8 +239,18 @@ against the measured flag rate before it is worth specifying. What is known to b
 
 ## Live now, and not waiting for either migration
 
-- **`methods.stamp()` has no channel term.** It selects on `(measured_target, class)` only,
-  so the first OCR-channel citator load would stamp every row with the *text-layer*
-  measurement, mark it `measured`, and publish it. `measure()` hardcoding `text-layer` is not
-  a guard; it only stops the figure being *recorded*. This is a live ADR 0017 D3 violation
-  waiting for a load that has not happened yet, and it should be fixed on its own.
+- **`methods.stamp()` has a channel term since 2026-09-03.** Until then it selected on
+  `(measured_target, class)` only, so the first OCR-channel citator load would have stamped
+  every row with the *text-layer* measurement, marked it `measured`, and published it — a
+  live ADR 0017 D3 violation waiting for a load that had not happened. Now `stamp` and
+  `measure` both carry the channel, `citator load` refuses a batch that mixes channels, and
+  the loader checks the stamps it is handed against the measurement rows themselves
+  (`load.WrongChannel`), which also refuses a null or `human` channel on a model pass. An
+  OCR load is therefore `Unscored` until somebody measures the OCR channel, which is ADR
+  0017 D3's "stored and unprojected until measured" read as a refusal rather than as an
+  unmeasured row; if the OCR pass is to *store* unmeasured rows, that is a deliberate flag
+  on the load verb, not a fallback inside `stamp`. And a measured channel nobody has
+  *ranked* is refused too (`methods.ranked`): `declare` ranks the text layer only, and the
+  projection's rank join is channel-matched, so the alternative was rows no page shows and
+  an exit of 0. Ranking OCR is a new `rank_version` (ADR 0018 D7) — the namespace question
+  item 8 above already holds.

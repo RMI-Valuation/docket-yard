@@ -39,6 +39,15 @@ class NotTheOwner(RuntimeError):
     method in it, so one row would be dropped or the edge counted twice (ADR 0018 D1)."""
 
 
+class WrongChannel(RuntimeError):
+    """A findings document whose channel is not one a model pass may read on, or one
+    offered stamps measured on another channel. A measurement is of the text it was taken
+    on (ADR 0018 D8); a text-layer figure on an OCR reading is a number borrowed from a
+    different experiment, and `measured` would then mean nothing. This holds for the
+    channel-keyed families. The `citation` identity row carries no channel and takes the
+    stamp of whichever pass asserted it — see the comment at its insert."""
+
+
 @dataclass
 class Loaded:
     """What one document's pass did, in the terms `extraction_run` records."""
@@ -112,7 +121,8 @@ def _supersede_if_changed(
 def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
     """One findings document, through citation_key and the four live families.
 
-    `stamps` is `methods.stamp(con)`: {stage: (measurement_id, precision)}. THE CONFIDENCE
+    `stamps` is `methods.stamp(con, channel=...)` FOR THIS DOCUMENT'S CHANNEL:
+    {stage: (measurement_id, precision)}, and the guard below refuses another's. THE CONFIDENCE
     AND THE POINTER COME FROM THE SAME ROW, so no figure is written here or anywhere else
     in this package — a constant would be a second home for a number `class_measurement`
     already holds, and the two would drift. Every assertion carries the measurement for ITS
@@ -127,6 +137,35 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
     method, version = doc["method"], doc["method_version"]
     now = utcnow()
     out = Loaded(document_sha256=sha)
+
+    # THE CHANNEL IS VALIDATED FIRST, because the store's own checks come too late: a
+    # document carrying `"reading_channel": null` reaches `citation_reading`'s NOT NULL
+    # only after the identity row is written, and `'human'` is legal in `reading_vocab`
+    # but is never what a model pass read from. And a NULL would pass the `<>` below.
+    machine = methods.machine_channels(con)
+    if channel not in machine:
+        raise WrongChannel(
+            f"{sha[:12]} says reading_channel {channel!r}; a model pass reads on one of"
+            f" {sorted(machine)}"
+        )
+    # THE STAMPS MUST BE OF THIS DOCUMENT'S CHANNEL, checked against the measurement rows
+    # themselves and not against whatever the caller believes it asked `stamp` for. The
+    # CLI refuses a batch that mixes channels; this is the guard that holds when the loader
+    # is called from anywhere else, and it is what stops a text-layer precision being
+    # written onto OCR rows as `measured` (ADR 0017 D3). Three rowid lookups, against a
+    # per-document commit: not the cost in this loop.
+    ids = [measurement_id for measurement_id, _precision in stamps.values()]
+    borrowed = con.execute(
+        "SELECT measured_target, reading_channel FROM class_measurement"
+        f" WHERE measurement_id IN ({','.join('?' for _ in ids)}) AND reading_channel <> ?",
+        (*ids, channel),
+    ).fetchall()
+    if borrowed:
+        raise WrongChannel(
+            f"{sha[:12]} was read on channel {channel!r} but the stamps for"
+            f" {sorted(stage for stage, _ in borrowed)} were measured on"
+            f" {sorted({c for _, c in borrowed})}"
+        )
 
     # ADR 0018 D1's one-owner rule, enforced where migration 0014 says it must be: "the
     # extractor looks up its own class, finds no owner row and must refuse to insert." The
@@ -196,6 +235,14 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
         # the loop: the families below are keyed by reading channel, and an OCR pass over a
         # document already read from its text layer must still write its own rows (ADR 0018
         # D3 designs `citation_reading` around exactly that second row).
+        #
+        # THE IDENTITY ROW HAS NO CHANNEL, so its stamp is the channel of WHICHEVER PASS
+        # ASSERTED IT: read OCR-first, it keeps the OCR figure through a same-version
+        # text-layer pass; read at a newer version on OCR, it is re-stamped from OCR while the
+        # live text-layer resolution still projects. Nothing published reads this figure —
+        # the projection takes `confidence` from the channel-keyed resolution and uses this
+        # row as a state gate — but validation query 3's snapshot answers per family.
+        # Recorded in `docs/deferred.md` (2026-09-03); not decided here.
         live = _live_citation(con, sha, page, key)
         unchanged = live is not None and (live[1], live[2]) == (method, version)
         if unchanged:

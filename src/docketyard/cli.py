@@ -370,22 +370,44 @@ def _citator(args: argparse.Namespace) -> int:
         return 1
     # A MIXED BATCH IS REFUSED rather than half-declared. `declare` records one owner per
     # class per rank_version, so loading two extractor versions in one wave would leave the
-    # second writing rows the registry says it does not own (ADR 0018 D1).
-    passes = {(d["method"], d["method_version"]) for _, d in docs}
+    # second writing rows the registry says it does not own (ADR 0018 D1). The CHANNEL is
+    # part of the same key: the stamps are taken once per batch and a measurement is of one
+    # channel (ADR 0018 D8), so a text-layer document beside an OCR document would leave
+    # the second stamped with the first's precision.
+    passes = {
+        (d["method"], d["method_version"], d.get("reading_channel", methods.CHANNEL_TEXT))
+        for _, d in docs
+    }
     if len(passes) > 1:
-        print(f"refused: the batch mixes {sorted(passes)} — one pass per load")
+        print(f"refused: the batch mixes {sorted(passes, key=str)} — one pass per load")
         return 1
-    method, version = passes.pop()
+    method, version, channel = passes.pop()
+    machine = methods.machine_channels(con)
+    if channel not in machine:  # a null, a typo, or 'human' on a model pass
+        print(f"refused: reading_channel {channel!r} is not one of {sorted(machine)}")
+        return 1
 
     try:
         # The measurement must exist before an edge may point at it: a class nobody has
-        # scored is unmeasured and PROJECTS NOTHING (ADR 0017 D3). `stamp` also refuses a
-        # measurement that carries no precision, which is what a row is stamped with.
-        stamps = methods.stamp(con)
+        # scored is unmeasured and PROJECTS NOTHING (ADR 0017 D3), and a class scored on
+        # another channel is unscored on this one. `stamp` also refuses a measurement that
+        # carries no precision, which is what a row is stamped with.
+        stamps = methods.stamp(con, channel=channel)
         methods.declare(con, version, extractor=method)
         con.commit()
     except (methods.Unscored, methods.Conflict) as e:
         print(f"refused: {e}")
+        return 1
+    # A MEASURED CHANNEL NOBODY HAS RANKED stores rows the projection drops on its channel
+    # join, with this verb exiting 0 and `extraction_run` saying "read". That is not ADR
+    # 0017 D3's "stored and unprojected" — that phrase is for the UNMEASURED — so it is
+    # refused here, symmetrically with `Unscored`. `declare` ranks the text layer only; a
+    # rank for another channel is a new rank_version (ADR 0018 D7), which is a decision.
+    if not methods.ranked(con, channel):
+        print(
+            f"refused: no resolver is ranked on channel {channel!r} — nothing loaded here"
+            " could project"
+        )
         return 1
 
     held = keys.registry(con)
