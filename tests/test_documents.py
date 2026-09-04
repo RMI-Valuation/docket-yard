@@ -1,9 +1,10 @@
-"""The document address and the viewer (ADR 0013 addendum, 2026-08-27): the bytes at a hash,
-inline and ranged; a pruned file fetched from the store and verified before it is served;
-the viewer page beside the record with its neighbours, parties, files and cite line."""
+"""The document address (ADR 0013 addendum, 2026-08-27): the bytes at a hash, inline and
+ranged; a pruned file fetched from the store and verified before it is served; the record
+page that frames it, with the rail carrying its neighbours, parties, files and cite line."""
 
 import hashlib
 import io
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -291,3 +292,52 @@ def test_a_record_page_beside_a_comment_still_answers(tmp_path):
     assert 'href="/d/FD-36873/comment/EI-34280"' in client.get("/d/FD-36873").text
     urls_in_json = [e["url"] for e in client.get("/d/FD-36873.json").json()["docket"]["entries"]]
     assert "https://docketyard.org/d/FD-36873/comment/EI-34280" in urls_in_json
+
+
+def test_the_record_pages_rail_carries_what_the_viewer_carried(tmp_path):
+    """The rail came back on 2026-09-04. When `/view` retired into the record page the
+    frame came with it and the rail did not, so the record's files, the parties it was
+    filed for, its neighbours on the sheet and its citation stopped being shown anywhere
+    (the operator). Each block is asserted here because each one went missing silently."""
+    path, sha = _store_with_document(tmp_path)
+    client = TestClient(create_app(path))
+    r = client.get("/filing/311981")
+    assert r.status_code == 200
+    rail = r.text.split('<aside class="rail viewer-rail">')[1].split("</aside>")[0]
+
+    # the parties: the "Filed For" cell resolved, each one linked to its permanent address.
+    # The ids are the SHEET's — the rail names the entry's own components out of the same
+    # union-find the docket's Parties block is built from, so a reader following either
+    # surface reaches the same party page (ADR 0015).
+    assert "<h2>Parties</h2>" in rail
+    linked = set(re.findall(r'href="/p/(\d+)"', rail))
+    assert linked, "the fixture resolved no parties — this test would prove nothing"
+    on_sheet = set(re.findall(r'href="/p/(\d+)"', client.get("/d/FD-36873").text))
+    assert linked <= on_sheet, f"the rail links {linked - on_sheet}, which the sheet does not"
+
+    # the files: this record's, with the hash that is their identity and the Board's copy
+    assert "<h2>Files</h2>" in rail and sha[:12] in rail
+    assert 'rel="noopener">the Board’s copy</a>' in rail
+
+    # the neighbours, by the sheet's order and through `entry_viewer_path`, so a neighbour
+    # that is a comment is addressed under its docket rather than as `/filing/EI-…`
+    assert "<h2>On this sheet</h2>" in rail
+    assert 'href="/filing/311900' in rail or 'href="/filing/311977' in rail
+
+    # the citation, and the follow form the sheet's rail also carries
+    assert 'id="cite-line"' in rail and "FD 36873" in rail
+    assert f"docketyard.org/document/{sha}.pdf" in rail
+    assert '<h2 id="follow">Follow FD 36873</h2>' in rail
+    assert 'name="docket" value="FD 36873"' in rail
+
+    # A record in a SUB-DOCKET names the unit its follow actually covers, as the sheet does
+    # (navigation-review.md A6): the heading is the family and the note says the sub-number
+    # is a phase of it. The retired viewer's rail said "Follow FD 36873 (Sub-No. 1)" here
+    # and quietly subscribed the reader to the parent (review, 2026-09-04).
+    sub = client.get("/filing/311900")
+    assert sub.status_code == 200
+    sub_rail = sub.text.split('<aside class="rail viewer-rail">')[1].split("</aside>")[0]
+    assert "FD 36873 (Sub-No. 1)" in sub.text  # the record IS in the sub-docket
+    assert '<h2 id="follow">Follow FD 36873</h2>' in sub_rail
+    assert "follows the whole proceeding" in sub_rail
+    assert 'name="docket" value="FD 36873 (Sub-No. 1)"' in sub_rail  # folded server-side

@@ -2038,8 +2038,9 @@ def _record_entry(db_path, kind: str, stb_id: str):
     """A record's entry and enough of its docket to render it — WITHOUT building the sheet.
 
     See `sheet.one_entry`: reading one row off a fully-built sheet is what took production
-    down on 2026-09-02. The viewer still needs the whole sheet, because it shows the
-    neighbouring entries; the page and the JSON do not, and they are what a crawler walks.
+    down on 2026-09-02. This is the JSON's read, and the JSON has no rail: it wants the
+    entry and the docket's title and nothing either side of it. The HTML page pays a little
+    more for its neighbours and its party names, through `_record_entry_and_neighbours`.
     """
     con = _connect(db_path)
     try:
@@ -2146,11 +2147,62 @@ def _comment_page(request, db_path, render, identity, number: str):
     return render(request, "record.html", sheet=s, entry=entry)
 
 
+def _record_entry_and_neighbours(db_path, kind: str, stb_id: str):
+    """Everything the record page's rail renders, and not one docket's worth more.
+
+    THE RAIL NEEDS TWO THINGS THE ENTRY ALONE DOES NOT CARRY — the records either side of
+    this one in sheet order, and the names of the components it was filed for. Reading them
+    off `docket_sheet` is what took production down on 2026-09-02, and this page is the one
+    a crawler walks, so both have targeted answers: `sheet.entry_and_neighbours` orders the
+    family from three small queries instead of assembling entries it discards, and its own
+    `party_names` names the two or three components on THIS entry instead of resolving the
+    family's whole Parties block to look them up in it.
+
+    Measured 2026-09-04 on a production copy (FD 35087, 12,633 entries, the worst in the
+    record): `docket_sheet` 235.3 ms, of which the rail would use two fields, against 22.6 ms
+    here — and 1.28 ms against `one_entry`'s 1.09 ms over 40 ordinary records, which is what
+    a crawler meets. On FD 36873 the sheet's Parties block alone was 65.4 ms of a 92.8 ms
+    sheet; `party_names` names the two or three components on THIS entry instead.
+
+    One connection for all of it, because three sequential opens on a page a crawler walks is
+    the cost this function exists to remove, paid a different way.
+    """
+    con = _connect(db_path)
+    try:
+        view = sheet.entry_and_neighbours(con, _record_docket(con, kind, stb_id), kind, stb_id)
+    finally:
+        con.close()
+    if view is None:
+        raise HTTPException(404)
+    # the entry's own order. A component with no live name renders as `party <id>`, which is
+    # `Components.display_name`'s last resort and is what the sheet's Parties block shows too
+    parties = [
+        {"party_id": p, "name": view.party_names[p]}
+        for p in view.entry.parties
+        if p in view.party_names
+    ]
+    return view.context, view.entry, view.prev, view.next, parties
+
+
 def _record_page(request, db_path, render, kind: str, stb_id: str, file: int = 0):
     """The record, with its file in a frame (ADR 0013 addendum, 2026-09-03: the viewer
     retired into this page). `?file=N` picks among several files by the one rule the sheet
-    and the text page use (`documents.pick`); out of range falls back to the first."""
-    s, entry = _record_entry(db_path, kind, stb_id)
+    and the text page use (`documents.pick`); out of range falls back to the first.
+
+    The rail beside the frame carries what the retired viewer's did — the files, the parties,
+    the neighbours, the citation and the follow form — because those went with the page and
+    nothing else on the record showed them (the operator, 2026-09-04).
+    """
+    s, entry, prev, nxt, parties = _record_entry_and_neighbours(db_path, kind, stb_id)
     index = documents.pick(entry, file, documents.INLINE)
     current = entry.attachments[index] if index is not None else None
-    return render(request, "record.html", sheet=s, entry=entry, current=current)
+    return render(
+        request,
+        "record.html",
+        sheet=s,
+        entry=entry,
+        current=current,
+        parties=parties,
+        prev=prev,
+        next=nxt,
+    )

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% set identity = parse_docket_id(entry.docket_raw) %}
+{% set printed = printed_docket(identity) %}
 {# One noun per row across the reader-facing surfaces: the sheet's kind column says
    "Comment" and so does this page, where it said "Environmental comment" and made
    two names for one thing. The search index stays untyped on purpose — EI rows are
@@ -7,10 +8,10 @@
    migration 0011 declines to type the row because the prefix is inside the number
    (deferred, 2026-08-31; operator's wording call). #}
 {% set noun = {'decision': 'Decision', 'comment': 'Comment'}.get(entry.kind, 'Filing') %}
-{% block title %}{{ noun }} {{ entry.record_id }} — {{ printed_docket(identity) }} — {{ site_name }}{% endblock %}
+{% block title %}{{ noun }} {{ entry.record_id }} — {{ printed }} — {{ site_name }}{% endblock %}
 {% block main %}
 <section class="caption">
-  <div class="caption-meta muted small"><a href="{{ docket_path(identity) }}">{{ printed_docket(identity) }}</a>{% if sheet.title %} · <span class="as-printed">{{ sheet.title }}</span>{% endif %}</div>
+  <div class="caption-meta muted small"><a href="{{ docket_path(identity) }}">{{ printed }}</a>{% if sheet.title %} · <span class="as-printed">{{ sheet.title }}</span>{% endif %}</div>
   <h1 class="serif docket-number">{{ noun }} {{ entry.record_id }}</h1>
   <p class="muted"><time datetime="{{ entry.date or '' }}">{{ entry.date | fmt_date }}</time>{% if entry.date_printed %} <span class="small">(printed as {{ entry.date_printed }})</span>{% endif %}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}</p>
   {% if entry.summary %}<p class="serif summary as-printed">{{ entry.summary }}</p>{% endif %}
@@ -25,16 +26,89 @@
     {% if current %}<a class="btn" href="#file">Read it here</a> {% endif %}{% set t = text_index(entry) %}{% if t is not none %}<a class="btn" href="{{ text_path(entry.kind, entry.record_id, t) }}">The text</a> {% endif %}
     {% for a in entry.attachments %}<a class="btn" href="{{ a.url }}">{{ a.label or 'The Board’s own file' }} ↓</a> {% endfor %}
   </p>
-  <p class="small muted">Permanent address <span class="mono">docketyard.org{{ entry_path(entry.kind, entry.record_id, entry.docket_raw) }}</span>{% for a in entry.attachments if a.document_sha256 %}<br>File <span class="mono">docketyard.org{{ document_path(a.document_sha256, a.media_type) }}</span>{% endfor %} · <a href="{{ docket_path(identity) }}">back to the docket sheet</a></p>
+  {#- The file addresses are the rail's Cite block on a page that HAS a rail, and printing
+      them twice made the caption longer than the record it captions. A comment has no
+      rail, so its caption still carries them. -#}
+  <p class="small muted">Permanent address <span class="mono">docketyard.org{{ entry_path(entry.kind, entry.record_id, entry.docket_raw) }}</span>{% if not has_frame(entry) %}{% for a in entry.attachments if a.document_sha256 %}<br>File <span class="mono">docketyard.org{{ document_path(a.document_sha256, a.media_type) }}</span>{% endfor %}{% endif %} · <a href="{{ docket_path(identity) }}">back to the docket sheet</a></p>
 </section>
 {% if has_frame(entry) %}
-<section class="viewer-doc" id="file">
-  {% if current %}
-  <iframe class="viewer-frame" src="{{ document_path(current.document_sha256, current.media_type) }}#toolbar=1" title="{{ noun }} {{ entry.record_id }}{% if current.label %} ({{ current.label }}){% endif %}"></iframe>
-  <p class="small muted viewer-fallback">If the file does not appear here, <a href="{{ document_path(current.document_sha256, current.media_type) }}" target="_blank" rel="noopener">open it in its own tab</a> (some phones show only the first page inside a frame).{% if entry.attachments | length > 1 %} Files: {% for a in entry.attachments %}{% if a.document_sha256 and a.media_type in ('pdf', 'jpg') %}<a href="{{ viewer_path(entry.kind, entry.record_id, loop.index0) }}"{% if a is sameas current %} aria-current="true"{% endif %}>{{ a.label or 'The file' }}</a>{% elif a.document_sha256 %}<a href="{{ document_path(a.document_sha256, a.media_type) }}">{{ a.label or 'The file' }}</a> <span class="muted">(download, .{{ a.media_type or 'bin' }})</span>{% else %}{{ a.label or 'The file' }} <span class="muted">(not yet held here)</span>{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}.{% endif %}</p>
-  {% else %}
-  <p class="muted viewer-fallback">{% if entry.attachments | selectattr('document_sha256') | list %}This record's file is not a kind a browser shows; it is offered as a download above{% else %}This record's file has not been fetched into the record yet{% if entry.attachments %}; the Board's own copy is linked above{% endif %}{% endif %}.</p>
-  {% endif %}
+<section class="viewer">
+  <div class="viewer-doc" id="file">
+    {% if current %}
+    <iframe class="viewer-frame" src="{{ document_path(current.document_sha256, current.media_type) }}#toolbar=1" title="{{ noun }} {{ entry.record_id }}{% if current.label %} ({{ current.label }}){% endif %}"></iframe>
+    <p class="small muted viewer-fallback">If the file does not appear here, <a href="{{ document_path(current.document_sha256, current.media_type) }}" target="_blank" rel="noopener">open it in its own tab</a> (some phones show only the first page inside a frame).{% if entry.attachments | length > 1 %} The record’s other files are listed in the sidebar.{% endif %}</p>
+    {% else %}
+    <p class="muted viewer-fallback">{% if entry.attachments | selectattr('document_sha256') | list %}This record's file is not a kind a browser shows; it is offered as a download above and in the sidebar{% else %}This record's file has not been fetched into the record yet{% if entry.attachments %}; the Board's own copy is linked above{% endif %}{% endif %}.</p>
+    {% endif %}
+  </div>
+  {#- The rail the retired viewer carried (ADR 0013 addendum, 2026-09-03). When `/view`
+      folded into this page the frame came with it and the rail did not, so the files,
+      the parties, the neighbours and the citation stopped being shown anywhere on a
+      record (the operator, 2026-09-04). -#}
+  <aside class="rail viewer-rail">
+    {% if parties %}
+    <div>
+      <h2>Parties</h2>
+      <ul class="plain small">
+      {% for p in parties %}
+        <li><a href="{{ party_path(p.party_id) }}">{{ p.name }}</a></li>
+      {% endfor %}
+      </ul>
+      {#- The caption above quotes the “Filed For” cell as the Board printed it; this is the
+          same cell resolved by rule, and the two are deliberately both shown — the quote is
+          the record and the links are derived from it (ADR 0004, ADR 0007). -#}
+      <p class="small muted">The cell above, resolved to the parties it names (<a href="/methodology">how</a>). Nothing here says what anyone argued.</p>
+    </div>
+    {% endif %}
+    <div>
+      <h2>Files</h2>
+      <ul class="plain small">
+      {% for a in entry.attachments %}
+        <li>{% if a.document_sha256 and a.media_type in ('pdf', 'jpg') %}<a href="{{ viewer_path(entry.kind, entry.record_id, loop.index0) }}"{% if a is sameas current %} aria-current="true"{% endif %}>{{ a.label or 'The file' }}</a> · <span class="mono muted" title="SHA-256 of the bytes, the document's permanent identity">{{ a.document_sha256[:12] }}…</span>{% elif a.document_sha256 %}<a href="{{ document_path(a.document_sha256, a.media_type) }}">{{ a.label or 'The file' }}</a> <span class="muted">(download, .{{ a.media_type or 'bin' }})</span> · <span class="mono muted" title="SHA-256 of the bytes, the document's permanent identity">{{ a.document_sha256[:12] }}…</span>{% else %}{{ a.label or 'The file' }} <span class="muted">(not yet held here)</span>{% endif %} · <a href="{{ a.url }}" rel="noopener">the Board’s copy</a></li>
+      {% else %}
+        <li class="muted">No file hangs on this record.</li>
+      {% endfor %}
+      </ul>
+    </div>
+    {% if prev or next %}
+    <div>
+      <h2>On this sheet</h2>
+      <p class="small">{% if prev %}← <a href="{{ entry_viewer_path(prev.kind, prev.record_id, prev.docket_raw, viewable_index(prev)) }}">{{ prev.date | fmt_date }} · {{ kind_label(prev.kind, prev.type) }} {{ prev.record_id }}</a>{% endif %}{% if prev and next %}<br>{% endif %}{% if next %}<a href="{{ entry_viewer_path(next.kind, next.record_id, next.docket_raw, viewable_index(next)) }}">{{ next.date | fmt_date }} · {{ kind_label(next.kind, next.type) }} {{ next.record_id }}</a> →{% endif %}</p>
+      <p class="small muted">Newest first, as on the sheet.</p>
+    </div>
+    {% endif %}
+    <div>
+      <h2 id="cite">Cite</h2>
+      <p class="cite serif" id="cite-line">{{ noun }} {{ entry.record_id }}, {{ cite_docket(identity) }}{% if entry.date %} ({{ entry.date | fmt_date }}){% endif %}</p>
+      <p class="small muted">Record <span class="mono">docketyard.org{{ record_path(entry.kind, entry.record_id) }}</span>{% if current %}<br>File <span class="mono">docketyard.org{{ document_path(current.document_sha256, current.media_type) }}</span>{% endif %}</p>
+      <button class="btn no-print" type="button" data-copy="cite-line" hidden>Copy citation</button>
+    </div>
+    <div class="no-print">
+      {#- Name the unit, and name it before the confirmation email does — the sheet's rule,
+          spelled the same way here (navigation-review.md A6). A follow of a record in an
+          FD sub-docket subscribes to the whole family, because there a Sub-No. is a phase
+          of one proceeding; the retired viewer's rail said "Follow FD 36873 (Sub-No. 1)"
+          and quietly followed the parent. `feed_for != identity` is NOT "this is a
+          sub-docket": a suffix on a parent (`S5M 1 A`, `SUB 300 L`, both in the record)
+          also has a parent, so the sub-number is what the sentence depends on. -#}
+      {% set feed_for = follow_target(identity) %}
+      {%- set is_sub = identity.sub_sequence is not none and feed_for != identity %}
+      <h2 id="follow">Follow {{ printed_docket(feed_for) }}</h2>
+      {% set follow_scope = '' if not is_sub else 'This record sits in ' ~ printed ~ ', a sub-docket of ' ~ printed_docket(feed_for) ~ ', and following it follows the whole proceeding — every sub-docket under that number. ' %}
+      {% with follow_field='docket', follow_value=printed, follow_note=follow_scope ~ 'Confirmed by email; one click to stop, and the address is deleted when you do. No account.' %}{% include '_follow_form.html' %}{% endwith %}
+    </div>
+  </aside>
 </section>
+<script>
+  // the copy button appears only when the clipboard is available; nothing is sent anywhere
+  (function () {
+    const b = document.querySelector("[data-copy]"); if (!b || !navigator.clipboard) return;
+    b.hidden = false;
+    b.addEventListener("click", () => {
+      const line = document.getElementById(b.dataset.copy).textContent.trim();
+      navigator.clipboard.writeText(line + " — https://" + location.host + location.pathname).then(() => { b.textContent = "Copied"; setTimeout(() => { b.textContent = "Copy citation"; }, 1500); });
+    });
+  })();
+</script>
 {% endif %}
 {% endblock %}

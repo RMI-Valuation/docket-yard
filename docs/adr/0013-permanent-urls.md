@@ -115,3 +115,31 @@ the frame; `/filing/{id}/view` and `/decision/{id}/view` answer **301** to that,
 `?file=N`, because a permanent address never dies. What the viewer showed and the record
 page does not — the neighbours on the sheet, the follow form — is the sheet's; the text page
 keeps its scan link, which now lands on the record.
+
+## Addendum (2026-09-04): the rail comes back with the record
+
+The addendum above sent the neighbours and the follow form back to the sheet. In use that
+was wrong, and the operator said so: a reader who reaches a decision from a search result or
+an alert is on the record page, not the sheet, and the record page had stopped showing the
+files it holds, the parties it was filed for, the records either side of it, and its
+citation. Nothing had replaced them — they were the viewer's rail, and the rail did not come
+across when `/view` folded in.
+
+**The record page carries a rail beside the frame**, in the `.viewer` grid the text page
+already uses: the parties resolved from the "Filed For" cell and linked to `/p/<id>`, the
+files with the hash that is each one's identity and a link to the Board's own copy, the
+neighbours in sheet order, the citation with its copy button, and the follow form. No new
+address, no new class of page — this addendum changes what a record page *shows*, not where
+anything lives, so nothing in the Decision above moves.
+
+The read behind it is `sheet.entry_and_neighbours`, restored rather than rebuilt: it orders
+the family from three small queries and never assembles an entry it will discard. Measured
+2026-09-04 on a production copy, FD 35087 (12,031 comments, the worst docket in the record):
+`docket_sheet` 235.3 ms, `one_entry` 8.5 ms, this 22.6 ms — 2.7x the cheap read where it
+hurts most, and 10x under the read that caused the 2026-09-02 outage. Over 40 ordinary
+records, which is what a crawler meets, 1.09 ms against 1.28 ms.
+
+A comment's page has no frame, so it has no rail, and its caption keeps the file addresses
+the framed pages moved into Cite. The caption still quotes the "Filed For" cell as the Board
+printed it; the rail's links are that same cell resolved by rule, and both are shown on
+purpose — the quote is the record, the links are derived from it (ADR 0004, ADR 0007).

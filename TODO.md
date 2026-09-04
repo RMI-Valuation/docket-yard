@@ -18,16 +18,16 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   behind them is open** — an unanswered attempt leaves no capture. Cameron's (`deferred.md`)
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
   heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
-- **Migration A's passes ran 2026-09-04** on the resized box (large_3_0, 110 GB free):
-  77,567 documents paginated, 1,104,935 pages loaded (59,210 text-layer, 15,086 image-only
-  holding empty pages for OCR, 3,271 not paginable), page index in step, store 3.7 GB.
+- **Migration A loaded 2026-09-04** (77,567 documents, 1,104,935 pages, store 3.7 GB).
   **Left**: a bulk pass loses the write lock to Litestream, and `rebuild-pages` holds it
-  27 min with the display function on every row — batch it (`deferred.md` 2026-09-04)
-- **v2026.09.3/4 (2026-09-04): text pages noindex, contact details omitted at display**
-  (migration 0020, ADR 0021 addendum) **and the page search path shipped** (PR #24, migration
-  0021). **Cameron's**: revisit noindex now that search reaches the text, and whether
-  `/search` joins the named AI agents' disallow list — it prints the held page text they
-  may not fetch at `/text` (robots.txt). A mask pattern change is a new migration
+  27 min with the display function on every row — batch both (`deferred.md` 2026-09-04)
+- **v2026.09.3/4/5 shipped 2026-09-04** (noindex text pages, contact details omitted at
+  display, the page search path). **Cameron's**: revisit noindex now that search reaches the
+  text, and whether `/search` joins the named AI agents' disallow list — it prints the held
+  page text they may not fetch at `/text`. A mask pattern change is a new migration
+- **The record page's rail is back and unreleased** (ADR 0013 addendum, 2026-09-04): the
+  parties, files, neighbours, citation and follow form that went missing when `/view`
+  retired. 22.6 ms vs `one_entry`'s 8.5 on FD 35087. No migration, so no wall — needs a release
 - **ADR 0023's pick rule is decided (2026-09-03): compare values** — publish only when every
   live reading agrees. No consumer built yet; `cite.py` sends `decided` to the sheet unchanged
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen

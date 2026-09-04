@@ -339,6 +339,12 @@ def test_a_comment_answers_at_its_own_address(con, tmp_path):
     assert "EI-34280" in r.text and "Casper Aquifer" in r.text
     assert "David Gertsch" in r.text and "Laramie, WY" in r.text
     assert "/d/FD-36873/comment/EI-34280" in r.text  # it states its own address
+    # A comment has no frame (`documents.VIEWABLE_KINDS`), so it has no rail: the files,
+    # the neighbours and the cite line the record page's rail carries are the framed
+    # kinds'. Its caption keeps the file addresses those pages moved into Cite, and the
+    # page must not reach for `parties`/`prev`/`next`, which its route does not pass.
+    assert 'class="rail viewer-rail"' not in r.text
+    assert "Permanent address" in r.text
 
     j = client.get("/d/FD-36873/comment/EI-34280.json")
     body = j.json()["comment"]
