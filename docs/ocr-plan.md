@@ -58,6 +58,28 @@ Four answers that shape everything below, taken after the census, the agreement 
    Migration B redesigns ranking and the queue against the flag rate § Step 6 measured. See
    `ocr-migration.md`.
 
+**Decided 2026-09-04, and the wave started the same day** (`tools/rmi-ai-machine/ocr_wave.py`,
+whose docstring is the runbook):
+
+5. **200 DPI for the degraded tier** — dots.mocr's measured optimum, 0.6pp on the tier that
+   hurts for about 40 more hours of box time. The clean tier stays at 150.
+6. **HunyuanOCR-1.5 reads the tabular tier, and tabular is read last**, its own pass after
+   this wave. The licence question is answered by ADR 0022 D3: `document_text` is held from
+   the CC0 dump, so nothing it reads is published under the dedication.
+7. **The clean/degraded split is provisional and says so.** The router's fixed rule folds
+   them; the one free signal that splits them (region count, AUC 0.843 on the 90 pages)
+   cannot be confirmed without the unseen sample the top-up would provide. Rather than read
+   every text page with dots.mocr (three weeks) or wait, the wave routes a text page with
+   more than 13 regions — the midpoint of the two measured medians, 8.5 and 18.0 — to
+   degraded, and every row records the router as `pp-doclayoutv3+regions` at
+   `provisional-1`, so a confirmed rule supersedes it by re-reading (ADR 0021 D4). The
+   region count is written to every route file for the day the sample exists.
+8. **What each class gets.** Clean: PP-OCRv6 primary, read once, no band. Degraded:
+   dots.mocr primary at 200 DPI and PP-OCRv6 second at 150 with the distance, so the band
+   is bought where the errors are. Graphic: PP-OCRv6 primary, in the last pass. Unrouted (the
+   router found nothing): PP-OCRv6, because the blank call is unsafe. Tabular: not in this
+   wave; the page shows "not yet read" until the HunyuanOCR pass.
+
 ## What is to be read
 
 Measured 2026-08-27 on RMI-AI-MACHINE over the whole held record (80,271 files): 60,360 PDFs

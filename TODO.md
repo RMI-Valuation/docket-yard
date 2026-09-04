@@ -36,13 +36,12 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **The router**: free at 0.05 s, graphic call safe, **blank call unsafe — "no regions"
-  must never mean "skip"**. **Cameron's**: 200 DPI for the degraded tier (+40 h), and the
-  ground-truth top-up the tabular route waits on (tables are now read last, not never)
-- **HunyuanOCR-1.5 deferred with the tabular tier**: closes the table gap (86.2% cells), but
-  its licence bars the EU/UK/Korea and forbids using outputs to improve any model
-- **OCR of the 15,085 image-only files** (M3's first slice): **247,923 pages**, censused
-  2026-09-02 — 42% over the plan's estimate, so ~187 h of box time and not 132
+- **The OCR wave is running on rmi-ai-machine** (decided 2026-09-04: 200 DPI for degraded,
+  HunyuanOCR for tabular LAST, the provisional region-count split at 13). `ocr_wave.py`,
+  tmux `ocr-paddle`, log `/data/docketyard/ocr/logs/paddle.log`: router + PP-OCRv6 over
+  247,923 pages (~24 h), then `dots` behind vLLM (~200 h), `second`, `graphic`; rsync each
+  root and `text load` it in that order. Tabular pages stay "not yet read" until the
+  HunyuanOCR pass; the top-up sample that confirms the split is still Cameron's
 - Deadline engine (C4): decision JSON carries no obligations (verified 2026-08-26); a
   hand-checked fixture of 8 for FD 36873 sits in `../up-ns-merger-tracker/briefs/2026-08-25.md`
   (read-only). Dates quoted, never computed
