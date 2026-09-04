@@ -18,10 +18,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   behind them is open** — an unanswered attempt leaves no capture. Cameron's (`deferred.md`)
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
   heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
-- **Migration A loaded 2026-09-04** (77,567 documents, 1,104,935 pages, store 3.7 GB); both
-  write-lock findings fixed and **unreleased** — a bulk pass replays its batch instead of
-  aborting, `rebuild-pages` is batched. **The OCR loads need this deployed first**
-- **v2026.09.3–6 shipped 2026-09-04** (noindex text pages, contact details omitted at
+- **Migration A is done** (77,567 documents, 1,104,935 pages, store 3.7 GB) and both write-lock
+  findings shipped in v2026.09.7. Left: the batched rebuild is unverified at 1.1M rows — the
+  next real rebuild proves it (Cameron, 2026-09-04) — and `deferred.md` holds the one residual
+- **v2026.09.3–7 shipped 2026-09-04** (noindex text pages, contact details omitted at
   display, the page search path). **Cameron's**: revisit noindex now that search reaches the
   text, and whether `/search` joins the named AI agents' disallow list — it prints the held
   page text they may not fetch at `/text`. A mask pattern change is a new migration
