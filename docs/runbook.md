@@ -214,3 +214,87 @@ a copy, not a migration.
 - **The dockets table order** is only stable under `sort_by=docketNum`; the walk pins it.
   Never page the table unsorted. Any manual `capture dockets` test before a walk should use
   `--mode backfill` so its events never reach a forward alert join.
+
+## The citator's first load — planned 2026-09-04, NOT RUN
+
+The whole chain was rehearsed on that date against a `VACUUM INTO` copy of production and
+runs clean; production still holds `citation` 0 rows. What follows is what a real load would
+be, with the blockers named first, because **two of them are not steps — one is missing code
+and one is a decision about people.**
+
+### What it would write, measured on the copy
+
+    readings        20,062      findings   73,101   (41,954 captions, 31,147 citations)
+    citation rows   73,101      judgements 219,303  (three per finding)
+    resolution      71,185 resolved, 1,915 unresolved, 1 repaired
+    PROJECTED       18,907 rows -> 15,164 distinct (citing work, target) edges,
+                    over 5,294 citing works and 3,529 proceedings cited
+    review owed     citation_exposed 1,946   citation_unresolved 489   citation_repaired 1
+    failures        0 failed, 0 unreadable, 0 out of class
+
+Wall clock on the instance: the finder ~45 s over 139,805 pages; the load a few minutes,
+committing per document so the poller is never locked out for the run.
+
+### Blocker 1 — there is no verb that declares the measurements
+
+`citator load` refuses a batch it cannot stamp (`methods.Unscored`), because ADR 0017 D3
+says a class nobody has scored is unmeasured and projects nothing. Production holds
+`class_measurement` 0 and `assertion_method` 0, and the shipped verbs are
+`find | load | cited-by | grant | revoke | review | decide` — **none of them declares a
+method or records a measurement.** The rehearsal got past this with a hand-written script,
+which is not a thing an operator should do: it stamps a precision onto every row the load
+writes, and the figures it carries are a published claim (migration 0016 § The figures:
+extraction 222/225, resolution 216/225, projection 213/225 at 97.7% precision, measured on
+sixty decisions on 2026-09-01).
+
+Filling it is a decision about provenance, not a tidy-up, so it is Cameron's: a verb that
+**hardcodes** the figures makes the claim on his behalf, and a verb that **takes them as
+arguments** makes him state what is being claimed and where it came from. The second is the
+one this record's rules point at ("every derived assertion carries provenance"), and it is
+the more tedious command to type. Recorded in `docs/deferred.md`.
+
+### Blocker 2 — there is no reviewer
+
+`reviewer` is 0 rows. The load would create **1,946 exposed keys** that the projection holds
+back until a human answers them — against five on the sixty-decision sheet. Nothing releases
+them but a reviewer working `/review`, and the grant is `citator grant <email>
+--credit-name ... --note ...`, which needs the vault key. So the question before the load is
+review capacity, not code: 1,946 items at, say, thirty seconds of reading each is about
+sixteen hours of somebody's attention. Loading first and finding the reviewer later is
+allowed — the edges are simply held, which is what the gate is for — but it should be a
+choice rather than a discovery.
+
+### Blocker 3 — the figures are the benchmark's, and the load does not change that
+
+Every one of the 15,164 edges would be stamped with a precision measured on sixty decisions.
+A corpus run cannot check it: recall and precision need hand-made ground truth and there is
+none for 19,229 decisions. The load is therefore a decision to publish edges at a stated
+confidence, not a measurement of that confidence — and `/methodology` says what the figure
+is measured on.
+
+### The steps, once those are settled
+
+    # 1. behind the wall? NO — the load commits per document and holds no long lock, and
+    #    `web` serves the same store throughout. But nothing may write the page index or
+    #    load text beside it (see `search rebuild-pages`).
+    docker compose run --rm --no-deps ingest citator find /data/citation-findings </dev/null
+    # one subdirectory per reading channel; today that is `text-layer` alone, and after the
+    # OCR wave lands there will be an `ocr` one, which is its OWN batch and its own
+    # measurement — a channel nobody has scored is refused, by design (ADR 0018 D8).
+
+    # 2. declare the methods and the measurements — SEE BLOCKER 1; no verb yet
+
+    docker compose run --rm --no-deps ingest citator load \
+        /data/citation-findings/text-layer </dev/null
+    # it prints the totals and what the queues now hold. `failed` must be 0.
+
+### Verifying, and going back
+
+    docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null
+    docker compose run --rm --no-deps ingest citator review citation_exposed </dev/null
+
+Rollback is Litestream restore, as for any migrating change — but note the load writes no
+schema and supersedes nothing, so an unwanted load is *additive*: the rows can also be left
+in place and the projection starved by withdrawing the measurement, which is ADR 0017 D3's
+own mechanism ("unmeasured projects nothing"). That is the cheaper reversal and the one to
+reach for first.

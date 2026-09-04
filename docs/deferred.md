@@ -883,3 +883,21 @@ behind it were stale, and are fixed.
 
 Left on the instance for whatever comes next, to be deleted otherwise:
 `data/citator-dryrun.sqlite` (now ~4 GB, loaded) and `data/citator-findings` (84 MB).
+
+## Owed before a real citator load, found by planning it, 2026-09-04
+
+- **There is no operator verb that declares a method or records a measurement.** The shipped
+  citator verbs are `find | load | cited-by | grant | revoke | review | decide`; production
+  holds `class_measurement` 0 and `assertion_method` 0; and `citator load` refuses a batch it
+  cannot stamp (`methods.Unscored`, ADR 0017 D3). So a real load cannot be performed with the
+  shipped CLI at all — the rehearsal used a hand-written script, which is not a thing an
+  operator should do, because it stamps a published precision onto every row a load writes.
+  **The shape is Cameron's**: a verb that hardcodes migration 0016's figures makes the claim
+  for him; one that takes them as arguments makes him state what is claimed and where it came
+  from, which is what "every derived assertion carries provenance" points at and the more
+  tedious command. `docs/runbook.md` § The citator's first load, Blocker 1.
+- **`reviewer` is 0 rows**, so the 1,946 exposed keys a load creates would have nobody to
+  release them. `citator grant` exists and needs the vault key; the question is capacity, not
+  code — 1,946 items is roughly sixteen hours of somebody reading at thirty seconds each.
+  Loading first and granting later is allowed (the edges are simply held, which is what the
+  gate is for) but should be a choice rather than a discovery.

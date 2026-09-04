@@ -11,9 +11,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **The figures: 94.7% projected / 97.7% precision, 93.3% to a reader.** Three causes,
   separated in migration 0016's header, which is the one to quote
 - **The citator has never run a real load** (`citation`: 0 rows). The whole chain ran into a
-  COPY 2026-09-04: 73,101 findings, **15,164 distinct edges**, 0 failures, and **1,946 keys
-  waiting in `citation_exposed`** — the queue works; the backlog is a capacity question
-  (`deferred.md`). **Cameron's to start**
+  COPY 2026-09-04: 73,101 findings, **15,164 distinct edges**, 0 failures. **Two blockers
+  before a real one, neither a step**: no verb declares a measurement, and `reviewer` is 0
+  rows against 1,946 exposed keys (`runbook.md` § The citator's first load). **Cameron's**
 - **Owed with the pipeline**: ingest writing `decision_work`; the "not in the record" display
   joining live `citation`; the veto's trigger. **The review queue is NOT owed** — it derives
   from the loaded rows and was measured working 2026-09-04. More in `deferred.md`
@@ -24,7 +24,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Migration A is done** (77,567 documents, 1,104,935 pages, store 3.7 GB) and both write-lock
   findings shipped in v2026.09.7. Left: the batched rebuild is unverified at 1.1M rows — the
   next real rebuild proves it (Cameron, 2026-09-04) — and `deferred.md` holds the one residual
-- **v2026.09.3–8 shipped 2026-09-04** (noindex text pages, contact details omitted at
+- **v2026.09.3–9 shipped 2026-09-04** (noindex text pages, contact details omitted at
   display, the page search path). **Cameron's**: revisit noindex now that search reaches the
   text, and whether `/search` joins the named AI agents' disallow list — it prints the held
   page text they may not fetch at `/text`. A mask pattern change is a new migration
