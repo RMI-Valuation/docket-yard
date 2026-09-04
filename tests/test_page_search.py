@@ -114,6 +114,26 @@ def test_a_human_row_has_no_band_and_says_who_corrected_it(tmp_path):
     con.close()
 
 
+def test_a_stale_index_row_is_dropped_and_does_not_take_the_search_down(tmp_path):
+    """A human row inserted by hand without `leave(primary)` leaves the primary's id in
+    `page_fts` while the view shows the human row. FTS5's snippet over the vanished content
+    row raises "database disk image is malformed"; the search must count it, not raise."""
+    path, sha = _with_text(tmp_path)
+    con = db.connect(path)
+    con.execute(
+        "INSERT INTO document_text (document_sha256, page_no, method, method_version,"
+        " render_profile, reading_channel, reading_role, text, text_sha256, confidence,"
+        " confidence_state, asserted_at) VALUES (?, 3, 'human', 'unversioned', 'human',"
+        " 'human', 'human', 'a correction with other words', 'h', 0, 'human',"
+        " '2026-09-04T12:00:00+00:00')",
+        (sha,),
+    )
+    con.commit()  # no leave(), no rebuild: the primary's row is stale in the index
+    found = search.search_pages(con, "tazewell")
+    assert found.hits == [] and found.dropped == 1
+    con.close()
+
+
 def test_the_search_page_shows_pages_in_their_own_section_and_suggest_does_not(tmp_path):
     path, _ = _with_text(tmp_path)
     client = TestClient(create_app(path))
@@ -142,6 +162,7 @@ def test_the_mcp_search_hands_over_the_page_with_its_label_band_and_scan(tmp_pat
     assert "publisher's own text layer" in out and "so no band" in out
     assert "The scan: https://docketyard.org/filing/311900#file" in out
     assert "check it against the scan" in out and "narrow the words" not in out
+    assert "does not hold the text" not in mcp._NOT_HELD  # the caveat no longer denies it
 
 
 def test_a_document_no_record_carries_is_not_a_hit_and_is_counted(tmp_path):

@@ -25,8 +25,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   27 min with the display function on every row — batch it (`deferred.md` 2026-09-04)
 - **v2026.09.3/4 (2026-09-04): text pages noindex, contact details omitted at display**
   (migration 0020, ADR 0021 addendum) **and the page search path shipped** (PR #24, migration
-  0021). Revisiting noindex now that search reaches the text is **Cameron's**; a mask pattern
-  change is a new migration, never a code edit
+  0021). **Cameron's**: revisit noindex now that search reaches the text, and whether
+  `/search` joins the named AI agents' disallow list — it prints the held page text they
+  may not fetch at `/text` (robots.txt). A mask pattern change is a new migration
 - **ADR 0023's pick rule is decided (2026-09-03): compare values** — publish only when every
   live reading agrees. No consumer built yet; `cite.py` sends `decided` to the sheet unchanged
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
@@ -47,7 +48,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   hand-checked fixture of 8 for FD 36873 sits in `../up-ns-merger-tracker/briefs/2026-08-25.md`
   (read-only). Dates quoted, never computed
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
-- Cameron's idea: cadence switch from the alert email; a signed-link manage page per address
 - **ADR 0012 addendum: the blob cache** (S3 store, instance cache) — ADR 0022 D2 leans on it
 - **`docs/navigation-review.md`: Tiers 1–3 and A7 are built**, home keeps its rolling seven
   days (Cameron, 2026-09-01). Left is **his**: the masthead, and whether a place index is ripe

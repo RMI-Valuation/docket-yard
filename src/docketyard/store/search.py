@@ -532,24 +532,35 @@ def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> Page
     match = _match(text, prefix=False)
     if match is None:
         return PageResults([], False, 0)
-    rows = con.execute(
-        """
-        SELECT page_fts.rowid, snippet(page_fts, 0, ?, ?, '…', ?)
-          FROM page_fts WHERE page_fts MATCH ? ORDER BY rank LIMIT ?
-        """,
-        (MARK_OPEN, MARK_CLOSE, SNIPPET_TOKENS, match, limit + 1),  # one more: is there more?
-    ).fetchall()
-    truncated = len(rows) > limit
-    rows = rows[:limit]
-    found = pages.by_text_ids(con, [text_id for text_id, _ in rows])
+    # The rowids first and the snippet second, for a reason that was reproduced: FTS5
+    # computes `snippet()` from the content view, and an index row whose view row has gone
+    # — a human correction inserted by hand without `leave(primary)`, which `page_index`'s
+    # docstring names as the review layer's debt — makes it raise "database disk image is
+    # malformed" before any row returns. Asked for the snippet only on rows the view still
+    # shows, a stale row is counted in `dropped` instead of taking every search down.
+    ids = [
+        text_id
+        for (text_id,) in con.execute(
+            "SELECT rowid FROM page_fts WHERE page_fts MATCH ? ORDER BY rank LIMIT ?",
+            (match, limit + 1),  # one more: is there more?
+        )
+    ]
+    truncated = len(ids) > limit
+    ids = ids[:limit]
+    found = pages.by_text_ids(con, ids)
     records: dict[str, tuple | None] = {}
     hits: list[Hit] = []
     dropped = 0
-    for text_id, excerpt in rows:
+    for text_id in ids:
         if text_id not in found:
             dropped += 1  # the index runs ahead of the view (`page_index`'s docstring)
             continue
         sha, page = found[text_id]
+        excerpt = con.execute(
+            "SELECT snippet(page_fts, 0, ?, ?, '…', ?) FROM page_fts"
+            " WHERE rowid = ? AND page_fts MATCH ?",
+            (MARK_OPEN, MARK_CLOSE, SNIPPET_TOKENS, text_id, match),
+        ).fetchone()[0]
         if sha not in records:
             records[sha] = _record_of(con, sha)
         record = records[sha]

@@ -651,3 +651,17 @@ four confirmed, all nits, three reported and one dropped by its quality cap. Not
   the blob copy on RMI-AI-MACHINE holds files the store does not list as documents, and the
   extractor v2 writes a stub for every file it sees. The count is the loader's report, not a
   defect; which files they are has not been checked.
+
+## Found by the cross-file tracer on the merged page search path, 2026-09-04 (v2026.09.4)
+
+- **No per-document cap on the twenty page hits.** A phrase printed on every page of one
+  300-page assessment fills the whole section with that document's pages 1–20 and hides
+  every other document that matched; the record-hit path cannot fail this way because its
+  grain is one row per docket. Over-fetch and fold to the best two or three pages per
+  document, then cut to twenty.
+- **`PageResults.dropped` is computed and read by nobody.** It is the one signal that the
+  page index has drifted from the display view (a human row inserted without `leave`, a
+  store restored from a replica); a counter in the telemetry `/search` already touches, or
+  a `problems[]` entry from the passes, would make it observable.
+- **From TODO, 2026-09-04 (the cap):** Cameron's idea of a cadence switch from the alert
+  email and a signed-link manage page per address.

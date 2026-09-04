@@ -62,8 +62,9 @@ Inventing a docket number or a service date is the specific failure this surface
 prevent."""
 
 _NOT_HELD = (
-    "This record does not say what any party argued, does not compute deadlines, and does "
-    "not hold the text inside documents. Coverage is not uniform — call `coverage`."
+    "This record does not say what any party argued and does not compute deadlines. The text"
+    " inside documents is machine-read, a finding aid: a [page] line names who read it and"
+    " links the scan, which is the record. Coverage is not uniform — call `coverage`."
 )
 
 
