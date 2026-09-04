@@ -64,10 +64,23 @@ class TableSpec:
     # own data-stb-id attribute — environmental comments, whose rows print the middle part
     # NOWHERE (measured 2026-08-31), so keying on it could not be checked at all.
     id_anchor: str = "stb_id"
-    # the record id is also a public, permanent address, so a second docket claiming one
-    # already held is an anomaly to report rather than a row to write
+    # The record id is also a public, permanent address, so a second docket claiming one
+    # already held is COUNTED AND REPORTED (`id_collisions`, and the poller turns it into a
+    # problem). It is not refused: the second record is still written, because the row was
+    # observed and this store does not discard an observation. The comment here read "an
+    # anomaly to report rather than a row to write", which a reader could take for a refusal
+    # that does not exist (stb-ingest-specialist, 2026-09-04). If one is ever wanted it
+    # belongs in `ingest_capture` BEFORE `_upsert_record` is called — never inside it, where
+    # the work-registry write below would already have minted a row for a refused record.
     globally_addressed: bool = False
     extra_payload: dict[str, str] = field(default_factory=dict)  # payload key -> TableRow attr
+    # THE WORK REGISTRY THIS TABLE'S IDS BELONG TO, or None. Migration 0014 created
+    # `decision_work` and backfilled it once, with the warning that "INGEST MUST KEEP THIS IN
+    # STEP: a decision served after this migration and never added here fails the resolver's
+    # foreign key". Nothing did, and by 2026-09-04 three decisions had drifted — 53218, 53236
+    # and 53203, one for each day since the migration ran. A field rather than a test on the
+    # action, so the writer below stays the one generic writer for all three tables.
+    work_table: str | None = None
 
 
 FILINGS_SPEC = TableSpec(
@@ -110,6 +123,7 @@ DECISIONS_SPEC = TableSpec(
         "deciding_body": "deciding_body",
         "service_date": "date",
     },
+    work_table="decision_work",
 )
 
 # Cells measured from live rows 2026-08-31 (docs/stb-data-source.md): [0] folder button,
@@ -294,6 +308,9 @@ def ingest_capture(con: Connection, data_dir, capture_id: int) -> dict:
         "suppressed": 0,
         "attachments": 0,
         "id_collisions": 0,
+        # a work-registry row minted for a record the store already held: drift repaired,
+        # which the poller turns into a problem so the next one is not silent either
+        "work_healed": 0,
     }
     for (docket_stb_id, record_id), group in _grouped(parsed.rows).items():
         stats["records"] += 1
@@ -351,10 +368,11 @@ def ingest_capture(con: Connection, data_dir, capture_id: int) -> dict:
             # the ledger already holds this exact observation (e.g. a run that died
             # between the event and the record): recover the event rather than fail
             event_id = _latest_event_id(con, spec.event_type, source_key)
-        record_pk, created = _upsert_record(
+        record_pk, created, healed = _upsert_record(
             con, spec, docket_id, record_id, payload, event_id, record_pk
         )
         stats["new_records"] += int(created)
+        stats["work_healed"] += healed
         for url, label in labels.items():
             cur = con.execute(
                 f"INSERT OR IGNORE INTO {spec.attachment_table}"
@@ -419,8 +437,38 @@ def _upsert_record(
     payload: dict,
     event_id: int | None,
     record_pk: int | None,
-) -> tuple[int, bool]:
+) -> tuple[int, bool, int]:
     columns = {col: payload.get(key) for col, key in spec.record_columns.items()}
+    healed = 0
+    if spec.work_table:
+        # BEFORE THE BRANCH, and on every observation rather than only on a new row. The id
+        # is the registry's whole content (ADR 0018 D9: "stb_decision_id AND NOTHING ELSE"),
+        # 1,736 ids carry more than one `decision_record` row, and a re-observation is the
+        # only thing that can heal a row that drifted while nothing was writing this — so
+        # `OR IGNORE`, and unconditionally. It is one cheap statement per decision row seen.
+        #
+        # WHAT MAKES IT SAFE TO WRITE AT ALL is the corroboration above: `record_id` is the
+        # middle part of `data-stb-id` only after it has been checked against the printed id
+        # cell. This registry is a parent of `citation_resolution.cited_decision_id`, so an
+        # id written here cannot be withdrawn once referenced — the same one-way door
+        # `_identity` names for `source_key`.
+        cur = con.execute(
+            f"INSERT OR IGNORE INTO {spec.work_table} ({spec.record_id_column}) VALUES (?)",
+            (record_id,),
+        )
+        # A ROW MINTED FOR A RECORD THE STORE ALREADY HELD IS DRIFT REPAIRED, and it is the
+        # one outcome worth counting: the ordinary cases are a new decision (rowcount 1, no
+        # record yet) and a consolidated id (rowcount 0). Repairing silently would leave the
+        # next drift as invisible as this one was (stb-ingest-specialist, 2026-09-04).
+        #
+        # ITS BLIND SPOT, NAMED: a drifted id first re-observed under a SECOND docket has no
+        # `record_pk` for that docket's row, so it reads as an ordinary new decision and is
+        # repaired without being counted here — 1,736 ids carry more than one
+        # `decision_record` row (code review, 2026-09-04). Knowing better would cost a query
+        # per row for a signal the pass already has: `poll.forward_pass` reconciles the whole
+        # registry every pass and reports what it repaired, which catches this and everything
+        # else. This counter is the cheap per-capture attribution, not the guarantee.
+        healed = int(cur.rowcount == 1 and record_pk is not None)
     if record_pk is not None:
         if event_id is not None:  # observation changed: mirror it and point at the event
             sets = ", ".join(f"{col} = ?" for col in columns)
@@ -429,7 +477,7 @@ def _upsert_record(
                 f" WHERE {spec.record_pk} = ?",
                 (*columns.values(), event_id, record_pk),
             )
-        return record_pk, False
+        return record_pk, False, healed
     if event_id is None:
         raise RuntimeError(f"no ledger event to anchor new {spec.record_table} {record_id}")
     names = ", ".join(columns)
@@ -441,7 +489,7 @@ def _upsert_record(
         (docket_id, record_id, *columns.values(), event_id),
     )
     assert cur.lastrowid is not None
-    return cur.lastrowid, True
+    return cur.lastrowid, True, healed
 
 
 REFUSAL_REST_DAYS = 7  # a URL the host refused is not asked for again this soon

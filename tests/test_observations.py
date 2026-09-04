@@ -587,3 +587,89 @@ def test_media_type_sniffing():
     assert documents.media_type_for(f"{S3}/1/a.xlsx", b"PK\x03\x04") == "xlsx"
     assert documents.media_type_for(f"{S3}/1/noext", b"%PDF-1.7") == "pdf"
     assert documents.media_type_for(f"{S3}/1/mystery", b"???") is None
+
+
+def test_ingest_keeps_decision_work_in_step(con, tmp_path):
+    """Migration 0014 backfilled `decision_work` once and warned in its own header: "INGEST
+    MUST KEEP THIS IN STEP: a decision served after this migration and never added here fails
+    the resolver's foreign key." Nothing did. Measured on production 2026-09-04, two days
+    after the migration ran: three decisions had drifted — 53218, 53236 and 53203, one for
+    each day — and the citator's `cited_decision_id` foreign-keys this table."""
+    ingest(con, tmp_path, decision_row(did="53210"), action=DECISIONS)
+    assert [r[0] for r in con.execute("SELECT stb_decision_id FROM decision_work")] == ["53210"]
+
+    # a SECOND docket's row for the same decision: 1,736 ids carry more than one
+    # `decision_record` row, and the registry holds the id once (ADR 0018 D9)
+    ingest(
+        con,
+        tmp_path,
+        decision_row(docket="FD_36873_1", did="53210", row="830599"),
+        action=DECISIONS,
+    )
+    assert con.execute("SELECT COUNT(*) FROM decision_work").fetchone()[0] == 1
+
+    ingest(con, tmp_path, decision_row(did="53236", row="830600"), action=DECISIONS)
+    assert con.execute("SELECT COUNT(*) FROM decision_work").fetchone()[0] == 2
+
+    # A RE-OBSERVATION HEALS A ROW THAT DRIFTED, which is the only thing that can: the three
+    # production rows were written while nothing kept this table in step, so the writer runs
+    # before the new-or-updated branch rather than only on an insert.
+    con.execute("DELETE FROM decision_work WHERE stb_decision_id = '53210'")
+    ingest(
+        con, tmp_path, decision_row(did="53210", summary="ORDERED, and amended"), action=DECISIONS
+    )
+    assert (
+        con.execute(
+            "SELECT COUNT(*) FROM decision_work WHERE stb_decision_id = '53210'"
+        ).fetchone()[0]
+        == 1
+    )
+
+    # and no other table gains a registry it does not have
+    ingest(con, tmp_path, filing_row(), action=FILINGS)
+    assert con.execute("SELECT COUNT(*) FROM decision_work").fetchone()[0] == 2
+
+
+def test_a_backfill_wave_registers_its_decisions_too(con, tmp_path):
+    """Deliberate, not accidental. `decision_work` is a key registry and not the alert join:
+    a wave-ingested decision is a `decision_record` row and its id belongs here, or the
+    resolver's foreign key fails on it. Trap 8 binds `ingest_mode` at the ALERT join, which
+    is nowhere near this (stb-ingest-specialist, 2026-09-04). It also matters because a
+    wave's decisions are served years ago and the forward window will never re-observe them,
+    so if a wave did not register them nothing ever would."""
+    cid = save(
+        con, tmp_path, body_of(decision_row(did="47112"), 1), action=DECISIONS, mode="backfill"
+    )
+    observations.ingest_capture(con, tmp_path, cid)
+    assert [r[0] for r in con.execute("SELECT stb_decision_id FROM decision_work")] == ["47112"]
+
+
+def test_a_capture_that_fails_leaves_no_registry_row(con, tmp_path, monkeypatch):
+    """The write sits above the branch, so it runs early in a capture that may still fail.
+    It must share the capture's transaction: a registry entry for a decision the record does
+    not hold is a parent row for an edge nobody can check, and this registry is a one-way
+    door — an id referenced by `citation_resolution` cannot be withdrawn."""
+
+    def die(*a, **k):
+        raise RuntimeError("the capture failed after the record was written")
+
+    monkeypatch.setattr(records, "mark_processed", die)
+    cid = save(con, tmp_path, body_of(decision_row(did="53299"), 1), action=DECISIONS)
+    with pytest.raises(RuntimeError, match="the capture failed"):
+        observations.ingest_capture(con, tmp_path, cid)
+    con.rollback()  # what every caller of `ingest_capture` does on an exception
+    assert con.execute("SELECT COUNT(*) FROM decision_work").fetchone()[0] == 0
+    assert con.execute("SELECT COUNT(*) FROM decision_record").fetchone()[0] == 0
+
+
+def test_repairing_a_drifted_row_is_counted_and_not_silent(con, tmp_path):
+    """Migration 0014 said "INGEST MUST KEEP THIS IN STEP" in prose and prose is what failed:
+    three decisions drifted in the two days after it ran, found by counting rows by hand.
+    A repair is reported, so the next drift is noticed by the pass that heals it."""
+    stats = ingest(con, tmp_path, decision_row(did="53210"), action=DECISIONS)
+    assert stats["work_healed"] == 0, "a new decision is not a repair"
+
+    con.execute("DELETE FROM decision_work WHERE stb_decision_id = '53210'")
+    stats = ingest(con, tmp_path, decision_row(did="53210", summary="amended"), action=DECISIONS)
+    assert stats["work_healed"] == 1
+    assert con.execute("SELECT COUNT(*) FROM decision_work").fetchone()[0] == 1

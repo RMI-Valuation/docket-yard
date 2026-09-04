@@ -925,3 +925,24 @@ Left on the instance for whatever comes next, to be deleted otherwise:
   exposed keys is roughly sixteen hours of reading at thirty seconds each, against five on the
   sixty-decision sheet, and one reviewer holds the whole of it. Loading first is allowed
   because the edges are simply held, which is what the gate is for.
+
+## Found by fixing decision_work, 2026-09-04
+
+- **`Resolution.decision_id` is declared and never assigned**, so `citation.cited_decision_id`
+  is written NULL on every row and the foreign key to `decision_work` cannot fire today. The
+  registry's drift was therefore LATENT, not breaking — I said it would have failed the first
+  real load, and that was wrong (stb-ingest-specialist, 2026-09-04). Populating it is part of
+  ADR 0018's owed list, not of this fix; the invariant is worth holding either way, and now
+  is when it is cheap.
+- **The `globally_addressed` comment described a refusal the code does not make.** A second
+  docket claiming a held record id is counted (`id_collisions`) and reported by the poller —
+  and the second record is still written, because the row was observed. The comment read "an
+  anomaly to report rather than a row to write", which a reader could take for a refusal.
+  Corrected, with the ordering constraint named: if a refusal is ever wanted it belongs in
+  `ingest_capture` before `_upsert_record`, never inside it, where the work-registry write
+  would already have minted a row for a refused record.
+- **The row-level `work_healed` counter has a named blind spot**: a drifted id first
+  re-observed under a SECOND docket has no `record_pk` for that row, so it reads as an
+  ordinary new decision and is repaired without being counted. Knowing better would cost a
+  query per row; the pass-level reconciliation catches it and everything else, so the counter
+  is per-capture attribution rather than the guarantee.

@@ -504,3 +504,57 @@ def test_the_caption_query_proves_it_still_works_before_reading_silence_as_an_an
     assert summary["captions"]["asked"] >= 1
     assert any("caption control" in p for p in summary["problems"]), summary["problems"]
     assert any("may have stopped working" in p for p in summary["problems"])
+
+
+def test_a_pass_repairs_the_decision_registry_and_says_that_it_did(tmp_path):
+    """Migration 0014 stated the invariant in prose — "INGEST MUST KEEP THIS IN STEP" — and
+    prose is what failed: three decisions drifted out of `decision_work` in the two days
+    after it ran, found by counting rows by hand on 2026-09-04.
+
+    IT REPAIRS RATHER THAN ONLY COMPLAINING. A decision ingested by a backfill wave was
+    served years ago, so the seven-day forward window can never re-observe it and its months
+    are already `done` — a report with no way to clear it would stand for ever and `poll`
+    would exit 1 on every pass, which teaches an operator to ignore the exit status (code
+    review, 2026-09-04). And it says what it did, because repairing quietly would leave the
+    next drift as invisible as this one."""
+    con = db.connect(tmp_path / "s.sqlite")
+    client = FakeStb(
+        {
+            FILINGS: body_of(filing_row(fid="311981", date="8/25/2026"), 1),
+            DECISIONS: body_of(decision_row(did="53210", date="8/24/2026"), 1),
+            ENVIRO_COMMENTS: body_of(comment_row(date="8/23/2026"), 1),
+        }
+    )
+    summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    assert summary["problems"] == [] and summary["decision_work_repaired"] == 0
+
+    # A DECISION THIS PASS WILL NEVER RE-OBSERVE — the wave's shape, served years ago and
+    # outside the seven-day window, which is the case the row-level writer cannot reach. (A
+    # decision inside the window is healed by `_upsert_record` before this check runs, and
+    # reported as `work_healed` on its capture; that is the other half and is covered in
+    # `test_observations.py`.)
+    docket_id, event_id = con.execute(
+        "SELECT docket_id, observed_in_event FROM decision_record LIMIT 1"
+    ).fetchone()
+    con.execute(
+        "INSERT INTO decision_record (docket_id, stb_decision_id, service_date,"
+        " observed_in_event) VALUES (?, '47112', '2019-08-30', ?)",
+        (docket_id, event_id),
+    )
+    con.commit()
+    summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    assert summary["decision_work_repaired"] == 1
+    assert any("decision_work" in p and "have been added" in p for p in summary["problems"]), (
+        summary["problems"]
+    )
+    assert (
+        con.execute(
+            "SELECT COUNT(*) FROM decision_work WHERE stb_decision_id = '53210'"
+        ).fetchone()[0]
+        == 1
+    )
+
+    # and the next pass is quiet again: a repair that had to be re-made every pass would be
+    # a report nobody could act on
+    summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
+    assert summary["decision_work_repaired"] == 0 and summary["problems"] == []

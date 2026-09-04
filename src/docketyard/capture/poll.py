@@ -76,6 +76,16 @@ def _ingest_pending(con: Connection, data_dir, action: str, problems: list[str])
         dropped = stats.get("unparsed", 0) + stats.get("markup_skipped", 0)
         if dropped:
             problems.append(f"capture {capture_id}: {dropped} rows dropped at parse; raw retained")
+        if stats.get("work_healed"):
+            # Migration 0014 said "INGEST MUST KEEP THIS IN STEP" in prose, and prose is what
+            # failed: three decisions drifted out of `decision_work` in the two days after it
+            # ran, found only by counting rows by hand on 2026-09-04. A repair is now loud, so
+            # the next drift is noticed by the pass that heals it rather than by somebody
+            # happening to look (stb-ingest-specialist).
+            problems.append(
+                f"capture {capture_id}: {stats['work_healed']} decision(s) were missing from"
+                " decision_work and have been added — something wrote a record without it"
+            )
         if stats.get("id_collisions"):
             # a record id doubles as a permanent public address: two dockets claiming one
             # is an anomaly to look at, not a row to trust (urls.comment_path)
@@ -462,6 +472,37 @@ def forward_pass(
             gained & set(summary["captions"].pop("captioned_ids", []))
         )
         summary["captions"].pop("captioned_ids", None)
+    # THE INVARIANT IS CHECKED AND REPAIRED, NOT ONLY WRITTEN. Migration 0014 stated it in
+    # prose — "INGEST MUST KEEP THIS IN STEP" — and prose is what failed: three decisions
+    # drifted out of `decision_work` in the two days after it ran and were found by counting
+    # rows by hand on 2026-09-04.
+    #
+    # IT REPAIRS RATHER THAN ONLY COMPLAINS, because a report with no way to clear it is
+    # worse than none. A decision ingested by a backfill wave is served years ago, so the
+    # seven-day forward window can never re-observe it and its months are already `done` —
+    # the alarm would have stood for ever and `poll` would have exited 1 on every pass,
+    # which teaches an operator to ignore the exit status (code review, 2026-09-04).
+    # `decision_work` is derived data, ids and nothing else, and 0014 calls it "rebuildable
+    # from the ledger"; rebuilding derived data from its own source is not a guess.
+    #
+    # AND IT SAYS WHAT IT DID. Repairing quietly would leave the next drift as invisible as
+    # this one was, which is the whole defect.
+    try:
+        adrift = con.execute(
+            "INSERT OR IGNORE INTO decision_work (stb_decision_id)"
+            " SELECT DISTINCT stb_decision_id FROM decision_record"
+        ).rowcount
+        con.commit()
+        summary["decision_work_repaired"] = adrift
+        if adrift:
+            summary["problems"].append(
+                f"{adrift} decision(s) were in decision_record and not in decision_work,"
+                " and have been added — something wrote a record without the registry"
+                " (migration 0014's invariant)"
+            )
+    except Exception as e:  # noqa: BLE001 — a check must never cost the pass
+        con.rollback()
+        summary["problems"].append(f"decision_work check failed ({type(e).__name__}: {e})")
     try:
         summary["parties"] = resolve.run(con, log=lambda _: None)
     except Exception as e:  # noqa: BLE001 — a resolution bug must not cost the capture

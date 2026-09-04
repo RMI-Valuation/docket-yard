@@ -14,9 +14,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   COPY 2026-09-04: 73,101 findings, **15,164 distinct edges**, 0 failures. `citator declare
   --scores` now exists and **reviewer 1 is granted**, so the steps are runnable; what is left
   is **capacity** — 1,946 exposed keys, ~16 h of reading, one reviewer. **Cameron's to start**
-- **Owed with the pipeline**: ingest writing `decision_work`; the "not in the record" display
-  joining live `citation`; the veto's trigger. **The review queue is NOT owed** — it derives
-  from the loaded rows and was measured working 2026-09-04. More in `deferred.md`
+- **Owed with the pipeline**: the "not in the record" display joining live `citation`; the
+  veto's trigger; `Resolution.decision_id` is never assigned, so `cited_decision_id` is always
+  NULL. **Done**: the review queue, and ingest keeping `decision_work` in step
 - **Drain closed**: 121 unfetched, every one a genuine refusal resting 7 days. **The class
   behind them is open** — an unanswered attempt leaves no capture. Cameron's (`deferred.md`)
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the

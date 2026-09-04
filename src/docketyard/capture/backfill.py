@@ -32,11 +32,22 @@ def forward_since(con: Connection) -> date | None:
 
 
 def ingest_pending(con: Connection, data_dir, action: str, log=print) -> dict:
-    counts: dict = {"captures": 0, "failed": 0, "id_collisions": 0}
+    counts: dict = {"captures": 0, "failed": 0, "id_collisions": 0, "work_healed": 0}
     for capture_id in projections.pending_capture_ids(con, action):
         try:
             stats = observations.ingest_capture(con, data_dir, capture_id)
             counts["captures"] += 1
+            # A WAVE IS THE ONLY PATH THAT CAN HEAL AN OLD DECISION. Its decisions were
+            # served years ago, so the seven-day forward window will never re-observe them —
+            # if a repair here were silent, the one place it can happen would say nothing
+            # (code review, 2026-09-04).
+            healed = stats.get("work_healed", 0)
+            if healed:
+                counts["work_healed"] += healed
+                log(
+                    f"capture {capture_id}: {healed} decision(s) were missing from"
+                    " decision_work and have been added"
+                )
             hits = stats.get("id_collisions", 0)
             if hits:
                 # the wave is where a collision would first appear, so it is said out loud
