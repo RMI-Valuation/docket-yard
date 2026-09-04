@@ -15,6 +15,7 @@ from sqlite3 import Connection
 
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
+from docketyard.store import display
 from docketyard.store.db import utcnow
 from docketyard.web import urls
 
@@ -280,7 +281,9 @@ IN_PAGES = "target_table IN (" + ",".join("?" for _ in PAGE_TABLES) + ")"
 # The page index's format: the display view IS the rule (migration 0018), so the view's
 # version belongs here, and a change to what the view shows is a change to what search
 # matched. Bump it when the view changes; nothing dates which version was in force on a day.
-PAGE_INDEX_FORMAT = "display@0018"
+# the view's migration AND the display rule's own version (`store/display.py`): the index
+# holds the view's bytes, so a change to either is a change to what it should hold
+PAGE_INDEX_FORMAT = f"display@0020.{display.VERSION}"
 
 
 def signature(con: Connection) -> str:

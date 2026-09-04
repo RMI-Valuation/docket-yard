@@ -9,7 +9,9 @@ writer (Migration B) and the loader agree on what "as indexed" meant.
 
 `leave` deletes WITH THE TEXT AS INDEXED, which FTS5 requires: a 'delete' carrying different
 text does not error, it leaves stale tokens behind. `document_text` is append-only and its
-`text` immutable, so the row itself supplies it.
+`text` immutable, so the row itself supplies it — through `dy_display_text`, as the view and
+`enter` do (migration 0020, `store/display.py`): the indexed bytes are the displayed bytes,
+with contact details already omitted, so no MATCH can find what no page shows.
 
 WHAT THIS CANNOT KNOW: whether a row is in the index is inferred from the view's rule as it
 stands NOW, not recorded. A human row inserted without `leave(primary)` leaves the index
@@ -33,11 +35,16 @@ def visible(con, document_sha256: str, page_no: int) -> bool:
 
 
 def enter(con, text_id: int, text: str) -> None:
-    con.execute("INSERT INTO page_fts (rowid, text) VALUES (?, ?)", (text_id, text))
+    """`text` is the STORED reading; the index takes it as the view shows it."""
+    con.execute(
+        "INSERT INTO page_fts (rowid, text) VALUES (?, dy_display_text(?))", (text_id, text)
+    )
 
 
 def leave(con, text_id: int) -> None:
-    row = con.execute("SELECT text FROM document_text WHERE text_id = ?", (text_id,)).fetchone()
+    row = con.execute(
+        "SELECT dy_display_text(text) FROM document_text WHERE text_id = ?", (text_id,)
+    ).fetchone()
     if row is None:
         raise LookupError(f"document_text {text_id} does not exist; nothing to leave the index")
     con.execute(

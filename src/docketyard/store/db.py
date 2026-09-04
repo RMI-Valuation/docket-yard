@@ -12,6 +12,8 @@ from pathlib import Path
 from sqlite3 import Connection
 from sqlite3 import connect as _connect
 
+from docketyard.store import display
+
 MIGRATIONS: list[tuple[int, str]] = [
     (1, "schema.sql"),
     (2, "0002_filings_decisions.sql"),
@@ -32,6 +34,7 @@ MIGRATIONS: list[tuple[int, str]] = [
     (17, "0017_reviewer_sessions.sql"),
     (18, "0018_document_text.sql"),
     (19, "0019_decided_date_rebuild.sql"),
+    (20, "0020_display_mask.sql"),
 ]
 
 
@@ -52,6 +55,7 @@ def connect(path: str | Path, upto: int | None = None) -> Connection:
     if path != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
     con = _connect(path, timeout=30)  # a wave and the poller share the store; wait, do not fail
+    display.register(con)  # the display view needs it, and migration 0020 creates that view
     con.execute("PRAGMA journal_mode = WAL")
     con.execute("PRAGMA foreign_keys = ON")
     migrate(con, upto=upto)

@@ -53,6 +53,7 @@ from docketyard.parties import resolve
 from docketyard.store import (
     coverage,
     directory,
+    display,
     dump,
     explainers,
     home,
@@ -118,6 +119,7 @@ def _uri(db_path: str | Path) -> str:
 def _connect(db_path: str | Path) -> sqlite3.Connection:
     con = sqlite3.connect(_uri(db_path), uri=True)
     con.execute("PRAGMA query_only = ON")
+    display.register(con)  # the display view's function (migration 0020)
     return con
 
 
@@ -127,12 +129,21 @@ def _check_store(db_path: str | Path) -> None:
     con = _connect(db_path)
     try:
         version = con.execute("PRAGMA user_version").fetchone()[0]
+        built = search.page_built(con)[0] if version == MIGRATIONS[-1][0] else None
     finally:
         con.close()
     expected = MIGRATIONS[-1][0]
     if version != expected:
         raise RuntimeError(
             f"store schema version {version} != {expected}; run ingest to migrate, not serve"
+        )
+    # The page index holds the display view's bytes (migration 0020). Built under an older
+    # view or rule, it holds what the pages no longer show, and every later 'delete' fails
+    # to clear it; the deploy runbook rebuilds it behind the wall, and this is the check.
+    if built and not built.startswith(search.PAGE_INDEX_FORMAT + "."):  # '' is never built
+        raise RuntimeError(
+            f"page index built under {built.rsplit('.', 3)[0]}, the view is"
+            f" {search.PAGE_INDEX_FORMAT}; run `docketyard search rebuild-pages`, then serve"
         )
 
 
@@ -218,6 +229,7 @@ def _connect_rw(db_path: str | Path) -> sqlite3.Connection:
     # a rebuild of the search index or a wave's commit may hold the write lock for seconds
     con = sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=rw", uri=True, timeout=30)
     con.execute("PRAGMA foreign_keys = ON")
+    display.register(con)
     return con
 
 
@@ -1951,6 +1963,11 @@ def create_app(
         )
         response.headers["ETag"] = etag
         response.headers["Cache-Control"] = f"public, max-age={PAGE_CACHE}"
+        # noindex, in the header as in the page (the operator's decision, 2026-09-04; ADR
+        # 0021 addendum): a search-engine snippet is the ungated hit ADR 0022 D4 keeps out of
+        # /search. robots.txt does NOT disallow the page for ordinary crawlers on purpose:
+        # a crawler that may not fetch the page never sees the noindex.
+        response.headers["X-Robots-Tag"] = "noindex"
         return response
 
     @app.get("/decision/{stb_id}/text")

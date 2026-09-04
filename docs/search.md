@@ -72,7 +72,9 @@ one whose caption repeats the parent's folds into the family row.
   over the display view, kept in step row by row by the loader (`store/page_index.py`), with
   its own signature and build row (`search_meta.page_built`, `search.page_signature`) and
   its own rebuild (`docketyard search rebuild-pages`, for recovery or a change to the view —
-  `PAGE_INDEX_FORMAT` is the view's version). Corrections naming `document_text` or
+  `PAGE_INDEX_FORMAT` is the view's version — `display@0020` since the view began omitting
+  email addresses and telephone numbers, `store/display.py`; the index holds the displayed
+  bytes, so no MATCH finds what no page shows). Corrections naming `document_text` or
   `document_pagination` count toward the page signature and NOT the record index's, nor the
   site-wide ETag: a corrected page moves its own render's validator (`page_stamp`) and
   nothing else. No page text reaches `/search`, `/suggest` or the MCP surface: `Hit` cannot
