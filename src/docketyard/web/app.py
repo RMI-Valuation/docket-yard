@@ -1096,6 +1096,19 @@ def create_app(
             # would be the masking function over 1.1M rows — so this is what searches have
             # MET. It only moves when someone searches, which is the point: a stale row
             # nobody reaches is not yet hurting anybody. Resets when the process does.
+            # THREE KINDS, KEPT APART BECAUSE THEY ARE ANSWERED DIFFERENTLY. `mismatch` and
+            # `absent` both mean the store has lost a document and somebody must go and look;
+            # `unreachable` is an outage and waiting is the answer. One counter that could not
+            # tell them apart would be answered the wrong way, and a log line with no alert
+            # behind it was what this replaced.
+            "# HELP docket_yard_document_store_refused_total Store answers this process could"
+            " not serve. mismatch: the bytes at a hash were not that content (ADR 0002)."
+            " absent: the object is gone. unreachable: the store did not answer.",
+            "# TYPE docket_yard_document_store_refused_total counter",
+            *(
+                f'docket_yard_document_store_refused_total{{kind="{kind}"}} {documents.met(kind)}'
+                for kind in ("mismatch", "absent", "unreachable")
+            ),
             "# HELP docket_yard_page_index_stale_rows_total Page-index rows searches met"
             " that the display view no longer shows. Drift only: a comment attachment's"
             " pages have no address to show them at and are not counted here.",
@@ -1928,9 +1941,15 @@ def create_app(
         try:
             path = documents.local_file(data_dir, sha, fetch=fetch)
         except documents.StoreMismatch as e:  # ADR 0002: never served, never quiet
+            documents.record("mismatch")  # and countable: `/metrics`, not only the log
             print(f"DOCUMENT STORE MISMATCH {sha}: {e}")
             raise HTTPException(503, "the document store answered with the wrong bytes") from e
         except Exception as e:  # noqa: BLE001 — the store did not answer: say so, serve nothing
+            # A 404 IS NOT AN OUTAGE. The object is gone from a content-addressed store, which
+            # is the store having lost a document — closer to a mismatch than to a timeout —
+            # and counting it as unreachable would have an operator wait out an outage that
+            # is not happening while the blob stays lost (code review, 2026-09-04).
+            documents.record("absent" if getattr(e, "code", None) == 404 else "unreachable")
             print(f"document store fetch failed for {sha} ({type(e).__name__}: {e})")
             raise HTTPException(
                 503, "the document store did not answer", headers={"Retry-After": "60"}

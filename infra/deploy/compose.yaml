@@ -41,8 +41,20 @@ services:
       DY_METRICS_TOKEN: ${DY_METRICS_TOKEN:-}
       # the internet-facing process holds its own key: read blobs and send mail, nothing
       # that writes, deletes or lists (IAM user docketyard-web); the ingest keys stay out
-      AWS_ACCESS_KEY_ID: ${DY_WEB_AWS_ACCESS_KEY_ID:?the web tier needs its own key}
-      AWS_SECRET_ACCESS_KEY: ${DY_WEB_AWS_SECRET_ACCESS_KEY:?the web tier needs its own key}
+      # `:-` and NOT `:?`. A `:?` here fails interpolation for the WHOLE file, so a missing
+      # or mid-rotation reader credential stopped `ingest` too — the exact coupling the
+      # capitals below forbid, and coverage gap 1's own lesson (code review, 2026-09-04).
+      #
+      # WHAT CHANGES BY DROPPING IT, stated rather than waved away. With the bucket set and
+      # these empty, `capture.s3.from_env` raises and `create_app` calls it at construction,
+      # so `web` still refuses to start — but it now does so as a crash-loop under
+      # `restart: unless-stopped` rather than as a clean `compose up` abort, and the
+      # healthcheck is what shows it. With the bucket itself blank, nothing checks these at
+      # all: `web` starts, every pruned document 503s, and the SES pair these two also serve
+      # is reported by `_sender`'s own "mail not configured" line and a 503 from the subscribe
+      # form. That is a worse failure than an abort and a better one than stopping the record.
+      AWS_ACCESS_KEY_ID: ${DY_WEB_AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${DY_WEB_AWS_SECRET_ACCESS_KEY:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

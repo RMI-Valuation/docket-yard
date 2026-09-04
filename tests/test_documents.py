@@ -5,6 +5,7 @@ page that frames it, with the rail carrying its neighbours, parties, files and c
 import hashlib
 import io
 import re
+import urllib.error
 
 import pytest
 from fastapi.testclient import TestClient
@@ -341,3 +342,88 @@ def test_the_record_pages_rail_carries_what_the_viewer_carried(tmp_path):
     assert '<h2 id="follow">Follow FD 36873</h2>' in sub_rail
     assert "follows the whole proceeding" in sub_rail
     assert 'name="docket" value="FD 36873 (Sub-No. 1)"' in sub_rail  # folded server-side
+
+
+def test_a_store_that_answers_wrong_is_counted_where_an_alert_can_see_it(tmp_path, monkeypatch):
+    """A mismatch means S3 answered a content-addressed key with bytes that are not that
+    content — the store has lost or corrupted a document — and it reached an operator as a
+    line in a container log with no alert behind it, which is a silent failure of the class
+    `docs/alerts.md` decomposes (code review, 2026-09-04). The two kinds are counted apart
+    because one is corruption and the other an outage, and an alert that could not tell them
+    apart would be answered the wrong way."""
+    path, sha = _store_with_document(tmp_path)
+    blob = records.blob_path(tmp_path, sha)
+    before = documents.met("mismatch"), documents.met("unreachable")
+
+    blob.unlink()
+    client = TestClient(create_app(path, store_fetch=lambda key: io.BytesIO(b"%PDF-other")))
+    assert client.get(f"/document/{sha}.pdf").status_code == 503
+    assert documents.met("mismatch") == before[0] + 1
+    assert documents.met("unreachable") == before[1], "a mismatch is not an outage"
+
+    def boom(key):
+        raise OSError("the store did not answer")
+
+    client = TestClient(create_app(path, store_fetch=boom))
+    assert client.get(f"/document/{sha}.pdf").status_code == 503
+    assert documents.met("unreachable") == before[1] + 1
+    assert documents.met("mismatch") == before[0] + 1, "an outage is not corruption"
+
+    # A 404 IS NOT AN OUTAGE. The object is gone from a content-addressed store, so it is the
+    # store having lost a document — closer to a mismatch than to a timeout — and counting it
+    # as unreachable would have an operator wait out an outage that is not happening while the
+    # blob stays lost (code review, 2026-09-04).
+    gone = documents.met("absent")
+
+    def missing(key):
+        raise urllib.error.HTTPError(key, 404, "Not Found", {}, None)
+
+    client = TestClient(create_app(path, store_fetch=missing))
+    assert client.get(f"/document/{sha}.pdf").status_code == 503
+    assert documents.met("absent") == gone + 1
+    assert documents.met("unreachable") == before[1] + 1, "a 404 was counted as an outage"
+
+    monkeypatch.setenv("DY_METRICS_TOKEN", "t")
+    body = TestClient(create_app(path)).get("/metrics", headers={"Authorization": "Bearer t"}).text
+    assert 'docket_yard_document_store_refused_total{kind="mismatch"}' in body
+    assert 'docket_yard_document_store_refused_total{kind="unreachable"}' in body
+
+
+def test_the_fetch_lock_is_refcounted_so_a_waiter_cannot_drop_it(tmp_path):
+    """MY OWN FIX NEEDED FIXING. Popping the entry in a `finally` ran for waiters too, so a
+    thread blocked behind a fetch could return and drop a lock a LATER thread was fetching
+    under; the next arrival made a third lock and started a third concurrent download of the
+    same blob. The bytes were never wrong — the fetch hashes on the way in and `replace` is
+    atomic — but the coalescing this exists for degraded to N parallel fetches under exactly
+    the parallel-Range traffic it was written for (code review, 2026-09-04)."""
+    documents._in_flight.clear()
+    sha = "a" * 64
+    first, second = documents._fetch_lock(sha), documents._fetch_lock(sha)
+    assert first is second, "two users of one fetch must share one lock"
+    assert documents._in_flight[sha][1] == 2
+
+    documents._drop_lock(sha)  # the first leaves; the second is still using it
+    assert sha in documents._in_flight, "a waiter's exit dropped the lock under a live fetch"
+    assert documents._fetch_lock(sha) is first, "a later arrival got a different lock"
+
+    documents._drop_lock(sha)
+    documents._drop_lock(sha)
+    assert sha not in documents._in_flight, "the entry outlived its last user"
+
+
+def test_the_fetch_lock_is_not_a_record_of_every_document_ever_asked_for(tmp_path):
+    """One `threading.Lock` per SHA and none ever removed is 104,091 dict entries in a
+    process capped at 768 MB whose steady state is 110-170 MB. The lock is a device for the
+    seconds a fetch takes; correctness does not rest on it, because the fetch hashes on the
+    way in and `replace` is atomic (code review, 2026-09-04)."""
+    path, sha = _store_with_document(tmp_path)
+    records.blob_path(tmp_path, sha).unlink()
+    client = TestClient(create_app(path, store_fetch=lambda key: io.BytesIO(PDF)))
+    assert client.get(f"/document/{sha}.pdf").status_code == 200
+    assert sha not in documents._in_flight, "the lock outlived the fetch"
+
+    # and it is dropped on the failing paths too, or a mismatch would leak one per attempt
+    records.blob_path(tmp_path, sha).unlink()
+    client = TestClient(create_app(path, store_fetch=lambda key: io.BytesIO(b"%PDF-other")))
+    assert client.get(f"/document/{sha}.pdf").status_code == 503
+    assert documents._in_flight == {}

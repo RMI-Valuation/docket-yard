@@ -252,12 +252,22 @@ def test_metrics_is_absent_until_a_token_is_set(tmp_path, monkeypatch):
         line.split('kind="')[1].split('"')[0] for line in body.splitlines() if 'kind="' in line
     }
     assert labels and labels <= {
+        # the freshness kinds, one per record table
         "last_forward_capture",
         "last_event",
         "last_enviro_capture",
         "last_enviro_event",
         "last_document",
         "oldest_pending_alert",
+        # and the document store's two refusals (2026-09-04). ADMITTED DELIBERATELY, because
+        # this assertion is the cardinality guard and a new label has to be argued past it:
+        # these are two constants and never a sha, a key or anything a request can choose.
+        # They are kept apart because one means the store lost a document and the other that
+        # it did not answer, and an alert that could not tell them apart would be answered
+        # the wrong way.
+        "mismatch",
+        "absent",
+        "unreachable",
     }
     # every line is exposition or comment: a stray print would corrupt the scrape
     for line in body.splitlines():

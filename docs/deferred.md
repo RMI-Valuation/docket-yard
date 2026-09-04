@@ -691,24 +691,45 @@ The addendum was withdrawn rather than accepted (see below), but the pass was re
 blob tier's code to check the draft's claims and found things the draft was not about. Each
 was verified against the file named before it was written down.
 
-- **A `StoreMismatch` is a `print()` and a 503, with no gauge behind it.** `web/app.py`'s
+- ~~**A `StoreMismatch` is a `print()` and a 503, with no gauge behind it.**~~ FIXED
+  2026-09-04: `/metrics` carries `docket_yard_document_store_refused_total{kind}` with THREE
+  kinds counted apart, because they are answered differently — `mismatch` (the bytes at a hash
+  were not that content) and `absent` (a 404: the object is gone) both mean the store has lost
+  a document and somebody must look, while `unreachable` is an outage and waiting is the
+  answer. Review caught that a 404 was landing in the outage bucket, which would have had an
+  operator wait out an outage that was not happening while the blob stayed lost. Original note: `web/app.py`'s
   document route calls it "never served, never quiet", and it is genuinely never served — but
   quiet is exactly what it is: a stdout line in a container log, for the condition that means
   S3 answered a hash with other bytes. That is a silent failure of the class `docs/alerts.md`
   decomposes, and `/metrics` has a counter for page-index drift and none for this. The fix is
   a counter beside `docket_yard_page_index_stale_rows_total`, which is the same shape.
-- **The web tier's fetch-on-miss writes into a directory the prune cannot reclaim.**
-  `documents._fetch_into_place` streams to `blobs/.tmp/ws-*`; the sync excludes `.tmp/*` and
-  `prune_blobs.py` skips `parent.name == ".tmp"`, so those bytes sit under the 20 GB floor the
-  prune exists to defend. `records.sweep_staging` clears `ws-*` older than six hours, but it
-  runs at the start of a FETCH run (`capture/documents.py`), not in the web tier — so a
-  crawler walking `/document/` addresses on a pruned corpus is bounded by the poll, not by
-  the web process. Bounded, not unbounded; worth a floor-aware sweep on the web side.
-- **`documents._in_flight` never shrinks.** One `threading.Lock` per SHA, added by
+- ~~**The web tier's fetch-on-miss writes into a directory the prune cannot reclaim.**~~
+  **CORRECTED 2026-09-04, and no code was needed — I had overstated it.** The parts that are
+  true: `documents._fetch_into_place` streams to `blobs/.tmp/ws-*`, the sync excludes
+  `.tmp/*`, and `prune_blobs.py` skips `parent.name == ".tmp"`, so the prune cannot reclaim
+  that directory. What I did not check before writing it down: **the fetch cleans up after
+  itself on every path it can reach** — `except BaseException` unlinks and re-raises, a hash
+  mismatch unlinks, and success `replace`s the file out of staging altogether. So a `ws-*`
+  survives only a hard kill (OOM, SIGKILL, power), and `records.sweep_staging` clears those
+  older than six hours at the start of every fetch run, which the poller makes every thirty
+  minutes. The exposure is one temp file per fetch in flight, not an accumulation, and a
+  floor-aware sweep on the web side would defend against nothing that happens.
+- ~~**`documents._in_flight` never shrinks.**~~ FIXED 2026-09-04: the lock is dropped when
+  the fetch ends, on the failing paths too. It is a device for the seconds a fetch takes and
+  correctness never rested on it — the fetch hashes on the way in and `replace` is atomic.
+  Original note: One `threading.Lock` per SHA, added by
   `setdefault` and never removed, in a process capped at 768 MB whose steady state is
   110-170 MB. At 104,091 documents that is a slow accumulation of dict entries for a
   correctness device that only matters during a fetch. Drop the entry when the fetch ends.
-- **`web`'s own credential can stop the record being kept.** `compose.yaml` guards
+- ~~**`web`'s own credential can stop the record being kept.**~~ FIXED 2026-09-04: the
+  compose guard is `:-`, not `:?`, so `web` refuses ALONE — `capture.s3.from_env` raises when
+  `DY_S3_BUCKET` is set and the keys are not, and `create_app` calls it at construction.
+  **Not "nothing is lost", which is what I first wrote**: the refusal is now a crash-loop
+  under `restart: unless-stopped` rather than a clean `compose up` abort, and with the bucket
+  itself blank nothing checks the keys at all — the same pair is the web tier's SES
+  credentials, reported by `_sender`'s "mail not configured" line and a 503 from the subscribe
+  form rather than by interpolation (review, 2026-09-04).
+  Original note: `compose.yaml` guards
   `DY_WEB_AWS_*` with `${...:?}`, which fails interpolation for the WHOLE file — so
   `docker compose up -d ingest` fails too if the reader key is missing or mid-rotation. Nine
   lines below the guard, the file shouts "THE READER-FACING PROCESS MUST NOT BE ABLE TO TAKE

@@ -35,13 +35,58 @@ class StoreMismatch(RuntimeError):
     """The store answered a hash with other bytes: the loudest thing this path can say."""
 
 
-_in_flight: dict[str, threading.Lock] = {}  # sha -> the lock of the fetch under way
+# WHAT THE PATH HAS MET, because a `print()` is not loud. A mismatch means S3 answered a
+# content-addressed key with bytes that are not that content — the store has lost or
+# corrupted a document — and it reached an operator as a line in a container log with no
+# alert attached, which is a silent failure of the class `docs/alerts.md` decomposes (code
+# review, 2026-09-04). `/metrics` carries these beside the page-index drift counter. They are
+# process counters and reset with the process, which is the same bargain that one takes.
+_met = {"mismatch": 0, "absent": 0, "unreachable": 0}
+_met_guard = threading.Lock()
+
+
+def met(kind: str) -> int:
+    """Store answers this process could not serve, by kind. Monotonic within a process."""
+    return _met[kind]
+
+
+def record(kind: str) -> None:
+    with _met_guard:
+        _met[kind] += 1
+
+
+# sha -> [lock, how many threads are using it]. REFCOUNTED, not just popped on the way out:
+# the entry must live exactly as long as somebody needs it, and no longer. It is a device for
+# the seconds a fetch takes, not a per-document record — one entry per SHA and none ever
+# removed is 104,091 dict entries in a process capped at 768 MB whose steady state is
+# 110-170 MB (code review, 2026-09-04).
+#
+# THE COUNT IS THE FIX FOR THE FIRST FIX. Popping in a `finally` ran for waiters too, so a
+# thread that had been blocked could return and pop a lock a LATER thread was fetching under;
+# the next arrival then made a third lock and started a third concurrent download of the same
+# blob. The bytes were never wrong — the fetch hashes on the way in and `replace` is atomic —
+# but the coalescing this exists for degraded to N parallel fetches under exactly the
+# parallel-Range traffic it was written for (code review, 2026-09-04, on my own change).
+_in_flight: dict[str, list] = {}
 _in_flight_guard = threading.Lock()
 
 
 def _fetch_lock(sha256: str) -> threading.Lock:
     with _in_flight_guard:
-        return _in_flight.setdefault(sha256, threading.Lock())
+        entry = _in_flight.setdefault(sha256, [threading.Lock(), 0])
+        entry[1] += 1
+        return entry[0]
+
+
+def _drop_lock(sha256: str) -> None:
+    """One fewer user; the entry goes when the last one leaves."""
+    with _in_flight_guard:
+        entry = _in_flight.get(sha256)
+        if entry is None:
+            return
+        entry[1] -= 1
+        if entry[1] <= 0:
+            _in_flight.pop(sha256, None)
 
 
 def is_sha(text: str) -> bool:
@@ -77,10 +122,13 @@ def local_file(data_dir, sha256: str, *, fetch=None) -> Path | None:
         return path
     if fetch is None:
         return None
-    with _fetch_lock(sha256):  # a browser's parallel Range requests: one fetch, the rest wait
-        if path.exists():
-            return path
-        return _fetch_into_place(data_dir, sha256, path, fetch)
+    try:
+        with _fetch_lock(sha256):  # a browser's parallel Ranges: one fetch, the rest wait
+            if path.exists():
+                return path
+            return _fetch_into_place(data_dir, sha256, path, fetch)
+    finally:
+        _drop_lock(sha256)
 
 
 def _fetch_into_place(data_dir, sha256: str, path: Path, fetch) -> Path:
