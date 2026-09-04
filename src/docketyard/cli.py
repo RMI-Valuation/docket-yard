@@ -253,13 +253,19 @@ def _traffic(args: argparse.Namespace) -> int:
 
 
 def _citator(args: argparse.Namespace) -> int:
-    """The citator's two operator verbs: load a batch of findings, and read an edge list.
+    """The citator's operator verbs: find over the record's text, load a batch of findings,
+    and read an edge list.
 
-    There is no `find` verb, and that is the missing half rather than an omission: text
-    extraction runs on the enrichment box and comes back over the internal API, and the
-    finder itself waits on a vocabulary for the `kind` judgement (docketyard/citator).
+    `find` was the missing half until 2026-09-04, for a reason that expired: text extraction
+    ran on the enrichment box and came back over the internal API, so there was no text in
+    the store to walk. Migration A put 161,801 non-empty pages of decision text there, and
+    the walk is now a store read (`citator/walk.py`). It writes findings to a directory and
+    asserts nothing; `load` is the separate verb, and the separate decision.
     """
+    # aliased: `walk` at module scope is `capture.walk`, and shadowing it for the whole
+    # of this function is a trap for whoever adds a line above this import
     from docketyard.citator import keys, load, methods, project, review
+    from docketyard.citator import walk as citator_walk
 
     con = db.connect(args.db)
     if args.what in ("grant", "revoke"):
@@ -348,6 +354,41 @@ def _citator(args: argparse.Namespace) -> int:
         # The rows are per page — short-form density must not inflate a count a reader sees.
         print(f"{len({(r[0], r[2]) for r in rows})} edges over {len(rows)} passages")
         return 0
+
+    if args.what == "find":
+        out = Path(args.out)
+        # A DIRECTORY IS NOT REUSED. `load` reads every *.json under the path it is given, so
+        # a stale findings document from an earlier walk — of text the store no longer holds,
+        # or on a channel this walk no longer emits — would either poison the batch's one-pass
+        # check or be loaded as a reading that never happened (code review, 2026-09-04).
+        if out.exists() and any(out.iterdir()):
+            print(f"refused: {out} is not empty. A findings directory is written once.")
+            return 1
+        out.mkdir(parents=True, exist_ok=True)
+        # ONE SUBDIRECTORY PER CHANNEL, because each is one batch: `load` stamps a wave with
+        # one (method, version, channel) and refuses a mixed one. Loading is per channel and
+        # per decision, in the order the operator chooses.
+        per_channel: dict[str, list[int]] = {}
+        written = findings = 0
+        for doc in citator_walk.documents(con, args.channel):
+            channel = doc["reading_channel"]
+            (out / channel).mkdir(exist_ok=True)
+            (out / channel / f"{doc['document_sha256']}.json").write_text(
+                json.dumps(doc, indent=1), encoding="utf-8"
+            )
+            tally = per_channel.setdefault(channel, [0, 0])
+            tally[0] += 1
+            tally[1] += len(doc["findings"])
+            written += 1
+            findings += len(doc["findings"])
+            if written % 2000 == 0:
+                print(f"  {written} readings, {findings} findings")
+        for channel, (docs_n, found_n) in sorted(per_channel.items()):
+            print(f"  {channel}: {docs_n} readings, {found_n} findings -> {out / channel}")
+        print(f"{written} findings documents in {out}, {findings} findings in all.")
+        print("Nothing is asserted. `citator load <dir>/<channel>` is the next verb — one")
+        print("channel at a time, because a batch carries one measurement — and the decision.")
+        return 0 if written else 1
 
     batch = sorted(Path(args.findings).glob("*.json"))
     if not batch:
@@ -659,6 +700,12 @@ def main(argv: list[str] | None = None) -> int:
 
     ct = sub.add_parser("citator", help="citation edges (docs/adr/0017, 0018; migration 0014)")
     ct_sub = ct.add_subparsers(dest="what", required=True)
+    cf = ct_sub.add_parser(
+        "find", help="the finder over the store's own text; writes findings, asserts nothing"
+    )
+    cf.add_argument("out", help="empty directory; one subdirectory per reading channel")
+    cf.add_argument("--channel", help="only this reading channel (default: every machine one)")
+    cf.set_defaults(func=_citator)
     cl = ct_sub.add_parser("load", help="one batch of findings documents into the families")
     cl.add_argument("findings", help="a directory of findings JSON, one per document")
     cl.set_defaults(func=_citator)
