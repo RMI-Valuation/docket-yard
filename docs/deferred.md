@@ -865,11 +865,21 @@ shipped chain chews the whole record without a failure, what volume a load produ
 big the review backlog is on day one.
 
 **The review backlog is the number to look at before a real load: 1,946 keys owed a human
-review, and the load says "NOT YET QUEUED".** The queue is in TODO's "owed with the pipeline"
-and does not exist, so those 1,946 edges would be held with nothing to release them. On the
-sixty-decision sheet the same gate held five. That is the difference between the benchmark's
-93.3%-to-a-reader and what a real load would show, and it is a decision about capacity
-rather than about code.
+review.** On the sixty-decision sheet the same gate held five. That is the difference between
+the benchmark's 93.3%-to-a-reader and what a real load would show, and it is a question about
+review capacity rather than about code.
+
+**CORRECTION (2026-09-04, later the same day): the queue is NOT missing.** The load printed
+those keys under "NOT YET QUEUED" and this note repeated it — that "the queue is in TODO's
+owed-with-the-pipeline and does not exist, so those edges would be held with nothing to
+release them". Both are wrong. Migration 0015 shipped `review_action` and
+`review_queue_vocab`; `citator.review` derives the queues from these very rows; `/review`
+renders them with the evidence beside the question (ADR 0016). Measured on the loaded copy:
+`citation_exposed` 1,946 owed, `citation_unresolved` 489, `citation_repaired` 1 — each item
+carrying its key, the raw as printed and the quoted passage. `citation_unresolved` is 489
+rather than 1,915 because `review.in_the_held_record` declines to queue a number the record
+was never going to hold, which is the design working. The verb's message and the comment
+behind it were stale, and are fixed.
 
 Left on the instance for whatever comes next, to be deleted otherwise:
 `data/citator-dryrun.sqlite` (now ~4 GB, loaded) and `data/citator-findings` (84 MB).

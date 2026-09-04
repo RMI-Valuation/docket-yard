@@ -456,7 +456,7 @@ def _citator(args: argparse.Namespace) -> int:
     totals = dict.fromkeys(
         ("documents", "emitted", "out_of_class", "unresolved", "unchanged", "human_held"), 0
     )
-    review: list[str] = []
+    owed_keys: list[str] = []
     failed = 0
     for path, doc in docs:
         try:
@@ -470,15 +470,26 @@ def _citator(args: argparse.Namespace) -> int:
         totals["documents"] += 1
         for field in ("emitted", "out_of_class", "unresolved", "unchanged", "human_held"):
             totals[field] += getattr(result, field)
-        review.extend(result.review)
+        owed_keys.extend(result.review)
     print(totals | {"unreadable": unreadable, "failed": failed})
-    # ADR 0017 D5's queues do not exist yet, so these keys are PRINTED and not stored. Until
-    # `review_action` is in a migration, the exposed class reaches a page unreviewed — which
-    # is the one thing the exposure test was defined to prevent. See docketyard/citator.
-    if review:
-        print(f"\n{len(review)} keys owed a human review (ADR 0017 D5) — NOT YET QUEUED:")
-        for rendered in review:
-            print(f"  {rendered}")
+    # WHAT THIS SAID UNTIL 2026-09-04, AND WHY IT WAS WRONG BY THEN: "ADR 0017 D5's queues do
+    # not exist yet, so these keys are PRINTED and not stored. Until `review_action` is in a
+    # migration, the exposed class reaches a page unreviewed." Migration 0015 shipped
+    # `review_action` and `review_queue_vocab`, `project.py` holds the exposed class back
+    # from the projection, and `citator.review` derives the queues from these very rows — so
+    # both halves of that sentence had stopped being true and the verb was telling an
+    # operator the opposite of what the store does. Found on the first corpus load
+    # (2026-09-04), which printed 1,946 keys as unqueued while `review.owed` counted the same
+    # 1,946 waiting in `citation_exposed`.
+    #
+    # A QUEUE IS A QUERY (`citator/review.py`), so nothing is stored here and nothing needs
+    # to be: the keys are listed because a load is the moment an operator learns how much
+    # review it just created, not because the list is the queue.
+    if owed_keys:
+        counts = {q: review.owed(con, q) for q in sorted(review.QUEUES)}
+        print(f"\n{len(owed_keys)} of these keys are owed a human review (ADR 0017 D5).")
+        print(f"Queued now, derived from the rows just written: {counts}")
+        print("They are held out of the projection until answered; the queues are at /review.")
     return 0
 
 

@@ -11,10 +11,12 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **The figures: 94.7% projected / 97.7% precision, 93.3% to a reader.** Three causes,
   separated in migration 0016's header, which is the one to quote
 - **The citator has never run a real load** (`citation`: 0 rows). The whole chain ran into a
-  COPY 2026-09-04: 73,101 findings, **15,164 distinct edges**, 0 failures — and **1,946 keys
-  held for review with no queue to release them** (`deferred.md`). **Cameron's to start**
-- **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not in
-  the record" display joining live `citation`; the veto's trigger. More in `deferred.md`
+  COPY 2026-09-04: 73,101 findings, **15,164 distinct edges**, 0 failures, and **1,946 keys
+  waiting in `citation_exposed`** — the queue works; the backlog is a capacity question
+  (`deferred.md`). **Cameron's to start**
+- **Owed with the pipeline**: ingest writing `decision_work`; the "not in the record" display
+  joining live `citation`; the veto's trigger. **The review queue is NOT owed** — it derives
+  from the loaded rows and was measured working 2026-09-04. More in `deferred.md`
 - **Drain closed**: 121 unfetched, every one a genuine refusal resting 7 days. **The class
   behind them is open** — an unanswered attempt leaves no capture. Cameron's (`deferred.md`)
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the

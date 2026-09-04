@@ -12,7 +12,7 @@ import sqlite3
 import pytest
 
 from docketyard import cli
-from docketyard.citator import judge, keys, load, methods, project, resolve
+from docketyard.citator import judge, keys, load, methods, project, resolve, review
 from docketyard.store import db
 
 STAMP = "2026-09-01T00:00:00+00:00"
@@ -985,3 +985,50 @@ def test_the_load_verb_runs_end_to_end(tmp_path):
     assert _load_verb(tmp_path, batch) == 0  # the malformed file is skipped, not fatal
     con = db.connect(tmp_path / "s.sqlite")
     assert len(project.projected(con)) == 1
+
+
+def test_the_load_verb_reports_the_review_it_created_against_the_queues(tmp_path, capsys):
+    """WHAT IT USED TO SAY WAS FALSE. `citator load` printed the owed keys under "NOT YET
+    QUEUED", on a comment reasoning that "ADR 0017 D5's queues do not exist yet" and that
+    "the exposed class reaches a page unreviewed". Migration 0015 shipped `review_action`,
+    `project.py` holds the exposed class out of the projection, and `review.owed` derives the
+    queues from these very rows — so both halves had stopped being true, and the first corpus
+    load printed 1,946 keys as unqueued while the same 1,946 sat in `citation_exposed`
+    (2026-09-04).
+
+    This pins the verb's account to what the store actually holds: whatever it says is owed
+    is what the queues say is owed, so the sentence cannot go stale again without failing.
+    """
+    con = _store(tmp_path)
+    _scored(con)
+    # `AB 124` with a footnote `2` fused on resolves to the held `AB 1242`: the exposure test
+    # (ADR 0017 § three checks), which is what puts a key in `citation_exposed`
+    con.execute(
+        "INSERT INTO docket (docket_id, raw_docket, prefix, sequence)"
+        " VALUES (7, 'AB_1242', 'AB', 1242)"
+    )
+    con.execute(
+        "INSERT INTO docket (docket_id, raw_docket, prefix, sequence)"
+        " VALUES (8, 'AB_124', 'AB', 124)"
+    )
+    con.commit()
+    con.close()
+    batch = _batch(
+        tmp_path,
+        a=_findings({"page": 4, "target": "AB 1242", "quoted": "See AB 1242, slip op. at 3."}),
+    )
+    assert _load_verb(tmp_path, batch) == 0
+    out = capsys.readouterr().out
+    assert "NOT YET QUEUED" not in out, "the verb still claims there is no queue"
+
+    con = db.connect(tmp_path / "s.sqlite")
+    owed = {q: review.owed(con, q) for q in review.QUEUES}
+    assert owed["citation_exposed"] == 1, f"the fixture raised no exposed key: {owed}"
+    # the verb's own number and the queues' must agree, and it names the queues
+    assert "owed a human review" in out
+    for q, n in owed.items():
+        assert f"'{q}': {n}" in out, f"{q} is owed {n} and the verb did not say so"
+    # and the projection holds it back, which is the other half of what the verb now claims
+    assert "held out of the projection" in out
+    assert project.projected(con) == [], "an exposed edge reached the projection"
+    con.close()
