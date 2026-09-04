@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import sqlite3
 import sys
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -264,7 +265,7 @@ def _citator(args: argparse.Namespace) -> int:
     """
     # aliased: `walk` at module scope is `capture.walk`, and shadowing it for the whole
     # of this function is a trap for whoever adds a line above this import
-    from docketyard.citator import keys, load, methods, project, review
+    from docketyard.citator import keys, load, methods, project, review, scorecard
     from docketyard.citator import walk as citator_walk
 
     con = db.connect(args.db)
@@ -353,6 +354,42 @@ def _citator(args: argparse.Namespace) -> int:
         # ADR 0018 D9: "cited by" and every count are distinct (citing work, target) PAIRS.
         # The rows are per page — short-form density must not inflate a count a reader sees.
         print(f"{len({(r[0], r[2]) for r in rows})} edges over {len(rows)} passages")
+        return 0
+
+    if args.what == "declare":
+        # THE MOMENT A PUBLISHED CLAIM IS MADE. `load` stamps every row it writes with these
+        # figures (ADR 0017 D3), so they come from the tool that measured them and are typed
+        # by nobody — the operator's choice of 2026-09-04, reasoned in `citator/scorecard.py`.
+        try:
+            card = scorecard.read(args.scores)
+            scored = scorecard.figures(card)
+            scorecard.declare(con, card)
+        except (scorecard.Unusable, methods.Unscored, methods.Conflict) as e:
+            print(f"refused: {type(e).__name__} {e}")
+            return 1
+        except sqlite3.DatabaseError as e:
+            # `class_measurement` is unique on its identity, so declaring the same card twice
+            # is an IntegrityError and not a Conflict — and it reached the operator as a
+            # traceback while the verb promised a refusal (code review, 2026-09-04).
+            con.rollback()
+            print(f"refused: {type(e).__name__} {e}")
+            print("A measurement already recorded is not re-recorded; nothing was changed.")
+            return 1
+        print(
+            f"declared {card['extractor']}@{card['extractor_version']}"
+            f" on {card['reading_channel']}, from {card['score_file']}"
+            f" ({card['benchmark_date']}, {card['truth_count']} truth targets)"
+        )
+        # THE CARD'S OWN FIGURES, not `methods.stamp`'s. `stamp` returns the NEWEST
+        # measurement by benchmark date, so declaring an older card printed this card's
+        # identity beside another measurement's numbers, under a sentence claiming a row
+        # would carry them (code review, 2026-09-04, reproduced at 0.452 against 0.977).
+        for stage, (recall, precision) in sorted(scored.items()):
+            print(f"  {stage:22} recall {recall:.3f}   precision {precision:.3f}")
+        print(
+            "An edge carries the RESOLUTION class's precision (ADR 0017 D3), not the"
+            " projection's. `citator load` is next."
+        )
         return 0
 
     if args.what == "find":
@@ -711,6 +748,11 @@ def main(argv: list[str] | None = None) -> int:
 
     ct = sub.add_parser("citator", help="citation edges (docs/adr/0017, 0018; migration 0014)")
     ct_sub = ct.add_subparsers(dest="what", required=True)
+    cd_ = ct_sub.add_parser(
+        "declare", help="declare the methods and record the measurements from a score card"
+    )
+    cd_.add_argument("--scores", required=True, help="a score card the scorer wrote")
+    cd_.set_defaults(func=_citator)
     cf = ct_sub.add_parser(
         "find", help="the finder over the store's own text; writes findings, asserts nothing"
     )

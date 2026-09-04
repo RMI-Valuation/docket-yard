@@ -11,9 +11,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **The figures: 94.7% projected / 97.7% precision, 93.3% to a reader.** Three causes,
   separated in migration 0016's header, which is the one to quote
 - **The citator has never run a real load** (`citation`: 0 rows). The whole chain ran into a
-  COPY 2026-09-04: 73,101 findings, **15,164 distinct edges**, 0 failures. **Two blockers
-  before a real one, neither a step**: no verb declares a measurement, and `reviewer` is 0
-  rows against 1,946 exposed keys (`runbook.md` § The citator's first load). **Cameron's**
+  COPY 2026-09-04: 73,101 findings, **15,164 distinct edges**, 0 failures. `citator declare
+  --scores` now exists, so the steps are runnable; **what is left is people** — `reviewer` is
+  0 rows against 1,946 exposed keys (`runbook.md` § The citator's first load). **Cameron's**
 - **Owed with the pipeline**: ingest writing `decision_work`; the "not in the record" display
   joining live `citation`; the veto's trigger. **The review queue is NOT owed** — it derives
   from the loaded rows and was measured working 2026-09-04. More in `deferred.md`

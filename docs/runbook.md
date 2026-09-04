@@ -235,23 +235,31 @@ and one is a decision about people.**
 Wall clock on the instance: the finder ~45 s over 139,805 pages; the load a few minutes,
 committing per document so the poller is never locked out for the run.
 
-### Blocker 1 — there is no verb that declares the measurements
+### ~~Blocker 1~~ — CLEARED 2026-09-04: `citator declare --scores`
 
-`citator load` refuses a batch it cannot stamp (`methods.Unscored`), because ADR 0017 D3
-says a class nobody has scored is unmeasured and projects nothing. Production holds
-`class_measurement` 0 and `assertion_method` 0, and the shipped verbs are
-`find | load | cited-by | grant | revoke | review | decide` — **none of them declares a
-method or records a measurement.** The rehearsal got past this with a hand-written script,
-which is not a thing an operator should do: it stamps a precision onto every row the load
-writes, and the figures it carries are a published claim (migration 0016 § The figures:
-extraction 222/225, resolution 216/225, projection 213/225 at 97.7% precision, measured on
-sixty decisions on 2026-09-01).
+`citator load` refuses a batch it cannot stamp (`methods.Unscored`), because ADR 0017 D3 says
+a class nobody has scored is unmeasured and projects nothing — and until this date no shipped
+verb could satisfy it. The operator chose the shape on 2026-09-04, out of three that were
+weighed (the reasoning is kept in `citator/scorecard.py`): **the figures come from the tool
+that measured them and are re-typed by nobody.**
 
-Filling it is a decision about provenance, not a tidy-up, so it is Cameron's: a verb that
-**hardcodes** the figures makes the claim on his behalf, and a verb that **takes them as
-arguments** makes him state what is being claimed and where it came from. The second is the
-one this record's rules point at ("every derived assertion carries provenance"), and it is
-the more tedious command to type. Recorded in `docs/deferred.md`.
+    # on the enrichment box, against the sixty-decision sheet
+    python tools/rmi-ai-machine/citation_dryrun.py --scores-out data/citator-scores.json
+    # it writes the card ONLY if the run agreed with itself; a failing run leaves none
+
+    # on the instance
+    docker compose run --rm --no-deps ingest citator declare         --scores /data/citator-scores.json </dev/null
+
+The card carries COUNTS and never a precision, so it cannot claim one its own numbers do not
+support; `declare` computes each stage's precision from them, over that stage's own
+denominator. It refuses a card that does not say what it measured, one whose extractor is not
+this build's, and one with a zero denominator — `0/0` is not a small precision, it is no
+measurement. Declaring the same card twice is a refusal, not a traceback.
+
+**The card's `extractor_version` must be the findings' `method_version`** (both are
+`find.FINDER_VERSION` in production). ADR 0018 D1 allows one owner per class per
+rank_version, so a card measuring another pass is refused by the registry rather than quietly
+stamping these rows from that pass's figures.
 
 ### Blocker 2 — there is no reviewer
 
@@ -282,7 +290,10 @@ is measured on.
     # OCR wave lands there will be an `ocr` one, which is its OWN batch and its own
     # measurement — a channel nobody has scored is refused, by design (ADR 0018 D8).
 
-    # 2. declare the methods and the measurements — SEE BLOCKER 1; no verb yet
+    # 2. declare the methods and the measurements, from the scorer's own card
+    docker compose run --rm --no-deps ingest citator declare         --scores /data/citator-scores.json </dev/null
+    # it prints the recall and precision it just recorded per stage. An EDGE carries the
+    # RESOLUTION class's precision (ADR 0017 D3), not the projection's.
 
     docker compose run --rm --no-deps ingest citator load \
         /data/citation-findings/text-layer </dev/null

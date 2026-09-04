@@ -886,7 +886,10 @@ Left on the instance for whatever comes next, to be deleted otherwise:
 
 ## Owed before a real citator load, found by planning it, 2026-09-04
 
-- **There is no operator verb that declares a method or records a measurement.** The shipped
+- ~~**There is no operator verb that declares a method or records a measurement.**~~ FIXED
+  2026-09-04: `citator declare --scores` reads a card the scorer writes (the operator's choice
+  of three shapes; `citator/scorecard.py` keeps the reasoning and what the other two cost).
+  Original note: The shipped
   citator verbs are `find | load | cited-by | grant | revoke | review | decide`; production
   holds `class_measurement` 0 and `assertion_method` 0; and `citator load` refuses a batch it
   cannot stamp (`methods.Unscored`, ADR 0017 D3). So a real load cannot be performed with the

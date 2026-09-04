@@ -46,7 +46,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 import benchmark_score as bs  # noqa: E402
 import projection_score as ps  # noqa: E402
 
-from docketyard.citator import find, keys, load, methods, project, resolve  # noqa: E402
+from docketyard.citator import (  # noqa: E402
+    find,
+    keys,
+    load,
+    methods,
+    project,
+    resolve,
+    scorecard,
+)
 from docketyard.store import db  # noqa: E402
 
 SCORE_FILE = "tools/rmi-ai-machine/projection_score.py"
@@ -258,7 +266,7 @@ def run_the_finder(text_dir: Path, out: Path, own: dict[str, set[str]]) -> Path:
     return out
 
 
-def main(text_dir: Path, registry: Path, store: Path, out: Path) -> int:
+def main(text_dir: Path, registry: Path, store: Path, out: Path, card_out: Path | None) -> int:
     con0 = sqlite3.connect(f"file:{registry}?mode=ro", uri=True)
     own = own_dockets(con0)
     con0.close()
@@ -413,12 +421,33 @@ def main(text_dir: Path, registry: Path, store: Path, out: Path) -> int:
         print(f"  WRONG STAGE STAMPED on a projected row: {stamped}")
         ok = False
     con.close()
+    # THE CARD IS WRITTEN LAST, AND ONLY WHEN THE RUN AGREED WITH ITSELF. This script exists
+    # to exit non-zero when the SQL chain and the python chain disagree, and a card written
+    # before that check survives the failure — `citator declare` would then stamp 73,101 rows
+    # from a run the tool had just called wrong (code review, 2026-09-04).
+    if card_out is not None:
+        if not ok:
+            print(f"  NO SCORE CARD: this run disagreed with itself, so {card_out} is not written")
+        else:
+            card = scorecard.build(
+                py,
+                extractor_version=version,
+                score_file=SCORE_FILE,
+                benchmark_date=db.utcnow()[:10],
+            )
+            scorecard.write(card_out, card)
+            print(f"  score card -> {card_out} ({card['truth_count']} truth targets)")
     return 0 if ok else 1
 
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
-    args = [a for a in argv if not a.startswith("--")]
+    OPTIONS = ("--registry", "--store", "--out", "--scores-out")
+    # AN OPTION'S VALUE IS NOT A POSITIONAL. `--scores-out data/card.json` on its own made the
+    # card path the text directory, and the run then failed with "the run emitted nothing",
+    # pointing at the benchmark rather than at the flag (code review, 2026-09-04).
+    taken = {argv.index(o) + 1 for o in OPTIONS if o in argv}
+    args = [a for i, a in enumerate(argv) if not a.startswith("--") and i not in taken]
 
     def opt(name, default):
         return Path(argv[argv.index(name) + 1]) if name in argv else Path(default)
@@ -429,5 +458,6 @@ if __name__ == "__main__":
             opt("--registry", "data/prod-copy.sqlite"),
             opt("--store", "data/citation-dryrun.sqlite"),
             opt("--out", "data/benchmark/runs-regex/shipped"),
+            opt("--scores-out", "") if "--scores-out" in argv else None,
         )
     )
