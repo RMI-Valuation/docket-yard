@@ -18,9 +18,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   behind them is open** — an unanswered attempt leaves no capture. Cameron's (`deferred.md`)
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
   heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
-- **Migration A loaded 2026-09-04** (77,567 documents, 1,104,935 pages, store 3.7 GB).
-  **Left**: a bulk pass loses the write lock to Litestream, and `rebuild-pages` holds it
-  27 min with the display function on every row — batch both (`deferred.md` 2026-09-04)
+- **Migration A loaded 2026-09-04** (77,567 documents, 1,104,935 pages, store 3.7 GB); both
+  write-lock findings fixed and **unreleased** — a bulk pass replays its batch instead of
+  aborting, `rebuild-pages` is batched. **The OCR loads need this deployed first**
 - **v2026.09.3–6 shipped 2026-09-04** (noindex text pages, contact details omitted at
   display, the page search path). **Cameron's**: revisit noindex now that search reaches the
   text, and whether `/search` joins the named AI agents' disallow list — it prints the held
