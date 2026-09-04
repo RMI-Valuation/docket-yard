@@ -643,6 +643,10 @@ four confirmed, all nits, three reported and one dropped by its quality cap. Not
   pass, no gap). The docstring said minutes and now has the number. It is for recovery and a
   `PAGE_INDEX_FORMAT` bump, never routine; when it is needed, run it behind the maintenance
   wall, or batch it. The incremental index was already exact: the count matched before it.
+  **With migration 0020's function on every row the whole rebuild took 27 m 26 s** (v2026.09.3
+  deploy, twelve minutes of it against a read-only measurement and web's refuse-and-restart
+  loop, which the runbook now stops first); batching it is the fix, and the per-row Python
+  call is where the time goes.
 - **2,704 of the 80,272 extraction records name no `document` row** (`unknown_document`):
   the blob copy on RMI-AI-MACHINE holds files the store does not list as documents, and the
   extractor v2 writes a stub for every file it sees. The count is the loader's report, not a

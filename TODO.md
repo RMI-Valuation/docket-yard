@@ -23,6 +23,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   holding empty pages for OCR, 3,271 not paginable), page index in step, store 3.7 GB.
   **Left**: the page search path (`Hit` lacks label/band/scan link); a bulk pass loses the
   write lock to Litestream and `rebuild-pages` holds it 8 m 49 s (`deferred.md` 2026-09-04)
+- **v2026.09.3 (2026-09-04): text pages are noindex and the display omits emails and phone
+  numbers** (migration 0020, ADR 0021 addendum). Revisit both with the page search path; a
+  pattern change is a new migration, never a code edit
 - **ADR 0023's pick rule is decided (2026-09-03): compare values** — publish only when every
   live reading agrees. No consumer built yet; `cite.py` sends `decided` to the sheet unchanged
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen

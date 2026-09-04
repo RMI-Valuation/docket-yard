@@ -72,9 +72,13 @@ docker compose logs migrate                  # the migrations ran, and what they
 curl -s https://docketyard.org/health        # answers throughout; check `schema`
 # a release that changes the display view (search.PAGE_INDEX_FORMAT) rebuilds the page
 # index HERE, still behind the wall: a whole rebuild holds the write lock for its run
-# (8 m 49 s at 1.1 M rows, 2026-09-04) and until it runs the index holds the old view's
-# bytes, which every later 'delete' then fails to clear
+# (27 m 26 s at 1.1 M rows with the display function on every row, 2026-09-04) and until
+# it runs the index holds the old view's bytes, which every later 'delete' then fails to
+# clear. `web` refuses to serve until it has run and would otherwise restart in a loop
+# beside it, so stop it first and start it after
+docker compose stop web
 docker compose run --rm --no-deps ingest search rebuild-pages </dev/null
+docker compose start web
 rm data/flags/maintenance                    # back
 ```
 
