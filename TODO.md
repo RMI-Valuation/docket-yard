@@ -21,11 +21,12 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Migration A's passes ran 2026-09-04** on the resized box (large_3_0, 110 GB free):
   77,567 documents paginated, 1,104,935 pages loaded (59,210 text-layer, 15,086 image-only
   holding empty pages for OCR, 3,271 not paginable), page index in step, store 3.7 GB.
-  **Left**: the page search path (`Hit` lacks label/band/scan link); a bulk pass loses the
-  write lock to Litestream and `rebuild-pages` holds it 8 m 49 s (`deferred.md` 2026-09-04)
-- **v2026.09.3 (2026-09-04): text pages are noindex and the display omits emails and phone
-  numbers** (migration 0020, ADR 0021 addendum). Revisit both with the page search path; a
-  pattern change is a new migration, never a code edit
+  **Left**: a bulk pass loses the write lock to Litestream, and `rebuild-pages` holds it
+  27 min with the display function on every row — batch it (`deferred.md` 2026-09-04)
+- **v2026.09.3/4 (2026-09-04): text pages noindex, contact details omitted at display**
+  (migration 0020, ADR 0021 addendum) **and the page search path shipped** (PR #24, migration
+  0021). Revisiting noindex now that search reaches the text is **Cameron's**; a mask pattern
+  change is a new migration, never a code edit
 - **ADR 0023's pick rule is decided (2026-09-03): compare values** — publish only when every
   live reading agrees. No consumer built yet; `cite.py` sends `decided` to the sheet unchanged
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
