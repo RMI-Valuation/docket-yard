@@ -412,6 +412,12 @@ def test_one_document_cannot_take_the_whole_page_section(tmp_path):
     html = TestClient(create_app(path)).get("/search?q=quarterly").text
     assert f"at most {search.PAGE_PER_DOCUMENT} from any one document" in html
     assert "the record holds more" in html
+    # the clauses in an order that reads: what was counted, then where it came from, then
+    # what is missing. The first spelling put "the record holds more" between "20 pages" and
+    # "as read by machine", which left the sentence attaching to the wrong thing
+    sentence = html.split("In the text of documents")[1].split("</p>")[0]
+    assert sentence.index("from any one document") < sentence.index("as read by machine")
+    assert sentence.index("as read by machine") < sentence.index("the record holds more")
     answer = mcp._search(db.connect(path), {"query": "quarterly"}, "docketyard.org")
     assert f"At most {search.PAGE_PER_DOCUMENT} pages of any one document" in answer
 
