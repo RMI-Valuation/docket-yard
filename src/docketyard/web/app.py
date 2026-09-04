@@ -298,6 +298,8 @@ def create_app(
         record_path=urls.record_path,
         viewer_path=urls.viewer_path,
         text_path=urls.text_path,
+        page_label=store_pages.label,  # who read a page, and its band: one wording for the
+        page_band=store_pages.band,  # text page and the search hit (ADR 0021 D7, D8)
         entry_path=urls.entry_path,  # a sheet entry's address, whatever kind it is
         entry_viewer_path=urls.entry_viewer_path,
         document_path=urls.document_path,
@@ -1478,7 +1480,7 @@ def create_app(
         page — never cached or indexed, because its address carries what was typed."""
         q = q.strip()[: search.MAX_QUERY]
         if not q:
-            return render(request, "search.html", query="", hits=[])
+            return render(request, "search.html", query="", hits=[], pages=[])
         con = _connect(db_path)
         try:
             docket = search.held_docket(con, q)
@@ -1488,9 +1490,21 @@ def create_app(
             if found is not None:
                 return RedirectResponse(found.path, status_code=303)
             hits = search.search(con, q)
+            # the pages of documents, by their own query path (ADR 0022 D4); each hit
+            # carries the label, the band and the scan link (ADR 0021 D7)
+            found = search.search_pages(con, q)
         finally:
             con.close()
-        return render(request, "search.html", query=q, hits=hits, canonical=None)
+        return render(
+            request,
+            "search.html",
+            query=q,
+            hits=hits,
+            pages=found.hits,
+            pages_truncated=found.truncated,
+            page_limit=search.PAGE_LIMIT,
+            canonical=None,
+        )
 
     @app.get("/suggest")
     def suggest(q: str = ""):
@@ -1514,6 +1528,10 @@ def create_app(
             # and this surface answered `{"title": "AB 3", "fact": "the docket sheet"}`
             # (navigation-review.md § B).
             def row(h):
+                # a page hit never reaches this surface: it carries a label, a band and a
+                # scan that this serialiser does not, and without them machine-read text
+                # would be handed out as the record (ADR 0021 D7)
+                assert h.kind != "page", "a page hit on /suggest"
                 return {
                     "kind": h.kind,
                     "path": h.path,

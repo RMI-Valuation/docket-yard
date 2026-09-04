@@ -19,7 +19,7 @@ reader or the query is stored.
 
 ## What is searched
 
-Four kinds of thing, each already an address:
+Five kinds of thing, each already an address:
 
 | Kind | Text indexed | Address | Rows today |
 | --- | --- | --- | --- |
@@ -27,6 +27,7 @@ Four kinds of thing, each already an address:
 | Party | every live name of the component (all kinds, all members) | `/p/<id>` (ADR 0015) | 10,110 parties, fewer components |
 | Decision | id and the Board's summary, when one is printed | `/decision/…` | tens of thousands after wave 3 |
 | Environmental comment | number, the commenter's own words as printed, submitter, organisation and location | `/d/<docket>/comment/<number>` (ADR 0013) | 34,255 after the archive wave |
+| Page of a document | the text as displayed — the live human row, else the primary, contact details omitted (migrations 0018, 0020) | `/filing/<id>/text#p<n>`, `/decision/<id>/text#p<n>` | 1,104,935 pages on 2026-09-04 |
 
 Every comment is indexed, not only those carrying words: half the rows print `--` for the
 text (measured 2026-08-31), and their submitter, organisation and location are terms nothing
@@ -42,9 +43,19 @@ are indexed like any other cell rather than swallowed: a cell that says `Unknown
 assertion, an empty cell is an absence, and the index must not turn the first into the
 second.
 
-Not indexed: filings (a filing is reached through its docket; its "type" string is not a
-search target), document text (no extraction exists yet; the citator is a later decision),
-anything derived.
+Not indexed: filings as rows (a filing is reached through its docket; its "type" string is
+not a search target), anything derived.
+
+**A page hit is not a record hit** (added 2026-09-04, `search.search_pages`): it comes from
+the page index by its own query path, is shown under the record hits in its own section,
+never in `/suggest`, and carries three things a record hit does not — who read the page
+(`label`), the band's operand or why there is none (`band`), and the scan (`scan`) — because
+ADR 0021 D7 forbids machine-read text reaching a reader through search without them. At most
+twenty on every surface — the limit is clamped inside `search_pages`, and the page says when
+the record held more — one per page, addressed under the earliest-filed filing that carries
+the document, else the earliest-served decision (migration 0021 indexes that lookup); a
+comment's attachment has no text address. The label and the band are `store.pages.label`
+and `band`, the sentences the text page prints, so the two surfaces cannot drift.
 
 **F4's rule**: a sub-docket's entries live on the family sheet (ADR 0005), so a hit on a
 sub-docket resolves there. A sub-docket whose caption differs from its parent's is indexed
@@ -77,9 +88,16 @@ one whose caption repeats the parent's folds into the family row.
   bytes, so no MATCH finds what no page shows). Corrections naming `document_text` or
   `document_pagination` count toward the page signature and NOT the record index's, nor the
   site-wide ETag: a corrected page moves its own render's validator (`page_stamp`) and
-  nothing else. No page text reaches `/search`, `/suggest` or the MCP surface: `Hit` cannot
-  yet carry the label, the band and the scan link (ADR 0021 D7), and the page index is not
-  joined to `search()`, whose `bm25()` in `ORDER BY` must not be handed a million more rows.
+  nothing else. Page text reaches `/search` and the MCP surface since 2026-09-04 through
+  `search_pages`, whose `Hit` carries the label, the band and the scan link (ADR 0021 D7);
+  it never reaches `/suggest`, and the page index is not joined to `search()`, whose
+  `bm25()` in `ORDER BY` must not be handed a million more rows. `search_pages` asks
+  `ORDER BY rank LIMIT`, the one shape FTS5 sorts internally and evaluates the snippet for
+  only the surviving rows.
+  Measured on the production index (1,104,935 pages, 2026-09-04): a rare phrase
+  (`tazewell county`, 89 pages) 8 ms; `abandonment` (84,954) 0.14 s; `railroad` (277,233)
+  0.43 s; `the` (650,117) 1.3 s — the rank is computed over every matching page, so the cost
+  is the match count, and the widest word in the record costs about a second.
 
   **How long a rebuild takes, and how long it locks.** Measured on the instance
   2026-08-31, against a `VACUUM INTO` snapshot of the production store at **96,225 rows**
@@ -117,7 +135,8 @@ one whose caption repeats the parent's folds into the family row.
   the component for a party; docket and service date for a decision; docket and the date
   the Board printed for a comment — "dated", never "received", because the Board's own
   column declines to say which).
-- **`/search?q=`**: an HTML page, at most 50 results, each row = kind, address, the caption
+- **`/search?q=`**: an HTML page, at most 50 records and, under them, at most 20 pages of
+  documents (their own section and count), each record row = kind, address, the caption
   or name as printed (`as-printed`) with the identifier beside it, a one-line measured fact
   (filings and last filing for a docket; dockets and filings for a party; docket and date
   for a decision or a comment), and — where it says something the caption does not — a

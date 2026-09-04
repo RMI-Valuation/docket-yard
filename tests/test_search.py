@@ -70,7 +70,7 @@ def test_search_page_and_suggest(tmp_path):
     r = client.get("/search", params={"q": "FD 36873 (Sub-No. 9)"}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/d/FD-36873"  # the family holds it
     r = client.get("/search", params={"q": "peoria"})
-    assert r.status_code == 200 and 'href="/d/FD-36873"' in r.text and "2 results" in r.text
+    assert r.status_code == 200 and 'href="/d/FD-36873"' in r.text and "2 records" in r.text
     assert r.headers["cache-control"] == "no-store" and 'content="noindex"' in r.text
     assert "ETag" not in r.headers and 'rel="canonical"' not in r.text
     # a stale validator never short-circuits a result page

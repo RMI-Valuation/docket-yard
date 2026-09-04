@@ -1,12 +1,15 @@
 """One search box (docs/search.md): a docket number is never a search; everything else is an
 FTS5 query over captions, party names, decision summaries and the words of environmental
-comments, rebuilt by ingest.
+comments, rebuilt by ingest — and, by its own query path, over the pages of documents.
 
-`rebuild` is the only writer. It derives every row first, on reads, and then replaces the
-index in one short write transaction; when nothing the index depends on has changed since
-the last build (a signature of the record's newest ids), it does nothing. The index asserts
-nothing — every hit is an address whose own page carries the record and its provenance.
-Nothing about the reader or the query is stored anywhere.
+TWO INDEXES, TWO WRITERS. The record index (`search_fts`): `rebuild` is its only writer; it
+derives every row first, on reads, then replaces the index in one short write transaction,
+and does nothing when the record signature has not moved. The page index (`page_fts`,
+migration 0018) is kept in step row by row by the loader through `store.page_index`, has
+its own signature and build row, and is rebuilt whole only by `rebuild_pages`; `search_pages`
+reads it and is never joined to `search()`. Neither index asserts anything — every hit is an
+address whose own page carries the record and its provenance, and a page hit carries the
+label, the band and the scan (ADR 0021 D7). Nothing about the reader or the query is stored.
 """
 
 import re
@@ -15,7 +18,7 @@ from sqlite3 import Connection
 
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
-from docketyard.store import display
+from docketyard.store import display, pages
 from docketyard.store.db import utcnow
 from docketyard.web import urls
 
@@ -53,6 +56,13 @@ class Hit:
     fact: str
     caption: str = ""  # the row's own printed name, where its title is only an identifier
     snippet: str = ""  # why it matched, marked with MARK_OPEN/MARK_CLOSE; may be empty
+    # A PAGE hit carries the three things ADR 0021 D7 requires before machine-read text may
+    # reach a reader through search: who read it, the band's operand or its absence, and the
+    # scan one click away. A record hit leaves them empty; a consumer that prints a page hit
+    # without them has turned display into assertion, which is what the three are for.
+    label: str = ""  # who read the page, how, and at what render
+    band: str = ""  # the distance from the second reading, or why there is none
+    scan: str = ""  # the record's file, framed, where the page can be checked
 
 
 # --- the index -----------------------------------------------------------------------------
@@ -485,6 +495,134 @@ def search(
         Hit(kind, path, title, fact, caption, _shown_snippet(excerpt or "", caption or ""))
         for kind, path, title, fact, caption, excerpt, _ in rows
     ]
+
+
+PAGE_LIMIT = 20  # page hits, on every surface: docs/search.md publishes the number
+
+
+@dataclass(frozen=True)
+class PageResults:
+    hits: list[Hit]
+    truncated: bool  # the index matched more pages than were asked for
+    dropped: int  # index rows with no display row or no record: a stale index shows here
+
+
+def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> PageResults:
+    """Pages of documents whose displayed text matches, ranked — ITS OWN QUERY PATH over
+    `page_fts` (ADR 0022 D4; migration 0018), never joined to `search()`.
+
+    `ORDER BY rank LIMIT` is the shape FTS5 optimises: the internal ordering, the select
+    list — the snippet — evaluated only for the rows that survive the LIMIT. The shipped
+    `search()` cannot use it because its `bm25()` carries explicit weights, which is why
+    that path must not be handed a million more rows; this one has one column and no
+    weights, so it can. Measured on the production index (docs/search.md): milliseconds
+    for a rare phrase, about a second for the widest word in the record.
+
+    The rowids are `document_text.text_id`s, read back through `pages.by_text_ids` in one
+    query — the same select the text page uses, so a hit's label and band are the page's
+    own (ADR 0021 D7). The view they index IS the display rule, so a hit shows what the page
+    shows, contact details already omitted (migration 0020).
+
+    One hit per page. A document attached to several records is addressed under the
+    earliest-filed filing that carries it, else the earliest-served decision; a comment's
+    attachment has no text address and is not a hit (`documents.VIEWABLE_KINDS`). The limit
+    is clamped to `PAGE_LIMIT` for every caller: the number is a published promise, not a
+    default."""
+    limit = max(1, min(limit, PAGE_LIMIT))
+    match = _match(text, prefix=False)
+    if match is None:
+        return PageResults([], False, 0)
+    rows = con.execute(
+        """
+        SELECT page_fts.rowid, snippet(page_fts, 0, ?, ?, '…', ?)
+          FROM page_fts WHERE page_fts MATCH ? ORDER BY rank LIMIT ?
+        """,
+        (MARK_OPEN, MARK_CLOSE, SNIPPET_TOKENS, match, limit + 1),  # one more: is there more?
+    ).fetchall()
+    truncated = len(rows) > limit
+    rows = rows[:limit]
+    found = pages.by_text_ids(con, [text_id for text_id, _ in rows])
+    records: dict[str, tuple | None] = {}
+    hits: list[Hit] = []
+    dropped = 0
+    for text_id, excerpt in rows:
+        if text_id not in found:
+            dropped += 1  # the index runs ahead of the view (`page_index`'s docstring)
+            continue
+        sha, page = found[text_id]
+        if sha not in records:
+            records[sha] = _record_of(con, sha)
+        record = records[sha]
+        if record is None:
+            dropped += 1
+            continue
+        kind, record_id, index, raw_docket, caption = record
+        identity = parse_docket_id(raw_docket)
+        printed = urls.printed_docket(identity) if identity else raw_docket
+        noun = "Decision" if kind == "decision" else "Filing"
+        # `rebuild()` strips the markers from every record row before indexing, so on that
+        # path no marker can come from the record. The page index holds the view's bytes
+        # unstripped, so a page whose own text carries one is shown without a snippet
+        # rather than with a mark the record put there.
+        excerpt = "" if MARK_OPEN in page.text or MARK_CLOSE in page.text else excerpt
+        hits.append(
+            Hit(
+                "page",
+                urls.text_path(kind, record_id, index) + f"#p{page.page_no}",
+                f"{noun} {record_id}, page {page.page_no}",
+                f"in {printed}",
+                caption or "",
+                _shown_snippet(excerpt or "", caption or ""),
+                label=pages.label(page),
+                band=pages.band(page),
+                scan=urls.viewer_path(kind, record_id, index),
+            )
+        )
+    return PageResults(hits, truncated, dropped)
+
+
+# The record that carries a document, and the file's index among the record's attachments
+# ordered as the sheet orders them (`sheet._attachments`: by source URL), so `?file=N` names
+# the same file on the text page and the record page. The earliest-filed record first (an
+# undated row last, not first — SQLite sorts NULL first), then its id, then the parent docket
+# before its sub-docket (a filing entered under both is two rows: the rule every "nearest the
+# parent" query in this file uses; schema-critic, 2026-09-04), then the URL: a document a
+# record carries twice resolves to one index. Two literal statements rather than one
+# templated one, so each can be read and pasted whole.
+_FILING_OF = """
+SELECT r.stb_filing_id,
+       (SELECT COUNT(*) FROM filing_attachment b
+         WHERE b.filing_pk = a.filing_pk AND b.source_url < a.source_url),
+       k.raw_docket, json_extract(k.latest_payload, '$.title')
+  FROM filing_attachment a
+  JOIN filing r ON r.filing_pk = a.filing_pk
+  JOIN docket_current k ON k.docket_id = r.docket_id
+ WHERE a.document_sha256 = ?
+ ORDER BY r.filed_date IS NULL, r.filed_date, r.stb_filing_id,
+          COALESCE(k.sub_sequence, -1), COALESCE(k.suffix, ''), a.source_url LIMIT 1
+"""
+_DECISION_OF = """
+SELECT r.stb_decision_id,
+       (SELECT COUNT(*) FROM decision_attachment b
+         WHERE b.decision_pk = a.decision_pk AND b.source_url < a.source_url),
+       k.raw_docket, json_extract(k.latest_payload, '$.title')
+  FROM decision_attachment a
+  JOIN decision_record r ON r.decision_pk = a.decision_pk
+  JOIN docket_current k ON k.docket_id = r.docket_id
+ WHERE a.document_sha256 = ?
+ ORDER BY r.service_date IS NULL, r.service_date, r.stb_decision_id,
+          COALESCE(k.sub_sequence, -1), COALESCE(k.suffix, ''), a.source_url LIMIT 1
+"""
+
+
+def _record_of(con: Connection, sha: str):
+    """(kind, record id, attachment index, raw docket, caption) for the record that carries
+    the document — a filing before a decision — or None. Indexed by migration 0021."""
+    for kind, sql in (("filing", _FILING_OF), ("decision", _DECISION_OF)):
+        row = con.execute(sql, (sha,)).fetchone()
+        if row is not None:
+            return (kind, row[0], row[1], row[2], row[3])
+    return None
 
 
 def held_docket(con: Connection, text: str) -> Hit | None:

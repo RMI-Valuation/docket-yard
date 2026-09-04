@@ -64,7 +64,7 @@ Four, deliberately: each is a read a person could do, and none composes into a w
 
 | Tool | Answers |
 | --- | --- |
-| `search_the_record` | proceedings, parties, decisions and comments by their own words; a docket number resolves directly |
+| `search_the_record` | proceedings, parties, decisions and comments by their own words, and pages of the Board's documents by their machine-read text (each `[page]` line labelled with who read it, the band's operand or its absence, and the scan); a docket number resolves directly. `limit` bounds the record lines; page lines are at most 20 |
 | `get_docket_sheet` | one proceeding's chronological sheet, newest first, each entry with the Board's own file and the sub-docket it was entered in |
 | `get_environmental_comment` | one comment by its Board number, with the commenter's own words as printed — quotation, never characterisation |
 | `coverage` | what the record holds and what it does not, measured; the tool an assistant is told to call before calling the record complete |
