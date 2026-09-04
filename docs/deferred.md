@@ -837,3 +837,39 @@ of a pipeline is not a measurement of the change, and this normaliser is in thre
 
 The findings directory on the instance was re-made under the fixed normaliser; the stale one
 is deleted, per the rule that a findings directory is written once.
+
+## The citator's first full chain, 2026-09-04 (dry run into a copy; production untouched)
+
+`citator find` -> `load` -> `project`, the shipped code, against the `VACUUM INTO` copy with
+migration 0016's benchmark figures declared as the measurements — which is what a real first
+load does. Production's `citation` is still 0 rows.
+
+    readings            20,062        (documents x machine channel; all text-layer today)
+    findings            73,101        41,954 captions, 31,147 citations
+    citation rows       73,101        one per finding; 219,303 judgements, 3 per finding
+    extraction runs     20,062
+    resolution          71,185 resolved, 1,915 unresolved, 1 REPAIRED (rule 2 fired once)
+    exposed             1,946 held for review, excluded from the projection
+    span test           13,928 true, 59,173 false
+    PROJECTED           18,907 rows, and **15,164 distinct (citing work, target) edges**
+                        over 5,294 citing works and 3,529 proceedings cited
+    failures            0 failed, 0 unreadable, 0 out of class
+
+**WHAT THIS DOES NOT DO IS VALIDATE THE PUBLISHED FIGURES**, and an earlier framing of this
+work said it would. 94.7% projected / 97.7% precision are recall and precision against a
+sixty-decision sheet with hand-made ground truth. There is no ground truth for 19,229
+decisions, so a corpus run cannot compute either number: every one of those 15,164 edges is
+stamped with a precision measured on sixty decisions, which is exactly the claim ADR 0017 D3
+makes and exactly what a bigger run cannot check. What the run DOES establish is that the
+shipped chain chews the whole record without a failure, what volume a load produces, and how
+big the review backlog is on day one.
+
+**The review backlog is the number to look at before a real load: 1,946 keys owed a human
+review, and the load says "NOT YET QUEUED".** The queue is in TODO's "owed with the pipeline"
+and does not exist, so those 1,946 edges would be held with nothing to release them. On the
+sixty-decision sheet the same gate held five. That is the difference between the benchmark's
+93.3%-to-a-reader and what a real load would show, and it is a decision about capacity
+rather than about code.
+
+Left on the instance for whatever comes next, to be deleted otherwise:
+`data/citator-dryrun.sqlite` (now ~4 GB, loaded) and `data/citator-findings` (84 MB).
