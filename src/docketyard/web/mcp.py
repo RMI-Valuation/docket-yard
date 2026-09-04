@@ -104,10 +104,12 @@ def _search(con: Connection, args: dict, host: str) -> str:
     limit = max(1, min(int(args.get("limit", 10) or 10), 50))
     held = search_store.held_docket(con, text)
     hits = search_store.search(con, text, limit=limit)
+    found = search_store.search_pages(con, text, limit=limit)  # clamped to PAGE_LIMIT inside
+    pages = found.hits
     lines = []
     if held is not None:
         lines.append(f"That is a docket this record holds: {held.title} — {_site(host, held.path)}")
-    if not hits and held is None:
+    if not hits and not pages and held is None:
         return (
             f"The record holds nothing matching {text!r}. That is an absence in this record, "
             "not proof of absence at the Board."
@@ -119,6 +121,18 @@ def _search(con: Connection, args: dict, host: str) -> str:
         # the page and in /suggest, and left here until the schema-critic caught it.
         named = f"{h.caption} ({h.title})" if h.caption else h.title
         lines.append(f"[{h.kind}] {named} — {h.fact} — {_site(host, h.path)}")
+    for h in pages:
+        # a page of machine-read text is handed over WITH who read it, the band's operand
+        # or its absence, and the scan (ADR 0021 D7): the text is a finding aid, the scan
+        # is the record, and an assistant told less would repeat the reading as a fact
+        named = f"{h.caption} ({h.title})" if h.caption else h.title
+        lines.append(
+            f"[page] {named} — {h.fact} — {_site(host, h.path)} — {h.label}"
+            + (f" {h.band}" if h.band else "")
+            + f" The scan: {_site(host, h.scan)}. Machine-read text: check it against the scan."
+        )
+    if found.truncated:
+        lines.append(f"…and more pages than the {search_store.PAGE_LIMIT} shown; narrow the words.")
     return "\n".join(lines)
 
 
@@ -313,12 +327,20 @@ TOOLS: tuple[Tool, ...] = (
         "search_the_record",
         "Search the STB record",
         "Search proceedings, parties, decisions and environmental comments by their own"
-        " words. A docket number is answered directly. Returns permanent addresses, never a"
-        " guess: if the record holds nothing, it says so.",
+        " words, and the pages of the Board's documents by their machine-read text. A docket"
+        " number is answered directly. Returns permanent addresses, never a guess: if the"
+        " record holds nothing, it says so. A [page] line is text a machine read from a"
+        " scan, labelled with who read it and its distance from a second reading; it is a"
+        " finding aid, and the scan it links to is the record — never quote it as the"
+        " Board's words.",
         _obj(
             {
                 "query": {"type": "string", "description": "What to look for."},
-                "limit": {"type": "integer", "description": "Results, 1-50. Default 10."},
+                "limit": {
+                    "type": "integer",
+                    "description": "Results, 1-50. Default 10: up to that many record"
+                    " lines, and up to 20 [page] lines whatever is asked.",
+                },
             },
             ["query"],
         ),

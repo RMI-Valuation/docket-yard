@@ -55,7 +55,7 @@ def test_the_view_shows_the_omission_and_the_stored_reading_keeps_the_words(tmp_
     assert stored.fetchone()[0] == CONTACT  # ADR 0021 D1: the reading is the document's words
     shown = con.execute("SELECT text FROM document_text_display WHERE text_id = ?", (text_id,))
     assert shown.fetchone()[0] == display.mask(CONTACT)
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 20
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 21
 
 
 def test_the_index_holds_the_displayed_bytes_so_a_delete_carries_them_too(tmp_path):

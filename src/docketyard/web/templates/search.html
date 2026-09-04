@@ -5,15 +5,16 @@
 {% block main %}
 <section class="caption">
   <h1 class="serif">Search the record</h1>
-  <p class="muted">A docket number opens its sheet. Anything else is matched against captions as the Board prints them, every name a party is on record under, and the Board's printed decision summaries. Nothing you search for is kept.</p>
+  <p class="muted">A docket number opens its sheet. Anything else is matched against captions as the Board prints them, every name a party is on record under, the Board's printed decision summaries, and the text of documents as read by machine — labelled with who read it, the scan one click away. Nothing you search for is kept.</p>
   <form class="search" action="/search" method="get" role="search">
     <input name="q" type="search" value="{{ query }}" placeholder="FD 36873, Union Pacific, or words from a caption" aria-label="Search">
   </form>
 </section>
 {% if query %}
+{% if hits or not pages %}
 <section>
   {% if hits %}
-  <p class="small muted">{{ hits | length }} result{% if hits | length != 1 %}s{% endif %}{% if hits | length == 50 %} (the first fifty; narrow the words){% endif %}.</p>
+  <p class="small muted">{{ hits | length }} record{% if hits | length != 1 %}s{% endif %}{% if hits | length == 50 %} (the first fifty; narrow the words){% endif %}.</p>
   <table class="moved">
     <thead><tr><th scope="col">Kind</th><th scope="col">Result</th><th scope="col">On record</th></tr></thead>
     <tbody>
@@ -39,5 +40,30 @@
   <p class="muted">Nothing on record matches “{{ query }}”. Names and captions are matched as the Board prints them; a docket number in any spelling opens its sheet directly.</p>
   {% endif %}
 </section>
+{% endif %}
+{% if pages %}
+<section>
+  <h2>In the text of documents</h2>
+  {#- Machine-read text reaches search only WITH who read it, the band's operand or its
+      absence, and the scan one click away (ADR 0021 D7): the text is a finding aid, the scan
+      is the record. Its own query path (ADR 0022 D4); at most twenty pages. -#}
+  <p class="small muted">{{ pages | length }} page{% if pages | length != 1 %}s{% endif %}{% if pages_truncated %} (the first {{ page_limit }}; the record holds more — narrow the words){% endif %}, as read by machine from the Board's files. Nothing here is the Board's text; the scan is the record.</p>
+  <table class="moved">
+    <thead><tr><th scope="col">Kind</th><th scope="col">Result</th><th scope="col">Read by</th></tr></thead>
+    <tbody>
+    {% for h in pages %}
+    <tr>
+      <td class="dk">page</td>
+      <td>
+        <a href="{{ h.path }}" class="as-printed">{{ h.caption or h.title }}</a>{% if h.caption %} <span class="dk small muted">{{ h.title }}</span>{% endif %} <span class="small muted">{{ h.fact }}</span>
+        {% if h.snippet %}<div class="small muted as-printed">{{ h.snippet | highlight }}</div>{% endif %}
+      </td>
+      <td class="small muted">{{ h.label }}{% if h.band %} {{ h.band }}{% endif %} <a href="{{ h.scan }}">Scan</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
 {% endif %}
 {% endblock %}

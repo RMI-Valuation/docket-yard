@@ -11,7 +11,7 @@ Addresses are permanent (ADR 0013): a docket is /d/FD-36873, a sub-docket /d/FD-
 
 ## Read the record
 
-- [Search](https://{{ site_host }}/search): a docket number opens its sheet; anything else searches captions, party names and decision summaries
+- [Search](https://{{ site_host }}/search): a docket number opens its sheet; anything else searches captions, party names, decision summaries, and the pages of the Board's documents by their machine-read text (a page hit names who read it and links to the scan)
 - [A docket sheet](https://{{ site_host }}/d/FD-36873): one chronological page per proceeding, newest first
 - [Parties](https://{{ site_host }}/parties): who filed, resolved to entities
 - [Every week on record](https://{{ site_host }}/weeks): every week the Board posted a filing or served a decision{% if cov.record_from %}, {{ cov.record_from | fmt_date }} onward{% endif %}, each at its own permanent address

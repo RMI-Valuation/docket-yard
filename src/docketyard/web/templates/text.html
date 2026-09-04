@@ -16,21 +16,9 @@
     <article class="page" id="p{{ n }}">
       <h2 class="page-heading">Page {{ n }} <a class="anchor" href="{{ here }}#p{{ n }}" title="This page's address">¶</a></h2>
       {% if page %}
-      <p class="small muted page-label">
-        {%- if page.reading_role == 'human' %}Corrected by a person ({{ page.asserted_at[:10] }}).
-        {%- elif page.reading_channel == 'text-layer' %}The publisher's own text layer, read by {{ page.method }} {{ page.method_version }}.
-        {%- else %}Machine-read by {{ page.method }} {{ page.method_version }} at render {{ page.render_profile }}{% if page.route_class %}, routed as {{ page.route_class }}{% endif %}.
-        {%- endif %}
-        {%- if page.reading_role != 'human' %}
-          {%- if page.second and page.second.distance is not none and page.second.against_shown %} Distance from the second reading ({{ page.second.method }} {{ page.second.method_version }}): {{ '%.3f' | format(page.second.distance) }} by {{ page.second.distance_method }} {{ page.second.distance_method_version }} — 0 is agreement.
-          {%- elif page.second and page.second.distance is not none %} A second reading exists ({{ page.second.method }} {{ page.second.method_version }}); its distance was measured against an earlier reading of this page, so no band.
-          {%- elif page.second %} A second reading exists ({{ page.second.method }} {{ page.second.method_version }}); its distance from this one has not been computed, so no band.
-          {%- elif page.reading_channel == 'text-layer' %} Read once; no second reading to compare it with, so no band.
-          {%- else %} No second reading yet, so no band.
-          {%- endif %}
-        {%- endif %}
-        <a href="{{ scan }}">Scan</a>
-      </p>
+      {#- who read the page and the band's operand: `store.pages.label`/`band`, the same
+          sentences a search hit carries, so the two surfaces cannot drift (ADR 0021 D7, D8) -#}
+      <p class="small muted page-label">{{ page_label(page) }}{% if page_band(page) %} {{ page_band(page) }}{% endif %} <a href="{{ scan }}">Scan</a></p>
       {% if page.text %}<pre class="page-text as-printed">{{ page.text }}</pre>{% else %}<p class="small muted">Read as blank.</p>{% endif %}
       {% else %}
       <p class="small muted page-label">Not yet read.</p>

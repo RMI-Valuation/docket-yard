@@ -144,8 +144,10 @@ citator reads is touched before the citator has run its first real load.
   build on the single row `'built'`. The page index needs both of its own — and because
   the indexed view *is* ADR 0021 D9's display rule, that rule's version belongs in the
   signature. **Landed 2026-09-03** (`PAGE_INDEX_FORMAT`, the view's migration and the display
-  rule's version; `display@0020.1` since the view began omitting contact details). The page-grained
-  address and `Hit`'s extension above are still owed.
+  rule's version; `display@0020.1` since the view began omitting contact details). **The page
+  search path landed 2026-09-04**: `search.search_pages` by its own query path, `Hit` carrying
+  `label`, `band` and `scan`, shown on `/search` under the record hits and handed to the MCP
+  search with the same three; `/suggest` stays record-only.
 
 ## The passes
 
