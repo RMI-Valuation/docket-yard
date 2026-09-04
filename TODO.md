@@ -21,13 +21,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Migration A loaded 2026-09-04** (77,567 documents, 1,104,935 pages, store 3.7 GB).
   **Left**: a bulk pass loses the write lock to Litestream, and `rebuild-pages` holds it
   27 min with the display function on every row — batch both (`deferred.md` 2026-09-04)
-- **v2026.09.3/4/5 shipped 2026-09-04** (noindex text pages, contact details omitted at
+- **v2026.09.3–6 shipped 2026-09-04** (noindex text pages, contact details omitted at
   display, the page search path). **Cameron's**: revisit noindex now that search reaches the
   text, and whether `/search` joins the named AI agents' disallow list — it prints the held
   page text they may not fetch at `/text`. A mask pattern change is a new migration
-- **The record page's rail is back and unreleased** (ADR 0013 addendum, 2026-09-04): the
-  parties, files, neighbours, citation and follow form that went missing when `/view`
-  retired. 22.6 ms vs `one_entry`'s 8.5 on FD 35087. No migration, so no wall — needs a release
 - **ADR 0023's pick rule is decided (2026-09-03): compare values** — publish only when every
   live reading agrees. No consumer built yet; `cite.py` sends `decided` to the sheet unchanged
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
