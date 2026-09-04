@@ -387,10 +387,13 @@ def rebuild_pages(
     Measured 2026-09-04 on a synthetic 100,000-page store, a second writer probing for the
     write lock every 10 ms: refused on 8 of 21 probes before (each probe waiting 250 ms, so
     it was shut out for the run) against 0 of 255 after, for 3.2 s of wall time against
-    4.0 s. The 25% is what the extra commits and the keyset paging cost, and it buys a
-    poller that never waits. The production figure at 1.1M rows on the instance is NOT
-    verified — this box is an order of magnitude faster per row — and the next real rebuild
-    is what confirms it.
+    4.0 s. RE-MEASURED the same day on 40,000 pages of 3,827 characters — a real page's
+    length, after a benchmark on 800-character pages was found to have understated a
+    different measurement on this path — and the answer holds: 9 of 19 probes against 0 of
+    312, 3.7 s against 4.3 s. The extra second is what the commits and the keyset paging
+    cost, and it buys a poller that never waits. The production figure at 1.1M rows on the
+    instance is NOT verified — this box is an order of magnitude faster per row — and the
+    next real rebuild is what confirms it.
 
     A HALF-BUILT INDEX IS NEVER SERVED. The build is not atomic any more, so `page_built`
     is marked `rebuilding` before the first row is touched and only set to the real

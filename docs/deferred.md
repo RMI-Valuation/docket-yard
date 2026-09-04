@@ -645,8 +645,11 @@ four confirmed, all nits, three reported and one dropped by its quality cap. Not
   batches of 2,000, with the per-row masking running in the SELECT outside any transaction
   and the lock released between batches. Measured on a synthetic 100,000-page store: a
   second writer was refused the lock on 8 of 21 probes before and 0 of 255 after, for 3.2 s
-  against 4.0 s of wall time. **The production figure at 1.1M rows is not verified** — the
-  next real rebuild is what confirms it.
+  against 4.0 s of wall time; re-measured on 40,000 pages of 3,827 characters (a real page's
+  length, after the page-hit benchmark below was found to have been taken on pages too short
+  to see the cost) the answer holds — 9 of 19 against 0 of 312, 3.7 s against 4.3 s. **The
+  production figure at 1.1M rows is not verified** — the next real rebuild is what confirms
+  it.
 - **A rebuild started while `text load` is already running is not detected.** The loader
   refuses to START while `search_meta.page_built` says `rebuilding` (`page_index`), which
   closes the common direction; there is no marker for "a load is in flight", so the reverse
