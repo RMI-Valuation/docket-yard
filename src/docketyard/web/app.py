@@ -141,8 +141,16 @@ def _check_store(db_path: str | Path) -> None:
     # view or rule, it holds what the pages no longer show, and every later 'delete' fails
     # to clear it; the deploy runbook rebuilds it behind the wall, and this is the check.
     if built and not built.startswith(search.PAGE_INDEX_FORMAT + "."):  # '' is never built
+        # `rebuilding` is a rebuild that started and did not finish (`search.rebuild_pages`):
+        # the index holds a fraction of the record, and serving it would answer searches
+        # short rather than refuse. The same refusal, said as what it is.
+        under = (
+            "an interrupted rebuild"
+            if built == search.PAGE_REBUILDING
+            else f"{built.rsplit('.', 3)[0]}"
+        )
         raise RuntimeError(
-            f"page index built under {built.rsplit('.', 3)[0]}, the view is"
+            f"page index built under {under}, the view is"
             f" {search.PAGE_INDEX_FORMAT}; run `docketyard search rebuild-pages`, then serve"
         )
 
@@ -1502,6 +1510,7 @@ def create_app(
             hits=hits,
             pages=found.hits,
             pages_truncated=found.truncated,
+            pages_rebuilding=found.rebuilding,
             page_limit=search.PAGE_LIMIT,
             canonical=None,
         )

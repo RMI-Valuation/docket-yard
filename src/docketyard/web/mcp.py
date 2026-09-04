@@ -110,7 +110,14 @@ def _search(con: Connection, args: dict, host: str) -> str:
     lines = []
     if held is not None:
         lines.append(f"That is a docket this record holds: {held.title} — {_site(host, held.path)}")
-    if not hits and not pages and held is None:
+    if found.rebuilding:
+        # An assistant told "nothing matched" while the index holds a tenth of the record
+        # would report an absence that is not one — the caveat this surface exists to carry.
+        lines.append(
+            "The text index is being rebuilt, so the words of documents were NOT searched"
+            " for this answer. The record below is unaffected; say so if you report it."
+        )
+    if not hits and not pages and held is None and not found.rebuilding:
         return (
             f"The record holds nothing matching {text!r}. That is an absence in this record, "
             "not proof of absence at the Board."

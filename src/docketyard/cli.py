@@ -447,7 +447,10 @@ def _search_rebuild(args: argparse.Namespace) -> int:
 
 
 def _search_rebuild_pages(args: argparse.Namespace) -> int:
-    print(search.rebuild_pages(db.connect(args.db), force=args.force))
+    """Batched since 2026-09-04, so it says how far it has got: at ~1.1M rows it is minutes
+    either way, and the operator watching it behind the maintenance wall could not tell a
+    slow rebuild from a stuck one."""
+    print(search.rebuild_pages(db.connect(args.db), force=args.force, log=print))
     return 0
 
 

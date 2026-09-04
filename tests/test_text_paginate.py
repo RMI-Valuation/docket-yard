@@ -11,7 +11,7 @@ import sqlite3
 import pytest
 
 from docketyard import cli
-from docketyard.store import db
+from docketyard.store import batches, db
 from docketyard.text import paginate
 
 STAMP = "2026-09-03T00:00:00+00:00"
@@ -274,9 +274,12 @@ def test_one_refused_document_is_rolled_back_alone_and_the_batch_lands(tmp_path)
     assert _live(con, SHA_B)[0][1] == 4
 
 
-def test_a_store_that_cannot_be_written_aborts_the_pass_rather_than_counting(tmp_path):
+def test_a_store_that_cannot_be_written_aborts_the_pass_rather_than_counting(tmp_path, monkeypatch):
     """With the 30 s busy timeout, a held write lock would turn every remaining document
-    into a wait, a `failed` line and an exit of 0. The pass stops at the first one."""
+    into a wait, a `failed` line and an exit of 0. The pass replays its batch while the
+    lock might clear (`batches.LOCK_RETRIES`) and then stops — it does not carry on.
+    The backoff is zeroed here; the doubling itself is asserted in `test_store_batches`."""
+    monkeypatch.setattr(batches, "LOCK_BACKOFF", 0)
     con = _store(tmp_path)
     root = tmp_path / "text"
     _write(root, _record(SHA_A, pages=9))
@@ -287,7 +290,7 @@ def test_a_store_that_cannot_be_written_aborts_the_pass_rather_than_counting(tmp
     lines = []
     totals = paginate.run(con, root, log=lines.append)
     assert totals == {"aborted": 1}
-    assert "aborted" in lines[0] and "locked" in lines[0]
+    assert "aborted" in lines[-1] and "locked" in lines[-1]
     holder.rollback()
     assert paginate.run(con, root, log=lines.append)["asserted"] == 2
 

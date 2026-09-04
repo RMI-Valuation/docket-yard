@@ -3,10 +3,14 @@ the MCP search by their own query path, each hit carrying who read the page, the
 operand or why there is none, and the scan; never `/suggest`; never joined to `search()`.
 """
 
+import sqlite3
+
+import pytest
 from fastapi.testclient import TestClient
 from markupsafe import escape
 
-from docketyard.store import db, pages, search
+from docketyard.store import batches, db, page_index, pages, search
+from docketyard.text import load
 from docketyard.web import mcp
 from docketyard.web.app import create_app
 from tests.test_documents import (  # noqa: F401 — the fixture registers itself here too
@@ -216,3 +220,143 @@ def test_a_marker_the_record_itself_carries_never_becomes_a_mark(tmp_path):
     h = search.search_pages(con, "tazewell").hits[0]
     assert h.snippet == ""  # shown without a snippet rather than with the record's mark
     con.close()
+
+
+def test_the_batched_rebuild_indexes_exactly_what_fts5s_own_rebuild_would(tmp_path):
+    """THE DRIFT GUARD for taking FTS5's `'rebuild'` apart. It reads the content view inside
+    ONE transaction, and with migration 0020's masking function running per row that held
+    the write lock for 8 m 49 s at 1,104,935 rows, then 27 m 26 s at the v2026.09.3 deploy —
+    the poller lost a pass to it (`deferred.md`, 2026-09-04). `rebuild_pages` now pages the
+    view outside any transaction and writes each batch in its own, which is only safe while
+    the index it leaves is the one FTS5 would have built. This asserts that, batch by batch:
+    a batch size of 1 makes every row its own transaction."""
+    path, sha = _with_text(tmp_path)
+    con = db.connect(path)
+
+    def indexed():
+        """Every (rowid, term) pair the index holds, as a search can see them."""
+        terms = ("abandonment", "perry", "tazewell", "county", "docket", "example")
+        return {
+            t: sorted(
+                r[0] for r in con.execute("SELECT rowid FROM page_fts WHERE page_fts MATCH ?", (t,))
+            )
+            for t in terms
+        }
+
+    out = search.rebuild_pages(con, force=True, batch=1)
+    assert out["pages"] == 3, "the blank page is a row of the view and is indexed as one"
+    batched = indexed()
+    assert batched["tazewell"], "the fixture matched nothing — this test would prove nothing"
+    # the masking is applied by the view, so an address in the page text is in neither index
+    assert batched["example"] == [], "the display rule did not reach the batched rebuild"
+
+    con.execute("INSERT INTO page_fts (page_fts) VALUES ('rebuild')")  # FTS5's own, whole
+    con.commit()
+    assert indexed() == batched
+
+    # one batch and many batches agree, and the count is the view's, not a COUNT(*) over the
+    # index — which on an external-content table reads the view a second time
+    assert search.rebuild_pages(con, force=True, batch=10_000)["pages"] == 3
+    assert indexed() == batched
+    con.close()
+
+
+def test_an_interrupted_rebuild_is_refused_rather_than_served_short(tmp_path):
+    """The build stopped being atomic when it stopped being one transaction, so a rebuild
+    that dies halfway leaves a fraction of the record indexed. `page_built` says `rebuilding`
+    from before the first row until after the last, and `web` refuses anything that does not
+    begin with `PAGE_INDEX_FORMAT` — so the half-built index is never served."""
+    path, sha = _with_text(tmp_path)
+    con = db.connect(path)
+    search.rebuild_pages(con, force=True)
+    good = search.page_built(con)
+    assert good[0] and good[0].startswith(search.PAGE_INDEX_FORMAT + ".")
+    assert create_app(path) is not None  # a finished build serves
+
+    search._mark_page_build(con, search.PAGE_REBUILDING, good[1])
+    con.close()
+    with pytest.raises(RuntimeError, match="an interrupted rebuild"):
+        create_app(path)
+
+    # and re-running needs no --force: `rebuilding` matches no signature
+    con = db.connect(path)
+    assert search.rebuild_pages(con)["build"] == good[1] + 1
+    assert search.page_built(con)[0] == search.page_signature(con)
+    con.close()
+    assert create_app(path) is not None
+
+
+def test_the_rebuild_waits_out_the_write_lock_instead_of_leaving_the_index_empty(tmp_path):
+    """The batched rebuild takes the write lock hundreds of times where FTS5's `'rebuild'`
+    took it once, and it empties the index BEFORE the first row goes in. A transient
+    SQLITE_BUSY that the old shape never met would therefore leave the index empty and
+    `page_built` at `rebuilding`, so `web` would refuse to start until a whole rebuild
+    landed. It waits the lock out by the passes' own rule (code review, 2026-09-04)."""
+    path, sha = _with_text(tmp_path)
+    con = db.connect(path)
+    con.execute("PRAGMA busy_timeout = 50")
+    holder = sqlite3.connect(path, timeout=0)
+    holder.execute("BEGIN IMMEDIATE")  # the lock, as Litestream's checkpoint holds it
+    waits = []
+
+    def sleep(seconds):
+        waits.append(seconds)
+        holder.rollback()  # it lets go while the rebuild waits
+
+    monkey = batches.under_lock
+    try:
+        batches.under_lock = lambda con_, do, **kw: monkey(con_, do, **{**kw, "sleep": sleep})
+        out = search.rebuild_pages(con, force=True, batch=1)
+    finally:
+        batches.under_lock = monkey
+    assert out["pages"] == 3 and waits, "the lock was never contended — this proves nothing"
+    assert search.page_built(con)[0] == search.page_signature(con)
+    assert [r[0] for r in con.execute("SELECT rowid FROM page_fts WHERE page_fts MATCH 'tazewell'")]
+    con.close()
+
+
+def test_the_loader_refuses_to_write_the_index_a_rebuild_owns(tmp_path):
+    """Both would write `page_fts` at once and the rebuild's scan would index a row the
+    loader had just indexed — external-content FTS5 takes the duplicate rowid in silence,
+    and a later `leave` clears one copy and leaves the other's tokens behind."""
+    path, sha = _with_text(tmp_path)
+    con = db.connect(path)
+    assert page_index.REBUILDING == search.PAGE_REBUILDING, "two spellings of one mark"
+    search._mark_page_build(con, search.PAGE_REBUILDING, 1)
+    assert page_index.owned_by_rebuild(con)
+    con.close()
+    con = db.connect(path)
+    (tmp_path / "readings").mkdir(exist_ok=True)
+    with pytest.raises(page_index.Rebuilding, match="rebuild-pages"):
+        load.run(con, tmp_path / "readings", tmp_path, log=lambda _: None)
+    con.close()
+    # and it loads again once the rebuild has finished
+    con = db.connect(path)
+    search.rebuild_pages(con)
+    assert not page_index.owned_by_rebuild(con)
+    con.close()
+    assert _loaded(path, tmp_path, _ocr(sha, PAGES)) == "loaded"
+
+
+def test_a_search_during_a_rebuild_says_so_rather_than_answering_short(tmp_path):
+    """`web` refuses to START against a half-built index, but a process already running
+    would answer a page search out of a fraction of the record with a 200 and no sign —
+    a coverage claim the store cannot support. Both surfaces say it instead."""
+    path, sha = _with_text(tmp_path)
+    client = TestClient(create_app(path))
+    assert "Tazewell" in client.get("/search?q=tazewell").text  # it answers normally first
+
+    con = db.connect(path)
+    search._mark_page_build(con, search.PAGE_REBUILDING, 1)
+    found = search.search_pages(con, "tazewell")
+    assert found.rebuilding and found.hits == []
+    con.close()
+
+    html = client.get("/search?q=tazewell").text
+    assert "The text index is being rebuilt" in html
+    assert "page 3" not in html, "a hit was printed out of a half-built index"
+    # the record's own search is untouched: only the page path is held back
+    assert "FD 36873" in html
+    # and an assistant is told, so it does not report an absence that is not one
+    answer = mcp._search(db.connect(path), {"query": "tazewell"}, "docketyard.org")
+    assert "were NOT searched" in answer

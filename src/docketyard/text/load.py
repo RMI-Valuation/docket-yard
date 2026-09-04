@@ -497,7 +497,19 @@ def _load_page(con, h: Header, page: Page, digest: str, now: str, by_role, by_ke
 def run(
     con, root: Path, data_dir, *, log=print, commit_every: int = batches.COMMIT_EVERY
 ) -> Counter:
-    """The pass over a directory of readings, through `store.batches`."""
+    """The pass over a directory of readings, through `store.batches`.
+
+    It refuses to start while `search rebuild-pages` owns the page index: the two would
+    write `page_fts` at once, and the rebuild's scan would index a row this pass had just
+    indexed (`store.page_index.Rebuilding`). Checked once here, not per row — the reverse
+    guard does not exist, so a rebuild started while a load is running is not detected;
+    `rebuild_pages` reports that the signature moved under it, which is how that shows up.
+    """
+    if page_index.owned_by_rebuild(con):
+        raise page_index.Rebuilding(
+            "`search rebuild-pages` owns the page index (search_meta.page_built ="
+            " 'rebuilding'). Let it finish, or re-run it if it died, then load."
+        )
     machine = methods.machine_channels(con)
     return batches.run(
         con,

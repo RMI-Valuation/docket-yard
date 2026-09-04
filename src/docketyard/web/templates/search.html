@@ -41,7 +41,15 @@
   {% endif %}
 </section>
 {% endif %}
-{% if pages %}
+{% if pages_rebuilding %}
+{#- The page index is being rebuilt, so it holds a fraction of the record. Saying "no pages
+    matched" here would be a coverage claim the store cannot support (code review,
+    2026-09-04): the search of the record above is unaffected and is shown as usual. -#}
+<section>
+  <h2>In the text of documents</h2>
+  <p class="muted">The text index is being rebuilt, so the words of documents cannot be searched for a few minutes. Nothing is lost — the record above, and every document's own text page, are unaffected. Please try this search again shortly.</p>
+</section>
+{% elif pages %}
 <section>
   <h2>In the text of documents</h2>
   {#- Machine-read text reaches search only WITH who read it, the band's operand or its

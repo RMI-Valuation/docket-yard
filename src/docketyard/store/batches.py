@@ -21,10 +21,16 @@ loop in `cli._citator` still commits per document and counts every failure kind 
   gave: a document the store refuses (`IntegrityError`), or that the writer refuses on what
   it finds in the store (any other exception), is undone alone and the pass goes on, counted
   under `failed`. Only the store's own trouble is not a property of the document:
-- THE STORE ITSELF FAILING ABORTS THE PASS. An `OperationalError` — the lock not released in
-  the busy timeout, a disk error — with a 30 s timeout, counted per document, would make
-  every remaining document wait, fail and be counted, for hours, under an exit status that
-  said nothing. The pass stops, the open batch is rolled back, counted under `aborted`.
+- THE LOCK IS WAITED OUT, THE STORE FAILING IS NOT. An `OperationalError` counted per
+  document, with a 30 s timeout, would make every remaining document wait, fail and be
+  counted, for hours, under an exit status that said nothing — so neither kind is. But the
+  two are not the same trouble. A LOCK (`database is locked`) is someone else holding the
+  write lock, and on this box that someone is Litestream's TRUNCATE checkpoint: the batch is
+  rolled back — which hands the lock over, and is the part that matters — and replayed, up
+  to `LOCK_RETRIES` times with a doubling wait, because the rollback left nothing behind for
+  the replay to trip over. Anything else (a disk error, a read-only file) will not clear by
+  waiting: the pass stops at once. Either way the open batch is rolled back, and a pass that
+  really does stop is counted under `aborted`.
 - AN ITEM THAT IS AN ERROR IS COUNTED, NOT RAISED. A reader yields `(label, thing)`, and
   `thing` may be the exception that stopped it being made — malformed input is the reader's
   finding, and the loop counts it under `unreadable` beside the store's own outcomes.
@@ -32,6 +38,7 @@ loop in `cli._citator` still commits per document and counts every failure kind 
 """
 
 import sqlite3
+import time
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
@@ -39,6 +46,8 @@ from typing import TypeVar
 
 COMMIT_EVERY = 200
 LOG_EVERY = 2000  # items between progress lines
+LOCK_RETRIES = 5  # replays of ONE batch before the pass gives up; see `_with_retries`
+LOCK_BACKOFF = 2  # seconds before the first replay, doubling: 2, 4, 8, 16, 32 — 62 in all
 
 T = TypeVar("T")
 
@@ -57,29 +66,102 @@ def walk(root: Path, read: Callable[[Path], T]) -> Iterator[tuple[str, T | Excep
                 yield label, e
 
 
-def run(
-    con,
-    items: Iterable[tuple[str, object]],
-    one: Callable[[object], str],
-    *,
-    log=print,
-    commit_every: int = COMMIT_EVERY,
-) -> Counter:
-    """`one(thing)` returns the outcome word to count. Returns the counts: one key per
-    outcome, plus `unreadable`, `failed` and `aborted` as above."""
-    totals: Counter = Counter()
-    since_commit = seen = 0
-    for label, thing in items:
-        seen += 1
-        if seen % LOG_EVERY == 0:
-            log(f"  {dict(totals)}")
-        if isinstance(thing, Exception):
-            log(f"  unreadable {label}: {thing}")
-            totals["unreadable"] += 1
-            continue
+def _is_lock(e: sqlite3.OperationalError) -> bool:
+    """Whether this is the write lock being held by someone else, rather than the store
+    being broken. SQLite says `database is locked` (SQLITE_BUSY) or `database table is
+    locked`; a disk I/O error, a read-only file and a corrupt page say none of those and
+    must not be retried — retrying them is how a pass spends its retries on a failure that
+    will never clear."""
+    return "locked" in str(e).lower()
+
+
+def _chunk(items: Iterable[tuple[str, object]], size: int) -> Iterator[list]:
+    batch: list = []
+    for item in items:
+        batch.append(item)
+        if len(batch) >= size:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
+
+
+class _StoreTrouble(sqlite3.OperationalError):
+    """The store's own failure, carrying the document it happened at. The batch is what gets
+    rolled back and replayed, but a disk error is worth naming its document — `batch[-1]`
+    would name whichever document the batch happened to end on.
+
+    An `OperationalError` itself, so `under_lock` and `_is_lock` read it as what it wraps."""
+
+    def __init__(self, label: str, cause: sqlite3.OperationalError):
+        super().__init__(str(cause))
+        self.label = label
+        self.cause = cause
+
+
+def under_lock(
+    con, do, *, what: str, log=print, lock_retries: int = LOCK_RETRIES, sleep=time.sleep
+):
+    """Run `do()` — ONE whole transaction, begun and committed inside it — waiting out the
+    write lock if someone else holds it. Returns what `do` returns; raises the last
+    `OperationalError` when the retries run out, or at once when it is not a lock.
+
+    THE ROLLBACK IS THE POINT, NOT THE SLEEP. Migration A's `text load` aborted seven times
+    against Litestream's `checkpoint: mode=TRUNCATE err=database is locked` (2026-09-04,
+    `deferred.md`): the two want the same write lock, our transaction is the one holding it,
+    and the 30 s busy timeout expires without either giving way. Rolling back hands the lock
+    over, so the checkpoint finishes in the first wait and the retry finds it free. A shell
+    loop of twelve restarts was doing this by hand, one whole pass at a time.
+
+    RETRYING IS SAFE BECAUSE THE ROLLBACK LEFT NOTHING. `do` must therefore be one
+    transaction and must be replayable — deriving what it writes from the store as it now
+    is, not from anything the failed attempt left behind. Both callers are: the batch loop
+    below re-reads nothing (`one` sees the store it saw), and `search.rebuild_pages` re-runs
+    one batch of inserts it still holds in memory.
+
+    It lives HERE, beside the loop that first needed it, so "how this project waits out the
+    write lock" has one definition and one backoff rather than one per pass.
+    """
+    for attempt in range(lock_retries + 1):
         try:
-            if not con.in_transaction:
-                con.execute("BEGIN")  # or the savepoint below is the outermost, and RELEASE commits
+            return do()
+        except sqlite3.OperationalError as e:
+            con.rollback()  # gives the lock up, which is what the other writer is waiting for
+            if not _is_lock(e) or attempt == lock_retries:
+                raise
+            wait = LOCK_BACKOFF * 2**attempt
+            log(
+                f"  write lock busy at {getattr(e, 'label', what)} ({e}); rolled back,"
+                f" retrying {what} in {wait}s ({attempt + 1} of {lock_retries})"
+            )
+            sleep(wait)
+    raise AssertionError("unreachable: the last attempt returns or raises")
+
+
+def _apply(con, batch: list, one: Callable[[object], str], log) -> Counter:
+    """One batch in ONE transaction: applied whole and committed, or raised out with
+    nothing written. Returns the batch's own counts, which the caller folds in only when
+    the commit lands — so a batch replayed after a lock is not counted twice.
+
+    The commit is inside, because SQLITE_BUSY is as likely there as at the first write —
+    and `at` names the commit rather than the last document when it is, because "aborted at
+    the last file in the batch" would send the operator to a file that is not the trouble.
+
+    THE LOG LINES ARE HELD UNTIL THE COMMIT LANDS, for the reason the counts are: a batch
+    replayed after a lock re-derives them, and a log showing a document refused six times
+    beside a total of one is a log that has to be explained away (code review, 2026-09-04).
+    """
+    counts: Counter = Counter()
+    lines: list[str] = []
+    at = batch[0][0]
+    try:
+        con.execute("BEGIN")  # or the savepoint below is the outermost, and RELEASE commits
+        for label, thing in batch:
+            at = label
+            if isinstance(thing, Exception):
+                lines.append(f"  unreadable {label}: {thing}")
+                counts["unreadable"] += 1
+                continue
             con.execute("SAVEPOINT document")
             try:
                 outcome = one(thing)
@@ -87,20 +169,65 @@ def run(
                 raise  # the store, not the document
             except Exception as e:  # noqa: BLE001 — the document is refused, the pass goes on
                 con.execute("ROLLBACK TO document")
-                log(f"  failed {label}: {type(e).__name__} {e}")
-                totals["failed"] += 1
+                lines.append(f"  failed {label}: {type(e).__name__} {e}")
+                counts["failed"] += 1
                 continue
             finally:
                 con.execute("RELEASE document")
-            since_commit += 1
-            if since_commit >= commit_every:
-                con.commit()
-                since_commit = 0
-        except sqlite3.OperationalError as e:
-            con.rollback()
-            log(f"  aborted at {label}: {type(e).__name__} {e}")
+            counts[outcome] += 1
+        at = f"the commit after {at}"
+        con.commit()
+    except sqlite3.OperationalError as e:
+        raise _StoreTrouble(at, e) from e
+    for line in lines:
+        log(line)
+    return counts
+
+
+def run(
+    con,
+    items: Iterable[tuple[str, object]],
+    one: Callable[[object], str],
+    *,
+    log=print,
+    commit_every: int = COMMIT_EVERY,
+    lock_retries: int = LOCK_RETRIES,
+    sleep=time.sleep,
+) -> Counter:
+    """`one(thing)` returns the outcome word to count. Returns the counts: one key per
+    outcome, plus `unreadable`, `failed` and `aborted` as above.
+
+    A batch is a batch of ITEMS, not of applied documents — an unreadable one occupies a
+    place in it and touches nothing — because the batch is the unit that gets replayed.
+    """
+    totals: Counter = Counter()
+    seen = 0
+    for batch in _chunk(items, commit_every):
+        counts = _with_retries(con, batch, one, log, lock_retries, sleep)
+        if counts is None:
             totals["aborted"] += 1
             break
-        totals[outcome] += 1
+        totals += counts
+        before, seen = seen, seen + len(batch)
+        if seen // LOG_EVERY != before // LOG_EVERY:
+            log(f"  {dict(totals)}")
     con.commit()
     return totals
+
+
+def _with_retries(con, batch: list, one, log, lock_retries: int, sleep) -> Counter | None:
+    """The batch's counts, or None when the pass must stop. `under_lock` does the waiting;
+    this turns the give-up into the `aborted` the passes report rather than an exception."""
+    try:
+        return under_lock(
+            con,
+            lambda: _apply(con, batch, one, log),
+            what=f"{len(batch)} documents",
+            log=log,
+            lock_retries=lock_retries,
+            sleep=sleep,
+        )
+    except sqlite3.OperationalError as e:
+        cause = getattr(e, "cause", e)
+        log(f"  aborted at {getattr(e, 'label', batch[0][0])}: {type(cause).__name__} {e}")
+        return None

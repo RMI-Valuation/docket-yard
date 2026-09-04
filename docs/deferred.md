@@ -628,25 +628,31 @@ four confirmed, all nits, three reported and one dropped by its quality cap. Not
 
 ## Observed at Migration A's first load, 2026-09-04 (v2026.09.2 on the resized box)
 
-- **A bulk pass and Litestream trade the write lock, and the pass loses.** `text load`
-  aborted six times (`OperationalError: database is locked` after the 30 s busy timeout) at
-  35,903, 41,524, 42,107, 43,831, 45,366 and 57,559 documents, and `text paginate` once at
-  59,105; Litestream logged `checkpoint: mode=TRUNCATE err=database is locked` through each.
-  Every restart resumed from `ocr_run`, and a shell loop of twelve finished it on the seventh
-  attempt, 21 minutes wall for 77,567 documents. The abort is the design (`store/batches.py`),
-  so the fix is not in the loop: either the pass retries the *batch* a bounded number of
-  times on a lock before aborting, or the runbook pauses Litestream for a bulk pass's
-  minutes. Decide before Migration B's OCR loads, which are larger.
-- **`search rebuild-pages` holds the write lock for its whole run — 8 m 49 s at 1,104,935
-  rows — and the poller lost its 01:03 pass to it** (every table `capture failed
-  (OperationalError: database is locked)`; the trailing seven-day window took the next
-  pass, no gap). The docstring said minutes and now has the number. It is for recovery and a
-  `PAGE_INDEX_FORMAT` bump, never routine; when it is needed, run it behind the maintenance
-  wall, or batch it. The incremental index was already exact: the count matched before it.
-  **With migration 0020's function on every row the whole rebuild took 27 m 26 s** (v2026.09.3
-  deploy, twelve minutes of it against a read-only measurement and web's refuse-and-restart
-  loop, which the runbook now stops first); batching it is the fix, and the per-row Python
-  call is where the time goes.
+- ~~**A bulk pass and Litestream trade the write lock, and the pass loses.**~~ FIXED
+  2026-09-04 (v2026.09.7). `text load` aborted six times (`OperationalError: database is
+  locked` after the 30 s busy timeout) at 35,903, 41,524, 42,107, 43,831, 45,366 and 57,559
+  documents, and `text paginate` once at 59,105; Litestream logged `checkpoint:
+  mode=TRUNCATE err=database is locked` through each, and a shell loop of twelve finished it
+  on the seventh attempt. The pass now rolls the batch back — which is what hands the lock
+  over — waits, and REPLAYS it, up to five times with a doubling backoff
+  (`batches.under_lock`). Replay is safe because the rollback left nothing and the payload
+  blobs are content-addressed. A lock that never clears still aborts, and a failure that is
+  not a lock aborts at once.
+- ~~**`search rebuild-pages` holds the write lock for its whole run**~~ FIXED 2026-09-04
+  (v2026.09.7) — 8 m 49 s at 1,104,935 rows, then **27 m 26 s** with migration 0020's
+  function on every row, and the poller lost its 01:03 pass to it. FTS5's `'rebuild'` does
+  the whole read-and-index in one transaction; it is now `'delete-all'` plus keyset-paged
+  batches of 2,000, with the per-row masking running in the SELECT outside any transaction
+  and the lock released between batches. Measured on a synthetic 100,000-page store: a
+  second writer was refused the lock on 8 of 21 probes before and 0 of 255 after, for 3.2 s
+  against 4.0 s of wall time. **The production figure at 1.1M rows is not verified** — the
+  next real rebuild is what confirms it.
+- **A rebuild started while `text load` is already running is not detected.** The loader
+  refuses to START while `search_meta.page_built` says `rebuilding` (`page_index`), which
+  closes the common direction; there is no marker for "a load is in flight", so the reverse
+  is not enforced. `rebuild_pages` reports `moved` when the page signature changed under it,
+  which is how the operator learns of it after the fact. Found by review 2026-09-04; the fix
+  is a claim both passes take, and nothing needs it before Migration B.
 - **2,704 of the 80,272 extraction records name no `document` row** (`unknown_document`):
   the blob copy on RMI-AI-MACHINE holds files the store does not list as documents, and the
   extractor v2 writes a stub for every file it sees. The count is the loader's report, not a

@@ -21,6 +21,26 @@ hand and owes the calls by hand. `search_meta.page_built` is not bumped here —
 search wiring (`docs/ocr-migration.md` item 11), owed.
 """
 
+# The signature `search.rebuild_pages` writes while it owns the index. Spelled here rather
+# than imported so this module keeps its one import of nothing; `test_page_search` asserts
+# the two strings are the same, which is the only way they can drift.
+REBUILDING = "rebuilding"
+
+
+class Rebuilding(RuntimeError):
+    """A rebuild owns the index. A writer that went ahead anyway would index a row the
+    rebuild's scan is about to index again — external-content FTS5 takes the duplicate
+    rowid in silence, and a later `leave` clears one copy and leaves the other's tokens
+    behind, which is the corruption `search_pages` reports as a malformed disk image
+    (code review, 2026-09-04)."""
+
+
+def owned_by_rebuild(con) -> bool:
+    """Whether `search rebuild-pages` is in flight (or died in flight). Read ONCE at the
+    top of a pass, never per row: it is a one-row lookup, but a pass writes a million."""
+    row = con.execute("SELECT signature FROM search_meta WHERE key = 'page_built'").fetchone()
+    return bool(row) and row[0] == REBUILDING
+
 
 def visible(con, document_sha256: str, page_no: int) -> bool:
     """Whether a primary on this page is in the display view: no live human row holds it."""

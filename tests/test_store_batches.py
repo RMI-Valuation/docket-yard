@@ -64,22 +64,73 @@ def test_a_document_the_writer_refuses_is_rolled_back_alone(tmp_path):
     assert "failed 2: ValueError" in lines[0] and "failed 4: IntegrityError" in lines[1]
 
 
-def test_the_store_failing_aborts_the_pass_and_rolls_the_batch_back(tmp_path):
+def test_a_held_write_lock_is_waited_out_and_the_batch_replayed(tmp_path):
+    """Migration A's `text load` aborted seven times against Litestream's TRUNCATE
+    checkpoint and a shell loop of twelve restarts finished it by hand (`deferred.md`,
+    2026-09-04). The rollback is what hands the lock over, so the batch is rolled back,
+    waited on and REPLAYED — and replay must not count the batch twice, which is why the
+    failing document is in it."""
+    con = _store(tmp_path)
+    holder = sqlite3.connect(tmp_path / "s.sqlite", timeout=0)
+    holder.execute("BEGIN IMMEDIATE")  # the write lock, as Litestream holds it
+    con.execute("PRAGMA busy_timeout = 50")
+    lines, waits = [], []
+
+    def one(n):
+        if n == 1:
+            raise ValueError("the writer found something wrong")
+        con.execute("INSERT INTO t (n) VALUES (?)", (n,))
+        return "ok"
+
+    def sleep(seconds):  # the checkpoint finishes while the pass waits
+        waits.append(seconds)
+        holder.rollback()
+
+    totals = batches.run(con, ((str(n), n) for n in range(4)), one, log=lines.append, sleep=sleep)
+    assert totals == {"ok": 3, "failed": 1}, "the replayed batch was counted twice"
+    assert waits == [2], "one wait, and it is the first of the doubling backoff"
+    assert [r[0] for r in con.execute("SELECT n FROM t ORDER BY n")] == [0, 2, 3]
+    assert "write lock busy at 0" in lines[0]
+    assert "retrying 4 documents in 2s (1 of 5)" in lines[0]
+    assert _count(tmp_path) == 3 and not con.in_transaction
+
+
+def test_a_lock_that_never_clears_aborts_the_pass_and_rolls_the_batch_back(tmp_path):
+    """The retries are bounded: a lock nothing is going to release stops the pass, with the
+    batch rolled back and nothing written, exactly as it did before there were retries."""
     con = _store(tmp_path)
     holder = sqlite3.connect(tmp_path / "s.sqlite", timeout=0)
     holder.execute("BEGIN IMMEDIATE")
     con.execute("PRAGMA busy_timeout = 50")
-    lines = []
+    lines, waits = [], []
     totals = batches.run(
         con,
         ((str(n), n) for n in range(3)),
         lambda n: (con.execute("INSERT INTO t (n) VALUES (?)", (n,)), "ok")[1],
         log=lines.append,
+        sleep=waits.append,
     )
     assert totals == {"aborted": 1}
-    assert "aborted at 0" in lines[0] and "locked" in lines[0]
+    assert waits == [2, 4, 8, 16, 32], "the backoff doubles, five times"
+    assert "aborted at 0" in lines[-1] and "locked" in lines[-1]
     holder.rollback()
     assert _count(tmp_path) == 0 and not con.in_transaction
+
+
+def test_a_store_failure_that_is_not_a_lock_aborts_at_once(tmp_path):
+    """A disk error, a read-only file, a corrupt page: none of them clear by waiting, and
+    spending five doubling waits on one is how a pass takes a minute to say so."""
+    con = _store(tmp_path)
+    lines, waits = [], []
+
+    def one(n):
+        raise sqlite3.OperationalError("disk I/O error")
+
+    totals = batches.run(con, [("a", 1)], one, log=lines.append, sleep=waits.append)
+    assert totals == {"aborted": 1}
+    assert waits == [], "a failure that will not clear is not waited on"
+    assert "aborted at a" in lines[0] and "disk I/O error" in lines[0]
+    assert not con.in_transaction
 
 
 def test_an_item_that_is_an_error_is_counted_not_raised(tmp_path):

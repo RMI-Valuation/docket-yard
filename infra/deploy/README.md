@@ -71,11 +71,16 @@ docker compose pull && docker compose up -d
 docker compose logs migrate                  # the migrations ran, and what they said
 curl -s https://docketyard.org/health        # answers throughout; check `schema`
 # a release that changes the display view (search.PAGE_INDEX_FORMAT) rebuilds the page
-# index HERE, still behind the wall: a whole rebuild holds the write lock for its run
-# (27 m 26 s at 1.1 M rows with the display function on every row, 2026-09-04) and until
-# it runs the index holds the old view's bytes, which every later 'delete' then fails to
-# clear. `web` refuses to serve until it has run and would otherwise restart in a loop
-# beside it, so stop it first and start it after
+# index HERE, still behind the wall: until it runs the index holds the old view's bytes,
+# which every later 'delete' then fails to clear. It is BATCHED since v2026.09.7, so it no
+# longer holds the write lock for its whole run (it did: 27 m 26 s at 1.1 M rows) — the
+# poller and Litestream get in between batches — but it still EMPTIES the index first and
+# fills it back, marking `search_meta.page_built` 'rebuilding' meanwhile. `web` refuses to
+# start against that mark, a page search that reaches a running `web` says the text index
+# is being rebuilt rather than answering short, and `text load` refuses to run beside it.
+# So: stop web first and start it after, and do not load text in another shell until it is
+# done. A rebuild that dies leaves the mark; re-run it, no --force needed. Watch the
+# `page index: N rows` lines — it prints its progress
 docker compose stop web
 docker compose run --rm --no-deps ingest search rebuild-pages </dev/null
 docker compose start web

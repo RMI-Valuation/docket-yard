@@ -18,7 +18,7 @@ from sqlite3 import Connection
 
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.parties import resolve
-from docketyard.store import display, pages
+from docketyard.store import batches, display, pages
 from docketyard.store.db import utcnow
 from docketyard.web import urls
 
@@ -341,25 +341,124 @@ def page_built(con: Connection) -> tuple[str | None, int]:
     return (row[0], row[1]) if row else (None, 0)
 
 
-def rebuild_pages(con: Connection, *, force: bool = False) -> dict:
+PAGE_REBUILD_BATCH = 2000  # rows per write transaction; see `rebuild_pages`
+# What `page_built.signature` says while a rebuild is in flight. It deliberately does NOT
+# begin with `PAGE_INDEX_FORMAT`, because that is the string `web` tests: an interrupted
+# rebuild leaves a HALF-BUILT index, and a half-built index that passed the check would
+# quietly answer searches with a fraction of the record.
+PAGE_REBUILDING = "rebuilding"
+
+
+def _mark_page_build(con: Connection, signature: str, build: int, log=None) -> None:
+    """Under the retry like every other write here: the mark is the FIRST thing a rebuild
+    takes the lock for, so a contended store used to fail before a single row moved."""
+    _under_lock(
+        con,
+        "INSERT INTO search_meta (key, signature, build, built_at) VALUES ('page_built', ?, ?, ?)"
+        " ON CONFLICT (key) DO UPDATE SET signature = excluded.signature,"
+        " build = excluded.build, built_at = excluded.built_at",
+        log or (lambda _: None),
+        "mark",
+        [(signature, build, utcnow())],
+    )
+
+
+def rebuild_pages(
+    con: Connection, *, force: bool = False, batch: int = PAGE_REBUILD_BATCH, log=None
+) -> dict:
     """The page index from the display view, whole. The loader keeps `page_fts` in step
     row by row (`store.page_index`), so this is for recovery and for a change to the view —
     a `PAGE_INDEX_FORMAT` bump — not for every pass; ~1.1M rows is minutes, not seconds.
-    FTS5's 'rebuild' reads the content view inside one transaction."""
+
+    IT IS BATCHED BECAUSE IT USED TO HOLD THE WRITE LOCK FOR ITS WHOLE RUN. FTS5's own
+    `'rebuild'` reads the content view inside one transaction, and with migration 0020's
+    `dy_display_text` running once per row that was 8 m 49 s at 1,104,935 rows, then
+    27 m 26 s at the v2026.09.3 deploy — and the poller lost its 01:03 pass to it
+    (`deferred.md`, 2026-09-04). Two things change here:
+
+    - THE PER-ROW PYTHON IS OUTSIDE THE WRITE LOCK. The masking function runs in the SELECT
+      that reads the view, in no transaction at all; only the FTS insert of each batch is
+      inside `BEGIN IMMEDIATE`. That is where the time went, and it now costs the poller
+      nothing.
+    - THE LOCK IS RELEASED BETWEEN BATCHES, so a writer waiting on it — Litestream's
+      checkpoint, the poller — gets in within a batch rather than within a rebuild.
+
+    Measured 2026-09-04 on a synthetic 100,000-page store, a second writer probing for the
+    write lock every 10 ms: refused on 8 of 21 probes before (each probe waiting 250 ms, so
+    it was shut out for the run) against 0 of 255 after, for 3.2 s of wall time against
+    4.0 s. The 25% is what the extra commits and the keyset paging cost, and it buys a
+    poller that never waits. The production figure at 1.1M rows on the instance is NOT
+    verified — this box is an order of magnitude faster per row — and the next real rebuild
+    is what confirms it.
+
+    A HALF-BUILT INDEX IS NEVER SERVED. The build is not atomic any more, so `page_built`
+    is marked `rebuilding` before the first row is touched and only set to the real
+    signature after the last: `web` refuses to start against anything that does not begin
+    with `PAGE_INDEX_FORMAT`, so an interrupted rebuild is refused rather than served
+    short. Re-running needs no `--force` — `rebuilding` matches no signature.
+
+    Keyset paging, not OFFSET: the view is ordered by `text_id` and each batch resumes after
+    the last one's, so the scan stays linear.
+    """
     sig = page_signature(con)
     last, build = page_built(con)
     if sig == last and not force:
         return {"unchanged": True, "build": build}
-    con.execute("BEGIN IMMEDIATE")
-    con.execute("INSERT INTO page_fts (page_fts) VALUES ('rebuild')")
-    con.execute(
-        "INSERT INTO search_meta (key, signature, build, built_at) VALUES ('page_built', ?, ?, ?)"
-        " ON CONFLICT (key) DO UPDATE SET signature = excluded.signature,"
-        " build = excluded.build, built_at = excluded.built_at",
-        (sig, build + 1, utcnow()),
-    )
-    con.commit()
-    return {"build": build + 1, "pages": con.execute("SELECT COUNT(*) FROM page_fts").fetchone()[0]}
+    say = log or (lambda _: None)
+    # THE MARK GOES DOWN BEFORE THE FIRST ROW IS TOUCHED, and it is a claim as well as a
+    # warning: `page_index` refuses to write while it stands, so the loader cannot index a
+    # row this scan is about to index again — a duplicate rowid an external-content FTS5
+    # accepts in silence and a later 'delete' half-clears.
+    _mark_page_build(con, PAGE_REBUILDING, build, say)
+    # 'delete-all', not 'rebuild': 'rebuild' is the whole read-and-index in one transaction,
+    # which is the thing being taken apart. This empties the index and reads nothing.
+    _under_lock(con, "INSERT INTO page_fts (page_fts) VALUES ('delete-all')", say, "delete-all")
+    rows = after = 0
+    while True:
+        # OUTSIDE any transaction: this is where `dy_display_text` runs, once per row.
+        chunk = con.execute(
+            "SELECT text_id, text FROM document_text_display WHERE text_id > ?"
+            " ORDER BY text_id LIMIT ?",
+            (after, batch),
+        ).fetchall()
+        if not chunk:
+            break
+        _under_lock(con, "INSERT INTO page_fts (rowid, text) VALUES (?, ?)", say, "batch", chunk)
+        rows += len(chunk)
+        after = chunk[-1][0]
+        say(f"  page index: {rows} rows")
+    # The store may have moved under the scan — the loader refuses to start while the mark
+    # stands, but a load ALREADY RUNNING when this began does not see it. Say so rather than
+    # stamping a signature the index does not answer to: the operator re-runs, and until
+    # they do, the next `rebuild_pages` finds `sig != last` and rebuilds anyway.
+    moved = page_signature(con) != sig
+    _mark_page_build(con, sig, build + 1, say)
+    out = {"build": build + 1, "pages": rows}
+    if moved:
+        out["moved"] = True
+        say("  the page signature moved while this ran: something wrote readings. Re-run.")
+    return out
+
+
+def _under_lock(con: Connection, sql: str, log, what: str, rows: list | None = None) -> None:
+    """One write transaction, waited out when another writer holds the lock.
+
+    The batched rebuild takes the write lock hundreds of times where FTS5's `'rebuild'` took
+    it once, so a transient SQLITE_BUSY that the old shape never met would now empty the
+    index and stop — leaving `web` refusing to start until a whole rebuild lands. It waits
+    the lock out by the one rule the passes use (`batches.under_lock`), and replay is safe
+    because the rollback leaves nothing and `rows` is still in memory.
+    """
+
+    def do():
+        con.execute("BEGIN IMMEDIATE")
+        if rows is None:
+            con.execute(sql)
+        else:
+            con.executemany(sql, rows)
+        con.commit()
+
+    batches.under_lock(con, do, what=f"the page index's {what}", log=log)
 
 
 def built(con: Connection) -> tuple[str | None, int]:
@@ -505,6 +604,11 @@ class PageResults:
     hits: list[Hit]
     truncated: bool  # the index matched more pages than were asked for
     dropped: int  # index rows with no display row or no record: a stale index shows here
+    # A rebuild is in flight and the index holds a FRACTION of the record. `web` refuses to
+    # START against this, but a process already running would answer a search short with a
+    # 200 and no sign — a coverage claim the store cannot support. The surfaces say it
+    # instead (code review, 2026-09-04).
+    rebuilding: bool = False
 
 
 def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> PageResults:
@@ -529,9 +633,16 @@ def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> Page
     is clamped to `PAGE_LIMIT` for every caller: the number is a published promise, not a
     default."""
     limit = max(1, min(limit, PAGE_LIMIT))
+    # One row, before the query: a rebuild in flight means the index holds a fraction of the
+    # record, and answering "3 pages" out of a tenth of it is a coverage claim the store
+    # cannot support. `web` refuses to START against this; a process already running gets
+    # here instead, and says so.
+    rebuilding = page_built(con)[0] == PAGE_REBUILDING
     match = _match(text, prefix=False)
     if match is None:
-        return PageResults([], False, 0)
+        return PageResults([], False, 0, rebuilding=rebuilding)
+    if rebuilding:
+        return PageResults([], False, 0, rebuilding=True)
     # The rowids first and the snippet second, for a reason that was reproduced: FTS5
     # computes `snippet()` from the content view, and an index row whose view row has gone
     # — a human correction inserted by hand without `leave(primary)`, which `page_index`'s
@@ -589,7 +700,7 @@ def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> Page
                 scan=urls.viewer_path(kind, record_id, index),
             )
         )
-    return PageResults(hits, truncated, dropped)
+    return PageResults(hits, truncated, dropped, rebuilding=rebuilding)
 
 
 # The record that carries a document, and the file's index among the record's attachments
