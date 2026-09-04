@@ -10,8 +10,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 - **The figures: 94.7% projected / 97.7% precision, 93.3% to a reader.** Three causes,
   separated in migration 0016's header, which is the one to quote
-- **The citator is in production at schema 19 and has never run a real load.** Nothing in
-  the code blocks it; the first load is Cameron's to start
+- **The citator has never run a real load** (`citation`: 0 rows). `citator find` now walks the
+  store's own text — dry run 2026-09-04 over a copy: 31,188 citations, **93.7% resolve**
+  (`deferred.md`). Left before a load: the rest of the chain measured. **Cameron's to start**
 - **Owed with the pipeline**: ingest writing `decision_work`; the review queue and the "not in
   the record" display joining live `citation`; the veto's trigger. More in `deferred.md`
 - **Drain closed**: 121 unfetched, every one a genuine refusal resting 7 days. **The class

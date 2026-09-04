@@ -722,3 +722,32 @@ was verified against the file named before it was written down.
   answer is either a documented consequence or a split between sending and reading.
   Not a defect until decided, but `infra/deploy/README.md`'s "and nothing else" is wrong
   today, and that sentence is what a reader of the topology would rely on.
+
+## From the citator's first run over the record, 2026-09-04 (dry run, nothing loaded)
+
+`citator find` over a `VACUUM INTO` copy of production, never the live store: 20,062
+readings, 139,805 pages, **73,103 findings — 41,915 captions and 31,188 citations** over
+5,176 distinct targets. **29,229 of the 31,188 citations (93.7%) resolve to a proceeding the
+registry holds.** `citation` still holds 0 rows; nothing was loaded. The two things in the
+6.3% that are worth having written down:
+
+- **A sub-number the Board prints as `0X` does not resolve, and the proceeding IS held.**
+  43 instances over 19 distinct targets, all of which the registry holds under another key:
+  the Board writes `AB 1182 (Sub-No. 0X)`, `keys.normalise` reads that to `AB 1182 (0X)`,
+  and `keys.registry_key` builds the held docket's key from its parsed columns as
+  `AB 1182 (X)` — the raw `AB_1182_0_X` having lost the `0` at ingest. So the two ends of
+  ADR 0017 D2's resolution disagree about one spelling, and a real edge is refused as
+  unresolvable. Small (0.14% of citations) and precise; the fix is in the seam between
+  `ingest.dockets` and `citator.keys`, and whichever end moves, BOTH readings of the same
+  proceeding must land on one key or the edge splits in two.
+- **`SO 2` is cited 855 times and the record does not hold it** — 44% of every unresolved
+  instance, in one target. The record holds 22 `SO` dockets, so the prefix is walked and
+  this proceeding is not among them. That is a coverage statement rather than a defect, and
+  it is exactly the display ADR 0017 D2 designs for ("cites SO 2 — not in the record");
+  whether the backfill should reach it is the operator's.
+
+Left on the instance for the next step, and to be deleted if it is not taken:
+`/srv/docketyard/data/citator-dryrun.sqlite` (3.4 GB) and `data/citator-findings` (84 MB).
+The step not taken is the rest of the chain — judge, load, project — which needs the
+benchmark's measurements declared in the copy before `load` will write a row, and would give
+the projected-edge figure to set against the published 94.7% / 97.7%.
