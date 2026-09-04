@@ -54,7 +54,21 @@ ADR 0021 D7 forbids machine-read text reaching a reader through search without t
 twenty on every surface — the limit is clamped inside `search_pages`, and the page says when
 the record held more — one per page, addressed under the earliest-filed filing that carries
 the document, else the earliest-served decision (migration 0021 indexes that lookup); a
-comment's attachment has no text address. The label and the band are `store.pages.label`
+comment's attachment has no text address.
+
+**At most three of the twenty come from any one document** (added 2026-09-04,
+`search.PAGE_PER_DOCUMENT`). The record path cannot be monopolised — its grain is one row
+per docket — but this one's is one row per PAGE, so a phrase printed on every page of a
+300-page environmental assessment ranked twenty of that document's pages and buried every
+other document that matched, with nothing on the page to say so. Two hundred ranked rows are
+scanned (`PAGE_OVERFETCH`) and folded to three a document before the cut to twenty; the page
+and the MCP answer both say when pages were folded away, so twenty never reads as "all the
+record holds". The fold reads no text — SQLite evaluates the view's masking function only
+for the columns selected, so the two hundred are folded on their document alone and the text
+is fetched for the twenty that survive. That is the whole of the cost question: measured
+2026-09-04 on a 40,000-page store whose pages average 3,827 characters, with a term matching
+every page, **36.7 ms at the old window, 49.0 ms if all two hundred rows are read through
+the masking view, and 37.6 ms as shipped**. The label and the band are `store.pages.label`
 and `band`, the sentences the text page prints, so the two surfaces cannot drift.
 
 **F4's rule**: a sub-docket's entries live on the family sheet (ADR 0005), so a hit on a

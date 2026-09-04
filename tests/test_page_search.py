@@ -4,6 +4,7 @@ operand or why there is none, and the scan; never `/suggest`; never joined to `s
 """
 
 import sqlite3
+from collections import Counter
 
 import pytest
 from fastapi.testclient import TestClient
@@ -360,3 +361,159 @@ def test_a_search_during_a_rebuild_says_so_rather_than_answering_short(tmp_path)
     # and an assistant is told, so it does not report an absence that is not one
     answer = mcp._search(db.connect(path), {"query": "tazewell"}, "docketyard.org")
     assert "were NOT searched" in answer
+
+
+def _long_document(tmp_path, path, mark, n, word="quarterly"):
+    """A document every one of whose pages carries the same phrase — the shape that used to
+    take the whole section: a 300-page environmental assessment, a tariff, a form."""
+    long_sha = mark * 64
+    con = db.connect(path)
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'pdf', '2026-08-24T00:00:00+00:00')",
+        (long_sha,),
+    )
+    filing_pk = con.execute("SELECT filing_pk FROM filing ORDER BY filing_pk LIMIT 1").fetchone()[0]
+    con.execute(
+        "INSERT INTO filing_attachment (filing_pk, label, source_url, document_sha256)"
+        f" VALUES (?, 'the long one', 'https://example.org/{mark}.pdf', ?)",
+        (filing_pk, long_sha),
+    )
+    con.commit()
+    con.close()
+    doc = _extraction(long_sha, tuple(f"{word} report, sheet {i}" for i in range(n)))
+    doc["text_sha256"] = mark * 64  # its own run, not a re-load of another document's
+    assert _loaded(path, tmp_path, doc) == "loaded"
+    _paginated(path, long_sha, n)
+    return long_sha
+
+
+def test_one_document_cannot_take_the_whole_page_section(tmp_path):
+    """A phrase printed on every page of one long document ranked twenty of ITS pages and
+    buried every other document that matched — and the reader saw a full section with no
+    sign anything was missing. The record path cannot fail this way (one row per docket);
+    this one's grain is one row per page (`deferred.md`, 2026-09-04)."""
+    path, sha = _with_text(tmp_path)
+    _long_document(tmp_path, path, "d", n=40)
+    _long_document(tmp_path, path, "e", n=12)  # a second, ranked below it
+    con = db.connect(path)
+    search.rebuild_pages(con, force=True)
+
+    found = search.search_pages(con, "quarterly")
+    per_document = Counter(h.path.split("#")[0] for h in found.hits)
+    assert max(per_document.values()) <= search.PAGE_PER_DOCUMENT, per_document
+    assert found.folded, "nothing was folded — the fixture did not reproduce the shape"
+    assert found.truncated, "the record holds more pages than are shown, and must say so"
+    # the second document is REACHABLE, which is the whole point: before the fold, the long
+    # one's pages 1-20 filled the section and this was invisible
+    assert len(per_document) > 1, "the long document still took the section"
+    con.close()
+
+    html = TestClient(create_app(path)).get("/search?q=quarterly").text
+    assert f"at most {search.PAGE_PER_DOCUMENT} from any one document" in html
+    assert "the record holds more" in html
+    answer = mcp._search(db.connect(path), {"query": "quarterly"}, "docketyard.org")
+    assert f"At most {search.PAGE_PER_DOCUMENT} pages of any one document" in answer
+
+
+def test_a_stale_index_row_is_counted_where_the_operator_can_see_it(tmp_path, monkeypatch):
+    """`PageResults.dropped` was computed and read by nobody, and it is the ONE signal that
+    `page_fts` has drifted from the display view — a human row inserted without `leave`, a
+    store restored from a replica (`deferred.md`, 2026-09-04). There is no cheap store query
+    for it (the masking function over 1.1M rows), so it is what searches have MET."""
+    path, sha = _with_text(tmp_path)
+    con = db.connect(path)
+    before = search.stale_page_rows()
+    assert search.search_pages(con, "tazewell").dropped == 0
+    assert search.stale_page_rows() == before  # a clean index moves nothing
+
+    # the drift `page_index`'s docstring names: a human row lands on the page and the
+    # primary leaves the view, with no `leave` to take it out of the index
+    text_id = con.execute("SELECT rowid FROM page_fts WHERE page_fts MATCH 'tazewell'").fetchone()[
+        0
+    ]
+    row = con.execute(
+        "SELECT document_sha256, page_no FROM document_text WHERE text_id = ?", (text_id,)
+    ).fetchone()
+    con.execute(
+        "INSERT INTO document_text (document_sha256, page_no, reading_channel, reading_role,"
+        " method, method_version, render_profile, text, text_sha256, confidence,"
+        " confidence_state, asserted_at) VALUES (?,?,'human','human','human','unversioned',"
+        " 'human', 'read by a person', ?, 1.0, 'human', '2026-09-04T00:00:00+00:00')",
+        (row[0], row[1], "e" * 64),
+    )
+    con.commit()
+    found = search.search_pages(con, "tazewell")
+    assert found.dropped == 1 and found.hits == []
+    assert search.stale_page_rows() == before + 1
+    con.close()
+
+    monkeypatch.setenv("DY_METRICS_TOKEN", "t")
+    client = TestClient(create_app(path))
+    client.get("/search?q=tazewell")  # a reader meets the stale row
+    body = client.get("/metrics", headers={"Authorization": "Bearer t"}).text
+    assert "docket_yard_page_index_stale_rows_total" in body
+    shown = int(
+        next(
+            line for line in body.splitlines() if line.startswith("docket_yard_page_index_stale")
+        ).split()[1]
+    )
+    assert shown >= 1
+
+
+def test_a_document_with_no_text_address_is_dropped_without_moving_the_drift_counter(tmp_path):
+    """`dropped` and the metric are not the same number. A comment's attachment has text and
+    no address to show it at, so its pages are dropped from every search of a HEALTHY store;
+    counting those as drift would move the one signal in proportion to traffic and bury it
+    (review, 2026-09-04)."""
+    path, sha = _with_text(tmp_path)
+    con = db.connect(path)
+    orphan = "f" * 64  # held, read, and carried by no filing or decision
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'pdf', '2026-08-24T00:00:00+00:00')",
+        (orphan,),
+    )
+    con.commit()
+    con.close()
+    doc = _extraction(orphan, ("marmoset husbandry in Perry County",))
+    doc["text_sha256"] = orphan
+    assert _loaded(path, tmp_path, doc) == "loaded"
+    con = db.connect(path)
+    search.rebuild_pages(con, force=True)
+
+    before = search.stale_page_rows()
+    found = search.search_pages(con, "marmoset")
+    assert found.hits == [] and found.dropped == 1, "it is in the index and has no address"
+    assert search.stale_page_rows() == before, "an expected drop moved the drift counter"
+    con.close()
+
+
+def test_the_machine_answer_never_offers_more_pages_than_the_none_it_showed(tmp_path):
+    """`truncated` is set from the index, before a single row is looked up, so every matched
+    row dropping leaves it true with nothing shown — and the assistant was told "…and more
+    pages than the 0 shown" after a list of nothing (review, 2026-09-04)."""
+    path, sha = _with_text(tmp_path)
+    con = db.connect(path)
+    orphan = "b" * 64  # held and read, carried by no filing or decision: no text address
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'pdf', '2026-08-24T00:00:00+00:00')",
+        (orphan,),
+    )
+    con.commit()
+    con.close()
+    # more than the deepest window a caller can open (PAGE_LIMIT * PAGE_OVERFETCH), so the
+    # index truthfully says "more matched" while every one of them drops
+    doc = _extraction(orphan, tuple(f"pangolin sighting {i}" for i in range(220)))
+    doc["text_sha256"] = orphan
+    assert _loaded(path, tmp_path, doc) == "loaded"
+    con = db.connect(path)
+    search.rebuild_pages(con, force=True)
+    found = search.search_pages(con, "pangolin")
+    assert found.hits == [] and found.truncated, "the fixture did not reproduce the shape"
+    con.close()
+
+    answer = mcp._search(db.connect(path), {"query": "pangolin"}, "docketyard.org")
+    assert "0 shown" not in answer
+    assert "more pages than" not in answer

@@ -13,6 +13,7 @@ label, the band and the scan (ADR 0021 D7). Nothing about the reader or the quer
 """
 
 import re
+from collections import Counter
 from dataclasses import dataclass
 from sqlite3 import Connection
 
@@ -597,6 +598,39 @@ def search(
 
 
 PAGE_LIMIT = 20  # page hits, on every surface: docs/search.md publishes the number
+# ONE DOCUMENT MAY NOT TAKE THE WHOLE SECTION. A phrase printed on every page of a
+# 300-page environmental assessment ranks twenty of that one document's pages and buries
+# every other document that matched — and a reader sees a full section with no sign that
+# anything is missing. The record path cannot fail this way: its grain is one row per
+# docket. This one's is one row per PAGE, so the ranked rows are folded to a few per
+# document before they are cut to twenty (`deferred.md`, 2026-09-04).
+PAGE_PER_DOCUMENT = 3  # page hits any one document may take of the twenty
+# Ranked rows scanned per hit shown, so the fold has something to keep. Scanning deeper is
+# not what a search costs, PROVIDED the fold reads no text — measured 2026-09-04 on a
+# 40,000-page store whose pages average 3,827 characters, a term matching every page: 36.7 ms
+# at a window of 21, 49.0 ms if all 201 rows are read through the masking view, 37.6 ms as
+# this is written. The first measurement of this said 4 ms and was taken on 800-character
+# pages, where masking is too cheap to see; the shape of the store decides this one.
+PAGE_OVERFETCH = 10
+
+# Index rows a search met that the display view NO LONGER SHOWS. It is the one signal that
+# `page_fts` has drifted from `document_text_display` — a human row inserted without
+# `leave`, a store restored from a replica — and it was computed and read by nobody
+# (`deferred.md`, 2026-09-04). A process counter, not a store query: the drift can only be
+# seen by asking the view about every one of 1.1M index rows, which is the masking function
+# 1.1M times and no way to run a scrape. `web` runs one uvicorn worker, so this is the whole
+# of the process's answer.
+#
+# It counts DRIFT ONLY, not everything `PageResults.dropped` counts. A comment's attachment
+# has text and no text address to show it at, so its pages are dropped from every search of
+# a healthy store; counting those here would have moved this in proportion to traffic and
+# buried the signal it exists to carry (code review, 2026-09-04).
+_stale_page_rows = 0
+
+
+def stale_page_rows() -> int:
+    """Stale page-index rows met by searches since this process started. Monotonic."""
+    return _stale_page_rows
 
 
 @dataclass(frozen=True)
@@ -609,6 +643,10 @@ class PageResults:
     # 200 and no sign — a coverage claim the store cannot support. The surfaces say it
     # instead (code review, 2026-09-04).
     rebuilding: bool = False
+    # Matching pages held back because their document already had `PAGE_PER_DOCUMENT` shown.
+    # Counted so the surfaces can say "and more pages in some of them" rather than let a
+    # reader believe twenty is all the record holds.
+    folded: int = 0
 
 
 def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> PageResults:
@@ -649,35 +687,78 @@ def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> Page
     # docstring names as the review layer's debt — makes it raise "database disk image is
     # malformed" before any row returns. Asked for the snippet only on rows the view still
     # shows, a stale row is counted in `dropped` instead of taking every search down.
+    # Scanned in rank order, deeper than the twenty shown, because the fold below throws
+    # rows away and a scan of exactly twenty would leave the section short.
+    window = limit * PAGE_OVERFETCH
     ids = [
         text_id
         for (text_id,) in con.execute(
             "SELECT rowid FROM page_fts WHERE page_fts MATCH ? ORDER BY rank LIMIT ?",
-            (match, limit + 1),  # one more: is there more?
+            (match, window + 1),  # one more: is there more beyond the window?
         )
     ]
-    truncated = len(ids) > limit
-    ids = ids[:limit]
-    found = pages.by_text_ids(con, ids)
+    truncated = len(ids) > window  # the index matched more than was even looked at
+    ids = ids[:window]
+    # THE FOLD READS NO TEXT. `document_text_display.text` is `dy_display_text(t.text)`, two
+    # regex passes per row in Python, and folding two hundred rows to twenty would have run
+    # it on a hundred and eighty rows nobody sees. SQLite evaluates a view's expression only
+    # for the columns selected (verified against the view), so asking it for `text_id` and
+    # `document_sha256` alone costs no masking at all — and the text is fetched below, for
+    # the twenty that survive (code review, 2026-09-04).
+    shas: dict[int, str] = {}
+    if ids:
+        marks = ",".join("?" for _ in ids)
+        shas = dict(
+            con.execute(
+                "SELECT text_id, document_sha256 FROM document_text_display"
+                f" WHERE text_id IN ({marks})",
+                ids,
+            )
+        )
     records: dict[str, tuple | None] = {}
-    hits: list[Hit] = []
-    dropped = 0
+    per_document: Counter = Counter()
+    keep: list[int] = []
+    dropped = folded = stale = 0
     for text_id in ids:
-        if text_id not in found:
-            dropped += 1  # the index runs ahead of the view (`page_index`'s docstring)
+        if len(keep) >= limit:
+            truncated = True  # rows still ranked below the ones kept
+            break
+        if text_id not in shas:
+            # THE DRIFT: an index row the display view no longer shows (`page_index`'s
+            # docstring). This is the one that means something is wrong.
+            stale += 1
+            dropped += 1
+            continue
+        sha = shas[text_id]
+        if per_document[sha] >= PAGE_PER_DOCUMENT:
+            folded += 1  # this document has had its share; a later one gets the slot
+            continue
+        if sha not in records:
+            records[sha] = _record_of(con, sha)
+        if records[sha] is None:
+            # NOT drift: a comment's attachment has text and no text address to show it at
+            # (`documents.VIEWABLE_KINDS`), so this is the expected outcome for a healthy
+            # store and is counted in `dropped` without touching the drift signal.
+            dropped += 1
+            continue
+        per_document[sha] += 1
+        keep.append(text_id)
+
+    found = pages.by_text_ids(con, keep)
+    hits: list[Hit] = []
+    for text_id in keep:
+        if text_id not in found:  # the view answered a moment ago; belt and braces
+            stale += 1
+            dropped += 1
             continue
         sha, page = found[text_id]
+        record = records[sha]
+        assert record is not None  # only rows with a record reach `keep`
         excerpt = con.execute(
             "SELECT snippet(page_fts, 0, ?, ?, '…', ?) FROM page_fts"
             " WHERE rowid = ? AND page_fts MATCH ?",
             (MARK_OPEN, MARK_CLOSE, SNIPPET_TOKENS, text_id, match),
         ).fetchone()[0]
-        if sha not in records:
-            records[sha] = _record_of(con, sha)
-        record = records[sha]
-        if record is None:
-            dropped += 1
-            continue
         kind, record_id, index, raw_docket, caption = record
         identity = parse_docket_id(raw_docket)
         printed = urls.printed_docket(identity) if identity else raw_docket
@@ -700,7 +781,11 @@ def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> Page
                 scan=urls.viewer_path(kind, record_id, index),
             )
         )
-    return PageResults(hits, truncated, dropped, rebuilding=rebuilding)
+    global _stale_page_rows
+    _stale_page_rows += stale
+    return PageResults(
+        hits, truncated or bool(folded), dropped, rebuilding=rebuilding, folded=folded
+    )
 
 
 # The record that carries a document, and the file's index among the record's attachments

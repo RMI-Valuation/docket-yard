@@ -660,14 +660,24 @@ four confirmed, all nits, three reported and one dropped by its quality cap. Not
 
 ## Found by the cross-file tracer on the merged page search path, 2026-09-04 (v2026.09.4)
 
-- **No per-document cap on the twenty page hits.** A phrase printed on every page of one
-  300-page assessment fills the whole section with that document's pages 1–20 and hides
-  every other document that matched; the record-hit path cannot fail this way because its
-  grain is one row per docket. Over-fetch and fold to the best two or three pages per
-  document, then cut to twenty.
-- **`PageResults.dropped` is computed and read by nobody.** It is the one signal that the
-  page index has drifted from the display view (a human row inserted without `leave`, a
-  store restored from a replica); a counter in the telemetry `/search` already touches, or
-  a `problems[]` entry from the passes, would make it observable.
+- ~~**No per-document cap on the twenty page hits.**~~ FIXED 2026-09-04 (v2026.09.8). A
+  phrase printed on every page of one 300-page assessment filled the whole section with that
+  document's pages 1-20 and hid every other document that matched; the record-hit path cannot
+  fail this way because its grain is one row per docket. Two hundred ranked rows are now
+  scanned and folded to three a document (`PAGE_PER_DOCUMENT`, `PAGE_OVERFETCH`) before the
+  cut to twenty, and both surfaces say when pages were folded away. The fold reads no text
+  (SQLite runs the masking function only for selected columns), which review caught and is
+  the whole of the cost: on a 40,000-page store at 3,827 characters a page, a term matching
+  every page took 36.7 ms before, 49.0 ms with all two hundred rows read through the view,
+  and 37.6 ms as shipped.
+- ~~**`PageResults.dropped` is computed and read by nobody.**~~ FIXED 2026-09-04
+  (v2026.09.8). It is the one signal that the page index has drifted from the display view (a
+  human row inserted without `leave`, a store restored from a replica), and it is now a
+  process counter behind `/metrics` as `docket_yard_page_index_stale_rows_total`. A store
+  query would be the masking function over 1.1M rows on every scrape, so it counts what
+  searches have MET — it moves only when a reader reaches a stale row, which is when it
+  starts to matter, and it resets with the process. It counts DRIFT only: `dropped` also
+  covers a comment attachment's pages, which have no text address and are dropped from every
+  search of a healthy store (review, 2026-09-04).
 - **From TODO, 2026-09-04 (the cap):** Cameron's idea of a cadence switch from the alert
   email and a signed-link manage page per address.

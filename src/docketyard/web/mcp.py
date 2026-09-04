@@ -110,6 +110,14 @@ def _search(con: Connection, args: dict, host: str) -> str:
     lines = []
     if held is not None:
         lines.append(f"That is a docket this record holds: {held.title} — {_site(host, held.path)}")
+    if found.folded:
+        # An assistant that reported "the record holds 20 pages on this" would be wrong in
+        # the one direction that matters: the twenty are capped per document, so a document
+        # with forty matching pages contributes three (`search.PAGE_PER_DOCUMENT`).
+        lines.append(
+            f"At most {search_store.PAGE_PER_DOCUMENT} pages of any one document are listed"
+            " below, so a document may hold more matching pages than are shown."
+        )
     if found.rebuilding:
         # An assistant told "nothing matched" while the index holds a tenth of the record
         # would report an absence that is not one — the caveat this surface exists to carry.
@@ -139,8 +147,13 @@ def _search(con: Connection, args: dict, host: str) -> str:
             + (f" {h.band}" if h.band else "")
             + f" The scan: {_site(host, h.scan)}. Machine-read text: check it against the scan."
         )
-    if found.truncated:
-        lines.append(f"…and more pages than the {search_store.PAGE_LIMIT} shown; narrow the words.")
+    if found.truncated and pages:
+        # `len(pages)`, not PAGE_LIMIT: `_search` may have asked for fewer than twenty, and
+        # the fold makes a short list the common case rather than the odd one. `and pages`
+        # because every matched row may be dropped — a comment attachment's pages have no
+        # address — and "more pages than the 0 shown" after listing nothing is not a
+        # sentence to hand an assistant (code review, 2026-09-04).
+        lines.append(f"…and more pages than the {len(pages)} shown; narrow the words.")
     return "\n".join(lines)
 
 

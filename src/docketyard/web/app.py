@@ -1092,6 +1092,15 @@ def create_app(
             con.close()
         now = datetime.now(UTC)
         lines = [
+            # The page index drifting from the display view has no cheap store query — it
+            # would be the masking function over 1.1M rows — so this is what searches have
+            # MET. It only moves when someone searches, which is the point: a stale row
+            # nobody reaches is not yet hurting anybody. Resets when the process does.
+            "# HELP docket_yard_page_index_stale_rows_total Page-index rows searches met"
+            " that the display view no longer shows. Drift only: a comment attachment's"
+            " pages have no address to show them at and are not counted here.",
+            "# TYPE docket_yard_page_index_stale_rows_total counter",
+            f"docket_yard_page_index_stale_rows_total {search.stale_page_rows()}",
             "# HELP docket_yard_up 1 when the web process answered this scrape.",
             "# TYPE docket_yard_up gauge",
             "docket_yard_up 1",
@@ -1511,6 +1520,8 @@ def create_app(
             pages=found.hits,
             pages_truncated=found.truncated,
             pages_rebuilding=found.rebuilding,
+            pages_folded=found.folded,
+            page_per_document=search.PAGE_PER_DOCUMENT,
             page_limit=search.PAGE_LIMIT,
             canonical=None,
         )

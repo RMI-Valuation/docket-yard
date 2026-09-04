@@ -55,7 +55,11 @@
   {#- Machine-read text reaches search only WITH who read it, the band's operand or its
       absence, and the scan one click away (ADR 0021 D7): the text is a finding aid, the scan
       is the record. Its own query path (ADR 0022 D4); at most twenty pages. -#}
-  <p class="small muted">{{ pages | length }} page{% if pages | length != 1 %}s{% endif %}{% if pages_truncated %} (the first {{ page_limit }}; the record holds more — narrow the words){% endif %}, as read by machine from the Board's files. Nothing here is the Board's text; the scan is the record.</p>
+  {#- `pages_folded` is why the count can be twenty while the index matched far more: at
+      most three pages of any one document are shown, or a phrase printed on every page of
+      one long assessment would take the whole section (deferred.md, 2026-09-04). Saying so
+      is the difference between "twenty is what there is" and "twenty is what is shown". -#}
+  <p class="small muted">{{ pages | length }} page{% if pages | length != 1 %}s{% endif %}{% if pages_folded %}, at most {{ page_per_document }} from any one document{% endif %}{% if pages_truncated %} — the record holds more, so narrow the words{% endif %}, as read by machine from the Board's files. Nothing here is the Board's text; the scan is the record.</p>
   <table class="moved">
     <thead><tr><th scope="col">Kind</th><th scope="col">Result</th><th scope="col">Read by</th></tr></thead>
     <tbody>
