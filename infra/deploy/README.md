@@ -221,12 +221,25 @@ keys in `/srv/docketyard/.env` (mode 600). The honest alternatives are an EC2 `t
 (instance profile, similar price, more knobs) or IAM Roles Anywhere; either is a small
 follow-up ADR, not a change to anything else here.
 
-Since 2026-08-27 the **web tier holds its own key** (IAM user `docketyard-web`,
-`DY_WEB_AWS_*` in `.env`): `s3:GetObject` on `blobs/*` and SES send from the alerts
-address, nothing that writes, deletes or lists. The internet-facing process can therefore
-read a pruned document and send a confirmation email, and nothing else; the read/write pair
-(`docketyard-instance`) stays with `ingest` and Litestream. Compose refuses to start `web`
-without the web key.
+Since 2026-08-27 the **web tier holds its own AWS key** (IAM user `docketyard-web`,
+`DY_WEB_AWS_*` in `.env`): `s3:GetObject` on `blobs/*` and SES send from the alerts address,
+nothing that writes, deletes or lists. So the internet-facing process can read a pruned
+document and send a confirmation email, and nothing else **in S3** — but it is not the whole
+of what it holds: `web` takes the `x-mail` anchor, so it also has `DY_EMAIL_KEY`, the key
+under which subscriber addresses are ciphertext at rest (ADR 0014). It needs an address to
+send a confirmation to; whether that is the right trade is undecided and is in
+`docs/deferred.md` (2026-09-04). An earlier version of this paragraph said "and nothing
+else", which was wrong about exactly that key.
+
+The read/write pair (`docketyard-instance`) is **not** confined to containers either: it is
+in `.env`, which `ingest` and Litestream read and which `docketyard-blobs.service` and
+`docketyard-prune.service` also load as root systemd units — the sync and the prune are host
+processes and authenticate with it. A third user, `docketyard-reader` (read-only), is used
+by RMI-AI-MACHINE to pull blobs (`docs/runbook.md`). Three principals, three scopes.
+
+Compose's `${DY_WEB_AWS_*:?}` guard fails interpolation for the whole file, not just `web`,
+so a missing or rotating reader key stops `ingest` too — which is the coupling the file
+itself forbids nine lines lower down. In `docs/deferred.md`, 2026-09-04.
 
 The bucket has versioning on and, since 2026-08-28, a lifecycle rule
 (`expire-noncurrent-versions-30d`): noncurrent versions expire after 30 days, expired

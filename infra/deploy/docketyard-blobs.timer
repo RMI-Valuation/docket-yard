@@ -1,6 +1,6 @@
 # /etc/systemd/system/docketyard-blobs.timer
 [Unit]
-Description=Docket Yard: hourly blob sync
+Description=Docket Yard: blob sync every 30 minutes
 
 [Timer]
 OnBootSec=10min

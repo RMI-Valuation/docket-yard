@@ -684,3 +684,41 @@ four confirmed, all nits, three reported and one dropped by its quality cap. Not
   search of a healthy store (review, 2026-09-04).
 - **From TODO, 2026-09-04 (the cap):** Cameron's idea of a cadence switch from the alert
   email and a signed-link manage page per address.
+
+## From the critic pass on the drafted ADR 0012 addendum, 2026-09-04 (against v2026.09.8)
+
+The addendum was withdrawn rather than accepted (see below), but the pass was reading the
+blob tier's code to check the draft's claims and found things the draft was not about. Each
+was verified against the file named before it was written down.
+
+- **A `StoreMismatch` is a `print()` and a 503, with no gauge behind it.** `web/app.py`'s
+  document route calls it "never served, never quiet", and it is genuinely never served — but
+  quiet is exactly what it is: a stdout line in a container log, for the condition that means
+  S3 answered a hash with other bytes. That is a silent failure of the class `docs/alerts.md`
+  decomposes, and `/metrics` has a counter for page-index drift and none for this. The fix is
+  a counter beside `docket_yard_page_index_stale_rows_total`, which is the same shape.
+- **The web tier's fetch-on-miss writes into a directory the prune cannot reclaim.**
+  `documents._fetch_into_place` streams to `blobs/.tmp/ws-*`; the sync excludes `.tmp/*` and
+  `prune_blobs.py` skips `parent.name == ".tmp"`, so those bytes sit under the 20 GB floor the
+  prune exists to defend. `records.sweep_staging` clears `ws-*` older than six hours, but it
+  runs at the start of a FETCH run (`capture/documents.py`), not in the web tier — so a
+  crawler walking `/document/` addresses on a pruned corpus is bounded by the poll, not by
+  the web process. Bounded, not unbounded; worth a floor-aware sweep on the web side.
+- **`documents._in_flight` never shrinks.** One `threading.Lock` per SHA, added by
+  `setdefault` and never removed, in a process capped at 768 MB whose steady state is
+  110-170 MB. At 104,091 documents that is a slow accumulation of dict entries for a
+  correctness device that only matters during a fetch. Drop the entry when the fetch ends.
+- **`web`'s own credential can stop the record being kept.** `compose.yaml` guards
+  `DY_WEB_AWS_*` with `${...:?}`, which fails interpolation for the WHOLE file — so
+  `docker compose up -d ingest` fails too if the reader key is missing or mid-rotation. Nine
+  lines below the guard, the file shouts "THE READER-FACING PROCESS MUST NOT BE ABLE TO TAKE
+  THE RECORD-KEEPING ONE WITH IT", which is coverage gap 1's lesson and ADR 0020's premise.
+  The guard belongs in `serve`'s startup check, where it fails the reader alone.
+- **The web tier holds `DY_EMAIL_KEY`.** `compose.yaml`'s `web` takes `<<: *mail`, so the
+  internet-facing process holds ADR 0014's key — the one under which subscriber addresses are
+  ciphertext at rest. `docketyard-dump.service` blanks it explicitly for the dump; the
+  long-running reader-facing process does not. Whether it SHOULD hold it is a real question
+  (it sends the confirmation email, which needs the address), and it is Cameron's: the
+  answer is either a documented consequence or a split between sending and reading.
+  Not a defect until decided, but `infra/deploy/README.md`'s "and nothing else" is wrong
+  today, and that sentence is what a reader of the topology would rely on.
