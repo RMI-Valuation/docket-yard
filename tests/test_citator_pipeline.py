@@ -137,6 +137,20 @@ def _findings(*findings):
         ("AB 1296X", "AB 1296 (X)"),
         ("AB 1296 (X)", "AB 1296 (X)"),  # idempotent — the defect this test exists for
         ("AB 55 (Sub-No. 814X)", "AB 55 (814X)"),
+        # A SUB-NUMBER OF ZERO IS NO SUB-NUMBER, which is what the record already does with
+        # the Board's raw `AB_1182_0_X`. The Board prints the same proceeding as
+        # `(Sub-No. 0X)`, so the printed form kept a zero the stored form had dropped and the
+        # two ends of resolution held two spellings of one docket. MEASURED on the first
+        # corpus run, 2026-09-04: 43 citations over 19 targets, every one of them held.
+        ("AB 1182 (Sub-No. 0X)", "AB 1182 (X)"),
+        ("AB-1026 (Sub-No. 0X)", "AB 1026 (X)"),
+        # INFERRED, not measured: every one of the 43 was `0X`. These follow from the same
+        # rule and no printed instance of either was seen (schema-critic, 2026-09-04).
+        ("AB 1182 (Sub-No. 0)", "AB 1182"),
+        ("EP 328 (Sub-No. 05)", "EP 328 (5)"),  # the same defect one digit along
+        # and the wrong-docket path the zero rule opened: without the glued-suffix fallback
+        # this keys as the bare `AB 1296` and resolves confidently to the PARENT
+        ("AB 1296X (Sub-No. 0)", "AB 1296 (X)"),
         ("EP 328 (STB served Oct. 5, 2017)", "EP 328"),  # a wordy paren is not a sub-docket
         ("the exemption is 30 days after", None),  # `IS 30` is the trap, not a docket
         ("", None),
@@ -151,9 +165,38 @@ def test_the_normaliser_is_idempotent_or_a_rendered_key_cannot_be_read_back():
     until 2026-09-01 — one docket with two normal forms depending on how it was printed. It
     put 2,711 suffixed dockets into the scorer's registry without their suffix, so every
     finding naming one scored as unresolvable and the projected figure was measured low."""
-    for raw in ("AB 1296X", "AB 1296 (X)", "EP 328 (Sub-No. 2)", "AB 55 (814X)", "FD 36873"):
+    for raw in (
+        "AB 1296X",
+        "AB 1296 (X)",
+        "EP 328 (Sub-No. 2)",
+        "AB 55 (814X)",
+        "FD 36873",
+        "AB 1182 (Sub-No. 0X)",
+        "EP 328 (Sub-No. 05)",
+    ):
         once = keys.normalise(raw)
         assert once is not None and keys.normalise(once) == once
+
+
+@pytest.mark.parametrize(
+    "printed,columns",
+    [
+        ("AB 1182 (Sub-No. 0X)", ("AB", 1182, None, "X")),
+        ("AB 1182 (Sub-No. 05)", ("AB", 1182, 5, None)),
+        ("AB 1182 (Sub-No. 0)", ("AB", 1182, None, None)),
+        ("AB 55 (Sub-No. 794X)", ("AB", 55, 794, "X")),
+        ("AB 1296X", ("AB", 1296, None, "X")),
+        ("EP 328 (2)", ("EP", 328, 2, None)),
+        ("FD 36500", ("FD", 36500, None, None)),
+    ],
+)
+def test_the_two_ends_of_resolution_land_on_one_key(printed, columns):
+    """THE DRIFT GUARD. `normalise` reads a proceeding out of printed text and `registry_key`
+    reads the same proceeding out of `docket`'s four columns; the resolver compares the two
+    strings, so a rule spelled twice is a rule that drifts — and it did, over a zero. Both
+    now render the parenthetical through `keys._sub_key`, and this asserts the pair rather
+    than either string, which is the thing that has to hold."""
+    assert keys.normalise(printed) == keys.registry_key(*columns)
 
 
 def test_the_registry_key_and_the_scorers_agree(tmp_path):
@@ -171,6 +214,11 @@ def test_the_registry_key_and_the_scorers_agree(tmp_path):
         ("FD", 36873, None, None),
         ("AB", 55, 814, "X"),
         ("AB", 33, None, "TA"),
+        # a sub-number of zero: unreachable from `parse_docket_id`, and the value the
+        # 2026-09-04 change is ABOUT — so the copies are pinned on it rather than only on
+        # the values the store can hold, which is how the first drift went unseen
+        ("AB", 1182, 0, "X"),
+        ("AB", 1182, 0, None),
     ):
         assert keys.registry_key(*row) == ps.printed(*row)
 
@@ -767,6 +815,14 @@ def test_the_scorer_and_the_shipped_normaliser_read_printed_text_the_same_way():
         "FD 36873",
         "AB 55 (Sub-No. 814X)",
         "Docket No. FD 35873, slip op. at 4 (2015)",
+        # THE ZERO CASES, without which this test passed green over a live divergence: the
+        # shipped normaliser folded a printed sub-number of 0 on 2026-09-04 and the scorer
+        # did not, so it keyed findings one way and the registry another (schema-critic).
+        "AB 1182 (Sub-No. 0X)",
+        "AB-1026 (Sub-No. 0X)",
+        "EP 328 (Sub-No. 05)",
+        "AB 1182 (Sub-No. 0)",
+        "AB 1296X (Sub-No. 0)",
     ):
         assert bs.norm_target(raw) == keys.normalise(raw), raw
 

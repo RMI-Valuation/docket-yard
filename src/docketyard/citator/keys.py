@@ -18,7 +18,7 @@ import unicodedata
 
 # Bump with any change to `normalise`. It is stored on every `citation_key` row, so a change
 # is visible in the store rather than inferred from a commit date.
-KEY_VERSION = "norm-docket@2026-09-01"  # SUBNO changed on this date; see below
+KEY_VERSION = "norm-docket@2026-09-04"  # `_sub_key`: a printed sub-number of 0 is none
 
 # THE PREFIX IS MATCHED CASE-SENSITIVELY, and that is a scar rather than a style: `IS` and
 # `SO` are English words, so a deadline sentence ("the exemption is 30 days after ...")
@@ -110,16 +110,47 @@ def normalise(raw: str) -> str | None:
     # the same sentence — or a year at the end of a citation — cannot be grafted onto it
     sub = SUBNO.match(text[m.end() :])
     if sub:
-        return f"{key} ({sub.group(1).upper()})"
-    return f"{key} ({m.group(3).upper()})" if m.group(3) else key
+        token = sub.group(1).upper()
+        digits = token[: len(token) - len(token.lstrip("0123456789"))]
+        letters = token[len(digits) :]
+        number = int(digits) if digits else None
+        # A GLUED SUFFIX IS NOT DISCARDED WHEN THE PARENTHETICAL RENDERS TO NOTHING. The
+        # match's own suffix (`AB 1296X`) is otherwise dropped whenever a parenthetical is
+        # present — which was harmless while `(Sub-No. 0)` keyed as `AB 1296 (0)` and
+        # resolved to nothing, and stopped being harmless when zero began to fold: without
+        # this, `AB 1296X (Sub-No. 0)` would key as the bare `AB 1296` and resolve
+        # confidently to the PARENT, a different held proceeding. Naming the wrong docket is
+        # the one failure this package must not have (schema-critic, 2026-09-04).
+        if not number and not letters:
+            letters = m.group(3) or ""
+        return key + _sub_key(number, letters)
+    return key + _sub_key(None, m.group(3))
+
+
+def _sub_key(sub_sequence: int | None, suffix: str | None) -> str:
+    """The parenthetical, from the two things a sub-docket is: a number and a suffix.
+
+    ONE RENDERER FOR BOTH ENDS. `normalise` reads a proceeding out of printed text and
+    `registry_key` reads the same proceeding out of `docket`'s four columns, and the resolver
+    compares the two strings — so a rule spelled twice is a rule that drifts, and it did.
+
+    A SUB-NUMBER OF ZERO IS NO SUB-NUMBER, which is `ingest.dockets.parse_docket_id`'s rule
+    (`int(sub) != 0 else None`) and therefore the record's. The Board's raw `AB_1182_0_X`
+    carries `0` as the filler for "none" and the record stores `sub_sequence` NULL, while the
+    Board PRINTS the same proceeding as `AB 1182 (Sub-No. 0X)` — so the printed form kept a
+    zero the stored form had dropped, and `AB 1182 (0X)` matched no registry key. Measured on
+    the first corpus run, 2026-09-04: 43 citations over 19 targets refused as unresolvable,
+    every one of them a proceeding the record holds. The same reading makes a printed `05`
+    and a stored `5` one key, which was the same defect one digit along.
+    """
+    number = "" if not sub_sequence else str(int(sub_sequence))
+    inner = f"{number}{(suffix or '').upper()}"
+    return f" ({inner})" if inner else ""
 
 
 def registry_key(prefix: str, sequence: int, sub_sequence: int | None, suffix: str | None) -> str:
     """A `docket` row in the same spelling `normalise` produces from printed text."""
-    key = f"{prefix.upper()} {int(sequence)}"
-    if sub_sequence is not None:
-        return f"{key} ({int(sub_sequence)}{(suffix or '').upper()})"
-    return f"{key} ({suffix.upper()})" if suffix else key
+    return f"{prefix.upper()} {int(sequence)}" + _sub_key(sub_sequence, suffix)
 
 
 def registry(con) -> dict[str, int]:

@@ -751,3 +751,61 @@ Left on the instance for the next step, and to be deleted if it is not taken:
 The step not taken is the rest of the chain — judge, load, project — which needs the
 benchmark's measurements declared in the copy before `load` will write a row, and would give
 the projected-edge figure to set against the published 94.7% / 97.7%.
+
+## From the schema critic on the key fix, 2026-09-04 (verified; the fix shipped without them)
+
+The `0X` fix went in with two of the critic's findings folded into it — the scorer copies
+(`benchmark_score.norm_target`, `projection_score.printed`) and the glued-suffix path that
+would have named the wrong docket. These are the rest, each checked against the file named.
+
+**One of the critic's premises was wrong and the advice resting on it does not hold:** it
+said migration 0014 is unapplied, so a missing column could be added by editing the file.
+0014 is migration 14 and production is at schema 21 — it has been applied since 2026-09-02.
+Both column items below therefore need a NEW migration, which makes them Cameron's and a
+schema-critic pass of their own, not a tidy-up.
+
+- **`class_measurement` cannot say which normaliser a figure was measured under.** It carries
+  `extraction_method_version` and `resolution_method_version`; the normaliser is INSIDE the
+  extractor (`find.py` calls `normalise` and decides `kind` by `key not in own`), so today's
+  change moved the extractor's behaviour while no version on any measurement row moved. A
+  `citation` row would point at a measurement taken under a normaliser it cannot name — an
+  ADR 0007 gap, and a ninth item for ADR 0018 § Owed. Free of data cost while the citator
+  holds 0 rows; a table rebuild afterwards.
+- **`correction.target_key` has no `target_key_version`; `review_action.target_key` has one.**
+  Same rendered `<sha>/<page>/<kind>/<key>` string, same normaliser, and 0015's own comment
+  says why the version is needed ("without it a re-normalisation strands every human row").
+  Zero rows today.
+- **The exposure test's membership widened, accepted rather than avoided.** `resolve` uses
+  `keys.BARE_KEY` as a proxy for "the printed form ended in a bare digit run", and ADR 0017
+  settles the 3-of-225 membership on that equivalence. A printed `(Sub-No. 0)` now renders a
+  bare key, so a form that ended in a closing paren — mechanically unable to fuse a footnote
+  marker — becomes eligible for the flag. Zero occurrences in the corpus (all 43 were `0X`).
+  Taken because the alternative is a rule that folds a zero only when a suffix follows, which
+  cannot be stated in one sentence; and because `exposed` flags a correctly-resolved row for
+  review rather than changing what it resolves to. If one is ever seen, it resolves right and
+  is merely reviewed.
+- **`docket.sub_sequence = 0` is legal SQL and now collides with the parent's key.** No row
+  holds it (`parse_docket_id` maps 0 to None; measured 0 rows in production) and only ingest
+  writes `docket`, so it is unreachable — but `docket_identity` keeps 0 and NULL as two rows
+  while `keys.registry()` is a dict comprehension, so the second would silently overwrite the
+  first and the registry would lose a proceeding without a word. A guard in `registry()` that
+  raises on a duplicate key is one line and catches it loudly; the CHECK constraint is a
+  table rebuild.
+- **The site's own printed form of a suffixed parent does not round-trip, and the wrong
+  answer is silent.** `urls.printed_docket` renders `AB_1182_0_X` as `AB 1182-X`; `DOCKET`
+  cannot take a hyphen between the digits and the letter, so `keys.normalise("AB 1182-X")`
+  returns `AB 1182` — the PARENT, a different held proceeding. `review.find_docket` resolves
+  a reviewer's typed string through `normalise`, so a reviewer who copies the form this site
+  prints is answered with another docket and told nothing. Verified 2026-09-04; pre-existing
+  and untouched by the key fix; 2,707 dockets are of this shape. Not a one-line regex change
+  — a hyphen there would also swallow other spellings — so it wants its own look.
+
+## Measured while the citator first ran, 2026-09-04: what the citation class cannot name
+
+The finder's class is a fixed prefix list (ADR 0017 D1 buys one class deliberately). Checked
+against the registry: **the class can name 31,972 of 32,627 held dockets. 655 dockets across
+13 prefixes can never be cited to at all** — S5M 240, MC 178, EPM 164, CU 16, FSA 14, MXC 13,
+SAI 11, PTO 6, RR 6, AM 3, WC 2, CNO 1, S5R 1. Two prefixes IN the class, `FSB` and `PCA`,
+match nothing the record holds. That is 2.0% of the record outside the citator's reach, and
+a ceiling on recall that no sixty-decision sheet could have shown. Not a defect — a scope
+that was never measured, and the number to quote if the class is ever widened.

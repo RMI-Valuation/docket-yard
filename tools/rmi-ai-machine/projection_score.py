@@ -60,9 +60,12 @@ def printed(prefix: str, seq: int, sub: int | None, suffix: str | None) -> str:
     code being wrong. They are pinned equal by a test instead.
     """
     key = f"{prefix.upper()} {int(seq)}"
-    if sub is not None:
-        return f"{key} ({int(sub)}{(suffix or '').upper()})"
-    return f"{key} ({suffix.upper()})" if suffix else key
+    # `if sub` and not `if sub is not None`: a sub-number of zero is no sub-number, which is
+    # `ingest.dockets.parse_docket_id`'s rule and so the record's. No `docket` row holds a
+    # zero today, so this changes nothing the store can produce — it keeps this copy spelling
+    # the rule the same way `keys.registry_key` does (2026-09-04).
+    inner = f"{int(sub) if sub else ''}{(suffix or '').upper()}"
+    return f"{key} ({inner})" if inner else key
 
 
 def registry(con: sqlite3.Connection) -> set[str]:

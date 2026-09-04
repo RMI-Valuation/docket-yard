@@ -75,7 +75,20 @@ def norm_target(raw: str) -> str:
         # parenthetical, or a trailing year, onto this key (corrected 2026-09-01 with SUBNO)
         sub = SUBNO.match(text[m.end() :])
         if sub:
-            return key + f" ({sub.group(1).upper()})"
+            # A SUB-NUMBER OF ZERO IS NO SUB-NUMBER — the Board's raw `_0_` is the filler for
+            # "none" and the record stores NULL, so a printed `(Sub-No. 0X)` is the same
+            # proceeding as a stored suffix-only docket. Kept as its own spelling rather than
+            # imported: a scorer that imports the code it scores cannot catch it being wrong,
+            # and `test_the_scorer_and_the_shipped_normaliser_read_printed_text_the_same_way`
+            # is what pins the two together (2026-09-04).
+            token = sub.group(1).upper()
+            digits = token[: len(token) - len(token.lstrip("0123456789"))]
+            letters = token[len(digits) :]
+            number = int(digits) if digits else None
+            if not number and not letters:
+                letters = m.group(3).upper() if m.group(3) else ""
+            inner = f"{number if number else ''}{letters}"
+            return key + (f" ({inner})" if inner else "")
         return key + (f" ({m.group(3).upper()})" if m.group(3) else "")
     r = REPORTER.search(text)
     if r:
