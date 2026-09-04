@@ -45,7 +45,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   hand-checked fixture of 8 for FD 36873 sits in `../up-ns-merger-tracker/briefs/2026-08-25.md`
   (read-only). Dates quoted, never computed
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
-- **ADR 0012 addendum: the blob cache** (S3 store, instance cache) — ADR 0022 D2 leans on it
 - **`docs/navigation-review.md`: Tiers 1–3 and A7 are built**, home keeps its rolling seven
   days (Cameron, 2026-09-01). Left is **his**: the masthead, and whether a place index is ripe
 - When this list runs short or a decision makes one of them near-term, pull the next item

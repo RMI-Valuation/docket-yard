@@ -27,10 +27,38 @@ of the migration.
   continuously to S3: the backup, and the prod-snapshot-to-dev path, in one tool.
 - **Blobs live in S3**, content-addressed by SHA-256 (ADR 0002 made physical); the instance
   keeps a local cache only.
+
+  > **Note (2026-09-04):** what "a cache" means in practice — the sync's cadence and its
+  > `--size-only`, what the prune may delete and what it actually checks (that S3 holds an
+  > object of that key, *not* that the bytes match their hash), the two-level
+  > `blobs/<sha[:2]>/<sha>` layout the prune's glob depends on, and the fetch-on-miss that
+  > hashes on the way in — is stated in
+  > [ADR 0022](0022-where-the-records-text-lives.md) § Decision 2, which leans on it and is
+  > where it is kept true. Named here rather than restated: two descriptions of one
+  > mechanism in two append-only records is how they come to disagree, and a draft of that
+  > restatement did disagree with D2 about the prune before it was withdrawn. This record is
+  > not edited; the note is appended (ADR 0001).
 - **Deploys are pull-based** per ADR 0010: a GitHub Release builds the image tagged with the
   release version; the instance pulls that tag. Nothing pushes to production.
 - **Credentials**: the instance reaches S3 through an attached IAM role — no long-lived keys
   on disk; CI reaches AWS through GitHub OIDC role assumption, never stored secrets.
+
+  > **Note (2026-09-04):** the mechanism was never available. Lightsail instances do not
+  > support instance profiles, so production has used bucket-scoped IAM users' keys in
+  > `/srv/docketyard/.env` (mode 600) from the first deployment. **The principle was met a
+  > different way**, on 2026-08-27, by scoping them rather than removing them:
+  > `docketyard-web` holds `s3:GetObject` on `blobs/*` and SES send from the alerts address
+  > and nothing that writes, deletes or lists, so the internet-facing process cannot change
+  > anything in the store; the read/write pair `docketyard-instance` is used by `ingest`,
+  > Litestream and the two host units that sync and prune; a third, read-only
+  > `docketyard-reader`, is what the enrichment box pulls blobs with. How the keys are
+  > **held** is what remains open — an EC2 instance profile, or IAM Roles Anywhere — and is
+  > recorded in `infra/deploy/README.md` § Open, with ADR 0014's parked forward step (a key
+  > off the box) as the same shape of problem. **The CI half of the bullet is moot rather
+  > than met**: CI never reaches AWS at all. `release.yml` builds the image and pushes it to
+  > ghcr.io with the workflow's own `GITHUB_TOKEN`, and the instance pulls the tag (ADR
+  > 0010); no workflow assumes an AWS role or holds an AWS secret, so the concern the clause
+  > names does not arise. This record is not edited; the note is appended (ADR 0001).
 - **Heartbeats live off the box.** The silent-failure decomposition in `alerts.md` (no
   captures / captures but no events / events but no deliveries) is checked from outside the
   instance, because a dead box cannot report its own death.
