@@ -732,6 +732,8 @@ registry holds.** `citation` still holds 0 rows; nothing was loaded. The two thi
 6.3% that are worth having written down:
 
 - **A sub-number the Board prints as `0X` does not resolve, and the proceeding IS held.**
+  FIXED the same day (d1233f4), and **what the fix actually did is not what the first
+  measurement of it said** — see the correction under the critic's findings below.
   43 instances over 19 distinct targets, all of which the registry holds under another key:
   the Board writes `AB 1182 (Sub-No. 0X)`, `keys.normalise` reads that to `AB 1182 (0X)`,
   and `keys.registry_key` builds the held docket's key from its parsed columns as
@@ -809,3 +811,29 @@ SAI 11, PTO 6, RR 6, AM 3, WC 2, CNO 1, S5R 1. Two prefixes IN the class, `FSB` 
 match nothing the record holds. That is 2.0% of the record outside the citator's reach, and
 a ceiling on recall that no sixty-decision sheet could have shown. Not a defect — a scope
 that was never measured, and the number to quote if the class is ever widened.
+
+## Correction, 2026-09-04: what the `0X` fix actually changed
+
+The fix was measured on RESOLUTION and reported as "29,229 to 29,272 resolving, exactly the
+43, and no other row moved" — in the commit message (d1233f4) and here. That was an
+incomplete account, and the schema critic said so before the fact: `normalise` sits inside
+the EXTRACTOR too, because `find` decides `kind` by `key not in own` and `own` is built with
+`registry_key`. Re-running the finder under the fixed normaliser and diffing the two runs:
+
+- **39 findings flipped from `citation` to `caption`.** Those documents were naming their
+  OWN proceeding in the Board's `(Sub-No. 0X)` spelling; the old normaliser could not match
+  it against `own`, so it called them citations of another docket.
+- 2 findings disappeared, folding into a key already found on the same page (`find` keeps
+  one finding per page and key).
+- 4 remained citations and now resolve.
+- After: 41,954 captions, 31,147 citations, 29,231 resolving — **93.85%**.
+
+**So the fix mostly avoids 39 false edges rather than gaining 43 true ones.** A caption is
+stamped `unmeasured` and projects nothing, so the effect on what a reader would be shown is
+39 spurious "X cites Y" edges that will now never be drawn — a better outcome than the one
+first claimed, and a different one. The lesson is the critic's: a measurement of one stage
+of a pipeline is not a measurement of the change, and this normaliser is in three stages
+(extractor, resolver, exposure test).
+
+The findings directory on the instance was re-made under the fixed normaliser; the stale one
+is deleted, per the rule that a findings directory is written once.
