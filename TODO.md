@@ -12,8 +12,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   separated in migration 0016's header, which is the one to quote
 - **The citator has never run a real load** (`citation`: 0 rows). The whole chain ran into a
   COPY 2026-09-04: 73,101 findings, **15,164 distinct edges**, 0 failures. `citator declare
-  --scores` now exists, so the steps are runnable; **what is left is people** — `reviewer` is
-  0 rows against 1,946 exposed keys (`runbook.md` § The citator's first load). **Cameron's**
+  --scores` now exists and **reviewer 1 is granted**, so the steps are runnable; what is left
+  is **capacity** — 1,946 exposed keys, ~16 h of reading, one reviewer. **Cameron's to start**
 - **Owed with the pipeline**: ingest writing `decision_work`; the "not in the record" display
   joining live `citation`; the veto's trigger. **The review queue is NOT owed** — it derives
   from the loaded rows and was measured working 2026-09-04. More in `deferred.md`

@@ -899,8 +899,8 @@ Left on the instance for whatever comes next, to be deleted otherwise:
   for him; one that takes them as arguments makes him state what is claimed and where it came
   from, which is what "every derived assertion carries provenance" points at and the more
   tedious command. `docs/runbook.md` § The citator's first load, Blocker 1.
-- **`reviewer` is 0 rows**, so the 1,946 exposed keys a load creates would have nobody to
-  release them. `citator grant` exists and needs the vault key; the question is capacity, not
-  code — 1,946 items is roughly sixteen hours of somebody reading at thirty seconds each.
-  Loading first and granting later is allowed (the edges are simply held, which is what the
-  gate is for) but should be a choice rather than a discovery.
+- ~~**`reviewer` is 0 rows**~~ GRANTED 2026-09-04: reviewer 1, the operator, credited
+  "Cameron Rex" — ADR 0016's reviewer zero. **The capacity question is what remains**: 1,946
+  exposed keys is roughly sixteen hours of reading at thirty seconds each, against five on the
+  sixty-decision sheet, and one reviewer holds the whole of it. Loading first is allowed
+  because the edges are simply held, which is what the gate is for.

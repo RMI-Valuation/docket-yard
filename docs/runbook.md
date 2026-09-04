@@ -261,16 +261,25 @@ measurement. Declaring the same card twice is a refusal, not a traceback.
 rank_version, so a card measuring another pass is refused by the registry rather than quietly
 stamping these rows from that pass's figures.
 
-### Blocker 2 — there is no reviewer
+### Blocker 2 — the reviewer, granted 2026-09-04; the capacity is still the question
 
-`reviewer` is 0 rows. The load would create **1,946 exposed keys** that the projection holds
-back until a human answers them — against five on the sixty-decision sheet. Nothing releases
-them but a reviewer working `/review`, and the grant is `citator grant <email>
---credit-name ... --note ...`, which needs the vault key. So the question before the load is
-review capacity, not code: 1,946 items at, say, thirty seconds of reading each is about
-sixteen hours of somebody's attention. Loading first and finding the reviewer later is
-allowed — the edges are simply held, which is what the gate is for — but it should be a
-choice rather than a discovery.
+**Reviewer 1 is the operator, credited "Cameron Rex"** — ADR 0016's reviewer zero, granted by
+hand as that record requires, with the address sealed under the vault key and only the credit
+name public. Verified after the grant: `email_enc` 120 bytes of ciphertext, `email_hash` 64
+hex, no plaintext anywhere in `reviewer`, and `/review` answering with its sign-in form.
+`/review` is disallowed for every agent in `robots.txt` and is in no sitemap.
+
+    docker compose run --rm --no-deps ingest citator grant <email>         --credit-name '<how they are shown>' --note '<the operator's reason>' </dev/null
+
+The grant needs the vault key, which `ingest` carries; `decide` does not, which is what lets
+a review happen on a box that cannot read an address. Signing in is the reviewer's own act:
+`/review`, enter the address, follow the emailed link.
+
+**The capacity question stands.** A load creates **1,946 exposed keys** that the projection
+holds back until a human answers them, against five on the sixty-decision sheet — thirty
+seconds of reading each is about sixteen hours. One reviewer exists; whether one is enough
+for that backlog is the decision, and loading first is allowed because the edges are simply
+held, which is what the gate is for.
 
 ### Blocker 3 — the figures are the benchmark's, and the load does not change that
 
