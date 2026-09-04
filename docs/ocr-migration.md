@@ -143,7 +143,8 @@ citator reads is touched before the citator has run its first real load.
   so it would neither rebuild for a new reading nor notice one; and `search_meta` keys its
   build on the single row `'built'`. The page index needs both of its own — and because
   the indexed view *is* ADR 0021 D9's display rule, that rule's version belongs in the
-  signature. **Landed 2026-09-03** (`PAGE_INDEX_FORMAT = 'display@0018'`). The page-grained
+  signature. **Landed 2026-09-03** (`PAGE_INDEX_FORMAT`, the view's migration and the display
+  rule's version; `display@0020.1` since the view began omitting contact details). The page-grained
   address and `Hit`'s extension above are still owed.
 
 ## The passes

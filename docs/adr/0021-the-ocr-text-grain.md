@@ -284,3 +284,49 @@ rows written under them assume supersession.
 § Validation. The migration this record authorises is scoped in
 [`../ocr-migration.md`](../ocr-migration.md) § Migration A, and schema-critic reviews it
 before the tables exist.*
+
+## Addendum (2026-09-04): what the display rule omits, and the page is not indexed
+
+The operator decided two things about the text pages on the day after the first load, with
+1,104,935 pages showing.
+
+**Decision 9's display omits contact details.** `document_text_display`'s `text` is
+`dy_display_text(text)` from migration 0020: the stored reading with email addresses and
+North American telephone numbers (written with separators) replaced by `[email omitted]`
+and `[phone omitted]`. The stored row is untouched — decision 1's append-only reading is
+still the document's own words — and the Board's file is one click from every page. The
+rule is one SQL function (`store/display.py`) registered on every connection, so what the
+page shows, what `page_fts` indexes and what a `'delete'` carries are the same bytes by
+construction, which FTS5 external content requires. It applies to everyone alike, counsel
+and commenter, because telling them apart is an inference about a person; and it leaves
+postal addresses, which no pattern finds reliably, and bare ten-digit runs, which are also
+record identifiers, and it leaves a bare separated run with no telephone word beside it,
+because a tariff item and a section are written 3-3-4 too. The methodology page says all
+of that, and the text page says "where a pattern finds them". The view's version and the
+rule's are the page index's format (`display@0020.1`), so the index is rebuilt after the
+deploy and `web` refuses to serve an index that predates the format. **A change to the
+patterns is a new migration**, never a code edit alone: that dates the rule in the store,
+which is what keeps validation query 3 answerable — what a reader saw on date D is the
+stored reading under the rule in force on D, and the store must say which that was. The
+same migration makes `text`'s immutability a trigger; `leave` and the view both rest on it.
+
+**This is not the mask dropped on 2026-08-31** (`schema-draft.md` § environmental
+comments), and it holds to that decision's consequence: nothing published implies a name
+can be held back. That design masked a *name* in one column while three other paths
+printed it, which a reader takes for a promise. This one omits *contact details* from the
+machine-readable text alone, says on the page that the scan carries them, and claims
+nothing about privacy: the record is published as the Board publishes it, and what changes
+is only what a million pages hand out at scale.
+
+**Text pages are `noindex`, all of them, both tiers.** In the page and in the header;
+robots.txt does not disallow them for ordinary crawlers, because a crawler that may not
+fetch a page never sees the noindex. The case for: a search-engine snippet is exactly the
+ungated hit ADR 0022 D4 keeps out of `/search` until a hit carries its label, band and
+scan link; an indexed misreading is a published one under this project's name; the record
+page and the Board's own PDF already rank; and a million whole-document pages is the
+largest surface this site has offered a crawler. The case against, recorded because it is
+real: findability is what the text is for (decision 7), the text-layer tier has no OCR
+error rate, and noindex removes nothing from a harvester — masking does that. Revisit both
+decisions together when the page search path ships; a tiered rule (text-layer indexable
+with a canonical to its record, engine readings not) is derivable from `reading_channel`
+and was the alternative considered.

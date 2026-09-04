@@ -6,11 +6,12 @@
 {% set scan = viewer_path(entry.kind, entry.record_id, index) %}
 {% block title %}Text of {{ label | lower }} {{ entry.record_id }} — {{ printed }} — {{ site_name }}{% endblock %}
 {% block description %}The text of {{ label | lower }} {{ entry.record_id }} in {{ printed }}, page by page, as read by machine from the Board's file — labelled, with the scan one click away.{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{{ super() }}{% endblock %}
 {% block main %}
 <section class="viewer">
   <div class="viewer-doc pages">
     {% if current and (rows or pagination) %}
-    <p class="small muted">{% if pagination and pagination.page_count is not none %}{% if read <= pagination.page_count %}{{ read }} of {{ pagination.page_count }} page{{ 's' if pagination.page_count != 1 }} read{% else %}{{ read }} pages read; the file was counted at {{ pagination.page_count }}{% endif %}{% elif pagination %}The file did not paginate ({{ pagination.outcome }}){% if read %}; {{ read }} page{{ 's' if read != 1 }} read{% endif %}{% else %}{{ read }} page{{ 's' if read != 1 }} read; the page count is not yet recorded{% endif %}. Nothing here is the Board's text: it is what a machine read from the Board's file, shown so it can be found and checked, and <a href="{{ scan }}">the scan</a> is the record. <a href="/corrections">Report a misreading</a> with the page's address; it is read, though outside the corrections promise.</p>
+    <p class="small muted">{% if pagination and pagination.page_count is not none %}{% if read <= pagination.page_count %}{{ read }} of {{ pagination.page_count }} page{{ 's' if pagination.page_count != 1 }} read{% else %}{{ read }} pages read; the file was counted at {{ pagination.page_count }}{% endif %}{% elif pagination %}The file did not paginate ({{ pagination.outcome }}){% if read %}; {{ read }} page{{ 's' if read != 1 }} read{% endif %}{% else %}{{ read }} page{{ 's' if read != 1 }} read; the page count is not yet recorded{% endif %}. Nothing here is the Board's text: it is what a machine read from the Board's file, shown so it can be found and checked, and <a href="{{ scan }}">the scan</a> is the record. <a href="/corrections">Report a misreading</a> with the page's address; it is read, though outside the corrections promise. Email addresses and telephone numbers are omitted from the text shown and searched here where a pattern finds them, marked where they stood; the scan carries them. Search engines are asked not to index this page.</p>
     {% for n, page in rows %}
     <article class="page" id="p{{ n }}">
       <h2 class="page-heading">Page {{ n }} <a class="anchor" href="{{ here }}#p{{ n }}" title="This page's address">¶</a></h2>
