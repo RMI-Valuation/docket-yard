@@ -18,10 +18,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   behind them is open** — an unanswered attempt leaves no capture. Cameron's (`deferred.md`)
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
   heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
-- **Migration A is deployed** (v2026.09.2, 2026-09-03, schema 19; PRs #20–22): its tables
-  are empty until the passes run, and the passes wait for the resize (`ocr-migration.md` 16)
-  and the extractor's v2 re-run on the box. **Left**: the page search path (`Hit` lacks
-  label/band/scan link)
+- **Migration A's passes ran 2026-09-04** on the resized box (large_3_0, 110 GB free):
+  77,567 documents paginated, 1,104,935 pages loaded (59,210 text-layer, 15,086 image-only
+  holding empty pages for OCR, 3,271 not paginable), page index in step, store 3.7 GB.
+  **Left**: the page search path (`Hit` lacks label/band/scan link); a bulk pass loses the
+  write lock to Litestream and `rebuild-pages` holds it 8 m 49 s (`deferred.md` 2026-09-04)
 - **ADR 0023's pick rule is decided (2026-09-03): compare values** — publish only when every
   live reading agrees. No consumer built yet; `cite.py` sends `decided` to the sheet unchanged
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen

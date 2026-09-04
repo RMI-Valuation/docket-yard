@@ -16,6 +16,7 @@ pull-based: change `DY_TAG` in `.env`, pull, up. Nothing pushes to production.
 | maintenance | `data/flags/maintenance` | ADR 0020. `touch` it and the proxy answers every path except `/health` with a 503 and the maintenance page, per request and with no reload; `rm` it to come back. `ingest` and `litestream` never observe it, so the record keeps being kept — verified 2026-09-02 with `web` stopped outright |
 | host timer | `docketyard-webwatch.timer` | every minute: restarts `web` if its healthcheck says `unhealthy`. Docker does not do this itself — `restart:` reacts to a process exiting, not to failing health — and on 2026-09-02 the container reported `unhealthy` for hours while nothing acted on it. `web` alone, never the stack: `ingest` and `litestream` keep the record either way |
 | host timer | `docketyard-blobs.timer` | every 30 min: `aws s3 sync` of `data/blobs`, then `prune_blobs.py` deletes local blobs S3 holds (older than 30 days, or oldest-first below 20 GB free) — S3 is the store, the instance is a cache |
+| failure handler | `docketyard-failed@.service` | `OnFailure=` of the four periodic units: `unit_outcome.sh` writes `docketyard_unit_failed{unit=…} 1` into `data/metrics/`, which Alloy's textfile collector ships; the unit's own `ExecStartPost` writes the 0 back on its next success. The alert on the gauge is in Grafana Cloud, off the box. Before this a failed dump served last night's snapshot under an unchanged manifest with nothing saying so |
 
 One store, two processes: `ingest` writes, `web` reads through a `mode=ro` URI. SQLite WAL
 makes that safe on one filesystem; it would not be safe over NFS, which is one reason this
@@ -51,6 +52,8 @@ is an instance and not the container service.
    sudo systemctl enable --now docketyard-dump.timer   # nightly public snapshot (M9)
    sudo cp /srv/docketyard/docketyard-webwatch.* /etc/systemd/system/
    sudo systemctl enable --now docketyard-webwatch.timer  # restart web when it is unhealthy
+   sudo cp /srv/docketyard/docketyard-failed@.service /etc/systemd/system/ && chmod +x /srv/docketyard/unit_outcome.sh
+   sudo systemctl daemon-reload                             # the units' OnFailure= handler
    ```
 
 ### Deploying a migrating release (ADR 0020)
@@ -148,6 +151,53 @@ Rehearse it again if the release carries a migration this one did not.
 - **Errata**: the poller fetches each document once. Nothing yet re-fetches known documents
   to catch a silent replacement (`fetch attachments --refresh` exists but is unscheduled);
   see `TODO.md`.
+
+## Resizing the instance (a rebuild)
+
+A Lightsail bundle change is a new instance from a snapshot, not a slider, and while the
+writers are stopped the record is not being kept: it is a coverage gap and is recorded as
+one (ADR 0022 D5). Done 2026-09-03/04, small_3_0 to large_3_0: 55 minutes of gap
+(23:40–00:35 UTC), no records missed — the first poll on the new box re-walked the window
+and found nothing it did not hold. In the order that loses nothing:
+
+1. `touch data/flags/maintenance`; confirm the 503.
+2. `docker compose run --rm --no-deps web gap open captures --note "planned instance resize
+   (ADR 0022 D5)"` — before the writers stop, so the snapshot carries the open gap and the
+   new box closes it.
+3. `sudo systemctl disable --now docketyard-dump.timer docketyard-blobs.timer` and
+   `sudo systemctl stop docketyard-webwatch.timer`. Both timers are `Persistent=true`: left
+   enabled, the new box fires every missed run on first boot. `mask` fails here — the units
+   are real files in `/etc/systemd/system` and masking needs the path free — and `disable`
+   gives the same guarantee, since a disabled timer never starts. Webwatch would restart
+   `web` under you.
+4. `docker compose stop ingest web litestream` — all three: Litestream holds a read
+   transaction that blocks the truncate. Leave `caddy` up; it keeps serving the page.
+5. Checkpoint with the host's `python3` (no `sqlite3` CLI on the box): `PRAGMA
+   wal_checkpoint(TRUNCATE)` on `docketyard.sqlite` and `traffic.sqlite`, expect `(0, 0, 0)`
+   and no `-wal` file; `PRAGMA quick_check`; `sync`.
+6. `aws lightsail create-instance-snapshot` — nine minutes for 60 GB. The TLS certificate is
+   in the `caddy-data` volume, inside the snapshot: that is why a snapshot and not a fresh
+   instance plus rsync.
+7. `sudo systemctl disable docker.service docker.socket containerd.service` on the old box;
+   stop them just before the IP moves, so caddy serves the page until then. Two Litestreams
+   replicating divergent stores to one path is the failure this prevents.
+8. `aws lightsail create-instances-from-snapshot ... --bundle-id large_3_0 --key-pair-name
+   docketyard`, then `put-instance-public-ports` for 22, 80 and 443 with their IPv6 ranges —
+   the firewall is not in the snapshot, and a new instance opens 22 and 80 only. The root
+   filesystem grows to the new disk on first boot by itself.
+9. On the new box's temporary IP: the containers are as the snapshot left them, so `docker
+   compose --profile metrics up -d`; then `/health` with `--resolve
+   docketyard.org:443:127.0.0.1` (the bare IP fails the TLS handshake, no SNI). Check the
+   store's counts against the old box and that Litestream opened a new generation.
+10. Stop Docker on the old box; `detach-static-ip`, then `attach-static-ip` to the new
+    instance; DNS is untouched. Cloud-init regenerates the SSH host keys on a snapshot-born
+    instance: `ssh-keygen -R` the static IP before reconnecting.
+11. `enable --now` the two timers, `gap close <id>`, `rm data/flags/maintenance`. Stop the
+    old instance; delete it once the new one has run a while. Its snapshot is the
+    out-of-band copy ADR 0022 D6 asks for — keep it.
+
+Gotcha: a script piped over `ssh 'bash -s'` dies at the first `docker compose run`, which
+reads the rest of the script from stdin. Copy the script over and run it by path.
 
 ## Open: credentials without an instance role
 

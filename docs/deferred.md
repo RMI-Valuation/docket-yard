@@ -625,3 +625,25 @@ four confirmed, all nits, three reported and one dropped by its quality cap. Not
   two literal marks, so the page-tier table Migration B adds (the `PAGE_TABLES` item above)
   would raise a binding-count error on every reader page until both sites agree. Derive the
   placeholders once, in `search`, and import them.
+
+## Observed at Migration A's first load, 2026-09-04 (v2026.09.2 on the resized box)
+
+- **A bulk pass and Litestream trade the write lock, and the pass loses.** `text load`
+  aborted six times (`OperationalError: database is locked` after the 30 s busy timeout) at
+  35,903, 41,524, 42,107, 43,831, 45,366 and 57,559 documents, and `text paginate` once at
+  59,105; Litestream logged `checkpoint: mode=TRUNCATE err=database is locked` through each.
+  Every restart resumed from `ocr_run`, and a shell loop of twelve finished it on the seventh
+  attempt, 21 minutes wall for 77,567 documents. The abort is the design (`store/batches.py`),
+  so the fix is not in the loop: either the pass retries the *batch* a bounded number of
+  times on a lock before aborting, or the runbook pauses Litestream for a bulk pass's
+  minutes. Decide before Migration B's OCR loads, which are larger.
+- **`search rebuild-pages` holds the write lock for its whole run — 8 m 49 s at 1,104,935
+  rows — and the poller lost its 01:03 pass to it** (every table `capture failed
+  (OperationalError: database is locked)`; the trailing seven-day window took the next
+  pass, no gap). The docstring said minutes and now has the number. It is for recovery and a
+  `PAGE_INDEX_FORMAT` bump, never routine; when it is needed, run it behind the maintenance
+  wall, or batch it. The incremental index was already exact: the count matched before it.
+- **2,704 of the 80,272 extraction records name no `document` row** (`unknown_document`):
+  the blob copy on RMI-AI-MACHINE holds files the store does not list as documents, and the
+  extractor v2 writes a stub for every file it sees. The count is the loader's report, not a
+  defect; which files they are has not been checked.

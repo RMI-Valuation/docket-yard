@@ -189,6 +189,12 @@ citator reads is touched before the citator has run its first real load.
     recorded in `ocr_run` like any other. No standing spend, and no authenticated surface
     added to the reader-facing process.
 
+**First run, 2026-09-04**, on the resized box and under readers: `paginate` 77,567 documents
+in 19 s over two runs; `load` 1,104,935 pages and 1,472 MB of payloads in 21 minutes over
+seven resumes (the write-lock contention with Litestream is in `deferred.md`);
+`rebuild-pages` 8 m 49 s under the write lock, index and table both 1,104,935; the store
+346 MB → 3.7 GB with a 1.2 GB WAL. 15,086 image-only documents hold empty pages for the OCR.
+
 ## The infrastructure
 
 15. **The blob prefix**, named: payloads are immutable, content-addressed by their own
@@ -202,19 +208,30 @@ citator reads is touched before the citator has run its first real load.
     the old instance and disable it**, or two Litestream processes replicate divergent stores
     to one path; launch, move the static IP rather than changing DNS; verify; unmask; clear
     the flag. The TLS certificate lives in the `caddy-data` volume and therefore inside the
-    instance snapshot — say so, because the tempting alternative loses it.
+    instance snapshot — say so, because the tempting alternative loses it. **Done
+    2026-09-03/04**: small_3_0 to large_3_0, 55 minutes of gap recorded as gap 2, no
+    records missed; the procedure as run is `infra/deploy/README.md` § Resizing (`mask`
+    fails on units that are real files; `disable --now` is the equivalent).
 17. **`SQLITE_TMPDIR` on the dump service.** The plain `VACUUM` after the drops places its
     temporary database in `/tmp`, which is a tmpfs inside the `web` service's 768 MB limit.
     Point it at the volume and re-test at scale. The two failure signatures differ and only
-    one leaves a message.
+    one leaves a message. **Landed 2026-09-04**: `SQLITE_TMPDIR=/data/tmp` on the dump's
+    `docker compose run`, the directory created by `ExecStartPre`; the first nightly on
+    the large box after the load is the re-test at scale.
 18. **`OnFailure=` on all four systemd units**, and a Grafana alert on
     `node_filesystem_avail_bytes`. A failed dump today leaves last night's snapshot served
-    under an unchanged manifest, with nothing saying so.
+    under an unchanged manifest, with nothing saying so. **Landed 2026-09-04**:
+    `OnFailure=docketyard-failed@%p.service` on all four, writing
+    `docketyard_unit_failed{unit}` for Alloy's textfile collector and cleared by each
+    unit's own success; the Grafana alerts on it and on the filesystem are the operator's.
 19. **Litestream retention** raised for the window, or the pre-resize snapshot kept out of
-    band (ADR 0022 D6).
+    band (ADR 0022 D6). **The second, 2026-09-04**: the instance snapshot
+    `docketyard-prod-pre-resize-2026-09-03` is kept until the migration's correctness
+    question is answered; retention stays at 168h.
 20. **The healthcheck during the load.** `webwatch` restarts `web` whenever it reports
     unhealthy, every minute, uncapped; a slow `/` under load becomes a restart loop. Raise the
-    timeout or run the load behind maintenance.
+    timeout or run the load behind maintenance. **Landed 2026-09-04**: the healthcheck's
+    timeout is 30 s, was 5 s; the load runs under readers.
 
 ## The published pages, which must move in the same commit
 

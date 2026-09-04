@@ -46,7 +46,13 @@ prometheus.exporter.unix "host" {
 	sysfs_path  = "/host/sys"
 	rootfs_path = "/host/root"
 
-	set_collectors = ["cpu", "loadavg", "meminfo", "filesystem", "diskstats"]
+	// `textfile` carries the periodic units' outcomes (docketyard-failed@.service): a
+	// failed dump or blob sync is otherwise a journal line nobody reads.
+	set_collectors = ["cpu", "loadavg", "meminfo", "filesystem", "diskstats", "textfile"]
+
+	textfile {
+		directory = "/host/root/srv/docketyard/data/metrics"
+	}
 
 	filesystem {
 		mount_points_exclude = "^/(dev|proc|sys|run|var/lib/docker/.+)($|/)"

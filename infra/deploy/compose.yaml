@@ -64,7 +64,10 @@ services:
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/')"]
       interval: 60s
-      timeout: 5s
+      # 30s, not the 5s it shipped with: `webwatch` restarts `web` on `unhealthy`, and a
+      # `/` that is merely slow under a bulk load (`text load`, a rebuild) must not become
+      # a restart loop — ocr-migration.md item 20. Three misses in a row still trip it.
+      timeout: 30s
       start_period: 15s
 
   ingest:

@@ -2,8 +2,17 @@
 Description=Docket Yard: cut the public snapshot (M9)
 After=docker.service
 Requires=docker.service
+# A failed dump leaves last night's snapshot served under an unchanged manifest; this is
+# what says so (docketyard-failed@.service writes the gauge Grafana alerts on).
+OnFailure=docketyard-failed@%p.service
 
 [Service]
 Type=oneshot
 WorkingDirectory=/srv/docketyard
-ExecStart=/usr/bin/docker compose run --rm --no-deps -e DY_EMAIL_KEY= -e AWS_ACCESS_KEY_ID= -e AWS_SECRET_ACCESS_KEY= web dump --out /data/public
+# The plain VACUUM after the drops builds a temporary database the size of the copy, and
+# SQLite puts it in /tmp — which inside `web` is a tmpfs under the 768 MB limit. Point it
+# at the volume (ocr-migration.md item 17). Created writable by the image's uid every run.
+ExecStartPre=/usr/bin/install -d -o 1000 -g 1000 /srv/docketyard/data/tmp
+ExecStart=/usr/bin/docker compose run --rm --no-deps -e DY_EMAIL_KEY= -e AWS_ACCESS_KEY_ID= -e AWS_SECRET_ACCESS_KEY= -e SQLITE_TMPDIR=/data/tmp web dump --out /data/public
+# `-`: a gauge that cannot be written must never fail the unit it reports on
+ExecStartPost=-/srv/docketyard/unit_outcome.sh %p 0

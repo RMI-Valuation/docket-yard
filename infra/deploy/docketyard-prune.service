@@ -3,8 +3,11 @@
 Description=Docket Yard: prune local blobs that S3 already holds
 After=docketyard-blobs.service
 Requires=docketyard-blobs.service
+OnFailure=docketyard-failed@%p.service
 
 [Service]
 Type=oneshot
+# `-`: a gauge that cannot be written must never fail the unit it reports on
+ExecStartPost=-/srv/docketyard/unit_outcome.sh %p 0
 EnvironmentFile=/srv/docketyard/.env
 ExecStart=/usr/bin/python3 /srv/docketyard/prune_blobs.py /srv/docketyard/data/blobs ${DY_S3_BUCKET}

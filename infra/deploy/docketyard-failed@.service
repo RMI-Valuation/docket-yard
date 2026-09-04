@@ -1,0 +1,13 @@
+# /etc/systemd/system/docketyard-failed@.service — a unit failed; say so where Grafana can see.
+#
+# ocr-migration.md item 18. The four periodic units (blobs, prune, dump, webwatch) name this
+# as their OnFailure=. It writes `docketyard_unit_failed{unit="<name>"} 1` into the textfile
+# directory Alloy's unix exporter reads (config.alloy), and each unit's own ExecStartPost
+# writes the 0 back on its next success. The alert on the gauge lives in Grafana Cloud, off
+# the box, like every other judgement (ADR 0019): nothing here decides anything.
+[Unit]
+Description=Docket Yard: %i failed
+
+[Service]
+Type=oneshot
+ExecStart=/srv/docketyard/unit_outcome.sh %i 1

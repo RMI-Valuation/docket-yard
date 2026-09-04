@@ -4,9 +4,13 @@
 [Unit]
 Description=Docket Yard: sync the blob store to S3
 After=network-online.target
+OnFailure=docketyard-failed@%p.service
 
 [Service]
 Type=oneshot
 ExecStartPost=/bin/systemctl start --no-block docketyard-prune.service
+# after the prune is started, and `-`: a gauge that cannot be written (a full disk is what
+# the prune relieves) must never keep the prune from starting or fail this unit
+ExecStartPost=-/srv/docketyard/unit_outcome.sh %p 0
 EnvironmentFile=/srv/docketyard/.env
 ExecStart=/usr/local/bin/aws s3 sync /srv/docketyard/data/blobs s3://${DY_S3_BUCKET}/blobs --size-only --exclude "*.tmp" --exclude ".tmp/*" --no-progress --only-show-errors
