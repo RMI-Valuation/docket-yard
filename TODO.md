@@ -24,7 +24,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Migration A is done** (77,567 documents, 1,104,935 pages, store 3.7 GB) and both write-lock
   findings shipped in v2026.09.7. Left: the batched rebuild is unverified at 1.1M rows — the
   next real rebuild proves it (Cameron, 2026-09-04) — and `deferred.md` holds the one residual
-- **v2026.09.3–9 shipped 2026-09-04** (noindex text pages, contact details omitted at
+- **v2026.09.3–10 shipped 2026-09-04/05** (noindex text pages, contact details omitted at
   display, the page search path). **Cameron's**: revisit noindex now that search reaches the
   text, and whether `/search` joins the named AI agents' disallow list — it prints the held
   page text they may not fetch at `/text`. A mask pattern change is a new migration
