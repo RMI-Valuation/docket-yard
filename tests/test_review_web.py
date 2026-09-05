@@ -95,6 +95,7 @@ def store(tmp_path):
             "findings": [EXPOSED],
         },
         keys.registry(con),
+        keys.works(con),
         methods.stamp(con),
     )
     review.grant(con, "reviewer@example.com", "C. Rex", "reviewer zero")

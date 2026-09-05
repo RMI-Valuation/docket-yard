@@ -165,6 +165,38 @@ def registry(con) -> dict[str, int]:
     }
 
 
+def works(con) -> dict[tuple[int, str], str]:
+    """`(docket_id, service date)` -> the ONE decision served in that proceeding that day.
+
+    A day naming more than one decision is ABSENT, and the absence IS the rule rather than a
+    loss: ADR 0018 D4 resolves a citation to a work only when exactly one `stb_decision_id`
+    in the docket matches, so an ambiguous day stays at docket level and the resolver never
+    has to arbitrate. Measured in production 2026-09-05: 22,597 pairs name one decision and
+    532 name several, over 23,719 rows every one of which carries a service date.
+
+    `service_date` is quoted from the Service Date cell and is ISO `YYYY-MM-DD` in every row
+    (measured, same day), which is what lets `resolve.served_date` compare a printed date to
+    it by string.
+
+    THE `decision_work` TEST IS LAST, NOT A JOIN, and the order is the point: ambiguity is
+    counted over `decision_record`, so a day holding two decisions of which only one is
+    registered stays ambiguous instead of looking singular. `citation_resolution` foreign-keys
+    to `decision_work`, and `cli._citator` rolls a whole document back on an IntegrityError —
+    every citation, reading and judgement in it — so a registry that has drifted must cost a
+    docket-level answer here rather than the document (deferred.md, 2026-09-04: the drift was
+    latent only because `decision_id` was never assigned).
+    """
+    return {
+        (docket_id, service_date): decision_id
+        for docket_id, service_date, decision_id in con.execute(
+            "SELECT docket_id, service_date, MIN(stb_decision_id) FROM decision_record"
+            " WHERE service_date IS NOT NULL GROUP BY docket_id, service_date"
+            " HAVING COUNT(DISTINCT stb_decision_id) = 1"
+            "    AND MIN(stb_decision_id) IN (SELECT stb_decision_id FROM decision_work)"
+        )
+    }
+
+
 def render(citing_document: str, page: int, target_kind: str, target_key: str) -> str:
     """The canonical rendering of the key as ONE string, for `review_action.target_key` and
     `correction.target_key` (ADR 0018 D1; migration 0014 documents the same shape). Never a

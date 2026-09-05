@@ -25,7 +25,9 @@ Three rules, and each is a distinct method with its own confidence:
            exposure test): to review, not to a page.
 """
 
+import re
 from dataclasses import dataclass
+from datetime import date
 
 from docketyard.citator import keys
 
@@ -61,6 +63,83 @@ class Resolution:
     exposed: bool = False  # resolved, but to a proceeding a fused footnote could explain
 
 
+# ---------------------------------------------------------------------------------------
+# The work-level step (ADR 0018 D4): a docket becomes a DOCUMENT when the page says which
+# ---------------------------------------------------------------------------------------
+# ONE RESOLUTION ROW ASSERTS THE COMPLETE OUTCOME, so this is not a second method with a
+# second row. Migration 0014 discharged ADR 0018's owed item 3 in the DDL itself: "the family
+# test reads the docket column and query 2 keys on the decision column, and they must come
+# off the SAME resolution or the query joins one method's work-level answer to another's
+# docket-level one." So `decision_id` rides on the rule that resolved the docket, and
+# `method_version` stays `rule-1` / `rule-2-repair`.
+#
+# The pattern is `judge.SPAN_NAMES_DOCUMENT`'s `served` alternative with the date completed,
+# which makes ADR 0018 D4's FIRST condition — "the text names a document" — true BY
+# CONSTRUCTION rather than by a second call into `judge`. A resolver that asked `judge` would
+# bind its answer to `SPAN_VERSION` without any of its rows saying so; a resolver that is a
+# strict narrowing of the span pattern cannot claim a work the span test would then suppress.
+# A test pins the containment, because it is the whole argument.
+#
+# "served ON March 12, 2021" is DELIBERATELY NOT MATCHED. It is 0.96% of pages against this
+# form's 5.43% (200,000 production pages, 2026-09-05), and admitting it would break the
+# containment above: the span test does not match it either, so those edges are suppressed at
+# projection and a work-level answer on them would be a claim nothing publishes. Closing that
+# gap is a SPAN_VERSION bump and a re-measurement of every edge stamped by the old one
+# (`judge.py`), never a quiet widening here.
+SERVED = re.compile(r"served\s+(\w+)\.?\s+(\d{1,2}),?\s+(\d{4})", re.I)
+
+# Full names and the abbreviations the Board actually prints, counted over the same 200,000
+# pages. `sept` is in this map because it was MEASURED at 1,335 occurrences — more than
+# `march` — and a three-letter-prefix rule would have dropped every one of them.
+MONTHS = {
+    "january": 1,
+    "jan": 1,
+    "february": 2,
+    "feb": 2,
+    "march": 3,
+    "mar": 3,
+    "april": 4,
+    "apr": 4,
+    "may": 5,
+    "june": 6,
+    "jun": 6,
+    "july": 7,
+    "jul": 7,
+    "august": 8,
+    "aug": 8,
+    "september": 9,
+    "sept": 9,
+    "sep": 9,
+    "october": 10,
+    "oct": 10,
+    "november": 11,
+    "nov": 11,
+    "december": 12,
+    "dec": 12,
+}
+
+
+def served_date(passage: str) -> str | None:
+    """The ONE service date the passage prints, as ISO, or None.
+
+    None when there is no readable `served <date>`, when the month word or the day is not a
+    date, and — the case worth naming — when the passage prints SEVERAL different service
+    dates. ADR 0018 D4 resolves to a work only on an unambiguous match, and a passage that
+    names two documents is exactly as ambiguous as a day that holds two decisions; both stay
+    at docket level rather than being arbitrated here.
+    """
+    seen = set()
+    for month, day, year in SERVED.findall(passage or ""):
+        number = MONTHS.get(month.lower())
+        if number is None:
+            continue  # a word in the month's place that is not a month
+        try:
+            seen.add(date(int(year), number, int(day)).isoformat())
+        except ValueError:
+            continue  # `served April 31, 2021` is not a date, and `date` is the only judge
+    return seen.pop() if len(seen) == 1 else None
+
+
 def _stripped(key: str) -> str | None:
     """The key with the last digit of a bare sequence removed, or None if it has none to
     remove. Only a BARE digit run can swallow a following footnote marker: a match ending in
@@ -71,14 +150,67 @@ def _stripped(key: str) -> str | None:
     return key[:-1]
 
 
-def resolve(key: str, held: dict[str, int]) -> Resolution:
-    """Rule 1, then rule 2, and the exposure flag on what rule 1 resolved.
+def _anchored(passage: str, printed: str) -> str:
+    """The parts of the passage that belong to THIS target: from the end of each of its
+    printed occurrences to the next docket-shaped number, or the end of that line.
 
-    `held` is `keys.registry(con)`. It is passed rather than queried per target because a
-    backfill resolves tens of thousands of targets against one registry snapshot, and
-    because the caller then knows exactly which registry a run was measured against — the
-    bias `docs/citator-schema.md` records inverts with registry size.
+    THE DATE IS ANCHORED TO THE NUMBER, never searched over the whole passage — the discipline
+    `keys.SUBNO` already carries. `find` quotes the WHOLE LINE a target sat on, and one line
+    commonly cites several proceedings: "See EP 445, slip op. at 3 (STB served Mar. 12, 2021);
+    see also FD 36873." handed FD 36873 the document EP 445 named, an edge asserting something
+    the page never said (reproduced 2026-09-05, code review).
+
+    A KNOWN LIMIT, recorded rather than parsed around: a bare parent printed on the same line
+    as its own sub-docket matches inside the longer form, so `FD 36873` can take the segment
+    that follows `FD 36873 (Sub-No. 1)`. Both are the same family and the cost is a parent
+    credited with a child's document; a real fix is a finder that reports each occurrence's
+    offset, which is a `find.py` change and not one to make in passing.
     """
+    out = []
+    for line in passage.split(" | "):
+        start = 0
+        while printed and (at := line.find(printed, start)) != -1:
+            end = at + len(printed)
+            following = keys.DOCKET.search(line, end)
+            out.append(line[end : following.start() if following else len(line)])
+            start = end
+    return " | ".join(out)
+
+
+def _work(docket_id: int, works: dict[tuple[int, str], str], segment: str) -> str | None:
+    """The decision the passage names inside an already-resolved docket, or None.
+
+    Both halves of ADR 0018 D4's "exactly one" are enforced, and neither is arbitrated: the
+    passage must print ONE service date (`served_date`), and that day must hold ONE decision
+    in this docket (`keys.works` omits the days that hold more). Either way out is docket
+    level, which is the outcome the record already publishes for 23,713 of 23,713 decisions
+    whose `decision_number` is unfilled.
+    """
+    served = served_date(segment)
+    return None if served is None else works.get((docket_id, served))
+
+
+def resolve(
+    key: str,
+    held: dict[str, int],
+    works: dict[tuple[int, str], str],
+    passage: str,
+    printed: str,
+) -> Resolution:
+    """Rule 1, then rule 2, the exposure flag on what rule 1 resolved, and the work.
+
+    `held` is `keys.registry(con)` and `works` is `keys.works(con)`. Both are passed rather
+    than queried per target because a backfill resolves tens of thousands of targets against
+    one registry snapshot, and because the caller then knows exactly which registry a run was
+    measured against — the bias `docs/citator-schema.md` records inverts with registry size.
+
+    `passage` is the reading's `quoted_passage`, the same string the span test is given, and
+    `printed` is `cited_raw` — the target exactly as the page prints it, which is what the
+    served date is anchored to. Both are REQUIRED rather than defaulted: a default would
+    silently resolve every target to the docket, and `cited_decision_id` being NULL on every
+    row is the state these arguments exist to end.
+    """
+    segment = _anchored(passage, printed)
     bare = keys.BARE_KEY.match(key)
     digits = len(bare.group(1)) if bare else 0
     docket_id = held.get(key)
@@ -88,6 +220,7 @@ def resolve(key: str, held: dict[str, int]) -> Resolution:
             outcome="resolved",
             method=RULE_1,
             docket_id=docket_id,
+            decision_id=_work(docket_id, works, segment),
             # four digits or fewer: `\d{1,5}` caps the finder, so a five-digit docket cannot
             # absorb a sixth and only the shorter numbers are at risk
             exposed=bool(stripped and digits <= 4 and stripped in held),
@@ -96,5 +229,16 @@ def resolve(key: str, held: dict[str, int]) -> Resolution:
     # condition is ADR 0018 D4's; `\d{1,5}` caps the finder's sequence, so five digits is
     # the longest a number can be and still have absorbed a marker.
     if digits == 5 and (repaired := held.get(key[:-1])) is not None:
-        return Resolution(outcome="repaired", method=RULE_2, docket_id=repaired)
+        # A REPAIR REACHES THE WORK TOO. Nothing in ADR 0018 D4 excludes it, and the two
+        # judgements are independent: the repair says which proceeding the printed number
+        # meant, the served date says which document inside it. A wrong repair carries the
+        # decision id down with it, which is the ordinary consequence of a wrong docket and
+        # is what rule 2's lower rank and the review queue are for — not a reason to publish
+        # half an answer on a row the schema requires to be complete.
+        return Resolution(
+            outcome="repaired",
+            method=RULE_2,
+            docket_id=repaired,
+            decision_id=_work(repaired, works, segment),
+        )
     return Resolution(outcome="unresolved", method=RULE_1)

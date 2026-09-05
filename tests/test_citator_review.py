@@ -89,6 +89,7 @@ def _load(con, stamps, *findings):
             "findings": list(findings),
         },
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
 

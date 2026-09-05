@@ -37,7 +37,9 @@ one accepted deferral — so a past projection is not reconstructible, and that 
 rather than hidden behind a default.
 """
 
-from docketyard.citator.methods import RANK_VERSION
+from docketyard.citator.methods import RANK_VERSION, Unscored
+
+WORK_CLASS = "work"  # `class_vocab` holds no such class yet, and that is this gate
 
 _TERMS = """
 WITH rank_res AS (
@@ -215,6 +217,21 @@ def cited_by(
     verb gate keeps every `decided <date>` phrase at docket level, so a work-grain question
     answers thin. Both are offered because a public "cited by" count must not silently mix
     two grains (ADR 0018 D9).
+
+    THE WORK GRAIN IS GATED ON ITS OWN MEASUREMENT, and the gate is shut. `resolve` assigns
+    `cited_decision_id` from a served date anchored to the target (16,051 of 217,352 landed
+    resolutions, measured over the whole record 2026-09-05), and those rows are STORED — a
+    row is never discarded. But the confidence they carry is the `('citation_resolution',
+    'docket')` figure, scored over docket-level pairs, and nothing has ever scored a
+    work-level answer. Publishing the one under the other is precisely the error ADR 0017
+    § Consequences records as having been made four times, in the table built to stop it.
+
+    So the class must exist and be scored before this answers, exactly as `class_vocab` being
+    empty is what holds `document_text` shut (migration 0018). Opening it is a measurement,
+    not a code change: score `('citation_resolution', 'work')` on a checked sheet, and stamp
+    the work-level rows from it. Until then `cited-by --work` refuses and says why, rather
+    than returning rows whose figure speaks for a different question (the operator's decision,
+    2026-09-05).
     """
     if (docket_id is None) == (work_id is None):
         raise ValueError("cited_by takes exactly one of docket_id or work_id")
@@ -222,6 +239,18 @@ def cited_by(
         return con.execute(
             CITED_BY_DOCKET, {"rank_version": rank_version, "target_docket": docket_id}
         ).fetchall()
+    scored = con.execute(
+        "SELECT 1 FROM class_measurement WHERE measured_target = 'citation_resolution'"
+        " AND class = ? AND precision IS NOT NULL",
+        (WORK_CLASS,),
+    ).fetchone()
+    if scored is None:
+        raise Unscored(
+            "the work grain is not published: no class_measurement for"
+            f" ('citation_resolution', {WORK_CLASS!r}) with a precision. The rows exist and"
+            " carry cited_decision_id; what is missing is a figure that speaks for THEM"
+            " rather than for the docket-level class. Ask at the docket grain instead."
+        )
     return con.execute(
         CITED_BY_WORK, {"rank_version": rank_version, "target_work": work_id}
     ).fetchall()

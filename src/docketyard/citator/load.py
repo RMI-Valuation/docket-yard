@@ -77,7 +77,9 @@ def _live_citation(con, sha: str, page: int, key: str):
     ).fetchone()
 
 
-def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
+def load_document(
+    con, doc: dict, held: dict[str, int], works: dict[tuple[int, str], str], stamps: dict
+) -> Loaded:
     """One findings document, through citation_key and the four live families.
 
     `stamps` is `methods.stamp(con, channel=...)` FOR THIS DOCUMENT'S CHANNEL:
@@ -281,7 +283,7 @@ def load_document(con, doc: dict, held: dict[str, int], stamps: dict) -> Loaded:
         # hold is `unresolved`. Waves 2-3 are still adding dockets, so ADR 0017 D2's "store
         # it unresolved, resolve it later" would have had no later. Instead the live row is
         # compared and superseded when the ANSWER changed.
-        r = resolve.resolve(key, held)
+        r = resolve.resolve(key, held, works, passage, printed[(page, key)])
         supersede.if_changed(
             con,
             table="citation_resolution",

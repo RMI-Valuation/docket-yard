@@ -287,6 +287,7 @@ def main(text_dir: Path, registry: Path, store: Path, out: Path, card_out: Path 
     version = find.FINDER_VERSION
     stamps = register(con, version, py)
     held = keys.registry(con)
+    works = keys.works(con)
     docs = citing_documents(con, {p.stem for p in run.glob("*.json")})
     print(f"  {len(docs)} of 60 decisions have fetched bytes to hang an edge on")
 
@@ -316,6 +317,7 @@ def main(text_dir: Path, registry: Path, store: Path, out: Path, card_out: Path 
                 ],
             },
             held,
+            works,
             stamps,
         )
         totals["emitted"] += result.emitted

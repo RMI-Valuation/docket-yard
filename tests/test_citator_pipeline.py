@@ -233,12 +233,12 @@ def test_the_rendered_key_is_readable_and_never_a_digest():
 def test_rule_one_resolves_and_an_unresolved_target_is_kept(tmp_path):
     con = _store(tmp_path)
     held = keys.registry(con)
-    assert resolve.resolve("FD 36873", held) == resolve.Resolution(
+    assert resolve.resolve("FD 36873", held, {}, "", "") == resolve.Resolution(
         outcome="resolved", method=resolve.RULE_1, docket_id=1
     )
     # ADR 0017 D2: a target the registry cannot resolve is a REAL EDGE bound for a human,
     # and a finder that could not emit one would empty that queue by construction
-    miss = resolve.resolve("NOR 99999", held)
+    miss = resolve.resolve("NOR 99999", held, {}, "", "")
     assert miss.outcome == "unresolved" and miss.docket_id is None
 
 
@@ -249,12 +249,12 @@ def test_rule_two_repairs_a_five_digit_number_and_never_rewrites_the_raw(tmp_pat
         "'FD', 3687)"
     )
     held = keys.registry(con)
-    repaired = resolve.resolve("FD 36878", held)  # not held; `FD 3687` is
+    repaired = resolve.resolve("FD 36878", held, {}, "", "")  # not held; `FD 3687` is
     assert repaired.outcome == "repaired" and repaired.docket_id == 5
     assert repaired.method == resolve.RULE_2  # a DISTINCT method, so it can be ranked below
     # four digits is not the repair's shape: `\d{1,5}` caps the finder, so only a five-digit
     # number can have absorbed a sixth character
-    assert resolve.resolve("FD 3688", held).outcome == "unresolved"
+    assert resolve.resolve("FD 3688", held, {}, "", "").outcome == "unresolved"
 
 
 def test_the_exposure_test_flags_a_fused_footnote_marker(tmp_path):
@@ -270,9 +270,9 @@ def test_the_exposure_test_flags_a_fused_footnote_marker(tmp_path):
         "'AB', 1242)"
     )
     held = keys.registry(con)
-    assert resolve.resolve("AB 1242", held).exposed is True  # `AB 124` + footnote `2`
-    assert resolve.resolve("FD 36873", held).exposed is False  # five digits: capped
-    assert resolve.resolve("AB 1296 (X)", held).exposed is False  # not a bare digit run
+    assert resolve.resolve("AB 1242", held, {}, "", "").exposed is True  # `AB 124` + footnote `2`
+    assert resolve.resolve("FD 36873", held, {}, "", "").exposed is False  # five digits: capped
+    assert resolve.resolve("AB 1296 (X)", held, {}, "", "").exposed is False  # not a bare digit run
 
 
 # --- the measurement a row is stamped from ----------------------------------------------
@@ -322,7 +322,7 @@ def test_the_loader_refuses_stamps_measured_on_another_channel(tmp_path):
     doc = _findings({"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."})
     doc["reading_channel"] = "ocr"
     with pytest.raises(load.WrongChannel, match="'ocr'"):
-        load.load_document(con, doc, keys.registry(con), stamps)
+        load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
     for table in ("citation", "citation_reading", "citation_resolution", "citation_judgement"):
         assert con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
 
@@ -339,10 +339,12 @@ def test_the_loader_refuses_a_channel_a_model_pass_cannot_read_on(tmp_path):
     doc = _findings({"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."})
     for channel in (None, "human", "text_layer"):
         with pytest.raises(load.WrongChannel, match=repr(channel)):
-            load.load_document(con, dict(doc, reading_channel=channel), keys.registry(con), stamps)
+            load.load_document(
+                con, dict(doc, reading_channel=channel), keys.registry(con), keys.works(con), stamps
+            )
     del doc["reading_channel"]
     with pytest.raises(load.WrongChannel, match="None"):
-        load.load_document(con, doc, keys.registry(con), stamps)
+        load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
     assert con.execute("SELECT COUNT(*) FROM citation").fetchone()[0] == 0
 
 
@@ -354,10 +356,12 @@ def test_the_loader_refuses_stamps_that_are_partial_or_point_at_nothing(tmp_path
     stamps = _scored(con)
     doc = _findings({"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."})
     with pytest.raises(methods.Unscored, match="carry no"):
-        load.load_document(con, doc, keys.registry(con), {"citation": stamps["citation"]})
+        load.load_document(
+            con, doc, keys.registry(con), keys.works(con), {"citation": stamps["citation"]}
+        )
     stale = dict(stamps, projection=(9999, 0.9))
     with pytest.raises(methods.Unscored, match="does not hold"):
-        load.load_document(con, doc, keys.registry(con), stale)
+        load.load_document(con, doc, keys.registry(con), keys.works(con), stale)
     assert con.execute("SELECT COUNT(*) FROM citation_key").fetchone()[0] == 0
 
 
@@ -471,7 +475,11 @@ def test_the_confidence_on_a_row_is_the_one_the_measurement_holds(tmp_path):
     con = _store(tmp_path)
     stamps = _scored(con, precision=0.777)
     load.load_document(
-        con, _findings({"page": 4, "target": "EP 445", "quoted": "q"}), keys.registry(con), stamps
+        con,
+        _findings({"page": 4, "target": "EP 445", "quoted": "q"}),
+        keys.registry(con),
+        keys.works(con),
+        stamps,
     )
     got = con.execute("SELECT DISTINCT confidence FROM citation_resolution").fetchone()
     assert got[0] == 0.777
@@ -491,6 +499,7 @@ def test_a_findings_document_becomes_four_families_and_a_run(tmp_path):
             {"page": 9, "target": "3 I.C.C.2d 196", "quoted": "a reporter cite"},
         ),
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
     assert (result.emitted, result.resolved, result.unresolved) == (2, 1, 1)
@@ -508,9 +517,9 @@ def test_a_re_run_replaces_the_pass_row_and_supersedes_nothing_else(tmp_path):
     con = _store(tmp_path)
     stamps = _scored(con)
     doc = _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."})
-    load.load_document(con, doc, keys.registry(con), stamps)
+    load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
     # the same version again: the pass row is a RECORD OF A PASS, not an assertion
-    load.load_document(con, doc, keys.registry(con), stamps)
+    load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
     assert con.execute("SELECT COUNT(*) FROM extraction_run").fetchone()[0] == 1
     assert con.execute("SELECT COUNT(*) FROM citation_key").fetchone()[0] == 1
 
@@ -522,6 +531,7 @@ def test_an_unresolved_target_reaches_no_page_but_is_stored(tmp_path):
         con,
         _findings({"page": 4, "target": "NOR 99999", "quoted": "slip op. at 3"}),
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
     assert con.execute("SELECT outcome FROM citation_resolution").fetchone()[0] == "unresolved"
@@ -538,13 +548,18 @@ def test_an_edge_outside_the_family_projects(tmp_path):
         con,
         _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}),
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
     rows = project.projected(con)
     assert len(rows) == 1
     assert rows[0][0] == "52526" and rows[0][2] == "EP 445"  # folded to the WORK
     assert project.cited_by(con, docket_id=3) == rows
-    assert project.cited_by(con, work_id="52526") == []  # nothing resolves to a work yet
+    # THE WORK GRAIN REFUSES rather than answering thin (the operator, 2026-09-05). The rows
+    # now carry `cited_decision_id`, but the confidence on them was scored over docket-level
+    # pairs, and ADR 0017 D3 is what stops a figure being borrowed for a different question.
+    with pytest.raises(methods.Unscored, match="work"):
+        project.cited_by(con, work_id="52526")
 
 
 def test_an_own_family_mention_is_suppressed_unless_its_span_names_a_document(tmp_path):
@@ -556,6 +571,7 @@ def test_an_own_family_mention_is_suppressed_unless_its_span_names_a_document(tm
         con,
         _findings({"page": 4, "target": "FD 36873 (Sub-No. 1)", "quoted": "Docket No. FD 36873"}),
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
     assert judge.names_document("Docket No. FD 36873") is False
@@ -573,6 +589,7 @@ def test_an_own_family_mention_is_suppressed_unless_its_span_names_a_document(tm
             }
         ),
         keys.registry(con2),
+        keys.works(con2),
         stamps2,
     )
     # inside the family, but the span names a DOCUMENT — the reconsideration edge Q2 exists
@@ -589,6 +606,7 @@ def test_a_retraction_bites_because_the_projection_joins_live_citation(tmp_path)
         con,
         _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}),
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
     assert len(project.projected(con)) == 1
@@ -612,6 +630,7 @@ def test_an_unmeasured_extraction_reaches_no_page(tmp_path):
         con,
         _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}),
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
     con.execute(
@@ -639,6 +658,7 @@ def test_the_veto_ships_inert_and_suppresses_only_what_it_vetoed(tmp_path):
         con,
         _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}),
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
     rate = methods.measure(
@@ -686,6 +706,7 @@ def test_a_human_resolution_needs_a_human_reading_or_it_projects_nothing(tmp_pat
         con,
         _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}),
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
     row = con.execute(
@@ -731,6 +752,7 @@ def test_the_projection_and_query_two_share_their_terms(tmp_path):
         con,
         _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}),
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
     from pathlib import Path
@@ -835,7 +857,7 @@ def test_an_unresolved_target_resolves_when_the_registry_catches_up(tmp_path):
     con = _store(tmp_path)
     stamps = _scored(con)
     doc = _findings({"page": 4, "target": "NOR 42150", "quoted": "See NOR 42150, slip op. at 3."})
-    load.load_document(con, doc, keys.registry(con), stamps)
+    load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
     assert con.execute("SELECT outcome FROM citation_resolution").fetchone()[0] == "unresolved"
     assert project.projected(con) == []
 
@@ -843,7 +865,9 @@ def test_an_unresolved_target_resolves_when_the_registry_catches_up(tmp_path):
         "INSERT INTO docket (docket_id, raw_docket, prefix, sequence)"
         " VALUES (9, 'NOR_42150', 'NOR', 42150)"
     )
-    load.load_document(con, doc, keys.registry(con), stamps)  # same pass, bigger registry
+    load.load_document(
+        con, doc, keys.registry(con), keys.works(con), stamps
+    )  # same pass, bigger registry
     live = con.execute(
         "SELECT outcome, cited_docket_id FROM citation_resolution WHERE superseded_by IS NULL"
     ).fetchall()
@@ -860,7 +884,7 @@ def test_a_second_reading_channel_is_written_even_though_the_key_is_unchanged(tm
     con = _store(tmp_path)
     stamps = _scored(con)
     finding = {"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}
-    load.load_document(con, _findings(finding), keys.registry(con), stamps)
+    load.load_document(con, _findings(finding), keys.registry(con), keys.works(con), stamps)
     ocr = _findings(finding) | {
         "reading_channel": "ocr",
         "reading_method": "tesseract",
@@ -868,7 +892,7 @@ def test_a_second_reading_channel_is_written_even_though_the_key_is_unchanged(tm
     }
     # stamped from the OCR channel's OWN measurement: the text-layer stamps are refused
     ocr_stamps = _scored(con, precision=0.5, channel="ocr")
-    result = load.load_document(con, ocr, keys.registry(con), ocr_stamps)
+    result = load.load_document(con, ocr, keys.registry(con), keys.works(con), ocr_stamps)
     assert result.unchanged == 1  # the identity was already asserted...
     channels = {r[0] for r in con.execute("SELECT reading_channel FROM citation_reading")}
     assert channels == {"text-layer", "ocr"}  # ...and the reading still landed
@@ -911,7 +935,7 @@ def test_a_document_whose_method_does_not_own_the_class_is_refused(tmp_path):
         "method": "model:claude-sonnet-5"
     }
     with pytest.raises(load.NotTheOwner):
-        load.load_document(con, doc, keys.registry(con), stamps)
+        load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
     assert con.execute("SELECT COUNT(*) FROM citation").fetchone()[0] == 0
 
 
@@ -928,6 +952,7 @@ def test_a_false_span_judgement_is_not_stamped_with_the_projections_precision(tm
             {"page": 5, "target": "FD 36873 (Sub-No. 1)", "quoted": "Docket No. FD 36873"},
         ),
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
     rows = dict(
@@ -963,6 +988,7 @@ def test_a_cited_by_count_is_pairs_and_not_passages(tmp_path):
             {"page": 9, "target": "EP 445", "quoted": "EP 445, slip op. at 11."},
         ),
         keys.registry(con),
+        keys.works(con),
         stamps,
     )
     rows = project.cited_by(con, docket_id=3)
@@ -1032,3 +1058,167 @@ def test_the_load_verb_reports_the_review_it_created_against_the_queues(tmp_path
     assert "held out of the projection" in out
     assert project.projected(con) == [], "an exposed edge reached the projection"
     con.close()
+
+
+# --- the work-level step (ADR 0018 D4) ---------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "passage,iso",
+    [
+        ("slip op. at 6 (STB served Mar. 12, 2021)", "2021-03-12"),
+        ("(STB served March 12, 2021)", "2021-03-12"),
+        ("served Sept 4, 2019", "2019-09-04"),  # 'sept' outnumbers 'march' in the record
+        ("served December 31, 1997", "1997-12-31"),
+        ("served on March 12, 2021", None),  # the span test does not read it either
+        ("served April 31, 2021", None),  # not a date, and `date` is the only judge
+        ("served Smarch 12, 2021", None),  # not a month
+        ("served Mar. 12, 2021 | served May 1, 2020", None),  # two documents, no arbitration
+        ("Docket No. FD 36873", None),
+    ],
+)
+def test_served_date_reads_the_boards_own_forms(passage, iso):
+    assert resolve.served_date(passage) == iso
+
+
+def test_every_date_the_resolver_reads_is_one_the_span_test_would_pass():
+    """THE CONTAINMENT, which is the whole argument for not calling `judge` from `resolve`:
+    `SERVED` is `SPAN_NAMES_DOCUMENT`'s `served` alternative with the date completed, so a
+    work-level answer can never be given on a passage the span test then suppresses. Widening
+    `SERVED` without bumping SPAN_VERSION breaks this test rather than a published page."""
+    for passage in (
+        "slip op. at 6 (STB served Mar. 12, 2021)",
+        "served September 4, 2019",
+        "SERVED DEC 3, 2014",
+        "served May 1 2020",  # the Board drops the comma too
+    ):
+        assert resolve.served_date(passage) is not None
+        assert judge.names_document(passage) is True
+
+
+def test_a_resolution_reaches_the_work_when_the_passage_names_the_day(tmp_path):
+    """ADR 0018 D4, and the end of `cited_decision_id` being NULL on every row. Decision
+    52526 is the one served on FD 36873 that day, so the citation resolves to the DOCUMENT."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    load.load_document(
+        con,
+        _findings(
+            {
+                "page": 4,
+                "target": "FD 36873",
+                "quoted": "See FD 36873, slip op. at 3 (STB served Mar. 12, 2021)",
+            }
+        ),
+        keys.registry(con),
+        keys.works(con),
+        stamps,
+    )
+    assert con.execute(
+        "SELECT outcome, cited_docket_id, cited_decision_id FROM citation_resolution"
+        " WHERE superseded_by IS NULL"
+    ).fetchall() == [("resolved", 1, "52526")]
+
+
+def test_a_docket_named_without_a_served_date_stays_at_docket_level(tmp_path):
+    """The normal case, and it must stay the normal case: `decision_number` is populated for
+    0 of 23,713 rows, so most edges are docket-level and NULL is the right answer."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    load.load_document(
+        con,
+        _findings({"page": 4, "target": "FD 36873", "quoted": "See FD 36873, slip op. at 3."}),
+        keys.registry(con),
+        keys.works(con),
+        stamps,
+    )
+    assert con.execute(
+        "SELECT cited_docket_id, cited_decision_id FROM citation_resolution"
+        " WHERE superseded_by IS NULL"
+    ).fetchall() == [(1, None)]
+
+
+def test_a_day_holding_two_decisions_stays_at_docket_level(tmp_path):
+    """`keys.works` omits the ambiguous day rather than arbitrating it, so the resolver never
+    has to choose between two documents the page could equally mean."""
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO decision_record (decision_pk, docket_id, stb_decision_id, service_date,"
+        " observed_in_event) VALUES (2, 1, '52527', '2021-03-12', 1)"
+    )
+    con.execute("INSERT INTO decision_work VALUES ('52527')")
+    assert keys.works(con) == {}
+    stamps = _scored(con)
+    load.load_document(
+        con,
+        _findings(
+            {
+                "page": 4,
+                "target": "FD 36873",
+                "quoted": "See FD 36873 (STB served Mar. 12, 2021)",
+            }
+        ),
+        keys.registry(con),
+        keys.works(con),
+        stamps,
+    )
+    assert con.execute(
+        "SELECT cited_docket_id, cited_decision_id FROM citation_resolution"
+        " WHERE superseded_by IS NULL"
+    ).fetchall() == [(1, None)]
+
+
+def test_a_repair_carries_the_work_down_with_it(tmp_path):
+    """Nothing in ADR 0018 D4 excludes rule 2, and the schema requires ONE row to assert the
+    complete outcome — so a repaired docket resolves to the day's document like any other."""
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO docket (docket_id, raw_docket, prefix, sequence) VALUES (5, 'FD_3687', "
+        "'FD', 3687)"
+    )
+    con.execute(
+        "INSERT INTO decision_record (decision_pk, docket_id, stb_decision_id, service_date,"
+        " observed_in_event) VALUES (2, 5, '52530', '2021-03-12', 1)"
+    )
+    con.execute("INSERT INTO decision_work VALUES ('52530')")
+    r = resolve.resolve(  # `FD 36878` is not held; `FD 3687` is
+        "FD 36878",
+        keys.registry(con),
+        keys.works(con),
+        "FD 36878 (STB served Mar. 12, 2021)",
+        "FD 36878",
+    )
+    assert (r.outcome, r.method, r.docket_id, r.decision_id) == (
+        "repaired",
+        resolve.RULE_2,
+        5,
+        "52530",
+    )
+
+
+def test_a_served_date_belongs_to_the_docket_it_follows_and_not_to_the_line(tmp_path):
+    """`find` quotes the WHOLE LINE, and one line commonly cites several proceedings. Without
+    the anchor, FD 36873 was asserted to cite a document only EP 445 named — an edge stating
+    something the page never said (reproduced 2026-09-05, code review)."""
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO decision_record (decision_pk, docket_id, stb_decision_id, service_date,"
+        " observed_in_event) VALUES (2, 3, '99999', '2021-03-12', 1)"
+    )
+    con.execute("INSERT INTO decision_work VALUES ('99999')")
+    stamps = _scored(con)
+    line = "See EP 445, slip op. at 3 (STB served Mar. 12, 2021); see also FD 36873."
+    load.load_document(
+        con,
+        _findings(
+            {"page": 4, "target": "EP 445", "quoted": line},
+            {"page": 4, "target": "FD 36873", "quoted": line},
+        ),
+        keys.registry(con),
+        keys.works(con),
+        stamps,
+    )
+    assert con.execute(
+        "SELECT target_key, cited_docket_id, cited_decision_id FROM citation_resolution"
+        " WHERE superseded_by IS NULL ORDER BY target_key"
+    ).fetchall() == [("EP 445", 3, "99999"), ("FD 36873", 1, None)]

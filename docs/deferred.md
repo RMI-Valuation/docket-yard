@@ -256,10 +256,10 @@ The serious ones were fixed in the same session and are pinned by tests in
   produces the same key — the same "whichever channel inserted first owns it for ever"
   defect ADR 0018 D2 rejected `cited_raw` over. A differing `key_version` on an existing key
   is a re-normalisation event worth being loud about.
-- **`cited_by(work_id=...)` always returns nothing**, because no writer populates
-  `citation_resolution.cited_decision_id`: ADR 0018 D4's verb gate (a phrase's own verb
-  decides whether `served <date>` matches `service_date`) is a later pass. The docket grain
-  is the one to use, and `project.cited_by`'s docstring says so.
+- ~~**`cited_by(work_id=...)` always returns nothing**~~ — RESOLVED 2026-09-05: `resolve`
+  assigns `decision_id` from ADR 0018 D4's verb gate, anchored to the target's own printed
+  form. `decided <date>` still stays at docket level, and a work-level answer is only as
+  measured as the class it is stamped from.
 - **The family closure is written twice** — `web/cite.py` and `project.py` — which ADR 0018
   D7 says the projection may not depend on. `methods.PROJECTION_RULE` also hardcodes
   `closure=cite.py@2026-09-01`, a date somebody must remember to edit.
@@ -940,12 +940,12 @@ Left on the instance for whatever comes next, to be deleted otherwise:
 
 ## Found by fixing decision_work, 2026-09-04
 
-- **`Resolution.decision_id` is declared and never assigned**, so `citation.cited_decision_id`
-  is written NULL on every row and the foreign key to `decision_work` cannot fire today. The
-  registry's drift was therefore LATENT, not breaking — I said it would have failed the first
-  real load, and that was wrong (stb-ingest-specialist, 2026-09-04). Populating it is part of
-  ADR 0018's owed list, not of this fix; the invariant is worth holding either way, and now
-  is when it is cheap.
+- ~~**`Resolution.decision_id` is declared and never assigned**~~ — RESOLVED 2026-09-05.
+  The registry's drift was LATENT, not breaking, because of it — I said it would have failed
+  the first real load, and that was wrong (stb-ingest-specialist, 2026-09-04). It can fire
+  now, which is why `keys.works` tests `decision_work` before handing an id to the loader:
+  `cli._citator` rolls a whole document back on an IntegrityError, so drift must cost a
+  docket-level answer rather than every edge in the document.
 - **The `globally_addressed` comment described a refusal the code does not make.** A second
   docket claiming a held record id is counted (`id_collisions`) and reported by the poller —
   and the second record is still written, because the row was observed. The comment read "an
@@ -1020,3 +1020,80 @@ becomes of that record.
   is doing its job, and ADR 0024 D1 takes the consequence deliberately. Recorded because any
   future count of "what the poller owns" that uses this join will be larger than a count of
   forward-observed records, and the two numbers will disagree for a reason nobody remembers.
+
+## From the schema critic on migration 0022, 2026-09-05 (against v2026.09.10)
+
+Two findings the operator left for ADR 0024's next revision rather than for the migration.
+Both are the ADR's text, not the table's shape.
+
+- **A refusal under D3's size cap has to fabricate an `ocr_run` row.** The only thing that
+  takes a >64 MB document out of the queue permanently is an `ocr_run` row on the text-layer
+  reading key, and `ocr_run` requires NOT NULL `method`, `method_version`, `reading_channel`
+  and `render_profile` — so a refusal that never opened the file must claim a channel it
+  never read on, a render it never produced and a tool version that never ran, in a PUBLIC
+  table, under D8's own "Nothing here reads a PDF to make a claim". The alternative is to let
+  it burn its attempts, which makes a known-permanent refusal indistinguishable from a pass
+  that kept dying. `run_outcome_vocab` is a table precisely so it can be widened by INSERT —
+  a `'refused'` outcome is cheap; the four NOT NULLs are migration 0018's and are the harder
+  half. This is ADR 0024 § Owed item 2's real content.
+- **`first_seen_at` is when the bytes were FETCHED, not when the record was made**
+  (`capture/documents.py`), so D3's "a decision served this morning is read this pass" is not
+  delivered while a backfill wave runs: every archive document the wave fetches lands at the
+  front of the newest-first walk, and D1 admits them because the erratum re-check mints a
+  forward `document_source` row for every held URL. Not measured — conjecture from the
+  ordering column. Ordering by the record's own date (`decision_record.service_date` /
+  `filing.filed_date`) would deliver the promise and is an ADR change, not an index change.
+
+## From the code review of the work-level resolution step, 2026-09-05
+
+- **A bare parent printed on the same line as its own sub-docket takes the child's segment.**
+  `resolve._anchored` finds the target by its printed form, and `FD 36873` matches inside
+  `FD 36873 (Sub-No. 1)`, so the parent can be credited with the document that followed the
+  child. Same family, so the cost is small; the real fix is a finder that reports each
+  occurrence's offset, which is a `find.py` change and a re-measurement.
+- **`served on <date>` is not read, deliberately.** 0.96% of pages against the matched form's
+  5.43% (200,000 production pages, 2026-09-05). Admitting it would break the containment that
+  makes ADR 0018 D4's "the text names a document" true by construction — `judge`'s span
+  pattern does not match it either, so those edges are suppressed at projection anyway.
+  Closing the gap is a `SPAN_VERSION` bump and a re-measurement of every edge stamped by the
+  old one, never a widening of `resolve.SERVED` alone.
+- **`decided <date>` still stays at docket level**, per ADR 0018 D4 — but the assertion it
+  waited for now exists (`decision_decided_date`, migration 0019, ADR 0023). Building that
+  consumer is a decision; ADR 0023's pick rule is decided (compare values, publish only when
+  every live reading agrees) and nothing consumes it yet. 259 of 200,000 pages print the
+  phrase, so the yield is small.
+
+## From the second schema-critic pass and the ingest specialist on migration 0022, 2026-09-05
+
+Findings that belong to the ADR or to the poller rather than to the DDL. The seven ADR
+amendments are listed in the migration's own header; these are the rest.
+
+- **The loader must never delete a spool file from inside `one()`.** `batches.run` returns
+  aggregate counters, so a loader built on it cannot know WHICH files landed, and deleting
+  inside the `SAVEPOINT` means an `aborted` batch loses the rows and the raw together — trap
+  9 broken and ADR 0024 D9's own rule broken in one event. Sweep the spool after `run`
+  returns and delete `<sha>.json` only where an `ocr_run` row now exists for that sha at the
+  file's own reading key.
+- **`run_forever` has no watchdog**, so a hung `subprocess.run` stops the poller for ever
+  with nothing raised. `EXTRACT_BUDGET_SECONDS` bounds when the stage stops STARTING work, not
+  how long one invocation may hang: the call needs `timeout=` and a kill.
+- **The pin disagreement is never diagnosed.** The loader holds both the dispatch's
+  `pinned_method_version` and the spool record's `tool_version` (D9 carries it), so "the file
+  disagrees with the dispatch" is one query and turns a header comment into a control.
+- **`.tmp` files left in the spool are never counted**, so "the container is dying mid-write"
+  reads exactly like "the container never started".
+- **The extraction service needs `cpus:` and `mem_limit`.** Two vCPU; `web`'s healthcheck
+  timeout was already raised to 30 s so a bulk load could not become a restart loop, and this
+  adds CPU-bound work to every pass right after the heaviest write. Three misses trips
+  `docketyard-webwatch.timer`, which restarts `web`, which adds load. The pass measures no
+  duration and nothing alarms on overrun (already recorded above).
+- **`extraction_dispatch` carries no `ingest_mode`** — ADR 0024 § Owed 6's gap, same as
+  `ocr_run`'s. Not urgent: `ADD COLUMN` survives publication, and the primary key is the only
+  rebuild-class change the critic's widening survey could find.
+- **`resolve._anchored` runs to the end of the line, so a trailing clause can donate a date.**
+  "...consistent with FD 36500.  The decision served June 2, 2021 is affirmed." gives FD 36500
+  the whole trailing sentence. Bounding at a sentence end (`\.\s+(?=[A-Z])`, which does not
+  fire on `slip op. at 2`) as well as at the next docket number would fix it — but it moves
+  membership of the 16,051 assigned rows, so it is a measurement and the operator's call, not
+  a passing edit. Third member of the family with the parent/sub-docket overlap and
+  `served on`.

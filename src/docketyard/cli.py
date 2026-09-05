@@ -338,11 +338,19 @@ def _citator(args: argparse.Namespace) -> int:
         return 0
 
     if args.what == "cited-by":
-        rows = (
-            project.cited_by(con, work_id=args.work)
-            if args.work
-            else project.cited_by(con, docket_id=args.docket)
-        )
+        # The work grain is gated on its own measurement and the gate is shut (the operator,
+        # 2026-09-05): the rows carry `cited_decision_id`, but their confidence is the
+        # docket-level class's, and a figure that speaks for a different question is not
+        # published beside an edge. `project.cited_by` says so in the refusal.
+        try:
+            rows = (
+                project.cited_by(con, work_id=args.work)
+                if args.work
+                else project.cited_by(con, docket_id=args.docket)
+            )
+        except methods.Unscored as e:
+            print(f"refused: {e}")
+            return 1
         # ADR 0017 D6: per edge, the citing passage, its page, the method and version, and
         # the class's measured confidence. NO COUNT IS PUBLISHED WITHOUT ITS CLASS.
         for r in rows:
@@ -490,6 +498,7 @@ def _citator(args: argparse.Namespace) -> int:
         return 1
 
     held = keys.registry(con)
+    works = keys.works(con)
     totals = dict.fromkeys(
         ("documents", "emitted", "out_of_class", "unresolved", "unchanged", "human_held"), 0
     )
@@ -497,7 +506,7 @@ def _citator(args: argparse.Namespace) -> int:
     failed = 0
     for path, doc in docs:
         try:
-            result = load.load_document(con, doc, held, stamps)
+            result = load.load_document(con, doc, held, works, stamps)
             con.commit()  # PER DOCUMENT: a wave killed at document 40,000 keeps 40,000, and
         except Exception as e:  # noqa: BLE001 — one bad document must not take the wave
             con.rollback()  # the 30-minute poller is not locked out for the whole run

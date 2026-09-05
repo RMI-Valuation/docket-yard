@@ -10,13 +10,15 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 - **The figures: 94.7% projected / 97.7% precision, 93.3% to a reader.** Three causes,
   separated in migration 0016's header, which is the one to quote
-- **The citator has never run a real load** (`citation`: 0 rows). The whole chain ran into a
-  COPY 2026-09-04: 73,101 findings, **15,164 distinct edges**, 0 failures. `citator declare
-  --scores` exists and **reviewer 1 is granted**, so the steps are runnable; what is left is
-  **capacity** — 1,946 exposed keys, ~16 h of reading, one reviewer. **Cameron's to start**
+- **The citator has never run a real load** (`citation`: 0 rows). The chain ran into a COPY
+  2026-09-04: 73,101 findings, **15,164 distinct edges**, 0 failures; `declare --scores` and
+  reviewer 1 are ready. What is left is **capacity** — 1,946 exposed keys, ~16 h of reading,
+  one reviewer. **Cameron's to start**
 - **Owed with the pipeline**: the "not in the record" display joining live `citation`; the
-  veto's trigger; `Resolution.decision_id` is never assigned, so `cited_decision_id` is
-  always NULL — **the next code item, and the only one of the three that is mine**
+  veto's trigger. `Resolution.decision_id` is assigned (2026-09-05): **16,051 of 217,352
+  landed resolutions reach a work**, measured over all 976,058 live pages
+- **The work grain refuses until scored** — `cited-by --work` raises `Unscored`; opening it is
+  one `class_measurement` on `('citation_resolution', 'work')`. **Cameron's, with the capacity**
 - **Drain closed**: 121 unfetched, every one a genuine refusal resting 7 days. **The class
   behind them is open** — an unanswered attempt leaves no capture. Cameron's (`deferred.md`)
 - **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
@@ -34,16 +36,15 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **ADR 0024 is Proposed and the code is the next finder.** Two review rounds (schema
-  critic, then the ingest specialist reading it as a pass change) broke nine of its ten
-  decisions between them; it is stamped Accepted only when an implementation has proved it.
-  Seven owed items in § Owed, headed by `extraction_dispatch` past the schema critic
-- **The OCR wave: Paddle is done and loaded, `dots` is running.** Paddle 2026-09-05 —
-  15,085 documents, 247,923 pages, 0 failures; `ppocr-primary` loaded (169,516 pages,
-  1:1 displacement of empty text-layer rows). `dots` started 2026-09-05 10:59 CDT in tmux
-  `ocr-dots` with vLLM in tmux `vllm` on port 8120, ~132 h over 41,688 degraded pages; log
-  `/data/docketyard/ocr/logs/dots.log`. Then `second`, then `graphic` — load each root in
-  that order, and `graphic` needs its own `ran_at` or the loader answers `restart`
+- **ADR 0024: migration 0022 is drafted, uncommitted, and awaits you.** The code was the next
+  finder and it worked — the reviews found silent mass exhaustion (a cap, no retry interval),
+  the 1.07 GB PDF dispatched, and an attempt the pass could roll back. Fixed or stated as
+  caller obligations. **It owes the ADR seven amendments, listed in its own header**; § Owed 3
+  should land FIRST, and **the primary key is a one-way door once the table is published**
+- **The OCR wave: Paddle done and loaded (169,516 pages), `dots` running** since 2026-09-05
+  10:59 CDT — tmux `ocr-dots`, vLLM in `vllm` on 8120, ~132 h over 41,688 degraded pages, log
+  `/data/docketyard/ocr/logs/dots.log`. Then `second`, then `graphic`; rsync and `text load`
+  each root IN THAT ORDER, and `graphic` needs its own `ran_at` or the loader says `restart`
 - Deadline engine (C4): decision JSON carries no obligations (verified 2026-08-26); a
   hand-checked fixture of 8 for FD 36873 sits in `../up-ns-merger-tracker/briefs/2026-08-25.md`
   (read-only). Dates quoted, never computed
