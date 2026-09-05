@@ -1,4 +1,4 @@
-"""Migrations 0018, 0019 and 0022 — the record's own text (ADR 0021, ADR 0022), the
+"""Migrations 0018, 0019, 0022 and 0023 — the record's own text (ADR 0021, ADR 0022), the
 decided-date rebuild (ADR 0023), and the extraction dispatch counter (ADR 0024, Proposed).
 
 Every test here pins something a review round found and the schema now enforces, so that
@@ -946,3 +946,112 @@ def test_a_dispatch_needs_a_time_it_can_be_ordered_and_retried_by(tmp_path):
     con = _store(tmp_path)
     with pytest.raises(sqlite3.IntegrityError):
         _dispatch(con, at="")
+
+
+# --- migration 0022, the word `document_pagination` already had -----------------------------
+
+
+def test_migration_0022_gives_the_run_vocabulary_the_pagination_word(tmp_path):
+    """The two vocabularies describe the same judgement about the same bytes, and until 0022
+    only one of them could say it. MEMBERSHIP is the invariant, not the wording: welding the
+    two notes equal would make any future correction to either a second in-place UPDATE of
+    the other, which is the thing this migration exists to stop doing."""
+    con = _store(tmp_path)
+    runs = {r[0] for r in con.execute("SELECT outcome FROM run_outcome_vocab")}
+    pagination = {r[0] for r in con.execute("SELECT outcome FROM pagination_outcome_vocab")}
+    assert "not-paginable" in runs and "not-paginable" in pagination
+
+
+def test_the_vocabularys_note_says_nothing_about_one_deployment(tmp_path):
+    """A definition ships to every store. A first draft wrote "3,271 of them at 2026-09-05"
+    into the note, which is false of a store holding no such rows and would have been
+    published as data (schema-critic, 2026-09-05)."""
+    con = _store(tmp_path)
+    note = con.execute("SELECT note FROM run_outcome_vocab WHERE outcome = 'skipped'").fetchone()[0]
+    assert "3,271" not in note and "pymupdf" not in note and "2026-09-05" not in note
+    assert con.execute("SELECT COUNT(*) FROM correction").fetchone()[0] == 0  # nothing to say
+
+
+def test_a_store_holding_the_old_word_gets_a_boundary_it_can_execute(tmp_path):
+    """The history goes in a `correction` row, with the boundary computed from THIS store.
+    `run_id` and not `ran_at`: it is a rowid alias preserved across the snapshot's VACUUM,
+    where `ran_at` is the parser's clock and may predate the load by weeks. And not
+    `method = 'pymupdf'` at text-layer/native, which is NECESSARY but not SUFFICIENT — it is
+    the same key ADR 0024 § Owed 2's transient refusal must write under."""
+    con = db.connect(tmp_path / "s.sqlite", upto=21)  # the store as it stood before 0022
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'xlsx', ?)",
+        (SHA, STAMP),
+    )
+    for ran_at in ("2026-09-01T00:00:00+00:00", "2026-09-02T00:00:00+00:00"):
+        con.execute(
+            "INSERT INTO ocr_run (document_sha256, method, method_version, reading_channel,"
+            " render_profile, outcome, ran_at) VALUES (?, 'pymupdf', '1.28.2', 'text-layer',"
+            " 'native', 'skipped', ?)",
+            (SHA, ran_at),
+        )
+    con.commit()
+    db.migrate(con, upto=22)  # 0022 runs against a store that has history
+
+    rows = con.execute("SELECT target_table, target_key, note, method FROM correction").fetchall()
+    assert len(rows) == 1
+    table, key, note, method = rows[0]
+    assert (table, key, method) == ("run_outcome_vocab", "skipped", "migration-0022")
+    boundary = con.execute("SELECT MAX(run_id) FROM ocr_run WHERE outcome = 'skipped'").fetchone()
+    assert f"run_id <= {boundary[0]}" in note and "2 runs" in note
+    assert "reading_channel = 'text-layer'" in note  # the channel is part of the boundary
+    # and the boundary the note names is executable and selects exactly the history
+    assert (
+        con.execute(
+            "SELECT COUNT(*) FROM ocr_run WHERE outcome = 'skipped' AND run_id <= ?", boundary
+        ).fetchone()[0]
+        == 2
+    )
+
+
+def test_a_run_may_be_not_paginable_and_the_word_is_published(tmp_path):
+    """`ocr_run.outcome` foreign-keys the vocabulary, so the INSERT is what makes the loader's
+    write legal at all — and the table ships in the CC0 snapshot, so the word ships with it."""
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO ocr_run (document_sha256, method, method_version, reading_channel,"
+        " render_profile, outcome, ran_at) VALUES (?, 'pymupdf', '1.28.2', 'text-layer',"
+        " 'native', 'not-paginable', ?)",
+        (SHA, STAMP),
+    )
+    with pytest.raises(sqlite3.IntegrityError):  # and nothing outside the vocabulary
+        con.execute(
+            "INSERT INTO ocr_run (document_sha256, method, method_version, reading_channel,"
+            " render_profile, outcome, ran_at) VALUES (?, 'pymupdf', '1.28.2', 'text-layer',"
+            " 'native', 'not-a-word', ?)",
+            (SHA, STAMP),
+        )
+    assert "run_outcome_vocab" in dump.PUBLIC_TABLES
+
+
+def test_the_two_public_tables_never_disagree_about_the_same_bytes(tmp_path):
+    """Migration 0022 puts the same word in two published tables, and only one of them is an
+    assertion: `document_pagination` carries ADR 0007's block, `ocr_run.outcome` is the pass's
+    report. Nothing reconciles them, so this is what would catch a drift — a document called
+    `paginated` by the assertion and `not-paginable` by the run, or the reverse."""
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO ocr_run (document_sha256, method, method_version, reading_channel,"
+        " render_profile, outcome, ran_at) VALUES (?, 'pymupdf', '1.28.2', 'text-layer',"
+        " 'native', 'not-paginable', ?)",
+        (SHA, STAMP),
+    )
+    disagreement = (
+        "SELECT COUNT(*) FROM ocr_run r JOIN document_pagination p"
+        "    ON p.document_sha256 = r.document_sha256 AND p.superseded_by IS NULL"
+        " WHERE (r.outcome = 'not-paginable') <> (p.outcome = 'not-paginable')"
+    )
+    assert con.execute(disagreement).fetchone()[0] == 0  # no pagination row yet: vacuously so
+    con.execute(
+        "INSERT INTO document_pagination (document_sha256, outcome, page_count,"
+        " had_text_layer, method, method_version, asserted_at, confidence, confidence_state)"
+        " VALUES (?, 'paginated', 3, 1, 'pymupdf', '1.28.2', ?, 0, 'unmeasured')",
+        (SHA, STAMP),
+    )
+    assert con.execute(disagreement).fetchone()[0] == 1  # and it bites when they disagree

@@ -78,9 +78,16 @@ def _ocr(sha, texts=("abandonment in Perry County",), role="primary", **over):
     return doc
 
 
-def _reading(doc):
+# the shipped vocabulary, as `run_outcome_vocab` holds it after migration 0022. A literal
+# here rather than a store read, so a test that loses a word notices.
+RUNS = frozenset({"read", "failed", "skipped", "not-paginable"})
+
+
+def _reading(doc, allowed=RUNS):
     payload = json.dumps(doc).encode()
-    return (load.from_extraction if "page_text" in doc else load.from_reading)(doc, payload)
+    if "page_text" in doc:
+        return load.from_extraction(doc, payload)
+    return load.from_reading(doc, payload, allowed)
 
 
 def _write(root, doc, name=None, *, tail=None):
@@ -186,7 +193,7 @@ def test_an_extraction_records_body_is_read_only_when_it_is_needed(tmp_path):
     con = _store(tmp_path)
     root = tmp_path / "text"
     path = _write(root, _extraction(SHA_A), tail="[" + "x" * 100_000)
-    reading = load.read_file(path)
+    reading = load.read_file(path, load.run_outcomes(con))
     assert reading.header.document_sha256 == SHA_A
     con.execute(
         "INSERT INTO ocr_run (document_sha256, method, method_version, reading_channel,"
@@ -543,13 +550,14 @@ def test_a_second_re_posted_against_the_replacement_primary_is_a_new_row(tmp_pat
 def test_a_reading_document_is_parsed_once_and_never_cut_at_a_page_text_string(tmp_path):
     """The extraction shape is told from the head without parsing; a reading document
     whose engine payload happens to contain the string "page_text" is not cut there."""
+    con = _store(tmp_path)
     root = tmp_path / "text"
     doc = _ocr(SHA_A) | {"engine": {"note": 'here "page_text" is the engine word for it'}}
     path = _write(root, doc)
     assert path.read_text(encoding="utf-8").index("page_text") < 4096
-    reading = load.read_file(path)
+    reading = load.read_file(path, load.run_outcomes(con))
     assert reading.header.key.method == "dots.mocr" and reading.body()[1][0].text
     # a stub whose FIRST member is page_text is parsed whole, not cut to an empty header
     rest = {k: v for k, v in _extraction(SHA_B).items() if k != "page_text"}
     path = _write(root, {"page_text": ["p"], **rest})
-    assert load.read_file(path).header.key.method == "pymupdf"
+    assert load.read_file(path, load.run_outcomes(con)).header.key.method == "pymupdf"

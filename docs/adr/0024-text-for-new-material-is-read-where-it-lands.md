@@ -218,7 +218,9 @@ meets it about half the times a 13-minute rebuild runs.
    permanently-not-a-document, and D5's refusal is transient, and a published word that means
    both cannot be un-published. Measured 2026-09-05: 3,271 `skipped` rows at the text-layer
    key and 0 of them on a `media_type = 'pdf'` document, so D4's `read` test is safe until
-   then and not after.
+   then and not after. Migration 0022 landed that word on 2026-09-05 and put the historical
+boundary in a `correction` row; their media types are null, xlsx, zip, jpg and docx, so the
+queue's media term excludes all 3,271 and this predicate never meets them.
 3. `search_meta.page_built` re-stamping, which `page_index` records as owed.
 4. `EXTRACT_LIMIT` sized against the queue **measured with D1's own join**, not against the
    forward record count, which is a different and smaller number.

@@ -774,7 +774,10 @@ def main(argv: list[str] | None = None) -> int:
     cb = ct_sub.add_parser("cited-by", help="what cites this proceeding, or this work")
     cb_group = cb.add_mutually_exclusive_group(required=True)
     cb_group.add_argument("--docket", type=int, help="a docket_id — THE NORMAL GRAIN")
-    cb_group.add_argument("--work", help="an stb_decision_id; thin, see project.cited_by")
+    cb_group.add_argument(
+        "--work",
+        help="an stb_decision_id. REFUSES until ('citation_resolution', 'work') is scored",
+    )
     cb.set_defaults(func=_citator)
     gr = ct_sub.add_parser("grant", help="give the reviewer grant by hand (ADR 0016)")
     gr.add_argument("email")

@@ -1110,3 +1110,21 @@ amendments are listed in the migration's own header; these are the rest.
   constantly. **Do not re-propose a sentence bound without an abbreviation list**; the real fix
   remains a finder that reports each occurrence's offset. Third member of the family with the
   parent/sub-docket overlap and `served on`.
+
+## From reviewing migration 0023 and the work-grain step, 2026-09-05
+
+- **`resolve._anchored` ends a segment only at another DOCKET-SHAPED number.** A non-docket
+  intervening target still donates its date: `"See FD 36873; see also Decision No. 5 (STB
+  served Mar. 12, 2021)."` hands FD 36873 a date the page attributed to Decision No. 5. Same
+  class as the parent/sub-docket overlap and the trailing clause — and like them it moves
+  membership of the 16,051, so it is a measurement and the operator's call. The sentence-bound
+  attempt above is the warning: the obvious pattern was worse than the defect. `keys.DOCKET`
+  also carries no `re.I`, which is deliberate elsewhere but worth confirming here.
+- **`ocr_run` publishes a judgement about the bytes with no provenance.** After migration 0023
+  it says `not-paginable`, which is what `document_pagination` asserts WITH ADR 0007's whole
+  block — confidence, state, supersession, a human-protection trigger, a `review_target_vocab`
+  row. Two public tables now answer the same question and only one of them is an assertion.
+  The migration names `document_pagination` as the assertion of record and a test pins that
+  they never disagree, but `ocr_run` still has no correction path: a `review_target_vocab` row
+  for it (`surrogate`, on `document_pagination`'s precedent) would give one, since `run_id` is
+  followable for the same reasons `pagination_id` is.

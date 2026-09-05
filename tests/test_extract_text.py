@@ -78,6 +78,12 @@ def test_the_stubs_are_what_the_passes_read(tmp_path):
     rows = {p.stem: paginate.read_file(p, allowed) for p in out.glob("*/*.json")}
     assert (rows[image].outcome, rows[image].page_count) == ("not-paginable", None)
     assert (rows[broken].outcome, rows[broken].had_text_layer) == ("failed", None)
-    readings = {p.stem: load.read_file(p) for p in out.glob("*/*.json")}
-    assert readings[image].header.outcome == "skipped" and readings[image].body()[1] == ()
+    runs = frozenset({"read", "failed", "skipped", "not-paginable"})
+    readings = {p.stem: load.read_file(p, runs) for p in out.glob("*/*.json")}
+    # THE TWO VOCABULARIES AGREE (migration 0022). `document_pagination` has said
+    # `not-paginable` since 0018, and the reading side collapsed it onto `skipped` — which also
+    # means "a tier not read in this pass", the opposite thing to anything deciding whether to
+    # try again. The stub's own word now survives into the run.
+    assert readings[image].header.outcome == "not-paginable"
+    assert readings[image].body()[1] == ()
     assert readings[broken].header.outcome == "failed" and readings[broken].body()[1] == ()

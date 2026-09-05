@@ -14,7 +14,7 @@ ADR 0021 D1 fixes — and it arrives as one JSON file. Two shapes are read:
         "method": "dots.mocr", "method_version": "1.5", "render_profile": "150",
         "reading_channel": "ocr", "reading_role": "primary" | "second",
         "route": {"class": "degraded", "method": "pp-doclayoutv3", "method_version": "3.0"},
-        "ran_at": "...", "outcome": "read" | "failed" | "skipped",
+        "ran_at": "...", "outcome": "read" | "failed" | "skipped" | "not-paginable",
         "pages_failed": 0,                 pages attempted and not read (ADR 0021 D5)
         "payload_kind": "dots.mocr.json",  what the engine output under `engine` IS; required,
                                            because block identity is a function of the
@@ -62,7 +62,8 @@ THE PAGE INDEX IS KEPT IN STEP by `store.page_index`, whose docstring carries th
 obligations and the one thing the loader cannot know.
 
 AN EMPTY PAGE IS A ROW; A FAILED PASS IS A RUN. `text = ''` is a reading (ADR 0021 D5). A
-pass with no pages — `outcome` failed or skipped — writes its `ocr_run` row and nothing else,
+pass with no pages — `outcome` failed, skipped or not-paginable — writes its `ocr_run` row
+and nothing else,
 and is counted `run_only`, apart from `unchanged`, so a wave of failed passes is not reported
 as text that was already there.
 """
@@ -88,7 +89,6 @@ from docketyard.text.fields import (
 )
 
 ROLES = ("primary", "second")  # what a model pass may write; 'human' is the review layer's
-RUN_OUTCOMES = ("read", "failed", "skipped")
 ATTACHED = ("loaded", "unchanged", "restart", "run_only")  # a reading met its document
 NOUN = "reading"
 
@@ -174,7 +174,20 @@ def _key(d: dict) -> Key:
     )
 
 
-def header_of_reading(doc: dict) -> Header:
+def run_outcomes(con) -> frozenset[str]:
+    """`run_outcome_vocab`, read from the store rather than copied into Python — the same
+    reason `paginate.outcomes` reads its sibling: the vocabulary is a table so that widening
+    it is an INSERT (migration 0018, and migration 0022 which widened it)."""
+    return frozenset(r[0] for r in con.execute("SELECT outcome FROM run_outcome_vocab"))
+
+
+def header_of_reading(doc: dict, allowed: frozenset[str]) -> Header:
+    """`allowed` is the store's outcome vocabulary (`run_outcomes`), PASSED IN rather than
+    read from a Python tuple — `run_outcome_vocab` is a table precisely so it can be widened
+    by an INSERT, and migration 0022 proved the point by needing a Python edit to add a word
+    the store already had. `paginate.from_record` takes its sibling the same way, and the
+    validation stays here at parse rather than moving to the store, because a reading is
+    validated and never guessed (schema-critic, 2026-09-05)."""
     if not isinstance(doc, dict):
         raise Unreadable("not a JSON object")
     channel = text_field(doc, "reading_channel")
@@ -185,8 +198,8 @@ def header_of_reading(doc: dict) -> Header:
     if channel == "text-layer" and key.render_profile != "native":
         raise Unreadable("a text-layer reading's render_profile is 'native' (ADR 0021 D3)")
     outcome = doc.get("outcome", "read")
-    if outcome not in RUN_OUTCOMES:
-        raise Unreadable(f"outcome {outcome!r} is not one of {RUN_OUTCOMES}")
+    if outcome not in allowed:
+        raise Unreadable(f"outcome {outcome!r} is not one of {sorted(allowed)}")
     failed = doc.get("pages_failed", 0)
     if isinstance(failed, bool) or not isinstance(failed, int) or failed < 0:
         raise Unreadable(f"pages_failed is {failed!r}")
@@ -252,8 +265,15 @@ def header_of_extraction(record: dict) -> Header:
         raise Unreadable("not a JSON object")
     # extract_text.py v2 writes a stub with `outcome` for a file it read nothing from: a
     # non-PDF (`not-paginable`) or a PDF that would not open (`failed`). Its run is recorded
-    # as `skipped` or `failed`; it has no pages.
-    outcome = {"not-paginable": "skipped", "failed": "failed"}.get(
+    # under the SAME WORD the extractor used; it has no pages.
+    #
+    # Until migration 0022 `not-paginable` was collapsed onto `skipped`, and the two mean
+    # opposite things to anything that has to decide whether to try again: `not-paginable` is
+    # permanent — those bytes will never be a paginated document — while `skipped` is a tier
+    # this pass did not read and the next one may. `document_pagination` has kept them apart
+    # since migration 0018; this is the reading side catching up. The 3,271 rows written
+    # before that migration keep `skipped`, and `run_outcome_vocab`'s note says so.
+    outcome = {"not-paginable": "not-paginable", "failed": "failed"}.get(
         record.get("outcome", "paginated"), "read"
     )
     return Header(
@@ -283,8 +303,8 @@ def pages_of_extraction(record: dict, header: Header) -> tuple[Page, ...]:
     )
 
 
-def from_reading(doc: dict, payload: bytes) -> Reading:
-    header = header_of_reading(doc)
+def from_reading(doc: dict, payload: bytes, allowed: frozenset[str]) -> Reading:
+    header = header_of_reading(doc, allowed)
     return Reading(header, body=(payload, pages_of_reading(doc, header)))
 
 
@@ -303,7 +323,7 @@ def _is_extraction(path: Path) -> bool:
     return '"tool"' in head and '"reading_role"' not in head  # a stub has `"tool"` too
 
 
-def read_file(path: Path) -> Reading:
+def read_file(path: Path, allowed: frozenset[str]) -> Reading:
     """One file. An extraction record yields its header from the first 4 KB and its body
     on demand; a reading document is parsed whole, once. Either must be filed under its
     sha."""
@@ -315,7 +335,7 @@ def read_file(path: Path) -> Reading:
         if isinstance(doc, dict) and "page_text" in doc:  # a stub, or a record read whole
             reading = from_extraction(doc, payload)
         else:
-            reading = from_reading(doc, payload)
+            reading = from_reading(doc, payload, allowed)
     if reading.header.document_sha256 != path.stem:
         raise Unreadable(f"names {reading.header.document_sha256[:12]}, filed as {path.stem[:12]}")
     return reading
@@ -510,10 +530,13 @@ def run(
             "`search rebuild-pages` owns the page index (search_meta.page_built ="
             " 'rebuilding'). Let it finish, or re-run it if it died, then load."
         )
+    # both vocabularies read ONCE for the pass, not per file — `paginate.run` hoists the
+    # identical lookup the same way, and a wave walks tens of thousands of spool files
     machine = methods.machine_channels(con)
+    allowed = run_outcomes(con)
     return batches.run(
         con,
-        batches.walk(root, read_file),
+        batches.walk(root, lambda path: read_file(path, allowed)),
         lambda r: load_reading(con, data_dir, r, machine=machine),
         log=log,
         commit_every=commit_every,

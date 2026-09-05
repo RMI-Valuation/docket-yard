@@ -85,7 +85,9 @@ def test_the_three_derived_readings_load_in_order_and_the_second_carries_its_ban
 
     def loaded(doc):
         con = db.connect(path)
-        out = load.load_reading(con, tmp_path, load.from_reading(doc, b"{}"))
+        out = load.load_reading(
+            con, tmp_path, load.from_reading(doc, b"{}", load.run_outcomes(con))
+        )
         con.commit()
         con.close()
         return out

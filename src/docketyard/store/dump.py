@@ -170,7 +170,7 @@ PUBLIC_TABLES = frozenset(
         "confidence_state_vocab",
         "ocr_run",
         "run_outcome_vocab",
-        # Migration 0022, ADR 0024 D4 — PUBLIC on `ocr_run`'s own precedent (the operator's
+        # Migration 0023, ADR 0024 D4 — PUBLIC on `ocr_run`'s own precedent (the operator's
         # decision, 2026-09-05). It carries a document hash, the parser and version it was
         # handed off on, and a timestamp — the attempt's number is computed, never stored.
         # `ocr_run`, three lines up, already publishes the method,

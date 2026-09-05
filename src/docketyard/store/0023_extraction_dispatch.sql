@@ -1,4 +1,4 @@
--- Migration 0022: a dispatch is the evidence that an attempt was MADE — ADR 0024 D4, which
+-- Migration 0023: a dispatch is the evidence that an attempt was MADE — ADR 0024 D4, which
 -- is Proposed. This is § Owed item 1, drafted for the schema critic; nothing writes here yet.
 --
 -- WHY THE TABLE EXISTS AT ALL. ADR 0024 puts a `pymupdf` container on the instance and hands
@@ -27,24 +27,29 @@
 --
 -- THE `ocr_run` HALF TESTS THE OUTCOME, NOT MERELY THE EXISTENCE OF A ROW, and without that
 -- the pin columns below are inert for the one case they were added for. `run_outcome_vocab`
--- holds 'read', 'failed' and 'skipped', and D5 records a refusal AS A RUN — so under "no row
--- at that key" a single `failed` silences the queue for that document for ever, at every
--- version and after a single attempt, and a `pymupdf` release that fixes those bytes changes
+-- holds 'failed' and 'skipped' beside 'read', and D5 records a refusal AS A RUN — so under
+-- "no row at that key" a single `failed` silences the queue for that document for ever, at
+-- every version and after a single attempt, and a `pymupdf` release that fixes those bytes changes
 -- nothing. The per-pin count would then only ever fire where NOTHING was written at all, i.e.
 -- where the container died mid-flight. D6's reason for version-freedom survives untouched:
 -- the 74,295 documents already read carry `read` rows, so no point release re-reads them
 -- (schema-critic, 2026-09-05, third pass).
 --
--- `read` AND NOT `skipped`, and that rests on an ordering constraint rather than on the word.
--- `text/load.py` maps `not-paginable` to `skipped`, and `not-paginable` is PERMANENT — the
+-- `read` AND NOT `skipped`. MIGRATION 0022 SETTLED THE ORDERING THIS DEPENDS ON: until it,
+-- `text/load.py` mapped `not-paginable` onto `skipped`, and `not-paginable` is PERMANENT — the
 -- bytes are not a paginated document — while D5's refusal is TRANSIENT: raise
 -- EXTRACT_MAX_BYTES and that document must re-enter. `run_outcome_vocab`'s own note already
--- says `skipped` means both. Measured in production 2026-09-05: 3,271 `skipped` rows at this
--- key, and **0 documents** where `media_type = 'pdf'` holds one without a `read` row — so the
--- queue's media term already excludes every one of them and `read` alone is safe TODAY. It
--- stops being safe the moment § Owed 2 ships a refusal as `skipped`. THE FOURTH OUTCOME GOES
--- IN FIRST: `run_outcome_vocab` is a table so it can be widened by INSERT, and a published
--- word that means two things cannot be un-published (schema-critic, fourth pass).
+-- said `skipped` meant both. Migration 0022 gave the run vocabulary `not-paginable`, which
+-- `document_pagination` had held since 0018, and recorded the historical boundary in a
+-- `correction` row rather than in prose.
+--
+-- Measured in production 2026-09-05: 3,271 `skipped` rows at this key, and **0 of them on a
+-- `media_type = 'pdf'` document** — their media types are null, xlsx, zip, jpg and docx — so
+-- the queue's media term excludes every one and this predicate never meets them. That is the
+-- claim; an earlier draft of this header stated a weaker one ("no `read` row"), which is also
+-- true but is not the one that matters (schema-critic, fourth pass).
+--
+-- § Owed 2's refusal must NOT ship as `skipped`, or the word means two things again.
 --
 -- THE SIZE AND MEDIA TERMS ARE THE QUEUE'S, because the container's input is an explicit list
 -- (D2) and so the queue is the ONLY filter that exists. Without the size term the 1.07 GB PDF
@@ -231,7 +236,7 @@ CREATE INDEX document_by_first_seen ON document (first_seen_at DESC, document_sh
 -- it would ship unreviewed. A hand reset deletes from the middle, never the newest row. If a
 -- citable identity is ever wanted, `(document_sha256, dispatched_at)` is already indexed.
 
-PRAGMA user_version = 22;
+PRAGMA user_version = 23;
 
 COMMIT;
 
@@ -255,6 +260,14 @@ COMMIT;
 --       in the shipped store has ever referenced a held one, and migration 0018 settled that
 --       case by name — an FK to a held registry fails at a third party's foreign_key_check
 --
--- IT IS STILL PROPOSED, and this migration is not to be applied until it is Accepted — the
--- sequencing is the operator's, and the point of it is that an implementation proves the
+-- IT IS STILL PROPOSED, AND THE GATE IS THE DEPLOY, NOT THE APPLY. An earlier footer said
+-- this migration was "not to be applied until 0024 is Accepted", which is prose the code does
+-- not enforce: it is registered in `MIGRATIONS` and `db.connect()` migrates unconditionally,
+-- so applying is simply what deploying does. The real gate is the one the operator holds —
+-- DO NOT DEPLOY code carrying this migration until ADR 0024 is Accepted, because the nightly
+-- dump publishes this table's shape under CC0 and a third party then holds it. Migration 0014
+-- shipped the citator block empty on purpose and this is the same pattern; the difference is
+-- that 0014's ADRs were Accepted first (code review, 2026-09-05).
+--
+-- The sequencing is the operator's, and the point of it is that an implementation proves the
 -- record before the record is stamped.

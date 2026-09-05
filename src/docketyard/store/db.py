@@ -36,7 +36,13 @@ MIGRATIONS: list[tuple[int, str]] = [
     (19, "0019_decided_date_rebuild.sql"),
     (20, "0020_display_mask.sql"),
     (21, "0021_attachment_by_document.sql"),
-    (22, "0022_extraction_dispatch.sql"),
+    (22, "0022_not_paginable_run.sql"),
+    # 0023 is DRAFTED AGAINST A PROPOSED ADR (0024). It is registered, because there is
+    # no mechanism to hold a migration back and pretending otherwise is how a header
+    # comes to state a rule the code does not enforce. The gate is the DEPLOY: the
+    # nightly dump publishes its table under CC0, so shipping it freezes a shape ADR
+    # 0024 has not yet been accepted to justify.
+    (23, "0023_extraction_dispatch.sql"),
 ]
 
 
