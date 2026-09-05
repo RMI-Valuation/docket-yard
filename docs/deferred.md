@@ -958,3 +958,38 @@ Left on the instance for whatever comes next, to be deleted otherwise:
   ordinary new decision and is repaired without being counted. Knowing better would cost a
   query per row; the pass-level reconciliation catches it and everything else, so the counter
   is per-capture attribution rather than the guarantee.
+
+## Measured while planning forward text extraction, 2026-09-05 (against v2026.09.10)
+
+Found by asking a question the pipeline had never been asked — *when does a new filing get
+text?* — and answering it against the store rather than the plan. Nothing here is a
+regression; all three are gaps that have always been open and were never counted.
+
+- **The OCR wave routed whole DOCUMENTS, and 51,189 pages sit inside documents it therefore
+  skipped.** Of 74,295 extracted documents, 14,961 are fully image-only (the wave's set),
+  55,590 are fully texted, and **3,744 are MIXED** — a born-digital brief with scanned
+  exhibits, the commonest shape there is. Those mixed documents hold **51,189 pages with no
+  text layer** that were never routed to a reader and still display "not yet read". That is
+  30% again on top of the 169,516 pages the `ppocr-primary` load landed the same day. THE
+  RULE THIS FIXES IS THE QUEUE'S GRAIN: a page needs OCR, not a document, and the store is
+  already page-grained (`document_text` is one row per page), so the queue is a query —
+  pages whose live text-layer reading is empty and which have no live OCR reading. The wave
+  tool selects per document (`ocr_wave.py`, `route`), and widening it is the fix.
+- **26,438 environmental-comment attachments hold no text at all, and for 90% of them the
+  PDF is the only record of what a person said.** Of the 26,332 comments owning one, 23,748
+  carry only the `--` placeholder inline, 2,278 have 20-499 characters and 306 have 500+. So
+  the inline `comment_text_printed` does NOT stand in for the attachment: it is a short note
+  beside the letter, not the letter. Wave work — extraction then OCR on the enrichment box —
+  and the largest single block of the record that search cannot reach. (Checked and NOT a
+  gap: the 7,930 comments with no attachment at all, whose inline words are their whole
+  record. Those already render on the sheet and the record page and are already indexed, and
+  `sheet.present` strips `--` at every surface — display, MCP and the index. Putting them in
+  `document_text` would need a synthetic document identity for a thing that is not a
+  document, which is what ADR 0002 exists to refuse.)
+- **The `--` placeholder rate had drifted from its measurement and two comments still quoted
+  the old one.** `0011_enviro_comments.sql` and `search._comment_docs` both said "about half
+  the rows"; re-measured 2026-09-05 it is 23,902 of 34,384, **69.5%** — the backfill added
+  26,438 comments and moved it. Both corrected in place, with the date and the reason the old
+  figure was right when written. Worth repeating because it caught me too: `--` is TRUTHY and
+  is not NULL, so a test for emptiness reads an absence as content, and that is exactly the
+  bug ultrareview found in `mcp.py` on 2026-08-31.

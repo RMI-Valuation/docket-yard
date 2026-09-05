@@ -21,6 +21,7 @@ record's start in September 2000. The Ripe list is the menu for what follows.
 | --- | --- | --- | --- | --- |
 | — | Party types on `/parties` (F3's first slice) | Every party carries a typed classification (railroad, company, government, association, individual, law firm, …) as a derived assertion with ADR 0007 provenance and an ADR 0016 review path; `/parties` gains a browse by type (large types collapsed) beside the search, which stays | 2026-08-30 | Design: vocabulary and method tiers from the measured corpus; schema-critic before the assertion table exists |
 | — | OCR of the image-only record (M3's first slice, `docs/ocr-plan.md`) | Ground truth the operator checks (90 pages, three tiers); candidates measured by CER/WER and by docket-number and date errors, API candidate included; a review layer (agreement → confidence, registry checks, a reviewer queue with identity from the start, ~50 pages a week); text published only above the measured threshold, with provenance | 2026-08-28 | Ground truth checked 2026-08-29; five engines scored. Waiting on ADR 0017, which decides what ships |
+| — | Text for new material, without a person in the loop (ADR 0024) | The forward pass extracts the text layer of forward-observed documents in an isolated container and loads it, so a filing served today is searchable the same day; an empty reading is a successful one and builds the OCR queue, which is per page | 2026-09-05 | ADR 0024 Accepted 2026-09-05; `/security-review` owed before it first ships |
 
 ## Ripe — awaiting a decision
 

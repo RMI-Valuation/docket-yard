@@ -57,8 +57,12 @@ CREATE TABLE enviro_comment (
     location_raw          TEXT,
     -- the commenter's own words, as the table printed them and after markup.clean (tags
     -- stripped, whitespace collapsed — a multi-paragraph comment loses its paragraphing).
-    -- Measured NOT truncated. Absent on about half the rows. There is NO position column
-    -- here or anywhere: the words are quotation, and naming the position would be inference
+    -- Measured NOT truncated. THE PLACEHOLDER IS `--`, NOT NULL, so a test for emptiness
+    -- reads an absence as content: `sheet.present` is where it stops being one, and every
+    -- surface goes through it. "About half the rows" when this was written and forward data
+    -- was all the store held; re-measured 2026-09-05 after the backfill, 23,902 of 34,384
+    -- (69.5%). There is NO position column here or anywhere: the words are quotation, and
+    -- naming the position would be inference
     comment_text_printed  TEXT,
     observed_in_event     INTEGER NOT NULL REFERENCES event (event_id),
     UNIQUE (docket_id, comment_number)

@@ -209,10 +209,12 @@ def _comment_docs(con: Connection):
     """Environmental comments: one row per comment number, headlined by the docket nearest
     the parent, exactly as a decision is.
 
-    Every comment is indexed, not only those carrying words — half the rows print `--` for
-    the text (measured), and their submitter, organisation and location are still terms
-    nothing else in the index carries. The body holds the commenter's own words verbatim;
-    the index asserts nothing about them, and the page it resolves to says so."""
+    Every comment is indexed, not only those carrying words — 69.5% of the rows print `--`
+    for the text (23,902 of 34,384, re-measured 2026-09-05; it was "half" when forward data
+    was all the store held, and the backfill moved it), and their submitter, organisation
+    and location are still terms nothing else in the index carries. The body holds the
+    commenter's own words verbatim; the index asserts nothing about them, and the page it
+    resolves to says so."""
     for pk, number, raw, date, submitter, org, location, text in con.execute(
         """
         SELECT comment_pk, comment_number, raw_docket, date_received_or_sent,
