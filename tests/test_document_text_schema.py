@@ -1,9 +1,11 @@
-"""Migration 0018 — the record's own text (ADR 0021, ADR 0022), and the checks that hold it.
+"""Migrations 0018, 0019 and 0022 — the record's own text (ADR 0021, ADR 0022), the
+decided-date rebuild (ADR 0023), and the extraction dispatch counter (ADR 0024, Proposed).
 
 Every test here pins something a review round found and the schema now enforces, so that
 loosening the schema breaks a test rather than a published page. The names say which.
 """
 
+import gzip
 import sqlite3
 from pathlib import Path
 
@@ -766,3 +768,181 @@ def test_a_human_insert_silently_removes_the_primary_from_the_index_source(tmp_p
         ).fetchone()[0]
         == 0
     )
+
+
+# --- migration 0022, the dispatch counter (ADR 0024 D4, Proposed) ---------------------------
+
+
+PIN = ("pymupdf", "1.28.2")
+
+
+def _dispatch(con, at=STAMP, sha=SHA, pin=PIN):
+    con.execute(
+        "INSERT INTO extraction_dispatch (document_sha256, pinned_method,"
+        " pinned_method_version, dispatched_at) VALUES (?, ?, ?, ?)",
+        (sha, *pin, at),
+    )
+
+
+def _history(con, sha=SHA):
+    """The attempt numbers as a reader sees them: computed, never stored (migration 0022)."""
+    return [
+        r[0]
+        for r in con.execute(
+            "SELECT ROW_NUMBER() OVER (PARTITION BY document_sha256"
+            "                          ORDER BY dispatched_at, dispatch_id)"
+            " FROM extraction_dispatch WHERE document_sha256 = ?",
+            (sha,),
+        )
+    ]
+
+
+def _burned(con, pin=PIN, sha=SHA):
+    """The queue's own counter: attempts at THIS pin, which is what EXTRACT_ATTEMPTS caps."""
+    return con.execute(
+        "SELECT COUNT(*) FROM extraction_dispatch WHERE document_sha256 = ?"
+        " AND pinned_method = ? AND pinned_method_version = ?",
+        (sha, *pin),
+    ).fetchone()[0]
+
+
+def test_migration_0022_stamps_and_a_second_attempt_needs_no_allocation(tmp_path):
+    """A second dispatch for one document is the POINT of the table, so nothing about it is
+    unique — and with no stored number there is nothing to allocate and nothing to collide on.
+    Two dispatches on the same second are legal and still order."""
+    con = _store(tmp_path)
+    assert con.execute("PRAGMA user_version").fetchone()[0] == db.MIGRATIONS[-1][0]
+    for _ in range(3):
+        _dispatch(con)
+    assert _history(con) == [1, 2, 3]
+
+
+def test_a_dispatch_is_about_bytes_the_store_holds(tmp_path):
+    """The FK is what keeps the counter about a document that exists. There is no attempt
+    number to constrain: the queue counts rows at the pin, so no gap and no allocation."""
+    con = _store(tmp_path)
+    with pytest.raises(sqlite3.IntegrityError):
+        _dispatch(con, sha="e" * 64)
+
+
+def test_the_queue_counts_dispatches_and_not_runs(tmp_path):
+    """ADR 0024 D4: a container that writes nothing must still burn an attempt, or the same
+    document is selected every pass and everything behind it goes unread. `>=` is the whole
+    predicate — a gap left by a partial hand-reset exhausts the document early rather than
+    making it owed for ever, which is the failure the `=` reading would reintroduce."""
+    con = _store(tmp_path)
+    attempts = 3
+    for _ in range(2):
+        _dispatch(con)
+        assert _burned(con) < attempts  # still owed, and no `ocr_run` row was ever needed
+    _dispatch(con)
+    assert _burned(con) == attempts  # exhausted at this pin, and countable
+
+
+def test_the_dispatch_counter_ships_in_the_snapshot(tmp_path):
+    """PUBLIC on `ocr_run`'s precedent (the operator, 2026-09-05): that table publishes the
+    method, version, channel, render, outcome and note for the same documents, and this one
+    is what separates "handed over and nothing came back" from "never attempted".
+
+    The dump is RUN rather than the tuples inspected. A name in `PUBLIC_TABLES` is a claim
+    about the snapshot; only the snapshot is the measurement, and `scrub` has three other
+    ways to drop a table."""
+    con = _store(tmp_path)
+    middle = "2026-09-05T02:00:00+00:00"
+    for at in ("2026-09-05T01:00:00+00:00", middle, "2026-09-05T03:00:00+00:00"):
+        _dispatch(con, at)  # dispatch_id 1, 2, 3 in insertion order
+    con.execute("DELETE FROM extraction_dispatch WHERE dispatched_at = ?", (middle,))
+    con.commit()
+    con.close()
+    out = tmp_path / "public"
+    manifest = dump.dump(tmp_path / "s.sqlite", out)
+    assert "extraction_dispatch" not in manifest.held_tables
+    schema = (out / "schema.sql").read_text(encoding="utf-8")
+    assert "CREATE TABLE extraction_dispatch" in schema
+    assert "extraction_dispatch_by_document" in schema  # the index ships too, per dump.py
+    snap = tmp_path / "snap.sqlite"
+    snap.write_bytes(gzip.decompress((out / manifest.latest.name).read_bytes()))
+    published = sqlite3.connect(snap)
+    assert published.execute(
+        "SELECT DISTINCT document_sha256, pinned_method, pinned_method_version"
+        " FROM extraction_dispatch"
+    ).fetchall() == [(SHA, *PIN)]
+    # `scrub` builds the snapshot by VACUUM, which preserves rowids for a declared INTEGER
+    # PRIMARY KEY — so the numbering a reader computes from the snapshot is the store's. A row
+    # is deleted first, because with an unbroken run every id matches whether or not VACUUM
+    # renumbered (schema-critic, fourth pass).
+    assert published.execute(
+        "SELECT dispatch_id FROM extraction_dispatch ORDER BY dispatch_id"
+    ).fetchall() == [(1,), (3,)]  # the HOLE is the proof; a renumber would give [1, 2]
+
+
+def test_a_hand_deleted_attempt_leaves_the_counter_correct(tmp_path):
+    """The schema-critic's case: the only reset an exhausted document has today is a hand
+    DELETE. Against a COUNT over rows that is simply two attempts, and the computed numbering
+    closes up behind it — a STORED number would have left a gap the queue read as owed for
+    ever, allocating 5, then 6, never 3."""
+    con = _store(tmp_path)
+    middle = "2026-09-05T02:00:00+00:00"
+    for at in ("2026-09-05T01:00:00+00:00", middle, "2026-09-05T03:00:00+00:00"):
+        _dispatch(con, at)
+    assert _history(con) == [1, 2, 3]
+    con.execute("DELETE FROM extraction_dispatch WHERE dispatched_at = ?", (middle,))
+    assert _burned(con) == 2
+    assert _history(con) == [1, 2]  # the numbering CLOSES UP; a stored one would leave a hole
+
+
+def test_a_version_bump_is_the_reset_and_the_history_keeps_one_numbering(tmp_path):
+    """ADR 0024 D4 as the operator settled it 2026-09-05: the pin is what the poller was
+    CONFIGURED to hand off on — it cannot be an observation, since the row is written before
+    the container runs — and counting per pin is what lets a release re-open the queue for the
+    documents the old one failed on. The numbering does not restart: one document, one
+    history."""
+    con = _store(tmp_path)
+    for _ in range(3):
+        _dispatch(con)
+    assert _burned(con) == 3  # exhausted at 1.28.2
+    _dispatch(con, at="2026-09-06T00:00:00+00:00", pin=("pymupdf", "1.28.3"))
+    assert _burned(con) == 3  # the old pin's count is untouched by the new one
+    assert _burned(con, pin=("pymupdf", "1.28.3")) == 1  # and the bump reset the counter
+    assert _history(con) == [1, 2, 3, 4]  # one document, one history, across both pins
+
+
+def test_a_dispatch_must_say_what_it_handed_off(tmp_path):
+    """A row that cannot name its producer cannot say which version failed three times, which
+    is the whole reason the columns are here rather than left to `ocr_run`."""
+    con = _store(tmp_path)
+    for pin in (("", "1.28.2"), ("pymupdf", "")):
+        with pytest.raises(sqlite3.IntegrityError):
+            _dispatch(con, pin=pin)
+
+
+def test_both_indexes_the_queue_leans_on_are_pinned(tmp_path):
+    """Both index shapes are argued to be load-bearing in migration 0022's header — the four
+    columns because the queue asks two questions of them (COUNT at the pin, and MAX at the pin
+    for the retry interval), and the DESC pair because it is the only direction that serves
+    D3's walk by scan. Neither was pinned, so either could be reshaped with the suite green."""
+    con = _store(tmp_path)
+
+    def columns(index):
+        return [r[2] for r in con.execute(f"PRAGMA index_info({index})")]
+
+    assert columns("extraction_dispatch_by_document") == [
+        "document_sha256",
+        "pinned_method",
+        "pinned_method_version",
+        "dispatched_at",
+    ]
+    assert columns("document_by_first_seen") == ["first_seen_at", "document_sha256"]
+    ddl = con.execute(
+        "SELECT sql FROM sqlite_master WHERE name = 'document_by_first_seen'"
+    ).fetchone()[0]
+    assert "first_seen_at DESC" in ddl  # ASC would sort 104,163 rows every pass
+
+
+def test_a_dispatch_needs_a_time_it_can_be_ordered_and_retried_by(tmp_path):
+    """`dispatched_at` is half the ordering key and the whole retry gate, so it is guarded
+    where `ocr_run.ran_at` is not: '' sorts before every real timestamp, so such a row reads
+    as attempt 1 for ever and never satisfies a `last > cutoff` comparison."""
+    con = _store(tmp_path)
+    with pytest.raises(sqlite3.IntegrityError):
+        _dispatch(con, at="")

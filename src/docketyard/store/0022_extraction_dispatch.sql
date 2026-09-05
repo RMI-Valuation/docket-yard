@@ -1,0 +1,260 @@
+-- Migration 0022: a dispatch is the evidence that an attempt was MADE — ADR 0024 D4, which
+-- is Proposed. This is § Owed item 1, drafted for the schema critic; nothing writes here yet.
+--
+-- WHY THE TABLE EXISTS AT ALL. ADR 0024 puts a `pymupdf` container on the instance and hands
+-- it an explicit list of documents each pass. The queue that builds that list has to be
+-- bounded, and the obvious bound — "documents with no `ocr_run` row" — is the one that fails
+-- silently: an `ocr_run` row exists ONLY because the loader read a spool file the container
+-- wrote, so a container that is down, OOM-killed or stuck records nothing, the same newest-
+-- first documents are selected every pass, and every document behind them goes unread for
+-- ever with nothing raised. That is head-of-line blocking, and it was found by review
+-- (stb-ingest-specialist, 2026-09-05) rather than by the pass. The poller therefore records
+-- the hand-off BEFORE it invokes the container, and the queue counts hand-offs.
+--
+-- THE PREDICATE THIS TABLE SERVES (ADR 0024 D1/D3/D4/D6), stated here because the shape below
+-- is only correct for it:
+--
+--   a document is owed extraction when
+--     * some capture that ever observed it ran in `forward` mode AND asserted its filter
+--                                                       -- D1 as amended, via document_source
+--     * its media_type is 'pdf'                                              -- D3, and see
+--     * its size_bytes is at most EXTRACT_MAX_BYTES                          -- below
+--     * it has NO `ocr_run` row at reading_channel = 'text-layer' AND render_profile =
+--       'native' AND outcome = 'read', AT ANY VERSION                                -- D6
+--     * it has fewer than EXTRACT_ATTEMPTS rows here AT THE CURRENT PIN             -- D4
+--     * and none of those rows is newer than EXTRACT_RETRY_HOURS ago                -- D3
+--   ordered by document.first_seen_at DESC, document_sha256, LIMIT EXTRACT_LIMIT     -- D3
+--
+-- THE `ocr_run` HALF TESTS THE OUTCOME, NOT MERELY THE EXISTENCE OF A ROW, and without that
+-- the pin columns below are inert for the one case they were added for. `run_outcome_vocab`
+-- holds 'read', 'failed' and 'skipped', and D5 records a refusal AS A RUN — so under "no row
+-- at that key" a single `failed` silences the queue for that document for ever, at every
+-- version and after a single attempt, and a `pymupdf` release that fixes those bytes changes
+-- nothing. The per-pin count would then only ever fire where NOTHING was written at all, i.e.
+-- where the container died mid-flight. D6's reason for version-freedom survives untouched:
+-- the 74,295 documents already read carry `read` rows, so no point release re-reads them
+-- (schema-critic, 2026-09-05, third pass).
+--
+-- `read` AND NOT `skipped`, and that rests on an ordering constraint rather than on the word.
+-- `text/load.py` maps `not-paginable` to `skipped`, and `not-paginable` is PERMANENT — the
+-- bytes are not a paginated document — while D5's refusal is TRANSIENT: raise
+-- EXTRACT_MAX_BYTES and that document must re-enter. `run_outcome_vocab`'s own note already
+-- says `skipped` means both. Measured in production 2026-09-05: 3,271 `skipped` rows at this
+-- key, and **0 documents** where `media_type = 'pdf'` holds one without a `read` row — so the
+-- queue's media term already excludes every one of them and `read` alone is safe TODAY. It
+-- stops being safe the moment § Owed 2 ships a refusal as `skipped`. THE FOURTH OUTCOME GOES
+-- IN FIRST: `run_outcome_vocab` is a table so it can be widened by INSERT, and a published
+-- word that means two things cannot be un-published (schema-critic, fourth pass).
+--
+-- THE SIZE AND MEDIA TERMS ARE THE QUEUE'S, because the container's input is an explicit list
+-- (D2) and so the queue is the ONLY filter that exists. Without the size term the 1.07 GB PDF
+-- that OOM-killed the wave process twice is dispatched, the container dies, nothing is
+-- written, the attempt burns, and after EXTRACT_ATTEMPTS the document is exhausted — never
+-- read and never refused with a reason, which is D3's refusal and D5's reason both defeated
+-- by the queue rather than by the loader. Without the media term the queue admits the
+-- `.xlsx`, `.zip`, `.jpg` and `.docx` the record actually holds (trap 5); the blob pool is
+-- flat and content-addressed with no extension, so `pymupdf` gets no filetype hint, raises,
+-- and writes a `failed` indistinguishable from a broken PDF in a PUBLIC table. The enrichment
+-- box already solved this by sniffing `%PDF-`, and the container should do the same as a
+-- second guard — D2 hands it a list it is not to trust blindly, for the same reason it
+-- refuses a directory scan. `filter_asserted` is trap 1's discipline — nothing downstream of
+-- `capture` trusts a row that did not positively assert its filter — but ON THIS PATH IT
+-- EXCLUDES NOTHING, and the header should not pretend otherwise: every fetch capture sets it
+-- to 1 unconditionally (`capture/documents.py`, on success and on failure alike, because a
+-- fetch has no table filter to assert), and the captures that keep 0 are table captures, which
+-- never acquire a `document_source` row. It is a guard against a future widening of the join
+-- to `event`, not a filter that bites today; the term doing the work is `ingest_mode =
+-- 'forward'` (stb-ingest-specialist, 2026-09-05; schema-critic, fourth pass).
+--
+-- THE VERSION HERE IS THE PIN THE POLLER WAS CONFIGURED TO HAND OFF ON, and it is NOT an
+-- observation of what ran — the row is written before the container is invoked, so there is
+-- nothing yet to observe. `ocr_run` records what actually ran, from the spool file's own
+-- header, and the loader holds both: "the spool file disagrees with the dispatch" is a
+-- detectable event and the loader's to report. An earlier draft of this header called this
+-- column an observation, which it cannot be at write time (schema-critic, 2026-09-05).
+--
+-- ADR 0024 D4 CARRIES THIS, as amended 2026-09-05 while Proposed. D6 carries the converse in
+-- the same breath: its "the queue never mentions the version" is true of the `ocr_run` half
+-- and false of this one, because the two halves ask different questions — "has this been
+-- read?" is version-free, and "has this pin already failed on it?" cannot be.
+--
+-- Without it, exhaustion is permanent and version-blind: a document that burned every attempt
+-- because `pymupdf` 1.28.x fails on those bytes is out of the queue for ever, the point
+-- release that fixes it changes nothing (D6's queue predicate is "no run at ANY version"),
+-- and the only recovery is a hand `DELETE` — which is exactly what leaves the gap the
+-- predicate above had to be rewritten to survive. Counting attempts AT THE CURRENT PIN makes
+-- a version bump the reset, which is what a version bump should be.
+--
+-- The queue still never mentions a version when it asks about `ocr_run` (D6): a document read
+-- by ANY version is read, and re-reading 74,295 documents for a point release would rewrite
+-- ~1.1M rows. The two predicates differ because the two questions differ — "has this been
+-- read?" is version-free, "has this pin already failed on it?" cannot be.
+--
+-- NO OUTCOME COLUMN either. A dispatch records that the poller handed the bytes over; what
+-- came back is an `ocr_run` row, including the refusals D5 puts there with their reason. An
+-- outcome here would be a second answer to a question `ocr_run` already answers, and the two
+-- would drift the first time a pass died between them — which is the exact event this table
+-- exists to survive.
+
+BEGIN TRANSACTION;
+
+-- THERE IS NO STORED ATTEMPT NUMBER, and getting to that took three drafts. THE COUNTER IS A
+-- COUNT AT THE PIN — `COUNT(*) WHERE document_sha256 = ? AND pinned_method = ? AND
+-- pinned_method_version = ?` against EXTRACT_ATTEMPTS — and every attempt to make a stored
+-- number carry that job failed in a different way:
+--
+--   * a test on the number breaks the moment the pin moves. A document that burned 1, 2, 3 on
+--     the old pin gets 4 on the new one, and `attempt_no >= 3` calls it exhausted after a
+--     single attempt at the version meant to rescue it.
+--   * a test on the number is confused by a gap, and a gap is not hypothetical: the only
+--     reset an exhausted document has is a hand `DELETE`, and a partial one leaves
+--     `{1, 2, 4}`. Read as "no row at attempt_no = N" that document is owed FOR EVER — the
+--     writer allocates 5, then 6, never 3, holding an EXTRACT_LIMIT slot every thirty minutes
+--     while everything behind it goes unread, the very blocking this table exists to prevent.
+--   * and STORING the number at all costs a read-before-write. `MAX+1` computed for a batch
+--     and then inserted is an `IntegrityError` the moment anything else writes a row in
+--     between — a hand-inserted diagnostic row is enough — and a hand-off that raises is a
+--     hand-off the record does not remember, which is the infinite loop again.
+--
+-- So the number is COMPUTED WHEN READ, `ROW_NUMBER() OVER (PARTITION BY document_sha256
+-- ORDER BY dispatched_at, dispatch_id)` — production runs SQLite 3.46.1, window functions are
+-- 3.25+, and `store/search.py` already leans on them (NOT migration 0018, which has no `OVER`
+-- in it). `dispatch_id` is NOT NULL and unique, so the ordering is total and the numbering is
+-- deterministic. A reader sees one history in order across every pin the document met;
+-- nothing has to allocate it, and nothing can collide on it. That last claim holds for the
+-- QUEUE unconditionally, since the queue counts rather than reads a number — and for the
+-- READER only under a non-decreasing clock, because a backwards NTP step or a backdated hand
+-- insert renumbers earlier attempts (schema-critic, fourth pass).
+--
+-- The surrogate key is also what keeps this table CHANGEABLE after publication: `ADD COLUMN`
+-- survives CC0 and a primary-key change does not, so the one rebuild-class decision in this
+-- DDL is taken now rather than discovered after a third party holds the shape
+-- (schema-critic, 2026-09-05; the operator's decision the same day).
+--
+-- WHAT THE CALLER MUST DO, said here rather than assumed, because the queue's correctness
+-- argument above rests on both and neither is expressible in DDL.
+--
+-- ONE: the row must outlive the pass that wrote it. `forward_pass` threads ONE connection
+-- through every stage and `sqlite3.Connection.commit()` commits everything open on it, so
+-- this is ordering, not isolation, and a SECOND CONNECTION IS THE WRONG ANSWER — it contends
+-- for the write lock against Litestream's checkpoint, which `store/batches.py` already
+-- records as production pain. The order is: commit to a known point; insert the dispatch
+-- rows; commit again, in a helper with no `except` spanning that commit; assert
+-- `con.in_transaction is False`; and only then invoke. Copy `forward_pass`'s house
+-- `try/except Exception: con.rollback()` around the invocation instead and a container that
+-- raises rolls back dispatch rows for bytes it has already read — the bound stops being a
+-- bound, for the most likely failure there is. A test pins the assertion.
+--
+-- TWO: the pass must reconcile and must be able to stop. A container that is down writes no
+-- `ocr_run` row, so every document it was handed burns an attempt; at 48 passes a day this
+-- retires EXTRACT_LIMIT documents per pass into a state invisible from both sides —
+-- `/coverage` reads them as "not yet read", and the only row that knows is this one, which
+-- has no outcome column by design. The head-of-line block would be gone and SILENT MASS
+-- EXHAUSTION would have replaced it, which is the worse failure of the two because a repeat
+-- is visible in the next pass and a discard is visible nowhere. So the pass compares what it
+-- dispatched against what landed, appends the difference and the newly-exhausted to
+-- `problems`, and HALTS DISPATCH while the ratio is zero. `_fill_captions` already does all
+-- three (`capture/poll.py`, `CAPTION_ATTEMPTS` with `CAPTION_RETRY_HOURS` beside it, and its
+-- exhausted set pushed into `problems` — "a permanently empty answer into a problem rather
+-- than silence"). A cap without a retry interval is what makes a 90-minute outage permanent
+-- (schema-critic and stb-ingest-specialist, 2026-09-05, independently).
+--
+-- THE HALT NEEDS A RELEASE, and it must be a QUERY OVER THIS TABLE rather than a flag. Held
+-- as state it either never clears — once halted nothing is dispatched, so nothing lands, so
+-- the condition holds for ever and only a person notices — or it clears every other pass,
+-- which halves a dead container's burn rate instead of stopping it. Dispatch is halted when
+-- the last N rows here by `dispatched_at` have no matching text-layer/native `read` row, and
+-- ONE CANARY DOCUMENT is dispatched per pass while halted so the condition stays measurable.
+-- Self-clearing by construction, no new column, and a hand-run loader clears it too
+-- (schema-critic, fourth pass).
+CREATE TABLE extraction_dispatch (
+    dispatch_id           INTEGER PRIMARY KEY,
+    document_sha256       TEXT NOT NULL REFERENCES document (document_sha256),
+    -- the parser the poller was CONFIGURED to hand this attempt to. What actually ran is in
+    -- `ocr_run`, which carries no CHECK on the same two columns and so accepts '' where these
+    -- do not. Attempts are capped per pin, so a version bump re-opens the queue for the
+    -- documents the old one failed on. The attempt's NUMBER is not stored: it is
+    -- ROW_NUMBER() over this document's rows by (dispatched_at, dispatch_id).
+    pinned_method         TEXT NOT NULL CHECK (pinned_method <> ''),
+    pinned_method_version TEXT NOT NULL CHECK (pinned_method_version <> ''),
+    -- guarded where `ocr_run.ran_at` is not, because this column is load-bearing twice over:
+    -- it is half the ordering key, and it is the whole retry gate. '' sorts before every real
+    -- timestamp, so such a row would read as attempt 1 for ever and could never satisfy a
+    -- `last > cutoff` string comparison — the document would be re-dispatched every pass,
+    -- burning attempts at 48 a day, which is the failure the retry interval exists to stop.
+    dispatched_at         TEXT NOT NULL CHECK (dispatched_at <> '')
+);
+
+-- The surrogate key leads with a rowid, so unlike the composite key it replaced this table
+-- needs ONE index to be usable at all. Most questions asked of it are "this document's rows";
+-- D4's per-pass reconciliation and the ledger-wide form of the asks query are not, and the
+-- four-column shape serves those as a covering scan rather than a seek.
+-- All four columns are carried because the queue asks two questions of them and the second is
+-- the retry interval — COUNT at the pin, and MAX(dispatched_at) at the pin — and at under
+-- twenty rows per document the index is covering for both. It is the only index, which is why
+-- it carries `dispatched_at`: a second one would serve an identical miss for the great
+-- majority of candidates, which have no rows here at all (schema-critic, 2026-09-05).
+CREATE INDEX extraction_dispatch_by_document ON extraction_dispatch
+    (document_sha256, pinned_method, pinned_method_version, dispatched_at);
+
+-- D3's "newest first" needs an ordering the queue can WALK rather than a sort it must finish.
+-- THE INDEX EARNS ITS PLACE ON THE DRAIN, not on the steady state, and the difference matters
+-- enough to state: while the backlog is being read the queue is full every pass and the walk
+-- stops at EXTRACT_LIMIT; once it drains there are fewer candidates than the cap, so the walk
+-- reaches the end of the index either way and only the 104,163-row SORT is saved — and what
+-- remains, every pass and for ever, is a full walk of the index, and per entry a `document`
+-- rowid seek for `media_type` and `size_bytes` — neither is in this index — plus three
+-- EXISTS probes. A first draft claimed the opposite, and a second put a number on the
+-- backlog: 29,868 is the AGENCY-WIDE text-less count, while ADR 0024 § Owed 5 says in terms
+-- that the queue must be measured with D1's own join and has not been (schema-critic,
+-- 2026-09-05, both times).
+--
+-- The second column is a TIEBREAK, not a lookup: `first_seen_at` is `isoformat(timespec=
+-- "seconds")` and a batch fetch writes many rows on one second, so ordering by it alone is
+-- unstable and two passes can disagree about which document is next. THE DIRECTIONS ARE NOT
+-- COSMETIC once there are two columns: this serves `ORDER BY first_seen_at DESC,
+-- document_sha256` and nothing else, so a queue written with the tiebreak DESC gets the
+-- 104,163-row sort this index exists to avoid. A first draft of this header called the
+-- keyword cosmetic, which is true of a single-column index and false of this one.
+--
+-- `document` is public in the CC0 snapshot, so this DDL ships in the published `schema.sql`
+-- (dump.py) — an index asserts nothing (migration 0021's precedent).
+CREATE INDEX document_by_first_seen ON document (first_seen_at DESC, document_sha256);
+
+-- `dispatch_id` IS SNAPSHOT-LOCAL AND NOTHING MAY CITE IT. It is a rowid alias, so a hand
+-- DELETE of the NEWEST row frees that integer for the next insert, and a third party diffing
+-- two snapshots would find row n under a different document. Nothing references it — no
+-- foreign key, no route, no published address — and it exists only as `ROW_NUMBER()`'s
+-- tiebreak, so the exposure ends there. `AUTOINCREMENT` is the wrong guard and is deliberately
+-- not taken: no table in this store uses it, and it would create `sqlite_sequence`, whose DDL
+-- `dump.py` publishes while its `sqlite_`-prefix filter excuses it from the allowlist check —
+-- it would ship unreviewed. A hand reset deletes from the middle, never the newest row. If a
+-- citable identity is ever wanted, `(document_sha256, dispatched_at)` is already indexed.
+
+PRAGMA user_version = 22;
+
+COMMIT;
+
+-- ---------------------------------------------------------------------------
+-- WHAT THIS TABLE RESTS ON IN ADR 0024, WHICH IS PROPOSED
+-- ---------------------------------------------------------------------------
+-- The code was to be the next finder, and across three reviews it found nine things the
+-- record did not say. D1, D3, D4, D6 and § Owed were amended in place on 2026-09-05 to carry
+-- them — the ADR is Proposed, so that is an edit rather than a new record. What this DDL now
+-- needs from it:
+--
+--   D1  the `filter_asserted` term beside the forward-mode clause (trap 1)
+--   D3  a retry interval beside EXTRACT_ATTEMPTS, and the size and media-type terms held by
+--       the QUEUE, since D2 gives the container a list and nothing else can hold them
+--   D4  the surrogate key, the per-pin count, the pin columns, the reconciliation and halt
+--       (on landed-AND-READ, not landed), and the poller's commit ordering
+--   D6  the version-free predicate narrowed to the `ocr_run` half AND to a `read` outcome —
+--       without the outcome test one recorded failure silences a document for ever and the
+--       pin columns are inert — plus § Owed 1's registry gating the POLLER'S CONSTANT rather
+--       than this DDL. The columns carry NO FK to it: this table is public, no public table
+--       in the shipped store has ever referenced a held one, and migration 0018 settled that
+--       case by name — an FK to a held registry fails at a third party's foreign_key_check
+--
+-- IT IS STILL PROPOSED, and this migration is not to be applied until it is Accepted — the
+-- sequencing is the operator's, and the point of it is that an implementation proves the
+-- record before the record is stamped.

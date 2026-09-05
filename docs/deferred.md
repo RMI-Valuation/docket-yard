@@ -1090,10 +1090,23 @@ amendments are listed in the migration's own header; these are the rest.
 - **`extraction_dispatch` carries no `ingest_mode`** — ADR 0024 § Owed 6's gap, same as
   `ocr_run`'s. Not urgent: `ADD COLUMN` survives publication, and the primary key is the only
   rebuild-class change the critic's widening survey could find.
-- **`resolve._anchored` runs to the end of the line, so a trailing clause can donate a date.**
-  "...consistent with FD 36500.  The decision served June 2, 2021 is affirmed." gives FD 36500
-  the whole trailing sentence. Bounding at a sentence end (`\.\s+(?=[A-Z])`, which does not
-  fire on `slip op. at 2`) as well as at the next docket number would fix it — but it moves
-  membership of the 16,051 assigned rows, so it is a measurement and the operator's call, not
-  a passing edit. Third member of the family with the parent/sub-docket overlap and
-  `served on`.
+- **`resolve._anchored` runs to the end of the line, so a trailing clause can donate a date** —
+  real, but **the obvious fix is worse than the defect, and that is now measured** rather than
+  argued. Bounding the segment at a sentence end (`\.\s+(?=[A-Z])`) as well as at the next
+  docket number moves 34 of the 16,051 work-level rows: 29 lost, 5 gained, none reassigned to
+  a different decision (whole record, 2026-09-05). Reading the 29 is what settles it — roughly
+  25 are FALSE CUTS on legal abbreviation, not on sentences:
+
+  - `NOR 42142, Consumers Energy Company v. CSX Transportation, Inc., served January 11, 2018`
+    — `v. C` is a case name, and the cut lands there
+  - `FD 35348, Dec. No. 6, slip op. at 7 (STB served Oct. 22, 2010)` — `Dec. No.` cuts
+  - `FD 34502, slip op. STB served Dec. 29, 2005` and `slip op. At 14 (served Feb. 19, 2026)`
+    — `op. STB` and OCR's capitalised `op. At` both cut
+  - `EP 542 (Sub-No. 25), slip op. app. C at 20 (STB served July 28, 2017)` — `app. C` cuts
+
+  Against maybe three genuine donations (`AB-307 (Sub-No. 5X). By decision served November 10,
+  2004`). The claim in an earlier note that the pattern "does not fire on `slip op. at 2`" was
+  true only of the lowercase form, and the Board prints `Dec. No.`, `v.` and `S.T.B.`
+  constantly. **Do not re-propose a sentence bound without an abbreviation list**; the real fix
+  remains a finder that reports each occurrence's offset. Third member of the family with the
+  parent/sub-docket overlap and `served on`.

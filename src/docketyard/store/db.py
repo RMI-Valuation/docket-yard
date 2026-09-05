@@ -36,6 +36,7 @@ MIGRATIONS: list[tuple[int, str]] = [
     (19, "0019_decided_date_rebuild.sql"),
     (20, "0020_display_mask.sql"),
     (21, "0021_attachment_by_document.sql"),
+    (22, "0022_extraction_dispatch.sql"),
 ]
 
 
