@@ -993,3 +993,30 @@ regression; all three are gaps that have always been open and were never counted
   figure was right when written. Worth repeating because it caught me too: `--` is TRUTHY and
   is not NULL, so a test for emptiness reads an absence as content, and that is exactly the
   bug ultrareview found in `mcp.py` on 2026-08-31.
+
+## From reviewing ADR 0024 as a change to the forward pass, 2026-09-05
+
+The stb-ingest-specialist's pass over the draft. Two findings stand on their own, whatever
+becomes of that record.
+
+- **`forward_pass` records no duration, and nothing alarms on an overrun.** `run_forever`
+  does `time.sleep(max(0.0, every - elapsed))` — a pass that takes longer than its interval
+  sleeps zero and the next one starts immediately, with no measurement, no summary key and no
+  problem raised. The only external signal is `alerts/build.py`'s `LATE_AFTER = 3 hours`, so
+  a pass could run six times its interval unnoticed. Today's worst case is ~14-15 minutes of
+  the 30 (captures ~120 s, captions ~25 s, `FETCH_LIMIT` 200 at the polite interval ~400 s,
+  `RECHECK_BUDGET_SECONDS` 300, plus alerts, party resolution and the index). **Two published
+  claims rest on the cadence**: `/coverage` says the Board's record search is asked "every
+  thirty minutes", and `/methodology` computes `recheck_cycle_days` from `POLL_MINUTES = 30`.
+  A pass that quietly takes 45 minutes makes both false, which is the drift `CLAUDE.md`
+  forbids. A `duration` in the summary and a problem when it exceeds the interval is cheap
+  and is owed whether or not ADR 0024 ships.
+- **The errata re-check gives archive documents a forward `document_source` row, continuously.**
+  `recheck_urls` selects held URLs across the whole record and `fetch_attachments` then loads
+  EVERY attachment row for them (`unfetched_only=False`), including rows whose
+  `document_sha256` is NULL — which take the `old_sha == sha256` path and gain a
+  `document_source` row under the re-check's forward capture. So "forward" by document is a
+  growing set that reaches the whole record about every six weeks. Not a defect: the re-check
+  is doing its job, and ADR 0024 D1 takes the consequence deliberately. Recorded because any
+  future count of "what the poller owns" that uses this join will be larger than a count of
+  forward-observed records, and the two numbers will disagree for a reason nobody remembers.
