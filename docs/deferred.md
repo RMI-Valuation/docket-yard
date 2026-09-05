@@ -814,14 +814,24 @@ schema-critic pass of their own, not a tidy-up.
   first and the registry would lose a proceeding without a word. A guard in `registry()` that
   raises on a duplicate key is one line and catches it loudly; the CHECK constraint is a
   table rebuild.
-- **The site's own printed form of a suffixed parent does not round-trip, and the wrong
-  answer is silent.** `urls.printed_docket` renders `AB_1182_0_X` as `AB 1182-X`; `DOCKET`
-  cannot take a hyphen between the digits and the letter, so `keys.normalise("AB 1182-X")`
-  returns `AB 1182` — the PARENT, a different held proceeding. `review.find_docket` resolves
-  a reviewer's typed string through `normalise`, so a reviewer who copies the form this site
-  prints is answered with another docket and told nothing. Verified 2026-09-04; pre-existing
-  and untouched by the key fix; 2,707 dockets are of this shape. Not a one-line regex change
-  — a hyphen there would also swallow other spellings — so it wants its own look.
+- **The site prints a docket in two forms its own citation grammar cannot read, and one of
+  them names a DIFFERENT proceeding.** `urls.printed_docket` renders `AB_1182_0_X` as
+  `AB 1182-X` and `urls.cite_docket` as `STB Docket No. AB 1182-X`; `keys.DOCKET` cannot take
+  a hyphen between the digits and the letter, so `normalise` drops the suffix and returns
+  `AB 1182` — the PARENT. `cite_docket`'s long form for FD and EP (`STB Finance Docket No.
+  36873`) carries no prefix token at all and normalises to None. Verified 2026-09-04; 2,707
+  held dockets are of the suffixed shape. **The reviewer's half is FIXED** (`review.find_docket`
+  now resolves a typed string through `urls.lookup` — the record's own identity parser — and
+  falls back to the citation grammar only when the string does not parse; that also lets a
+  reviewer name one of the 655 out-of-class dockets, which `normalise` refused outright).
+  **Left, and untouched:** the two renderings themselves. `printed_docket`'s `AB 1182-X` is
+  this site's invention — the Board prints `AB 1182 (Sub-No. 0X)` and `keys.registry_key`
+  spells it `AB 1182 (X)` — so the site shows a reader a third spelling of a key the citator
+  will publish under a fourth. Changing it moves reader-visible text on every sheet, in alert
+  mail and on `/cite`, so it is **Cameron's**, not a code fix. Related: whether `keys.DOCKET`
+  should learn the Board's long names the way `urls.lookup` has (`_LONG_FORMS`) — that widens
+  the citation class and moves `KEY_VERSION` and every measured figure, so it is an ADR 0017
+  question, not a patch.
 
 ## Measured while the citator first ran, 2026-09-04: what the citation class cannot name
 

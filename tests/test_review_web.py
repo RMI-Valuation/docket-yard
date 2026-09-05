@@ -11,7 +11,9 @@ from fastapi.testclient import TestClient
 
 from docketyard.alerts import vault
 from docketyard.citator import keys, load, methods, project, review, signin
+from docketyard.ingest.dockets import parse_docket_id
 from docketyard.store import db
+from docketyard.web import urls
 from docketyard.web.app import create_app
 
 STAMP = "2026-09-01T00:00:00+00:00"
@@ -406,6 +408,46 @@ def test_a_correction_names_a_docket_the_way_the_board_prints_it(client, store):
     con = db.connect(store)
     rows = project.projected(con)
     assert len(rows) == 1 and rows[0][3] == 2  # AB 124's docket_id, resolved by its printed form
+    con.close()
+
+
+def test_the_form_a_reviewer_copies_off_this_site_finds_the_docket_it_names(store):
+    """`keys.normalise` alone answered three ways a reviewer could not see: the site's own
+    printed form of a suffixed parent found the PARENT silently, a docket outside the
+    citation class could not be named at all, and the site's own long citation form carried
+    no prefix token to match. All three name a proceeding the record holds."""
+    con = db.connect(store)
+    con.execute(
+        "INSERT INTO docket (docket_id, raw_docket, prefix, sequence, suffix)"
+        " VALUES (4, 'AB_1182_0_X', 'AB', 1182, 'X')"
+    )
+    con.execute(
+        "INSERT INTO docket (docket_id, raw_docket, prefix, sequence) VALUES (5, 'AB_1182',"
+        " 'AB', 1182)"
+    )
+    con.execute(
+        "INSERT INTO docket (docket_id, raw_docket, prefix, sequence, suffix)"
+        " VALUES (6, 'S5M_1_0_A', 'S5M', 1, 'A')"
+    )
+
+    suffixed = parse_docket_id("AB_1182_0_X")
+    # the two forms this site itself prints for it, and the Board's own spelling
+    assert review.find_docket(con, urls.printed_docket(suffixed))[0] == 4  # 'AB 1182-X'
+    assert review.find_docket(con, urls.cite_docket(suffixed))[0] == 4
+    assert review.find_docket(con, "AB 1182 (Sub-No. 0X)")[0] == 4
+    assert review.find_docket(con, "AB 1182")[0] == 5  # the parent is still its own docket
+
+    # outside the citation class (13 prefixes, 655 dockets) but inside the record
+    assert keys.normalise("S5M 1-A") is None
+    assert review.find_docket(con, urls.printed_docket(parse_docket_id("S5M_1_0_A")))[0] == 6
+
+    # the long form `cite_docket` prints for FD and EP, which carries no `FD` token
+    assert review.find_docket(con, "STB Finance Docket No. 36873")[0] == 1
+
+    # a shape only the citation grammar takes still resolves, and a miss is still a miss
+    assert review.find_docket(con, "AB124")[0] == 2
+    assert review.find_docket(con, "AB 99999") is None
+    assert review.find_docket(con, "AB 1182-Q") is None  # parses, not held: never the parent
     con.close()
 
 

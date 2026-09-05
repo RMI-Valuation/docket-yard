@@ -23,7 +23,9 @@ import json
 
 from docketyard.alerts import vault
 from docketyard.citator import keys, methods, resolve
+from docketyard.ingest import dockets
 from docketyard.store.db import utcnow
+from docketyard.web import urls
 
 # The queue's own convention version: WHAT EVIDENCE WAS SHOWN and under which rules the
 # decision was made. A reviewer who saw less than today's reviewer saw decided a different
@@ -208,21 +210,54 @@ def revoke(con, reviewer_id: int) -> int:
 
 
 def find_docket(con, printed: str) -> tuple[int, str] | None:
-    """A docket a reviewer TYPED, as (id, raw). `AB 124`, `AB-124`, `Docket No. AB 124` all
-    find the same row, because `keys.normalise` is the one place a printed docket becomes a
-    key and a human should not have to know an internal id to correct one.
+    """A docket a reviewer TYPED, as (id, raw). `AB 124`, `AB-124`, `Docket No. AB 124`,
+    `AB 1182-X` and `STB Finance Docket No. 36873` all find the same rows they name: a human
+    should not have to know an internal id — or the citation class — to correct one.
+
+    IF THE STRING PARSES AS AN IDENTITY, THAT IDENTITY IS THE ANSWER, held or not. The
+    citation grammar gets a look only when it does not parse at all, and that order is the
+    whole fix. `keys.normalise` alone was answering three ways that a reviewer could not
+    see (verified 2026-09-04):
+
+      * **The site's own printed form of a suffixed parent found the PARENT, silently.**
+        `urls.printed_docket` renders `AB_1182_0_X` as `AB 1182-X`; `keys.DOCKET` cannot take
+        a hyphen between the digits and the letter, so the suffix fell off the end and
+        `AB 1182` — a different held proceeding — came back resolved and confident under the
+        reviewer's credit name. 2,707 held dockets are of that shape.
+      * **A docket outside the citation class could not be named at all.** `normalise` ships
+        ONE class by ADR 0017 D1 and returns None for the other 13 prefixes, so `S5M 1-A` was
+        refused as "not a docket this record holds" when the record holds it. 655 dockets can
+        never be cited TO; a reviewer correcting a citation that named one wrongly still has
+        to be able to name it.
+      * **The site's own long citation form was unreadable.** `urls.cite_docket` prints
+        `STB Finance Docket No. 36873`, which carries no `FD` token for `keys.DOCKET` to
+        match. `urls.lookup` knows the Board's long names; the citation grammar does not.
+
+    Nothing here widens the citation class: this is what a PERSON may type, resolved through
+    the record's own identity parser, and no key, `KEY_VERSION` or measured figure moves.
 
     Returns None when nothing matches, which the caller must refuse: a correction that names
     no docket is worse than no correction, because it publishes under a reviewer's name.
     """
-    key = keys.normalise(printed or "")
-    if key is None:
-        return None
-    docket_id = keys.registry(con).get(key)
+    identity = urls.lookup(printed or "")
+    if identity is not None:
+        docket_id = dockets.find_docket(con, identity)
+    else:
+        # not identity-shaped: `AB1296` with no separator is the citation grammar's, not
+        # `parse_docket_id`'s, and refusing it here would be a regression for no gain
+        key = keys.normalise(printed or "")
+        docket_id = None if key is None else keys.registry(con).get(key)
     if docket_id is None:
         return None
-    raw = con.execute("SELECT raw_docket FROM docket WHERE docket_id = ?", (docket_id,)).fetchone()
-    return (docket_id, raw[0] if raw else key)
+    return (docket_id, _raw_docket(con, docket_id))
+
+
+def _raw_docket(con, docket_id: int) -> str:
+    """Both callers' ids come from a SELECT over `docket` and `raw_docket` is NOT NULL, so
+    there is no miss to fall back from — an empty string here would be a corrupt store, and
+    the caller would rather see it than a label it invented."""
+    row = con.execute("SELECT raw_docket FROM docket WHERE docket_id = ?", (docket_id,)).fetchone()
+    return row[0] if row else ""
 
 
 def owed(con, queue: str) -> int:
