@@ -819,8 +819,10 @@ schema-critic pass of their own, not a tidy-up.
   `AB 1182-X` and `urls.cite_docket` as `STB Docket No. AB 1182-X`; `keys.DOCKET` cannot take
   a hyphen between the digits and the letter, so `normalise` drops the suffix and returns
   `AB 1182` — the PARENT. `cite_docket`'s long form for FD and EP (`STB Finance Docket No.
-  36873`) carries no prefix token at all and normalises to None. Verified 2026-09-04; 2,707
-  held dockets are of the suffixed shape. **The reviewer's half is FIXED** (`review.find_docket`
+  36873`) carries no prefix token at all and normalises to None. Re-measured against the store 2026-09-04 (the
+  note's 2,707 was wrong): **2,711** held dockets are of the suffixed shape and **2,646**
+  of them, printed by this site, named a different held docket; 655 across 13 prefixes are
+  out of class, confirmed exactly. **The reviewer's half is FIXED** (`review.find_docket`
   now resolves a typed string through `urls.lookup` — the record's own identity parser — and
   falls back to the citation grammar only when the string does not parse; that also lets a
   reviewer name one of the 655 out-of-class dockets, which `normalise` refused outright).

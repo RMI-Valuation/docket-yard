@@ -223,7 +223,8 @@ def find_docket(con, printed: str) -> tuple[int, str] | None:
         `urls.printed_docket` renders `AB_1182_0_X` as `AB 1182-X`; `keys.DOCKET` cannot take
         a hyphen between the digits and the letter, so the suffix fell off the end and
         `AB 1182` — a different held proceeding — came back resolved and confident under the
-        reviewer's credit name. 2,707 held dockets are of that shape.
+        reviewer's credit name. Measured against the store 2026-09-04: 2,711 held dockets
+        are of that shape and 2,646 of them named a DIFFERENT held docket.
       * **A docket outside the citation class could not be named at all.** `normalise` ships
         ONE class by ADR 0017 D1 and returns None for the other 13 prefixes, so `S5M 1-A` was
         refused as "not a docket this record holds" when the record holds it. 655 dockets can
