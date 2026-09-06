@@ -181,6 +181,12 @@ PUBLIC_TABLES = frozenset(
         # measurement", which a third party rebuilding the coverage denominator from
         # `schema.sql` needs as much as the operator does (schema-critic, 2026-09-05).
         "extraction_dispatch",
+        # Migration 0024, ADR 0024 § Owed 1 / D6. It names the producer pinned for a
+        # reading key, which is the declaration `ocr_run`'s published `method` and
+        # `method_version` are readings against — withholding it would publish the
+        # answers and hold back the question. Ships EMPTY: a producer declares itself
+        # on its first run (migration 0014's rule about versions welded into DDL).
+        "producer_declaration",
         "correction",
         "enviro_comment",
         "enviro_comment_attachment",

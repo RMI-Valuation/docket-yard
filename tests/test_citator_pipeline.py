@@ -1222,3 +1222,43 @@ def test_a_served_date_belongs_to_the_docket_it_follows_and_not_to_the_line(tmp_
         "SELECT target_key, cited_docket_id, cited_decision_id FROM citation_resolution"
         " WHERE superseded_by IS NULL ORDER BY target_key"
     ).fetchall() == [("EP 445", 3, "99999"), ("FD 36873", 1, None)]
+
+
+def test_inserting_a_work_measurement_does_not_open_the_work_grain(tmp_path):
+    """The gate is on the ROWS, not on the measurement's existence. One INSERT satisfies "a
+    work measurement exists" while every row still carries the docket-level stamp — which
+    would publish a docket precision beside a work-level edge, ADR 0017 § Consequences' error
+    in the gate built to stop it (code review, 2026-09-05)."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    load.load_document(
+        con,
+        _findings(
+            {
+                "page": 4,
+                "target": "FD 36873",
+                "quoted": "See FD 36873, slip op. at 3 (STB served Mar. 12, 2021)",
+            }
+        ),
+        keys.registry(con),
+        keys.works(con),
+        stamps,
+    )
+    assert con.execute(
+        "SELECT cited_decision_id FROM citation_resolution WHERE superseded_by IS NULL"
+    ).fetchone() == ("52526",)
+
+    con.execute("INSERT INTO class_vocab VALUES ('citation_resolution', 'work')")
+    methods.measure(
+        con,
+        measured_target="citation_resolution",
+        cls=project.WORK_CLASS,
+        extractor_version="v1",
+        score_file="test",
+        benchmark_date="2026-09-05",
+        reading_channel=methods.CHANNEL_TEXT,
+        recall=0.9,
+        precision=0.9,
+    )
+    with pytest.raises(methods.Unscored, match="stamped"):
+        project.cited_by(con, work_id="52526")  # the rows still carry the docket figure

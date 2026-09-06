@@ -43,6 +43,10 @@ MIGRATIONS: list[tuple[int, str]] = [
     # nightly dump publishes its table under CC0, so shipping it freezes a shape ADR
     # 0024 has not yet been accepted to justify.
     (23, "0023_extraction_dispatch.sql"),
+    # 0024 is ADR 0024 § Owed 1 and carries the same deploy gate as 0023: its table is
+    # public, so shipping it freezes a shape the Proposed ADR has not been accepted to
+    # justify. It ships EMPTY either way — nothing declares a pin yet.
+    (24, "0024_producer_declaration.sql"),
 ]
 
 

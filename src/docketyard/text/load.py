@@ -181,6 +181,105 @@ def run_outcomes(con) -> frozenset[str]:
     return frozenset(r[0] for r in con.execute("SELECT outcome FROM run_outcome_vocab"))
 
 
+def pins(con) -> dict[tuple[str, str, str], tuple[str, str]]:
+    """Every LIVE pin, keyed `(reading_channel, render_profile, reading_role)`. Read once for
+    a pass and passed down, the way `machine_channels` and `run_outcomes` already are — a wave
+    walks tens of thousands of spool files and this table holds single digits."""
+    return {
+        (channel, render, role): (method, version)
+        for channel, render, role, method, version in con.execute(
+            "SELECT reading_channel, render_profile, reading_role, method, method_version"
+            " FROM producer_declaration WHERE retired_at IS NULL"
+        )
+    }
+
+
+def pinned(con, channel: str, render: str, role: str) -> tuple[str, str] | None:
+    """The producer declared for one reading key, or None. NONE MEANS UNCONSTRAINED, and that
+    is the design rather than a gap: nothing has declared the OCR channel's keys, so the wave
+    loads while the text layer is pinned."""
+    return pins(con).get((channel, render, role))
+
+
+def declare_producer(
+    con, channel: str, render: str, role: str, method: str, version: str, *, by: str | None = None
+) -> None:
+    """Pin a reading key to one producer (migration 0024, ADR 0024 D6). Idempotent, because a
+    backfill is restartable; a declaration that CONTRADICTS the live one raises `Conflict`
+    rather than being swallowed — `citator.methods.declare`'s idiom, which D6 names. Moving a
+    pin is `repoint_producer`, deliberately a different verb.
+
+    Nothing calls this from a migration on purpose: a version welded into DDL is a version the
+    code then has to match (migration 0014's rule).
+    """
+    live = pinned(con, channel, render, role)
+    if live is not None:
+        if live != (method, version):
+            raise methods.Conflict(
+                f"{channel}/{render}/{role} is pinned to {live[0]}@{live[1]}, not"
+                f" {method}@{version}. Moving a pin is `repoint_producer`, not a retry."
+            )
+        return
+    con.execute(
+        "INSERT INTO producer_declaration (reading_channel, render_profile, reading_role,"
+        " method, method_version, declared_by, declared_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (channel, render, role, method, version, by, utcnow()),
+    )
+
+
+def repoint_producer(
+    con, channel: str, render: str, role: str, method: str, version: str, *, by: str | None = None
+) -> None:
+    """Move a pin: retire the live declaration and append the new one, linked. THE HISTORY IS
+    KEPT, which is the whole reason this table has a surrogate key — a hand `UPDATE` on a
+    nightly-published table erases the prior declaration and rewrites `declared_at`, so a third
+    party's diff cannot tell a re-point from a first declaration.
+
+    A version bump is expected to come through here: ADR 0024 D4 counts dispatch attempts per
+    pin so that a bump is the reset, and § Consequences says a `pymupdf` CVE is a release
+    rather than a note.
+    """
+    now = utcnow()
+    live = con.execute(
+        "SELECT declaration_id, method, method_version FROM producer_declaration"
+        " WHERE reading_channel = ? AND render_profile = ? AND reading_role = ?"
+        "   AND retired_at IS NULL",
+        (channel, render, role),
+    ).fetchone()
+    if live is not None and (live[1], live[2]) == (method, version):
+        return  # already there; a re-point to the same pin is a restart, not a move
+    # THE PREDECESSOR NEED NOT BE LIVE. A key can be un-pinned — retired with no replacement —
+    # and re-pinned later, and linking only from a live row would leave the new declaration
+    # with no ancestry, which is the history the surrogate key exists to keep.
+    predecessor = (
+        live
+        or con.execute(
+            "SELECT declaration_id FROM producer_declaration"
+            " WHERE reading_channel = ? AND render_profile = ? AND reading_role = ?"
+            "   AND superseded_by IS NULL ORDER BY declaration_id DESC LIMIT 1",
+            (channel, render, role),
+        ).fetchone()
+    )
+    # RETIRE FIRST. The live index is unique and SQLite checks it per statement, not at
+    # commit, so inserting the replacement before retiring the incumbent is two live rows for
+    # one statement's worth of time and the insert simply fails.
+    if live is not None:
+        con.execute(
+            "UPDATE producer_declaration SET retired_at = ? WHERE declaration_id = ?",
+            (now, live[0]),
+        )
+    con.execute(
+        "INSERT INTO producer_declaration (reading_channel, render_profile, reading_role,"
+        " method, method_version, declared_by, declared_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (channel, render, role, method, version, by, now),
+    )
+    if predecessor is not None:
+        con.execute(
+            "UPDATE producer_declaration SET superseded_by = ? WHERE declaration_id = ?",
+            (con.execute("SELECT last_insert_rowid()").fetchone()[0], predecessor[0]),
+        )
+
+
 def header_of_reading(doc: dict, allowed: frozenset[str]) -> Header:
     """`allowed` is the store's outcome vocabulary (`run_outcomes`), PASSED IN rather than
     read from a Python tuple — `run_outcome_vocab` is a table precisely so it can be widened
@@ -388,7 +487,9 @@ def _run_recorded(con, h: Header) -> bool:
     )
 
 
-def load_reading(con, data_dir, reading: Reading, now: str | None = None, *, machine=None) -> str:
+def load_reading(
+    con, data_dir, reading: Reading, now: str | None = None, *, machine=None, pinned_keys=None
+) -> str:
     """One reading into `document_text`, `text_payload`, `ocr_run` and `page_fts`; the
     CALLER holds the transaction. Returns `loaded`, `unchanged` (every page already said
     this), `restart` (this very pass is already recorded), `run_only` (a pass with no
@@ -403,6 +504,21 @@ def load_reading(con, data_dir, reading: Reading, now: str | None = None, *, mac
         return "unknown_document"
     if _run_recorded(con, h):
         return "restart"
+    # ADR 0024 D6: two producers at two versions make one document supersede itself on
+    # alternate passes, each alternation costing an FTS5 delete and insert per page. An
+    # UNDECLARED key is unconstrained, so this refuses nothing until somebody pins something.
+    #
+    # BELOW THE RESTART CHECK, and that order is load-bearing: re-walking a spool root that
+    # already landed is the operator's normal recovery move, and above it a pin change turns
+    # every free `restart` into a `failed` (schema-critic, 2026-09-05).
+    key = (h.reading_channel, h.key.render_profile, h.reading_role)
+    if (pin := (pins(con) if pinned_keys is None else pinned_keys).get(key)) is not None and (
+        pin != (h.key.method, h.key.method_version)
+    ):
+        raise Unreadable(
+            f"{'/'.join(key)} is pinned to {pin[0]}@{pin[1]};"
+            f" this reading is {h.key.method}@{h.key.method_version}"
+        )
     payload, pages = reading.body()
     digest = hashlib.sha256(payload).hexdigest()
     con.execute(
@@ -534,10 +650,11 @@ def run(
     # identical lookup the same way, and a wave walks tens of thousands of spool files
     machine = methods.machine_channels(con)
     allowed = run_outcomes(con)
+    pinned_keys = pins(con)
     return batches.run(
         con,
         batches.walk(root, lambda path: read_file(path, allowed)),
-        lambda r: load_reading(con, data_dir, r, machine=machine),
+        lambda r: load_reading(con, data_dir, r, machine=machine, pinned_keys=pinned_keys),
         log=log,
         commit_every=commit_every,
     )

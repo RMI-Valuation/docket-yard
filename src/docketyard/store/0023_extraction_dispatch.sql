@@ -180,8 +180,14 @@ CREATE TABLE extraction_dispatch (
     -- do not. Attempts are capped per pin, so a version bump re-opens the queue for the
     -- documents the old one failed on. The attempt's NUMBER is not stored: it is
     -- ROW_NUMBER() over this document's rows by (dispatched_at, dispatch_id).
-    pinned_method         TEXT NOT NULL CHECK (pinned_method <> ''),
-    pinned_method_version TEXT NOT NULL CHECK (pinned_method_version <> ''),
+    -- the no-slash rule the registry enforces on the same two values (migration 0024): a
+    -- slash-bearing pin can be written here but never declared there, so its count could
+    -- never match and the document would re-dispatch for ever
+    pinned_method         TEXT NOT NULL
+                          CHECK (pinned_method <> '' AND pinned_method NOT GLOB '*/*'),
+    pinned_method_version TEXT NOT NULL
+                          CHECK (pinned_method_version <> ''
+                                 AND pinned_method_version NOT GLOB '*/*'),
     -- guarded where `ocr_run.ran_at` is not, because this column is load-bearing twice over:
     -- it is half the ordering key, and it is the whole retry gate. '' sorts before every real
     -- timestamp, so such a row would read as attempt 1 for ever and could never satisfy a

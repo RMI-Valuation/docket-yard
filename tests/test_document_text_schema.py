@@ -11,7 +11,9 @@ from pathlib import Path
 
 import pytest
 
+from docketyard.citator import methods
 from docketyard.store import db, dump
+from docketyard.text import load
 
 STAMP = "2026-09-02T00:00:00+00:00"
 SHA = "d" * 64
@@ -1055,3 +1057,115 @@ def test_the_two_public_tables_never_disagree_about_the_same_bytes(tmp_path):
         (SHA, STAMP),
     )
     assert con.execute(disagreement).fetchone()[0] == 1  # and it bites when they disagree
+
+
+# --- migration 0024, which producer owns a reading key (ADR 0024 § Owed 1) ------------------
+
+
+def test_migration_0024_ships_the_registry_empty(tmp_path):
+    """Migration 0014's rule, applied: "a method version welded into DDL is a version the code
+    then has to match". A producer declares itself on its first run."""
+    con = _store(tmp_path)
+    assert con.execute("SELECT COUNT(*) FROM producer_declaration").fetchone()[0] == 0
+    assert "producer_declaration" in dump.PUBLIC_TABLES
+
+
+def test_a_declaration_is_idempotent_and_a_contradiction_raises(tmp_path):
+    """`citator.methods.declare`'s idiom, which ADR 0024 D6 names: a re-run declares nothing
+    new, and re-pointing a registry is a decision rather than a retry."""
+    con = _store(tmp_path)
+    load.declare_producer(con, "text-layer", "native", "primary", "pymupdf", "1.28.2")
+    load.declare_producer(con, "text-layer", "native", "primary", "pymupdf", "1.28.2")  # a restart
+    assert load.pinned(con, "text-layer", "native", "primary") == ("pymupdf", "1.28.2")
+    assert con.execute("SELECT COUNT(*) FROM producer_declaration").fetchone()[0] == 1
+    with pytest.raises(methods.Conflict, match="1.28.3"):
+        load.declare_producer(con, "text-layer", "native", "primary", "pymupdf", "1.28.3")
+
+
+def test_an_undeclared_reading_key_is_unconstrained(tmp_path):
+    """ABSENCE IS THE DESIGN, not a gap. The OCR wave renders at 150 and runs several engines;
+    pinning the text layer must not refuse a single page of it."""
+    con = _store(tmp_path)
+    load.declare_producer(con, "text-layer", "native", "primary", "pymupdf", "1.28.2")
+    assert load.pinned(con, "ocr", "150", "primary") is None
+
+
+def test_a_reviewer_is_not_a_producer(tmp_path):
+    """'human' is legal in `reading_vocab` because a review row needs a key (ADR 0018 D3), and
+    meaningless here — so the CHECK excludes it rather than leaving it to convention."""
+    con = _store(tmp_path)
+    with pytest.raises(sqlite3.IntegrityError):
+        con.execute(
+            "INSERT INTO producer_declaration (reading_channel, render_profile, reading_role,"
+            " method, method_version, declared_at)"
+            " VALUES ('human', 'human', 'primary', 'human', 'x', ?)",
+            (STAMP,),
+        )
+
+
+def test_a_pin_survives_into_the_snapshot(tmp_path):
+    """It is the declaration `ocr_run`'s published method and version are readings against —
+    withholding it would publish the answers and hold back the question."""
+    con = _store(tmp_path)
+    load.declare_producer(con, "text-layer", "native", "primary", "pymupdf", "1.28.2")
+    con.commit()
+    con.close()
+    out = tmp_path / "public"
+    manifest = dump.dump(tmp_path / "s.sqlite", out)
+    snap = tmp_path / "snap.sqlite"
+    snap.write_bytes(gzip.decompress((out / manifest.latest.name).read_bytes()))
+    assert sqlite3.connect(snap).execute(
+        "SELECT reading_channel, render_profile, reading_role, method, method_version"
+        " FROM producer_declaration"
+    ).fetchall() == [("text-layer", "native", "primary", "pymupdf", "1.28.2")]
+
+
+def test_a_pin_can_be_moved_and_the_move_is_readable_afterwards(tmp_path):
+    """THE PIN MUST BE ABLE TO MOVE — ADR 0024 D4 counts dispatch attempts per pin so that a
+    version bump is the reset, and § Consequences says a `pymupdf` CVE is a release rather than
+    a note. A first draft could only raise, so the only way to bump was a hand UPDATE on a
+    nightly-published table, erasing the prior declaration (schema-critic, 2026-09-05)."""
+    con = _store(tmp_path)
+    load.declare_producer(con, "text-layer", "native", "primary", "pymupdf", "1.28.2", by="box")
+    load.repoint_producer(con, "text-layer", "native", "primary", "pymupdf", "1.29.0", by="pass")
+    assert load.pinned(con, "text-layer", "native", "primary") == ("pymupdf", "1.29.0")
+
+    rows = con.execute(
+        "SELECT method_version, declared_by, retired_at IS NOT NULL, superseded_by IS NOT NULL"
+        " FROM producer_declaration ORDER BY declaration_id"
+    ).fetchall()
+    assert rows == [("1.28.2", "box", 1, 1), ("1.29.0", "pass", 0, 0)]  # history, then the live
+    load.repoint_producer(con, "text-layer", "native", "primary", "pymupdf", "1.29.0")
+    assert con.execute("SELECT COUNT(*) FROM producer_declaration").fetchone()[0] == 2
+
+
+def test_only_one_declaration_is_live_per_reading_key(tmp_path):
+    """The partial index is what makes "the pin in force" singular without making the past
+    unwritable, which is `assertion_method`'s shape with a different axis."""
+    con = _store(tmp_path)
+    load.declare_producer(con, "text-layer", "native", "primary", "pymupdf", "1.28.2")
+    with pytest.raises(sqlite3.IntegrityError):
+        con.execute(
+            "INSERT INTO producer_declaration (reading_channel, render_profile, reading_role,"
+            " method, method_version, declared_at)"
+            " VALUES ('text-layer', 'native', 'primary', 'other', '1', ?)",
+            (STAMP,),
+        )
+    # and the SAME key at a different role is a different pin, which is why the role is in it
+    load.declare_producer(con, "text-layer", "native", "second", "other", "1")
+    assert load.pinned(con, "text-layer", "native", "second") == ("other", "1")
+
+
+def test_a_pin_that_could_never_match_a_reading_is_refused(tmp_path):
+    """A slash cannot appear in a reading key — a review key renders as
+    `<sha>/<page>/<method>/<version>/<render>` and must parse back — so a pin carrying one
+    would silently never apply to anything."""
+    con = _store(tmp_path)
+    for render, method in (("a/b", "pymupdf"), ("native", "a/b")):
+        with pytest.raises(sqlite3.IntegrityError):
+            con.execute(
+                "INSERT INTO producer_declaration (reading_channel, render_profile,"
+                " reading_role, method, method_version, declared_at)"
+                " VALUES ('text-layer', ?, 'primary', ?, '1', ?)",
+                (render, method, STAMP),
+            )

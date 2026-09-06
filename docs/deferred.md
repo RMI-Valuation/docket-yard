@@ -1128,3 +1128,28 @@ amendments are listed in the migration's own header; these are the rest.
   they never disagree, but `ocr_run` still has no correction path: a `review_target_vocab` row
   for it (`surrogate`, on `document_pagination`'s precedent) would give one, since `run_id` is
   followable for the same reasons `pagination_id` is.
+
+## From the schema critic on migration 0024, the producer registry, 2026-09-05
+
+- **Nothing declares a pin, so ADR 0024 D6 is inert while the record reads as though it is on.**
+  `pinned()` returning None means both "deliberately unpinned" and "nobody got round to it", at
+  every read site and in the CC0 snapshot, where an empty table and a considered decision are
+  the same bytes. The fix belongs with the poller stage, and it is **the first thing that stage
+  owes**: the registry becomes the SOURCE of the dispatch row's pin, and the stage refuses to
+  dispatch — loudly, into `problems` — when there is none. That gives D6 the coupling it wants
+  without the foreign key it forbids. Secondarily, `load.run` could say once per pass that it
+  loaded at an undeclared key.
+- **A pin refusal is recorded nowhere.** `load_reading` raises before the `ocr_run` INSERT, so
+  the store holds no evidence a reading arrived and was turned away — ADR 0018 D10's "absence
+  is not a measurement" and ADR 0024 D5's "a refusal is recorded as a run" both crossed by the
+  guard D6 asked for. Nothing is LOST (D9 deletes a spool file only on a landed outcome), but
+  the record of the refusal is a log line and a count. The honest cheap version is a `problems`
+  row per pass; the full version waits on § Owed 2, since an `ocr_run` row would have to claim
+  a method and version that never ran.
+- **A wave-wide version mismatch arrives as N document failures.** `Unreadable` is counted per
+  document by `batches`, each with its own savepoint, rollback and log line, and the pass walks
+  the whole root before saying anything — where an operator-level condition ("this root is at
+  the wrong version") wants to stop, the way migration 0023's halt-is-a-query does. A distinct
+  exception counted apart by `batches._apply` would do it. Also semantically: `Unreadable` is
+  documented as what the STORE shows to be wrong with the READING, and a pin mismatch is wrong
+  with the configuration.

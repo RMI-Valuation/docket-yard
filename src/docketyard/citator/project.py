@@ -239,17 +239,31 @@ def cited_by(
         return con.execute(
             CITED_BY_DOCKET, {"rank_version": rank_version, "target_docket": docket_id}
         ).fetchall()
+    # THE GATE IS ON THE ROWS, NOT ON THE MEASUREMENT'S EXISTENCE. A first cut asked only
+    # whether a `('citation_resolution', 'work')` measurement had been inserted — which one
+    # INSERT satisfies, while every row `CITED_BY_WORK` returns still carries the docket-level
+    # stamp. That would publish a docket precision beside a work-level edge on the strength of
+    # a row nobody had stamped anything from: ADR 0017 § Consequences' error, in the gate built
+    # to stop it (code review, 2026-09-05). So the test is whether a LIVE work-level row is
+    # actually stamped from a work measurement — which an INSERT alone cannot make true.
     scored = con.execute(
-        "SELECT 1 FROM class_measurement WHERE measured_target = 'citation_resolution'"
-        " AND class = ? AND precision IS NOT NULL",
+        "SELECT 1 FROM citation_resolution r JOIN class_measurement m"
+        "    ON m.measurement_id = r.score_row_id AND m.measured_target = r.measured_target"
+        " WHERE r.cited_decision_id IS NOT NULL AND r.superseded_by IS NULL"
+        "   AND r.confidence_state = 'measured'"
+        "   AND m.measured_target = 'citation_resolution' AND m.class = ?"
+        "   AND m.precision IS NOT NULL AND m.reading_channel = r.reading_channel"
+        " LIMIT 1",
         (WORK_CLASS,),
     ).fetchone()
     if scored is None:
         raise Unscored(
-            "the work grain is not published: no class_measurement for"
-            f" ('citation_resolution', {WORK_CLASS!r}) with a precision. The rows exist and"
-            " carry cited_decision_id; what is missing is a figure that speaks for THEM"
-            " rather than for the docket-level class. Ask at the docket grain instead."
+            "the work grain is not published: no live resolution carrying a cited_decision_id"
+            f" is stamped from a ('citation_resolution', {WORK_CLASS!r}) measurement on its own"
+            " reading channel. The rows exist and carry the decision id; what is missing is a"
+            " figure that speaks for THEM rather than for the docket-level class, and the rows"
+            " re-stamped from it. Inserting the measurement alone does not open this. Ask at"
+            " the docket grain instead."
         )
     return con.execute(
         CITED_BY_WORK, {"rank_version": rank_version, "target_work": work_id}

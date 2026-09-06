@@ -561,3 +561,39 @@ def test_a_reading_document_is_parsed_once_and_never_cut_at_a_page_text_string(t
     rest = {k: v for k, v in _extraction(SHA_B).items() if k != "page_text"}
     path = _write(root, {"page_text": ["p"], **rest})
     assert load.read_file(path, load.run_outcomes(con)).header.key.method == "pymupdf"
+
+
+def test_a_pinned_key_refuses_a_second_producers_version(tmp_path):
+    """ADR 0024 D6, and the whole reason the registry exists: two producers at two versions
+    make one document supersede itself on alternate passes, each alternation costing an FTS5
+    delete and insert per page. The refusal is at LOAD time, where both the declaration and
+    the reading are in hand."""
+    con = _store(tmp_path)
+    doc = _extraction(SHA_A)
+    assert load.load_reading(con, tmp_path, _reading(doc)) == "loaded"  # undeclared: allowed
+
+    load.declare_producer(con, "text-layer", "native", "primary", doc["tool"], doc["tool_version"])
+    other = dict(doc, tool_version=doc["tool_version"] + ".1")
+    with pytest.raises(load.Unreadable, match="is pinned to"):
+        load.load_reading(con, tmp_path, _reading(other))
+    # and the declared version still loads: the pin refuses the contradiction, not the pass
+    assert load.load_reading(con, tmp_path, _reading(doc)) == "restart"
+
+
+def test_a_pin_on_the_text_layer_does_not_touch_the_ocr_wave(tmp_path):
+    """The wave is mid-flight (`dots`, then `second`, then `graphic`). Pinning the text layer
+    must refuse none of it — an undeclared reading key is unconstrained, which is the design."""
+    con = _store(tmp_path)
+    load.declare_producer(con, "text-layer", "native", "primary", "pymupdf", "1.28.2")
+    assert load.load_reading(con, tmp_path, _reading(_ocr(SHA_A))) == "loaded"
+
+
+def test_a_pin_change_does_not_turn_an_already_loaded_root_into_failures(tmp_path):
+    """The pin test sits BELOW the restart check, and the order is load-bearing: re-walking a
+    spool root that already landed is the operator's normal recovery move, and above it every
+    free `restart` becomes a `failed` (schema-critic, 2026-09-05)."""
+    con = _store(tmp_path)
+    doc = _extraction(SHA_A)
+    assert load.load_reading(con, tmp_path, _reading(doc)) == "loaded"
+    load.repoint_producer(con, "text-layer", "native", "primary", doc["tool"], "9.9.9")
+    assert load.load_reading(con, tmp_path, _reading(doc)) == "restart"  # a fact, not a proposal
