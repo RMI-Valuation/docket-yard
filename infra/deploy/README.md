@@ -16,7 +16,36 @@ pull-based: change `DY_TAG` in `.env`, pull, up. Nothing pushes to production.
 | maintenance | `data/flags/maintenance` | ADR 0020. `touch` it and the proxy answers every path except `/health` with a 503 and the maintenance page, per request and with no reload; `rm` it to come back. `ingest` and `litestream` never observe it, so the record keeps being kept — verified 2026-09-02 with `web` stopped outright |
 | host timer | `docketyard-webwatch.timer` | every minute: restarts `web` if its healthcheck says `unhealthy`. Docker does not do this itself — `restart:` reacts to a process exiting, not to failing health — and on 2026-09-02 the container reported `unhealthy` for hours while nothing acted on it. `web` alone, never the stack: `ingest` and `litestream` keep the record either way |
 | host timer | `docketyard-blobs.timer` | every 30 min: `aws s3 sync` of `data/blobs`, then `prune_blobs.py` deletes local blobs S3 holds (older than 30 days, or oldest-first below 20 GB free) — S3 is the store, the instance is a cache |
+| host timer | `docketyard-adhoc.timer` | every 5 min: `adhoc_watch.sh` measures the longest-running BUSY process in the user slice and writes it as a gauge. It judges nothing (ADR 0019); the threshold is in Grafana. It exists because the 2026-09-06 outage was invisible to a no-data alert — the record was fresh and the poller fine, and the site simply could not serve |
+| guard | `user-1000.slice.d/limits.conf` | caps ad-hoc ssh work at `CPUQuota=50%` — half of ONE core of two — with `MemoryHigh=1G`/`MemoryMax=2G`. Nothing operational lives in that slice; everything real is in `system.slice`. Measured 2026-09-06: a busy loop that would run at 100% runs at 50.1% |
+| guard | `sshd_config.d/10-docketyard-clientalive.conf` | `ClientAliveInterval 60`, `ClientAliveCountMax 3`: a session whose client has stopped answering is reaped in about three minutes. sshd's default never probes |
 | failure handler | `docketyard-failed@.service` | `OnFailure=` of the four periodic units: `unit_outcome.sh` writes `docketyard_unit_failed{unit=…} 1` into `data/metrics/`, which Alloy's textfile collector ships; the unit's own `ExecStartPost` writes the 0 back on its next success. The alert on the gauge is in Grafana Cloud, off the box. Before this a failed dump served last night's snapshot under an unchanged manifest with nothing saying so |
+
+### The 2026-09-06 outage, and what now bounds it
+
+An operator query — `python3 -` fed a heredoc over ssh — never received EOF on 2026-09-05, so
+the session stayed open and the process ran **22 hours** pinning one of two vCPUs at 99%. The
+site served through it. When `docketyard-blobs.timer` then took another 43-76%, `web` was left
+with a fraction of a core: requests took 8-30 s, the healthcheck failed, `webwatch` restarted
+the container, and the restarts compounded it. Load average reached 20.
+
+**It was not a traffic flood**, though it looked like one: 183 requests in 3 minutes — about
+one a second — of which Caddy logged 259 × 200 against 13 × status-0 over the window. The
+record was fresh and the poller was fine throughout, which is why no existing alert fired.
+
+Three guards followed, and what each is honestly worth:
+
+- **the CPU cap bounds the class**, not the instance. Any ad-hoc command — a person's or an
+  agent's at a person's direction — is now held to half a core, so the services keep 1.5
+  whatever anyone runs. This alone would have prevented the outage.
+- **`ClientAlive` closes an adjacent hole.** It would probably NOT have caught this one: when
+  found, sshd was still alive and the connection had not dropped.
+- **the gauge measures what nothing measured.** Not a decision: Grafana holds the threshold.
+
+**Habit, which is what actually failed:** `</dev/null` and a remote `timeout` on every ad-hoc
+command sent over ssh. A command that never closes its stdin does not end, it persists. The
+structural answer, not taken yet, is to stop querying the serving store at all — restore a
+Litestream replica and analyse that.
 
 One store, two processes: `ingest` writes, `web` reads through a `mode=ro` URI. SQLite WAL
 makes that safe on one filesystem; it would not be safe over NFS, which is one reason this

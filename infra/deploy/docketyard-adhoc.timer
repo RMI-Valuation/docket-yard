@@ -1,0 +1,13 @@
+# /etc/systemd/system/docketyard-adhoc.timer
+# Every five minutes. The thing being watched is measured in hours, so a finer interval reads
+# the same answer more often; five minutes puts a bound of that on how stale the gauge is.
+[Unit]
+Description=Docket Yard: watch for long-running ad-hoc work
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+Persistent=false
+
+[Install]
+WantedBy=timers.target

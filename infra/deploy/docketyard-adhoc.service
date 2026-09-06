@@ -1,0 +1,14 @@
+# /etc/systemd/system/docketyard-adhoc.service — measure how long ad-hoc work has been busy.
+#
+# The gap the 2026-09-06 outage found: the record was fresh, the poller was fine, and the site
+# could not serve, so a no-data alert says nothing. What was anomalous was a query still
+# burning CPU 22 hours after somebody typed it. This measures that; Grafana judges it.
+[Unit]
+Description=Docket Yard: measure long-running ad-hoc work
+OnFailure=docketyard-failed@%p.service
+
+[Service]
+Type=oneshot
+# `-`: a gauge that cannot be written must never fail the unit it reports on
+ExecStartPost=-/srv/docketyard/unit_outcome.sh %p 0
+ExecStart=/srv/docketyard/adhoc_watch.sh
