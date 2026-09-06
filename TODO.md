@@ -36,11 +36,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **ADR 0024 amended; migration 0023 (`extraction_dispatch`) drafted and committed, yours to
-  accept.** Four critic passes and the ingest specialist found silent mass exhaustion (a cap,
-  no retry interval), the 1.07 GB PDF dispatched, one `failed` silencing a document for ever,
-  and a halt that never releases. **The gate is the DEPLOY, not the apply** — shipping it
-  freezes the table's shape under CC0. § Owed 1 lands before the poller reads a pin
+- **ADR 0024 amended; migrations 0023 (`extraction_dispatch`) and 0024 (`producer_declaration`,
+  § Owed 1) committed, yours to accept.** Six critic passes and the ingest specialist found
+  silent mass exhaustion, the 1.07 GB PDF dispatched, one `failed` silencing a document for
+  ever, a halt that never releases, and a pin that could never move. **The gate is the DEPLOY,
+  not the apply** — shipping either table freezes its shape under CC0. Nothing declares a pin
 - **The OCR wave: Paddle done and loaded (169,516 pages), `dots` running** since 2026-09-05
   10:59 CDT — tmux `ocr-dots`, vLLM in `vllm` on 8120, ~132 h over 41,688 degraded pages, log
   `/data/docketyard/ocr/logs/dots.log`. Then `second`, then `graphic`; rsync and `text load`
