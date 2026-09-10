@@ -231,7 +231,12 @@ both documents and they cannot declare two shapes for one table. What the ADR se
 - The registry is **one append-only table**, `class_measurement`, keyed `(extraction m+v,
   resolution m+v, class, reading_channel, projection_rule_version, benchmark_date)` and
   carrying the score file, recall and precision. The row's `score_row_id` names the exact
-  measurement it was stamped from. *(This bullet described a split into `confidence_class` +
+  measurement it was stamped from — and since migration 0025 `citation_resolution` also
+  carries `measured_class` beside it, foreign-keyed to the measurement's own class, because
+  a resolution can be stamped from two classes ('docket' where it names a proceeding, 'work'
+  where it also names a document) and the pair key `(measurement_id, measured_target)` could
+  not tell them apart. Every other assertion table still keys the pair: each carries one
+  class and has nothing to disambiguate. *(This bullet described a split into `confidence_class` +
   `class_measurement` and carried its argument — that holding `projection_rule_version` in
   the FK'd key would force an every-row UPDATE. Both are **withdrawn**, 2026-09-01: a pointer
   into an append-only table never needs updating, because a rule change mints a measurement
