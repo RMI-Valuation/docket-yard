@@ -87,6 +87,11 @@ extraction benchmark applies to a prompt.
 
 ## What follows (recorded in TODO)
 
+**Decided 2026-09-10: the second sample is drawn now — 300 parties, the same stratified
+draw, disjoint from the first, drafted by rules v2 for the operator's check; a type ships on
+rule confidence when its held-out precision clears 95%** (`docs/party-types.md` § The page).
+A draw of 150 was weighed and set aside: port had 4 rows and utility 3 in 300.
+
 A second sample the rules have never seen, to turn the figures above into a measurement;
 then the model tier for the types the rules cannot reach — `company`, `individual`,
 `rail-holding`, and the half of the span artefacts a name cannot betray. Nothing ships

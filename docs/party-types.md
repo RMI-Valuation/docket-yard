@@ -186,7 +186,9 @@ coverage counts on the page come from the store, per the trust rules; **each cou
 its class mix** (how many labels are document-stated, rule, linked, model, human), per
 ADR 0017's "no count without its class" (schema-critic). **The publishing gate, stated
 once**: a label ships when its tier's measured precision for that type clears the
-threshold the checked sample sets, review or no review; a party whose live rows disagree
+threshold the checked sample sets — **95% on the held-out sheet, decided 2026-09-10** (the
+citator's 98% was weighed and set aside: at the small types' counts one miss would fail
+them; 90% would show a reader one wrong type in ten) — review or no review; a party whose live rows disagree
 shows no label ("under review") until the queue resolves it. The search keeps its
 behaviour and its URL. A component whose founding span was superseded as malformed (the
 `And X` artefacts) is listed under unclassified with its span review linked — it cannot
