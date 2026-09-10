@@ -150,9 +150,10 @@ Rehearse it again if the release carries a migration this one did not.
 each took **about 280 s**, including 0023, which only creates a table. That time is the
 runner's `PRAGMA foreign_key_check` after every script, which walks every child row in the
 store; at 976,058 text pages it is minutes, where the 2026-09-02 rehearsal's 2.2 s was a
-store without them. **Budget five minutes per migration behind the wall**, and expect the
-`migrate` service to look idle while it checks. A per-table check in `db.migrate` would cut
-it and is recorded in `docs/deferred.md`.
+store without them. **On the live store the same three ran in 50 s in all** (deployed
+2026-09-10 10:51 UTC): the copy was cold and the live store's pages were cached. Budget the
+five minutes per migration anyway, and expect the `migrate` service to look idle while it
+checks. A per-table check in `db.migrate` would cut it and is recorded in `docs/deferred.md`.
 
 4. **Seed the store** from rmi-ai-machine — a copy, not a migration (ADR 0012). Stop any
    writer on the source first so the WAL is checkpointed:

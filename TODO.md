@@ -36,10 +36,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **ADR 0024 Accepted 2026-09-10.** Migrations 0023 (`extraction_dispatch`) and 0024
-  (`producer_declaration`, § Owed 1) are committed and undeployed. **The gate is the DEPLOY** —
-  shipping either table freezes its shape under CC0 — and it is Cameron's call, after
-  `/security-review` on the container path (§ Owed). Nothing declares a pin yet
+- **v2026.09.11 deployed 2026-09-10 (schema 24)**: migrations 0022–0024 and `decision_id`.
+  ADR 0024's dispatcher is unwritten; `/security-review` before it ships (§ Owed 8), and
+  `text load` should declare the producer from the root's manifest (`deferred.md`). **Cameron's:
+  the NULL `cited_decision_id` provenance question in `deferred.md` (a note or `rule-1a`)**
 - **`dots` died 2026-09-06 (CUDA OOM, a 12 MP sheet); the driver walked 32,849 pages against
   a closed port, exited 0, and nobody knew for three days. Restarted 2026-09-09 through the
   page queue** (`tools/fleet/`, `docs/compute-fleet.md`, ADR 0025 Proposed): 33,147 pages,
