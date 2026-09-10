@@ -1194,3 +1194,9 @@ amendments are listed in the migration's own header; these are the rest.
   the resolver's table was measured over 200,000 pages and is the one to keep.
 - **`review._raw_docket` is the sixth hand-written `SELECT raw_docket FROM docket`**; an
   accessor beside `dockets.canonical_of` would give every surface the same label and fallback.
+- **`db.migrate` runs `PRAGMA foreign_key_check` over the whole store after every script**:
+  280 s each on the 4.28 GB production copy (measured 2026-09-10), so a three-migration
+  release costs fifteen minutes behind the wall for checks that a table-creating script
+  cannot fail. `PRAGMA foreign_key_check(<table>)` over the tables the script names — or
+  every table whose DDL the script touched, read from `sqlite_master` before and after —
+  would keep the guarantee at seconds. Not urgent: the window is behind the wall.

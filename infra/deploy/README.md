@@ -145,6 +145,15 @@ had ever been tested and the whole hesitation about a migrating deploy rested on
 
 Rehearse it again if the release carries a migration this one did not.
 
+**Rehearsed again 2026-09-10 for migrations 0022–0024 against a live copy (4.28 GB, schema
+21).** Each applied cleanly with `integrity_check` ok and zero foreign-key violations — and
+each took **about 280 s**, including 0023, which only creates a table. That time is the
+runner's `PRAGMA foreign_key_check` after every script, which walks every child row in the
+store; at 976,058 text pages it is minutes, where the 2026-09-02 rehearsal's 2.2 s was a
+store without them. **Budget five minutes per migration behind the wall**, and expect the
+`migrate` service to look idle while it checks. A per-table check in `db.migrate` would cut
+it and is recorded in `docs/deferred.md`.
+
 4. **Seed the store** from rmi-ai-machine — a copy, not a migration (ADR 0012). Stop any
    writer on the source first so the WAL is checkpointed:
 
