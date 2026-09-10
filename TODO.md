@@ -28,9 +28,11 @@ decisions were taken the same day and are recorded where each belongs.
   `docs/research/benchmark/work-labels.csv`). What remains is the load itself — build the
   card on a production copy with `citation_dryrun.py --work`, then `citator declare`, as
   part of the first load below. A reader is shown no number; a shown edge names the sheet
-- **Party types, the held-out sheet** (decided 2026-09-10): draw 300 disjoint from the first
-  sample, rules v2 drafts, a check queue for the operator; the bar is 95% per type; then
-  the assertion migration (schema-critic first) and the browse on `/parties`
+- **Party types, the held-out sheet is drawn and WITH THE OPERATOR** (2026-09-10,
+  `docs/research/party-types/held-out/`; blind queue `data/party-types-heldout-check.html`).
+  When the Copy block (party_id, type, first, note) returns: apply both picks to its
+  `labels.csv`, score with `party_types_rules.py --sheet`, 95% per type on the FIRST pick;
+  then the assertion migration (schema-critic first) and the browse on `/parties`
 - **Built, unreleased**: `Disallow: /search` for the named AI agents, site-level JSON-LD
   (`web/jsonld.py`), and `/llms.txt` no longer linking what robots refuses — ride the next
   release; after deploy, check a sheet's block in Google's Rich Results test

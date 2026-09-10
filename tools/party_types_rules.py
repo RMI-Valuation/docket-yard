@@ -150,6 +150,14 @@ def main() -> int:
     emitted = collections.Counter()
     right = collections.Counter()
     conf = collections.Counter()
+    # a held-out sheet leaves `type` blank until the operator judges it; an unjudged row
+    # is not agreement and not a miss, so it is counted apart and scored as neither
+    unjudged = [r for r in rows if not r["type"].strip()]
+    rows = [r for r in rows if r["type"].strip()]
+    if unjudged:
+        print(f"{len(unjudged)} rows not yet judged; scoring the {len(rows)} that are\n")
+    if not rows:
+        return 0
     for r in rows:
         judged, got = r["type"], draft(r["as_filed"])
         per[judged][1] += 1

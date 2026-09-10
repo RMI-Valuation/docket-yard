@@ -1,0 +1,39 @@
+{
+ "drawn": "2026-09-10",
+ "seed": 20260910,
+ "store": "live store, schema 25, exported 2026-09-10T23:40:34Z",
+ "excluded": {
+  "sheet": "docs/research/party-types/labels.csv",
+  "parties": 300
+ },
+ "strata": {
+  "government": 40,
+  "elected-official": 40,
+  "labor-union": 40,
+  "port": 40,
+  "law-firm": 5,
+  "railroad": 20,
+  "association": 20,
+  "company": 19,
+  "individual": 19,
+  "span-artefact": 19,
+  "utility": 19,
+  "unmatched": 19
+ },
+ "population": {
+  "association": 710,
+  "company": 2024,
+  "elected-official": 543,
+  "government": 944,
+  "individual": 3200,
+  "labor-union": 51,
+  "law-firm": 5,
+  "port": 65,
+  "railroad": 1452,
+  "span-artefact": 188,
+  "unmatched": 533,
+  "utility": 156
+ },
+ "why": "party-types.md, the held-out sheet (decided 2026-09-10): rules v2 never saw these parties; stratified over what v2 emits, the four candidate types weighted to 40 rows each (the operator's choice); a type ships on rule confidence at 95% precision here",
+ "rule_version": "rule:party-type/2026-08-30b"
+}

@@ -91,6 +91,9 @@ extraction benchmark applies to a prompt.
 draw, disjoint from the first, drafted by rules v2 for the operator's check; a type ships on
 rule confidence when its held-out precision clears 95%** (`docs/party-types.md` § The page).
 A draw of 150 was weighed and set aside: port had 4 rows and utility 3 in 300.
+**Drawn the same day** (`held-out/`): stratified over what v2 emits, the four candidate
+types weighted to 40 rows each, judged blind with the draft revealed after the first pick —
+both the operator's choices, recorded in `held-out/README.md`.
 
 A second sample the rules have never seen, to turn the figures above into a measurement;
 then the model tier for the types the rules cannot reach — `company`, `individual`,

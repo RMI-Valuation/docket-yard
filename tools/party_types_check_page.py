@@ -1,20 +1,27 @@
 """The operator's check queue for the party-type sample, as one self-contained page.
 
-Reads `labels.csv` (and `wikidata.csv` if present) from docs/research/party-types and
-renders one card per party: the name as filed, the dockets it filed in, the draft type
-and its evidence, and a row of type buttons. Judgements stay in the browser
-(localStorage); **Copy findings** hands back one block — party_id, chosen type, note —
-that the session applies to the sheet. The pattern is the labels queue's
-(`rmi-ai-machine/labels_check_page.py`), smaller.
+Reads `labels.csv` (and `wikidata.csv` if present) from a sample's directory and renders
+one card per party: the name as filed, the dockets it filed in, the draft type and its
+evidence, and a row of type buttons. Judgements stay in the browser (localStorage, under
+`--key`, so two sheets never share a store); **Copy findings** hands back one block —
+party_id, chosen type, first pick, note — that the session applies to the sheet. The
+pattern is the labels queue's (`rmi-ai-machine/labels_check_page.py`), smaller.
 
     python tools/party_types_check_page.py --dir docs/research/party-types \\
         --out data/party-types-check.html
+
+`--blind` hides the machine's draft until a type is picked, then shows it, and the FIRST
+pick is kept beside the final one. A held-out sheet measures the precision that decides
+whether a type ships, and a boxed draft on the card is an anchor pulling the judgement
+toward the rule; the first pick is the unanchored reading, and a change after seeing the
+draft is recorded as one rather than lost.
 """
 
 # ruff: noqa: E501 — an HTML/JS template reads worse wrapped (labels_check_page precedent)
 import argparse
 import csv
 import html
+import json
 from pathlib import Path
 
 TYPES = [
@@ -38,6 +45,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
+    ap.add_argument("--key", default="party-types-check-2026-08-30", help="localStorage key")
+    ap.add_argument("--blind", action="store_true", help="hide the draft until a pick")
     args = ap.parse_args()
     rows = list(csv.DictReader((args.dir / "labels.csv").open(encoding="utf-8")))
     wd = {}
@@ -61,21 +70,33 @@ def main() -> int:
                 f"{' · says <b>' + html.escape(w['mapped_type']) + '</b>' if w['mapped_type'] else ''}"
                 f"{' · mark ' + html.escape(w['mark']) if w['mark'] else ''}</p>"
             )
+        boxed = not args.blind
         btns = "".join(
             f"<button data-pid='{pid}' data-type='{t}'"
-            f"{' class=draft' if t == r['draft_type'] else ''}>{t}</button>"
+            f"{' class=draft' if boxed and t == r['draft_type'] else ''}>{t}</button>"
             for t in TYPES
+        )
+        drafted = (
+            f"<span class='drafted'{' hidden' if args.blind else ''}>drafted"
+            f" <b>{html.escape(r['draft_type'])}</b> ({html.escape(r['evidence'])}) · </span>"
         )
         cards.append(
             f"<div class='card' id='p{pid}' data-pid='{pid}' data-draft='{html.escape(r['draft_type'])}'>"
             f"<h2>{html.escape(r['as_filed'])}</h2>"
-            f"<p class='ev'>drafted <b>{html.escape(r['draft_type'])}</b>"
-            f" ({html.escape(r['evidence'])}) · files in {html.escape(r['dockets'] or '—')}"
+            f"<p class='ev'>{drafted}files in {html.escape(r['dockets'] or '—')}"
             f" · <a href='https://docketyard.org/p/{pid}' target='_blank' rel='noopener'>/p/{pid}</a></p>"
             f"{wd_line}<div class='btns'>{btns}</div>"
             f"<input class='note' data-pid='{pid}' placeholder='note (optional)'>"
             "</div>"
         )
+    how = (
+        "The machine's draft is hidden until you pick; then it is shown boxed. Your FIRST"
+        " pick is kept beside your final one, so changing your mind after seeing the draft is"
+        " recorded, not lost."
+        if args.blind
+        else "A boxed button is the machine's draft; click the correct type (clicking the draft"
+        " confirms it)."
+    )
     doc = f"""<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Party Type Check</title>
@@ -98,6 +119,7 @@ def main() -> int:
 }}
 body {{ font: 15px/1.5 "Public Sans", system-ui, sans-serif; max-width: 52rem;
   margin: 0 auto; padding: 0 1rem 4rem; color: var(--ink); background: var(--bg) }}
+[hidden] {{ display: none !important }}
 .card {{ border-bottom: 1px solid var(--line); padding: .8rem 0 }}
 .card h2 {{ font-size: 1.05rem; font-weight: 600; margin: 0 0 .2rem; text-wrap: balance }}
 .ev {{ color: var(--muted); font-size: .85rem; margin: .1rem 0 }}
@@ -122,14 +144,14 @@ body {{ font: 15px/1.5 "Public Sans", system-ui, sans-serif; max-width: 52rem;
 <span id="prog"></span>
 <button id="copy">Copy findings</button>
 <label><input type="checkbox" id="only-undone"> show unjudged only</label>
-<p class="ev">A boxed button is the machine's draft; click the correct type (clicking the draft
-confirms it). A name that is not one party — it starts with “And”, or joins two entities
+<p class="ev">{how} A name that is not one party — it starts with “And”, or joins two entities
 with “and” — is <b>span-artefact</b>, whatever the entities are: the split is the defect,
 and typing waits for the re-split. On a joined pair, a note naming the two parties tells
 the re-split what to do. Judgements stay in this browser until copied.</p></div>
 {"".join(cards)}
 <script>
-const KEY = "party-types-check-2026-08-30";
+const KEY = {json.dumps(args.key)};
+const BLIND = {"true" if args.blind else "false"};
 let state = {{}};
 try {{ state = JSON.parse(localStorage.getItem(KEY) || "{{}}"); }} catch (e) {{}}
 function save() {{ try {{ localStorage.setItem(KEY, JSON.stringify(state)); }} catch (e) {{}} }}
@@ -137,8 +159,12 @@ function paint() {{
   let done = 0;
   document.querySelectorAll(".card").forEach(c => {{
     const pid = c.dataset.pid, st = state[pid] || {{}};
-    c.querySelectorAll("button[data-type]").forEach(b =>
-      b.classList.toggle("picked", st.type === b.dataset.type));
+    c.querySelectorAll("button[data-type]").forEach(b => {{
+      b.classList.toggle("picked", st.type === b.dataset.type);
+      // blind: the draft is boxed only once a first pick has been made
+      if (BLIND) b.classList.toggle("draft", !!st.first && b.dataset.type === c.dataset.draft);
+    }});
+    if (BLIND) c.querySelector(".drafted").hidden = !st.first;
     if (st.type) done++;
     c.style.display = (document.getElementById("only-undone").checked && st.type) ? "none" : "";
     const n = c.querySelector(".note"); if (st.note !== undefined && n.value !== st.note) n.value = st.note;
@@ -149,6 +175,8 @@ document.addEventListener("click", e => {{
   const b = e.target.closest("button[data-type]");
   if (b) {{ const pid = b.dataset.pid; state[pid] = state[pid] || {{}};
     state[pid].type = (state[pid].type === b.dataset.type) ? undefined : b.dataset.type;
+    // the first pick is never overwritten: it is the reading made before the draft was seen
+    if (state[pid].type && !state[pid].first) state[pid].first = state[pid].type;
     save(); paint(); }}
 }});
 document.addEventListener("input", e => {{
@@ -160,9 +188,9 @@ document.getElementById("copy").addEventListener("click", () => {{
   const out = [];
   document.querySelectorAll(".card").forEach(c => {{
     const pid = c.dataset.pid, st = state[pid] || {{}};
-    if (st.type) out.push([pid, st.type, (st.note || "").replaceAll("\\t", " ")].join("\\t"));
+    if (st.type) out.push([pid, st.type, st.first || st.type, (st.note || "").replaceAll("\\t", " ")].join("\\t"));
   }});
-  navigator.clipboard.writeText("party_id\\ttype\\tnote\\n" + out.join("\\n"));
+  navigator.clipboard.writeText("party_id\\ttype\\tfirst\\tnote\\n" + out.join("\\n"));
 }});
 paint();
 </script></body></html>"""
