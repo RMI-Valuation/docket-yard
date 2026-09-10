@@ -306,6 +306,20 @@ and ONE load stamps both classes. The exposed-key review (Blocker 2) still gates
 the docket edges and is unchanged by this. A fresh unseen sample was weighed and set aside:
 the served pattern was tuned on 200,000 production pages, not on the sheet.
 
+The draft is built and waiting: `work_check_sheet.py` puts 106 drafted claims and 105
+docket-level stops in front of the operator with the evidence each was drawn from, and
+`--verdicts` turns the judgements back into the card's work block. Then:
+
+    python tools/rmi-ai-machine/citation_dryrun.py data/benchmark/text         --registry <a production copy> --store data/work-dryrun.sqlite         --out data/benchmark/runs-regex/work --scores-out data/card.json         --work data/work-block.json          # the three stages AND the work class, one card
+
+**WHY THE ORDER IS LOAD-BEARING and not merely tidy.** `supersede.if_changed` writes only
+when the ANSWER changes — `(outcome, cited_docket_id, cited_decision_id)` — and declaring a
+card changes no answer. So a work card declared AFTER a load does not reach the rows before
+it: they keep the docket figure, their `cited_decision_id` is published by nothing, and
+`citator declare` now prints how many are in that state so it is a number rather than a
+silence. `citator restamp --apply` is the way back (it appends, never edits), and declaring
+the card first means never needing it.
+
 ### The steps, once those are settled
 
     # 1. behind the wall? NO — the load commits per document and holds no long lock, and

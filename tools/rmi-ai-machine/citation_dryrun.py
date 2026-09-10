@@ -266,7 +266,14 @@ def run_the_finder(text_dir: Path, out: Path, own: dict[str, set[str]]) -> Path:
     return out
 
 
-def main(text_dir: Path, registry: Path, store: Path, out: Path, card_out: Path | None) -> int:
+def main(
+    text_dir: Path,
+    registry: Path,
+    store: Path,
+    out: Path,
+    card_out: Path | None,
+    work_block: Path | None = None,
+) -> int:
     con0 = sqlite3.connect(f"file:{registry}?mode=ro", uri=True)
     own = own_dockets(con0)
     con0.close()
@@ -403,8 +410,8 @@ def main(text_dir: Path, registry: Path, store: Path, out: Path, card_out: Path 
             f" (ADR 0017 D2), so a reader sees {len(sql_true)} of {py['truth']} ="
             f" {pct(len(sql_true), py['truth']).strip()} until the queue is worked:"
         )
-        for work, key in sorted(held_for_review):
-            print(f"    {work}  {key}")
+        for citing_work, key in sorted(held_for_review):
+            print(f"    {citing_work}  {key}")
 
     reachable = {(d, k) for d, k in py["pairs"] if d in docs}
     ok = sql_pairs == reachable - held_for_review
@@ -416,11 +423,21 @@ def main(text_dir: Path, registry: Path, store: Path, out: Path, card_out: Path 
     if not ok:
         print(f"    in python not SQL: {sorted(reachable - sql_pairs)[:5]}")
         print(f"    in SQL not python: {sorted(sql_pairs - reachable)[:5]}")
-    # the stamped confidence must be the resolution stage's own, or the display quotes one
-    # stage for another — the error ADR 0017 made four times
-    stamped = {r[5] for r in rows}
-    if stamped and stamped != {stamps["citation_resolution"][1]}:
-        print(f"  WRONG STAGE STAMPED on a projected row: {stamped}")
+    # The stamped confidence must be the resolution stage's own, or the display quotes one
+    # stage for another — the error ADR 0017 made four times. SINCE 2026-09-10 THERE ARE TWO
+    # LEGITIMATE FIGURES, because a row naming a document is stamped from the work class: the
+    # check is now per row against the row's OWN class (the projection publishes it as the
+    # last column), which is stricter than the set comparison it replaces. As a set comparison
+    # it would have started failing the moment a work card was declared on the store this
+    # copies from, printing "WRONG STAGE STAMPED", withholding the score card, and naming the
+    # wrong cause — on the second turn of the very loop that declares one (schema-critic).
+    figures = {
+        methods.DOCKET_CLASS: stamps["citation_resolution"][1],
+        methods.WORK_CLASS: (stamps.get(methods.WORK_KEY) or (None, None))[1],
+    }
+    wrong = {(r[14], r[5]) for r in rows if r[5] != figures.get(r[14])}
+    if wrong:
+        print(f"  WRONG CLASS STAMPED on a projected row (class, confidence): {sorted(wrong)}")
         ok = False
     con.close()
     # THE CARD IS WRITTEN LAST, AND ONLY WHEN THE RUN AGREED WITH ITSELF. This script exists
@@ -437,14 +454,24 @@ def main(text_dir: Path, registry: Path, store: Path, out: Path, card_out: Path 
                 score_file=SCORE_FILE,
                 benchmark_date=db.utcnow()[:10],
             )
+            # THE WORK BLOCK COMES FROM A DIFFERENT INSTRUMENT and is merged, not computed:
+            # the three stages above are this script comparing sets, while the work class is
+            # the operator judging claims one at a time through `work_check_sheet.py`. Both
+            # end up on one card so `citator declare` writes one set of measurements, and
+            # neither tool re-types the other's numbers.
+            if work_block is not None:
+                card[scorecard.WORK] = json.loads(work_block.read_text(encoding="utf-8"))
             scorecard.write(card_out, card)
-            print(f"  score card -> {card_out} ({card['truth_count']} truth targets)")
+            scorecard.read(card_out)  # refuse here, not on the instance mid-declaration
+            block = card.get(scorecard.WORK)
+            said = f", work {block['right']}/{block['judged']}" if block else ""
+            print(f"  score card -> {card_out} ({card['truth_count']} truth targets{said})")
     return 0 if ok else 1
 
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
-    OPTIONS = ("--registry", "--store", "--out", "--scores-out")
+    OPTIONS = ("--registry", "--store", "--out", "--scores-out", "--work")
     # AN OPTION'S VALUE IS NOT A POSITIONAL. `--scores-out data/card.json` on its own made the
     # card path the text directory, and the run then failed with "the run emitted nothing",
     # pointing at the benchmark rather than at the flag (code review, 2026-09-04).
@@ -461,5 +488,6 @@ if __name__ == "__main__":
             opt("--store", "data/citation-dryrun.sqlite"),
             opt("--out", "data/benchmark/runs-regex/shipped"),
             opt("--scores-out", "") if "--scores-out" in argv else None,
+            opt("--work", "") if "--work" in argv else None,
         )
     )

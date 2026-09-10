@@ -842,3 +842,55 @@ amendments are listed in the migration's own header; these are the rest.
   cannot fail. `PRAGMA foreign_key_check(<table>)` over the tables the script names — or
   every table whose DDL the script touched, read from `sqlite_master` before and after —
   would keep the guarantee at seconds. Not urgent: the window is behind the wall.
+
+## From the schema critic on migration 0025, the work class, 2026-09-10
+
+The critic found eleven items against the change that lets a work-level answer be scored.
+Six were fixed before the commit (the missing transaction, the header's false claim about
+`CITED_BY_WORK`, the unfiltered work query, the unchecked work stamp in the loader's guard,
+the dry run's stamp assertion, and the class missing from every published count). These are
+what was accepted as not-now, and one is a question for the operator.
+
+- **Nothing re-stamps a row whose class should have changed, and there is no verb that
+  would.** `supersede.if_changed` compares `(outcome, cited_docket_id, cited_decision_id)`,
+  so a measurement declared after a load never reaches the rows that preceded it: they keep
+  the class they were stamped with for ever. ADR 0017 § Consequences promises "re-measurement
+  is a scorer run, not a migration", and today the only path from a re-scored class to its
+  rows is hand-written SQL over every one — the migration-touching-every-row shape the five
+  queries exist to catch. The work class makes it two classes needing it independently, on
+  different cadences (the scorer's run against the operator's judging sitting). **What
+  shipped instead is the number**: `project.unstamped_work_rows` counts live rows naming a
+  document that are not work-stamped, and `citator declare` prints it, so the ordering is
+  visible when it is broken rather than silent. **And `citator restamp` was built the same
+  day** (the operator's decision): it retires a live row and appends an identical assertion
+  under the newest measurement of the class the row's own shape calls for, so 0017's promise
+  is true rather than aspirational, and what a reader saw before the re-stamp stays in the
+  table. This item is closed; it is kept here because the reasoning is what the verb is for.
+- **A reviewer's `accepted` carries a work-level claim they were never shown.**
+  `review.pending` shows the docket, the printed target and the passage — never the drafted
+  document — and `decide` carries the machine row's `cited_decision_id` onto the human row at
+  confidence 1.0. Publishing that as a work-level edge would assert, at the record's highest
+  confidence, a claim the reviewer did not make: the house rule against inferring a position
+  from an adjacent decision, applied to reviewers. **Closed for now by publication**:
+  `CITED_BY_WORK` requires a work-class measurement and a human row is stamped from none, so
+  those rows are stored and shown nowhere. Before a human work-level edge may publish, the
+  queue must show the reviewer the drafted document and take a second verdict on it, or
+  work-level claims need a queue of their own.
+- **A row now says which class stamped it** (migration 0025, the operator's decision):
+  `citation_resolution.measured_class`, foreign-keyed with `score_row_id` and
+  `measured_target` to `class_measurement`'s triple, so the store refuses a docket-only row
+  carrying the work figure and the reverse — which the pair key could not, since both classes
+  of a resolution measurement satisfied it identically. Taken as a rebuild while every
+  citator table held zero rows; after the first load it is a rebuild of the largest table in
+  the citator. What remains deferred is the same shape one table over: `citation_judgement`
+  and `citation_treatment` still carry the pair, and each carries one class today.
+- **`class_measurement.resolution_method_version` says `rule-1` for a sheet that includes
+  rule-2 repairs.** `methods.measure` writes it for every non-`citation` target, so the work
+  measurement — and the docket resolution measurement before it, which has carried this since
+  2026-09-04 — names one rule where the judged population holds two (`resolve.py`: "A REPAIR
+  REACHES THE WORK TOO"). Pre-existing and inherited rather than introduced. Fixing it is a
+  provenance decision about what one column may say, not an edit.
+- **A class change is ordered but not dated.** The citator families carry no `superseded_at`
+  (`store/supersede.py`, deferred 2026-09-01), so "what confidence did a reader see on date
+  T" reconstructs for a row's own history but not across a re-stamp. That deferral now has a
+  second customer.

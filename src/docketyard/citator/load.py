@@ -120,7 +120,14 @@ def load_document(
     missing = [stage for stage in methods.STAGES if stage not in stamps]
     if missing:
         raise methods.Unscored(f"the stamps carry no {missing}; a row of each is written")
-    ids = sorted({stamps[stage][0] for stage in methods.STAGES})
+    # THE WORK STAMP IS CHECKED WITH THEM, when the caller carries one. `methods.stamp` looks
+    # it up on the same channel it looks the stages up on, so the normal path cannot borrow —
+    # but this guard exists for the abnormal one ("the loader called from anywhere else"), and
+    # a work measurement left out of it would be the one figure that could still be written
+    # onto another channel's rows as `measured`. It is optional, not missing: a class nobody
+    # has scored is the ordinary state (`methods._work_measurement`).
+    scored = [*methods.STAGES, *([methods.WORK_KEY] if methods.WORK_KEY in stamps else [])]
+    ids = sorted({stamps[stage][0] for stage in scored})
     found = con.execute(
         "SELECT measured_target, reading_channel FROM class_measurement"
         f" WHERE measurement_id IN ({','.join('?' for _ in ids)})",
@@ -128,6 +135,21 @@ def load_document(
     ).fetchall()
     if len(found) != len(ids):
         raise methods.Unscored("the stamps point at measurements the store does not hold")
+    # AND THE WORK STAMP IS OF THE WORK CLASS. The channel check above cannot see this: the
+    # foreign key on `citation_resolution` is (score_row_id, measured_target), and BOTH classes
+    # of a resolution measurement satisfy it identically, so a docket figure handed in under
+    # `WORK_KEY` would be written onto a document-bearing row as `measured` with nothing in the
+    # store to refuse it (schema-critic, 2026-09-10).
+    if methods.WORK_KEY in stamps:
+        cls = con.execute(
+            "SELECT measured_target, class FROM class_measurement WHERE measurement_id = ?",
+            (stamps[methods.WORK_KEY][0],),
+        ).fetchone()
+        if tuple(cls) != ("citation_resolution", methods.WORK_CLASS):
+            raise methods.Unscored(
+                f"the work stamp points at a {cls[0]}/{cls[1]} measurement; a row naming a"
+                f" document is stamped from citation_resolution/{methods.WORK_CLASS}"
+            )
     borrowed = [(stage, c) for stage, c in found if c != channel]
     if borrowed:
         raise WrongChannel(
@@ -284,6 +306,44 @@ def load_document(
         # it unresolved, resolve it later" would have had no later. Instead the live row is
         # compared and superseded when the ANSWER changed.
         r = resolve.resolve(key, held, works, passage, printed[(page, key)])
+        # A ROW THAT NAMES A DOCUMENT IS STAMPED FROM THE WORK CLASS, and one that stops at the
+        # proceeding from the docket class. The row asserts the complete outcome (migration
+        # 0014, owed item 3), so its one confidence is the confidence of the whole assertion —
+        # naming the right document entails naming the right proceeding, and the work figure is
+        # measured over exactly the answers this branch writes.
+        #
+        # WITH NO WORK MEASUREMENT the row takes the docket stamp, which is not a fallback but
+        # the honest reading: `cited_decision_id` is stored and published by nothing (the gate
+        # in `project.cited_by` is on the ROW's own stamp), so what the row shows is its docket
+        # answer at the docket figure. That is the state every row loaded before 2026-09-10
+        # is in, and the state this one stays in until the sheet's work column is declared.
+        #
+        # WHICH IS WHY THE CARD IS DECLARED BEFORE THE FIRST LOAD (`docs/runbook.md` Blocker 4,
+        # the operator's decision). `supersede.if_changed` writes only when the ANSWER changes,
+        # and declaring a work card changes no answer — so a later card does NOT re-stamp rows
+        # already loaded, and opening the grain for them would take a deliberate re-assertion
+        # nothing in this package performs.
+        work_stamp = stamps.get(methods.WORK_KEY) if r.decision_id is not None else None
+        if work_stamp is not None and not caption:
+            resolution_stamp = (
+                work_stamp[1],
+                "measured",
+                "citation_resolution",
+                methods.WORK_CLASS,
+                work_stamp[0],
+            )
+        else:
+            conf, state, target, score = stamp("citation_resolution")
+            # `measured_class` moves with the other three (migration 0025's CHECK), and it is
+            # the DOCKET class here whatever the row names: a document-bearing row with no
+            # work measurement publishes only its docket answer, at the docket figure.
+            resolution_stamp = (
+                conf,
+                state,
+                target,
+                methods.DOCKET_CLASS if score is not None else None,
+                score,
+            )
         supersede.if_changed(
             con,
             table="citation_resolution",
@@ -299,8 +359,9 @@ def load_document(
                 "INSERT INTO citation_resolution (citing_document, page, target_kind,"
                 " target_key, method, method_version, reading_channel, outcome,"
                 " cited_docket_id, cited_decision_id, asserted_from_document, asserted_at,"
-                " confidence, confidence_state, measured_target, score_row_id)"
-                " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                " confidence, confidence_state, measured_target, measured_class,"
+                " score_row_id)"
+                " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ),
             insert_args=(
                 sha,
@@ -314,7 +375,7 @@ def load_document(
                 r.decision_id,
                 sha,
                 now,
-                *stamp("citation_resolution"),
+                *resolution_stamp,
             ),
         )
         # The span judgement is a STORED ASSERTION (ADR 0017 D4) — it decides what every

@@ -24,10 +24,10 @@ decisions were taken the same day and are recorded where each belongs.
 
 ## Next
 
-- **The work card before the first load** (decided 2026-09-10, `docs/runbook.md` Blocker 4):
-  draft a cited-document column for the 240 served-date spans on the sixty-decision sheet
-  for the operator's check; `citation_dryrun.py`, `scorecard` and `declare` gain a work
-  stage; the loader stamps document-bearing rows from `('citation_resolution', 'work')`
+- **The work card: the operator's 211 judgements** — the draft is built and the plumbing
+  shipped (migration 0025, `citator restamp`, the card's work block). Judge
+  `data/work-check.html` (106 claims, then 105 docket-level stops), then
+  `work_check_sheet.py --verdicts`, `citation_dryrun.py --work`, `citator declare`
 - **Party types, the held-out sheet** (decided 2026-09-10): draw 300 disjoint from the first
   sample, rules v2 drafts, a check queue for the operator; the bar is 95% per type; then
   the assertion migration (schema-critic first) and the browse on `/parties`

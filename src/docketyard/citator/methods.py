@@ -201,16 +201,49 @@ def ranked(con, channel: str, *, rank_version: str = RANK_VERSION) -> bool:
 
 STAGES = ("citation", "citation_resolution", "projection")  # every row is stamped from one
 
+# The two classes a resolution can be measured as. A row that names only a proceeding is a
+# `docket` answer; a row that also names a document asserts both, and its confidence is the
+# confidence of the whole assertion (migration 0014: "a resolve row asserts the COMPLETE
+# outcome"). They are separate figures because they answer separate questions, which is the
+# distinction `class_vocab` exists to hold.
+DOCKET_CLASS = "docket"
+WORK_CLASS = "work"
+# Where `stamp` returns the work measurement when one exists. NOT a stage name — the stages
+# are the three above and this is a second class of one of them — so the key is deliberately
+# unspellable as a stage, and `stamps[stage]` cannot reach it by accident.
+WORK_KEY = "citation_resolution:work"
+
 
 class Unscored(RuntimeError):
     """A class nobody has scored, asked to stamp a row. ADR 0017 D3: such a class is
     `unmeasured` and PROJECTS NOTHING, so refusing here is the rule, not an inconvenience."""
 
 
+def _work_measurement(con, channel: str) -> tuple[int, float] | None:
+    """The work class's measurement on this channel, or None — and None is the ordinary
+    state, not a failure.
+
+    THIS DOES NOT RAISE `Unscored`, unlike every stage in `stamp`. A stage nobody has scored
+    means the pass cannot write at all; a CLASS nobody has scored means one kind of answer
+    stays unpublished while the rest of the pass proceeds — which is the whole design of the
+    work grain (ADR 0018 D4, `project.cited_by`). Migration 0025 admits the class to the
+    vocabulary; until the sixty-decision sheet's work column is checked and declared, this
+    returns None and every resolution is stamped `docket`, exactly as before it existed.
+    """
+    row = con.execute(
+        "SELECT measurement_id, precision FROM class_measurement"
+        " WHERE measured_target = 'citation_resolution' AND class = ? AND reading_channel = ?"
+        "   AND precision IS NOT NULL"
+        " ORDER BY benchmark_date DESC, measurement_id DESC LIMIT 1",
+        (WORK_CLASS, channel),
+    ).fetchone()
+    return (row[0], row[1]) if row else None
+
+
 def stamp(
     con,
     stages=STAGES,
-    cls="docket",
+    cls=DOCKET_CLASS,
     *,
     channel: str = CHANNEL_TEXT,
 ):
@@ -250,6 +283,13 @@ def stamp(
                 " precision"
             )
         out[stage] = (row[0], row[1])
+    # The work class rides along under a key no stage can spell, so ONE call produces
+    # everything a load needs to stamp with and no caller can pass the stages and forget the
+    # class. Only the docket stamps carry a work companion: `cls` names what the stages were
+    # looked up as, and a work measurement beside an OCR-class lookup would be a figure from
+    # one class handed to another — the error the whole registry exists to stop.
+    if cls == DOCKET_CLASS and (work := _work_measurement(con, channel)) is not None:
+        out[WORK_KEY] = work
     return out
 
 

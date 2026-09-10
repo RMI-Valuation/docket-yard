@@ -34,6 +34,7 @@ import csv
 import json
 import sqlite3
 import sys
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -302,6 +303,92 @@ def render(rows: list[dict], out: Path) -> Path:
     return out
 
 
+def score(rows: list[dict], verdicts: Path) -> dict:
+    """The operator's judgements as the card's work block — counts, never a precision.
+
+    `scorecard.declare` computes the precision from these, so nobody re-types one; the
+    conventions the counting rests on are stated here because they decide what the figure
+    means:
+
+    * A claim judged `unclear` is in NEITHER the numerator nor the denominator, and is
+      counted apart. Folding it in as a wrong would charge the rule for the judge's
+      uncertainty, and as a right would be worse.
+    * `should-be:<id>` on a drafted claim is a WRONG that also names the truth, so the sheet
+      gains an answer and the precision loses one. On a docket-level stop it is a MISS: the
+      citation named a document and the rule did not reach it.
+    * A RECALL IS EMITTED ONLY WHEN THE SHEET DETERMINES ONE. A bare `wrong` says the rule
+      named the wrong document without saying whether the citation names any, so a truth
+      count computed over a sheet holding one is a lower bound — and a recall from a lower
+      bound is an upper bound published as a measurement. So the block carries `truth` only
+      when every row is judged and none is a bare `wrong`; otherwise `class_measurement`
+      takes a NULL recall, which is what nullable means here.
+    """
+    said: dict[tuple[str, str, str], str] = {}
+    for n, raw in enumerate(verdicts.read_text(encoding="utf-8").splitlines(), 1):
+        if not raw.strip():
+            continue
+        parts = raw.split("\t")
+        if len(parts) != 4:
+            raise SystemExit(f"{verdicts}:{n}: expected four tab-separated fields, got {parts}")
+        said[(parts[0], parts[1], parts[2])] = parts[3].strip()
+    known = {(r["citing_decision"], r["target_key"], r["drafted_decision"]): r for r in rows}
+    # A VERDICTS FILE FROM ANOTHER DRAFT IS REFUSED. The draft is regenerated from whatever
+    # registry the dry run used, and a claim that no longer exists cannot be scored — nor may
+    # its verdict be quietly dropped into a denominator it does not belong to.
+    if orphans := [k for k in said if k not in known]:
+        raise SystemExit(
+            f"{verdicts}: {len(orphans)} judgements name claims this draft does not hold,"
+            f" e.g. {orphans[:3]}. Re-draft, or judge against the draft these came from."
+        )
+
+    # EVERY VERDICT IS ONE OF THESE. An unrecognised word was silently dropped from both the
+    # numerator and the denominator, which is how a typo becomes a precision (code review,
+    # 2026-09-10) — the queue writes these strings and nothing else should reach here.
+    known_verdicts = {"right", "wrong", "unclear", "right-to-stop"}
+    if odd := {
+        v for v in said.values() if v not in known_verdicts and not v.startswith("should-be:")
+    }:
+        raise SystemExit(f"{verdicts}: verdicts this tool does not know: {sorted(odd)}")
+
+    right = judged = unclear = missed = bare_wrong = 0
+    for k, row in known.items():
+        v = said.get(k, "")
+        if row["drafted_decision"]:
+            if v == "unclear":
+                unclear += 1
+            elif v == "right":
+                right += 1
+                judged += 1
+            elif v == "wrong" or v.startswith("should-be:"):
+                judged += 1
+                bare_wrong += v == "wrong"
+        elif v.startswith("should-be:"):
+            missed += 1
+        elif v == "unclear":
+            unclear += 1
+    if not judged:
+        raise SystemExit(f"{verdicts}: no drafted claim was judged; there is no precision")
+    # AN UNCLEAR IS A ROW WHOSE TRUTH IS UNKNOWN, so it bars a truth count exactly as a bare
+    # `wrong` does: it is in neither `judged` nor `missed`, and `right + (judged - right) +
+    # missed` would then count fewer true documents than the sheet holds — a lower bound, and
+    # a recall from a lower bound is an upper bound published as a measurement (code review).
+    complete = len(said) == len(known) and not unclear
+    block = {
+        "right": right,
+        "judged": judged,
+        "score_file": verdicts.as_posix(),
+        "benchmark_date": date.today().isoformat(),
+    }
+    if complete and not bare_wrong:
+        block["truth"] = right + (judged - right) + missed
+    return block | {
+        "_unclear": unclear,
+        "_missed": missed,
+        "_bare_wrong": bare_wrong,
+        "_unjudged": len(known) - len(said),
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--store", type=Path, default=Path("data/work-dryrun.sqlite"))
@@ -309,9 +396,34 @@ def main() -> int:
     ap.add_argument("--csv", type=Path, default=Path("data/work-check.csv"))
     ap.add_argument("--json", type=Path, default=Path("data/work-check.json"))
     ap.add_argument("--html", type=Path, default=Path("data/work-check.html"))
+    ap.add_argument(
+        "--verdicts",
+        type=Path,
+        help="the operator's judgements, tab separated, as the check queue copies them out."
+        " With this the tool SCORES instead of drafting, and writes the card's work block.",
+    )
+    ap.add_argument("--block", type=Path, default=Path("data/work-block.json"))
     args = ap.parse_args()
 
     rows = build(args.store, args.run)
+    if args.verdicts:
+        block = score(rows, args.verdicts)
+        aside = {k[1:]: block.pop(k) for k in list(block) if k.startswith("_")}
+        args.block.write_text(json.dumps(block, indent=1), encoding="utf-8")
+        print(f"{block['right']} of {block['judged']} judged claims name the right document")
+        print(f"  precision {100 * block['right'] / block['judged']:.1f}% -> {args.block}")
+        if "truth" in block:
+            print(f"  recall {100 * block['right'] / block['truth']:.1f}% of {block['truth']} true")
+        else:
+            print(
+                f"  NO RECALL: {aside['bare_wrong']} bare `wrong`, {aside['unclear']} unclear,"
+                f" {aside['unjudged']} unjudged — a truth count over those is a lower bound,"
+                " and a recall from a lower bound is an upper bound published as a measurement"
+            )
+        print(f"  set aside: {aside['unclear']} unclear; the stops name {aside['missed']} missed")
+        print("Fold it into the card with citation_dryrun.py --work, then `citator declare`.")
+        return 0
+
     # AN EMPTY DRAFT IS A FINDING, not a file. It means the run directory held no findings or
     # the store no resolutions — and writing a headerless CSV and a queue with nothing in it
     # would report that as a completed draft (code review, 2026-09-10).

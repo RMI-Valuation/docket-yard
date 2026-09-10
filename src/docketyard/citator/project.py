@@ -37,9 +37,11 @@ one accepted deferral — so a past projection is not reconstructible, and that 
 rather than hidden behind a default.
 """
 
-from docketyard.citator.methods import RANK_VERSION, Unscored
+from docketyard.citator.methods import RANK_VERSION, WORK_CLASS, Unscored
 
-WORK_CLASS = "work"  # `class_vocab` holds no such class yet, and that is this gate
+# WORK_CLASS is `methods`'s, so the loader stamps from the same string this gate reads.
+# `class_vocab` admitted it in migration 0025; what still holds the grain shut is that
+# nothing has SCORED it, which is the gate below and not the vocabulary.
 
 _TERMS = """
 WITH rank_res AS (
@@ -147,11 +149,18 @@ family AS (                              -- ADR 0017 D4: self, sub-dockets and p
     FROM decision_record dr JOIN docket me ON me.docket_id = dr.docket_id
                             JOIN docket pa ON pa.docket_id = me.parent_docket_id
 )
+-- `measured_class` is LAST and it is not decoration: ADR 0017 D6 is categorical, "no count is
+-- published without its class", and since 2026-09-10 one projection can carry two — a row
+-- naming a document is stamped from the work class and one stopping at the proceeding from
+-- the docket class. Without it a caller counting these rows publishes two figures as one,
+-- which is the D6 breach the projection would otherwise commit by construction
+-- (schema-critic, 2026-09-10). NULL on a human row, which is stamped from no measurement.
+-- It is read off the ROW rather than joined for, which is what migration 0025 bought.
 SELECT DISTINCT cw.citing_work_id, rd.target_kind, rd.target_key,
        rd.cited_docket_id, rd.cited_decision_id,
        rd.confidence, rd.confidence_state, rd.score_row_id,
        rd.method, rd.method_version, rd.reading_channel,
-       rg.cited_raw, rg.quoted_passage, rd.page
+       rg.cited_raw, rg.quoted_passage, rd.page, rd.measured_class
 FROM resolved rd
 JOIN citation c         ON (c.citing_document, c.page, c.target_kind, c.target_key)
                          = (rd.citing_document, rd.page, rd.target_kind, rd.target_key)
@@ -194,7 +203,40 @@ WHERE NOT (EXISTS (SELECT 1 FROM family f
 
 PROJECTION = _TERMS
 CITED_BY_DOCKET = f"{_TERMS}  AND rd.cited_docket_id = :target_docket"
-CITED_BY_WORK = f"{_TERMS}  AND rd.cited_decision_id = :target_work"
+# THE CLASS TEST IS PER ROW, AND IT IS IN THE QUERY. The gate in `cited_by` below asks whether
+# ANY live row is work-stamped, which is what produces a friendly refusal — but a gate is not a
+# filter, and without this predicate one qualifying row would publish every OTHER
+# document-bearing row at the work grain too, whatever it was stamped from. That is the error
+# ADR 0017 § Consequences records, arriving through the gate built to stop it (schema-critic,
+# 2026-09-10). A store holds a mixture whenever a load ran before the work card was declared.
+#
+# IT ALSO EXCLUDES A HUMAN ROW, which carries `score_row_id IS NULL`, and that is deliberate
+# rather than incidental. `review.pending` shows a reviewer the docket, the printed target and
+# the passage — never the drafted document — and `decide` carries the machine's
+# `cited_decision_id` onto the accepted row at confidence 1.0. Publishing that as a work-level
+# edge would assert, at the record's highest confidence, a claim the reviewer was never shown:
+# the house rule against inferring a position from an adjacent decision, applied to reviewers.
+# A human work-level edge waits for a queue that shows the document (`docs/deferred.md`).
+CITED_BY_WORK = f"""{_TERMS}  AND rd.cited_decision_id = :target_work
+  AND rd.measured_class = '{WORK_CLASS}'"""
+
+
+def unstamped_work_rows(con) -> int:
+    """Live resolutions that name a document and are NOT stamped from the work class.
+
+    The number the Blocker 4 ordering exists to keep at zero, made visible. `supersede.
+    if_changed` writes only when the ANSWER changes, so a work card declared after a load
+    never reaches the rows that preceded it: they hold a `cited_decision_id` that no query
+    will ever publish, for ever, and nothing in the store says so. A discipline that is
+    invisible when broken is the shape ADR 0018 D7 was corrected for (schema-critic,
+    2026-09-10). Re-stamping them is not implemented — see `docs/deferred.md`.
+    """
+    return con.execute(
+        "SELECT COUNT(*) FROM citation_resolution"
+        " WHERE superseded_by IS NULL AND cited_decision_id IS NOT NULL"
+        "   AND confidence_state = 'measured' AND measured_class <> ?",
+        (WORK_CLASS,),
+    ).fetchone()[0]
 
 
 def projected(con, *, rank_version: str = RANK_VERSION):

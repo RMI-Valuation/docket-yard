@@ -683,9 +683,9 @@ def test_the_veto_ships_inert_and_suppresses_only_what_it_vetoed(tmp_path):
     veto = (
         "INSERT INTO citation_resolution (citing_document, page, target_kind, target_key,"
         " method, method_version, reading_channel, outcome, cited_docket_id, asserted_at,"
-        " confidence, confidence_state, measured_target, score_row_id)"
+        " confidence, confidence_state, measured_target, measured_class, score_row_id)"
         " VALUES (?, ?, ?, ?, 'on-page-veto', 'v1', 'text-layer', ?, ?, ?, 0.985, 'measured',"
-        " 'citation_resolution', ?)"
+        " 'citation_resolution', 'on-page-veto', ?)"
     )
     # checked AND CLEARED: the auditable way to write a veto pass, and it must not suppress
     con.execute(veto, (*row, "resolved", 3, STAMP, rate))
@@ -1248,7 +1248,6 @@ def test_inserting_a_work_measurement_does_not_open_the_work_grain(tmp_path):
         "SELECT cited_decision_id FROM citation_resolution WHERE superseded_by IS NULL"
     ).fetchone() == ("52526",)
 
-    con.execute("INSERT INTO class_vocab VALUES ('citation_resolution', 'work')")
     methods.measure(
         con,
         measured_target="citation_resolution",
@@ -1299,6 +1298,53 @@ def test_the_anchor_finds_the_target_as_printed_and_stops_at_a_sentence():
     assert work("FD 36873", "See FD 36873, slip op. at 6 (STB served Mar. 12, 2021).") == "Y"
 
 
+def test_a_work_card_declared_before_the_load_stamps_the_rows_that_name_a_document(tmp_path):
+    """The order the operator chose on 2026-09-10, and the reason it is load-bearing.
+
+    `supersede.if_changed` writes only when the ANSWER changes, and declaring a card changes
+    no answer — so a card declared AFTER a load leaves every row on the docket stamp for ever
+    (the test above has to re-stamp by hand to open the grain). Declared BEFORE, one load
+    stamps both classes: the row that names a document carries the work figure and the grain
+    answers, while a row that stops at the proceeding keeps the docket figure. Both halves
+    are asserted here, because stamping everything from the work class would be the same
+    error in the other direction.
+    """
+    con = _store(tmp_path)
+    _scored(con)
+    methods.measure(
+        con,
+        measured_target="citation_resolution",
+        cls=methods.WORK_CLASS,
+        extractor_version="v1",
+        score_file="test",
+        benchmark_date="2026-09-10",
+        reading_channel=methods.CHANNEL_TEXT,
+        precision=0.93,
+    )
+    stamps = methods.stamp(con)
+    assert methods.WORK_KEY in stamps  # one call, both classes
+    load.load_document(
+        con,
+        _findings(
+            {
+                "page": 4,
+                "target": "FD 36873",
+                "quoted": "See FD 36873, slip op. at 3 (STB served Mar. 12, 2021)",
+            },
+            {"page": 5, "target": "FD 36873", "quoted": "See also FD 36873, slip op. at 9"},
+        ),
+        keys.registry(con),
+        keys.works(con),
+        stamps,
+    )
+    by_page = dict(
+        con.execute("SELECT page, confidence FROM citation_resolution WHERE superseded_by IS NULL")
+    )
+    assert by_page[4] == 0.93  # names a document: the work figure
+    assert by_page[5] == 0.981  # stops at the proceeding: the docket figure
+    assert project.cited_by(con, work_id="52526")
+
+
 def test_the_work_grain_answers_once_a_row_is_stamped_from_a_work_measurement(tmp_path):
     """The only test that EXECUTES `CITED_BY_WORK`: the gate's other test stops at `Unscored`,
     so a broken query would first fail in production the day the grain opened (code review,
@@ -1319,7 +1365,6 @@ def test_the_work_grain_answers_once_a_row_is_stamped_from_a_work_measurement(tm
         keys.works(con),
         stamps,
     )
-    con.execute("INSERT INTO class_vocab VALUES ('citation_resolution', 'work')")
     mid = methods.measure(
         con,
         measured_target="citation_resolution",
@@ -1332,10 +1377,251 @@ def test_the_work_grain_answers_once_a_row_is_stamped_from_a_work_measurement(tm
         precision=0.9,
     )
     con.execute(
-        "UPDATE citation_resolution SET score_row_id = ?, confidence = 0.9"
+        "UPDATE citation_resolution SET score_row_id = ?, measured_class = ?,"
+        " confidence = 0.9"
         " WHERE cited_decision_id IS NOT NULL AND superseded_by IS NULL",
-        (mid,),
+        (mid, methods.WORK_CLASS),
     )
     rows = project.cited_by(con, work_id="52526")
     assert rows and all("52526" in map(str, r) or True for r in rows)
     assert project.cited_by(con, work_id="no-such-work") == []
+
+
+def test_a_work_stamp_measured_on_another_channel_is_refused_like_any_other(tmp_path):
+    """The channel guard covers the work class too. `methods.stamp` cannot produce a mixed
+    set — it looks every class up on one channel — but the guard exists for the loader called
+    from somewhere else, and a work measurement outside it would be the one figure that could
+    still reach another channel's rows stamped `measured` (ADR 0017 D3, ADR 0018 D8)."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    ocr = methods.measure(
+        con,
+        measured_target="citation_resolution",
+        cls=methods.WORK_CLASS,
+        extractor_version="v1",
+        score_file="test",
+        benchmark_date="2026-09-10",
+        reading_channel="ocr",
+        precision=0.5,
+    )
+    stamps[methods.WORK_KEY] = (ocr, 0.5)
+    with pytest.raises(load.WrongChannel, match="ocr"):
+        load.load_document(
+            con,
+            _findings(
+                {
+                    "page": 4,
+                    "target": "FD 36873",
+                    "quoted": "See FD 36873, slip op. at 3 (STB served Mar. 12, 2021)",
+                }
+            ),
+            keys.registry(con),
+            keys.works(con),
+            stamps,
+        )
+    con.close()
+
+
+def test_one_work_stamped_row_does_not_publish_the_docket_stamped_ones(tmp_path):
+    """The gate is not the filter. `cited_by(work_id=...)` asks whether ANY live row is
+    work-stamped so it can refuse with a reason — and a store holds a MIXTURE whenever a load
+    ran before the work card was declared, because `supersede.if_changed` never re-stamps an
+    unchanged answer. Without a per-row class term in the query, that one qualifying row
+    publishes every other document-bearing row at the work grain, under a figure measured for
+    a different question: ADR 0017 § Consequences' error, arriving through the gate built to
+    stop it (schema-critic, 2026-09-10)."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    quoted = "See FD 36873, slip op. at 3 (STB served Mar. 12, 2021)"
+    # loaded BEFORE any work card: the row names a document and carries the docket figure
+    load.load_document(
+        con,
+        _findings({"page": 4, "target": "FD 36873", "quoted": quoted}),
+        keys.registry(con),
+        keys.works(con),
+        stamps,
+    )
+    mid = methods.measure(
+        con,
+        measured_target="citation_resolution",
+        cls=methods.WORK_CLASS,
+        extractor_version="v1",
+        score_file="test",
+        benchmark_date="2026-09-10",
+        reading_channel=methods.CHANNEL_TEXT,
+        precision=0.93,
+    )
+    # a SECOND document, loaded after: this one is work-stamped, and it opens the gate
+    other = dict(_findings({"page": 2, "target": "FD 36873", "quoted": quoted}))
+    other["document_sha256"] = "b" * 64
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'pdf', ?)",
+        ("b" * 64, STAMP),
+    )
+    load.load_document(con, other, keys.registry(con), keys.works(con), methods.stamp(con))
+    con.commit()
+
+    live = dict(
+        con.execute(
+            "SELECT citing_document, confidence FROM citation_resolution"
+            " WHERE superseded_by IS NULL AND cited_decision_id IS NOT NULL"
+        )
+    )
+    assert live == {SHA: 0.981, "b" * 64: 0.93}, "the mixture the ordering exists to avoid"
+    shown = project.cited_by(con, work_id="52526")
+    assert len(shown) == 1, "only the row stamped from the work class is published"
+    # and the one that is NOT published is a number, not a silence: nothing re-stamps an
+    # unchanged answer, so this row holds a cited_decision_id no query will ever show
+    assert project.unstamped_work_rows(con) == 1
+    assert shown[0][0] != SHA or shown[0][5] == 0.93
+    assert mid  # the measurement exists; that alone never published a row
+    con.close()
+
+
+def test_the_store_refuses_a_row_stamped_from_the_wrong_class(tmp_path):
+    """What migration 0025 bought. Before it, `citation_resolution` foreign-keyed
+    `(score_row_id, measured_target)` and BOTH classes of a resolution measurement satisfied
+    that pair identically — so only Python stopped a docket-only row carrying the work figure
+    or the reverse. The store refuses both now, and it refuses the loose ends too: a pointer
+    without a class, and a class without a pointer (schema-critic, 2026-09-10)."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    work = methods.measure(
+        con,
+        measured_target="citation_resolution",
+        cls=methods.WORK_CLASS,
+        extractor_version="v1",
+        score_file="test",
+        benchmark_date="2026-09-10",
+        reading_channel=methods.CHANNEL_TEXT,
+        precision=0.93,
+    )
+    docket = stamps["citation_resolution"][0]
+    row = (
+        "INSERT INTO citation_resolution (citing_document, page, target_kind, target_key,"
+        " method, method_version, reading_channel, outcome, cited_docket_id,"
+        " cited_decision_id, asserted_at, confidence, confidence_state, measured_target,"
+        " measured_class, score_row_id)"
+        " VALUES (?, 1, 'stb', 'FD 36873', 'registry-match', 'rule-1', 'text-layer',"
+        " 'resolved', 1, ?, ?, 0.9, 'measured', 'citation_resolution', ?, ?)"
+    )
+    con.execute(
+        "INSERT INTO citation_key (citing_document, page, target_kind, target_key,"
+        " key_version, first_seen_at) VALUES (?, 1, 'stb', 'FD 36873', 'v1', ?)",
+        (SHA, STAMP),
+    )
+    # the work figure on a row that names no document: refused by the CHECK
+    with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+        con.execute(row, (SHA, None, STAMP, methods.WORK_CLASS, work))
+    # a class that is not the measurement's own: refused by the foreign key
+    with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
+        con.execute(row, (SHA, "52526", STAMP, methods.WORK_CLASS, docket))
+    with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
+        con.execute(row, (SHA, "52526", STAMP, methods.DOCKET_CLASS, work))
+    # a pointer with no class, and a class with no pointer
+    with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+        con.execute(row, (SHA, "52526", STAMP, None, work))
+    # and the honest one is accepted
+    con.execute(row, (SHA, "52526", STAMP, methods.WORK_CLASS, work))
+    con.close()
+
+
+def test_restamp_reaches_the_rows_a_card_declared_after_a_load_cannot(tmp_path):
+    """ADR 0017 § Consequences promises "re-measurement is a scorer run, not a migration",
+    and until this verb that was aspiration: `if_changed` writes only when an ANSWER changes,
+    so a work card declared after a load left every row before it on the docket figure for
+    ever. The verb appends — the row a reader saw is retired, never edited — so validation
+    query 3's snapshot still reconstructs (the operator's decision, 2026-09-10)."""
+    from docketyard.citator import restamp
+
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    load.load_document(
+        con,
+        _findings(
+            {
+                "page": 4,
+                "target": "FD 36873",
+                "quoted": "See FD 36873, slip op. at 3 (STB served Mar. 12, 2021)",
+            },
+            {"page": 5, "target": "FD 36873", "quoted": "See also FD 36873, slip op. at 9"},
+        ),
+        keys.registry(con),
+        keys.works(con),
+        stamps,
+    )
+    before = con.execute("SELECT COUNT(*) FROM citation_resolution").fetchone()[0]
+    assert project.unstamped_work_rows(con) == 1
+    methods.measure(
+        con,
+        measured_target="citation_resolution",
+        cls=methods.WORK_CLASS,
+        extractor_version="v1",
+        score_file="test",
+        benchmark_date="2026-09-10",
+        reading_channel=methods.CHANNEL_TEXT,
+        precision=0.93,
+    )
+    counts = restamp.run(con, methods.stamp(con))
+    con.commit()
+    assert counts == {"restamped": 1, "to_work": 1, "to_docket": 0}, "only the stale row"
+    assert project.unstamped_work_rows(con) == 0
+
+    # AN APPEND, NOT AN EDIT: the old row is still there, retired, at the figure it carried
+    assert con.execute("SELECT COUNT(*) FROM citation_resolution").fetchone()[0] == before + 1
+    retired = con.execute(
+        "SELECT confidence, measured_class FROM citation_resolution WHERE superseded_by IS NOT NULL"
+    ).fetchall()
+    assert retired == [(0.981, "docket")]
+    live = dict(
+        con.execute("SELECT page, confidence FROM citation_resolution WHERE superseded_by IS NULL")
+    )
+    assert live == {4: 0.93, 5: 0.981}, "the docket-only row is not touched"
+    assert project.cited_by(con, work_id="52526")
+    # and it is idempotent: nothing is stale once it has run
+    assert restamp.run(con, methods.stamp(con))["restamped"] == 0
+    con.close()
+
+
+def test_restamp_leaves_a_class_it_does_not_own_alone(tmp_path):
+    """`class_vocab` holds ('citation_resolution', 'on-page-veto') beside the resolver's two
+    classes, and its figure is a false-veto RATE, not a precision (ADR 0018 D7). Reading "every
+    measured resolution" as this verb's business re-stamped a veto row from the docket resolve
+    precision — the borrowed-precision error the package exists to refuse (code review,
+    2026-09-10). Reproduced here before the fix: 0.985 became 0.981."""
+    from docketyard.citator import restamp
+
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    rate = methods.measure(
+        con,
+        measured_target="citation_resolution",
+        cls="on-page-veto",
+        extractor_version="v1",
+        score_file="test",
+        benchmark_date="2026-09-01",
+        reading_channel=methods.CHANNEL_TEXT,
+        false_veto_rate=0.01,
+        precision=0.985,
+    )
+    con.execute(
+        "INSERT INTO citation_key (citing_document, page, target_kind, target_key,"
+        " key_version, first_seen_at) VALUES (?, 1, 'stb', 'FD 36873', 'v1', ?)",
+        (SHA, STAMP),
+    )
+    con.execute(
+        "INSERT INTO citation_resolution (citing_document, page, target_kind, target_key,"
+        " method, method_version, reading_channel, outcome, cited_docket_id, asserted_at,"
+        " confidence, confidence_state, measured_target, measured_class, score_row_id)"
+        " VALUES (?, 1, 'stb', 'FD 36873', 'on-page-veto', 'v1', 'text-layer', 'vetoed', NULL,"
+        " ?, 0.985, 'measured', 'citation_resolution', 'on-page-veto', ?)",
+        (SHA, STAMP, rate),
+    )
+    con.commit()
+    assert restamp.stale(con, stamps) == []
+    assert restamp.run(con, stamps)["restamped"] == 0
+    assert con.execute(
+        "SELECT confidence, measured_class FROM citation_resolution WHERE superseded_by IS NULL"
+    ).fetchall() == [(0.985, "on-page-veto")]
+    con.close()

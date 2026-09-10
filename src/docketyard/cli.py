@@ -265,7 +265,7 @@ def _citator(args: argparse.Namespace) -> int:
     """
     # aliased: `walk` at module scope is `capture.walk`, and shadowing it for the whole
     # of this function is a trap for whoever adds a line above this import
-    from docketyard.citator import keys, load, methods, project, review, scorecard
+    from docketyard.citator import keys, load, methods, project, restamp, review, scorecard
     from docketyard.citator import walk as citator_walk
 
     con = db.connect(args.db)
@@ -358,10 +358,19 @@ def _citator(args: argparse.Namespace) -> int:
             raw, passage, page = r[11], r[12], r[13]
             print(f"{work}  p{page}  {key}  <- {raw!r}")
             print(f"    {passage[:110]}")
-            print(f"    {method}@{version} / {channel}, confidence {conf} ({state})")
+            print(f"    {method}@{version} / {channel}, confidence {conf} ({state}, {r[14]})")
         # ADR 0018 D9: "cited by" and every count are distinct (citing work, target) PAIRS.
         # The rows are per page — short-form density must not inflate a count a reader sees.
-        print(f"{len({(r[0], r[2]) for r in rows})} edges over {len(rows)} passages")
+        #
+        # AND D6: THE COUNT NAMES ITS CLASS, because since 2026-09-10 one projection can carry
+        # two of them — a row naming a document is stamped from the work class, one stopping at
+        # the proceeding from the docket class, and a human row from neither. Printing one
+        # total over a mixture publishes two figures as one (schema-critic, 2026-09-10).
+        by_class: dict[str, set] = {}
+        for r in rows:
+            by_class.setdefault(r[14] or "human, no measurement", set()).add((r[0], r[2]))
+        said = ", ".join(f"{len(v)} {k}" for k, v in sorted(by_class.items()))
+        print(f"{len({(r[0], r[2]) for r in rows})} edges over {len(rows)} passages: {said}")
         return 0
 
     if args.what == "declare":
@@ -394,10 +403,54 @@ def _citator(args: argparse.Namespace) -> int:
         # would carry them (code review, 2026-09-04, reproduced at 0.452 against 0.977).
         for stage, (recall, precision) in sorted(scored.items()):
             print(f"  {stage:22} recall {recall:.3f}   precision {precision:.3f}")
+        # The work class, when the card carries one — printed apart from the stages because
+        # it is a second class of one of them, and printed at all because declaring it is
+        # what opens a grain `cited_by` has refused since it shipped.
+        if (work := scorecard.work_figures(card)) is not None:
+            recall, precision = work
+            said = "recall     n/a" if recall is None else f"recall {recall:.3f}"
+            print(f"  {'citation_resolution/work':22} {said}   precision {precision:.3f}")
+            print(
+                f"  the work grain opens for rows this build stamps from"
+                f" {card[scorecard.WORK]['score_file']}; rows already loaded keep the"
+                " docket figure, because their answer has not changed."
+            )
+            # THE NUMBER, not just the sentence. This is 0 on the store the operator's
+            # ordering produces and non-zero the moment it was not followed, and without it
+            # a broken ordering shows up as a page that is quietly short of edges.
+            if stranded := project.unstamped_work_rows(con):
+                print(
+                    f"  {stranded} live rows already name a document and carry the docket"
+                    " figure. They will NOT be published at the work grain: nothing"
+                    " re-stamps an unchanged answer (docs/deferred.md)."
+                )
         print(
             "An edge carries the RESOLUTION class's precision (ADR 0017 D3), not the"
             " projection's. `citator load` is next."
         )
+        return 0
+
+    if args.what == "restamp":
+        # ADR 0017 § Consequences' promise, made true: "re-measurement is a scorer run, not a
+        # migration". `supersede.if_changed` writes only when an ANSWER changes, so a card
+        # declared after a load never reaches the rows before it; this is the verb that does,
+        # and it appends rather than edits (`citator/restamp.py`).
+        channel = args.channel or methods.CHANNEL_TEXT
+        try:
+            stamps = methods.stamp(con, channel=channel)
+        except methods.Unscored as e:
+            print(f"refused: {e}")
+            return 1
+        pending = [r for r in restamp.stale(con, stamps) if r[0][10] == channel]
+        if not args.apply:
+            print(f"{len(pending)} live rows on {channel} would be re-stamped; nothing written")
+            print("  re-run with --apply to write them")
+            return 0
+        counts = restamp.run(con, stamps, channel=channel)
+        con.commit()
+        print(f"re-stamped {counts['restamped']} rows on {channel}:")
+        print(f"  {counts['to_work']} to the work class, {counts['to_docket']} to the docket")
+        print("Each is an APPEND: the row a reader saw before is retired, never edited.")
         return 0
 
     if args.what == "find":
@@ -762,6 +815,22 @@ def main(argv: list[str] | None = None) -> int:
     )
     cd_.add_argument("--scores", required=True, help="a score card the scorer wrote")
     cd_.set_defaults(func=_citator)
+    cr_ = ct_sub.add_parser(
+        "restamp",
+        help="re-assert live resolutions under the newest measurement of their own class",
+    )
+    cr_.add_argument(
+        "--channel",
+        default=None,
+        help="the reading channel to re-stamp (default: the text layer). A measurement is of"
+        " one channel, so a card re-stamps only the rows read on it.",
+    )
+    cr_.add_argument(
+        "--apply",
+        action="store_true",
+        help="write. Without it the verb counts what it would re-stamp and changes nothing.",
+    )
+    cr_.set_defaults(func=_citator)
     cf = ct_sub.add_parser(
         "find", help="the finder over the store's own text; writes findings, asserts nothing"
     )

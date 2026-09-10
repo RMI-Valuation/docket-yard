@@ -254,3 +254,99 @@ def test_the_verb_prints_the_card_it_declared_and_not_the_newest_measurement(tmp
     out = capsys.readouterr().out
     assert "0.977" in out, "it printed another measurement's figures"
     assert "0.500" not in out, "it printed the newest measurement instead of this card"
+
+
+# --- the work class (2026-09-10) --------------------------------------------------------
+# A card MAY carry a fourth measurement: the work class, judged by the operator rather than
+# scored by comparing sets. It is optional because the two instruments are different, and a
+# card that carries none leaves the work grain shut, which is where it has been since it
+# shipped.
+
+WORK = {"right": 98, "judged": 104, "score_file": "data/work-verdicts.tsv"}
+
+
+def test_a_card_without_a_work_block_declares_no_work_class(tmp_path):
+    """The default, and the state of every card written before 2026-09-10: three
+    measurements, no fourth, and `stamp` returns no work key for a load to find."""
+    con = _store(tmp_path)
+    stamps = scorecard.declare(con, _card())
+    assert methods.WORK_KEY not in stamps
+    assert scorecard.work_figures(_card()) is None
+    assert con.execute(
+        "SELECT COUNT(*) FROM class_measurement WHERE class = ?", (methods.WORK_CLASS,)
+    ).fetchone() == (0,)
+    con.close()
+
+
+def test_a_work_block_is_declared_as_its_own_class_with_its_own_denominator(tmp_path):
+    """Precision over what was JUDGED, not over the sheet's docket truth — 104 claims judged
+    is a different population from 225 docket-shaped targets, and dividing by the wrong one
+    is the error `class_vocab` was keyed on (measured_target, class) to prevent."""
+    con = _store(tmp_path)
+    stamps = scorecard.declare(con, _card(work=WORK))
+    assert stamps[methods.WORK_KEY][1] == pytest.approx(98 / 104)
+    row = con.execute(
+        "SELECT class, precision, recall, truth_count, shown_count, score_file,"
+        "       resolution_method_version, found_count"
+        " FROM class_measurement WHERE class = ?",
+        (methods.WORK_CLASS,),
+    ).fetchone()
+    assert row[0] == "work"
+    assert row[1] == pytest.approx(98 / 104)
+    assert row[2] is None, "no stops judged means no work truth, and none is invented"
+    assert row[3] is None
+    assert row[4] == 104, "the claims the rule answered are what a reader is SHOWN"
+    assert row[5] == "data/work-verdicts.tsv", "the operator's judgements, not the scorer's"
+    assert row[6] == "rule-1"
+    assert row[7] is None, "`found_count` is what the FINDER found, and this is not that"
+    # the docket class is still declared beside it, at its own figure
+    assert stamps["citation_resolution"][1] == pytest.approx(216 / 221)
+    con.close()
+
+
+def test_a_work_block_that_judged_the_stops_too_carries_a_recall(tmp_path):
+    con = _store(tmp_path)
+    scorecard.declare(con, _card(work=WORK | {"truth": 140}))
+    assert con.execute(
+        "SELECT recall, truth_count FROM class_measurement WHERE class = ?",
+        (methods.WORK_CLASS,),
+    ).fetchone() == (pytest.approx(98 / 140), 140)
+    con.close()
+
+
+@pytest.mark.parametrize(
+    "work,says",
+    [
+        ({"right": 98, "judged": 104}, "score_file"),
+        (WORK | {"judged": 0}, "not a precision"),
+        (WORK | {"right": 110}, "110 right of 104 judged"),
+        (WORK | {"truth": 90}, "98 right of 90 true"),
+        ("not an object", "work block"),
+    ],
+)
+def test_a_malformed_work_block_is_refused_before_anything_is_stamped(tmp_path, work, says):
+    """This block opens a grain no figure has ever stood behind, so it is checked as hard as
+    a stage is: a `0/0`, a precision over one, or a missing provenance must refuse at read
+    time rather than reach 16,051 rows."""
+    path = tmp_path / "card.json"
+    scorecard.write(path, _card(work=work))
+    with pytest.raises(scorecard.Unusable, match=says):
+        scorecard.read(path)
+
+
+def test_the_declare_verb_says_the_work_grain_is_opening_and_for_which_rows(tmp_path, capsys):
+    """Declaring a work card is what opens a grain `cited_by` has refused since it shipped, so
+    the verb says so — and says the one thing an operator would otherwise learn from an empty
+    page: rows already loaded keep the docket figure, because their answer has not changed
+    and `supersede.if_changed` writes only when it does."""
+    con = _store(tmp_path)
+    con.commit()
+    con.close()
+    path = scorecard.write(tmp_path / "card.json", _card(work=WORK))
+    args = argparse.Namespace(db=str(tmp_path / "s.sqlite"), what="declare", scores=str(path))
+    assert cli._citator(args) == 0
+    out = capsys.readouterr().out
+    assert "citation_resolution/work" in out
+    assert "0.942" in out, "98 of 104, computed here and not copied off the card"
+    assert "recall     n/a" in out, "no stops judged means no recall, and none is invented"
+    assert "data/work-verdicts.tsv" in out and "keep the docket figure" in out

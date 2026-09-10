@@ -47,6 +47,10 @@ MIGRATIONS: list[tuple[int, str]] = [
     # public, so shipping it freezes a shape the Proposed ADR has not been accepted to
     # justify. It ships EMPTY either way — nothing declares a pin yet.
     (24, "0024_producer_declaration.sql"),
+    # 0025 admits ('citation_resolution', 'work') to the class vocabulary so the work column
+    # of the sixty-decision sheet can be declared when it is checked. It writes no
+    # measurement, so the work grain stays shut the day it applies.
+    (25, "0025_work_class.sql"),
 ]
 
 

@@ -48,6 +48,16 @@ STAGE_FIELDS = {
     "citation_resolution": ("resolved", "resolved_shown"),
     "projection": ("projected", "shown"),
 }
+# The work class, when a card carries one. OPTIONAL AND SEPARATE FROM `stages`, for two
+# reasons. It is not a stage — it is a second class of `citation_resolution`, and putting it
+# in `stages` would let `figures` divide it by the sheet's docket truth, which counts a
+# different population. And it comes from a different instrument: the three stages are the
+# scorer comparing sets, while this is the operator judging claims one at a time
+# (`tools/rmi-ai-machine/work_check_sheet.py`), so a card may honestly carry three
+# measurements and not the fourth. A card without it declares the work class not at all,
+# which leaves the grain shut — the state every card written before 2026-09-10 is in.
+WORK = "work"
+WORK_FIELDS = ("right", "judged", "score_file")
 
 
 class Unusable(ValueError):
@@ -148,6 +158,34 @@ def read(path) -> dict:
                 f"{path}: stage {stage!r} has {denom} = {got[denom]!r};"
                 f" {got[num]}/{got[denom]} is not a precision"
             )
+    work = card.get(WORK)
+    if work is not None:
+        # CHECKED AS HARD AS THE STAGES ARE. This block opens a grain no figure has ever
+        # stood behind, so a malformed one must refuse here rather than stamp 16,051 rows
+        # from `0/0` or from a precision somebody typed.
+        if not isinstance(work, dict) or any(work.get(f) is None for f in WORK_FIELDS):
+            raise Unusable(f"{path}: the work block does not carry {list(WORK_FIELDS)}")
+        # TYPES, because JSON has none the reader can rely on: `"98"` passes every test
+        # below by comparing as a string and then divides into a TypeError at the moment
+        # `declare` is writing a measurement, half way through a card.
+        counts = [work["right"], work["judged"], work.get("truth")]
+        if any(
+            not isinstance(n, int) or isinstance(n, bool) or n < 0 for n in counts if n is not None
+        ):
+            raise Unusable(f"{path}: the work block's counts are not whole numbers: {counts}")
+        if not work["judged"]:
+            raise Unusable(
+                f"{path}: the work block judged {work['judged']!r} claims;"
+                f" {work['right']}/{work['judged']} is not a precision"
+            )
+        if work["right"] > work["judged"]:
+            raise Unusable(
+                f"{path}: the work block says {work['right']} right of {work['judged']} judged"
+            )
+        if work.get("truth") is not None and work["right"] > work["truth"]:
+            raise Unusable(
+                f"{path}: the work block says {work['right']} right of {work['truth']} true"
+            )
     return card
 
 
@@ -167,8 +205,25 @@ def figures(card: dict) -> dict[str, tuple[float, float]]:
     }
 
 
+def work_figures(card: dict) -> tuple[float | None, float] | None:
+    """(recall, precision) for the work class, or None when the card carries no work block.
+
+    Its own function rather than a fourth entry in `figures`, because its denominators are
+    not a stage's: precision is over the claims the operator JUDGED, and the recall is None
+    unless the docket-level stops were judged too. Folding it into `figures` would have let
+    the caller's loop hand `measured_target='work'` to `methods.measure`, which is not a
+    stage and never was.
+    """
+    work = card.get(WORK)
+    if work is None:
+        return None
+    truth = work.get("truth")
+    return (work["right"] / truth if truth else None, work["right"] / work["judged"])
+
+
 def declare(con, card: dict) -> dict:
-    """Declare the methods and write the three measurements. Returns the stamps.
+    """Declare the methods and write the measurements — three stages, and the work class when
+    the card carries one. Returns the stamps.
 
     THE PRECISIONS ARE THE SCORER'S, computed here from the counts the card carries rather
     than copied from it, so a card cannot claim a precision its own numbers do not support.
@@ -194,6 +249,43 @@ def declare(con, card: dict) -> dict:
         extra = {"shown_count": s["projection"]["shown"]} if stage == "projection" else {}
         methods.measure(
             con, measured_target=stage, recall=recall, precision=precision, **common, **extra
+        )
+    # THE WORK CLASS, WHEN THE CARD CARRIES ONE. Its numbers are the operator's judgements,
+    # not the scorer's, so it takes its own score file and its own denominators: precision
+    # over the claims that were JUDGED (an unclear is excluded from both, and counted in the
+    # queue rather than folded in as a wrong), and a recall only when the docket-level stops
+    # were judged too — a work truth is otherwise unknown, and `class_measurement.recall` is
+    # nullable exactly so an unknown one is not invented.
+    # A CARD WITHOUT A WORK BLOCK DOES NOT RETIRE THE WORK FIGURE, and silence about that is
+    # how a stale one keeps stamping. `_work_measurement` picks the newest by benchmark date
+    # with no tie to the card's stages, so a re-score that skips the operator's judging sitting
+    # moves the docket figure and leaves the work figure exactly where it was. That may be
+    # intended; it must not be invisible (schema-critic, 2026-09-10).
+    work, figured = card.get(WORK), work_figures(card)
+    if work is None and methods._work_measurement(con, channel) is not None:
+        print(
+            f"  NOTE: this card carries no work block, and a work measurement is already live"
+            f" on {channel}. It stays live, and rows naming a document keep being stamped from"
+            " it — re-score the work class too if this card supersedes it."
+        )
+    if work is not None and figured is not None:
+        recall, precision = figured
+        methods.measure(
+            con,
+            measured_target="citation_resolution",
+            cls=methods.WORK_CLASS,
+            extractor_version=version,
+            score_file=work["score_file"],
+            benchmark_date=work.get("benchmark_date", card["benchmark_date"]),
+            reading_channel=channel,
+            precision=precision,
+            recall=recall,
+            truth_count=work.get("truth"),
+            # `shown_count`, not `found_count`. The stage rows use `found_count` for what the
+            # FINDER found, and the work class has no such number — what it has is the count
+            # of claims the rule answered, which is what a reader would be SHOWN at that
+            # grain. One published column must not carry two meanings (schema-critic).
+            shown_count=work["judged"],
         )
     con.commit()
     return methods.stamp(con, channel=channel)
