@@ -31,3 +31,8 @@ venv/
 .DS_Store
 Thumbs.db
 data/ocr/runs/
+
+# credentials never live in the repository; ~/.docketyard is where they go
+.docketyard
+.docketyard/
+*.token
