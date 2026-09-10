@@ -48,14 +48,21 @@ text, and that is where a generated sentence is needed.
 
 ## The shape
 
-A summary is a dated list, decisions and selected filings interleaved, each entry one
-sentence, each sentence standing on exactly one document; then a count of what the list
-left out; then a status line quoted from the latest decision. Long dockets get long lists,
-and the length is the record's, not the model's.
+A summary opens with **where the proceeding stands** — the latest decision's entry and a
+status line quoted from it — then a dated list, decisions and selected filings interleaved,
+each entry one sentence, each sentence standing on exactly one document; then a count of
+what the list left out. The newest act is the first thing on the page, because on a
+six-year docket it is what a reader most likely came for; the list below runs in date order,
+because a proceeding reads as a story that way. Long dockets get long lists, and the length
+is the record's, not the model's.
 
 ```
   AI-generated summary · from the documents listed · <model> <version> · prompt v<N> ·
   generated <date> · not reviewed · [how this was made]
+
+  Where it stands — decision served 2026-05-27, Entire Board:
+              "<the Board's Digest, quoted>"
+  Before the Board: "<the deadline or step that decision sets, quoted>"
 
   2020-11-12  Application       Lake Providence Port Commission, …
               <one sentence: what the filing asks for, in its words>
@@ -66,8 +73,9 @@ and the length is the record's, not the model's.
   2021-01-15  Decision          Director of Proceedings
               <one generated sentence>
   …
-  Not listed: 58 replies, 25 letters, 18 supplements, … — the full list is the docket sheet
-  Before the Board, per the decision served 2026-05-27: "<quoted from that decision>"
+  2026-09-02  Decision          Entire Board
+              <one sentence>
+  Not listed: 25 letters, 5 errata, … — the full list is the docket sheet
 ```
 
 Every sentence links to its document and carries the provenance block beside it (§ Each
@@ -94,10 +102,13 @@ Mechanical, stated on `/methodology`, and never the model's judgement of what ma
    comments*. The list is a constant in the code, rendered on `/methodology` from the
    constant, and a change to it is a version bump of the method (§ Each sentence is an
    assertion).
-5. **A cap with a visible remainder.** Above N entries (N a constant; 60 to start) the list
-   holds the opening filing, every decision, every decision-cited filing, and the most
-   recent filings by type up to N; the remainder line counts what was left out by type,
-   and the docket sheet is the full list. FD 36873 hits the cap; FD 36447 does not.
+5. **A cap with a visible remainder, and recency wins under it.** Above N entries (N a
+   constant; 60 to start) the list keeps the opening filing, every decision and every
+   decision-cited filing unconditionally, and admits pleadings by type **newest first**
+   until N is reached; the remainder line counts what was left out by type, and the docket
+   sheet is the full list. So when the cap binds, this summer's motions are on the page and
+   the first winter's replies are in the count — never the reverse. FD 36873 hits the cap;
+   FD 36447, at about 130 entries, does not, and shows all of them.
 
 Everything not listed is **counted, by type and by filer**, in the remainder line — a
 count is a fact, and a proceeding with 533 notices of intent to participate and 208 comments
@@ -127,12 +138,16 @@ appear in the document's text; it must be one sentence under a length bound. A s
 fails is not stored, and the entry shows the recorded facts alone — date, type, filer, link —
 which is the fallback for the whole summary too (§ When the model is not there).
 
-### Rule 3 — the status line
+### Rule 3 — where it stands
 
-The last line quotes what the latest decision says is before the Board — its Digest if it
-has one, else the sentence in its text that sets the next deadline or procedural step —
-with the decision's service date. It never computes a deadline from a rule; it prints the
-one the Board printed.
+The first thing on the page, above the list: the latest decision's entry (its Digest, or its
+generated sentence), and a status line quoting what that decision says is before the Board
+— the sentence in its text that sets the next deadline or procedural step — with the
+decision's service date. It never computes a deadline from a rule; it prints the one the
+Board printed. When the latest document is a filing rather than a decision (a consummation
+notice closing an abandonment, a notice of withdrawal), the entry shown is still the latest
+*decision's*, and the filing sits at the foot of the list where its date puts it; the
+reader sees both, and the page does not decide what the filing means.
 
 ### Rule 4 — the label
 
@@ -195,6 +210,9 @@ Counties, N.C. Three filings, one decision, 2025-11-24 to 2026-04-09.
 
 > **AI-generated summary** · from the 4 documents listed · not reviewed
 >
+> **Where it stands** — decision served 2025-12-12, Chief Counsel: "this exemption will be
+> effective on January 12, 2026, unless stayed pending reconsideration."
+>
 > **2025-11-24 · Notice of Exemption · CSX Transportation, Inc.**
 > [gen] CSX Transportation files a verified notice of exemption to discontinue service over
 > an approximately 21.72-mile line on its Wilmington Subdivision between milepost SEA 297.61
@@ -211,16 +229,13 @@ Counties, N.C. Three filings, one decision, 2025-11-24 to 2026-04-09.
 > discontinuance of service over the line.
 >
 > Not listed: 1 errata/correction (CSX Transportation, Inc., 2025-12-05).
->
-> Before the Board, per the decision served 2025-12-12: "this exemption will be effective on
-> January 12, 2026, unless stayed pending reconsideration."
 
 Three sentences. The consummation notice is listed under Rule 1.4 as a Notice; the errata is
-counted. The status line is stale by the time of the consummation notice, which a reader
-sees because the notice is above it — the line quotes the latest *decision*, and this docket
-ended with a filing. A rule that the status line yields to a later consummation notice is
-worth considering; it is not in this specification because it is an inference about what a
-consummation means.
+counted. The status line at the top quotes the latest *decision* and this docket ended with
+a filing, so the top says "effective January 12, 2026 unless stayed" and the foot says the
+discontinuance was consummated on April 9, 2026 — both true, both the documents' words, and
+the page does not say the second closes the first, because that is an inference about what
+a consummation means (Rule 3).
 
 ### FD 36447 — the contested docket
 
@@ -230,10 +245,20 @@ Located in East Carroll and Madison Parishes, La. 175 filings, 33 decisions, 202
 Providence Port Commission alone or with the Southeast Arkansas Economic Development
 District, the Madison Parish Port Commission and North Louisiana & Arkansas Railroad (about
 70); the Board itself (6). Under Rule 1 the list holds the application, 33 decisions, and
-about 95 pleadings by type, so it is 130-odd entries long; the first fourteen months are
-rendered here in full and the rest is described.
+about 95 pleadings by type, so it is 130-odd entries long and **a reader sees all of them**:
+the docket is under the cap. **What follows is abbreviated by the author, not by the
+design** — the first fourteen months are rendered in full to show the shape, and the
+remaining four and a half years are described in one italic paragraph so this document
+stays readable. On the page, every one of those entries is rendered the same way.
 
 > **AI-generated summary** · from the documents listed · not reviewed
+>
+> **Where it stands** — decision served 2026-05-27, Entire Board: "The Board directs Lake
+> Providence Port Commission to submit any revisions to its valuation calculations and
+> supporting evidence deemed warranted by the updated information Delta Southern Railroad,
+> Inc., recently produced in discovery and sets a deadline for the completion of discovery."
+> *(The decision of 2026-09-02 is later, and its text had not reached the record when this
+> was written; on the page it would be the one quoted.)*
 >
 > **2020-11-12 · Application · Lake Providence Port Commission, Southeast Arkansas Economic
 > Development District, Madison Parish Port Commission, and North Louisiana & Arkansas
@@ -312,22 +337,19 @@ rendered here in full and the rest is described.
 > [digest] "The Board waives the 30-day regulatory deadline for accepting or rejecting the
 > amended feeder line application filed on January 4, 2023."
 >
-> *… 2023-02 to 2026-09: 19 further decisions (5 with a Digest — the denial of the motion to
-> reject, 2023-11-20; abeyance in light of state court actions, 2024-08-02; removal from
-> abeyance and denial of motions to dismiss, 2025-09-25; assignment of an administrative
-> law judge for discovery, 2025-12-12; denial of an appeal of the judge's subpoena ruling,
-> 2026-03-25; a discovery deadline, 2026-05-27) and the judge's discovery rulings; among
-> the pleadings, seven motions to compel, two motions to dismiss, two appeals, six status
-> reports, and 58 replies — each an entry under Rule 1, rendered the same way.*
+> *[Author's abbreviation — on the page, roughly 115 more entries follow here, rendered
+> exactly as above: 2023-02 to 2026-09 holds 19 further decisions (5 with a Digest — the
+> denial of the motion to reject, 2023-11-20; abeyance in light of state court actions,
+> 2024-08-02; removal from abeyance and denial of motions to dismiss, 2025-09-25;
+> assignment of an administrative law judge for discovery, 2025-12-12; denial of an appeal
+> of the judge's subpoena ruling, 2026-03-25; a discovery deadline, 2026-05-27) and the
+> judge's discovery rulings of 2025-12 to 2026-07; among the pleadings, seven motions to
+> compel, two motions to dismiss, two appeals, six status reports, and 58 replies — each an
+> entry under Rule 1, most recent last.]*
 >
 > Not listed: 25 letters, 5 errata, 2 comments, 2 certificates of service, 2 substitutions
 > of counsel, 1 exhibit, 1 support statement, 1 notice of intent to participate — the full
 > list is the docket sheet.
->
-> Before the Board, per the decision served 2026-05-27: "The Board directs Lake Providence
-> Port Commission to submit any revisions to its valuation calculations and supporting
-> evidence deemed warranted by the updated information Delta Southern Railroad, Inc.,
-> recently produced in discovery and sets a deadline for the completion of discovery."
 
 What this shows. Two entries fell back to facts because the author, reading as the model
 would, had the document's recital and not its order — the rendering keeps them that way
@@ -367,7 +389,8 @@ Application of 2025-12-19 — both, since the first opened the docket and the se
 application); 37 decisions; every decision-cited filing; and by type 54 replies, 25 motions,
 10 motions to compel, 21 supplements, notices, status reports. That is about 190 entries,
 over the cap of 60, so the list holds the two opening filings, the 37 decisions, the cited
-filings, and the most recent pleadings by type to the cap, and the remainder line reads:
+filings, and the **most recent** pleadings by type until the cap — the first winter's
+replies are what the cap drops, not this summer's motions — and the remainder line reads:
 
 > Not listed: 533 notices of intent to participate (without comment), 208 comments, 147
 > letters, 41 miscellaneous, 38 notices of intent (with comment), 13 support statements, 10
