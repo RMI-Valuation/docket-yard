@@ -20,7 +20,7 @@ Named, never addressed — the repository is public. Addresses live outside it.
 | Machine | GPU memory | OS | Role |
 | --- | --- | --- | --- |
 | RMI-AI-MACHINE | RTX 4070, 12 GB | Linux | **The only node today.** Always on. Paddle, dots.mocr through vLLM, the queue and the monitor |
-| The operator's workstation | RTX 5080, 16 GB | Windows 11 | Opportunistic, owed: a worker that runs only while the operator is away from it |
+| The operator's workstation | RTX 5080, 16 GB | Windows 11 | Opportunistic: a worker that runs only while the operator is away from it, under `workstation-gate.ps1`; vLLM in a container |
 | A Mac mini | M4 Pro, 24 GB unified | macOS | Owed, after the operator resets it: the largest GPU-addressable memory on the LAN; cannot run vLLM, so any engine there is another pass |
 | A Jetson Orin Nano | 8 GB shared | Linux | Owed, often off: small always-on services (layout, classification, embeddings); not a vision-language model |
 
@@ -186,10 +186,25 @@ A second node needs three things and no redesign:
    document once per document (a claim is one document's pages in order); measured from the
    workstation, 4.3 MB in 0.08 s. SQLite over a network share is not a transport.
 2. **A producer it can declare truthfully.** The same engine and version, or a new pass.
-3. **Its own stop rule.** The workstation's is *the operator is using it*: a small service
-   watches input idle time and GPU use, starts the worker after some minutes idle and stops
-   it when input resumes, finishing the page in hand. The lease makes a hard stop cost
-   nothing. The Mac's and the Jetson's are whatever they are for.
+3. **Its own stop rule.** The workstation's is *the operator is using it*, and it is built:
+   `workstation-gate.ps1` reads the time since the last keyboard or mouse input every 30 s,
+   and after ten idle minutes starts the vLLM container (the node's image and version, the
+   node's flags, the model on a named volume) and a worker against the node's queue; at the
+   first input it writes the worker's stop file, stops the container, and the worker is gone
+   within seconds with its pages released. Two switch files override the idle rule either
+   way. The lease makes a hard stop cost nothing. The Mac's and the Jetson's rules are
+   whatever they are for.
+
+   **Measured 2026-09-09, the workstation's first hour.** vLLM 0.28.0 in a container under
+   WSL2 with `VLLM_USE_V2_MODEL_RUNNER=0` — the V2 runner needs unified virtual addressing,
+   which WSL2 lacks — reads the node's pages to the same text: twelve pages re-read, eleven
+   identical, one a character apart; the raw answers differ more often because bounding-box
+   coordinates wobble between cards, which the key tolerates. One request at a time it is
+   no faster than the 4070 (11.2 s a page; both cards generate ~125 tokens/s, so a 3B model
+   at batch one is bound by per-step overhead, not bandwidth). The card's advantage is room:
+   its KV cache holds ten 16k requests against the node's two or three, and six workers at
+   once read a page every 3.3 s effective. The gate runs six. The node could run two, and
+   has not been measured for the vision encoder's activation peak at two — the OOM lesson.
 
 **NVIDIA's Personal AI Router (PAIR)** was evaluated 2026-09-09 for this role and is not it:
 it routes single requests to Ollama or LM Studio nodes by GPU utilisation, without regard to
@@ -201,7 +216,8 @@ project ever calls a model from a page; batch derivation is the queue.
 
 - The three rules in Grafana Cloud (stalled, failing, absent — each `for: 10m`); Alloy is up
 - ADR 0025's acceptance, or its revision
-- The workstation's idle gate and its vLLM container, then the Mac's pass
+- The Mac's pass, after the operator resets it; the Jetson's address; two workers on the
+  node, measured for the activation peak first
 - `second` and `graphic` run through the queue rather than `ocr_wave.py`, so that every pass
   has the same lease and the same monitor (they read a cache and cannot die the same way, so
   this is tidiness, not safety)

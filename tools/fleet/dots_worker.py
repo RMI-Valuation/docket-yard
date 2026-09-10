@@ -168,6 +168,12 @@ def main() -> int:
     ap.add_argument("--server-wait", type=int, default=1800, help="seconds to wait for a server")
     ap.add_argument("--max-consecutive-failures", type=int, default=25)
     ap.add_argument("--max-pages", type=int, default=0, help="stop after about this many")
+    ap.add_argument(
+        "--stop-file",
+        type=Path,
+        help="exit 0 before the next page when this file exists, releasing the rest unspent"
+        " — how a gate stops a worker without waiting for its leases to expire",
+    )
     args = ap.parse_args()
 
     spec = PASSES[PASS]
@@ -219,6 +225,10 @@ def main() -> int:
             return 0
         ids = [j["job_id"] for j in jobs]
         for i, job in enumerate(jobs):
+            if args.stop_file and args.stop_file.exists():
+                q.release(name, ids[i:])
+                log(f"stop file {args.stop_file} present; {len(ids) - i} pages released; exit 0")
+                return 0
             sha, no = job["document_sha256"], job["page_no"]
             if isinstance(q, Queue):
                 pdf = args.blobs / sha[:2] / sha
@@ -255,6 +265,9 @@ def main() -> int:
                     log(f"the server died on two different pages in a row; exit {EXIT_SERVER_DIES}")
                     return EXIT_SERVER_DIES
                 last_server_death = (sha, no)
+                if args.stop_file and args.stop_file.exists():
+                    log(f"stop file {args.stop_file} present; exit 0")
+                    return 0
                 if not wait_for_server(args.server, args.server_wait):
                     log(f"server did not return in {args.server_wait}s; exit {EXIT_SERVER_GONE}")
                     return EXIT_SERVER_GONE
