@@ -124,12 +124,15 @@ and the rule that a party's position is never inferred (CLAUDE.md) forbids it �
 it is false, but because it was not read off a document; it was concluded. The difference is
 that the first sentence can be wrong in a way a reader can check, and the second cannot.
 
-Concretely, the prompt for a filing sentence is given the filing's first pages and asked for
+Concretely, the prompt for a filing sentence is given the filing's first pages (the cover
+letter and the pleading's opening) and asked for
 one sentence beginning with the filer's name and a verb of asking or stating (asks, moves,
 requests, notifies, reports, replies that, states that), naming the relief sought or the
 fact stated, and nothing about motive, merit, likelihood or outcome. For a decision without
 a Digest, the same with the deciding body as subject and a verb of deciding (grants, denies,
-sets, extends, orders, directs, holds in abeyance). Dates inside a sentence are the
+sets, extends, orders, directs, holds in abeyance) — given the decision's LAST pages as
+well as its first, because a decision recites its history at the top and acts in the "It is
+ordered" paragraph at the end (§ FD 36447, what the rendering found). Dates inside a sentence are the
 document's printed dates, never computed (CLAUDE.md).
 
 The sentence is checked before it is stored: it must name the filer (or body) the record
@@ -287,10 +290,9 @@ stays readable. On the page, every one of those entries is rendered the same way
 > December 28, 2020."
 >
 > **2021-01-15 · Decision · Director of Proceedings**
-> *(no sentence: the entry shows its recorded facts and the link. The author had only the
-> decision's recital of the application, not the page where it acts, and a sentence
-> written from a later decision's account of this one — "accepted the application and set
-> a schedule" — is precisely what Rule 2 forbids. This is the fallback, as a reader sees it.)*
+> [gen] The Director orders that the Port Commission's feeder line application is accepted,
+> that notice will be published in the Federal Register, and that the schedule set out in
+> the decision will govern the proceeding.
 >
 > **2021-03-09 · Decision · Director of Proceedings**
 > [gen] The Director suspends the procedural schedule pending further Board order, in light
@@ -310,7 +312,8 @@ stays readable. On the page, every one of those entries is rendered the same way
 > to the line at issue."
 >
 > **2022-02-09 · Decision · Director of Proceedings**
-> *(no sentence, for the same reason: the author read the recital and not the order.)*
+> [gen] The Acting Director orders that the Port Commission's reply, if any, to Delta
+> Southern's May 28, 2021 motion to strike is due by February 22, 2022.
 >
 > **2022-08-23 · Decision · Entire Board**
 > [digest] "This decision allows the Lake Providence Port Commission to file an amended
@@ -351,10 +354,7 @@ stays readable. On the page, every one of those entries is rendered the same way
 > of counsel, 1 exhibit, 1 support statement, 1 notice of intent to participate — the full
 > list is the docket sheet.
 
-What this shows. Two entries fell back to facts because the author, reading as the model
-would, had the document's recital and not its order — the rendering keeps them that way
-rather than filling them from a later decision, and that is the discipline in miniature.
-The dispute is visible without a word of characterisation: the application,
+What this shows. The dispute is visible without a word of characterisation: the application,
 the petition to skip valuation, the reply opposing it, the conditional acceptance, the
 expanded application, the motion to reject it, the state court actions, the motions to
 dismiss, their denial, the discovery fights before a judge. A reader who knows the
@@ -369,6 +369,13 @@ Two things the rendering found that the specification must carry:
   on (decisions 50834, 52017, 52090, 52130). A sentence generated from that text would
   describe the wrong document. The check in Rule 2 (the subject must be the deciding body)
   catches it, and the entry falls back to facts; the record's own quality gap is logged.
+- **A decision's sentence comes from its ordering paragraph, not its recital.** The two
+  Director decisions above were first drafted from their opening pages, which restate the
+  history, and had to be written again from the "It is ordered" paragraph near the end —
+  where the January 2021 decision accepts the application and sets the schedule, and the
+  February 2022 one sets one reply date. The pages given to the model must include the
+  end of the decision, not only its beginning; a first-pages window, which is right for a
+  filing, is wrong for a decision.
 - **The 22 procedural decisions are where the model earns its place.** The Entire Board
   writes a Digest; the Director and the judge do not, and their decisions are what moves a
   proceeding month to month. If the sample shows the model cannot write "The Director
