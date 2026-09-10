@@ -894,3 +894,37 @@ what was accepted as not-now, and one is a question for the operator.
   (`store/supersede.py`, deferred 2026-09-01), so "what confidence did a reader see on date
   T" reconstructs for a row's own history but not across a re-stamp. That deferral now has a
   second customer.
+
+## From the operator's judging of the work-level sheet, 2026-09-10
+
+He judged all 106 drafted claims and 23 of the 105 docket-level stops. **106 of 106 name the
+document the citation names**; the one he first marked wrong (51532 citing NOR 42144 at 50117)
+he corrected the same day — it is a reference to a prior decision in the same proceeding,
+which the benchmark's own conventions call a real edge. `data/work-verdicts-2026-09-10.tsv`
+is the sheet; `data/work-block-2026-09-10.json` is the card block it produces.
+
+**No recall was emitted, and that is the rule working.** 82 stops are unjudged, so a truth
+count over what was judged is a lower bound and a recall from a lower bound is an upper bound
+published as a measurement. `class_measurement.recall` takes NULL.
+
+What his 23 judged stops found, kept because each names a cause rather than a count:
+
+- **A served date whose year wraps to the next line is unreachable** — four instances, each
+  named by him. The finder quotes ONE line, so the date never reaches `resolve.SERVED`.
+  **Chosen as a Ripe candidate on `ROADMAP.md`, 2026-09-10**, priced there: a `SPAN_VERSION`
+  bump and a re-measurement of every edge stamped by the old one.
+- **A citation whose date is printed only at its first mention** (52295 citing FD 35873). The
+  span test is disjunctive over the whole citing work (ADR 0017 D4); the resolver's date
+  anchor is per page and per occurrence. The asymmetry is deliberate and now has an instance:
+  the edge is not lost, because the fold at projection publishes the pair once from the page
+  that carried the date.
+- **The Board itself prints `served` against a decided date** (51532 citing NOR 42060 (1);
+  the record's service date is 2007-01-26). The rule read the page correctly and the page was
+  wrong. Nothing to fix, and a reason the work grain will never be perfect on the corpus.
+- **A day holding two decisions where one is a correction of the other** (52280 citing FD
+  34901: 37219 and 37282, and he reads 37282 as the answer). ADR 0018 D4 declines to
+  arbitrate a day holding two, which is why this stays at docket level. Preferring a
+  correction would be a D4 refinement and therefore an ADR, not an edit.
+- **Five of his sixteen corrections are a second page of a pair that already resolved.** The
+  fold at projection publishes an edge once, so those cost nothing; only eleven are edges the
+  rule does not reach at all.

@@ -45,7 +45,13 @@ the capability map with the whole record held). None is chosen.
 3. **Rate-case index** (D5's first slice) — the 3,952 NOR dockets with parties and quoted
    spans; only 136 carry held filings, so thin until the ICC-era gap closes. The casebook
    proper (methodology, outcome) is human coding.
-4. **Places quoted from captions** (C3/D2's first slice, ADR 0008) — re-taken ripe 2026-09-10:
+4. **The served date that wraps a line** (the citator's recall, C2) — chosen as a candidate
+   2026-09-10 on the operator's own judging: the finder quotes ONE line, so a citation whose
+   `served` date carries its year to the next line is unreachable and the edge stays at
+   docket level. Four instances in 106 judged claims, each named by the operator. The price
+   is stated in `resolve.py`: widening what is quoted is a `SPAN_VERSION` bump and a
+   re-measurement of every edge stamped by the old one, never a quiet widening.
+5. **Places quoted from captions** (C3/D2's first slice, ADR 0008) — re-taken ripe 2026-09-10:
    3,730 of 30,184 held captions name a county, parish or borough, 52.1% of AB captions
    (3,158 of 6,056); a `place` row per mention with the caption as provenance, AB first, a
    checked sheet, an index from state to county to docket. Comment locations are never the
@@ -54,7 +60,7 @@ the capability map with the whole record held). None is chosen.
 Measured not ripe 2026-08-27: trail-use (D1: no decision type names it; inside `Decision`
 bodies, extraction — since specified as the typed acts of `docs/summaries.md`, 2026-09-10,
 with 941 consummation notices and 714 trail-use filings available by rule), deadlines (C4), service metrics and reference data (D6/D3: other
-sources), maps (D2: no geography rows yet; the caption slice is Ripe 4 since 2026-09-10),
+sources), maps (D2: no geography rows yet; the caption slice is Ripe since 2026-09-10),
 the public on-ramp (P1/P3–P5).
 
 Later, each waiting for a decision rather than capacity: the map (D2), the

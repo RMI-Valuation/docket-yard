@@ -48,7 +48,7 @@ text, and that is where a generated sentence is needed.
 
 **Added 2026-09-10 (the operator):** the place the caption names — a county, parish or
 borough in 52.1% of AB captions (`navigation-review.md` § E) — is a third recorded fact a
-summary could carry, quoted from the caption with no resolution needed; it is Ripe 4 on
+summary could carry, quoted from the caption with no resolution needed; it is Ripe on
 `ROADMAP.md` as an index in its own right, and the same rows would serve both.
 
 ## The shape
