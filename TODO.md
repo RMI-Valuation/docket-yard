@@ -16,18 +16,18 @@ decisions were taken the same day and are recorded where each belongs.
   the instance IN THAT ORDER (`graphic` needs its own `ran_at` or the loader says `restart`)
 - **The citator has never run a real load** (`citation`: 0 rows). The chain into a copy
   (2026-09-04) gave 15,164 distinct edges and 0 failures; `declare --scores` and reviewer 1
-  are ready; 1,946 exposed keys are ~16 h of reading. Waits for the work card (§ Next,
-  decided 2026-09-10), then starts when the operator has the hours
+  are ready; 1,946 exposed keys are ~16 h of reading. The work card is judged (§ Next), so
+  what is left is the operator's hours
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
 
 ## Next
 
-- **The work card: the operator's 211 judgements** — the draft is built and the plumbing
-  shipped (migration 0025, `citator restamp`, the card's work block). Judge
-  `data/work-check.html` (106 claims, then 105 docket-level stops), then
-  `work_check_sheet.py --verdicts`, `citation_dryrun.py --work`, `citator declare`
+- **The work card is judged and the plumbing shipped**: 106 of 106 (ADR 0017 addendum,
+  `docs/research/benchmark/work-labels.csv`). What remains is the load itself — build the
+  card on a production copy with `citation_dryrun.py --work`, then `citator declare`, as
+  part of the first load below. A reader is shown no number; a shown edge names the sheet
 - **Party types, the held-out sheet** (decided 2026-09-10): draw 300 disjoint from the first
   sample, rules v2 drafts, a check queue for the operator; the bar is 95% per type; then
   the assertion migration (schema-critic first) and the browse on `/parties`
