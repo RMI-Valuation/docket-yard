@@ -522,3 +522,47 @@ def test_a_document_whose_blob_was_pruned_is_not_dispatched(tmp_path):
     rows = con.execute("SELECT document_sha256 FROM extraction_dispatch").fetchall()
     assert rows == [(here,)], "no attempt is spent on what cannot be read"
     con.close()
+
+
+def test_a_refusal_records_why(tmp_path):
+    """ADR 0024 D5, and § Owed 2 until 2026-09-10: "a refusal recording THAT it failed and
+    never WHY is an ADR 0007 assertion missing its reason." Both producers write one — "not a
+    PDF", the exception, "no blob on this box" — and `load.Header` had no field to carry it,
+    so every reason was dropped at the boundary and `ocr_run.note` stayed NULL. The first
+    thing that goes wrong in production is diagnosable from the record or it is not."""
+    con = _store(tmp_path)
+    sha = _doc(con, "a")
+    con.commit()
+    _spool(
+        tmp_path,
+        sha,
+        at="ready",
+        outcome="not-paginable",
+        note="not a PDF",
+        page_text=None,
+    )
+    path = tmp_path / "ready" / sha[:2] / f"{sha}.json"
+    body = json.loads(path.read_text(encoding="utf-8"))
+    del body["page_text"]  # a stub: the header fields, an outcome, a reason, and no pages
+    path.write_text(json.dumps(body), encoding="utf-8")
+
+    load.run(con, tmp_path / "ready", tmp_path)
+    con.commit()
+    assert con.execute(
+        "SELECT outcome, note, pages_read FROM ocr_run WHERE document_sha256 = ?", (sha,)
+    ).fetchone() == ("not-paginable", "not a PDF", 0)
+    con.close()
+
+
+def test_a_reason_is_bounded_and_never_invented(tmp_path):
+    """It comes from a parser that has just read a file a third party wrote, so it is bounded
+    rather than trusted — an exception's text can carry a page of a malformed PDF. And a
+    reading with nothing to say says nothing: a row with no reason is different from a row
+    asserting that nothing went wrong."""
+    from docketyard.text.load import _note
+
+    assert _note({"note": "  no blob on this box  "}) == "no blob on this box"
+    assert _note({"note": "x" * 5000}) == "x" * load.NOTE_MAX
+    assert _note({}) is None
+    assert _note({"note": "   "}) is None
+    assert _note({"note": 17}) is None

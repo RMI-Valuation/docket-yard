@@ -342,10 +342,17 @@ because this directory has one legitimate producer that can write one shape.
 
 ### Still owed, and the stage runs without them
 
-2. **`ocr_run.note` on a refusal (D5).** The parser writes the reason — "not a PDF", the
-   exception, "no blob on this box" — and `load.Header` has no `note` field, so it is dropped
-   at the boundary. A refusal that records *that* it failed and never *why* is an ADR 0007
-   assertion missing its reason, and that is the state today.
+(Item 2 was discharged before the first deploy; it is kept here struck through so the list
+still reads against the original.)
+
+2. ~~**`ocr_run.note` on a refusal (D5).**~~ **Discharged 2026-09-10, before the stage
+   shipped, at the operator's direction**: `load.Header` carries a `note`, both header
+   constructors read it, and the loader writes it. The reason is bounded at 500 characters
+   and never invented — a row with no reason says none, which is different from a row
+   asserting that nothing went wrong — because it comes from a parser that has just read a
+   file a third party wrote. Verified end to end: the container's own "no blob on this box"
+   reaches `ocr_run.note`. What is still not recorded is a PER-PAGE failure, which the
+   original item also asks for and which no producer emits.
 3. **`search_meta.page_built` re-stamping.** Untouched.
 5. **A producer column on `ocr_run` and `extraction_dispatch`.** `dispatch.unanswered` uses
    the `ran_at >= dispatched_at` floor the ADR names as a narrowing rather than a proof, and

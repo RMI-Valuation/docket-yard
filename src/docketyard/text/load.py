@@ -138,6 +138,13 @@ class Header:
     pages_failed: int
     payload_kind: str
     route: Route | None = None
+    # WHY, when the outcome is not `read`. ADR 0024 D5: "a refusal is recorded as a run and
+    # carries its reason, in `ocr_run.note`. A refusal recording THAT it failed and never WHY
+    # is an ADR 0007 assertion missing its reason." Both producers write one — "not a PDF",
+    # the exception, "no blob on this box" — and until 2026-09-10 this class had no field to
+    # carry it, so every reason was dropped at the boundary and the column stayed NULL
+    # (ADR 0024 § Owed 2). Not a key: it explains a row, it does not identify one.
+    note: str | None = None
 
 
 class Reading:
@@ -312,6 +319,7 @@ def header_of_reading(doc: dict, allowed: frozenset[str]) -> Header:
         failed,
         text_field(doc, "payload_kind"),
         _route(doc.get("route"), "the reading"),
+        _note(doc),
     )
 
 
@@ -357,6 +365,21 @@ def pages_of_reading(doc: dict, header: Header) -> tuple[Page, ...]:
     return pages
 
 
+# A reason is at most this long in `ocr_run.note`. It comes from a parser that has just read
+# a file a third party wrote, so it is bounded here rather than trusted: an exception's text
+# can carry a page of a malformed PDF, and the note is displayed to an operator.
+NOTE_MAX = 500
+
+
+def _note(record: dict) -> str | None:
+    """The producer's own reason, or None. Never invented: a row with no reason says none,
+    which is different from a row that says nothing went wrong."""
+    said = record.get("note")
+    if not isinstance(said, str) or not said.strip():
+        return None
+    return said.strip()[:NOTE_MAX]
+
+
 def header_of_extraction(record: dict) -> Header:
     """`extract_text.py`'s record as the text layer's reading. `method` is the TOOL, not the
     extraction's name for itself (`text-layer`), which is the channel."""
@@ -387,6 +410,8 @@ def header_of_extraction(record: dict) -> Header:
         outcome,
         0,
         "extract_text.json",
+        None,
+        _note(record),
     )
 
 
@@ -529,8 +554,8 @@ def load_reading(
     written = sum(_load_page(con, h, page, digest, now, by_role, by_key) for page in pages)
     con.execute(
         "INSERT INTO ocr_run (document_sha256, method, method_version, reading_channel,"
-        " render_profile, outcome, pages_read, pages_failed, ran_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " render_profile, outcome, pages_read, pages_failed, note, ran_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             sha,
             h.key.method,
@@ -540,6 +565,7 @@ def load_reading(
             h.outcome,
             len(pages),
             h.pages_failed,
+            h.note,
             h.ran_at,
         ),
     )

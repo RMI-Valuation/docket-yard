@@ -36,8 +36,8 @@ decisions were taken the same day and are recorded where each belongs.
   2026-09-10, `docs/machine-surface.md`
 - **ADR 0024's stage is written, reviewed and NOT DEPLOYED** (addendum 2026-09-10). To ship:
   copy `infra/extract/` to the box, deploy, then `docketyard text pin --method pymupdf
-  --version <the container's>` — it does nothing until pinned. Still owed: `ocr_run.note` on
-  a refusal (§ Owed 2), the producer column (5), the constants on `/methodology` (6)
+  --version <the container's>` — it does nothing until pinned. Still owed: the producer
+  column (§ Owed 5), the constants on `/methodology` (6), a per-page failure record (2)
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - A no-answer fetch is a status-0 capture on every path, resting one day (decided
   2026-09-10, `deferred.md` § 2026-09-02); stb-ingest-specialist and schema-critic first
