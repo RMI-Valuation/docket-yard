@@ -298,3 +298,58 @@ shipped it, a third party holds the shape, which is why its key was settled befo
 expensive half is D6: if two paths
 run different versions before anyone notices, the repair is a re-read that supersedes rather
 than corrupts — a pass, not a migration, and only while D6's queue predicate holds.
+
+## Addendum (2026-09-10): what shipped, and what of § Owed is still owed
+
+The stage is written and committed, and **nothing is deployed**: it does nothing at all until
+an operator runs `docketyard text pin --method pymupdf --version <the container's>`, because
+D6 says the poller reads a pin and never invents one.
+
+**The poller ENQUEUES; it does not invoke.** D4 says a dispatch is recorded "before the
+container is invoked", and the only way for the poller — which runs inside the `ingest`
+container — to invoke a sibling is the Docker socket. Mounting it would give the poller root
+on the host, which is a larger privilege than the parser's isolation buys back: D2's whole
+argument is that the component touching hostile bytes holds nothing, and it is defeated if the
+component that starts it holds everything. So the poller writes a request file naming the
+documents and a long-running `extract` service consumes it. Every property D4 asks for
+survives — the dispatch row is committed before the request file exists, the list is explicit,
+the pool is never scanned — and what changes is that a spool file may land on the pass after
+the one that asked for it, which the reconciliation already tolerates because it compares
+against runs rather than against this pass's own hand-off.
+
+**The trust boundary D4 assigns to the loader is implemented, and it was missing.** "`ocr_run`
+records what actually ran, and the loader holds both, so 'the spool file disagrees with the
+dispatch' is a detectable event and the loader's to report" — the security review found that
+the check existed only in the other direction. Granting D2's own premise, a compromised parser
+could have written a `primary` reading for any document in the record, displaced the live one,
+and had forged text indexed under provenance naming a producer that never read those bytes. It
+is now a MOVE — from the parser's spool into a directory only the loader walks — so nothing can
+land between the check and the walk, and the reading's KEY is checked as well as its document,
+because this directory has one legitimate producer that can write one shape.
+
+### Discharged
+
+1. **The registry (D6).** Migration 0024 shipped it; `docketyard text pin` declares and reports.
+4. **`EXTRACT_LIMIT` sized against the queue measured with D1's own join.** Measured on
+   production 2026-09-10 with `text/queue.py`'s own SQL, against 104,230 documents: **375** in
+   the forward scope, **218** eligible, **124** fetched in the last seven days, 4 not a PDF, 4
+   oversize, 0 with no media type. So the standing backlog is 218 and material arrives at about
+   18 a day. `EXTRACT_LIMIT = 25` clears the backlog in nine passes; newest-first is what makes
+   D3's promise true at any limit above zero.
+8. **`/security-review`.** Run before the commit. Its finding is above; four further defects it
+   raised (the parser and loader on different uids over a shared mount, a spool nothing swept,
+   an unenforced budget, a deploy command that fails on the one built service) are fixed.
+
+### Still owed, and the stage runs without them
+
+2. **`ocr_run.note` on a refusal (D5).** The parser writes the reason — "not a PDF", the
+   exception, "no blob on this box" — and `load.Header` has no `note` field, so it is dropped
+   at the boundary. A refusal that records *that* it failed and never *why* is an ADR 0007
+   assertion missing its reason, and that is the state today.
+3. **`search_meta.page_built` re-stamping.** Untouched.
+5. **A producer column on `ocr_run` and `extraction_dispatch`.** `dispatch.unanswered` uses
+   the `ran_at >= dispatched_at` floor the ADR names as a narrowing rather than a proof, and
+   says so where it is written.
+6. **The constants rendered on `/methodology`.** The queue's exclusions are counted
+   (`queue.census`, and `text pin` prints them) but nothing publishes them.
+7. Ordering by the record's own date rather than `first_seen_at`: accepted as recorded.
