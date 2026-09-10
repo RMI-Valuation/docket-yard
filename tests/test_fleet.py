@@ -224,3 +224,72 @@ def test_the_old_drivers_file_is_whole_only_if_it_says_so(tmp_path):
     assert ocr_wave.shard(out / "dots", A).exists()
     assert not ocr_wave.shard(out / "dots", B).exists()
     assert not ocr_wave.shard(out / "ppocr-second", B).exists()  # measured against old text
+
+
+# --- the transport: the same promises through queue_server.py and RemoteQueue -----------------
+
+import socket  # noqa: E402
+import threading  # noqa: E402
+import urllib.error  # noqa: E402
+import urllib.request  # noqa: E402
+
+qs = _module("queue_server", ROOT / "tools" / "fleet" / "queue_server.py")
+TOKEN = "t" * 40
+
+
+@pytest.fixture
+def remote(tmp_path):
+    db = tmp_path / "q.sqlite"
+    local = pq.Queue(db)
+    local.seed("dots", PAGES, reread=set())
+    blobs = tmp_path / "blobs"
+    (blobs / "aa").mkdir(parents=True)
+    (blobs / "aa" / A).write_bytes(b"%PDF-1.4 fake")
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    t = threading.Thread(target=qs.serve, args=(db, blobs, TOKEN, port, "127.0.0.1"), daemon=True)
+    t.start()
+    url = f"http://127.0.0.1:{port}"
+    for _ in range(50):
+        try:
+            urllib.request.urlopen(url + "/nothing", timeout=1)
+        except urllib.error.HTTPError:
+            break
+        except urllib.error.URLError:
+            time.sleep(0.05)
+    yield pq.RemoteQueue(url, TOKEN), local
+    local.con.close()
+
+
+def test_the_transport_carries_the_lease(remote):
+    r, local = remote
+    r.register("far/dots", "dots", {**KEY, "host": "far"})
+    with pytest.raises(pq.KeyMismatch):
+        r.register("bad", "dots", {**KEY, "render_profile": "150"})
+    jobs = r.claim("far/dots", "dots", 2, 60)
+    assert [j["page_no"] for j in jobs] == [1, 2]
+    r.extend("far/dots", [jobs[1]["job_id"]], 120)
+    assert r.done("far/dots", jobs[0]["job_id"], "[]") is True
+    with pytest.raises(ValueError):
+        r.fail("far/dots", jobs[1]["job_id"], "server: x", final=True)
+    r.fail("far/dots", jobs[1]["job_id"], "page: cut", final=True)
+    r.release("far/dots", [])
+    s = local.status()
+    assert (s["passes"]["dots"]["done"], s["passes"]["dots"]["failed"]) == (1, 1)
+    assert s["workers"][0]["producer"]["host"] == "far"
+    assert r.blob(A) == b"%PDF-1.4 fake"
+    with pytest.raises(urllib.error.HTTPError) as e:
+        r.blob(B)
+    assert e.value.code == 404
+
+
+def test_the_transport_refuses_a_bad_token(remote):
+    r, _ = remote
+    bad = pq.RemoteQueue(r.url, "x" * 40)
+    with pytest.raises(urllib.error.HTTPError) as e:
+        bad.claim("w", "dots", 1, 60)
+    assert e.value.code == 401
+    with pytest.raises(urllib.error.HTTPError) as e:
+        bad.blob(A)
+    assert e.value.code == 401

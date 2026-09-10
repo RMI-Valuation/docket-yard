@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Bring the fleet's node up on RMI-AI-MACHINE: four tmux sessions, each started only if it
-# is not already running (docs/compute-fleet.md § Running it).
+# Bring the fleet's node up on RMI-AI-MACHINE: tmux sessions, each started only if it
+# is not already running (docs/compute-fleet.md § Running it). Five sessions:
 #
 #   bash ~/docket-yard/tools/fleet/fleet-up.sh          # start what is not running
-#   tmux ls                                             # the four sessions
+#   tmux ls                                             # the sessions
 #   tmux attach -t dots-worker                          # watch one; detach with C-b d
 #
 #   dots-vllm      the server, restarted when it dies         (dots-serve.sh)
 #   dots-worker    the worker, restarted when it exits         (below)
 #   dots-collect   reading documents every ten minutes         (pagequeue.py collect)
 #   fleet-monitor  the status page and the scrape on :8130     (monitor.py)
+#   fleet-queue    the lease calls and the blobs on :8131, for another machine's worker
+#                  (queue_server.py; the token is one line in /data/docketyard/fleet.token)
 #
 # The worker exits 0 when the queue is empty, 2 when the server has been gone half an hour,
 # 3 when the server dies on two different pages in a row, 4 when a failure was nobody's we
@@ -43,3 +45,4 @@ up dots-worker "while true; do $WORKER >> $LOG/dots-worker.log 2>&1; \
     echo \"\$(date -Is) worker exited \$?\" >> $LOG/dots-worker.log; sleep 60; done"
 up dots-collect "while true; do $COLLECT >> $LOG/dots-collect.log 2>&1; sleep 600; done"
 up fleet-monitor "$PY $FLEET/monitor.py --db $DB --port 8130 >> $LOG/monitor.log 2>&1"
+up fleet-queue "$PY $FLEET/queue_server.py --db $DB --blobs /data/docketyard/blobs     --token-file /data/docketyard/fleet.token --port 8131 >> $LOG/queue-server.log 2>&1"

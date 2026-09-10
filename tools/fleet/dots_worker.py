@@ -2,7 +2,13 @@
 """A `dots` worker: leased pages from the queue, read through a vLLM server on this box.
 
     ./.venv-paddle/bin/python dots_worker.py --db /data/docketyard/ocr/queue.sqlite \\
-        --blobs /data/docketyard/blobs --scratch /data/docketyard/ocr/.render
+        --blobs /data/docketyard/blobs --scratch /data/docketyard/ocr/.render      # on the node
+    python dots_worker.py --queue http://<node>:8131 --token-file fleet.token \\
+        --scratch ./render                                              # on another machine
+
+On the node the worker opens the queue file and reads blobs from disk. Anywhere else it
+holds `RemoteQueue` — the same six calls over `queue_server.py` — and fetches each document's
+bytes from the node once per document (a claim is usually one document's pages in order).
 
 The worker declares its producer — the pass's key, this host, the engine and its version
 as the server reports them — and the queue refuses it if the key is not the pass's
@@ -60,7 +66,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "rmi-ai-machine"))
 
 from ocr_wave import _dots_call  # noqa: E402 — the one call the driver makes, unchanged
-from pagequeue import PASSES, Queue  # noqa: E402
+from pagequeue import PASSES, Queue, RemoteQueue  # noqa: E402
 
 PASS = "dots"
 DPI = 200
@@ -106,11 +112,16 @@ def wait_for_server(server: str, seconds: int) -> bool:
     return False
 
 
-def read_page(pdf: Path, no: int, png: Path, server: str, model: str, timeout: int, mp: float):
-    """The engine's raw answer for one page, or the exception that says whose fault it is."""
-    if not pdf.exists():
-        raise FileNotFoundError(pdf)  # the environment's: the blob is not on this box
-    with fitz.open(pdf) as doc:  # a file that will not open at all is the environment's too
+def read_page(pdf, no: int, png: Path, server: str, model: str, timeout: int, mp: float):
+    """The engine's raw answer for one page, or the exception that says whose fault it is.
+    `pdf` is a path on the node or the document's bytes fetched from it."""
+    if isinstance(pdf, Path):
+        if not pdf.exists():
+            raise FileNotFoundError(pdf)  # the environment's: the blob is not on this box
+        opened = fitz.open(pdf)
+    else:
+        opened = fitz.open(stream=pdf, filetype="pdf")
+    with opened as doc:  # a file that will not open at all is the environment's too
         page = doc[no - 1]
         r = page.rect
         megapixels = (r.width / 72 * DPI) * (r.height / 72 * DPI) / 1e6
@@ -143,8 +154,10 @@ def read_page(pdf: Path, no: int, png: Path, server: str, model: str, timeout: i
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--db", required=True, type=Path)
-    ap.add_argument("--blobs", required=True, type=Path)
+    ap.add_argument("--db", type=Path, help="the queue file, on the node")
+    ap.add_argument("--blobs", type=Path, help="the blobs directory, on the node")
+    ap.add_argument("--queue", help="the node's queue server, from another machine")
+    ap.add_argument("--token-file", type=Path, help="with --queue: the shared token")
     ap.add_argument("--scratch", required=True, type=Path)
     ap.add_argument("--server", default="http://127.0.0.1:8120/v1")
     ap.add_argument("--model", default="dots-mocr")
@@ -158,8 +171,15 @@ def main() -> int:
     args = ap.parse_args()
 
     spec = PASSES[PASS]
-    if not args.blobs.is_dir():
-        log(f"--blobs {args.blobs} is not a directory; exit {EXIT_ENVIRONMENT}")
+    if args.queue:
+        if not args.token_file:
+            log(f"--queue needs --token-file; exit {EXIT_ENVIRONMENT}")
+            return EXIT_ENVIRONMENT
+        q = RemoteQueue(args.queue, args.token_file.read_text(encoding="utf-8").strip())
+    elif args.db and args.blobs and args.blobs.is_dir():
+        q = Queue(args.db)
+    else:
+        log(f"give --db and --blobs (on the node) or --queue (elsewhere); exit {EXIT_ENVIRONMENT}")
         return EXIT_ENVIRONMENT
     name = args.name or f"{socket.gethostname()}/{PASS}"
     if not server_healthy(args.server):
@@ -182,13 +202,13 @@ def main() -> int:
         "max_megapixels": spec["max_megapixels"],
         "worker": Path(__file__).name,
     }
-    q = Queue(args.db)
     q.register(name, PASS, producer)
     log(f"{name} registered as {producer}")
     args.scratch.mkdir(parents=True, exist_ok=True)
 
     read = failed = streak = 0
     last_server_death: tuple[str, int] | None = None
+    held: tuple[str, bytes] | None = None  # the last document fetched, for a remote worker
     while True:
         if args.max_pages and read + failed >= args.max_pages:
             log(f"--max-pages reached: {read} read, {failed} failed")
@@ -200,7 +220,18 @@ def main() -> int:
         ids = [j["job_id"] for j in jobs]
         for i, job in enumerate(jobs):
             sha, no = job["document_sha256"], job["page_no"]
-            pdf = args.blobs / sha[:2] / sha
+            if isinstance(q, Queue):
+                pdf = args.blobs / sha[:2] / sha
+            else:
+                if held is None or held[0] != sha:
+                    try:
+                        held = (sha, q.blob(sha))
+                    except Exception:  # noqa: BLE001 — the node, not the page
+                        log(f"  could not fetch {sha[:12]} from the node; releasing")
+                        log(traceback.format_exc())
+                        q.release(name, ids[i:])
+                        return EXIT_ENVIRONMENT
+                pdf = held[1]
             png = args.scratch / f"{name.replace('/', '_')}_{sha[:12]}_p{no}.png"
             try:
                 raw = read_page(

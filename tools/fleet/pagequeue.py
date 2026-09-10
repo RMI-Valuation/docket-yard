@@ -28,8 +28,9 @@ order are as before.
     python3 pagequeue.py --db Q collect --out /data/docketyard/ocr
     python3 pagequeue.py --db Q fail --job N --error '...'  # an operator's decision, logged
 
-Standard library only. One node today; the `Queue` class is the whole protocol, so a small
-HTTP front for a second node is a transport, not a redesign.
+Standard library only. `Queue` is the whole protocol; `queue_server.py` puts the six calls a
+worker makes over HTTP for a machine that does not hold the file, and `RemoteQueue` is that
+machine's client, with the same six methods and nothing else.
 """
 
 import argparse
@@ -38,6 +39,8 @@ import json
 import sqlite3
 import sys
 import time
+import urllib.error
+import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -418,6 +421,61 @@ class Queue:
             "errors": errors,
             "collected": {r["pass"]: dict(r) for r in collected},
         }
+
+
+class RemoteQueue:
+    """The six calls a worker makes, against `queue_server.py` on the node that holds the
+    file. Same names, same arguments, same answers as `Queue`, so a worker holds either."""
+
+    def __init__(self, url: str, token: str):
+        self.url = url.rstrip("/")
+        self.token = token
+
+    def _post(self, path: str, body: dict) -> dict:
+        req = urllib.request.Request(
+            self.url + path,
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.token}"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", "replace")
+            if e.code == 409:
+                raise KeyMismatch(detail) from e
+            if e.code == 400:
+                raise ValueError(detail) from e
+            raise
+
+    def register(self, name: str, pass_: str, producer: dict) -> None:
+        self._post("/register", {"name": name, "pass": pass_, "producer": producer})
+
+    def claim(self, worker: str, pass_: str, n: int, lease_seconds: int) -> list[dict]:
+        body = {"worker": worker, "pass": pass_, "n": n, "lease_seconds": lease_seconds}
+        return self._post("/claim", body)["jobs"]
+
+    def extend(self, worker: str, job_ids: list[int], lease_seconds: int) -> None:
+        body = {"worker": worker, "job_ids": job_ids, "lease_seconds": lease_seconds}
+        self._post("/extend", body)
+
+    def release(self, worker: str, job_ids: list[int]) -> None:
+        self._post("/release", {"worker": worker, "job_ids": job_ids})
+
+    def done(self, worker: str, job_id: int, raw: str) -> bool:
+        return self._post("/done", {"worker": worker, "job_id": job_id, "raw": raw})["accepted"]
+
+    def fail(self, worker: str, job_id: int, error: str, *, final: bool) -> None:
+        body = {"worker": worker, "job_id": job_id, "error": error, "final": final}
+        self._post("/fail", body)
+
+    def blob(self, sha: str) -> bytes:
+        """The document's bytes from the node, for a worker that holds no blobs."""
+        req = urllib.request.Request(
+            self.url + "/blob/" + sha, headers={"Authorization": f"Bearer {self.token}"}
+        )
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            return resp.read()
 
 
 def _epoch(iso: str) -> float:

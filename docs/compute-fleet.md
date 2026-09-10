@@ -147,7 +147,7 @@ page a person has to open.
 
 ## Running it
 
-On RMI-AI-MACHINE, four tmux sessions, started idempotently by `tools/fleet/fleet-up.sh`:
+On RMI-AI-MACHINE, five tmux sessions, started idempotently by `tools/fleet/fleet-up.sh`:
 
 | Session | Runs | Log |
 | --- | --- | --- |
@@ -155,6 +155,7 @@ On RMI-AI-MACHINE, four tmux sessions, started idempotently by `tools/fleet/flee
 | `dots-worker` | `dots_worker.py`, restarted a minute after it exits (0: queue empty; 2: server gone 30 min; 3: server dies on consecutive pages; 4: not the page's fault; 5: too many page failures in a row) | `ocr/logs/dots-worker.log` |
 | `dots-collect` | `pagequeue.py collect` every ten minutes | `ocr/logs/dots-collect.log` |
 | `fleet-monitor` | `monitor.py` on port 8130 | `ocr/logs/monitor.log` |
+| `fleet-queue` | `queue_server.py` on port 8131, for another machine's worker | `ocr/logs/queue-server.log` |
 
 ```
 bash ~/docket-yard/tools/fleet/fleet-up.sh                 # start what is not running
@@ -176,10 +177,14 @@ as `ocr_wave.py` documents; rsync and `text load` each root in that order on the
 
 A second node needs three things and no redesign:
 
-1. **A transport.** `Queue` is the whole protocol — register, claim, extend, release, done,
-   fail. A small HTTP front on the node that holds the file (the same stdlib server the
-   monitor uses) exposes those six calls; the worker's `Queue` becomes a client of it. SQLite
-   over a network share is not a transport.
+1. **A transport — built 2026-09-09.** `queue_server.py` on the node puts the six calls a
+   worker makes (register, claim, extend, release, done, fail) and the documents' bytes
+   (`/blob/<sha>`) on port 8131, behind a bearer token that is one line in a file on the
+   node and on each joining machine and in no repository. `pagequeue.RemoteQueue` is the
+   client, with the same six methods, so `dots_worker.py --queue http://<node>:8131
+   --token-file …` holds either and does not know which. A remote worker fetches a
+   document once per document (a claim is one document's pages in order); measured from the
+   workstation, 4.3 MB in 0.08 s. SQLite over a network share is not a transport.
 2. **A producer it can declare truthfully.** The same engine and version, or a new pass.
 3. **Its own stop rule.** The workstation's is *the operator is using it*: a small service
    watches input idle time and GPU use, starts the worker after some minutes idle and stops
@@ -196,7 +201,7 @@ project ever calls a model from a page; batch derivation is the queue.
 
 - The three rules in Grafana Cloud (stalled, failing, absent — each `for: 10m`); Alloy is up
 - ADR 0025's acceptance, or its revision
-- The HTTP transport and the workstation's idle gate, when a second node is chosen
+- The workstation's idle gate and its vLLM container, then the Mac's pass
 - `second` and `graphic` run through the queue rather than `ocr_wave.py`, so that every pass
   has the same lease and the same monitor (they read a cache and cannot die the same way, so
   this is tidiness, not safety)
