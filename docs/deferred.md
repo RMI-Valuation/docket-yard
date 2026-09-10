@@ -31,8 +31,6 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 
 ## Party module (M10, 2026-08-26)
 
-- An address following two ids that are later joined receives each filing twice per pass
-  (dedup is per subscription, not per component).
 - The follow form on a 301'd page follows the representative, so a later unjoin narrows the
   subscription silently.
 - `--cite` on `parties join` is free text, not a typed filing/decision reference.
@@ -124,8 +122,6 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
   shows a name the store cannot reconstruct after a rename. Revisit if the trust pages
   ever need "as shown at the time".
 
-## Docket sheet (code review 2026-08-30, v2026.08.39)
-
 ## AB sub-docket numbering (measured 2026-08-30, not yet explained)
 
 Raised while building the series index. Nothing here blocks anything; it is recorded so
@@ -176,15 +172,6 @@ for ever) were fixed before it shipped. These were triaged as not-now:
   Pre-existing and bounded to one measured month (`FILINGS:2025-10`); this release does not
   widen it. Smallest hardening is in `walk.py`: attempt the proof for expected-empty months
   too and fall back to the declaration only when the proof cannot be obtained.
-- ~~**`_connect_rw`'s 30 s wait is shorter than a rebuild**~~ (schema-critic, code review).
-  **Measured on the instance 2026-08-31 and withdrawn: it is not.** Two reviews and this
-  file read the 32 s whole-command wall time as lock time; `rebuild()` derives on reads
-  first and the write transaction is **5.6 s** at 96,225 rows, well inside the 30 s wait.
-  The derive was already split from the write — that is what the module docstring meant by
-  "writes in one short transaction". A concurrent `/subscribe` waits about five seconds in
-  the worst case and does not fail. Kept here, struck through, because a plausible finding
-  that three passes believed is worth leaving visible: the lesson is that a wall-clock
-  number is not a lock number, and nobody had measured the difference.
 
 ## Found 2026-09-01, clearing five from this pool
 
@@ -231,12 +218,6 @@ for ever) were fixed before it shipped. These were triaged as not-now:
 The serious ones were fixed in the same session and are pinned by tests in
 `tests/test_citator_pipeline.py`. These are what was left, each with why it waits.
 
-- **The exposed class and every rule-2 repair reach a page unreviewed.** ADR 0017 D5 routes
-  both to a human *before* publication — that is what the exposure test was defined for. The
-  loader computes the keys and `citator load` prints them, but `review_action` (ADR 0016) is
-  in no migration, so nothing stores or gates on them. **This is a shipping blocker, not a
-  deferral**, and it is in `TODO.md`; it is here so the finding is not lost if that line is
-  pruned.
 - **`targets_out_of_class` and `targets_emitted` are on different grains.** Out-of-class
   counts findings; emitted counts distinct `(page, key)` pairs. So the two do not add up to
   what the producer sent, and "not kept" is auditable only against a known dedup rule. A
@@ -256,10 +237,6 @@ The serious ones were fixed in the same session and are pinned by tests in
   produces the same key — the same "whichever channel inserted first owns it for ever"
   defect ADR 0018 D2 rejected `cited_raw` over. A differing `key_version` on an existing key
   is a re-normalisation event worth being loud about.
-- ~~**`cited_by(work_id=...)` always returns nothing**~~ — RESOLVED 2026-09-05: `resolve`
-  assigns `decision_id` from ADR 0018 D4's verb gate, anchored to the target's own printed
-  form. `decided <date>` still stays at docket level, and a work-level answer is only as
-  measured as the class it is stamped from.
 - **The family closure is written twice** — `web/cite.py` and `project.py` — which ADR 0018
   D7 says the projection may not depend on. `methods.PROJECTION_RULE` also hardcodes
   `closure=cite.py@2026-09-01`, a date somebody must remember to edit.
@@ -310,9 +287,6 @@ Its Tier 0 and Tier 1 findings were fixed in the same session and are pinned by
   `target_table = 'citation_resolution'`, so `target_key` and `produced_key` are the same
   string today and "which exposed judgements has a human checked" is answerable only through
   `queue`. The distinction the column pair exists for pays nothing yet.
-- **No sign-in.** `reviewer_token` has no writer and no reader: magic-link sign-in is in ADR
-  0011's decision and not in code, so a grant cannot be used by the person it was granted to.
-  `docketyard citator grant` and `decide` serve reviewer zero; `/review` is the blocker.
 
 ## Found 2026-09-01, reviewing the finder (code-review high + stb-ingest-specialist)
 
@@ -417,78 +391,11 @@ left of it.
   Reproducibility survives (`_wire_url` is deterministic and in-repo); one line adding
   `("wire_url", wire)` when it differs would make the capture self-describing.
 
-## Found 2026-09-02, three production outages: the comment page is O(docket)
-
-The defect, its blast radius and its containment. **This is the highest-priority open item in
-this file** — it took production down twice and stopped the record being kept for 6 h 52 m.
-
-- **A record page builds its entire docket sheet to read one field off it.**
-  `_comment_entry` (`web/app.py`) calls `sheet.docket_sheet()`, which assembles every filing,
-  decision and comment on the docket with attachments, documents and parties joined, then
-  linear-scans `s.entries` for the single entry it wants. `_record_entry` does the same for
-  filings and decisions. **`record.html` uses exactly one field of that sheet: `sheet.title`.**
-  So the cost of one page is the size of its docket, and a crawler walking a docket is
-  quadratic in it.
-- **The record has a docket that makes this fatal.** FD 35087 holds **12,031 of the 34,255
-  comments** (next largest 4,245; then 2,044). Each of its comment pages builds a
-  ~12,600-entry sheet. **Measured 2026-09-02: median 21.5 s a page, p90 25.0 s.** With
-  uvicorn's 40-thread sync pool, roughly two requests a second saturates the box.
-- **The site invites the crawl.** Every comment address is published in our own paginated
-  sitemap, so a well-behaved crawler walking FD 35087 asks for all 12,031.
-- **The attachment drain sharpened it.** Before 2026-09-01 those comments' attachments were
-  unfetched; the drain fetched 26,816 of them, so every entry in that sheet now carries a
-  document to join and render. The first crawl to meet the heavier sheet was the 02:10 load
-  climb on 2026-09-02.
-- **What it cost.** Load 15-21 on two vCPUs from 02:10 to 06:40; captures stopped at 03:26
-  while the site still answered until 05:06; the box wedged until a manual reboot at 10:18
-  (coverage gap 1, 6 h 52 m). It recurred twice more within the hour, each cleared by
-  `docker compose restart web`. The poller and Litestream were never at fault and kept
-  working whenever the box had CPU.
-- **The fix** is to fetch the one entry and the docket's title directly instead of building
-  the sheet. It is not a one-liner: `_fold_family_duplicates` means an entry's identity
-  depends on its family, so the targeted lookup has to reproduce that or document why it need
-  not. Both call sites want the same helper. **It cannot ship without a deploy**, and
-  production is four migrations behind (schema 13 against 17).
-- **Containment, written and NOT YET APPLIED** (`infra/deploy/Caddyfile`): a 503 with
-  `Retry-After` for `/d/FD-35087/comment/*`. Costs a reader nothing they had — those pages
-  already time out unanswered — and 503 rather than 404 because the address is permanent
-  (ADR 0013). Applying it needs a write on the instance. **Delete that block with the fix.**
-- **The fix is measured on the real store now, 2026-09-02.** Against a Litestream restore of
-  production at schema 17: the busiest FD 35087 member holds **12,031 comments** and the old
-  path built **12,633 entries** to answer for one; `one_entry` is **34x** faster on the same
-  data and returns the identical entry. End to end through the app the comment page renders
-  in **19 ms** where production measured 21.5 s — though the two are not the same
-  measurement, because 21.5 s was taken while forty threads contended on two vCPUs and this
-  was one request on an idle machine. What the fix removes is the quadratic that made the
-  contention possible, not 21 seconds of any single request.
-- **The viewer still builds the whole sheet, and it is one click away.** `/filing/<id>/view`
-  and `/decision/<id>/view` need the entry's neighbours (prev/next) and the sheet's Parties
-  block, so they cannot use `one_entry` and still call `docket_sheet` — on FD 35087 that is
-  the same ~12,600-entry assembly the record pages just stopped doing. Narrower than the
-  comment pages (549 filings and 43 decisions there, not 12,031) and a comment has no
-  `/view` route at all, so the crawl that caused the outages cannot reach it; but "Read it
-  here" links to it from every record page and it is not disallowed in `robots.txt`. Fixing
-  it needs a cheap ordered neighbour query, and the sheet's order is computed in Python
-  (`_numeric` over comment numbers), so it is not a straight translation to SQL.
-- **Two guards worth having whatever the fix is**: a memory cap on the `web` container, so it
-  cannot take `ingest` and `litestream` down with it — that is the difference between "the
-  site blipped" and "the record stopped for seven hours" — and something that acts on the
-  healthcheck, which correctly reported `unhealthy` while nothing restarted it.
-
 ## The instance resize (2026-09-02, v2026.09.1)
 
 **ADR 0022 D7 now resizes it with the OCR migration** rather than leaving a trigger to watch:
 the store crosses ~1 GB on rows alone under D6. What stays here is the operational half.
 
-- **Not a response to 2026-09-02.** That outage was a quadratic query, and a larger box would
-  have absorbed more crawler traffic before failing — the same fault, later and worse. Fixed
-  (`sheet.one_entry`). Recording the temptation is the point.
-- **A resize is a rebuild, not a slider.** Lightsail has no in-place resize: snapshot, launch
-  the larger instance, move the static IP. Maintenance-window work; ADR 0020 gives the window.
-  Check plan pricing at the time rather than assuming the ladder.
-- **Where it stands, measured 2026-09-02**: the schema-16 restore in `data/` is **152 MB**,
-  `web` is capped at 768 MB of the instance's 2 GB, and the blob cache holds ~32 GB against a
-  corpus heading for 150–250 GB with the prune keeping 20 GB free.
 - **Two things the resize does not fix**, so they need their own answer: `litestream` keeps
   `retention: 168h` while the bucket keeps noncurrent versions 30 days, so the store's undo
   window is the shorter one (ADR 0022 D10); and `dump.py` keeps one monthly archive for ever
@@ -502,10 +409,6 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
   the page quietly stop listing archives it once published, which is a withdrawn public
   artefact and the one direction CC0 was chosen to avoid. Nothing to do with OCR; found while
   measuring for it.
-- **No systemd unit has `OnFailure=`,** and `config.alloy` collects no systemd metrics, so a
-  failed timer is invisible to the detector ADR 0019 built. The dump's failure is worse than
-  absent: `scrub` raising leaves last night's snapshot served under an unchanged manifest, so
-  a third party downloading it has no signal.
 - **`/coverage` is uncached** where `/stats` sets `PUBLIC_CACHE`, and already runs ~20 scalar
   subqueries per request. Anything counted over `document_text` lands on an uncached public
   page.
@@ -584,8 +487,6 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
 - **The record page and the viewer link the text page unconditionally**, never on whether
   readings exist: `stamp()` no longer moves on the page tables, so a link conditioned on
   them would answer 304 with the pre-load rendering. Nothing under `stamp()` may read them.
-- **Item 22's methodology entry** (the per-tier error rate and the born-digital caveat) is
-  still owed; the page's sentence on document text was corrected, the entry was not added.
 
 ## Found by schema-critic against migration 0018's `document_pagination`, 2026-09-03
 
@@ -605,51 +506,8 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
   cannot become held, so deferring costs nothing and acting is irreversible. Recorded because
   it was suggested and not taken, not because it should be.
 
-## Found by the cloud bughunter review, 2026-09-03 (branch `migration-a-passes`, unreleased)
-
-Twenty-eight agents over the five commits since `682fe97`; the run hit its wall clock with
-four confirmed, all nits, three reported and one dropped by its quality cap. Nothing blocking.
-
-- **"The text" is offered for records whose only viewable file is a JPG.** `record.html`
-  gates the button on `viewable_index`, whose set is `INLINE = {pdf, jpg}`; the text route
-  picks from `PAGINABLE = {pdf}`. `viewer.html` links the text page unconditionally. A
-  JPG-only record shows the affordance and lands on the "not a kind whose text is read"
-  fallback. Gate both on a PAGINABLE pick — a static property of the file list, so it does
-  not run into the `stamp()` rule the item above records.
-- **`_page` accepts a bool as `agreement.distance`.** `load.py` checks the distance with a
-  bare `isinstance(x, int | float)`; every other numeric field in the loader (`page_no`,
-  `engine_confidence`, `pages_failed`) pairs it with a bool guard. A JSON `true` passes and
-  is stored as `1.0`, inside the CHECK's range, shown to a reader as a band operand.
-- **`_STAMP_TERMS` spells out `NOT IN (?, ?)`** where `search._NOT_PAGES` derives its
-  placeholders from `PAGE_TABLES`. Both `stamp()` and `page_stamp()` bind the tuple into the
-  two literal marks, so the page-tier table Migration B adds (the `PAGE_TABLES` item above)
-  would raise a binding-count error on every reader page until both sites agree. Derive the
-  placeholders once, in `search`, and import them.
-
 ## Observed at Migration A's first load, 2026-09-04 (v2026.09.2 on the resized box)
 
-- ~~**A bulk pass and Litestream trade the write lock, and the pass loses.**~~ FIXED
-  2026-09-04 (v2026.09.7). `text load` aborted six times (`OperationalError: database is
-  locked` after the 30 s busy timeout) at 35,903, 41,524, 42,107, 43,831, 45,366 and 57,559
-  documents, and `text paginate` once at 59,105; Litestream logged `checkpoint:
-  mode=TRUNCATE err=database is locked` through each, and a shell loop of twelve finished it
-  on the seventh attempt. The pass now rolls the batch back — which is what hands the lock
-  over — waits, and REPLAYS it, up to five times with a doubling backoff
-  (`batches.under_lock`). Replay is safe because the rollback left nothing and the payload
-  blobs are content-addressed. A lock that never clears still aborts, and a failure that is
-  not a lock aborts at once.
-- ~~**`search rebuild-pages` holds the write lock for its whole run**~~ FIXED 2026-09-04
-  (v2026.09.7) — 8 m 49 s at 1,104,935 rows, then **27 m 26 s** with migration 0020's
-  function on every row, and the poller lost its 01:03 pass to it. FTS5's `'rebuild'` does
-  the whole read-and-index in one transaction; it is now `'delete-all'` plus keyset-paged
-  batches of 2,000, with the per-row masking running in the SELECT outside any transaction
-  and the lock released between batches. Measured on a synthetic 100,000-page store: a
-  second writer was refused the lock on 8 of 21 probes before and 0 of 255 after, for 3.2 s
-  against 4.0 s of wall time; re-measured on 40,000 pages of 3,827 characters (a real page's
-  length, after the page-hit benchmark below was found to have been taken on pages too short
-  to see the cost) the answer holds — 9 of 19 against 0 of 312, 3.7 s against 4.3 s. **The
-  production figure at 1.1M rows is not verified** — the next real rebuild is what confirms
-  it.
 - **A rebuild started while `text load` is already running is not detected.** The loader
   refuses to START while `search_meta.page_built` says `rebuilding` (`page_index`), which
   closes the common direction; there is no marker for "a load is in flight", so the reverse
@@ -663,25 +521,6 @@ four confirmed, all nits, three reported and one dropped by its quality cap. Not
 
 ## Found by the cross-file tracer on the merged page search path, 2026-09-04 (v2026.09.4)
 
-- ~~**No per-document cap on the twenty page hits.**~~ FIXED 2026-09-04 (v2026.09.8). A
-  phrase printed on every page of one 300-page assessment filled the whole section with that
-  document's pages 1-20 and hid every other document that matched; the record-hit path cannot
-  fail this way because its grain is one row per docket. Two hundred ranked rows are now
-  scanned and folded to three a document (`PAGE_PER_DOCUMENT`, `PAGE_OVERFETCH`) before the
-  cut to twenty, and both surfaces say when pages were folded away. The fold reads no text
-  (SQLite runs the masking function only for selected columns), which review caught and is
-  the whole of the cost: on a 40,000-page store at 3,827 characters a page, a term matching
-  every page took 36.7 ms before, 49.0 ms with all two hundred rows read through the view,
-  and 37.6 ms as shipped.
-- ~~**`PageResults.dropped` is computed and read by nobody.**~~ FIXED 2026-09-04
-  (v2026.09.8). It is the one signal that the page index has drifted from the display view (a
-  human row inserted without `leave`, a store restored from a replica), and it is now a
-  process counter behind `/metrics` as `docket_yard_page_index_stale_rows_total`. A store
-  query would be the masking function over 1.1M rows on every scrape, so it counts what
-  searches have MET — it moves only when a reader reaches a stale row, which is when it
-  starts to matter, and it resets with the process. It counts DRIFT only: `dropped` also
-  covers a comment attachment's pages, which have no text address and are dropped from every
-  search of a healthy store (review, 2026-09-04).
 - **From TODO, 2026-09-04 (the cap):** Cameron's idea of a cadence switch from the alert
   email and a signed-link manage page per address.
 
@@ -691,50 +530,6 @@ The addendum was withdrawn rather than accepted (see below), but the pass was re
 blob tier's code to check the draft's claims and found things the draft was not about. Each
 was verified against the file named before it was written down.
 
-- ~~**A `StoreMismatch` is a `print()` and a 503, with no gauge behind it.**~~ FIXED
-  2026-09-04: `/metrics` carries `docket_yard_document_store_refused_total{kind}` with THREE
-  kinds counted apart, because they are answered differently — `mismatch` (the bytes at a hash
-  were not that content) and `absent` (a 404: the object is gone) both mean the store has lost
-  a document and somebody must look, while `unreachable` is an outage and waiting is the
-  answer. Review caught that a 404 was landing in the outage bucket, which would have had an
-  operator wait out an outage that was not happening while the blob stayed lost. Original note: `web/app.py`'s
-  document route calls it "never served, never quiet", and it is genuinely never served — but
-  quiet is exactly what it is: a stdout line in a container log, for the condition that means
-  S3 answered a hash with other bytes. That is a silent failure of the class `docs/alerts.md`
-  decomposes, and `/metrics` has a counter for page-index drift and none for this. The fix is
-  a counter beside `docket_yard_page_index_stale_rows_total`, which is the same shape.
-- ~~**The web tier's fetch-on-miss writes into a directory the prune cannot reclaim.**~~
-  **CORRECTED 2026-09-04, and no code was needed — I had overstated it.** The parts that are
-  true: `documents._fetch_into_place` streams to `blobs/.tmp/ws-*`, the sync excludes
-  `.tmp/*`, and `prune_blobs.py` skips `parent.name == ".tmp"`, so the prune cannot reclaim
-  that directory. What I did not check before writing it down: **the fetch cleans up after
-  itself on every path it can reach** — `except BaseException` unlinks and re-raises, a hash
-  mismatch unlinks, and success `replace`s the file out of staging altogether. So a `ws-*`
-  survives only a hard kill (OOM, SIGKILL, power), and `records.sweep_staging` clears those
-  older than six hours at the start of every fetch run, which the poller makes every thirty
-  minutes. The exposure is one temp file per fetch in flight, not an accumulation, and a
-  floor-aware sweep on the web side would defend against nothing that happens.
-- ~~**`documents._in_flight` never shrinks.**~~ FIXED 2026-09-04: the lock is dropped when
-  the fetch ends, on the failing paths too. It is a device for the seconds a fetch takes and
-  correctness never rested on it — the fetch hashes on the way in and `replace` is atomic.
-  Original note: One `threading.Lock` per SHA, added by
-  `setdefault` and never removed, in a process capped at 768 MB whose steady state is
-  110-170 MB. At 104,091 documents that is a slow accumulation of dict entries for a
-  correctness device that only matters during a fetch. Drop the entry when the fetch ends.
-- ~~**`web`'s own credential can stop the record being kept.**~~ FIXED 2026-09-04: the
-  compose guard is `:-`, not `:?`, so `web` refuses ALONE — `capture.s3.from_env` raises when
-  `DY_S3_BUCKET` is set and the keys are not, and `create_app` calls it at construction.
-  **Not "nothing is lost", which is what I first wrote**: the refusal is now a crash-loop
-  under `restart: unless-stopped` rather than a clean `compose up` abort, and with the bucket
-  itself blank nothing checks the keys at all — the same pair is the web tier's SES
-  credentials, reported by `_sender`'s "mail not configured" line and a 503 from the subscribe
-  form rather than by interpolation (review, 2026-09-04).
-  Original note: `compose.yaml` guards
-  `DY_WEB_AWS_*` with `${...:?}`, which fails interpolation for the WHOLE file — so
-  `docker compose up -d ingest` fails too if the reader key is missing or mid-rotation. Nine
-  lines below the guard, the file shouts "THE READER-FACING PROCESS MUST NOT BE ABLE TO TAKE
-  THE RECORD-KEEPING ONE WITH IT", which is coverage gap 1's lesson and ADR 0020's premise.
-  The guard belongs in `serve`'s startup check, where it fails the reader alone.
 - **The web tier holds `DY_EMAIL_KEY`.** `compose.yaml`'s `web` takes `<<: *mail`, so the
   internet-facing process holds ADR 0014's key — the one under which subscriber addresses are
   ciphertext at rest. `docketyard-dump.service` blanks it explicitly for the dump; the
@@ -752,17 +547,6 @@ readings, 139,805 pages, **73,103 findings — 41,915 captions and 31,188 citati
 registry holds.** `citation` still holds 0 rows; nothing was loaded. The two things in the
 6.3% that are worth having written down:
 
-- **A sub-number the Board prints as `0X` does not resolve, and the proceeding IS held.**
-  FIXED the same day (d1233f4), and **what the fix actually did is not what the first
-  measurement of it said** — see the correction under the critic's findings below.
-  43 instances over 19 distinct targets, all of which the registry holds under another key:
-  the Board writes `AB 1182 (Sub-No. 0X)`, `keys.normalise` reads that to `AB 1182 (0X)`,
-  and `keys.registry_key` builds the held docket's key from its parsed columns as
-  `AB 1182 (X)` — the raw `AB_1182_0_X` having lost the `0` at ingest. So the two ends of
-  ADR 0017 D2's resolution disagree about one spelling, and a real edge is refused as
-  unresolvable. Small (0.14% of citations) and precise; the fix is in the seam between
-  `ingest.dockets` and `citator.keys`, and whichever end moves, BOTH readings of the same
-  proceeding must land on one key or the edge splits in two.
 - **`SO 2` is cited 855 times and the record does not hold it** — 44% of every unresolved
   instance, in one target. The record holds 22 `SO` dockets, so the prefix is walked and
   this proceeding is not among them. That is a coverage statement rather than a defect, and
@@ -837,127 +621,13 @@ schema-critic pass of their own, not a tidy-up.
 
 ## Measured while the citator first ran, 2026-09-04: what the citation class cannot name
 
-The finder's class is a fixed prefix list (ADR 0017 D1 buys one class deliberately). Checked
-against the registry: **the class can name 31,972 of 32,627 held dockets. 655 dockets across
-13 prefixes can never be cited to at all** — S5M 240, MC 178, EPM 164, CU 16, FSA 14, MXC 13,
-SAI 11, PTO 6, RR 6, AM 3, WC 2, CNO 1, S5R 1. Two prefixes IN the class, `FSB` and `PCA`,
-match nothing the record holds. That is 2.0% of the record outside the citator's reach, and
-a ceiling on recall that no sixty-decision sheet could have shown. Not a defect — a scope
-that was never measured, and the number to quote if the class is ever widened.
-
-## Correction, 2026-09-04: what the `0X` fix actually changed
-
-The fix was measured on RESOLUTION and reported as "29,229 to 29,272 resolving, exactly the
-43, and no other row moved" — in the commit message (d1233f4) and here. That was an
-incomplete account, and the schema critic said so before the fact: `normalise` sits inside
-the EXTRACTOR too, because `find` decides `kind` by `key not in own` and `own` is built with
-`registry_key`. Re-running the finder under the fixed normaliser and diffing the two runs:
-
-- **39 findings flipped from `citation` to `caption`.** Those documents were naming their
-  OWN proceeding in the Board's `(Sub-No. 0X)` spelling; the old normaliser could not match
-  it against `own`, so it called them citations of another docket.
-- 2 findings disappeared, folding into a key already found on the same page (`find` keeps
-  one finding per page and key).
-- 4 remained citations and now resolve.
-- After: 41,954 captions, 31,147 citations, 29,231 resolving — **93.85%**.
-
-**So the fix mostly avoids 39 false edges rather than gaining 43 true ones.** A caption is
-stamped `unmeasured` and projects nothing, so the effect on what a reader would be shown is
-39 spurious "X cites Y" edges that will now never be drawn — a better outcome than the one
-first claimed, and a different one. The lesson is the critic's: a measurement of one stage
-of a pipeline is not a measurement of the change, and this normaliser is in three stages
-(extractor, resolver, exposure test).
-
-The findings directory on the instance was re-made under the fixed normaliser; the stale one
-is deleted, per the rule that a findings directory is written once.
-
-## The citator's first full chain, 2026-09-04 (dry run into a copy; production untouched)
-
-`citator find` -> `load` -> `project`, the shipped code, against the `VACUUM INTO` copy with
-migration 0016's benchmark figures declared as the measurements — which is what a real first
-load does. Production's `citation` is still 0 rows.
-
-    readings            20,062        (documents x machine channel; all text-layer today)
-    findings            73,101        41,954 captions, 31,147 citations
-    citation rows       73,101        one per finding; 219,303 judgements, 3 per finding
-    extraction runs     20,062
-    resolution          71,185 resolved, 1,915 unresolved, 1 REPAIRED (rule 2 fired once)
-    exposed             1,946 held for review, excluded from the projection
-    span test           13,928 true, 59,173 false
-    PROJECTED           18,907 rows, and **15,164 distinct (citing work, target) edges**
-                        over 5,294 citing works and 3,529 proceedings cited
-    failures            0 failed, 0 unreadable, 0 out of class
-
-**WHAT THIS DOES NOT DO IS VALIDATE THE PUBLISHED FIGURES**, and an earlier framing of this
-work said it would. 94.7% projected / 97.7% precision are recall and precision against a
-sixty-decision sheet with hand-made ground truth. There is no ground truth for 19,229
-decisions, so a corpus run cannot compute either number: every one of those 15,164 edges is
-stamped with a precision measured on sixty decisions, which is exactly the claim ADR 0017 D3
-makes and exactly what a bigger run cannot check. What the run DOES establish is that the
-shipped chain chews the whole record without a failure, what volume a load produces, and how
-big the review backlog is on day one.
-
-**The review backlog is the number to look at before a real load: 1,946 keys owed a human
-review.** On the sixty-decision sheet the same gate held five. That is the difference between
-the benchmark's 93.3%-to-a-reader and what a real load would show, and it is a question about
-review capacity rather than about code.
-
-**CORRECTION (2026-09-04, later the same day): the queue is NOT missing.** The load printed
-those keys under "NOT YET QUEUED" and this note repeated it — that "the queue is in TODO's
-owed-with-the-pipeline and does not exist, so those edges would be held with nothing to
-release them". Both are wrong. Migration 0015 shipped `review_action` and
-`review_queue_vocab`; `citator.review` derives the queues from these very rows; `/review`
-renders them with the evidence beside the question (ADR 0016). Measured on the loaded copy:
-`citation_exposed` 1,946 owed, `citation_unresolved` 489, `citation_repaired` 1 — each item
-carrying its key, the raw as printed and the quoted passage. `citation_unresolved` is 489
-rather than 1,915 because `review.in_the_held_record` declines to queue a number the record
-was never going to hold, which is the design working. The verb's message and the comment
-behind it were stale, and are fixed.
-
-Left on the instance for whatever comes next, to be deleted otherwise:
-`data/citator-dryrun.sqlite` (now ~4 GB, loaded) and `data/citator-findings` (84 MB).
-
-## Owed before a real citator load, found by planning it, 2026-09-04
-
-- ~~**There is no operator verb that declares a method or records a measurement.**~~ FIXED
-  2026-09-04: `citator declare --scores` reads a card the scorer writes (the operator's choice
-  of three shapes; `citator/scorecard.py` keeps the reasoning and what the other two cost).
-  Original note: The shipped
-  citator verbs are `find | load | cited-by | grant | revoke | review | decide`; production
-  holds `class_measurement` 0 and `assertion_method` 0; and `citator load` refuses a batch it
-  cannot stamp (`methods.Unscored`, ADR 0017 D3). So a real load cannot be performed with the
-  shipped CLI at all — the rehearsal used a hand-written script, which is not a thing an
-  operator should do, because it stamps a published precision onto every row a load writes.
-  **The shape is Cameron's**: a verb that hardcodes migration 0016's figures makes the claim
-  for him; one that takes them as arguments makes him state what is claimed and where it came
-  from, which is what "every derived assertion carries provenance" points at and the more
-  tedious command. `docs/runbook.md` § The citator's first load, Blocker 1.
-- ~~**`reviewer` is 0 rows**~~ GRANTED 2026-09-04: reviewer 1, the operator, credited
-  "Cameron Rex" — ADR 0016's reviewer zero. **The capacity question is what remains**: 1,946
-  exposed keys is roughly sixteen hours of reading at thirty seconds each, against five on the
-  sixty-decision sheet, and one reviewer holds the whole of it. Loading first is allowed
-  because the edges are simply held, which is what the gate is for.
-
-## Found by fixing decision_work, 2026-09-04
-
-- ~~**`Resolution.decision_id` is declared and never assigned**~~ — RESOLVED 2026-09-05.
-  The registry's drift was LATENT, not breaking, because of it — I said it would have failed
-  the first real load, and that was wrong (stb-ingest-specialist, 2026-09-04). It can fire
-  now, which is why `keys.works` tests `decision_work` before handing an id to the loader:
-  `cli._citator` rolls a whole document back on an IntegrityError, so drift must cost a
-  docket-level answer rather than every edge in the document.
-- **The `globally_addressed` comment described a refusal the code does not make.** A second
-  docket claiming a held record id is counted (`id_collisions`) and reported by the poller —
-  and the second record is still written, because the row was observed. The comment read "an
-  anomaly to report rather than a row to write", which a reader could take for a refusal.
-  Corrected, with the ordering constraint named: if a refusal is ever wanted it belongs in
-  `ingest_capture` before `_upsert_record`, never inside it, where the work-registry write
-  would already have minted a row for a refused record.
-- **The row-level `work_healed` counter has a named blind spot**: a drifted id first
-  re-observed under a SECOND docket has no `record_pk` for that row, so it reads as an
-  ordinary new decision and is repaired without being counted. Knowing better would cost a
-  query per row; the pass-level reconciliation catches it and everything else, so the counter
-  is per-capture attribution rather than the guarantee.
+- **The finder's class can name 31,972 of 32,627 held dockets; 655 dockets across 13
+  prefixes can never be cited to at all** (S5M 240, MC 178, EPM 164, CU 16, FSA 14, MXC 13,
+  SAI 11, PTO 6, RR 6, AM 3, WC 2, CNO 1, S5R 1), and two prefixes IN the class, `FSB` and
+  `PCA`, match nothing the record holds. 2.0% of the record outside the citator's reach, a
+  ceiling on recall no sixty-decision sheet could show. Not a defect — a scope never
+  measured, and the number to quote if the class (`citator/keys.py`) is ever widened.
+  Re-checked 2026-09-10: the class list is unchanged.
 
 ## Measured while planning forward text extraction, 2026-09-05 (against v2026.09.10)
 
@@ -986,13 +656,6 @@ regression; all three are gaps that have always been open and were never counted
   `sheet.present` strips `--` at every surface — display, MCP and the index. Putting them in
   `document_text` would need a synthetic document identity for a thing that is not a
   document, which is what ADR 0002 exists to refuse.)
-- **The `--` placeholder rate had drifted from its measurement and two comments still quoted
-  the old one.** `0011_enviro_comments.sql` and `search._comment_docs` both said "about half
-  the rows"; re-measured 2026-09-05 it is 23,902 of 34,384, **69.5%** — the backfill added
-  26,438 comments and moved it. Both corrected in place, with the date and the reason the old
-  figure was right when written. Worth repeating because it caught me too: `--` is TRUTHY and
-  is not NULL, so a test for emptiness reads an absence as content, and that is exactly the
-  bug ultrareview found in `mcp.py` on 2026-08-31.
 
 ## From reviewing ADR 0024 as a change to the forward pass, 2026-09-05
 
@@ -1090,12 +753,6 @@ amendments are listed in the migration's own header; these are the rest.
 - **`extraction_dispatch` carries no `ingest_mode`** — ADR 0024 § Owed 6's gap, same as
   `ocr_run`'s. Not urgent: `ADD COLUMN` survives publication, and the primary key is the only
   rebuild-class change the critic's widening survey could find.
-- **`resolve._anchored` runs to the end of the line, so a trailing clause can donate a date** —
-  real, but **the obvious fix is worse than the defect, and that is now measured** rather than
-  argued. Bounding the segment at a sentence end (`\.\s+(?=[A-Z])`) as well as at the next
-  docket number moves 34 of the 16,051 work-level rows: 29 lost, 5 gained, none reassigned to
-  a different decision (whole record, 2026-09-05). Reading the 29 is what settles it — roughly
-  25 are FALSE CUTS on legal abbreviation, not on sentences:
 
   - `NOR 42142, Consumers Energy Company v. CSX Transportation, Inc., served January 11, 2018`
     — `v. C` is a case name, and the cut lands there
