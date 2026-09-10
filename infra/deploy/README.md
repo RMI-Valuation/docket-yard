@@ -83,6 +83,15 @@ is an instance and not the container service.
    sudo systemctl enable --now docketyard-webwatch.timer  # restart web when it is unhealthy
    sudo cp /srv/docketyard/docketyard-failed@.service /etc/systemd/system/ && chmod +x /srv/docketyard/unit_outcome.sh
    sudo systemctl daemon-reload                             # the units' OnFailure= handler
+   # the three guards from the 2026-09-06 outage (§ above): the ad-hoc gauge, the user-slice
+   # cap, and the ssh keepalive. A rebuild without them has the outage's shape again.
+   sudo cp /srv/docketyard/docketyard-adhoc.* /etc/systemd/system/ && chmod +x /srv/docketyard/adhoc_watch.sh
+   sudo systemctl enable --now docketyard-adhoc.timer
+   sudo mkdir -p /etc/systemd/system/user-1000.slice.d
+   sudo cp /srv/docketyard/user-slice-limits.conf /etc/systemd/system/user-1000.slice.d/limits.conf
+   sudo systemctl daemon-reload && sudo systemctl restart user-1000.slice
+   sudo cp /srv/docketyard/sshd-clientalive.conf /etc/ssh/sshd_config.d/10-docketyard-clientalive.conf
+   sudo sshd -t && sudo systemctl reload ssh
    ```
 
 ### Deploying a migrating release (ADR 0020)

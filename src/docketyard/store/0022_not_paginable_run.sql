@@ -86,7 +86,25 @@ SELECT 'run_outcome_vocab',
        strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now')
   FROM ocr_run
  WHERE outcome = 'skipped' AND reading_channel = 'text-layer' AND render_profile = 'native'
+ GROUP BY 1, 2  -- a GROUP BY so HAVING is legal on every SQLite, not only 3.39+ (review, 2026-09-10)
 HAVING COUNT(*) > 0;
+
+-- A SECOND CORRECTION, to a comment. Migration 0011's DDL says `enviro_comment.excerpt` is
+-- "absent on about half the rows", which was true of the forward record it was written
+-- against; re-measured 2026-09-05 after the backfill, it is absent on 23,902 of 34,384 (69.5%).
+-- The published `schema.sql` is read from `sqlite_master`, so editing the applied migration's
+-- text reaches only stores built after the edit and never the snapshot production publishes;
+-- the correction row is the layer that does (schema-critic and code review, 2026-09-10).
+-- Only where the store holds comments: a fresh store makes no claim about a record it has
+-- not seen, which is the rule the row above already keeps.
+INSERT INTO correction (target_table, target_key, note, method, method_version, asserted_at)
+SELECT 'enviro_comment', 'excerpt',
+       'The column comment says the excerpt is absent on about half the rows. That was the'
+       || ' forward record. Re-measured 2026-09-05 over the whole record after the backfill:'
+       || ' absent (the -- placeholder) on 23,902 of 34,384 rows, 69.5%. The placeholder is'
+       || ' --, not NULL; a test for emptiness reads an absence as content.',
+       'migration-0022', 'unversioned', strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now')
+ WHERE EXISTS (SELECT 1 FROM enviro_comment);
 
 PRAGMA user_version = 22;
 

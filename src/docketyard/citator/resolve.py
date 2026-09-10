@@ -87,6 +87,8 @@ class Resolution:
 # gap is a SPAN_VERSION bump and a re-measurement of every edge stamped by the old one
 # (`judge.py`), never a quiet widening here.
 SERVED = re.compile(r"served\s+(\w+)\.?\s+(\d{1,2}),?\s+(\d{4})", re.I)
+# a sentence boundary the anchor window stops at: period, space, capitalised word, space
+SENTENCE = re.compile(r"\.\s+(?=[A-Z][a-z]+\s)")
 
 # Full names and the abbreviations the Board actually prints, counted over the same 200,000
 # pages. `sept` is in this map because it was MEASURED at 1,335 occurrences — more than
@@ -160,20 +162,37 @@ def _anchored(passage: str, printed: str) -> str:
     see also FD 36873." handed FD 36873 the document EP 445 named, an edge asserting something
     the page never said (reproduced 2026-09-05, code review).
 
-    A KNOWN LIMIT, recorded rather than parsed around: a bare parent printed on the same line
-    as its own sub-docket matches inside the longer form, so `FD 36873` can take the segment
-    that follows `FD 36873 (Sub-No. 1)`. Both are the same family and the cost is a parent
-    credited with a child's document; a real fix is a finder that reports each occurrence's
-    offset, which is a `find.py` change and not one to make in passing.
+    THREE THINGS THE FIRST VERSION GOT WRONG (code review, 2026-09-10), each reproduced:
+
+    - `printed` is the finder's target, whitespace-COLLAPSED (`find.printed`), while the
+      quoted line keeps the page's own spacing; `FD  36873` with two spaces, common in OCR,
+      never matched and its served date was dropped uncounted. The line is collapsed the
+      same way before the search.
+    - A bare `str.find` matched INSIDE a longer, different-family number: `FD 3687` found
+      itself in `FD 36873` and took that citation's served date. The occurrence must not be
+      followed by another digit. (A parent found inside its own sub-docket form,
+      `FD 36873 (Sub-No. 1)`, still matches — same family, the limit recorded before — and
+      a finder that reports offsets is still the real fix.)
+    - The window ran to the next docket-shaped token or the end of the line, so a later
+      citation on the same line that names its proceeding by TITLE handed its served date
+      to the numbered docket before it. The window now also ends at a sentence boundary —
+      a period, space, and a capitalised word followed by a space (`. Compare `, `. See `)
+      — which leaves abbreviations inside a caption (`Ry. Co.—`, `Inc. (`) alone.
     """
     out = []
-    for line in passage.split(" | "):
-        start = 0
-        while printed and (at := line.find(printed, start)) != -1:
-            end = at + len(printed)
-            following = keys.DOCKET.search(line, end)
-            out.append(line[end : following.start() if following else len(line)])
-            start = end
+    if not printed:
+        return ""
+    target = re.compile(r"(?<![A-Za-z0-9])" + re.escape(printed) + r"(?!\d)")
+    for raw in passage.split(" | "):
+        line = " ".join(raw.split())
+        for m in target.finditer(line):
+            end = m.end()
+            stops = [len(line)]
+            if following := keys.DOCKET.search(line, end):
+                stops.append(following.start())
+            if sentence := SENTENCE.search(line, end):
+                stops.append(sentence.start())
+            out.append(line[end : min(stops)])
     return " | ".join(out)
 
 

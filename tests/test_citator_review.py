@@ -493,3 +493,38 @@ def test_a_grant_is_by_hand_and_a_re_grant_keeps_the_id(tmp_path):
     assert con.execute("SELECT revoked_at FROM reviewer").fetchone() == (None,)
     with pytest.raises(ValueError, match="credit name"):
         review.grant(con, "b@example.com", "   ", "no name")
+
+
+def test_accepting_a_resolution_keeps_the_work_the_machine_named(tmp_path):
+    """A human row outranks the machine's; one that carried the docket alone would silently
+    drop the work-level answer for the record's most-trusted edges (code review, 2026-09-10).
+    Accepted keeps it; corrected and rejected name no work."""
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO decision_record (decision_pk, docket_id, stb_decision_id, service_date,"
+        " observed_in_event) VALUES (2, 3, '77777', '2021-03-12', 1)"
+    )
+    con.execute("INSERT OR IGNORE INTO decision_work VALUES ('77777')")
+    stamps = _scored(con)
+    _load(
+        con,
+        stamps,
+        {"page": 4, "target": "AB 1242", "quoted": "See AB 1242 (STB served Mar. 12, 2021)."},
+    )
+    assert con.execute(
+        "SELECT cited_docket_id, cited_decision_id FROM citation_resolution"
+        " WHERE superseded_by IS NULL"
+    ).fetchall() == [(3, "77777")]
+    queue = review.pending(con, "citation_exposed")
+    review.decide(
+        con,
+        reviewer_id=_reviewer(con),
+        queue="citation_exposed",
+        item=queue[0],
+        decision="accepted",
+        note="checked the page",
+    )
+    assert con.execute(
+        "SELECT method, cited_docket_id, cited_decision_id FROM citation_resolution"
+        " WHERE superseded_by IS NULL"
+    ).fetchall() == [("human", 3, "77777")]

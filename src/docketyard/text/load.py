@@ -372,9 +372,8 @@ def header_of_extraction(record: dict) -> Header:
     # this pass did not read and the next one may. `document_pagination` has kept them apart
     # since migration 0018; this is the reading side catching up. The 3,271 rows written
     # before that migration keep `skipped`, and `run_outcome_vocab`'s note says so.
-    outcome = {"not-paginable": "not-paginable", "failed": "failed"}.get(
-        record.get("outcome", "paginated"), "read"
-    )
+    raw = record.get("outcome", "paginated")
+    outcome = raw if raw in ("not-paginable", "failed") else "read"
     return Header(
         sha_field(record),
         Key(

@@ -88,6 +88,16 @@ CREATE TABLE producer_declaration (
 -- ONE LIVE PIN PER READING KEY, and the history beside it. The partial index is what makes
 -- "the pin in force" singular without making the past unwritable (`assertion_method`'s
 -- `rank_version` indexes are the same idea with a different axis).
+--
+-- THE LIVE PREDICATE IS `retired_at IS NULL`, NOT the store's `superseded_by IS NULL`, on
+-- purpose (code review, 2026-09-10, which asked). Every other assertion table retires a row
+-- with no successor by pointing it at ITSELF, and `store/supersede.py` says plainly that a
+-- crash between its two steps "leaves a self-pointer that cannot be told apart from a
+-- deliberate retirement". For a reading it is a row that gets re-derived; for a PIN it would
+-- be a key silently un-constrained. `retired_at` makes an un-pin explicit and a crash
+-- visible (retired, no successor, no un-pin recorded — nothing writes that shape on purpose).
+-- The cost is that `supersede.retire` does not serve this table and `text/load.py` carries
+-- its own retire-and-append; readers must use THIS predicate. Recorded in docs/deferred.md.
 CREATE UNIQUE INDEX producer_declaration_live ON producer_declaration
     (reading_channel, render_profile, reading_role) WHERE retired_at IS NULL;
 

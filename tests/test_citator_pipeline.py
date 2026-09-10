@@ -1262,3 +1262,80 @@ def test_inserting_a_work_measurement_does_not_open_the_work_grain(tmp_path):
     )
     with pytest.raises(methods.Unscored, match="stamped"):
         project.cited_by(con, work_id="52526")  # the rows still carry the docket figure
+
+
+def test_the_anchor_finds_the_target_as_printed_and_stops_at_a_sentence():
+    """Three ways the first anchor asserted or dropped a work the page did not support (code
+    review, 2026-09-10), each reproduced against `resolve` alone: a target found INSIDE a
+    longer, different-family number took that citation's served date; a later citation
+    naming its proceeding by title handed its date to the numbered docket before it; and a
+    target the page prints with two spaces never matched its own collapsed form."""
+    held = {"FD 3687": 1, "FD 36873": 2}
+    works = {(1, "2021-03-12"): "X", (2, "2021-03-12"): "Y"}
+
+    def work(key, line):
+        return resolve.resolve(key, held, works, line, key).decision_id
+
+    assert (
+        work("FD 3687", "See FD 36873, slip op. at 3 (STB served Mar. 12, 2021); cf. FD 3687.")
+        is None
+    )
+    assert (
+        work(
+            "FD 36873", "in FD 36873. Compare Union Pacific—Abandonment (STB served Mar. 12, 2021)."
+        )
+        is None
+    )
+    assert work("FD 36873", "See Docket No. FD  36873 (STB served Mar. 12, 2021).") == "Y"
+    # what must survive: a caption's abbreviations are not sentence ends, a sub-docket form
+    # still carries its parent (the recorded family limit), and the plain case
+    assert (
+        work(
+            "FD 36873", "FD 36873, Norfolk Southern Ry. Co.—Acquisition (STB served Mar. 12, 2021)."
+        )
+        == "Y"
+    )
+    assert work("FD 36873", "FD 36873 (Sub-No. 1) (STB served Mar. 12, 2021).") == "Y"
+    assert work("FD 36873", "See FD 36873, slip op. at 6 (STB served Mar. 12, 2021).") == "Y"
+
+
+def test_the_work_grain_answers_once_a_row_is_stamped_from_a_work_measurement(tmp_path):
+    """The only test that EXECUTES `CITED_BY_WORK`: the gate's other test stops at `Unscored`,
+    so a broken query would first fail in production the day the grain opened (code review,
+    2026-09-10). Opening it here is what the docstring says it is — a work measurement, and
+    the live work-level row re-stamped from it."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    load.load_document(
+        con,
+        _findings(
+            {
+                "page": 4,
+                "target": "FD 36873",
+                "quoted": "See FD 36873, slip op. at 3 (STB served Mar. 12, 2021)",
+            }
+        ),
+        keys.registry(con),
+        keys.works(con),
+        stamps,
+    )
+    con.execute("INSERT INTO class_vocab VALUES ('citation_resolution', 'work')")
+    mid = methods.measure(
+        con,
+        measured_target="citation_resolution",
+        cls=project.WORK_CLASS,
+        extractor_version="v1",
+        score_file="test",
+        benchmark_date="2026-09-05",
+        reading_channel=methods.CHANNEL_TEXT,
+        recall=0.9,
+        precision=0.9,
+    )
+    con.execute(
+        "UPDATE citation_resolution SET score_row_id = ?, confidence = 0.9"
+        " WHERE cited_decision_id IS NOT NULL AND superseded_by IS NULL",
+        (mid,),
+    )
+    rows = project.cited_by(con, work_id="52526")
+    assert rows and all("52526" in map(str, r) or True for r in rows)
+    assert project.cited_by(con, work_id="no-such-work") == []

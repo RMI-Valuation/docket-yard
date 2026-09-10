@@ -347,23 +347,30 @@ def decide(
         # resolved-to-nothing. Without this the map wrote `resolved` with a NULL docket and
         # tripped migration 0014's outcome CHECK mid-transaction, surfacing as a traceback.
         stored = con.execute(
-            "SELECT outcome FROM citation_resolution WHERE citing_document = ? AND page = ?"
+            "SELECT outcome, cited_decision_id FROM citation_resolution"
+            " WHERE citing_document = ? AND page = ?"
             " AND target_kind = ? AND target_key = ? AND superseded_by IS NULL"
             " AND confidence_state <> 'human' ORDER BY resolution_id DESC LIMIT 1",
             (item["citing_document"], item["page"], item["target_kind"], item["target_key"]),
         ).fetchone()
-        outcome, docket_id = {
+        # ACCEPTED KEEPS THE WORK TOO. The machine row may name the document inside the
+        # docket (`cited_decision_id`, ADR 0018 D4); a human row that carried the docket
+        # alone would outrank it and silently drop the record's most-trusted work-level
+        # edge (code review, 2026-09-10). Corrected and rejected name no work: the reviewer
+        # answered the docket question and nothing else.
+        outcome, docket_id, decision_id = {
             "accepted": (
                 (stored[0] if stored else "unresolved"),
                 item["cited_docket_id"],
+                stored[1] if stored else None,
             ),
-            "corrected": ("resolved", cited_docket_id),
-            "rejected": ("unresolved", None),
+            "corrected": ("resolved", cited_docket_id, None),
+            "rejected": ("unresolved", None, None),
         }[decision]
         if decision == "corrected" and docket_id is None:
             raise ValueError("a corrected decision must name the docket it corrects to")
         if outcome not in ("resolved", "repaired"):
-            docket_id = None  # 0014's CHECK: an unresolved row names no docket
+            docket_id = decision_id = None  # 0014's CHECK: an unresolved row names no docket
         # retire the machine's live answer, then assert the human's over the same key
         # EVERY live resolution on the key, the previous human answer included: ADR 0016's
         # "a later review supersedes" means a review may amend a review, and § 7 refines § 5
@@ -388,9 +395,9 @@ def decide(
         cur = con.execute(
             "INSERT INTO citation_resolution (citing_document, page, target_kind, target_key,"
             " method, method_version, reading_channel, outcome, cited_docket_id,"
-            " asserted_from_document, source_location, asserted_at, confidence,"
-            " confidence_state)"
-            " VALUES (?, ?, ?, ?, 'human', ?, 'human', ?, ?, ?, ?, ?, 1.0, 'human')",
+            " cited_decision_id, asserted_from_document, source_location, asserted_at,"
+            " confidence, confidence_state)"
+            " VALUES (?, ?, ?, ?, 'human', ?, 'human', ?, ?, ?, ?, ?, ?, 1.0, 'human')",
             (
                 item["citing_document"],
                 item["page"],
@@ -399,6 +406,7 @@ def decide(
                 QUEUE_VERSION,
                 outcome,
                 docket_id,
+                decision_id,
                 item["citing_document"],
                 json.dumps(
                     {"page": item["page"], "reviewer_id": reviewer_id, "queue": queue},

@@ -1153,3 +1153,44 @@ amendments are listed in the migration's own header; these are the rest.
   exception counted apart by `batches._apply` would do it. Also semantically: `Unreadable` is
   documented as what the STORE shows to be wrong with the READING, and a pin mismatch is wrong
   with the configuration.
+
+## From the release review of v2026.09.10..HEAD, 2026-09-10 (against v2026.09.11, before tagging)
+
+- **A NULL `cited_decision_id` under `registry-match@rule-1` is ambiguous** between "never
+  looked for a work" (a row asserted before the work-level step shipped) and "looked, and the
+  day was ambiguous or unnamed". The step rides on the unchanged version by the 2026-09-05
+  decision recorded in `resolve.py` (one row asserts the complete outcome; migration 0014 owed
+  it), and a re-walk supersedes only rows whose answer changed, so the old rows keep their
+  stamp. `asserted_at` against the deploy time tells them apart; nothing in
+  `assertion_method` or `class_measurement` records that the method's output widened. A note
+  row in `assertion_method` naming the date, or a `rule-1a`, would; the operator's call.
+- **`producer_declaration`'s live predicate is `retired_at IS NULL`**, not the store's
+  `superseded_by IS NULL`, deliberately (the migration's header says why: an un-pin must be
+  distinguishable from a crash). Cost: `store/supersede.py` does not serve it and
+  `text/load.py` carries its own retire-and-append. Any reader walking the table must use its
+  predicate. If a second pinned table appears, lift the idiom into `supersede.py` with a
+  `retire_col` parameter rather than copy the loader's.
+- **The fleet's pass key and the store's pin are two registries for one fact.**
+  `tools/fleet/pagequeue.PASSES` (which is `ocr_wave.DOTS`) and `producer_declaration` share
+  nothing but a convention; `_manifest.json` carries the key and `text load` never declares
+  or checks a pin from it. When the poller stage lands, `text load` should read the root's
+  manifest and `declare_producer(by=manifest)` before loading, so the two are one declaration.
+- **Failure ownership in the queue is a string prefix** (`page:`, `server:`, `blob:`,
+  `lease`, `operator:`), enforced at `fail(final=True)` and read by `LIKE 'page:%'`. A column
+  `owner TEXT CHECK (owner IN (...))` on `job` is the stronger form; the live queue would
+  need a one-off migration, and the workers on both machines updated together.
+- **`CPUQuota=50%` on the user slice bounds one of the outage's two contributors**; the blobs
+  timer in `system.slice` is unbounded and `web` has no reservation. `CPUWeight` shares (the
+  service high, the timers and the user slice low) would resolve contention in the service's
+  favour whatever the source, and leave ad-hoc work unthrottled on an idle box. Infra design;
+  the operator's call.
+- **Queue-side costs, real but small**: `seed_pass` asks the queue per document (three point
+  queries each, ~40k documents; tens of seconds); the worker opens the PDF once per page
+  rather than once per document; the lease is extended after every page where every fourth
+  would do. None moves the pass's clock, which is the engine's.
+- **`resolve.MONTHS`/`served_date` and `web/cite.py`'s `_MONTHS`/`parse_date`** are two
+  month tables and two date parsers that already differ at the edges (`cite` takes `m/d/Y`
+  and ISO; `resolve` takes full names). One shared module under `docketyard/text/` would do;
+  the resolver's table was measured over 200,000 pages and is the one to keep.
+- **`review._raw_docket` is the sixth hand-written `SELECT raw_docket FROM docket`**; an
+  accessor beside `dockets.canonical_of` would give every surface the same label and fallback.
