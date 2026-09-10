@@ -73,6 +73,13 @@ class Resolution:
 # docket-level one." So `decision_id` rides on the rule that resolved the docket, and
 # `method_version` stays `rule-1` / `rule-2-repair`.
 #
+# A NULL `decision_id` under `rule-1` therefore means ONE thing, "looked, and the page named
+# no date or an ambiguous one", never "asserted before this step existed": the operator
+# decided 2026-09-10 to keep the version on the measured fact that production held zero
+# rows in every citator table that day (the 2026-09-04 chain ran into a copy that is never
+# loaded), so every `rule-1` row the record will ever hold postdates the widening. Any LATER
+# widening of what a row asserts is a version bump and a re-score of the checked sheet.
+#
 # The pattern is `judge.SPAN_NAMES_DOCUMENT`'s `served` alternative with the date completed,
 # which makes ADR 0018 D4's FIRST condition — "the text names a document" — true BY
 # CONSTRUCTION rather than by a second call into `judge`. A resolver that asked `judge` would

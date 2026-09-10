@@ -813,14 +813,6 @@ amendments are listed in the migration's own header; these are the rest.
 
 ## From the release review of v2026.09.10..HEAD, 2026-09-10 (against v2026.09.11, before tagging)
 
-- **A NULL `cited_decision_id` under `registry-match@rule-1` is ambiguous** between "never
-  looked for a work" (a row asserted before the work-level step shipped) and "looked, and the
-  day was ambiguous or unnamed". The step rides on the unchanged version by the 2026-09-05
-  decision recorded in `resolve.py` (one row asserts the complete outcome; migration 0014 owed
-  it), and a re-walk supersedes only rows whose answer changed, so the old rows keep their
-  stamp. `asserted_at` against the deploy time tells them apart; nothing in
-  `assertion_method` or `class_measurement` records that the method's output widened. A note
-  row in `assertion_method` naming the date, or a `rule-1a`, would; the operator's call.
 - **`producer_declaration`'s live predicate is `retired_at IS NULL`**, not the store's
   `superseded_by IS NULL`, deliberately (the migration's header says why: an un-pin must be
   distinguishable from a crash). Cost: `store/supersede.py` does not serve it and

@@ -23,8 +23,6 @@ decisions have their own section.
 
 ## The operator's decisions
 
-- The NULL `cited_decision_id` provenance question (`deferred.md`, 2026-09-10): a note in
-  the method registry, or a `rule-1a` and a re-walk
 - Open the work grain: one `class_measurement` on `('citation_resolution', 'work')` from a
   checked sheet, then `cited-by --work` answers. Needs the reviewer hours above
 - **Party types (F3)**: rules v2 at 83.3% on its own sheet; a second unseen sample must
