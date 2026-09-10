@@ -1,6 +1,6 @@
 # ADR 0025 — Derivation runs on leased pages, on the operator's machines, never on the instance
 
-- **Status:** Proposed
+- **Status:** Accepted 2026-09-10 (the operator)
 - **Date:** 2026-09-09
 
 ## Context

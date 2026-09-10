@@ -1,8 +1,9 @@
 # The compute fleet — derivation on the operator's LAN
 
-**Status: the queue, one worker and the monitor are running on RMI-AI-MACHINE since
-2026-09-09; the off-box alert and every other node are owed.** The decision this rests on is
-ADR 0025 (Proposed). This document is the mechanics: what the machines are, what a pass is,
+**Status: running since 2026-09-09 — the queue, monitor and one worker on RMI-AI-MACHINE,
+six workers on the operator's workstation while it is idle, Alloy writing from the node; the
+Grafana rules, the Mac and the Jetson are owed.** The decision this rests on is ADR 0025,
+Accepted 2026-09-10. This document is the mechanics: what the machines are, what a pass is,
 how a page is leased, what the monitor shows, and what a second node must do to join.
 
 The mistake it prevents: **a derivation run that dies and is not noticed.** On 2026-09-06 the
@@ -215,7 +216,6 @@ project ever calls a model from a page; batch derivation is the queue.
 ## What is owed
 
 - The three rules in Grafana Cloud (stalled, failing, absent — each `for: 10m`); Alloy is up
-- ADR 0025's acceptance, or its revision
 - The Mac's pass, after the operator resets it; the Jetson's address; two workers on the
   node, measured for the activation peak first
 - `second` and `graphic` run through the queue rather than `ocr_wave.py`, so that every pass
