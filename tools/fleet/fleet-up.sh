@@ -37,7 +37,7 @@ up() {  # up <session> <command>
     fi
 }
 
-WORKER="$PY $FLEET/dots_worker.py --db $DB --blobs /data/docketyard/blobs --scratch $OCR/.render"
+WORKER="$PY $FLEET/dots_worker.py --db $DB --blobs /data/docketyard/blobs --scratch $OCR/.render     --stop-file $OCR/.stop"   # touch it to stop the worker cleanly; the loop restarts it a minute on
 COLLECT="$PY $FLEET/pagequeue.py --db $DB collect --out $OCR"
 
 up dots-vllm "bash $FLEET/dots-serve.sh"

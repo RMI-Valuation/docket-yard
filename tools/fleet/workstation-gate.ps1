@@ -134,9 +134,10 @@ while ($true) {
         StopAll; $running = $false
     } elseif ($running -and -not (AnyRunning)) {
         # workers exit on their own when the queue is empty (0) or the server is gone (2..5);
-        # a minute later they are started again if we are still idle, as the node's loop does
+        # they are started again a minute later — this branch's sleep plus the loop's — as
+        # the node's loop does. $wantOn holds here: the branch above handles its other value
         Start-Sleep -Seconds 30
-        if ($wantOn) { StartWorkers }
+        StartWorkers
     }
     Start-Sleep -Seconds 30
 }

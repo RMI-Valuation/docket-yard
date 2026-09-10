@@ -209,6 +209,45 @@ def test_seed_read_collect_and_reseed(tmp_path):
     assert q.collectable("dots") == []
 
 
+def test_a_reread_verdict_stands_when_the_file_is_already_gone(tmp_path):
+    out = tmp_path / "ocr"
+    _route_root(out, A, {1: "degraded"})
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", "dots", {**KEY, "host": "x"})
+    pq.seed_pass(q, "dots", out)
+    (j,) = q.claim("w1", "dots", 1, 60)
+    for _ in range(2):  # the server died on it three times: a foreign failure, collected
+        q.fail("w1", j["job_id"], "server: refused", final=False)
+        q.claim("w1", "dots", 1, 60)
+    q.fail("w1", j["job_id"], "server: refused", final=False)
+    assert pq.collect_pass(q, "dots", out) == 1
+    ocr_wave.shard(out / "dots", A).unlink()  # an earlier walk renamed it, then aborted
+    n = pq.seed_pass(q, "dots", out)
+    assert (n["set_aside"], n["new"]) == (1, 1)
+    assert q.status()["passes"]["dots"]["pending"] == 1
+
+
+def test_an_operators_page_owned_failure_keeps_the_document_whole(tmp_path):
+    out = tmp_path / "ocr"
+    _route_root(out, A, {1: "degraded", 2: "degraded"})
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", "dots", {**KEY, "host": "x"})
+    pq.seed_pass(q, "dots", out)
+    a, b = q.claim("w1", "dots", 2, 60)
+    q.done("w1", a["job_id"], "[]")
+    q.release("w1", [b["job_id"]])
+
+    class Args:
+        db, job, error, page_owned = tmp_path / "q.sqlite", b["job_id"], "kills the engine", True
+
+    pq.cmd_fail(Args)
+    assert pq.collect_pass(q, "dots", out) == 1
+    assert q.known("dots", A) == "whole"
+    Args.page_owned = False  # without the flag it would have been the operator's, and re-read
+    row = q.con.execute("SELECT error FROM job WHERE job_id = ?", (b["job_id"],)).fetchone()
+    assert row["error"].startswith("page: operator:")
+
+
 def test_the_old_drivers_file_is_whole_only_if_it_says_so(tmp_path):
     out = tmp_path / "ocr"
     _route_root(out, A, {1: "degraded"})

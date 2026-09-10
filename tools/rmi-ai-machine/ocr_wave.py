@@ -131,8 +131,9 @@ layout element's bbox, its category, and the corresponding text content within t
 """
 
 
-def now() -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())
+def now(epoch: float | None = None) -> str:
+    """The wave's one clock and one format; `epoch` renders a moment other than this one."""
+    return time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(epoch))
 
 
 def shard(root: Path, sha: str) -> Path:

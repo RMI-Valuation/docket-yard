@@ -39,12 +39,8 @@ HEX64 = frozenset("0123456789abcdef")
 
 
 def serve(db: Path, blobs: Path, token: str, port: int, bind: str) -> None:
-    local = threading.local()
-
-    def queue() -> Queue:
-        if not hasattr(local, "q"):
-            local.q = Queue(db)
-        return local.q
+    q = Queue(db, shared=True)  # one connection; the lock serialises the handler threads
+    lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
         def _authorised(self) -> bool:
@@ -79,32 +75,38 @@ def serve(db: Path, blobs: Path, token: str, port: int, bind: str) -> None:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
             except (ValueError, TypeError):
                 return self._json(400, {"error": "body is not JSON"})
-            q = queue()
             try:
-                if path == "/register":
-                    q.register(body["name"], body["pass"], body["producer"])
-                    return self._json(200, {})
-                if path == "/claim":
-                    jobs = q.claim(body["worker"], body["pass"], body["n"], body["lease_seconds"])
-                    return self._json(200, {"jobs": jobs})
-                if path == "/extend":
-                    q.extend(body["worker"], body["job_ids"], body["lease_seconds"])
-                    return self._json(200, {})
-                if path == "/release":
-                    q.release(body["worker"], body["job_ids"])
-                    return self._json(200, {})
-                if path == "/done":
-                    ok = q.done(body["worker"], body["job_id"], body["raw"])
-                    return self._json(200, {"accepted": ok})
-                if path == "/fail":
-                    q.fail(body["worker"], body["job_id"], body["error"], final=body["final"])
-                    return self._json(200, {})
+                with lock:
+                    return self._dispatch(path, body)
             except KeyMismatch as e:
                 return self._json(409, {"error": str(e)})
-            except ValueError as e:
+            except (ValueError, TypeError) as e:
                 return self._json(400, {"error": str(e)})
             except KeyError as e:
                 return self._json(400, {"error": f"missing {e}"})
+            except Exception as e:  # noqa: BLE001 — a locked queue, anything: still an answer
+                return self._json(500, {"error": f"{type(e).__name__}: {e}"})
+
+        def _dispatch(self, path: str, body: dict):
+            if path == "/register":
+                q.register(body["name"], body["pass"], body["producer"])
+                return self._json(200, {})
+            if path == "/claim":
+                jobs = q.claim(body["worker"], body["pass"], body["n"], body["lease_seconds"])
+                return self._json(200, {"jobs": jobs})
+            if path == "/extend":
+                q.extend(body["worker"], body["job_ids"], body["lease_seconds"])
+                return self._json(200, {})
+            if path == "/release":
+                q.release(body["worker"], body["job_ids"])
+                return self._json(200, {})
+            if path == "/done":
+                return self._json(
+                    200, {"accepted": q.done(body["worker"], body["job_id"], body["raw"])}
+                )
+            if path == "/fail":
+                q.fail(body["worker"], body["job_id"], body["error"], final=body["final"])
+                return self._json(200, {})
             return self._json(404, {"error": "not found"})
 
         def _json(self, code: int, obj) -> None:

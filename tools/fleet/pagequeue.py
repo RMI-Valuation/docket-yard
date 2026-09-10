@@ -26,7 +26,7 @@ order are as before.
     python3 pagequeue.py --db Q status
     python3 pagequeue.py --db Q reap                        # expire dead leases; claim does too
     python3 pagequeue.py --db Q collect --out /data/docketyard/ocr
-    python3 pagequeue.py --db Q fail --job N --error '...'  # an operator's decision, logged
+    python3 pagequeue.py --db Q fail --job N --error '...' [--page-owned]  # an operator's call
 
 Standard library only. `Queue` is the whole protocol; `queue_server.py` puts the six calls a
 worker makes over HTTP for a machine that does not hold the file, and `RemoteQueue` is that
@@ -47,7 +47,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "rmi-ai-machine"))
 
-from ocr_wave import now  # noqa: E402 — one clock, one format; `_epoch` parses it back
+from ocr_wave import DOTS, ROOTS, now  # noqa: E402 — the driver's key, roots and clock
 
 STATES = ("pending", "leased", "done", "failed")
 
@@ -57,11 +57,11 @@ PASSES = {
     # it was measured against, and a re-read primary is not that text); and the page bound,
     # which belongs to the pass so `oversize` means one thing on every node
     "dots": {
-        "key": {"method": "dots.mocr", "method_version": "1.5", "render_profile": "200"},
+        "key": DOTS,  # the driver's own constant: one key, never two copies
         "role": "primary",
         "payload_kind": "dots.mocr.json",
         "class": "degraded",
-        "root": "dots",
+        "root": ROOTS["dots"],
         "invalidates": ("second",),
         "max_megapixels": 6.0,
     },
@@ -69,8 +69,10 @@ PASSES = {
 
 # A failure's reason says whose it is. `page:` is the page's own — a cut answer, an oversize
 # sheet, a page that will not rasterise, a timeout with the server healthy — and is final:
-# the document is whole with it failed. Anything else (`server:`, `lease`, `operator:`) is
-# not the page's, and a document holding one is re-read at the next seed.
+# the document is whole with it failed. Anything else (`server:`, `blob:`, `lease`,
+# `operator:`) is not the page's, and a document holding one is re-read at the next seed.
+# It is a prefix, agreed by convention among the writers in this directory; a column with a
+# CHECK would be the stronger form and is recorded as owed in docs/deferred.md.
 PAGE_OWNED = "page:"
 
 SCHEMA = """
@@ -123,16 +125,18 @@ class KeyMismatch(Exception):
 
 
 class Queue:
-    def __init__(self, path: Path, *, readonly: bool = False):
+    def __init__(self, path: Path, *, readonly: bool = False, shared: bool = False):
         """`readonly` opens an existing file and only that: a monitor pointed at the wrong
-        path must fail, not create an empty queue and report that nothing is owed."""
+        path must fail, not create an empty queue and report that nothing is owed. `shared`
+        lets one connection serve a threaded server (its calls are then serialised by the
+        caller's lock); the alternative, one connection per request, never hit a cache."""
+        kw = {"timeout": 60, "isolation_level": None, "check_same_thread": not shared}
         if readonly:
             if not path.exists():
                 raise FileNotFoundError(f"no queue at {path}")
-            uri = f"file:{path.as_posix()}?mode=ro"
-            self.con = sqlite3.connect(uri, uri=True, timeout=60, isolation_level=None)
+            self.con = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True, **kw)
         else:
-            self.con = sqlite3.connect(path, timeout=60, isolation_level=None)
+            self.con = sqlite3.connect(path, **kw)
         self.con.row_factory = sqlite3.Row
         self.con.execute("PRAGMA busy_timeout=60000")
         if not readonly:
@@ -167,26 +171,31 @@ class Queue:
 
     # --- the lease ----------------------------------------------------------------------
 
+    def _reap(self) -> int:
+        """Inside a transaction: every lease past its time goes back to pending, or to failed
+        if that was the last attempt."""
+        return self.con.execute(
+            "UPDATE job SET"
+            " state = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'pending' END,"
+            " finished_at = CASE WHEN attempts >= max_attempts THEN ? END,"
+            " error = CASE WHEN attempts >= max_attempts"
+            "   THEN 'lease expired on attempt ' || attempts ELSE error END,"
+            " lease_owner = NULL, lease_until = NULL"
+            " WHERE state = 'leased' AND lease_until < ?",
+            (now(), time.time()),
+        ).rowcount
+
     def reap(self) -> int:
-        """Every lease past its time goes back to pending, or to failed if that was the last
-        attempt. Every claim calls this, so a dead worker's pages return without an operator."""
         with self.tx():
-            return self.con.execute(
-                "UPDATE job SET"
-                " state = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'pending' END,"
-                " finished_at = CASE WHEN attempts >= max_attempts THEN ? END,"
-                " error = CASE WHEN attempts >= max_attempts"
-                "   THEN 'lease expired on attempt ' || attempts ELSE error END,"
-                " lease_owner = NULL, lease_until = NULL"
-                " WHERE state = 'leased' AND lease_until < ?",
-                (now(), time.time()),
-            ).rowcount
+            return self._reap()
 
     def claim(self, worker: str, pass_: str, n: int, lease_seconds: int) -> list[dict]:
         """Up to `n` pending pages, leased to `worker`. Atomic: two workers never hold one.
-        An attempt is spent at claim; `release` refunds it for a page never started."""
-        self.reap()
+        Every claim reaps first, in the same transaction, so a dead worker's pages return
+        without an operator. An attempt is spent at claim; `release` refunds it for a page
+        never started."""
         with self.tx():
+            self._reap()
             rows = self.con.execute(
                 "SELECT job_id, document_sha256, page_no, attempts FROM job"
                 " WHERE pass = ? AND state = 'pending' AND attempts < max_attempts"
@@ -361,7 +370,7 @@ class Queue:
         age is a fleet that has stopped reading; pages owed plus an hour of more failures
         than reads is a fleet that is failing."""
         t = time.time()
-        hour, day = _iso(t - 3600), _iso(t - 86400)
+        hour, day = now(t - 3600), now(t - 86400)
         passes: dict[str, dict] = {}
         for r in self.con.execute(
             "SELECT pass, state, COUNT(*) n FROM job GROUP BY pass, state ORDER BY 1, 2"
@@ -437,8 +446,8 @@ class RemoteQueue:
             data=json.dumps(body).encode("utf-8"),
             headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.token}"},
         )
-        try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
+        try:  # longer than the server's 60 s busy wait, so a write that lands is reported
+            with urllib.request.urlopen(req, timeout=120) as resp:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as e:
             detail = e.read().decode("utf-8", "replace")
@@ -446,6 +455,8 @@ class RemoteQueue:
                 raise KeyMismatch(detail) from e
             if e.code == 400:
                 raise ValueError(detail) from e
+            if e.code >= 500:
+                raise RuntimeError(f"queue server {e.code}: {detail}") from e
             raise
 
     def register(self, name: str, pass_: str, producer: dict) -> None:
@@ -482,10 +493,6 @@ def _epoch(iso: str) -> float:
     return calendar.timegm(time.strptime(iso[:19], "%Y-%m-%dT%H:%M:%S"))
 
 
-def _iso(epoch: float) -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(epoch))
-
-
 # --- the commands -------------------------------------------------------------------------
 
 
@@ -497,7 +504,7 @@ def seed_pass(q: Queue, pass_: str, out: Path, *, dry_run: bool = False) -> dict
     document's reading whole under one `ran_at`, and a `failed` on disk is what silenced
     9,915 documents on 2026-09-06. A file the queue does not know is the old driver's, which
     kept no reasons: whole only if it says `read` with no page failed."""
-    from ocr_wave import ROOTS, shard  # noqa: PLC0415
+    from ocr_wave import shard  # noqa: PLC0415
 
     spec = PASSES[pass_]
     route_root, out_root = out / ROOTS["route"], out / spec["root"]
@@ -522,7 +529,9 @@ def seed_pass(q: Queue, pass_: str, out: Path, *, dry_run: bool = False) -> dict
             if doc.get("outcome") == "read" and not doc.get("pages_failed"):
                 n["whole"] += 1
                 continue
-        if existing.exists():
+        if known == "reread" or existing.exists():
+            # the queue's verdict stands whether or not the file is still there: a walk
+            # that renamed it and then aborted must not leave the document stranded
             n["set_aside"] += 1
             reread.add(sha)
             if not dry_run:
@@ -538,14 +547,7 @@ def seed_pass(q: Queue, pass_: str, out: Path, *, dry_run: bool = False) -> dict
 
 
 def collect_pass(q: Queue, pass_: str, out: Path) -> int:
-    from ocr_wave import (  # noqa: PLC0415
-        ROOTS,
-        _write,
-        dots_page,
-        reading_document,
-        route_of,
-        shard,
-    )
+    from ocr_wave import _write, dots_page, reading_document, route_of, shard  # noqa: PLC0415
 
     spec = PASSES[pass_]
     out_root = out / spec["root"]
@@ -592,7 +594,6 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
                 "written_at": now(),
             },
         )
-    _ = ROOTS
     return written
 
 
@@ -624,11 +625,15 @@ def cmd_reap(args) -> int:
 
 
 def cmd_fail(args) -> int:
+    """An operator's decision. `--page-owned` says the fault is the page's — a sheet that
+    kills the engine, a scan nothing can read — and the document is whole with it failed;
+    without it the failure is the operator's, and the document is re-read at a later seed."""
     q = Queue(args.db)
+    prefix = f"{PAGE_OWNED} operator: " if args.page_owned else "operator: "
     n = q.con.execute(
         "UPDATE job SET state = 'failed', finished_at = ?, error = ?, lease_owner = NULL,"
         " lease_until = NULL WHERE job_id = ? AND state IN ('pending', 'leased')",
-        (now(), f"operator: {args.error}", args.job),
+        (now(), prefix + args.error, args.job),
     ).rowcount
     print(f"job {args.job}: {'failed' if n else 'not pending or leased; unchanged'}")
     return 0
@@ -650,6 +655,7 @@ def main() -> int:
     p = sub.add_parser("fail")
     p.add_argument("--job", type=int, required=True)
     p.add_argument("--error", required=True)
+    p.add_argument("--page-owned", action="store_true", help="the page's own fault: final")
     args = ap.parse_args()
     return {
         "seed": cmd_seed,

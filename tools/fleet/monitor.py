@@ -111,7 +111,11 @@ def metrics(status: dict, stall_seconds: int) -> str:
         "# TYPE docket_yard_fleet_worker_pages_done gauge",
     ]
     for w in status["workers"]:
-        label = f'worker="{w["name"]}",pass="{w["pass"]}",host="{w["producer"].get("host", "")}"'
+        esc = lambda v: str(v).replace("\\", "\\\\").replace('"', '\\"')  # noqa: E731
+        label = (
+            f'worker="{esc(w["name"])}",pass="{esc(w["pass"])}",'
+            f'host="{esc(w["producer"].get("host", ""))}"'
+        )
         age = w["last_seen_age_seconds"]
         lines.append(f"docket_yard_fleet_worker_last_seen_age_seconds{{{label}}} {age}")
         lines.append(f"docket_yard_fleet_worker_pages_done{{{label}}} {w['done']}")
@@ -200,19 +204,18 @@ def page(status: dict, stall_seconds: int) -> str:
 
 
 def serve(db: Path, port: int, stall_seconds: int, bind: str) -> None:
-    local = threading.local()  # one read-only connection per serving thread
-
-    def queue() -> Queue:
-        if not hasattr(local, "q"):
-            local.q = Queue(db, readonly=True)
-        return local.q
+    state: dict = {"q": None}  # one read-only connection, opened on first use, under a lock
+    lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802
             try:
-                status = queue().status()
+                with lock:
+                    if state["q"] is None:
+                        state["q"] = Queue(db, readonly=True, shared=True)
+                    status = state["q"].status()
             except Exception as e:  # noqa: BLE001 — the queue is what is being watched
-                local.__dict__.pop("q", None)
+                state["q"] = None
                 self._send(503, "text/plain", f"queue unreadable: {type(e).__name__}: {e}\n")
                 return
             path = self.path.split("?", 1)[0]

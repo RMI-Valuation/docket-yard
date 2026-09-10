@@ -32,10 +32,16 @@ server — only faster, with no server round-trip to slow it. So:
                         nothing, so the queue's read-age grows and the stall alarm can fire.
                         Gone longer than --server-wait: exit 2. Dying on two DIFFERENT pages
                         in a row: the server is the fault, exit 3
-    nobody's we named   everything else — the blob is missing, an import fails, the server
-                        answers 4xx or nonsense. Every leased page goes back unspent and the
-                        worker exits 4 with the traceback; the restart loop's minute is the
-                        throttle, and the monitor sees a fleet that is not reading
+    the document's      the blob is missing on the node, or will not open, or has fewer
+                        pages than the route says. Not the page's own, so not final: the
+                        page goes back as `blob: ...` with its attempt spent, and the
+                        document is re-read at a later seed once the blob is there. Not the
+                        worker's either — a worker that exited here would be restarted onto
+                        the same document, first in claim order, for ever
+    nobody's we named   everything else — an import fails, the server answers 4xx or
+                        nonsense, the queue stops answering. Every leased page goes back
+                        unspent and the worker exits 4 with the traceback; the restart loop's
+                        minute is the throttle, and the monitor sees a fleet not reading
     too many in a row   --max-consecutive-failures page-owned failures with no page read
                         between them is a cause nobody has named yet: release, exit 5
 
@@ -65,16 +71,20 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "rmi-ai-machine"))
 
-from ocr_wave import _dots_call  # noqa: E402 — the one call the driver makes, unchanged
+from ocr_wave import DOTS_MODEL, DOTS_SERVER, _dots_call  # noqa: E402 — the driver's own
 from pagequeue import PASSES, Queue, RemoteQueue  # noqa: E402
 
 PASS = "dots"
-DPI = 200
+DPI = int(PASSES[PASS]["key"]["render_profile"])  # the render IS the key; one source
 EXIT_SERVER_GONE, EXIT_SERVER_DIES, EXIT_ENVIRONMENT, EXIT_BREAKER = 2, 3, 4, 5
 
 
 class PageFailed(Exception):
     """The page's own fault; final."""
+
+
+class DocumentFailed(Exception):
+    """The document's — its bytes are not here or will not open; not final."""
 
 
 class ServerDown(Exception):
@@ -115,13 +125,20 @@ def wait_for_server(server: str, seconds: int) -> bool:
 def read_page(pdf, no: int, png: Path, server: str, model: str, timeout: int, mp: float):
     """The engine's raw answer for one page, or the exception that says whose fault it is.
     `pdf` is a path on the node or the document's bytes fetched from it."""
-    if isinstance(pdf, Path):
-        if not pdf.exists():
-            raise FileNotFoundError(pdf)  # the environment's: the blob is not on this box
-        opened = fitz.open(pdf)
-    else:
-        opened = fitz.open(stream=pdf, filetype="pdf")
-    with opened as doc:  # a file that will not open at all is the environment's too
+    try:
+        if isinstance(pdf, Path):
+            if not pdf.exists():
+                raise DocumentFailed("missing on the node")
+            opened = fitz.open(pdf)
+        else:
+            opened = fitz.open(stream=pdf, filetype="pdf")
+    except DocumentFailed:
+        raise
+    except Exception as e:  # noqa: BLE001 — a file that will not open at all
+        raise DocumentFailed(f"will not open: {type(e).__name__}: {e}") from e
+    with opened as doc:
+        if no > doc.page_count:
+            raise DocumentFailed(f"has {doc.page_count} pages, the route says {no}")
         page = doc[no - 1]
         r = page.rect
         megapixels = (r.width / 72 * DPI) * (r.height / 72 * DPI) / 1e6
@@ -159,8 +176,8 @@ def main() -> int:
     ap.add_argument("--queue", help="the node's queue server, from another machine")
     ap.add_argument("--token-file", type=Path, help="with --queue: the shared token")
     ap.add_argument("--scratch", required=True, type=Path)
-    ap.add_argument("--server", default="http://127.0.0.1:8120/v1")
-    ap.add_argument("--model", default="dots-mocr")
+    ap.add_argument("--server", default=DOTS_SERVER)
+    ap.add_argument("--model", default=DOTS_MODEL)
     ap.add_argument("--name", default=None, help="worker name; default <host>/dots")
     ap.add_argument("--batch", type=int, default=4, help="pages claimed per lease")
     ap.add_argument("--lease", type=int, default=2700, help="seconds; extended after every page")
@@ -215,78 +232,94 @@ def main() -> int:
     read = failed = streak = 0
     last_server_death: tuple[str, int] | None = None
     held: tuple[str, bytes] | None = None  # the last document fetched, for a remote worker
-    while True:
-        if args.max_pages and read + failed >= args.max_pages:
-            log(f"--max-pages reached: {read} read, {failed} failed")
-            return 0
-        jobs = q.claim(name, PASS, args.batch, args.lease)
-        if not jobs:
-            log(f"queue empty: {read} read, {failed} failed this session")
-            return 0
-        ids = [j["job_id"] for j in jobs]
-        for i, job in enumerate(jobs):
-            if args.stop_file and args.stop_file.exists():
-                q.release(name, ids[i:])
-                log(f"stop file {args.stop_file} present; {len(ids) - i} pages released; exit 0")
+    ids: list[int] = []
+
+    def stopping() -> bool:
+        return bool(args.stop_file and args.stop_file.exists())
+
+    try:
+        while True:
+            if args.max_pages and read + failed >= args.max_pages:
+                log(f"--max-pages reached: {read} read, {failed} failed")
                 return 0
-            sha, no = job["document_sha256"], job["page_no"]
-            if isinstance(q, Queue):
-                pdf = args.blobs / sha[:2] / sha
-            else:
-                if held is None or held[0] != sha:
-                    try:
-                        held = (sha, q.blob(sha))
-                    except Exception:  # noqa: BLE001 — the node, not the page
-                        log(f"  could not fetch {sha[:12]} from the node; releasing")
-                        log(traceback.format_exc())
-                        q.release(name, ids[i:])
-                        return EXIT_ENVIRONMENT
-                pdf = held[1]
-            png = args.scratch / f"{name.replace('/', '_')}_{sha[:12]}_p{no}.png"
-            try:
-                raw = read_page(
-                    pdf, no, png, args.server, args.model, args.timeout, spec["max_megapixels"]
-                )
-            except PageFailed as e:
-                q.fail(name, job["job_id"], f"page: {e}", final=True)
-                failed += 1
-                streak += 1
-                log(f"  page failed {sha[:12]} p{no} ({e})")
-                if streak >= args.max_consecutive_failures:
-                    q.release(name, ids[i + 1 :])
-                    log(f"{streak} page failures in a row, no page read; exit {EXIT_BREAKER}")
-                    return EXIT_BREAKER
-                continue
-            except ServerDown as e:
-                log(f"  SERVER DOWN on {sha[:12]} p{no} ({e}); {len(ids) - i - 1} released")
-                q.fail(name, job["job_id"], f"server: {e}", final=False)
-                q.release(name, ids[i + 1 :])
-                if last_server_death and last_server_death != (sha, no):
-                    log(f"the server died on two different pages in a row; exit {EXIT_SERVER_DIES}")
-                    return EXIT_SERVER_DIES
-                last_server_death = (sha, no)
-                if args.stop_file and args.stop_file.exists():
-                    log(f"stop file {args.stop_file} present; exit 0")
+            jobs = q.claim(name, PASS, args.batch, args.lease)
+            if not jobs:
+                log(f"queue empty: {read} read, {failed} failed this session")
+                return 0
+            ids = [j["job_id"] for j in jobs]
+            for i, job in enumerate(jobs):
+                if stopping():
+                    q.release(name, ids[i:])
+                    log(f"stop file present; {len(ids) - i} pages released; exit 0")
                     return 0
-                if not wait_for_server(args.server, args.server_wait):
-                    log(f"server did not return in {args.server_wait}s; exit {EXIT_SERVER_GONE}")
-                    return EXIT_SERVER_GONE
-                log("server is back")
-                break
-            except Exception:  # noqa: BLE001 — nobody's we named: not the page's
-                log(f"  NOT THE PAGE'S FAULT on {sha[:12]} p{no}; releasing {len(ids) - i} pages")
-                log(traceback.format_exc())
-                q.release(name, ids[i:])
-                return EXIT_ENVIRONMENT
-            if q.done(name, job["job_id"], raw):
-                read += 1
-                streak = 0
-                last_server_death = None
-            else:
-                log(f"  lease lost on {sha[:12]} p{no}; answer dropped")
-            q.extend(name, ids[i + 1 :], args.lease)
-        if (read + failed) % 40 < args.batch:
-            log(f"  {read} read, {failed} failed this session")
+                sha, no = job["document_sha256"], job["page_no"]
+                png = args.scratch / f"{name.replace('/', '_')}_{sha[:12]}_p{no}.png"
+                try:
+                    if isinstance(q, Queue):
+                        pdf = args.blobs / sha[:2] / sha
+                    else:
+                        if held is None or held[0] != sha:
+                            try:
+                                held = (sha, q.blob(sha))
+                            except urllib.error.HTTPError as e:
+                                if e.code == 404:
+                                    raise DocumentFailed("not on the node") from e
+                                raise
+                        pdf = held[1]
+                    raw = read_page(
+                        pdf, no, png, args.server, args.model, args.timeout, spec["max_megapixels"]
+                    )
+                except PageFailed as e:
+                    q.fail(name, job["job_id"], f"page: {e}", final=True)
+                    failed += 1
+                    streak += 1
+                    log(f"  page failed {sha[:12]} p{no} ({e})")
+                    if streak >= args.max_consecutive_failures:
+                        q.release(name, ids[i + 1 :])
+                        log(f"{streak} page failures in a row, no page read; exit {EXIT_BREAKER}")
+                        return EXIT_BREAKER
+                except DocumentFailed as e:
+                    q.fail(name, job["job_id"], f"blob: {e}", final=False)
+                    failed += 1
+                    log(f"  document {sha[:12]} {e}; p{no} back for a later seed")
+                except ServerDown as e:
+                    if stopping():  # a deliberate stop ended the request: nobody's fault
+                        q.release(name, ids[i:])
+                        log(f"stopped mid-page on {sha[:12]} p{no}; {len(ids) - i} released")
+                        return 0
+                    log(f"  SERVER DOWN on {sha[:12]} p{no} ({e}); {len(ids) - i - 1} released")
+                    q.fail(name, job["job_id"], f"server: {e}", final=False)
+                    q.release(name, ids[i + 1 :])
+                    if last_server_death and last_server_death != (sha, no):
+                        log("the server died on two different pages in a row; exit 3")
+                        return EXIT_SERVER_DIES
+                    last_server_death = (sha, no)
+                    if not wait_for_server(args.server, args.server_wait):
+                        log(
+                            f"server did not return in {args.server_wait}s; exit {EXIT_SERVER_GONE}"
+                        )
+                        return EXIT_SERVER_GONE
+                    log("server is back")
+                    break
+                else:
+                    if q.done(name, job["job_id"], raw):
+                        read += 1
+                        streak = 0
+                        last_server_death = None
+                    else:
+                        log(f"  lease lost on {sha[:12]} p{no}; answer dropped")
+                if ids[i + 1 :]:
+                    q.extend(name, ids[i + 1 :], args.lease)
+            if (read + failed) % 40 < args.batch:
+                log(f"  {read} read, {failed} failed this session")
+    except Exception:  # noqa: BLE001 — nobody's we named: the queue, the venv, a 4xx
+        log("NOT THE PAGE'S FAULT; releasing what is held and exiting")
+        log(traceback.format_exc())
+        try:
+            q.release(name, ids)  # the whole batch: the page in flight is not to blame
+        except Exception:  # noqa: BLE001 — the queue itself may be what failed
+            log("could not release; the leases expire on their own")
+        return EXIT_ENVIRONMENT
 
 
 if __name__ == "__main__":
