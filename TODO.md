@@ -43,10 +43,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **`dots` died 2026-09-06 (CUDA OOM, a 12 MP sheet); the driver walked 32,849 pages against
   a closed port, exited 0, and nobody knew for three days. Restarted 2026-09-09 through the
   page queue** (`tools/fleet/`, `docs/compute-fleet.md`, ADR 0025 Proposed): 33,147 pages,
-  `fleet-up.sh` on RMI-AI-MACHINE, monitor :8130; **the workstation joined the same day**
-  (`workstation-gate.ps1`: vLLM container + six workers while idle) — ~2 days. Alloy writes
-  from the node; ADR 0025 Accepted 2026-09-10. **Cameron's: the three Grafana rules (stalled,
-  failing, absent; 10 min).** Then `second`, `graphic`; rsync + `text load` IN ORDER
+  **rmi-nuc is the coordinator since 2026-09-10** (queue, monitor, collector, blob mirror,
+  Alloy; `fleet-up.sh coordinator`); RMI-AI-MACHINE and the workstation's gate are workers.
+  ADR 0025 Accepted. **Cameron's: the three Grafana rules (stalled, failing, absent; 10 min).**
+  Then `second`, `graphic` on the NUC; rsync + `text load` IN ORDER
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
