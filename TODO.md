@@ -36,11 +36,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **ADR 0024 amended; migrations 0023 (`extraction_dispatch`) and 0024 (`producer_declaration`,
-  § Owed 1) committed, yours to accept.** Six critic passes and the ingest specialist found
-  silent mass exhaustion, the 1.07 GB PDF dispatched, one `failed` silencing a document for
-  ever, a halt that never releases, and a pin that could never move. **The gate is the DEPLOY,
-  not the apply** — shipping either table freezes its shape under CC0. Nothing declares a pin
+- **ADR 0024 Accepted 2026-09-10.** Migrations 0023 (`extraction_dispatch`) and 0024
+  (`producer_declaration`, § Owed 1) are committed and undeployed. **The gate is the DEPLOY** —
+  shipping either table freezes its shape under CC0 — and it is Cameron's call, after
+  `/security-review` on the container path (§ Owed). Nothing declares a pin yet
 - **`dots` died 2026-09-06 (CUDA OOM, a 12 MP sheet); the driver walked 32,849 pages against
   a closed port, exited 0, and nobody knew for three days. Restarted 2026-09-09 through the
   page queue** (`tools/fleet/`, `docs/compute-fleet.md`, ADR 0025 Proposed): 33,147 pages,

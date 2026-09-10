@@ -1,7 +1,8 @@
 # ADR 0024 — Text for new material is read where it lands
 
-- **Status:** Proposed
-- **Date:** 2026-09-05; D1, D3, D4, D6 and § Owed amended the same day
+- **Status:** Accepted 2026-09-10 (the operator)
+- **Date:** 2026-09-05; D1, D3, D4, D6 and § Owed amended the same day; accepted and withdrawn
+  the same day on the critic's findings, rewritten, and accepted 2026-09-10
 - **Addendum to:** [ADR 0012](0012-deployment-topology.md), which otherwise stands
 - **Companion to:** [ADR 0021](0021-the-ocr-text-grain.md) (what a reading row means) and
   [ADR 0022](0022-where-the-records-text-lives.md) (where its bytes live). Neither moves.
