@@ -43,17 +43,19 @@ the capability map with the whole record held). None is chosen.
 3. **Rate-case index** (D5's first slice) — the 3,952 NOR dockets with parties and quoted
    spans; only 136 carry held filings, so thin until the ICC-era gap closes. The casebook
    proper (methodology, outcome) is human coding.
+4. **Places quoted from captions** (C3/D2's first slice, ADR 0008) — re-taken ripe 2026-09-10:
+   3,730 of 30,184 held captions name a county, parish or borough, 52.1% of AB captions
+   (3,158 of 6,056); a `place` row per mention with the caption as provenance, AB first, a
+   checked sheet, an index from state to county to docket. Comment locations are never the
+   proceeding's place. Also a line a docket summary (`docs/summaries.md`) could carry.
 
 Measured not ripe 2026-08-27: trail-use (D1: no decision type names it; inside `Decision`
 bodies, extraction — since specified as the typed acts of `docs/summaries.md`, 2026-09-10,
 with 941 consummation notices and 714 trail-use filings available by rule), deadlines (C4), service metrics and reference data (D6/D3: other
-sources), maps and geography (D2/C3: no geography rows yet), the public on-ramp (P1/P3–P5).
-**The geography verdict is stale and not yet re-taken**: it predates the comment wave, and
-3,730 held captions name a county. What re-taking it must not do is count the 11,821 comment
-locations as the proceeding's geography — a commenter's location is where the commenter is,
-often nowhere near the line (the operator, 2026-09-01).
+sources), maps (D2: no geography rows yet; the caption slice is Ripe 4 since 2026-09-10),
+the public on-ramp (P1/P3–P5).
 
-Later, each waiting for a decision rather than capacity: the geographic index (C3/D2), the
+Later, each waiting for a decision rather than capacity: the map (D2), the
 deadline engine (C4 — needs counsel's review before it ships; a hand-checked fixture of dated
 obligations exists, see TODO § Next), reference data and rule status (D3/D4). The document
 backlog drains on the poller's own schedule and defers none of these.

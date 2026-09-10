@@ -24,7 +24,6 @@ decisions have their own section.
 
 ## The operator's decisions
 
-- The navigation review's last two: the masthead, and whether a place index is ripe
 - JSON-LD: none on any page; the vocabulary before any
 - The drain's open class: an unanswered attempt leaves no capture (`deferred.md`)
 - A new Anthropic key before any Claude-backed run; the explainers' [?] rows (one email to
