@@ -1,0 +1,130 @@
+citing_decision,target_key,drafted_decision,verdict
+51532,EP 661,37341,right
+51532,EP 696,40550,right
+51532,EP 772,52030,right
+51532,FD 35305,40436,right
+51532,FD 35504,43947,right
+51532,NOR 42003,28583,right
+51532,NOR 42060,33947,right
+51532,NOR 42060 (1),36657,right
+51532,NOR 42104,38972,right
+51532,NOR 42144,50117,right
+52211,AB 578 (X),51680,right
+52211,EP 696,40550,right
+52211,FD 34738,36342,right
+52211,FD 35873,44295,right
+52211,FD 36347,50373,right
+52211,FD 36368,50223,right
+52211,FD 36472,51144,right
+52211,FD 36500,51549,right
+52211,FD 36732,51953,right
+52238,EP 696,40550,right
+52238,FD 36277,46883,right
+52260,EP 542 (18),41676,right
+52260,EP 542 (21),42881,right
+52260,EP 542 (31),51813,right
+52260,EP 542 (4),30040,right
+52260,EP 696,40550,right
+52267,EP 542 (18),41676,right
+52267,EP 542 (21),42881,right
+52267,EP 542 (32),52260,right
+52267,EP 542 (4),30040,right
+52267,EP 696,40550,right
+52268,FD 36761,52094,right
+52295,EP 688,39847,right
+52295,EP 696,40550,right
+52295,FD 34000,32047,right
+52295,FD 34402,34018,right
+52295,FD 34424,34554,right
+52295,FD 35508,41630,right
+52295,FD 35873,44295,right
+52295,FD 36347,50171,right
+52295,FD 36347,50373,right
+52295,FD 36472,51144,right
+52295,FD 36500,51549,right
+52295,FD 36514,50915,right
+52295,FD 36727,52204,right
+52295,FD 36732,52211,right
+52295,FD 36744,52055,right
+52295,FD 36798,52238,right
+52330,EP 696,40550,right
+52330,FD 35776,43474,right
+52330,FD 36616,52080,right
+52330,FD 36616,52381,right
+52330,FD 36714 (1),52287,right
+52330,FD 36741,52042,right
+52332,EP 696,40550,right
+52332,FD 32760,45755,right
+52448,FD 36137,46403,right
+52519,EP 753,47262,right
+52526,EP 726,46402,right
+52526,EP 755,51387,right
+52537,FD 36486,50671,right
+52537,FD 36486 (2),51134,right
+52537,FD 36486 (4),51612,right
+52537,FD 36486 (6),52075,right
+52573,FD 34252,33159,right
+52621,EP 646 (1),38326,right
+52621,EP 646 (2),39528,right
+52699,EP 696,40550,right
+52748,EP 552 (27),51807,right
+52748,EP 711 (2),52104,right
+52748,EP 719,44802,right
+52748,FD 36844,52691,right
+52748,NOR 42131,42173,right
+52773,EP 751,52768,right
+52807,AB 1073 (1X),51164,right
+52822,EP 696,40550,right
+52822,FD 35095,41518,right
+52835,AB 1242,46176,right
+52835,AB 290 (286),37729,right
+52835,AB 290 (286),41895,right
+52835,AB 400 (4),35083,right
+52835,EP 696,40550,right
+52835,FD 35496,43523,right
+52835,FD 36481,50635,right
+52835,FD 36714 (1),52287,right
+52860,FD 34372,33792,right
+52971,FD 35217,40569,right
+52988,EP 706,52620,right
+52988,EP 706 (1),52901,right
+52988,EP 719,44802,right
+52991,EP 696,40550,right
+52991,EP 767,50872,right
+52991,EP 770,51193,right
+52991,EP 787,52744,right
+53046,AB 1339 (X),52490,right
+53046,EP 696,40550,right
+53052,EP 739,46241,right
+53052,EP 779,52752,right
+53052,EP 782,52923,right
+53052,FD 27590 (4),43932,right
+53052,FD 36447,50549,right
+53052,FD 36500,51159,right
+53052,FD 36500,51549,right
+53052,FD 36744,52295,right
+53052,FD 36889,53043,right
+53076,EP 696,40550,right
+51532,FD 35504,,right-to-stop
+51532,NOR 35404,,right-to-stop
+51532,NOR 39909,,right-to-stop
+51532,NOR 42060 (1),,"should-be:the ""served"" is incorrect in the citation, that is the decided date, 2007-01-26 is the served date (see 36657)"
+52211,FD 34424,,should-be:References 34554
+52211,FD 36368,,"should-be:References 50223, date is cutoff with year on 2nd line in referencing doc"
+52211,FD 36500,,should-be:References 51549
+52211,FD 36732,,should-be:This is referencing a prior decision in same Docket (51953)
+52238,EP 392 (1),,right-to-stop
+52238,FD 31303,,right-to-stop
+52238,FD 36529,,should-be:References 51326
+52260,EP 542 (20),,should-be:References 42336
+52267,EP 542 (20),,should-be:References 42336
+52267,EP 755,,should-be:References 52526
+52280,FD 34901,,"should-be:References 37282 (note there was a decision same day 37219, but 37282 was a correction)"
+52295,EP 711 (2),,"should-be:References 52104 (Note the first citation, the date is on the next line)"
+52295,FD 31329,,right-to-stop
+52295,FD 31445,,right-to-stop
+52295,FD 31469,,right-to-stop
+52295,FD 33388 (90),,should-be:References 30671 (note year in citation is on next line)
+52295,FD 33556 (4),,should-be:References 30849 (citation's date on next line)
+52295,FD 34738,,should-be:References 36342
+52295,FD 35873,,should-be:References 44295 (date in 1st citation in doc)

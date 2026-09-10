@@ -240,3 +240,41 @@ against ADR 0018's tables. The SQL is on disk at [`../citator-query-2.sql`](../c
 table this record proposes. Query 4 (lifecycle and provenance) reads no citation table and is untouched; what 0018
 protects for it is the natural-key-plus-supersession discipline that stops a re-extraction
 doubling an instrument's history. The five queries were re-checked against these decisions on 2026-09-01.
+
+## Addendum (2026-09-10): the work class is measured, and a reader is shown no number
+
+The work class was scored for the first time. **106 of 106 claims the resolver answered on the
+sixty-decision sheet name the document the citation names**, checked by the operator through
+`tools/rmi-ai-machine/work_check_sheet.py`; the sheet is
+[`../research/benchmark/work-labels.csv`](../research/benchmark/work-labels.csv) and the
+counts reach the store through a score card's work block, re-typed by nobody. Migration 0025
+admits the class and gives `citation_resolution` a `measured_class` column, so a row naming a
+document is stamped from this figure and a row stopping at the proceeding from the docket
+class — one row, one class, the store enforcing which.
+
+**Decision 6 is narrowed, and this is the change.** It reads "Per edge: the citing passage, its
+page, the extraction method and version, the class and *its measured confidence*". A perfect
+run is what forced the question: 106 of 106 is a precision of 1.00, which says the rule is
+never wrong, and 106 claims cannot establish that. It also sits *above* the docket class's
+0.977, so a row asserting both a proceeding and a document would have shown a reader more
+confidence than the row beside it asserting only the proceeding — the two figures come from
+different instruments over different populations and neither bounds the other (schema-critic,
+2026-09-10).
+
+So, the operator's decision: **the measurement carries the raw figure, and a reader is shown no
+number.** The stored value is what ADR 0007 requires and what makes the class publishable at
+all — the projection admits a row on its `confidence_state`, not on the size of its confidence,
+and nothing in this record compares, orders or thresholds on the value. What a shown edge names
+instead is what was checked: the sheet, the count, and a link to it. That is the form
+`citator-schema.md` § C already argued for ("not as 100%, which the first draft did and which
+was wrong"), and it is what the record's own text tier already does — `/methodology` promises a
+page shows the distance between two readings and the rule that computed it, "never a threshold
+or a confidence word".
+
+What is unchanged: "No count is published without its class" (the projection now publishes
+`measured_class` beside every row for exactly that reason), the confidence on the row, the
+pointer to the measurement, and every figure the docket class carries.
+
+**Not decided here:** the recall. 82 of the 105 docket-level stops are unjudged, so a truth
+count over the rest is a lower bound and a recall from a lower bound is an upper bound
+published as a measurement. `class_measurement.recall` takes NULL, and it does.

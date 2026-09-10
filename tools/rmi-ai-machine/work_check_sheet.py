@@ -45,6 +45,10 @@ import benchmark_score as bs  # noqa: E402
 from docketyard.citator import keys, resolve  # noqa: E402
 
 SHEET = Path("docs/research/benchmark/labels.csv")
+# The work column, checked by the operator 2026-09-10 — `SHEET`'s sibling and the same kind of
+# thing: ground truth, kept in the repository, because a judging sitting is not reproducible
+# from the pipeline and everything in `data/` is.
+WORK_LABELS = Path("docs/research/benchmark/work-labels.csv")
 TEMPLATE = Path(__file__).resolve().parent / "work_check_page.html"
 # What the page needs of a row. Named rather than "everything", so a column added here for the
 # CSV does not silently double the page's weight.
@@ -324,12 +328,19 @@ def score(rows: list[dict], verdicts: Path) -> dict:
       takes a NULL recall, which is what nullable means here.
     """
     said: dict[tuple[str, str, str], str] = {}
-    for n, raw in enumerate(verdicts.read_text(encoding="utf-8").splitlines(), 1):
-        if not raw.strip():
+    # The CHECKED sheet is CSV with a header, like every other sheet under `docs/research`;
+    # what the check queue copies out is tab separated. Both are read, because the second is
+    # what the operator's hands produce and the first is what the repository keeps.
+    if verdicts.suffix == ".csv":
+        with verdicts.open(encoding="utf-8", newline="") as f:
+            parsed = list(csv.reader(f))[1:]
+    else:
+        parsed = [r.split("\t") for r in verdicts.read_text(encoding="utf-8").splitlines()]
+    for n, parts in enumerate(parsed, 1):
+        if not any(p.strip() for p in parts):
             continue
-        parts = raw.split("\t")
         if len(parts) != 4:
-            raise SystemExit(f"{verdicts}:{n}: expected four tab-separated fields, got {parts}")
+            raise SystemExit(f"{verdicts}:{n}: expected four fields, got {parts}")
         said[(parts[0], parts[1], parts[2])] = parts[3].strip()
     known = {(r["citing_decision"], r["target_key"], r["drafted_decision"]): r for r in rows}
     # A VERDICTS FILE FROM ANOTHER DRAFT IS REFUSED. The draft is regenerated from whatever
@@ -399,8 +410,11 @@ def main() -> int:
     ap.add_argument(
         "--verdicts",
         type=Path,
-        help="the operator's judgements, tab separated, as the check queue copies them out."
-        " With this the tool SCORES instead of drafting, and writes the card's work block.",
+        nargs="?",
+        const=WORK_LABELS,
+        help="the operator's judgements. With this the tool SCORES instead of drafting and"
+        f" writes the card's work block. Bare, it reads the checked sheet at {WORK_LABELS};"
+        " with a path, a tab-separated file as the check queue copies one out.",
     )
     ap.add_argument("--block", type=Path, default=Path("data/work-block.json"))
     args = ap.parse_args()
