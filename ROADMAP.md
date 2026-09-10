@@ -16,7 +16,8 @@ docket-type explainers, the week naming the proceeding that moved, a series dock
 with its index, captions for newly-opened proceedings, environmental comments (v2026.08.42–43,
 the third record row, walked back to September 2000), the record's own text (Migration A,
 v2026.09.2: 976,058 pages, one row per reading), the citator's finder and work-level step
-(v2026.09.9–11), and the derivation fleet on the operator's LAN (ADR 0025, 2026-09-09). The
+(v2026.09.9–11), the derivation fleet on the operator's LAN (ADR 0025, 2026-09-09), and text for
+new material read on the instance (ADR 0024, v2026.09.12). The
 Ripe list is the menu for what follows.
 
 ## Chosen
@@ -25,7 +26,6 @@ Ripe list is the menu for what follows.
 | --- | --- | --- | --- | --- |
 | — | Party types on `/parties` (F3's first slice) | Every party carries a typed classification (railroad, company, government, association, individual, law firm, …) as a derived assertion with ADR 0007 provenance and an ADR 0016 review path; `/parties` gains a browse by type (large types collapsed) beside the search, which stays | 2026-08-30 | Design done (`docs/party-types.md`); rules v2 at 83.3% on its own sheet, a second unseen sample must confirm before any type ships; schema-critic before the assertion table exists |
 | — | OCR of the image-only record (M3's first slice, `docs/ocr-plan.md`) | Ground truth the operator checks (90 pages, three tiers); candidates measured by CER/WER and by docket-number and date errors, API candidate included; a review layer (agreement → confidence, registry checks, a reviewer queue with identity from the start, ~50 pages a week); text published only above the measured threshold, with provenance | 2026-08-28 | Ground truth checked 2026-08-29; five engines scored; ADRs 0017–0023 accepted; Migration A shipped 2026-09-03 (v2026.09.2, 161,801 text-layer pages loaded 2026-09-04); the `dots` OCR wave reads on the fleet since 2026-09-09 (ADR 0025), Paddle loaded, `second` and `graphic` to follow; the review layer (Migration B) is owed |
-| — | Text for new material, without a person in the loop (ADR 0024) | The forward pass extracts the text layer of forward-observed documents in an isolated container and loads it, so a filing served today is searchable the same day; an empty reading is a successful one and builds the OCR queue, which is per page | 2026-09-05 | ADR 0024 Accepted 2026-09-10; migrations 0023–0024 deployed in v2026.09.11 (tables empty); the dispatcher and its `/security-review` owed |
 
 ## Ripe — awaiting a decision
 
