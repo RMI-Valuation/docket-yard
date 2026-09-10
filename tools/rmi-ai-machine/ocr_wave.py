@@ -194,12 +194,23 @@ def dots_text(blocks: list) -> str:
     for b in blocks:
         if not isinstance(b, dict):
             continue
-        text = b.get("text") or ""
+        text = b.get("text")
+        if not isinstance(text, str):  # a block with no text, or a malformed one, has none
+            continue
         if b.get("category") == "Table" and "<table" in text:
             out += _table_block(text)
         elif text.strip():
             out.append(text)
     return "\n".join(out)
+
+
+def dots_page(no: int, raw: str) -> tuple[dict, str]:
+    """One dots answer as the engine page the reading document keeps whole, and its text.
+    `[]` is a blank page and reads as ''; only an UNPARSED answer keeps the prose. The one
+    place this rule lives: the driver, the fleet's collector and any re-derivation agree."""
+    blocks = json_array(raw)
+    text = dots_text(blocks) if blocks is not None else raw.strip()
+    return {"page_no": no, "raw": raw, "blocks": blocks}, text
 
 
 def json_array(raw: str):
@@ -495,19 +506,19 @@ def run_dots(args) -> int:
             png = tmp / f"{sha[:12]}_p{no}.png"
             try:
                 render(pdf, no - 1, 200, png)
-                raw, blocks = _dots_call(png, args.dots_server, args.dots_model)
+                raw, _ = _dots_call(png, args.dots_server, args.dots_model)
             except Exception as e:  # noqa: BLE001
                 print(f"  FAILED {sha[:12]} p{no} ({type(e).__name__}: {e})", flush=True)
                 failed += 1
                 continue
             finally:
                 png.unlink(missing_ok=True)
-            engine_pages.append({"page_no": no, "raw": raw, "blocks": blocks})
+            engine_page, text = dots_page(no, raw)
+            engine_pages.append(engine_page)
             pages.append(
                 {
                     "page_no": no,
-                    # `[]` is a blank page and reads as ''; only an UNPARSED answer keeps the prose
-                    "text": dots_text(blocks) if blocks is not None else raw.strip(),
+                    "text": text,
                     "member": f"engine/pages/{len(engine_pages) - 1}",
                     "route": route_of("degraded"),
                 }

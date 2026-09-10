@@ -31,8 +31,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Party types (F3)**: rules v2 at 83.3%, tuned on its own sheet — **a second unseen
   sample must confirm** before any type ships
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
-- No Anthropic key exists; any Claude-backed run needs a new one from Cameron
-- Explainers' [?] rows await one email to the Board's records staff. Announcing: his call
+- Cameron's: a new Anthropic key before any Claude-backed run; the explainers' [?] rows
+  (one email to the Board's records staff); announcing
 
 ## Next
 
@@ -41,18 +41,17 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   silent mass exhaustion, the 1.07 GB PDF dispatched, one `failed` silencing a document for
   ever, a halt that never releases, and a pin that could never move. **The gate is the DEPLOY,
   not the apply** — shipping either table freezes its shape under CC0. Nothing declares a pin
-- **The OCR wave: Paddle done and loaded (169,516 pages), `dots` running** since 2026-09-05
-  10:59 CDT — tmux `ocr-dots`, vLLM in `vllm` on 8120, ~132 h over 41,688 degraded pages, log
-  `/data/docketyard/ocr/logs/dots.log`. Then `second`, then `graphic`; rsync and `text load`
-  each root IN THAT ORDER, and `graphic` needs its own `ran_at` or the loader says `restart`
-- Deadline engine (C4): decision JSON carries no obligations (verified 2026-08-26); a
-  hand-checked fixture of 8 for FD 36873 sits in `../up-ns-merger-tracker/briefs/2026-08-25.md`
-  (read-only). Dates quoted, never computed
+- **`dots` died 2026-09-06 (CUDA OOM, a 12 MP sheet); the driver walked 32,849 pages against
+  a closed port, exited 0, and nobody knew for three days. Restarted 2026-09-09 through the
+  page queue** (`tools/fleet/`, `docs/compute-fleet.md`, ADR 0025 Proposed): 33,147 pages
+  re-queued, 2,560 documents whole, `fleet-up.sh` on RMI-AI-MACHINE, monitor :8130, ~5 days.
+  **Cameron's: Alloy on the node + three Grafana rules (stalled, failing, absent; 10 min)**, and
+  ADR 0025. Then `second`, `graphic`; rsync and `text load` each root IN THAT ORDER
+- Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
+  fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any
 - **`docs/navigation-review.md`: Tiers 1–3 and A7 are built**, home keeps its rolling seven
   days (Cameron, 2026-09-01). Left is **his**: the masthead, and whether a place index is ripe
-- When this list runs short or a decision makes one of them near-term, pull the next item
-  from `docs/deferred.md` (review findings and known gaps, dated, with their context)
 
 ## Parked
 

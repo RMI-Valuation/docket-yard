@@ -1,0 +1,202 @@
+# The compute fleet — derivation on the operator's LAN
+
+**Status: the queue, one worker and the monitor are running on RMI-AI-MACHINE since
+2026-09-09; the off-box alert and every other node are owed.** The decision this rests on is
+ADR 0025 (Proposed). This document is the mechanics: what the machines are, what a pass is,
+how a page is leased, what the monitor shows, and what a second node must do to join.
+
+The mistake it prevents: **a derivation run that dies and is not noticed.** On 2026-09-06 the
+`dots` OCR server died of CUDA out-of-memory on a 20 × 15 inch plan sheet, 28 hours into a run
+projected at 132. The driver treated the refused connection like a bad page, walked the
+remaining 32,849 pages against a closed port at network speed, wrote every one of 9,915
+documents as `failed`, printed progress lines throughout, and exited 0. Nothing alerted,
+because nothing was watching the fleet — production's alerting (ADR 0019) watches the record.
+Three days passed before an ssh login found the GPU idle.
+
+## The machines
+
+Named, never addressed — the repository is public. Addresses live outside it.
+
+| Machine | GPU memory | OS | Role |
+| --- | --- | --- | --- |
+| RMI-AI-MACHINE | RTX 4070, 12 GB | Linux | **The only node today.** Always on. Paddle, dots.mocr through vLLM, the queue and the monitor |
+| The operator's workstation | RTX 5080, 16 GB | Windows 11 | Opportunistic, owed: a worker that runs only while the operator is away from it |
+| A Mac mini | M4 Pro, 24 GB unified | macOS | Owed, after the operator resets it: the largest GPU-addressable memory on the LAN; cannot run vLLM, so any engine there is another pass |
+| A Jetson Orin Nano | 8 GB shared | Linux | Owed, often off: small always-on services (layout, classification, embeddings); not a vision-language model |
+
+**Production never joins the fleet.** The instance holds the store and the keys; the fleet
+holds neither. Reading documents reach the store the way they always have — `rsync` of the
+pass's root and `docketyard text load` on the instance, in the order `ocr_wave.py` fixes —
+and the fleet's only output is files under `/data/docketyard/ocr/<root>/`.
+
+## What a pass is
+
+**A pass is a reading key.** `dots` means dots.mocr 1.5 at 200 DPI, the key ADR 0023 fixes
+and migration 0024's producer declaration names. A worker claiming pages for `dots` declares
+its producer — the key, its host, the engine and the engine's version as the server reports
+them — and the queue refuses a worker whose key is not the pass's (`pagequeue.Queue.register`,
+tested). This is the rule that lets machines differ: a model served by MLX on the Mac, or
+Ollama on the Jetson, is **another pass under another key**, never a quiet substitute inside
+this one. The pick rule (ADR 0023 addendum) compares readings by key; a key that meant two
+engines would be a false number on a page.
+
+The passes today, all in `tools/fleet/pagequeue.py § PASSES`:
+
+| Pass | Key | Reads | Output root |
+| --- | --- | --- | --- |
+| `dots` | dots.mocr 1.5, 200 DPI | pages routed `degraded` | `ocr/dots` |
+
+## The lease
+
+One SQLite file, `/data/docketyard/ocr/queue.sqlite`, holds a row per page a pass owes.
+
+```
+pending  --claim-->  leased  --done-->  done
+                       |  \--fail, the page's own-->  failed  (`page: ...`; final)
+                       \--lease expires / server dies-->  pending (attempt spent)
+                                              ... or failed, if that was the last attempt
+```
+
+- **Claim** is atomic (`BEGIN IMMEDIATE`): two workers never hold one page. A claim takes
+  the next few pending pages in document order and leases them for 45 minutes; the worker
+  extends the lease after every page.
+- **A lease that expires returns the page** — every claim reaps first, so a dead worker's
+  pages go back without an operator. Three attempts are allowed; the third expiry fails the
+  page with `lease expired on attempt 3`.
+- **An answer to an expired lease is dropped.** Another worker may hold the page.
+- **A failure's reason says whose it is, and the default is not the page's.** Only a named
+  cause is the page's own and final, prefixed `page:` — a cut answer (`finish_reason` other
+  than `stop`), a sheet over the pass's bound, a page pymupdf opened but would not
+  rasterise, a timeout with the server healthy. The queue refuses a final failure with any
+  other prefix.
+- **The server dying is not a page failing.** A refused connection, a reset, a body cut off,
+  a 5xx or a timeout with the server unhealthy puts the page in flight back as `server: …`
+  with its attempt spent (it may be the cause — the 12-megapixel sheet was), puts every other
+  leased page back unspent, and makes the worker *wait* for the server rather than claim, so
+  the read-age grows. A server that dies on two different pages in a row is the server's
+  fault: the worker exits 3 and the restart loop throttles it.
+- **A failure nobody named is nobody's we named.** A missing blob, an import that fails, a
+  4xx: the worker releases every leased page unspent and exits 4 with the traceback. Twenty-
+  five page-owned failures in a row with no page read is a cause nobody has named yet: exit
+  5. A worker whose default branch were "the page failed" would reproduce 2026-09-06 for
+  every such cause, only faster — no server round-trip to slow it.
+- **Collect** writes a reading document once every page of a document is terminal, in the
+  loader's shape, through the same `dots_page` the driver uses, under the same path. `ran_at`
+  is the moment of collection, written once. The root's `_manifest.json` names every
+  producer that read for it. A document with every page failed is written `failed` with its
+  `pages_failed`, as before — but *a `failed` on disk is no longer a reason to skip*. At the
+  next `seed` the queue decides: a collected document whose every failure is the page's own
+  is **whole**; one holding a failure that was not the page's is **re-read** — its file is
+  set aside as `.superseded`, so is its second reading (measured against text that is no
+  longer this key's), and every page of it is queued anew. The loader takes a document whole
+  under one `ran_at`, so a page cannot be added later. A file the queue does not know is the
+  old driver's, which kept no reasons: whole only if it says `read` with no page failed.
+
+The promises are tested in `tests/test_fleet.py`, through the real loader, in CI.
+
+## The oversize guard
+
+Measured 2026-09-09 over all 41,688 degraded pages: the median is a letter page at 3.74 MP
+when rendered at 200 DPI; 840 pages exceed 4 MP (legal, 4.8 MP, which the run had read
+without incident); **five exceed 5 MP**, four of them the plan sheets of the document that
+killed the server. The bound is the pass's (`PASSES["dots"]["max_megapixels"]`, 6 MP),
+declared in every worker's producer, so `oversize` means one thing on every node; the worker
+fails such a page before it reaches the server. It does not render the page smaller: the
+render is the reading's key (ADR 0023), and a quiet 100 DPI reading filed under `200` is the
+kind of lie the key exists to prevent. Those five pages wait for a pass under another
+profile, if one is ever worth running.
+
+The server itself runs at `--gpu-memory-utilization 0.90` (was 0.95; the worker is serial,
+so the 0.5 GB given back is headroom for the vision encoder rather than KV cache it never
+used) with `expandable_segments` on, and under a loop that restarts it a minute after it
+dies. Each is a bound, not a proof.
+
+## The monitor, and what detection means
+
+`tools/fleet/monitor.py` serves, on the node, LAN only:
+
+| Path | What |
+| --- | --- |
+| `/` | The status page: each pass's counts, last read, last-hour rate and ETA; each worker's producer, pages and last sign of life; collected documents; failures by reason; a **STALLED** or **FAILING** banner |
+| `/status.json` | The same, as the queue reports it |
+| `/metrics` | Prometheus text exposition in ADR 0019's grammar: `docket_yard_fleet_jobs{pass,state}`, `docket_yard_fleet_last_read_known{pass}` paired with `docket_yard_fleet_last_read_age_seconds{pass}` (the age is absent until a page has been read — never a sentinel, the shape `docket_yard_freshness_*` chose), `docket_yard_fleet_pages_last_hour{pass,outcome}`, `docket_yard_fleet_stalled{pass}`, `docket_yard_fleet_failing{pass}`, `docket_yard_fleet_worker_last_seen_age_seconds{worker,pass,host}`, `docket_yard_fleet_worker_pages_done{…}` |
+| `/health` | 200 while reading is under way or nothing is owed; 503 when STALLED or FAILING |
+
+The queue is opened read-only; a path with no queue file is a 503, never an empty queue
+reporting that nothing is owed.
+
+**STALLED** is: pages owed, and no page *read* in 30 minutes. Read, not finished — a fleet
+failing every page finishes pages briskly, and that was the 2026-09-06 shape. The run reads
+a page every 11–13 s, so 30 minutes is a server that has not come back, a worker loop that
+has stopped, or a box that is off. **FAILING** is the other half: pages owed and, in the last
+hour, more failed than read, with at least ten failed so a tail of five oversize sheets does
+not trip it.
+
+**A local banner is not detection.** A dead box cannot report its own death (ADR 0012, 0019).
+The fleet's detection is the same shape as production's: **Grafana Alloy on the node scrapes
+`/metrics` and remote-writes to the same Grafana Cloud stack**, where three rules fire —
+`docket_yard_fleet_stalled == 1` for ten minutes, `docket_yard_fleet_failing == 1` for ten
+minutes, and *absence* of `docket_yard_fleet_last_read_known` for ten minutes (the box, the
+monitor or Alloy is gone). The scrape block is production's `config.alloy` with the target
+swapped; endpoint, username and token are the operator's and enter no repository. **Owed:
+the operator installs Alloy on RMI-AI-MACHINE with those credentials and writes the three
+rules.** Until then the monitor is a page a person has to open, which is exactly the gap this
+document exists to close.
+
+## Running it
+
+On RMI-AI-MACHINE, four tmux sessions, started idempotently by `tools/fleet/fleet-up.sh`:
+
+| Session | Runs | Log |
+| --- | --- | --- |
+| `dots-vllm` | `dots-serve.sh`: vLLM, restarted a minute after it dies | `ocr/logs/vllm.log` |
+| `dots-worker` | `dots_worker.py`, restarted a minute after it exits (0: queue empty; 2: server gone 30 min; 3: server dies on consecutive pages; 4: not the page's fault; 5: too many page failures in a row) | `ocr/logs/dots-worker.log` |
+| `dots-collect` | `pagequeue.py collect` every ten minutes | `ocr/logs/dots-collect.log` |
+| `fleet-monitor` | `monitor.py` on port 8130 | `ocr/logs/monitor.log` |
+
+```
+bash ~/docket-yard/tools/fleet/fleet-up.sh                 # start what is not running
+python3 tools/fleet/pagequeue.py --db Q status             # the queue, as JSON
+python3 tools/fleet/pagequeue.py --db Q seed --pass dots --out /data/docketyard/ocr --dry-run
+python3 tools/fleet/pagequeue.py --db Q fail --job N --error 'why'   # an operator's decision
+```
+
+A worker that exits 4 every minute is stopped by one page it names in its log — a blob that
+is missing or will not open — and claims in document order, so that page is first every
+time. The queue is STALLED until the operator decides: `fail --job N --error 'why'` records
+the decision as `operator: why` (not the page's own, so the document is re-read at a later
+seed) and the worker moves on at its next start.
+
+When the queue empties: `collect` has written every document; `second` and `graphic` follow
+as `ocr_wave.py` documents; rsync and `text load` each root in that order on the instance.
+
+## Joining a node
+
+A second node needs three things and no redesign:
+
+1. **A transport.** `Queue` is the whole protocol — register, claim, extend, release, done,
+   fail. A small HTTP front on the node that holds the file (the same stdlib server the
+   monitor uses) exposes those six calls; the worker's `Queue` becomes a client of it. SQLite
+   over a network share is not a transport.
+2. **A producer it can declare truthfully.** The same engine and version, or a new pass.
+3. **Its own stop rule.** The workstation's is *the operator is using it*: a small service
+   watches input idle time and GPU use, starts the worker after some minutes idle and stops
+   it when input resumes, finishing the page in hand. The lease makes a hard stop cost
+   nothing. The Mac's and the Jetson's are whatever they are for.
+
+**NVIDIA's Personal AI Router (PAIR)** was evaluated 2026-09-09 for this role and is not it:
+it routes single requests to Ollama or LM Studio nodes by GPU utilisation, without regard to
+memory or model fit (its README says so), with no batch, no lease, and no way to say which
+node answered — the fact the reading key must record. It fits a later *online* layer, if the
+project ever calls a model from a page; batch derivation is the queue.
+
+## What is owed
+
+- The off-box alert: Alloy on the node, three rules in Grafana Cloud (the operator's credentials)
+- ADR 0025's acceptance, or its revision
+- The HTTP transport and the workstation's idle gate, when a second node is chosen
+- `second` and `graphic` run through the queue rather than `ocr_wave.py`, so that every pass
+  has the same lease and the same monitor (they read a cache and cannot die the same way, so
+  this is tidiness, not safety)
+- tmux is where the operator looks; `systemd --user` units would survive a reboot, which tmux
+  does not. Owed when a reboot happens before the queue empties
