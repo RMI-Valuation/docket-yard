@@ -468,6 +468,39 @@ sentence it accompanies (one row: document, sentence, act, act date, method, ver
 docket's status — "abandoned and railbanked", "NITU in force until 2027-08-18", "consummated
 2026-04-09" — is rendered from its acts by a stated rule, at render time, never stored.
 
+### The status facet on AB dockets
+
+The operator's next step (2026-09-10): tag AB dockets by what the acts say — consummated,
+NITU in force, trail use reached — as a facet on the sheet and a filter on the dockets
+list. It is the derived status above, made visible. Measured the same day:
+
+| AB dockets | count |
+| --- | --- |
+| In the registry | 6,644 |
+| With any filing held (the rest are decisions only, mostly older) | 1,554 |
+| With a `Consummation Notice` | 800 |
+| With a `Trail Use Request` / `Trail Use Agreement Reached` | 476 / 238 |
+| With both a trail use request and a consummation notice | 193 |
+| With a decision saying "interim trail use" on its first page | 734 |
+| … saying "for a period of one year" in its first three pages | 37 |
+
+Three things follow. **Half the facet is available by rule alone, before any model**: the
+800 consummations and the 714 trail-use filings are the Board's own types, and the only
+reading is the notice's printed date. **The Board's `Consummation Notice` does not say what
+was consummated** — the 193 dockets holding both a trail-use request and a consummation
+notice are the tell; some consummated the abandonment of the rest of the line, some the
+interim trail use itself, and the notice's one sentence of text decides which — a rule
+before a model, measured before either. **"NITU in force until" needs the reading step**:
+734 decisions carry the words and only 37 the one-year phrase near the top, so the period's
+printed end date lives in the body where a first-page pattern does not reach.
+
+The facet's values — pending, NITU in force until <date>, trail use consummated, abandonment
+consummated, withdrawn — and *no filings held* for the 5,090 dockets the record holds
+decisions for and nothing else (a coverage fact the page states rather than a "pending" it
+cannot support). Computed at render time from the acts by a rule on `/methodology`, stored
+nowhere (ADR 0006). The rule-only slice is buildable before summaries are chosen, and would
+be a decision of its own.
+
 What this decides that the summary alone did not: the assertion's shape gains a typed field
 and a date, which is a schema question the critic reviews before the table exists; the
 vocabulary is the operator's to fix; and D1's first slice arrives through this door rather
