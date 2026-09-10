@@ -206,6 +206,36 @@ checks. A per-table check in `db.migrate` would cut it and is recorded in `docs/
 
 ## Routine operations
 
+### v2026.09.12 — the text stage's first deploy (ADR 0024)
+
+The only release so far that ships a SECOND IMAGE, and the only one that needs a step on the
+box beyond `.env`. **No maintenance wall**: migration 0025 rebuilds `citation_resolution`,
+which holds 0 rows in production, and the display view is unchanged so no page index is
+rebuilt. Rehearsed 2026-09-10 on a copy of production staged at schema 24: **24 → 25 in
+0.60 s**, `foreign_key_check` clean, `integrity_check` ok.
+
+```sh
+# on the box, BEFORE `up`
+cd /srv/docketyard
+mkdir -p data/extract/spool data/extract/requests   # Docker would create them root-owned
+sudo chown -R 1000:1000 data/extract                # the app's uid, and the parser's
+# copy the repository's infra/extract/ to /srv/docketyard/extract, and the new compose.yaml
+$EDITOR .env                                        # DY_TAG=v2026.09.12
+docker compose pull --ignore-buildable && docker compose up -d --build
+docker compose logs migrate                         # schema 25
+docker compose logs -f extract                      # "extract: pymupdf 1.26.0, blobs /blobs"
+# THE STAGE DOES NOTHING UNTIL IT IS PINNED, which is the safe direction (ADR 0024 D6)
+docker compose run --rm --no-deps ingest text pin --method pymupdf --version 1.26.0     --note 'the extract container' </dev/null
+# it prints the pin and the queue behind it; ~218 eligible was the measurement of 2026-09-10
+docker compose logs -f ingest                       # the next pass ends with a `text` block
+```
+
+To stop the stage without a deploy: `text pin` cannot un-pin, so stop the `extract` container
+— the poller keeps dispatching, the halt engages after 20 unanswered, and it sends one canary
+a pass until the container is back. To move the pin after a `pymupdf` bump, rebuild the image
+and `text pin --repoint --method pymupdf --version <the new one>`; the attempt count resets
+with it, which is what D4's per-pin count is for.
+
 - **Deploy a release**: edit `DY_TAG` in `.env`;
   `docker compose pull --ignore-buildable && docker compose up -d --build`. The flags are for
   ONE service: `extract` (ADR 0024's parser) is built on the box from `infra/extract` rather
