@@ -45,8 +45,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   a closed port, exited 0, and nobody knew for three days. Restarted 2026-09-09 through the
   page queue** (`tools/fleet/`, `docs/compute-fleet.md`, ADR 0025 Proposed): 33,147 pages
   re-queued, 2,560 documents whole, `fleet-up.sh` on RMI-AI-MACHINE, monitor :8130, ~5 days.
-  **Cameron's: Alloy on the node + three Grafana rules (stalled, failing, absent; 10 min)**, and
-  ADR 0025. Then `second`, `graphic`; rsync and `text load` each root IN THAT ORDER
+  Alloy writes from the node since 2026-09-09. **Cameron's: the three Grafana rules (stalled,
+  failing, absent; 10 min)**, and ADR 0025. Then `second`, `graphic`; rsync + `text load` IN ORDER
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
 - JSON-LD (Cameron, 2026-08-26): none on any page; decide the vocabulary before adding any

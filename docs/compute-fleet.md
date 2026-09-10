@@ -138,10 +138,12 @@ The fleet's detection is the same shape as production's: **Grafana Alloy on the 
 `docket_yard_fleet_stalled == 1` for ten minutes, `docket_yard_fleet_failing == 1` for ten
 minutes, and *absence* of `docket_yard_fleet_last_read_known` for ten minutes (the box, the
 monitor or Alloy is gone). The scrape block is production's `config.alloy` with the target
-swapped; endpoint, username and token are the operator's and enter no repository. **Owed:
-the operator installs Alloy on RMI-AI-MACHINE with those credentials and writes the three
-rules.** Until then the monitor is a page a person has to open, which is exactly the gap this
-document exists to close.
+swapped (`tools/fleet/config.alloy`, run as a container with the node's `/proc`, `/sys` and
+`/` mounted so it reports the node and not itself); endpoint, username and token are the
+operator's, in an env file on the node, and enter no repository. **Alloy has written from the
+node since 2026-09-09; the three rules are owed, and they are the operator's to write in
+Grafana Cloud.** Until they exist the series arrive and nothing reads them, which is still a
+page a person has to open.
 
 ## Running it
 
@@ -192,7 +194,7 @@ project ever calls a model from a page; batch derivation is the queue.
 
 ## What is owed
 
-- The off-box alert: Alloy on the node, three rules in Grafana Cloud (the operator's credentials)
+- The three rules in Grafana Cloud (stalled, failing, absent — each `for: 10m`); Alloy is up
 - ADR 0025's acceptance, or its revision
 - The HTTP transport and the workstation's idle gate, when a second node is chosen
 - `second` and `graphic` run through the queue rather than `ocr_wave.py`, so that every pass

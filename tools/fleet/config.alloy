@@ -1,0 +1,66 @@
+// Grafana Alloy on the fleet's node (docs/compute-fleet.md § The monitor, and what detection
+// means). Production's `infra/deploy/config.alloy` with the target swapped: it scrapes the
+// fleet monitor's /metrics and the node's own vital signs, and remote-writes both to the same
+// Grafana Cloud stack production writes to. It is NOT what detects a stalled fleet — it dies
+// with the box; the detector is a rule in Grafana Cloud on these series, off the box.
+//
+//   docker run -d --name fleet-alloy --restart unless-stopped --network host \
+//     --env-file /data/docketyard/alloy.env \
+//     -v /data/docketyard/alloy:/var/lib/alloy/data \
+//     -v ~/docket-yard/tools/fleet/config.alloy:/etc/alloy/config.alloy:ro \
+//     grafana/alloy:v1.10.0 run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+//
+// Host networking because the monitor binds the LAN interface on :8130 and the exporter reads
+// /proc; `--storage.path` on a volume so the remote_write WAL survives a recreate. The env
+// file holds GRAFANA_REMOTE_WRITE_URL / _USER / _TOKEN and nothing else; it enters no
+// repository. The rules to write in Grafana Cloud, each `for: 10m`:
+//
+//   docket_yard_fleet_stalled == 1
+//   docket_yard_fleet_failing == 1
+//   absent(docket_yard_fleet_last_read_known)          the box, the monitor or Alloy is gone
+
+prometheus.scrape "fleet" {
+	targets = [{
+		__address__ = "127.0.0.1:8130",
+		job         = "fleet",
+	}]
+	metrics_path    = "/metrics"
+	scrape_interval = "60s"
+	forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.exporter.unix "host" {
+	procfs_path = "/host/proc"
+	sysfs_path  = "/host/sys"
+	rootfs_path = "/host/root"
+
+	set_collectors = ["cpu", "loadavg", "meminfo", "filesystem", "diskstats"]
+	filesystem {
+		mount_points_exclude = "^/(dev|proc|sys|run|var/lib/docker/.+)($|/)"
+		fs_types_exclude     = "^(autofs|binfmt_misc|cgroup2?|devpts|devtmpfs|fusectl|overlay|proc|sysfs|tmpfs|tracefs)$"
+	}
+}
+
+prometheus.scrape "host" {
+	targets         = prometheus.exporter.unix.host.targets
+	scrape_interval = "60s"
+	forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+	// One stack, several writers: the label says which box these came from, so a rule meant
+	// for the fleet's node never matches production's, and the other way round.
+	external_labels = {
+		service = "docket_yard_fleet",
+		host    = "rmi-ai-machine",
+	}
+
+	endpoint {
+		url = sys.env("GRAFANA_REMOTE_WRITE_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_REMOTE_WRITE_USER")
+			password = sys.env("GRAFANA_REMOTE_WRITE_TOKEN")
+		}
+	}
+}
