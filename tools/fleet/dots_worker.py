@@ -6,9 +6,10 @@
     python dots_worker.py --queue http://<node>:8131 --token-file fleet.token \\
         --scratch ./render                                              # on another machine
 
-On the node the worker opens the queue file and reads blobs from disk. Anywhere else it
-holds `RemoteQueue` — the same six calls over `queue_server.py` — and fetches each document's
-bytes from the node once per document (a claim is usually one document's pages in order).
+On the coordinator the worker opens the queue file and reads blobs from disk. Anywhere else
+it holds `RemoteQueue` — the same six calls over `queue_server.py` — and reads blobs from its
+own `--blobs` mirror if it has one, else fetches each document's bytes once per document (a
+claim is usually one document's pages in order).
 
 The worker declares its producer — the pass's key, this host, the engine and its version
 as the server reports them — and the queue refuses it if the key is not the pass's
@@ -172,8 +173,8 @@ def read_page(pdf, no: int, png: Path, server: str, model: str, timeout: int, mp
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--db", type=Path, help="the queue file, on the node")
-    ap.add_argument("--blobs", type=Path, help="the blobs directory, on the node")
-    ap.add_argument("--queue", help="the node's queue server, from another machine")
+    ap.add_argument("--blobs", type=Path, help="the blobs, on this machine's disk (else fetched)")
+    ap.add_argument("--queue", help="the coordinator's queue server, from another machine")
     ap.add_argument("--token-file", type=Path, help="with --queue: the shared token")
     ap.add_argument("--scratch", required=True, type=Path)
     ap.add_argument("--server", default=DOTS_SERVER)
@@ -194,15 +195,18 @@ def main() -> int:
     args = ap.parse_args()
 
     spec = PASSES[PASS]
+    if args.blobs and not args.blobs.is_dir():
+        log(f"--blobs {args.blobs} is not a directory; exit {EXIT_ENVIRONMENT}")
+        return EXIT_ENVIRONMENT
     if args.queue:
         if not args.token_file:
             log(f"--queue needs --token-file; exit {EXIT_ENVIRONMENT}")
             return EXIT_ENVIRONMENT
         q = RemoteQueue(args.queue, args.token_file.read_text(encoding="utf-8").strip())
-    elif args.db and args.blobs and args.blobs.is_dir():
+    elif args.db and args.blobs:
         q = Queue(args.db)
     else:
-        log(f"give --db and --blobs (on the node) or --queue (elsewhere); exit {EXIT_ENVIRONMENT}")
+        log(f"give --db and --blobs (the coordinator) or --queue; exit {EXIT_ENVIRONMENT}")
         return EXIT_ENVIRONMENT
     name = args.name or f"{socket.gethostname()}/{PASS}"
     if not server_healthy(args.server):
@@ -255,7 +259,7 @@ def main() -> int:
                 sha, no = job["document_sha256"], job["page_no"]
                 png = args.scratch / f"{name.replace('/', '_')}_{sha[:12]}_p{no}.png"
                 try:
-                    if isinstance(q, Queue):
+                    if args.blobs:  # on the node, or a mirror of its blobs: read the disk
                         pdf = args.blobs / sha[:2] / sha
                     else:
                         if held is None or held[0] != sha:

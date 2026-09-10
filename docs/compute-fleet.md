@@ -20,11 +20,11 @@ Named, never addressed — the repository is public. Addresses live outside it.
 
 | Machine | GPU memory | OS | Role |
 | --- | --- | --- | --- |
-| RMI-AI-MACHINE | RTX 4070, 12 GB | Linux | **The only node today.** Always on. Paddle, dots.mocr through vLLM, the queue and the monitor |
+| RMI-AI-MACHINE | RTX 4070, 12 GB | Linux | A worker. Always on. Paddle, dots.mocr through vLLM. Held the queue and the monitor until 2026-09-10 |
+| rmi-nuc, an Intel NUC | none | Ubuntu Server | **The coordinator** since 2026-09-10: the queue, the monitor, the collector, the blob mirror, Alloy, the token. No GPU; it reads nothing. What it gives is that the GPU boxes are stateless workers a reboot does not cost |
 | The operator's workstation | RTX 5080, 16 GB | Windows 11 | Opportunistic: a worker that runs only while the operator is away from it, under `workstation-gate.ps1`; vLLM in a container |
 | A Mac mini | M4 Pro, 24 GB unified | macOS | Owed, after the operator resets it: the largest GPU-addressable memory on the LAN; cannot run vLLM, so any engine there is another pass |
 | A Jetson Orin Nano | 8 GB shared | Linux | Owed, on the network since 2026-09-10 but not yet set up: small always-on services (layout, classification, embeddings); not a vision-language model |
-| An Intel NUC | none | Windows today; Linux if converted | Candidate (the operator, 2026-09-10): the always-on coordinator — queue, monitor, Alloy, later the online layer — so the GPU box can reboot freely; and the CPU-only passes (`second`, `graphic` read the cache) |
 
 **Production never joins the fleet.** The instance holds the store and the keys; the fleet
 holds neither. Reading documents reach the store the way they always have — `rsync` of the
@@ -149,18 +149,27 @@ page a person has to open.
 
 ## Running it
 
-On RMI-AI-MACHINE, five tmux sessions, started idempotently by `tools/fleet/fleet-up.sh`:
+Two roles, tmux sessions for each, started idempotently by `tools/fleet/fleet-up.sh <role>`
+(`DY_FLEET_DATA` is the data root; `DY_FLEET_PY` the interpreter):
 
-| Session | Runs | Log |
-| --- | --- | --- |
-| `dots-vllm` | `dots-serve.sh`: vLLM, restarted a minute after it dies | `ocr/logs/vllm.log` |
-| `dots-worker` | `dots_worker.py`, restarted a minute after it exits (0: queue empty; 2: server gone 30 min; 3: server dies on consecutive pages; 4: not the page's fault; 5: too many page failures in a row) | `ocr/logs/dots-worker.log` |
-| `dots-collect` | `pagequeue.py collect` every ten minutes | `ocr/logs/dots-collect.log` |
-| `fleet-monitor` | `monitor.py` on port 8130 | `ocr/logs/monitor.log` |
-| `fleet-queue` | `queue_server.py` on port 8131, for another machine's worker | `ocr/logs/queue-server.log` |
+| Role | Session | Runs | Log |
+| --- | --- | --- | --- |
+| coordinator | `fleet-queue` | `queue_server.py` on port 8131: the lease calls and the blobs | `ocr/logs/queue-server.log` |
+| coordinator | `fleet-monitor` | `monitor.py` on port 8130 | `ocr/logs/monitor.log` |
+| coordinator | `dots-collect` | `pagequeue.py collect` every ten minutes | `ocr/logs/dots-collect.log` |
+| worker | `dots-vllm` | `dots-serve.sh`: vLLM, restarted a minute after it dies | `ocr/logs/vllm.log` |
+| worker | `dots-worker` | `dots_worker.py`, restarted a minute after it exits (0: queue empty; 2: server gone 30 min; 3: server dies on consecutive pages; 4: not the page's fault; 5: too many page failures in a row) | `ocr/logs/dots-worker.log` |
+
+The coordinator is rmi-nuc (data under the operator's home; `DY_FLEET_PY=python3`, since it
+needs no engine). A worker names the coordinator in `<data>/fleet-node` and, if it holds a
+mirror of the blobs (RMI-AI-MACHINE does), reads them from its own disk. The workstation's
+gate is the Windows form of the worker role. Alloy runs on the coordinator with
+`config.alloy` (the fleet's series and the box's vitals) and on each worker with
+`config-host.alloy` (vitals only), the box's name in `FLEET_HOST` beside the credentials.
 
 ```
-bash ~/docket-yard/tools/fleet/fleet-up.sh                 # start what is not running
+bash ~/docket-yard/tools/fleet/fleet-up.sh coordinator     # on rmi-nuc
+bash ~/docket-yard/tools/fleet/fleet-up.sh worker          # on a GPU box
 python3 tools/fleet/pagequeue.py --db Q status             # the queue, as JSON
 python3 tools/fleet/pagequeue.py --db Q seed --pass dots --out /data/docketyard/ocr --dry-run
 python3 tools/fleet/pagequeue.py --db Q fail --job N --error 'why'   # an operator's decision
@@ -217,8 +226,8 @@ project ever calls a model from a page; batch derivation is the queue.
 ## What is owed
 
 - The three rules in Grafana Cloud (stalled, failing, absent — each `for: 10m`); Alloy is up
-- The Mac's pass, after the operator resets it; the Jetson's address; two workers on the
-  node, measured for the activation peak first
+- The Mac's pass, after the operator resets it; the Jetson's setup; two workers on the
+  node, measured for the activation peak first; `second` and `graphic` on the coordinator
 - `second` and `graphic` run through the queue rather than `ocr_wave.py`, so that every pass
   has the same lease and the same monitor (they read a cache and cannot die the same way, so
   this is tidiness, not safety)
