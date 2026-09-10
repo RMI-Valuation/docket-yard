@@ -7,8 +7,11 @@
 > no year for a docket that holds nothing, which is three quarters of them.
 > **A7 shipped 2026-09-01** (v2026.08.51): a series carries an index, and its JSON twin
 > covers what its page covers. Of Tier 4 the home window is settled — it keeps the rolling
-> seven days, named for what it is. The masthead's shape and whether a place index is ripe
-> are unchanged and still the operator's to choose. Every measurement below
+> seven days, named for what it is. **Tier 4 closed 2026-09-10:** the masthead is settled as
+> it stands — five entries and the search box, the registers and trust pages in the footer;
+> and the place index is ripe, re-taken from the stale 2026-08-27 verdict on the caption
+> figures in § E, entered on `ROADMAP.md`'s Ripe list and not chosen (the operator also
+> named it as a line the summaries of `summaries.md` could carry). Every measurement below
 > is left as it was taken, because it is the evidence the fixes were made against; what
 > shipped is recorded in `milestones.md` and in the commit, not by editing the numbers here.
 >
