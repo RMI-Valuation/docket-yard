@@ -16,15 +16,14 @@ decisions have their own section.
   the instance IN THAT ORDER (`graphic` needs its own `ran_at` or the loader says `restart`)
 - **The citator has never run a real load** (`citation`: 0 rows). The chain into a copy
   (2026-09-04) gave 15,164 distinct edges and 0 failures; `declare --scores` and reviewer 1
-  are ready; 1,946 exposed keys are ~16 h of reading. Starts when the operator has the hours
+  are ready; 1,946 exposed keys are ~16 h of reading. Waits for the work card (§ Next,
+  decided 2026-09-10), then starts when the operator has the hours
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
 
 ## The operator's decisions
 
-- Open the work grain: one `class_measurement` on `('citation_resolution', 'work')` from a
-  checked sheet, then `cited-by --work` answers. Needs the reviewer hours above
 - **Party types (F3)**: rules v2 at 83.3% on its own sheet; a second unseen sample must
   confirm before any type ships (`docs/party-types.md`)
 - Noindex, now that search reaches the text; whether `/search` joins the named AI agents'
@@ -38,6 +37,10 @@ decisions have their own section.
 
 ## Next
 
+- **The work card before the first load** (decided 2026-09-10, `docs/runbook.md` Blocker 4):
+  draft a cited-document column for the 240 served-date spans on the sixty-decision sheet
+  for the operator's check; `citation_dryrun.py`, `scorecard` and `declare` gain a work
+  stage; the loader stamps document-bearing rows from `('citation_resolution', 'work')`
 - ADR 0024's dispatcher — the container that reads new material's text layer on the
   instance — is unwritten; `/security-review` before it ships (§ Owed 8), and `text load`
   should declare the producer from the root's `_manifest.json` (`deferred.md`)

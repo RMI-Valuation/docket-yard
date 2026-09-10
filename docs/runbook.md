@@ -289,6 +289,20 @@ none for 19,229 decisions. The load is therefore a decision to publish edges at 
 confidence, not a measurement of that confidence — and `/methodology` says what the figure
 is measured on.
 
+### Blocker 4 — decided 2026-09-10: the work card is declared BEFORE the first load
+
+`cited-by --work` refuses until `('citation_resolution', 'work')` is scored (`project.py`),
+and the loader stamps every resolution from the `docket` class, so a load run first would
+stamp the 16,051 document-bearing rows (of 217,352 landed, measured 2026-09-05) from the
+docket figure, and opening the grain later would supersede and re-assert every one. The
+operator chose the other order: the work measurement comes from the EXISTING sixty-decision
+sheet — 240 of its 599 STB citations quote a served date, and each gains a checked
+cited-document column (a join to `decision` a person confirms, about two hours) — the
+scorer and `declare` gain a work stage, the loader stamps document-bearing rows from it,
+and ONE load stamps both classes. The exposed-key review (Blocker 2) still gates release of
+the docket edges and is unchanged by this. A fresh unseen sample was weighed and set aside:
+the served pattern was tuned on 200,000 production pages, not on the sheet.
+
 ### The steps, once those are settled
 
     # 1. behind the wall? NO — the load commits per document and holds no long lock, and
