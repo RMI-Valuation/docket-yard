@@ -88,6 +88,12 @@ stays readable to people and to ordinary crawlers — this is about the dedicati
 secrecy. A permission whose rules hand over what its own text withholds would be a promise
 contradicted by its own file.
 
+**Added 2026-09-10 (the operator):** `/search` is disallowed for the agents named, alongside
+the party module and the page text. A result page prints snippets of the held page text and
+party names, so an agent that may not fetch `/text` or `/p/` could read both from it — the
+rule again matches the prose. The text pages stay `noindex` for everyone (ADR 0021
+addendum, 2026-09-10).
+
 What is asked rather than required, in `robots.txt` and on `/data`: if you answer from this
 record, carry what a reader would have seen — coverage is not uniform, dates and captions
 are quoted rather than computed, and nothing here says what any party argued.

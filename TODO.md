@@ -24,8 +24,6 @@ decisions have their own section.
 
 ## The operator's decisions
 
-- Noindex, now that search reaches the text; whether `/search` joins the named AI agents'
-  disallow list (it prints held page text they may not fetch at `/text`)
 - The navigation review's last two: the masthead, and whether a place index is ripe
 - JSON-LD: none on any page; the vocabulary before any
 - The drain's open class: an unanswered attempt leaves no capture (`deferred.md`)
@@ -42,6 +40,8 @@ decisions have their own section.
 - **Party types, the held-out sheet** (decided 2026-09-10): draw 300 disjoint from the first
   sample, rules v2 drafts, a check queue for the operator; the bar is 95% per type; then
   the assertion migration (schema-critic first) and the browse on `/parties`
+- `Disallow: /search` for the named AI agents in the robots route (decided 2026-09-10,
+  `docs/machine-surface.md`); the comment block there and the file's prose say why
 - ADR 0024's dispatcher — the container that reads new material's text layer on the
   instance — is unwritten; `/security-review` before it ships (§ Owed 8), and `text load`
   should declare the producer from the root's `_manifest.json` (`deferred.md`)

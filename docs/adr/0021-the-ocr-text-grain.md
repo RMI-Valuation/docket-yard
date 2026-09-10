@@ -330,3 +330,20 @@ error rate, and noindex removes nothing from a harvester — masking does that. 
 decisions together when the page search path ships; a tiered rule (text-layer indexable
 with a canonical to its record, engine readings not) is derivable from `reading_channel`
 and was the alternative considered.
+
+## Addendum (2026-09-10): the noindex revisited, and held
+
+The page search path shipped 2026-09-04, the condition the addendum above set for revisiting.
+Revisited 2026-09-10 against what production then held — 72,341 documents (935,419 pages)
+read from a text layer and 11,452 (169,516 pages) read by an engine — the operator held
+the rule: **text pages stay `noindex`, all of them, both tiers.** The text-layer tier is
+the text a search engine already reads from the Board's own PDF, so opening it duplicates
+what ranks and adds a crawl surface to a box that starved on CPU on 2026-09-06; the tier an
+index would add something for is the engine tier, at 10.8% CER and with no review layer.
+The tiered rule (text-layer indexable, engine readings not) was weighed and set aside for
+that reason. Revisit when Migration B gives an engine reading a measured band.
+
+The same day: **`/search` joins the named AI agents' disallow list** (`docs/machine-surface.md`
+§ The AI policy). A result page prints snippets of the held text and the party names, so
+an agent that may not fetch `/text` or `/p/` could read both through the side door; the
+rule now says what the prose says. People and ordinary crawlers are unaffected.
