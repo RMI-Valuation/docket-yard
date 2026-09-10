@@ -5,8 +5,8 @@ archive; shipped milestones are recorded in `docs/milestones.md`. `docs/deferred
 pool of accepted-later work: **pull an item from it into Next when capacity or a decision
 makes it near-term**, and delete it there when it lands. Anything stale in Parked graduates
 to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, prune.
-Pruned 2026-09-10: done items and facts that live elsewhere were removed; the operator's
-decisions have their own section.
+Pruned 2026-09-10: done items and facts that live elsewhere were removed; the nine operator
+decisions were taken the same day and are recorded where each belongs.
 
 ## In motion
 
@@ -22,10 +22,6 @@ decisions have their own section.
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
 
-## The operator's decisions
-
-- Whether the second ChatGPT seat becomes a second code reviewer on pull requests
-
 ## Next
 
 - **The work card before the first load** (decided 2026-09-10, `docs/runbook.md` Blocker 4):
@@ -37,7 +33,7 @@ decisions have their own section.
   the assertion migration (schema-critic first) and the browse on `/parties`
 - `Disallow: /search` for the named AI agents in the robots route, and site-level JSON-LD
   (`WebSite`, `Dataset`, `BreadcrumbList`, from the page's own reads) — both decided
-  2026-09-10, `docs/machine-surface.md`)
+  2026-09-10, `docs/machine-surface.md`
 - ADR 0024's dispatcher — the container that reads new material's text layer on the
   instance — is unwritten; `/security-review` before it ships (§ Owed 8), and `text load`
   should declare the producer from the root's `_manifest.json` (`deferred.md`)

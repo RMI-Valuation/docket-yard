@@ -120,7 +120,10 @@ lives in the store; only the engine payload goes to the blob tier).
   traps and invariants (create it at M1 if it does not exist yet); `/security-review` on
   anything handling external input before it first ships.
 - **Milestone-scale work:** do it on a branch and open a PR — that tier gets
-  `/code-review ultra` and any PR bots (CodeRabbit OSS tier) before merging to `main`.
+  `/code-review ultra` before merging to `main`. **Every PR is reviewed automatically by
+  Copilot's reviewer and by Codex** (the operator's decision, 2026-09-10; the second ChatGPT
+  seat, connected by the operator in Codex's settings). Their findings are triaged the way
+  ultra's are: acted on, or dated into `docs/deferred.md`, never dismissed unread.
 
 ## Conventions
 
