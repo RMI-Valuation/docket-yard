@@ -1,0 +1,384 @@
+<title>Work-Level Citation Check</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --paper:#faf8f5; --card:#ffffff; --ink:#1b1a17; --muted:#6d675f; --faint:#918a80;
+  --rule:#e0dad1; --rule-strong:#c9c1b6;
+  --accent:#24427a; --accent-soft:#eef1f8;
+  --yes:#2f6b3f; --yes-soft:#e9f2ea;
+  --no:#a3391f; --no-soft:#fbeae5;
+  --hold:#7d5f10; --hold-soft:#f7f0dc;
+  --mark:#fdf0b8; --mark-ink:#4a3d00;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#16161a; --card:#1e1e23; --ink:#eceae6; --muted:#a7a099; --faint:#847d75;
+    --rule:#33323a; --rule-strong:#4a4854;
+    --accent:#93b2e8; --accent-soft:#1f2738;
+    --yes:#7fc08d; --yes-soft:#1c2a20;
+    --no:#e88f74; --no-soft:#2e1d18;
+    --hold:#d8b45c; --hold-soft:#2b2415;
+    --mark:#4a3f14; --mark-ink:#f6e9b4;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#16161a; --card:#1e1e23; --ink:#eceae6; --muted:#a7a099; --faint:#847d75;
+  --rule:#33323a; --rule-strong:#4a4854;
+  --accent:#93b2e8; --accent-soft:#1f2738;
+  --yes:#7fc08d; --yes-soft:#1c2a20;
+  --no:#e88f74; --no-soft:#2e1d18;
+  --hold:#d8b45c; --hold-soft:#2b2415;
+  --mark:#4a3f14; --mark-ink:#f6e9b4;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font:16px/1.55 "Source Sans 3","Segoe UI",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---- masthead ------------------------------------------------------- */
+.top{
+  position:sticky; top:0; z-index:5; background:var(--paper);
+  border-bottom:1px solid var(--rule); padding:.85rem 1.25rem .7rem;
+}
+.top-in{max-width:60rem;margin:0 auto;display:flex;gap:1.25rem;align-items:baseline;flex-wrap:wrap}
+h1{
+  font-family:Newsreader,Georgia,serif; font-weight:600; font-size:1.3rem;
+  margin:0; letter-spacing:-.01em; text-wrap:balance;
+}
+.sub{color:var(--muted);font-size:.88rem;margin:0}
+.spacer{flex:1}
+.tally{display:flex;gap:1.1rem;font-size:.85rem;font-variant-numeric:tabular-nums}
+.tally b{font-weight:600;font-size:1.05rem;display:block;line-height:1.2}
+.tally span{color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:.68rem}
+.meter{max-width:60rem;margin:.6rem auto 0;height:4px;background:var(--rule);border-radius:2px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+@media (prefers-reduced-motion:reduce){.meter i{transition:none}}
+
+/* ---- the bench ------------------------------------------------------ */
+main{max-width:60rem;margin:0 auto;padding:1.4rem 1.25rem 5rem}
+.lede{max-width:38rem;color:var(--muted);font-size:.94rem;margin:0 0 1.4rem}
+.lede b{color:var(--ink);font-weight:600}
+
+.band{
+  display:flex;align-items:center;gap:.6rem;margin:0 0 .8rem;
+  font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);
+}
+.band::after{content:"";flex:1;height:1px;background:var(--rule)}
+
+.claim{background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:1.3rem 1.4rem}
+.claim.judged{border-left:3px solid var(--rule-strong)}
+.claim.v-right{border-left-color:var(--yes)}
+.claim.v-wrong,.claim.v-should{border-left-color:var(--no)}
+.claim.v-unclear{border-left-color:var(--hold)}
+
+.who{display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap;margin-bottom:.15rem}
+.docketno{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:600;font-size:1rem}
+.cap{color:var(--muted);font-size:.85rem}
+.pageref{color:var(--faint);font-size:.78rem;font-variant-numeric:tabular-nums}
+
+.line{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.82rem; line-height:1.7;
+  background:var(--paper); border:1px solid var(--rule); border-radius:2px;
+  padding:.7rem .8rem; margin:.9rem 0; overflow-x:auto; white-space:pre-wrap; word-break:break-word;
+}
+.line mark{background:var(--mark);color:var(--mark-ink);padding:0 .12em;border-radius:2px}
+.line .tgt{background:var(--accent-soft);color:var(--accent);font-weight:600;padding:0 .12em;border-radius:2px}
+.window{color:var(--faint);font-size:.75rem;margin:-.5rem 0 .9rem}
+
+.answer{
+  display:grid;grid-template-columns:auto 1fr;gap:.15rem .9rem;align-items:baseline;
+  border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:2px;
+  padding:.75rem .9rem;background:var(--accent-soft);
+}
+.answer.none{border-left-color:var(--hold);background:var(--hold-soft)}
+.answer dt{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);white-space:nowrap}
+.answer dd{margin:0;font-size:.92rem}
+.answer .id{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:600}
+
+.ask{margin:1.1rem 0 .55rem;font-family:Newsreader,Georgia,serif;font-size:1.08rem}
+.btns{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+button{
+  font:600 .88rem/1 "Source Sans 3",system-ui,sans-serif; color:var(--ink);
+  background:var(--card); border:1px solid var(--rule-strong); border-radius:3px;
+  padding:.5rem .85rem; cursor:pointer;
+}
+button:hover{border-color:var(--ink)}
+button kbd{
+  font:inherit;font-size:.72rem;color:var(--faint);margin-left:.4rem;
+  border:1px solid var(--rule);border-radius:2px;padding:0 .25rem;
+}
+button.on{color:#fff;border-color:transparent}
+.b-yes.on{background:var(--yes)} .b-no.on{background:var(--no)} .b-hold.on{background:var(--hold)}
+:root[data-theme="dark"] button.on,
+:root:not([data-theme="light"]) button.on{color:#16161a}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) button.on{color:#fff}}
+.nav{display:flex;gap:.5rem;align-items:center;margin-top:1.2rem;color:var(--muted);font-size:.85rem}
+.nav .spacer{flex:1}
+input[type=text]{
+  font:.88rem "IBM Plex Mono",ui-monospace,monospace; padding:.45rem .55rem;
+  border:1px solid var(--rule-strong); border-radius:3px; background:var(--card); color:var(--ink);
+  width:9rem;
+}
+.status{font-size:.8rem;color:var(--faint);margin-top:1.6rem;text-align:center}
+.scorecard{
+  margin-top:2rem;border:1px solid var(--rule);border-radius:3px;padding:1.1rem 1.3rem;background:var(--card);
+}
+.scorecard h2{font-family:Newsreader,Georgia,serif;font-weight:600;font-size:1.05rem;margin:0 0 .7rem}
+.figs{display:flex;gap:2rem;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.figs div span{display:block;font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.figs div b{font-size:1.45rem;font-weight:600;font-family:Newsreader,Georgia,serif}
+.note{font-size:.83rem;color:var(--muted);margin:.8rem 0 0;max-width:42rem}
+.export{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--rule);
+  display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}
+.export .note{margin:0}
+.export textarea{
+  flex-basis:100%; height:6rem; resize:vertical; background:var(--paper); color:var(--ink);
+  border:1px solid var(--rule); border-radius:2px; padding:.5rem .6rem;
+  font:.76rem/1.5 "IBM Plex Mono",ui-monospace,monospace;
+}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.85em}
+</style>
+
+<div class="top">
+  <div class="top-in">
+    <div>
+      <h1>Work-level citation check</h1>
+      <p class="sub">The sixty-decision sheet &middot; <span id="pos">1</span> of <span id="tot">0</span></p>
+    </div>
+    <div class="spacer"></div>
+    <div class="tally">
+      <div><b id="t-judged">0</b><span>judged</span></div>
+      <div><b id="t-right">0</b><span>right</span></div>
+      <div><b id="t-wrong">0</b><span>wrong</span></div>
+      <div><b id="t-prec">&mdash;</b><span>precision</span></div>
+    </div>
+  </div>
+  <div class="meter"><i id="bar"></i></div>
+</div>
+
+<main>
+  <p class="lede">The resolver reads <b>&ldquo;served March 12, 2021&rdquo;</b> beside a docket number and
+  names the document that citation points at. Nothing has ever scored whether it names the right
+  one, so the work grain stays shut. <b>Your judgement here is the measurement.</b> Keys:
+  <b>y</b> right, <b>n</b> wrong, <b>s</b> should be, <b>u</b> unclear, <b>&larr; &rarr;</b> move.</p>
+
+  <div class="band" id="band">the rule answered</div>
+  <div class="claim" id="claim"></div>
+
+  <div class="nav">
+    <button id="prev">&larr; Previous</button>
+    <button id="next">Next &rarr;</button>
+    <div class="spacer"></div>
+    <button id="skipto">Next unjudged</button>
+  </div>
+
+  <div class="scorecard">
+    <h2>What the card would carry</h2>
+    <div class="figs">
+      <div><span>Work precision</span><b id="f-prec">&mdash;</b></div>
+      <div><span>Judged of 106</span><b id="f-den">0</b></div>
+      <div><span>Reached a document</span><b>106</b></div>
+      <div><span>Stopped at the docket</span><b>105</b></div>
+    </div>
+    <p class="note">Precision is what a row is stamped with (ADR 0017 D3), measured over what the
+    rule <em>answered</em>. The stops below the first band are the recall half: worth having, and
+    not what the card waits on. A <em>should be</em> counts as wrong here and carries the right
+    answer for the sheet.</p>
+    <div class="export">
+      <button id="copy">Copy the judgements</button>
+      <span class="note" id="copied"></span>
+      <textarea id="out" readonly aria-label="Judgements, tab separated"></textarea>
+    </div>
+  </div>
+
+  <p class="status" id="status">Loading&hellip;</p>
+</main>
+
+<script>
+const ROWS = /*DATA*/[];
+const SERVED = /served\s+\w+\.?\s+\d{1,2},?\s+\d{4}/gi;
+const esc = s => (s || "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const key = r => [r.citing_decision, r.target_key, r.drafted_decision].join("|");
+
+let i = 0, V = {}, store = null, saving = false;
+
+/* ---- persistence: the artifact's own store, else this browser ------- */
+async function boot(){
+  const note = document.getElementById("status");
+  try{
+    const db = await claude.use("db");
+    if(db){
+      const ref = db.doc("verdicts/sheet");
+      const snap = await ref.get();
+      if(!snap.exists) await ref.set({v:{}, updatedAt:new Date().toISOString()});
+      else V = (snap.data() || {}).v || {};
+      store = ref;
+      note.textContent = "Saved as you go. Reopen anywhere and pick up where you left off.";
+    }
+  }catch(e){ /* fall through to the local copy */ }
+  if(!store){
+    try{ V = JSON.parse(localStorage.getItem("dy-work-verdicts") || "{}"); }catch(e){ V = {}; }
+    note.textContent = "Saving to this browser only — the shared store is unavailable in this view.";
+  }
+  i = ROWS.findIndex(r => !V[key(r)]);
+  if(i < 0) i = 0;
+  render();
+}
+
+async function save(){
+  if(saving) return;
+  saving = true;
+  try{
+    if(store) await store.update({v:V, updatedAt:new Date().toISOString()});
+    else localStorage.setItem("dy-work-verdicts", JSON.stringify(V));
+  }catch(e){
+    document.getElementById("status").textContent =
+      "That judgement is on screen but was not saved. Check your connection and press the key again.";
+  }
+  saving = false;
+}
+
+/* ---- the card ------------------------------------------------------- */
+function marked(text, printed){
+  let out = esc(text).replace(SERVED, m => "<mark>" + m + "</mark>");
+  if(printed){
+    const safe = esc(printed).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp("(?<![A-Za-z0-9])" + safe + "(?!\\d)", "g"),
+                      m => '<span class="tgt">' + m + "</span>");
+  }
+  return out;
+}
+
+function render(){
+  const r = ROWS[i], v = V[key(r)] || "";
+  document.getElementById("pos").textContent = i + 1;
+  document.getElementById("band").textContent =
+    r.drafted_decision ? "the rule answered — is it right?"
+                       : "the rule stopped at the docket — was it right to?";
+
+  const line = r.quoted_line || r.anchored_segment || r.sheet_quote;
+  const answer = r.drafted_decision
+    ? `<dl class="answer">
+         <dt>Names</dt><dd><a class="id" href="${esc(r.drafted_url)}" target="_blank"
+              rel="noopener">${esc(r.drafted_decision)}</a></dd>
+         <dt>Served</dt><dd>${esc(r.drafted_service_date)} in ${esc(r.drafted_docket)}</dd>
+         <dt>Which is</dt><dd>${esc(r.drafted_type)}${r.drafted_body ? " — " + esc(r.drafted_body) : ""}</dd>
+       </dl>`
+    : `<dl class="answer none">
+         <dt>No document</dt><dd>${esc(r.why_no_document)}</dd>
+         ${r.served_date_read ? `<dt>Date on page</dt><dd>${esc(r.served_date_read)}</dd>` : ""}
+       </dl>`;
+
+  const buttons = r.drafted_decision
+    ? `<button class="b-yes ${v==="right"?"on":""}" data-v="right">Right<kbd>y</kbd></button>
+       <button class="b-no ${v==="wrong"?"on":""}" data-v="wrong">Wrong<kbd>n</kbd></button>
+       <button class="b-no ${v.startsWith("should-be")?"on":""}" data-v="should">Should be&hellip;<kbd>s</kbd></button>
+       <button class="b-hold ${v==="unclear"?"on":""}" data-v="unclear">Unclear<kbd>u</kbd></button>`
+    : `<button class="b-yes ${v==="right-to-stop"?"on":""}" data-v="right-to-stop">Right to stop<kbd>y</kbd></button>
+       <button class="b-no ${v.startsWith("should-be")?"on":""}" data-v="should">Should be&hellip;<kbd>s</kbd></button>
+       <button class="b-hold ${v==="unclear"?"on":""}" data-v="unclear">Unclear<kbd>u</kbd></button>`;
+
+  document.getElementById("claim").className =
+    "claim" + (v ? " judged v-" + (v.startsWith("should-be") ? "should" : v.split("-")[0]) : "");
+  document.getElementById("claim").innerHTML = `
+    <div class="who">
+      <span class="docketno">${esc(r.target_key)}</span>
+      <span class="cap">${esc(r.target_caption)}</span>
+    </div>
+    <div class="pageref">cited by decision
+      <a href="${esc(r.citing_url)}" target="_blank" rel="noopener">${esc(r.citing_decision)}</a>
+      ${r.citing_docket ? "in " + esc(r.citing_docket) : ""}
+      ${r.pages ? "· page " + esc(r.pages) : ""}</div>
+    <div class="line">${marked(line, r.target_key)}</div>
+    ${r.anchored_segment && r.anchored_segment !== line
+        ? `<p class="window">The window the rule read: <code>${esc(r.anchored_segment)}</code></p>` : ""}
+    ${answer}
+    <p class="ask">${r.drafted_decision
+        ? "Does this citation point at that document?"
+        : "Does this citation name a document the record holds?"}</p>
+    <div class="btns">${buttons}</div>`;
+
+  document.querySelectorAll("#claim button").forEach(b =>
+    b.addEventListener("click", () => mark(b.dataset.v)));
+  tally();
+}
+
+function mark(v){
+  const r = ROWS[i];
+  if(v === "should"){
+    const said = prompt("The stb_decision_id this citation actually names:",
+                        (V[key(r)] || "").replace("should-be:", ""));
+    if(said === null) return;
+    if(!said.trim()){ delete V[key(r)]; } else { V[key(r)] = "should-be:" + said.trim(); }
+  }else{
+    V[key(r)] = V[key(r)] === v ? undefined : v;
+    if(!V[key(r)]) delete V[key(r)];
+  }
+  save();
+  if(V[key(r)] && i < ROWS.length - 1){ i++; }
+  render();
+}
+
+function tally(){
+  const drafted = ROWS.filter(r => r.drafted_decision);
+  const judged = ROWS.filter(r => V[key(r)]).length;
+  const dj = drafted.filter(r => V[key(r)]);
+  const right = dj.filter(r => V[key(r)] === "right").length;
+  const wrong = dj.length - right;
+  const prec = dj.length ? (100 * right / dj.length).toFixed(1) + "%" : "—";
+  document.getElementById("t-judged").textContent = judged;
+  document.getElementById("t-right").textContent = right;
+  document.getElementById("t-wrong").textContent = wrong;
+  document.getElementById("t-prec").textContent = prec;
+  document.getElementById("f-prec").textContent = prec;
+  document.getElementById("f-den").textContent = dj.length;
+  document.getElementById("bar").style.width = (100 * judged / ROWS.length) + "%";
+  // The judgements as the sheet wants them: the claim's own key, then the verdict. This is
+  // what `labels.csv` gains a column from, so it carries the drafted id even when the
+  // verdict overrides it — a row that says only "wrong" cannot be scored twice.
+  document.getElementById("out").value = ROWS
+    .filter(r => V[key(r)])
+    .map(r => [r.citing_decision, r.target_key, r.drafted_decision || "", V[key(r)]].join("\t"))
+    .join("\n");
+}
+
+document.getElementById("prev").addEventListener("click", () => { if(i>0){i--;render();} });
+document.getElementById("next").addEventListener("click", () => { if(i<ROWS.length-1){i++;render();} });
+document.getElementById("skipto").addEventListener("click", () => {
+  const n = ROWS.findIndex((r,x) => x > i && !V[key(r)]);
+  i = n < 0 ? (ROWS.findIndex(r => !V[key(r)]) < 0 ? i : ROWS.findIndex(r => !V[key(r)])) : n;
+  render();
+});
+document.addEventListener("keydown", e => {
+  if(e.target.tagName === "INPUT" || e.metaKey || e.ctrlKey) return;
+  const k = e.key.toLowerCase();
+  if(k === "arrowleft" && i > 0){ i--; render(); }
+  else if(k === "arrowright" && i < ROWS.length - 1){ i++; render(); }
+  else if(k === "y"){ mark(ROWS[i].drafted_decision ? "right" : "right-to-stop"); }
+  else if(k === "n" && ROWS[i].drafted_decision){ mark("wrong"); }
+  else if(k === "s"){ mark("should"); }
+  else if(k === "u"){ mark("unclear"); }
+  else return;
+  e.preventDefault();
+});
+
+document.getElementById("copy").addEventListener("click", async () => {
+  const out = document.getElementById("out"), said = document.getElementById("copied");
+  if(!out.value){ said.textContent = "Nothing judged yet."; return; }
+  try{
+    await navigator.clipboard.writeText(out.value);
+    said.textContent = "Copied — paste it back to Claude.";
+  }catch(e){
+    out.select();
+    said.textContent = "Select-all is done: copy with your keyboard.";
+  }
+});
+
+document.getElementById("tot").textContent = ROWS.length;
+boot();
+</script>
