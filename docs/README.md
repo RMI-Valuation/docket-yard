@@ -4,12 +4,13 @@
 
 | Document | What it is |
 | --- | --- |
-| [`capability-map.md`](capability-map.md) | 28 capabilities in five tiers, with effort and status. **A menu, not a roadmap.** |
+| [`capability-map.md`](capability-map.md) | 30 capabilities in five tiers, with effort and status. **A menu, not a roadmap.** |
 | [`research/comparable-platforms.md`](research/comparable-platforms.md) | The evidence base — what CourtListener, FERC, the Federal Register and the paid products solved, what failed, and what sustains these projects. |
 | [`stb-data-source.md`](stb-data-source.md) | The AJAX endpoint, its traps, and everything measured about the corpus. |
 | [`ocr-plan.md`](ocr-plan.md) | OCR of the image-only record (M3): ground truth, measured candidates, the review layer. Chosen 2026-08-28; the operator's four framing answers recorded 2026-09-02, and the census that corrects its page count by 42%. |
 | [`ocr-migration.md`](ocr-migration.md) | What the OCR migration owes: the two forced table rebuilds, the vocabularies, the tables with no home yet, and the infrastructure that breaks on deploy day. Held out of ADR 0021 so accepting it means accepting decisions, not mechanics; becomes the migration's header when it is written. |
 | [`compute-fleet.md`](compute-fleet.md) | Derivation on the operator's LAN: the machines, a pass as a reading key, the page lease, the oversize guard, the monitor and what detection means. Running on two machines since 2026-09-09 after the `dots` run died unnoticed for three days; ADR 0025 Accepted 2026-09-10; the Grafana rules owed. |
+| [`summaries.md`](summaries.md) | Docket summaries (P6), specified 2026-09-10 and not chosen: a dated list of the opening filing, every decision and the pleadings, one grounded sentence each, the Board's own Digest quoted where it exists, everything else counted; three dockets rendered by hand from the record. |
 | [`explainers.md`](explainers.md) | The docket-type explainers (P2): the reviewed text behind `/about/prefixes` and `/about/<PREFIX>`, graded by source. Published 2026-08-28. |
 | [`machine-surface.md`](machine-surface.md) | The machine-agent surface (F7): the read-only MCP server, the protocol choices and why, and the AI-crawler policy. Chosen 2026-08-31. |
 | [`registers.md`](registers.md) | The registers (court actions, protective orders) and the citation resolver: rule, measurements, what they do not say. Published 2026-08-27. |

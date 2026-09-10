@@ -1,7 +1,7 @@
 
 # Capability map
 
-Twenty-nine capabilities for a public STB records platform, ranked by how much pain they remove
+Thirty capabilities for a public STB records platform, ranked by how much pain they remove
 and how defensible they are. Evidence base: [`research/comparable-platforms.md`](research/comparable-platforms.md).
 
 **This is a menu, not a roadmap.** Version one is scoped to a wedge — agency-wide docket sheets
@@ -96,6 +96,7 @@ Mostly writing, not engineering. Highest ratio of value to cost.
 | `P3` | **A participation toolkit** | Medium | Exists nowhere |
 | `P4` | **A conditions-and-precedent library** | Medium | Exists nowhere |
 | `P5` | **The newsroom kit** | Low | Exists nowhere |
+| `P6` | **Docket summaries, generated and labelled** | Medium | Exists nowhere — specified 2026-09-10 (`summaries.md`), not chosen |
 
 **P1 — The jurisdiction router.** An honest page answering 'who actually handles this?' — blocked crossings, horn noise, crossing safety, derailments, hazmat. *A large share of people who reach the STB are at the wrong agency, and nothing tells them.*
 
@@ -106,6 +107,8 @@ Mostly writing, not engineering. Highest ratio of value to cost.
 **P4 — A conditions-and-precedent library.** Every condition the Board has imposed in past mergers and abandonments, tagged by problem. *The recurring question from a city attorney is 'what can we realistically ask for?'*
 
 **P5 — The newsroom kit.** Per-docket press pages: what changed, affected counties, embeddable maps, links to primary documents. *A local reporter cannot currently answer 'does this merger touch my city?'*
+
+**P6 — Docket summaries, generated and labelled.** One dated list per docket: the opening filing, every decision (the Board's own Digest quoted where it wrote one; one generated sentence where it did not), the pleadings that ask the Board for something, one sentence each saying what the document asks for in its words — and a count of everything else. Labelled as generated, with the model, version and date; every sentence stands on one document and is a reviewable assertion. *The median docket has three filings and one decision; seventy have over a hundred; a reader wanting to know what happened in one has only the sheet. The shape is in [`summaries.md`](summaries.md), rendered by hand for three dockets; the generated part turned out smaller than expected, because the Board summarises its own Entire Board decisions.*
 
 ## Tier 4 — Long moats
 
