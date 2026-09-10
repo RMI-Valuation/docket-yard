@@ -40,12 +40,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   ADR 0024's dispatcher is unwritten; `/security-review` before it ships (§ Owed 8), and
   `text load` should declare the producer from the root's manifest (`deferred.md`). **Cameron's:
   the NULL `cited_decision_id` provenance question in `deferred.md` (a note or `rule-1a`)**
-- **`dots` died 2026-09-06 (CUDA OOM, a 12 MP sheet); the driver walked 32,849 pages against
-  a closed port, exited 0, and nobody knew for three days. Restarted 2026-09-09 through the
-  page queue** (`tools/fleet/`, `docs/compute-fleet.md`, ADR 0025 Proposed): 33,147 pages,
-  **rmi-nuc is the coordinator since 2026-09-10** (queue, monitor, collector, blob mirror,
-  Alloy; `fleet-up.sh coordinator`); RMI-AI-MACHINE and the workstation's gate are workers.
-  ADR 0025 Accepted. **Cameron's: the three Grafana rules (stalled, failing, absent; 10 min).**
+- **The `dots` OCR wave runs on the fleet** (`docs/compute-fleet.md`, ADR 0025): rmi-nuc
+  coordinates (queue, monitor :8130, blobs, Alloy); RMI-AI-MACHINE and the workstation's
+  gate read. **Cameron's: the three Grafana rules (stalled, failing, absent; 10 min).**
   Then `second`, `graphic` on the NUC; rsync + `text load` IN ORDER
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
@@ -54,6 +51,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   days (Cameron, 2026-09-01). Left is **his**: the masthead, and whether a place index is ripe
 
 ## Parked
+
+- **Docket summaries (P6) and the AB status facet are specified, not chosen**
+  (`docs/summaries.md`, 2026-09-10): the fifty-document sample is what a decision starts;
+  the rule-only status slice (800 consummations, 714 trail-use filings) could go first
 
 - A key held off the box (KMS), decrypting only at send time — ADR 0014's open forward step
 - Stats deferrals: one month walker for `home.py`/`stats.py`; index `filing(filed_date)`
