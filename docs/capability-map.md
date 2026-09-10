@@ -63,7 +63,7 @@ Public, mandated or routinely published, never collected in one place.
 
 | | Capability | Effort | Status |
 | --- | --- | --- | --- |
-| `D1` | **Trail-use and railbanking register** | Medium | Exists nowhere |
+| `D1` | **Trail-use and railbanking register** | Medium | Exists nowhere — its events (NITU issued, extended, consummated) are the typed acts `summaries.md` specifies; first slice arrives through P6 |
 | `D2` | **System diagram maps, aggregated** | Medium | Exists nowhere |
 | `D3` | **Reference-data time series** | Medium | Exists nowhere |
 | `D4` | **Rule-status tracker** | Low | Exists nowhere — first slice (court-action index from 491 held notices) chosen 2026-08-27 |

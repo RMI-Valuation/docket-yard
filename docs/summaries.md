@@ -411,6 +411,68 @@ asked and decided without the summary having decided anything. The comments — 
 this docket — are a number and a link, which is honest: 741 expressions of interest and
 comment are not summarisable without inferring what their authors mean.
 
+## The typed act beside the sentence — where D1 begins
+
+The operator's observation (2026-09-10): the same reading that writes a sentence can say
+*what kind of act* the document is — an abandonment consummated, a notice of interim trail
+use issued — and those are the events the trail-use register (capability D1) was measured
+not ripe for want of. Measured on production the same day:
+
+| | count |
+| --- | --- |
+| Filings typed `Consummation Notice` by the Board | 941 |
+| Filings typed `Trail Use Request` / `Trail Use Agreement Reached` / `Petition To Substitute Trail User` / `Trail Use Extension` | 609 / 290 / 74 / 16 |
+| Decision documents whose first page says "interim trail use" | 2,995 |
+| … of which the decision type field says anything about it | 0 — the field says `Decision` (16,828) or `Notice` (2,247) |
+| AB dockets | 6,644 |
+
+So the two examples land differently, and that is the rule:
+
+- **Where the Board's own type names the act, the act is assigned by rule** — a
+  `Consummation Notice` is a consummation; `Trail Use Agreement Reached` is what it says —
+  and the only thing read from the document is the printed date of the act (a consummation
+  notice states the day; the filed date is not it), quoted.
+- **Where the record names nothing, the act is assigned from the ordering paragraph**, by
+  the model that is already reading it for the sentence, from a closed vocabulary, and
+  checked as the sentence is: the act's own words must appear in the document, and the
+  act's date must be a printed date.
+
+**The vocabulary follows the documents' words, not the effect.** A NITU decision (AB 497
+(Sub-No. 8X), served 2026-08-18) orders that the exemption "is further modified to the
+extent necessary to implement interim trail use/rail banking … to permit Norman County to
+negotiate with MNN for trail use for the Line for a period of one year from the service date
+of this decision and notice, until August 18, 2027." It does not say abeyance; it modifies,
+opens a period, and prints the day it ends. The effect the operator describes — the
+abandonment cannot be consummated while the period runs — is real and is a **derived
+status**, computed under ADR 0006 from the events (a NITU issued, its printed end date, no
+consummation notice since, no extension) and never asserted. "Held in abeyance" is a
+different act, the one FD 36447 was placed in on 2024-08-02, and keeps its own word.
+
+**Trail-use consummation is not abandonment consummation.** AB 55 (Sub-No. 794X) holds a
+"Notice of Consummation of Interim Trail Use", filed when the line transferred to the City of
+St. Petersburg. One `consummated` would conflate a corridor railbanked with a corridor
+abandoned — opposite outcomes. The vocabulary distinguishes them, and a document may carry
+more than one act (the AB 497 decision reopens, imposes a condition, and issues the NITU).
+
+A first vocabulary, abandonment and trail use first because that is where the record's own
+types run out; every term is an act a document performs in its own words:
+
+`application accepted` · `schedule set` · `held in abeyance` · `removed from abeyance` ·
+`exemption effective` · `NITU issued (until <printed date>)` · `NITU extended (until <printed
+date>)` · `trail use agreement reached` · `trail use consummated` · `abandonment consummated`
+· `discontinuance consummated` · `withdrawn` · `dismissed` · `denied` · `granted` — and
+`other`, which is most decisions and is not an act on the register.
+
+Each typed act is an assertion with the full provenance block, in the same table as the
+sentence it accompanies (one row: document, sentence, act, act date, method, version). A
+docket's status — "abandoned and railbanked", "NITU in force until 2027-08-18", "consummated
+2026-04-09" — is rendered from its acts by a stated rule, at render time, never stored.
+
+What this decides that the summary alone did not: the assertion's shape gains a typed field
+and a date, which is a schema question the critic reviews before the table exists; the
+vocabulary is the operator's to fix; and D1's first slice arrives through this door rather
+than its own — recorded on the capability map so the two are one piece of work.
+
 ## What the sample measures
 
 Fifty documents drawn under Rule 1 from dockets of the three sizes, stratified so the
@@ -418,7 +480,9 @@ procedural decisions are half of them, each sentence written by three producers 
 fleet's local model, the Jetson's smaller one, and a frontier model through the API — and
 by the operator as the reference. Scored on: does the sentence pass the Rule 2 check
 (mechanical); does it say what the document asks for (the operator, three grades: right,
-incomplete, wrong); does it infer anything (the operator; any inference fails the sentence).
+incomplete, wrong); does it infer anything (the operator; any inference fails the sentence);
+and, for the typed act, is it the act the document performs — with the 941 consummation
+notices and the 2,995 trail-use decisions as the pool the abandonment half is drawn from.
 The producer with the fewest failures at the lowest cost is the backfill's; the Jetson's is
 the trickle's if its failure rate is within a stated margin. The figures go on
 `/methodology` beside the label, and they are what the label's "not reviewed" is measured
