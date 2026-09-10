@@ -98,6 +98,17 @@ What is asked rather than required, in `robots.txt` and on `/data`: if you answe
 record, carry what a reader would have seen — coverage is not uniform, dates and captions
 are quoted rather than computed, and nothing here says what any party argued.
 
+## Structured data for search engines (decided 2026-09-10)
+
+No page carried JSON-LD, and the operator's ticket of 2026-08-26 held that the vocabulary
+be decided before any is added. Decided: **schema.org, at the site level only** — `WebSite`
+with a `SearchAction` on the home page, `Dataset` on `/data` for the CC0 snapshot (what
+Dataset Search indexes), `BreadcrumbList` on the sheets — every block generated from the
+same reads as the page it sits in, never hand-written. **No record-level and no party-level
+type**: schema.org has no type for an agency proceeding, a filing or a decision, and
+`Organization`/`Person` on a party page would publish the classification the party-types
+sheet has not yet measured (`docs/party-types.md`). Widening is a later decision.
+
 ## What this surface is not
 
 It does not write, subscribe, spend, or accept a reader's identity. It holds no session and
