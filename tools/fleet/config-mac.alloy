@@ -1,0 +1,37 @@
+// Grafana Alloy on the fleet's Mac (docs/compute-fleet.md § The monitor, and what detection
+// means): the box's own vital signs only, like `config-host.alloy`, but for macOS — no /proc
+// to mount and no container: the darwin binary runs as a user launch agent
+// (`tools/fleet/mac-up.sh`). The fleet's series come from the coordinator.
+//
+// The env holds GRAFANA_REMOTE_WRITE_URL / _USER / _TOKEN and FLEET_HOST, and lives in
+// <data>/alloy.env outside the repository.
+
+prometheus.exporter.unix "host" {
+	set_collectors = ["cpu", "loadavg", "meminfo", "filesystem", "diskstats"]
+	filesystem {
+		mount_points_exclude = "^/(dev|System/Volumes/(VM|Preboot|Update|xarts|iSCPreboot|Hardware))($|/)"
+		fs_types_exclude     = "^(autofs|devfs|nullfs)$"
+	}
+}
+
+prometheus.scrape "host" {
+	targets         = prometheus.exporter.unix.host.targets
+	scrape_interval = "60s"
+	forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+	external_labels = {
+		service = "docket_yard_fleet",
+		host    = sys.env("FLEET_HOST"),
+	}
+
+	endpoint {
+		url = sys.env("GRAFANA_REMOTE_WRITE_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_REMOTE_WRITE_USER")
+			password = sys.env("GRAFANA_REMOTE_WRITE_TOKEN")
+		}
+	}
+}

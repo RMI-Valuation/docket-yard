@@ -23,7 +23,7 @@ Named, never addressed — the repository is public. Addresses live outside it.
 | RMI-AI-MACHINE | RTX 4070, 12 GB | Linux | A worker. Always on. Paddle, dots.mocr through vLLM. Held the queue and the monitor until 2026-09-10 |
 | rmi-nuc, an Intel NUC | none | Ubuntu Server | **The coordinator** since 2026-09-10: the queue, the monitor, the collector, the blob mirror, Alloy, the token. No GPU; it reads nothing. What it gives is that the GPU boxes are stateless workers a reboot does not cost |
 | The operator's workstation | RTX 5080, 16 GB | Windows 11 | Opportunistic: a worker that runs only while the operator is away from it, under `workstation-gate.ps1`; vLLM in a container |
-| A Mac mini | M4 Pro, 24 GB unified | macOS | Owed, after the operator resets it: the largest GPU-addressable memory on the LAN; cannot run vLLM, so any engine there is another pass |
+| rmi-mac, a Mac mini | M4 Pro, 24 GB unified | macOS | Ready since 2026-09-10 as an Ollama host on Metal (`mac-up.sh`: Alloy and Ollama as user launch agents, no administrator needed), nothing assigned: the largest GPU-addressable memory on the LAN; cannot run vLLM, so any engine there is another pass |
 | rmi-jetson-orin, a Jetson Orin Nano | 8 GB shared | JetPack 7.2.1 | Ready since 2026-09-10 as a container host (CUDA 13.2 under the NVIDIA runtime), nothing assigned: small always-on services (layout, classification, embeddings) as a pass of its own; not a vision-language model |
 
 **Production never joins the fleet.** The instance holds the store and the keys; the fleet
@@ -224,7 +224,7 @@ project ever calls a model from a page; batch derivation is the queue.
 
 ## What is owed
 
-- The Mac's pass, after the operator resets it; the Jetson's setup; two workers on the
+- A pass for the Mac and one for the Jetson, when a workload is chosen; two workers on the
   node, measured for the activation peak first; `second` and `graphic` on the coordinator
 - `second` and `graphic` run through the queue rather than `ocr_wave.py`, so that every pass
   has the same lease and the same monitor (they read a cache and cannot die the same way, so
