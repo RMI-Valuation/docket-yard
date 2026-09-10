@@ -21,8 +21,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   one `class_measurement` on `('citation_resolution', 'work')`. **Cameron's, with the capacity**
 - **Drain closed**: 121 unfetched, every one a genuine refusal resting 7 days. **The class
   behind them is open** — an unanswered attempt leaves no capture. Cameron's (`deferred.md`)
-- **The alert rules are Cameron's, and the no-data one is the point** — it replaces the
-  heartbeat that took 6 h 13 m. Telemetry live; maintenance is `touch data/flags/maintenance`
+- Alert rules live in Grafana since 2026-09-10 (`infra/grafana/provision.py` is the source);
+  the no-data one replaces the heartbeat that took 6 h 13 m. Maintenance: `touch data/flags/maintenance`
 - **Cameron's**: revisit noindex now that search reaches the text, and whether `/search`
   joins the named AI agents' disallow list — it prints the held page text they may not fetch
   at `/text`. A mask pattern change is a new migration
@@ -42,7 +42,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   the NULL `cited_decision_id` provenance question in `deferred.md` (a note or `rule-1a`)**
 - **The `dots` OCR wave runs on the fleet** (`docs/compute-fleet.md`, ADR 0025): rmi-nuc
   coordinates (queue, monitor :8130, blobs, Alloy); RMI-AI-MACHINE and the workstation's
-  gate read. **Cameron's: the three Grafana rules (stalled, failing, absent; 10 min).**
+  gate read. Grafana rules and dashboard provisioned 2026-09-10 (`infra/grafana/`).
   Then `second`, `graphic` on the NUC; rsync + `text load` IN ORDER
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)

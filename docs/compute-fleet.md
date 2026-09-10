@@ -142,10 +142,9 @@ minutes, and *absence* of `docket_yard_fleet_last_read_known` for ten minutes (t
 monitor or Alloy is gone). The scrape block is production's `config.alloy` with the target
 swapped (`tools/fleet/config.alloy`, run as a container with the node's `/proc`, `/sys` and
 `/` mounted so it reports the node and not itself); endpoint, username and token are the
-operator's, in an env file on the node, and enter no repository. **Alloy has written from the
-node since 2026-09-09; the three rules are owed, and they are the operator's to write in
-Grafana Cloud.** Until they exist the series arrive and nothing reads them, which is still a
-page a person has to open.
+operator's, in an env file on the node, and enter no repository. **The three rules exist in Grafana Cloud since 2026-09-10**, provisioned from
+`infra/grafana/provision.py` beside production's; the alertmanager's route to mail was proved
+with a temporary rule the same day.
 
 ## Running it
 
@@ -225,7 +224,6 @@ project ever calls a model from a page; batch derivation is the queue.
 
 ## What is owed
 
-- The three rules in Grafana Cloud (stalled, failing, absent — each `for: 10m`); Alloy is up
 - The Mac's pass, after the operator resets it; the Jetson's setup; two workers on the
   node, measured for the activation peak first; `second` and `graphic` on the coordinator
 - `second` and `graphic` run through the queue rather than `ocr_wave.py`, so that every pass
