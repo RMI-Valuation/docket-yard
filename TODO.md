@@ -24,7 +24,6 @@ decisions have their own section.
 
 ## The operator's decisions
 
-- The drain's open class: an unanswered attempt leaves no capture (`deferred.md`)
 - A new Anthropic key before any Claude-backed run; the explainers' [?] rows (one email to
   the Board's records staff); announcing
 - Whether the second ChatGPT seat becomes a second code reviewer on pull requests
@@ -45,6 +44,8 @@ decisions have their own section.
   instance — is unwritten; `/security-review` before it ships (§ Owed 8), and `text load`
   should declare the producer from the root's `_manifest.json` (`deferred.md`)
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
+- A no-answer fetch is a status-0 capture on every path, resting one day (decided
+  2026-09-10, `deferred.md` § 2026-09-02); stb-ingest-specialist and schema-critic first
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
 - The Mac's and the Jetson's passes, when a workload is chosen; two workers on the node,

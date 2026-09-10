@@ -355,22 +355,15 @@ The en-dash fix (`_wire_url`, `capture/stb.py`) closed two causes of a never-fet
 The reviewer's point is that the *class* is wider than its two causes, and these are what is
 left of it.
 
-- **An unanswered attempt leaves no capture, so nothing rests it — this is the mechanism, and
-  it is still open.** `capture/documents.py:106` records the status-0 attempt only `if
-  refresh`. On the drain and forward paths a failure that produced no response is invisible to
-  the ledger, so `recently_refused` never sees the URL and `attachments(unfetched_only=True)`
-  re-selects it every pass. Still reachable: an S3 5xx or 429 surviving three retries, a reset
-  or read timeout doing the same, a disk-full `OSError` inside `consume` (not retried at all),
-  and a lone surrogate in a stored URL, which makes `quote` itself raise (**measured
-  2026-09-02: 0 of 110,110 attachment URLs carry one**, so that cause is theoretical today).
-  In a poll pass the cost is bounded by `--limit`; in a `remaining == 0` drain loop it is the
-  same non-termination, with a different first line in the log. **Dropping the `if refresh:`
-  guard is the small fix and it is not obviously right**: a network outage mid-drain would
-  then rest every URL it touched for `REFUSAL_REST_DAYS`, and a backlog that merely went quiet
-  would read as drained. Capture-first says the attempt belongs on record either way, which
-  makes this a provenance-grain question — **Cameron's, and schema-critic's before his.** The
-  other half is `drain.sh` (instance-only, not in this repo): it should stop on a pass that
-  makes no progress, not only on `remaining == 0`.
+- **An unanswered attempt leaves no capture — decided 2026-09-10, in TODO § Next.** Measured
+  that day in production: 0 no-answer attempts ever recorded, 121 attachments unfetched (1
+  filing, 120 comments) and all 121 are the 403 refusals of the last 30 days resting as
+  designed; the drain has completed, so only the `--limit`-bounded poll touches the class.
+  The operator chose: the attempt is a status-0 capture on EVERY path (the row shape refresh
+  mode already writes, so no new grain — schema-critic confirms that before commit), and
+  `recently_refused` rests a status-0 attempt ONE day where a refusal rests seven, so a
+  transient outage does not hold a new filing's text back a week (ADR 0024's same-day aim).
+  `drain.sh` (instance-only) should still stop on a pass that makes no progress.
 - **`_wire_url` percent-encodes the netloc along with the path.** A no-op on the two hosts that
   exist (measured 2026-09-02: 110,107 `dcms-external.s3.amazonaws.com`, 3
   `dcms-external.s3.us-east-1.amazonaws.com`, both ASCII), and the docstring now says so. A
