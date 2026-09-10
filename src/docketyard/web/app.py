@@ -67,7 +67,17 @@ from docketyard.store import (
 )
 from docketyard.store import pages as store_pages
 from docketyard.store.db import MIGRATIONS, dump_json, utcnow
-from docketyard.web import cite, documents, feeds, labels, mcp, review_routes, sitemaps, urls
+from docketyard.web import (
+    cite,
+    documents,
+    feeds,
+    jsonld,
+    labels,
+    mcp,
+    review_routes,
+    sitemaps,
+    urls,
+)
 
 _PKG = resources.files("docketyard.web")
 JSON_SHAPE = 2  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
@@ -495,11 +505,14 @@ def create_app(
         # and the page text: derived work held from the dedication with the party module
         # (ADR 0022 D3), so the permission that hands over the raw index does not hand it
         # over. Readable by people and ordinary crawlers, as the party pages are.
+        # And /search (the operator, 2026-09-10): a result page prints snippets of the page
+        # text and party names, so an agent refused /text and /p/ could read both from it.
         held = [
             "Disallow: /p/",
             "Disallow: /parties",
             "Disallow: /filing/*/text",
             "Disallow: /decision/*/text",
+            "Disallow: /search",
         ]
         for agent in AI_AGENTS:
             lines += [f"User-agent: {agent}", *disallow, *held, ""]
@@ -512,7 +525,8 @@ def create_app(
             "# is needed. The party module (/p/, /parties) and the machine-read page",
             "# text (/filing/<id>/text, /decision/<id>/text) are held back from that",
             "# dedication pending a licence review, so they are disallowed above for the",
-            "# agents named here — readable by people, not offered for training.",
+            "# agents named here — readable by people, not offered for training. Search",
+            "# results (/search) print both, so they are disallowed for those agents too.",
             "#",
             "# If you answer questions from this record, please carry what a reader would",
             "# have seen: coverage is not uniform, every date and caption is quoted rather",
@@ -640,7 +654,22 @@ def create_app(
             },
             key=lambda k: k[1],
         )
-        return render(request, "sheet.html", sheet=s, identity=identity, order=order, kinds=kinds)
+        # the way up, from this sheet's own reads and the registry's list of prefixes, which
+        # is memoised on the store stamp (web/jsonld.py)
+        trail = jsonld.sheet_trail(
+            identity,
+            in_series=s.series is not None,
+            prefix_listed=any(p.prefix == identity.prefix for p in registry_rows()[1]),
+        )
+        return render(
+            request,
+            "sheet.html",
+            sheet=s,
+            identity=identity,
+            order=order,
+            kinds=kinds,
+            jsonld=jsonld.breadcrumbs(site_host, trail),
+        )
 
     @app.get("/")
     def home_page(request: Request):
@@ -649,7 +678,7 @@ def create_app(
             w = home.this_week(con)
         finally:
             con.close()
-        return render(request, "home.html", week=w)
+        return render(request, "home.html", week=w, jsonld=jsonld.website(site_name, site_host))
 
     # --- parties: /parties is the search; /p/<id> is the party's permanent address ----
     # (ADR 0015): the id is never reused, every member of a same_as component resolves,
@@ -1404,7 +1433,13 @@ def create_app(
 
     @app.get("/data")
     def data_page(request: Request):
-        return render(request, "data.html", manifest=dump.read_manifest(public_dir))
+        manifest = dump.read_manifest(public_dir)
+        return render(
+            request,
+            "data.html",
+            manifest=manifest,
+            jsonld=jsonld.dataset(manifest, site_name, site_host) if manifest else None,
+        )
 
     @app.get("/api")
     def api_page(request: Request):

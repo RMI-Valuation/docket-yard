@@ -31,9 +31,9 @@ decisions were taken the same day and are recorded where each belongs.
 - **Party types, the held-out sheet** (decided 2026-09-10): draw 300 disjoint from the first
   sample, rules v2 drafts, a check queue for the operator; the bar is 95% per type; then
   the assertion migration (schema-critic first) and the browse on `/parties`
-- `Disallow: /search` for the named AI agents in the robots route, and site-level JSON-LD
-  (`WebSite`, `Dataset`, `BreadcrumbList`, from the page's own reads) — both decided
-  2026-09-10, `docs/machine-surface.md`
+- **Built, unreleased**: `Disallow: /search` for the named AI agents, site-level JSON-LD
+  (`web/jsonld.py`), and `/llms.txt` no longer linking what robots refuses — ride the next
+  release; after deploy, check a sheet's block in Google's Rich Results test
 - **ADR 0024's stage is LIVE** (v2026.09.12, pinned to `pymupdf@1.26.0` 2026-09-10 23:19 UTC;
   218 documents were due). Watch the first passes. Still owed: the producer column on
   `ocr_run`/`extraction_dispatch` (§ Owed 5), the queue's constants on `/methodology` (6),

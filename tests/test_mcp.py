@@ -8,6 +8,7 @@ without them is worse than no source, so they are asserted, not trusted.
 
 import ast
 import pathlib
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -309,6 +310,45 @@ def test_the_held_layer_is_disallowed_for_the_agents_the_policy_names(client):
         assert "Disallow: /parties" in block, block.splitlines()[0]
     # people and ordinary crawlers still read it: this is the dedication, not secrecy
     assert "Disallow: /p/" not in wildcard
+
+
+def _named_rules(robots: str) -> tuple[list[str], list[str]]:
+    """(the wildcard block's Disallow paths, a named agent's) — every named block is the same."""
+    blocks = [b for b in robots.split("\n\n") if b.startswith("User-agent:")]
+
+    def rules(block):
+        return [
+            line.removeprefix("Disallow: ") for line in block.splitlines() if "Disallow" in line
+        ]
+
+    wildcard = [b for b in blocks if b.startswith("User-agent: *")][0]
+    named = [b for b in blocks if not b.startswith("User-agent: *")]
+    assert all(rules(b) == rules(named[0]) for b in named)
+    return rules(wildcard), rules(named[0])
+
+
+def _refused(rules: list[str], path: str) -> bool:
+    """robots.txt matching as the named crawlers document it: a prefix, `*` any run."""
+    return any(re.match(re.escape(r).replace(r"\*", ".*"), path) for r in rules)
+
+
+def test_search_is_disallowed_for_the_named_agents_and_no_one_else(client):
+    """A result page prints page-text snippets and party names, so an agent refused /text
+    and /p/ could read both from it (the operator, 2026-09-10, machine-surface.md)."""
+    wildcard, named = _named_rules(client.get("/robots.txt").text)
+    assert "/search" in named and "/search" not in wildcard
+    assert _refused(named, "/search?q=union+pacific")
+
+
+def test_llms_txt_never_links_what_robots_refuses_the_agents_it_is_written_for(client):
+    """The prose must agree with the rule. Until 2026-09-10 llms.txt linked /parties to the
+    assistants robots.txt refused it to, and it linked /search as well."""
+    _, named = _named_rules(client.get("/robots.txt").text)
+    links = re.findall(r"\]\(https://docketyard\.org(/[^)]*)\)", client.get("/llms.txt").text)
+    assert len(links) > 10
+    for path in links:
+        assert not _refused(named, path), path
+    assert client.get("/d?q=FD%2036873", follow_redirects=False).status_code in (301, 302, 303)
 
 
 def test_the_machine_surfaces_point_at_each_other(client):

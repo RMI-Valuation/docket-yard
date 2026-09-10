@@ -15,6 +15,9 @@
   <link rel="preload" href="/static/fonts/source-sans-3-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/site.css?v={{ asset_v }}">
   {% block head %}<link rel="alternate" type="application/atom+xml" title="Every new filing and decision" href="/feed">{% endblock %}
+  {#- schema.org, site level only, built by the route from the page's own reads (web/jsonld.py).
+      `tojson` escapes < > & ' so nothing in a block can end the script element. -#}
+  {% if jsonld %}<script type="application/ld+json">{{ jsonld | tojson }}</script>{% endif %}
   <script>
     // per-viewer display preferences, kept in this browser only (ADR 0011): never an account
     try {

@@ -94,6 +94,13 @@ party names, so an agent that may not fetch `/text` or `/p/` could read both fro
 rule again matches the prose. The text pages stay `noindex` for everyone (ADR 0021
 addendum, 2026-09-10).
 
+**Built 2026-09-10.** Writing the `/search` rule found the prose already disagreeing with
+the rule in a second place: `/llms.txt`, the file written *for* assistants, linked them to
+`/parties` — which robots.txt had refused the same agents since 2026-08-31 — and to
+`/search`. It now names both in prose, says why they are for people, and points an
+assistant at `/d?q=` and the MCP server instead; a test holds every link in `/llms.txt`
+against the named agents' rules, so the two files cannot drift apart again.
+
 What is asked rather than required, in `robots.txt` and on `/data`: if you answer from this
 record, carry what a reader would have seen — coverage is not uniform, dates and captions
 are quoted rather than computed, and nothing here says what any party argued.
@@ -108,6 +115,9 @@ same reads as the page it sits in, never hand-written. **No record-level and no 
 type**: schema.org has no type for an agency proceeding, a filing or a decision, and
 `Organization`/`Person` on a party page would publish the classification the party-types
 sheet has not yet measured (`docs/party-types.md`). Widening is a later decision.
+Built 2026-09-10 in `web/jsonld.py`: a sheet's trail names only pages that answer — the
+prefix's list only when the registry lists that prefix, and the number above only where
+the sheet itself links it — and `/data` carries no `Dataset` until a snapshot exists.
 
 ## What this surface is not
 
