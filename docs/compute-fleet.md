@@ -23,7 +23,8 @@ Named, never addressed — the repository is public. Addresses live outside it.
 | RMI-AI-MACHINE | RTX 4070, 12 GB | Linux | **The only node today.** Always on. Paddle, dots.mocr through vLLM, the queue and the monitor |
 | The operator's workstation | RTX 5080, 16 GB | Windows 11 | Opportunistic: a worker that runs only while the operator is away from it, under `workstation-gate.ps1`; vLLM in a container |
 | A Mac mini | M4 Pro, 24 GB unified | macOS | Owed, after the operator resets it: the largest GPU-addressable memory on the LAN; cannot run vLLM, so any engine there is another pass |
-| A Jetson Orin Nano | 8 GB shared | Linux | Owed, often off: small always-on services (layout, classification, embeddings); not a vision-language model |
+| A Jetson Orin Nano | 8 GB shared | Linux | Owed, on the network since 2026-09-10 but not yet set up: small always-on services (layout, classification, embeddings); not a vision-language model |
+| An Intel NUC | none | Windows today; Linux if converted | Candidate (the operator, 2026-09-10): the always-on coordinator — queue, monitor, Alloy, later the online layer — so the GPU box can reboot freely; and the CPU-only passes (`second`, `graphic` read the cache) |
 
 **Production never joins the fleet.** The instance holds the store and the keys; the fleet
 holds neither. Reading documents reach the store the way they always have — `rsync` of the
