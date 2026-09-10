@@ -306,7 +306,8 @@ From the Board's own material [B-help; B-hhg; B-merger; B-about]:
 
 1. `TA`, `S`, `N` suffix meanings and the names of S5M/SAI/STA/MXC/CNO — none is defined on
    stb.gov; the Board's Office of Proceedings or its records staff would settle them in one
-   email. Until then those rows do not publish.
+   email. Until then those rows do not publish. *2026-09-10: the operator chose not to
+   send it for now; the rows stay unpublished and this is a known gap, not an open task.*
 2. PTO's statutory basis (the captions name a switching carrier, not Amtrak).
 3. Whether to publish the ICC-era prefixes at all, or a single "inherited series" note.
 4. Tone: these are written as explainers, not legal advice; the standard disclaimer from

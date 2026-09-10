@@ -7,7 +7,9 @@ nothing moves from the menu to here without the operator's decision, recorded in
 with its date. Hard line cap enforced by pre-commit: when it fires, prune.
 
 **The wedge** (agency-wide docket sheets plus alerting, forward-only) **shipped 2026-08-26**
-and is live at [docketyard.org](https://docketyard.org), unannounced. Since then, in
+and is live at [docketyard.org](https://docketyard.org), unannounced — and by decision
+(2026-09-10) it stays so while development is active: discovered, not announced, so load
+arrives on its own terms; an announcement is not an item anywhere. Since then, in
 `docs/milestones.md`: backfill in dated waves, the party module, statistics, feeds and
 webhooks, bulk data and JSON, the document viewer, the citation resolver and two registers,
 docket-type explainers, the week naming the proceeding that moved, a series docket leading

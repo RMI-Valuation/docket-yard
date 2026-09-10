@@ -48,7 +48,10 @@ the commit path, not by unpacking an archive over existing files.
 
 Nothing is stored. Tokens are created with a short TTL and IP restriction, used, and revoked.
 In PowerShell use `Read-Host -AsSecureString` rather than assigning inline — PowerShell writes
-every typed command to a plaintext history file.
+every typed command to a plaintext history file. **An Anthropic API key is minted by the
+operator the day a Claude-backed run is chosen, never before** (decided 2026-09-10): the
+party-types model tier, a generated summary and an extraction benchmark each ask for one
+when they are chosen, and a key waiting unused is what this section exists to prevent.
 
 ## Production instance
 

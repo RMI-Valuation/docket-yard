@@ -24,8 +24,6 @@ decisions have their own section.
 
 ## The operator's decisions
 
-- A new Anthropic key before any Claude-backed run; the explainers' [?] rows (one email to
-  the Board's records staff); announcing
 - Whether the second ChatGPT seat becomes a second code reviewer on pull requests
 
 ## Next
@@ -39,7 +37,7 @@ decisions have their own section.
   the assertion migration (schema-critic first) and the browse on `/parties`
 - `Disallow: /search` for the named AI agents in the robots route, and site-level JSON-LD
   (`WebSite`, `Dataset`, `BreadcrumbList`, from the page's own reads) — both decided
-  2026-09-10, `docs/machine-surface.md`; before announcing
+  2026-09-10, `docs/machine-surface.md`)
 - ADR 0024's dispatcher — the container that reads new material's text layer on the
   instance — is unwritten; `/security-review` before it ships (§ Owed 8), and `text load`
   should declare the producer from the root's `_manifest.json` (`deferred.md`)
