@@ -21,6 +21,7 @@ the client would otherwise carry a dead one for the life of the container.
 
 import time
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from sqlite3 import Connection
 
 from docketyard.capture import documents, walk
@@ -29,6 +30,7 @@ from docketyard.ingest import dockets, observations
 from docketyard.parties import resolve
 from docketyard.store import projections, search
 from docketyard.store.db import load_json
+from docketyard.text import dispatch as extraction
 
 WINDOW_DAYS = 7
 MIN_WINDOW_DAYS = 3  # below this a quiet weekend makes the page-1 envelope a false alarm
@@ -555,6 +557,27 @@ def forward_pass(
     if summary["rechecked"].get("failed", 0) > 0:  # a held file the host no longer serves
         summary["problems"].append(f"re-check refused: {summary['rechecked']['failed']}")
     summary["search"] = search.rebuild_or_report(con, summary["problems"])
+    # THE TEXT STAGE RUNS LAST (ADR 0024 D10), after the errata re-check and the search
+    # rebuild, both of which feed published numbers. Nothing downstream needs the readings
+    # early: `page_index` keeps `page_fts` in step row by row, so a reading that lands here is
+    # searchable without a rebuild and without a maintenance window.
+    #
+    # It is inside the house try/except like every other stage — a bug in extraction must
+    # never cost the capture — but note that `dispatch.run` does NOT wrap its own hand-off
+    # that way, and its docstring says why.
+    try:
+        summary["text"] = extraction.run(
+            con,
+            data_dir,
+            spool=Path(data_dir) / "extract" / "spool",
+            requests=Path(data_dir) / "extract" / "requests",
+            problems=summary["problems"],
+            log=log,
+        )
+    except Exception as e:  # noqa: BLE001 — never at the cost of the pass
+        con.rollback()
+        summary["text"] = {"failed": True}
+        summary["problems"].append(f"text extraction failed ({type(e).__name__}: {e})")
     log(f"poll {start}..{end}: {summary}")
     return summary
 

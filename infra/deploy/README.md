@@ -72,9 +72,16 @@ is an instance and not the container service.
      && unzip -q awscliv2.zip && sudo ./aws/install && rm -rf aws awscliv2.zip
    sudo usermod -aG docker "$USER" && newgrp docker
    sudo mkdir -p /srv/docketyard/data && sudo chown -R "$USER" /srv/docketyard
+   # the text stage's two bind mounts, made HERE so the chown below reaches them: Docker
+   # creates a missing bind source as root, and both the parser and the loader run as 1000,
+   # so a first `up` would otherwise leave the stage unable to write with a permission
+   # error rather than a reason (ADR 0024; security review 2026-09-10)
+   mkdir -p /srv/docketyard/data/extract/spool /srv/docketyard/data/extract/requests
    # copy compose.yaml, Caddyfile, litestream.yml, the two systemd units, and .env
-   # (from docketyard.env.example) into /srv/docketyard
-   sudo chown -R 1000:1000 /srv/docketyard/data     # the image's uid
+   # (from docketyard.env.example) into /srv/docketyard, AND the `infra/extract/`
+   # directory as /srv/docketyard/extract — it is the parser's build context (ADR 0024),
+   # the one service built on the box rather than pulled
+   sudo chown -R 1000:1000 /srv/docketyard/data     # the image's uid, and the parser's
    sudo cp /srv/docketyard/docketyard-blobs.* /etc/systemd/system/
    sudo systemctl enable --now docketyard-blobs.timer
    sudo cp /srv/docketyard/docketyard-dump.* /etc/systemd/system/
@@ -105,7 +112,7 @@ touch data/flags/maintenance                 # readers get 503 + the page, immed
 curl -sD- -o /dev/null https://docketyard.org/ | head -1   # confirm: 503
 # `ingest` and `litestream` keep running throughout — the record is still being kept
 $EDITOR .env                                 # set DY_TAG to the new release
-docker compose pull && docker compose up -d
+docker compose pull --ignore-buildable && docker compose up -d --build
 docker compose logs migrate                  # the migrations ran, and what they said
 curl -s https://docketyard.org/health        # answers throughout; check `schema`
 # a release that changes the display view (search.PAGE_INDEX_FORMAT) rebuilds the page
@@ -190,7 +197,7 @@ checks. A per-table check in `db.migrate` would cut it and is recorded in `docs/
    whose `user_version` differs from the image's in EITHER direction, so once `migrate` has
    run, the previous image will not start against the store. Recovery is a Litestream
    restore to a point before the migration, not `docker compose pull` on the old tag.
-5. **Start**: `cd /srv/docketyard && docker compose pull && docker compose up -d`, then
+5. **Start**: `cd /srv/docketyard && docker compose pull --ignore-buildable && docker compose up -d --build`, then
    watch the first pass in `docker compose logs -f ingest`.
 6. **Check**: `curl -sI https://docketyard.org/` is 200; `docker compose ps` shows `web`
    healthy and `ingest`, `litestream`, `caddy` running (`migrate` exited 0); the S3 bucket
@@ -199,7 +206,11 @@ checks. A per-table check in `db.migrate` would cut it and is recorded in `docs/
 
 ## Routine operations
 
-- **Deploy a release**: edit `DY_TAG` in `.env`; `docker compose pull && docker compose up -d`.
+- **Deploy a release**: edit `DY_TAG` in `.env`;
+  `docker compose pull --ignore-buildable && docker compose up -d --build`. The flags are for
+  ONE service: `extract` (ADR 0024's parser) is built on the box from `infra/extract` rather
+  than pulled, because it is deliberately not the application image — a plain `pull` tries to
+  fetch its local-only tag and fails the whole deploy.
   Roll back by setting the previous tag. Releases are the production ledger (ADR 0010).
 - **Restore the store** on a fresh box: `litestream restore -o data/docketyard.sqlite
   s3://$DY_S3_BUCKET/litestream/docketyard.sqlite`, then `aws s3 sync s3://$DY_S3_BUCKET/blobs

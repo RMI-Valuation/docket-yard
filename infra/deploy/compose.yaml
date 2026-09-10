@@ -1,7 +1,8 @@
 # Production on the one Lightsail instance (ADR 0012). Copy this directory to
 # /srv/docketyard on the box; settings come from a sibling `.env` (see docketyard.env.example).
 #
-#   docker compose pull && docker compose up -d      # deploy the tag in .env (pull-based)
+#   docker compose pull --ignore-buildable && docker compose up -d --build   # deploy .env's tag
+#     (`extract` is built here, not pulled: see its service, and infra/deploy/README.md)
 #   docker compose logs -f ingest                    # watch the poller
 
 # the mail sender (docketyard.alerts.mail) derives its SES SMTP password from these; both
@@ -105,6 +106,46 @@ services:
     profiles: [backfill]
     read_only: true
     tmpfs: [/tmp]
+
+  extract:
+    # The text-layer parser (ADR 0024 D2), in a container that holds nothing worth stealing.
+    # Its own image, because the application image carries the schema, the mail sender and
+    # every credential the instance uses, and this one parses bytes a third party wrote.
+    #
+    # WHAT IT CANNOT DO, and each line is one of D2's terms rather than hygiene:
+    #   network_mode: none   a PDF that reaches out reaches nothing
+    #   no environment       no DY_EMAIL_KEY, no AWS credentials — nothing is passed in
+    #   blobs read-only      it reads the pool it is pointed at and can write to none of it
+    #   no ./data mount      the store is not present at any path; the parser cannot see it
+    #   read_only rootfs     its own code included
+    #   mem_limit            a decompression bomb kills this container and nothing else
+    # It is handed an explicit list of digests in a request file and never scans the pool
+    # (D2: the pool is flat and content-addressed, so a self-scoping parser would read every
+    # capture body in it). The poller enqueues rather than invoking, because invoking a
+    # sibling container needs the Docker socket, and giving the poller root on the host to
+    # isolate the parser trades away more than it buys — see `infra/extract/extract.py`.
+    # `./extract`, NOT `../extract`: only this directory is copied to /srv/docketyard, so a
+    # relative parent resolves to /srv/extract, which does not exist — and a build context
+    # that is missing aborts the whole `compose up`, migrate and web and ingest with it (code
+    # review, 2026-09-10). The deploy copies `infra/extract/` in beside this file.
+    build: ./extract
+    image: docketyard-extract:${DY_EXTRACT_TAG:-local}
+    # built on the box, not pulled: it is the only service without a registry image, so
+    # `docker compose pull` is run with `--ignore-buildable` and `up` is given `--build`
+    # (infra/deploy/README.md). A pull that tries to fetch a local tag fails the deploy.
+    pull_policy: build
+    volumes:
+      - ./data/blobs:/blobs:ro
+      - ./data/extract/spool:/spool
+      - ./data/extract/requests:/requests
+    network_mode: none
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 768m
+    pids_limit: 64
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
 
   litestream:
     # continuous replication of the SQLite store to S3: the backup and the prod-to-dev path

@@ -597,6 +597,52 @@ def _search_rebuild(args: argparse.Namespace) -> int:
     return 0
 
 
+def _text_pin(args: argparse.Namespace) -> int:
+    """Declare or report the producer pinned to the text layer's reading key.
+
+    THE POLLER READS THIS AND NEVER INVENTS ONE (ADR 0024 D6). With nothing declared the
+    extraction stage does nothing and says so, which is the safe direction: a poller carrying
+    its own constant drifts silently from the container, and the silent direction is the
+    container moving ahead, leaving every document the new version could read exhausted for
+    ever at a pin that no longer exists.
+    """
+    from datetime import timedelta
+
+    from docketyard.citator import methods
+    from docketyard.text import dispatch, load, queue
+
+    con = db.connect(args.db)
+    key = (dispatch.CHANNEL, dispatch.RENDER, dispatch.ROLE)
+    if args.method or args.version:
+        if not (args.method and args.version):
+            print("refused: --method and --version go together; a pin is both")
+            return 1
+        verb = load.repoint_producer if args.repoint else load.declare_producer
+        try:
+            verb(con, *key, args.method, args.version, by=args.note)
+        except methods.Conflict as e:
+            print(f"refused: {e}")
+            return 1
+        con.commit()
+    live = load.pinned(con, *key)
+    if live is None:
+        print(f"{'/'.join(key)} is pinned to nothing; the extraction stage will not run")
+        return 1
+    print(f"{'/'.join(key)} -> {live[0]}@{live[1]}")
+    since = (datetime.now(UTC) - timedelta(hours=queue.EXTRACT_RETRY_HOURS)).isoformat(
+        timespec="seconds"
+    )
+    counts = queue.census(con, method=live[0], version=live[1], since=since)
+    for word in ("forward", "eligible", "due", "already_read", "exhausted_or_resting"):
+        print(f"  {counts[word]:>8,}  {word.replace('_', ' ')}")
+    print(
+        f"  excluded: {counts['media_null']:,} no media type, {counts['media_other']:,} not a"
+        f" PDF, {counts['oversize']:,} over {queue.EXTRACT_MAX_BYTES >> 20} MB"
+    )
+    print(f"  unanswered in the last {dispatch.HALT_AFTER} dispatches: {dispatch.unanswered(con)}")
+    return 0
+
+
 def _search_rebuild_pages(args: argparse.Namespace) -> int:
     """Batched since 2026-09-04, so it says how far it has got: at ~1.1M rows it is minutes
     either way, and the operator watching it behind the maintenance wall could not tell a
@@ -883,6 +929,21 @@ def main(argv: list[str] | None = None) -> int:
     ld = tx_sub.add_parser("load", help="one reading per file into document_text, page by page")
     ld.add_argument("root", help="the readings directory: <root>/<xx>/<sha>.json")
     ld.set_defaults(func=_text)
+    pn = tx_sub.add_parser(
+        "pin",
+        help="declare which producer owns a reading key (ADR 0024 D6); with no --method,"
+        " report the pin and the queue behind it",
+    )
+    pn.add_argument("--method", help="the producer, e.g. pymupdf")
+    pn.add_argument("--version", help="its version, exactly as the container runs")
+    pn.add_argument(
+        "--repoint",
+        action="store_true",
+        help="move a pin that is already declared: retires it and appends, keeping the"
+        " history. A version bump comes through here, and it resets the attempt count.",
+    )
+    pn.add_argument("--note", default=None, help="who declared it, recorded on the row")
+    pn.set_defaults(func=_text_pin)
     se = sub.add_parser("search", help="the search index (docs/search.md)")
     se_sub = se.add_subparsers(dest="what", required=True)
     rp = se_sub.add_parser("rebuild-pages", help="the page index, whole, from the display view")
