@@ -44,7 +44,7 @@ decisions were taken the same day and are recorded where each belongs.
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - **Built, unreleased**: the no-answer fetch (status 0 on every path, a day's rest; a host's
   429/5xx kept as its answer) and a download cut short no longer stored as a document —
-  MEASURE whether any truncated one was minted since 2026-08-26 (`deferred.md` 2026-09-11)
+  measured 2026-09-11: none of the 82,946 PDFs on the box since 08-26 lacks `%%EOF`
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
 - The Mac's and the Jetson's passes, when a workload is chosen; two workers on the node,

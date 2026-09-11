@@ -779,13 +779,13 @@ amendments are listed in the migration's own header; these are the rest.
 stb-ingest-specialist and schema-critic on the status-0 change; what was fixed is in the
 commit. Left:
 
-- **MEASURE: were truncated documents minted?** `download` streamed through
-  `shutil.copyfileobj` from 2026-08-26 until 2026-09-11, and a body cut short of its
-  Content-Length read as a clean end (reproduced on CPython 3.13). Any such file is a
-  `document` under the wrong hash, and a later re-check would append a false
-  `document_replaced`. A PDF lacking `%%EOF` in its last kilobyte is the cheap test, run over
-  the blob mirror; `document_replaced` events whose old document is the shorter one are the
-  second. Not measured.
+- **Were truncated documents minted? Measured 2026-09-11 00:40 UTC: no sign of it.**
+  `download` streamed through `shutil.copyfileobj` from v2026.08.25 (2026-08-26 17:36 UTC)
+  until 2026-09-11, and a body cut short of its Content-Length read as a clean end
+  (reproduced on CPython 3.13). Of the 92,322 PDFs first seen since, the 82,946 still on the
+  instance ALL carry `%%EOF` in their last kilobyte, and the record holds no
+  `document_replaced` event at all. The other 9,376 are pruned to S3 and unchecked; the
+  fleet's blob mirror could close that, if certainty is ever wanted.
 - **`_LAST_FETCH` counts an unanswered attempt as a check**, so `/methodology`'s "checked
   about every N days" is an attempt, not a check, while the host is silent. Wording or a
   filter; the re-check has done this on purpose since v2026.08.35.
