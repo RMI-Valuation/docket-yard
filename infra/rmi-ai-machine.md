@@ -110,6 +110,21 @@ per-session check. **The address itself is not recorded here: this repository is
 (§ Conventions in `CLAUDE.md`); it lives in the operator's own notes. Tailscale remains the route from anywhere else;
 its SSH rule is `action: check`, so it asks for a browser click per session.
 
+**Every machine in the fleet goes on the tailnet, reached by SSH keys (the operator's
+decision, 2026-09-11).** The tailnet moves to Tailscale's Standard plan, because the free
+Personal plan is for non-commercial use. Each machine this workstation drives is reached with
+plain OpenSSH and a key over the tailnet, as `ssh rmi-lan` is on the LAN, and not with
+Tailscale SSH, for three reasons:
+
+- its check mode asks for a browser click every period, and the period is capped at 24 h
+  below Premium;
+- a Windows machine cannot be a Tailscale SSH server;
+- the free plan's Tailscale SSH covers only five hosts.
+
+Tag the fleet machines (`tag:fleet`), allow only the operator's user to reach port 22 on
+them, and disable key expiry on the servers. As above, nothing is forwarded or exposed, and no
+tailnet address is recorded here.
+
 ## 6. The data disk (the 970 EVO Plus)
 
 ```sh
