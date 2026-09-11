@@ -265,7 +265,9 @@ function render(){
   const answer = r.drafted_decision
     ? `<dl class="answer">
          <dt>Names</dt><dd><a class="id" href="${esc(r.drafted_url)}" target="_blank"
-              rel="noopener">${esc(r.drafted_decision)}</a></dd>
+              rel="noopener">${esc(r.drafted_decision)}</a>
+              ${r.drafted_page_url ? `· <a href="${esc(r.drafted_page_url)}" target="_blank"
+              rel="noopener">its record page</a>` : ""}</dd>
          <dt>Served</dt><dd>${esc(r.drafted_service_date)} in ${esc(r.drafted_docket)}</dd>
          <dt>Which is</dt><dd>${esc(r.drafted_type)}${r.drafted_body ? " — " + esc(r.drafted_body) : ""}</dd>
        </dl>`
@@ -287,12 +289,22 @@ function render(){
     "claim" + (v ? " judged v-" + (v.startsWith("should-be") ? "should" : v.split("-")[0]) : "");
   document.getElementById("claim").innerHTML = `
     <div class="who">
-      <span class="docketno">${esc(r.target_key)}</span>
+      ${r.target_docket_url
+        ? `<a class="docketno" href="${esc(r.target_docket_url)}" target="_blank" rel="noopener"
+             title="the cited docket's sheet: every decision, with its service date">${esc(r.target_key)}</a>`
+        : `<span class="docketno">${esc(r.target_key)}</span>`}
       <span class="cap">${esc(r.target_caption)}</span>
     </div>
+    ${r.target_docket_url
+      ? `<p class="pageref"><a href="${esc(r.target_docket_url)}" target="_blank" rel="noopener">Open
+           ${esc(r.target_key)}'s sheet</a>: every decision in it, with its service date</p>` : ""}
     <div class="pageref">cited by decision
       <a href="${esc(r.citing_url)}" target="_blank" rel="noopener">${esc(r.citing_decision)}</a>
-      ${r.citing_docket ? "in " + esc(r.citing_docket) : ""}
+      ${r.citing_docket
+        ? "in " + (r.citing_docket_url
+            ? `<a href="${esc(r.citing_docket_url)}" target="_blank" rel="noopener">${esc(r.citing_docket)}</a>`
+            : esc(r.citing_docket))
+        : ""}
       ${r.pages ? "· page " + esc(r.pages) : ""}</div>
     <div class="line">${marked(line, r.target_key)}</div>
     ${r.anchored_segment && r.anchored_segment !== line
