@@ -47,8 +47,9 @@ decisions were taken the same day and are recorded where each belongs.
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
-- The Mac's and the Jetson's passes, when a workload is chosen; two workers on the node,
-  measured for the activation peak first
+- **The review measurement across the fleet** (his decision, 2026-09-11): llama3.1:8b over the
+  768 mentions on the Mac, RMI, Jetson and NUC (niced), qwen3:14b where it fits; pace and
+  agreement with the Mac. RMI between OCR waves. Two workers on the node: activation peak first
 
 ## Parked
 

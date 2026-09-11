@@ -241,6 +241,15 @@ projected precision. That is on the old question, though: "document or proceedin
 record behind it. Step 2 asks the review question and hands over the candidates, and that is
 where the answer lies.
 
+**Step 2 runs on every machine (the operator's decision, 2026-09-11).** The sixty decisions
+hold 768 mentions, and the Mac mini takes 2.3 s a mention with qwen3:14b. llama3.1:8b, the one
+model that fits on all four boxes, runs over all 768 on the Mac, RMI-AI-MACHINE, the Jetson and
+the NUC (on its CPU, at low priority), with qwen3:14b too wherever it fits. Two things are
+measured. The first is the pace on each box. The second is whether the same model, weights
+and temperature give the same answers on Metal, CUDA and CPU. If they don't, the host is part
+of a model judgement's method key, as another engine is already another pass
+(`compute-fleet.md`).
+
 Nothing ships from this. A model's answer would be an assertion with its method, version and
 channel, stamped with its measured precision (ADR 0017 D3). Letting agreement clear a held key
 is not the same as "the local model does not write edges" (step 3 above), so it would take an
