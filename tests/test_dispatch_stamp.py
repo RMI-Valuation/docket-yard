@@ -306,33 +306,75 @@ def test_the_migration_stamps_what_already_landed_only_where_it_is_unambiguous(t
     fresh.close()
 
 
-def _extract_module():
+def _extract_module(*, stand_in: bool):
+    """The container's own file. It imports `fitz`, which the APPLICATION does not depend on —
+    only the extract image carries pymupdf — so CI has none, and a test that imported it
+    failed every CI run from 25a69b5 to the fix (2026-09-11). With `stand_in`, a module of
+    that name is lent for the import and `sys.modules` is put back exactly as it was, a
+    blocked entry included."""
+    import sys
+    import types
+
     spec = importlib.util.spec_from_file_location("extract_container", EXTRACT)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    if not stand_in:
+        spec.loader.exec_module(mod)
+        return mod
+    had, saved = "fitz" in sys.modules, sys.modules.get("fitz")
+    lent = types.ModuleType("fitz")
+    lent.VersionBind = "0.0.0-stand-in"
+    sys.modules["fitz"] = lent
+    try:
+        spec.loader.exec_module(mod)
+    finally:
+        if had:
+            sys.modules["fitz"] = saved
+        else:
+            sys.modules.pop("fitz", None)
     return mod
 
 
-def test_the_container_quotes_its_request_ahead_of_the_text(tmp_path):
+def test_the_container_quotes_its_request_ahead_of_the_text(tmp_path, monkeypatch):
     """`read_head` parses only what precedes `page_text`, so an echo after it would be
-    invisible to admit — and every record would fall back to the time rule."""
-    mod = _extract_module()
-    mod.BLOBS = tmp_path / "blobs"
-    doc = mod.fitz.open()
-    doc.new_page().insert_text((72, 72), "Decided: September 9, 2026")
-    pdf = doc.tobytes()
-    sha = hashlib.sha256(pdf).hexdigest()
-    (mod.BLOBS / sha[:2]).mkdir(parents=True)
-    (mod.BLOBS / sha[:2] / sha).write_bytes(pdf)
+    invisible to admit, and every record would be refused as quoting nothing. Runs without
+    pymupdf: the page reader is replaced, because what is tested is the record's shape."""
+    mod = _extract_module(stand_in=True)
+    blobs = tmp_path / "blobs"
+    monkeypatch.setattr(mod, "BLOBS", blobs)
+    monkeypatch.setattr(mod, "read_pages", lambda path: ["Decided: September 9, 2026"])
+    blob = b"%PDF-1.4 a stand-in"
+    sha = hashlib.sha256(blob).hexdigest()
+    (blobs / sha[:2]).mkdir(parents=True)
+    (blobs / sha[:2] / sha).write_bytes(blob)
     at = "2026-09-10T23:45:17+00:00"
-    record = mod.extract(sha, mod.fitz.VersionBind, at)
+    record = mod.extract(sha, "1.26.0", at)
     keys = list(record)
     assert keys.index("dispatched_at") < keys.index("page_text")
     path = tmp_path / "r.json"
     path.write_text(json.dumps(record), encoding="utf-8")
     assert read_head(path)["dispatched_at"] == at
     # a refusal answers a dispatch too
-    (mod.BLOBS / "ab").mkdir()
-    (mod.BLOBS / "ab" / ("ab" * 32)).write_bytes(b"PK\x03\x04 not a pdf")
+    (blobs / "ab").mkdir()
+    (blobs / "ab" / ("ab" * 32)).write_bytes(b"PK\x03\x04 not a pdf")
     assert mod.extract("ab" * 32, "1.26.0", at)["dispatched_at"] == at
+
+
+def test_the_container_quotes_its_request_on_a_real_pdf(tmp_path, monkeypatch):
+    """The same, through pymupdf itself — where it is installed. Skipped in CI, which does not
+    carry the container's dependency; the test above holds the shape there."""
+    pytest.importorskip("fitz")
+    mod = _extract_module(stand_in=False)
+    blobs = tmp_path / "blobs"
+    monkeypatch.setattr(mod, "BLOBS", blobs)
+    doc = mod.fitz.open()
+    doc.new_page().insert_text((72, 72), "Decided: September 9, 2026")
+    pdf = doc.tobytes()
+    sha = hashlib.sha256(pdf).hexdigest()
+    (blobs / sha[:2]).mkdir(parents=True)
+    (blobs / sha[:2] / sha).write_bytes(pdf)
+    at = "2026-09-10T23:45:17+00:00"
+    record = mod.extract(sha, mod.fitz.VersionBind, at)
+    keys = list(record)
+    assert keys.index("dispatched_at") < keys.index("page_text")
+    assert "September 9, 2026" in record["page_text"][0]
