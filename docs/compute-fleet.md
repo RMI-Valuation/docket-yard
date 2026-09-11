@@ -235,3 +235,11 @@ project ever calls a model from a page; batch derivation is the queue.
   this is tidiness, not safety)
 - tmux is where the operator looks; `systemd --user` units would survive a reboot, which tmux
   does not. Owed when a reboot happens before the queue empties
+- **The workstation's gate does not survive a reboot either, and that has now cost a day.**
+  The operator restarted RMI-WS-CRR-2025 on 2026-09-11; the gate died with it, the comment
+  scans were seeded eight hours later, and the fleet ran on one worker at 310 pages an hour
+  instead of about 1,400 for eleven hours. The fix is the ONLOGON scheduled task this
+  directory's `workstation-gate.ps1` already documents in its own header and that has never
+  been registered. A dead gate and a held gate look the same from the node — no worker, no
+  alarm, `last seen` ageing — so the monitor cannot show the difference yet either
+  (`docs/deferred.md`)

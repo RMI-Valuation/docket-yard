@@ -23,8 +23,10 @@ decisions were taken the same day and are recorded where each belongs.
 
 - **Comment scans to the fleet** (the operator's decision, 2026-09-11): 12,184 image-only
   attachments, 51,000 pages. Paddle done 20:51 UTC (0 failed); **primary LOADED** 20:55 (8,211
-  documents); `dots` SEEDED on the NUC, 13,825 degraded pages of 6,707 documents, RMI's worker
-  after its review runs. Then `second`, `graphic` on the NUC; load dots, second, graphic in order
+  documents); `dots` reading, 13,013 pending at 23:55 UTC. The workstation's gate died with his
+  reboot and rejoined 2026-09-11 23:45 UTC — register its ONLOGON task (`deferred.md`).
+  `second` and `graphic` are NOT queue passes: they follow as `ocr_wave.py` documents when the
+  queue empties (`compute-fleet.md`), then rsync and `text load` each root in that order
 
 ## Next
 

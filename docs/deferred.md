@@ -1111,3 +1111,23 @@ deferred, because acting on it means discarding twelve runs:
   of counting them. **The sheet is the operator's judged work, so normalising the two rows is
   his**, not a scorer change; until then the document column is scored over 147 documents
   rather than 149.
+
+## The workstation's gate does not survive a reboot, 2026-09-11 (v2026.09.15)
+
+**Found by its cost, not by a review.** The operator restarted RMI-WS-CRR-2025 during the
+morning of 2026-09-11. The gate had last logged `HOLD: the node has nothing to lease` at
+07:17:44 — true then, the `dots` queue was empty — and died with the reboot. The comment
+scans were seeded into that queue eight hours later, at about 15:55 local, and nothing on the
+workstation was left to notice: its six workers had read two-thirds of the pass's pages, and
+the fleet ran on RMI-AI-MACHINE's single worker at 310 pages an hour instead of about 1,400.
+The gap was invisible for eleven hours because a dead gate looks exactly like a held one from
+the node: no worker, no alarm, `last seen` simply ageing.
+
+- **Register the gate as the ONLOGON scheduled task its own header already documents**
+  (`workstation-gate.ps1`, the `schtasks /Create /TN "Docket Yard fleet gate"` line). It is
+  written down and was never run; nothing else is needed. Offered to the operator 2026-09-11
+  and deferred by him to a later sitting.
+- **The monitor cannot tell a gate that is holding from a gate that is gone.** A node that
+  once read and now does not is worth a line on the page — the fleet has a stall alarm for a
+  pass, and none for a machine that has stopped asking. This is the same want as the
+  `systemd --user` note below: the fleet's own liveness, not the queue's.
