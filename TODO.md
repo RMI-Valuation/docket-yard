@@ -39,8 +39,6 @@ decisions were taken the same day and are recorded where each belongs.
   first quoted stamp landed at deploy. Still owed, a per-page failure record (Owed 2)
 - **Held by the operator for rewording (2026-09-11)**: `/methodology`'s text-stage section
   (`848e366`) and the one-day-rest sentence (`3b538bc`); § Documents has his narrowed one
-- **Pruned blobs are never read by the stage** (the parser has no network): every one of the
-  21 still due at 10:18 UTC 2026-09-11, a problems line every pass. Fetch them from S3 first
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)

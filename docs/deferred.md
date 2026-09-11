@@ -785,6 +785,18 @@ amendments are listed in the migration's own header; these are the rest.
   the churn the workstation gate no longer does. Cheap there — its vLLM is always up by design
   — but the same `GET /pending` check would quiet it.
 
+## From restoring the text stage's pruned blobs, 2026-09-11 (v2026.09.13)
+
+- **The stage never reads a pruned blob, and nothing restores one.** The parser has no
+  network and no store key (ADR 0024 D2), so a document queued after the pruner took its
+  blob (30 days, or under 20 GB free) is never dispatched: 21 sat that way every pass from
+  10:18 UTC until they were fetched from S3 by hand at the operator's request; the 12:48 pass
+  dispatched them and the 13:18 pass loaded all 22 due, none refused. The guard: before
+  dispatch, the ingest side — which holds the store key — restores a due document's blob from
+  S3 and checks its hash, as the `/document/` route already does for a reader. The container's
+  isolation is untouched because the fetch happens outside it. Until then the problems line
+  counts them every pass.
+
 ## From a high code review of v2026.09.12 itself, 2026-09-11
 
 Run against the released range by mistake (the unreleased range was reviewed after it); what
