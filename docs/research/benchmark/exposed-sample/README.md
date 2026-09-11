@@ -1,5 +1,12 @@
 # The exposed-class sample (2026-09-11)
 
+> **Superseded the same day, never judged.** The operator chose to load the citator and judge
+> in production's `/review` instead (`docs/runbook.md` § Blocker 2): the queue is served in the
+> citing document's hash order, so the first fifty own-docket keys he answers there are the
+> sample, and each answer is a real decision. On the real load 1,359 of the 1,945 exposed keys
+> cite their own docket, and the fiftieth sits at queue position 92. This draw from the
+> rehearsal store is kept as the record of what was first proposed.
+
 **Why it exists.** ADR 0017 sends an *exposed* citation to a person rather than publishing it:
 a bare docket number of four digits or fewer whose last-digit-stripped reading is also a held
 docket, because a footnote marker fused onto the number (`AB 124` + footnote `2` read as

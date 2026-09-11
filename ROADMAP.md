@@ -36,10 +36,10 @@ the capability map with the whole record held). None is chosen.
    cites that decision, docket or document) against the validated registry, shipped as "cited
    by" lists and search ranking; treatment classification lands later on the same edges.
    The schema (migration 0014), the finder, the resolver and the work-level step are
-   shipped (v2026.08.51–v2026.09.11); the chain has run into a copy (15,164 edges, 0
-   failures) and never into production: what gates it is ~16 h of reviewer reading on 1,946
-   exposed keys (TODO § In motion). The citation resolver, shipped in v2026.08.36, is its
-   front door.
+   shipped (v2026.08.51–v2026.09.11), and the first load ran 2026-09-11: 15,198 edges in
+   the store, 1,945 exposed keys held for `/review`. What is not built is the display — the
+   "cited by" lists and ranking this slice would ship. The citation resolver, shipped in
+   v2026.08.36, is its front door.
 2. **Fielded search** (F4) — the one box shipped 2026-08-26 (captions, parties, summaries);
    fields, boolean and proximity wait for the extracted text.
 3. **Rate-case index** (D5's first slice) — the 3,952 NOR dockets with parties and quoted

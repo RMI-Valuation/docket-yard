@@ -10,11 +10,10 @@ decisions were taken the same day and are recorded where each belongs.
 
 ## In motion
 
-- **The citator has never run a real load** (`citation`: 0 rows). The chain into a copy
-  (2026-09-04) gave 15,164 distinct edges and 0 failures. The load waits only on his yes —
-  the 1,946 exposed keys are HELD, not a precondition (runbook § Blocker 2). Decided
-  2026-09-11: 1,360 of them cite their own docket; he judges a random 50, and if they hold a
-  rule clears that class (an ADR 0017 addendum for him); the other 586 stay held
+- **The citator is LOADED** (2026-09-11 16:55 UTC, runbook § first load): 15,198 edges
+  projected, nothing shown to readers. **With him: `/review/citation_exposed`** — the first 50
+  own-docket keys he answers in its hash order are the sample (the 50th is at position 92;
+  every answer is a real decision). If none is fused, the rule and its ADR 0017 addendum
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
@@ -26,10 +25,6 @@ decisions were taken the same day and are recorded where each belongs.
 
 ## Next
 
-- **The card is BUILT** (2026-09-11, `data/card.json`, from `work-registry.sqlite`, the copy
-  the sheet was drafted from): projection 213 of 218 shown right (97.7%), work 106/106; the
-  SQL chain agrees (210 of 215 once 5 exposed are held). `citator declare` and the load wait on
-  his yes (runbook § Blocker 1 for the commands). A reader is shown no number
 - **Party types, the held-out sheet is drawn and WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`; blind queue `data/party-types-heldout-check.html`).
   When the Copy block (party_id, type, first, note) returns: apply both picks to its

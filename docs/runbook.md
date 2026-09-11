@@ -218,12 +218,23 @@ a copy, not a migration.
   Never page the table unsorted. Any manual `capture dockets` test before a walk should use
   `--mode backfill` so its events never reach a forward alert join.
 
-## The citator's first load — planned 2026-09-04, NOT RUN
+## The citator's first load — planned 2026-09-04, RUN 2026-09-11
+
+**Run 2026-09-11, on the operator's yes, between the 16:52 and 17:22 forward passes, no
+wall.** `citator find --channel text-layer`: 19,944 decision documents, 73,212 findings, 27 s
+(the walk is decisions only, `walk._DOCUMENTS`). `citator declare --scores` from the card
+built that day (`data/card.json`, the work sheet's registry copy): citation 0.987/0.854,
+resolution 0.960/0.861, projection 0.947/0.977, work precision 1.000. `citator load`: 108 s,
+0 failed, 0 out of class, 1,916 unresolved. Measured after, read-only: 73,212 citation rows,
+**15,198 distinct (citing work, target) edges projected** (18,955 rows), queues exposed 1,945,
+unresolved 489, repaired 1; 1,359 of the exposed cite their own docket, and in `/review`'s
+order the fiftieth of those is at position 92. **No reader sees any of it** — no page renders
+the citator and the snapshot holds its tables. What follows is the plan as written before.
 
 The whole chain was rehearsed on that date against a `VACUUM INTO` copy of production and
-runs clean; production still holds `citation` 0 rows. What follows is what a real load would
-be, with the blockers named first, because **two of them are not steps — one is missing code
-and one is a decision about people.**
+runs clean. What follows is what a real load would be, with the blockers named first,
+because **two of them are not steps — one is missing code and one is a decision about
+people.**
 
 ### What it would write, measured on the copy
 

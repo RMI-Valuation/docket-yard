@@ -51,7 +51,7 @@ Each surfaced independently from constituencies sharing no interests.
 | | Capability | Effort | Elsewhere | Here |
 | --- | --- | --- | --- | --- |
 | `C1` | **Alerting — docket, search and citation** | Medium | Exists nowhere | Docket alerts shipped — email (M4), feeds per docket and party and signed webhooks (M8); search and citation subscriptions are not |
-| `C2` | **An STB and ICC citator** | High | Exists nowhere | In motion, not yet a milestone — schema, finder, resolver and work step shipped (v2026.08.51–v2026.09.11); the first load waits on the operator's reading (`TODO.md` § In motion); the citation graph is Ripe on `ROADMAP.md` |
+| `C2` | **An STB and ICC citator** | High | Exists nowhere | In motion, not yet a milestone — schema, finder, resolver and work step shipped (v2026.08.51–v2026.09.11) and first loaded 2026-09-11 (`runbook.md`), with no display yet; the citation graph is Ripe on `ROADMAP.md` |
 | `C3` | **Address-to-docket lookup** | Medium | Exists nowhere | Not yet — places quoted from captions, its first slice, is Ripe on `ROADMAP.md` |
 | `C4` | **The deadline engine** | Medium | Exists nowhere | Later — waits on a decision and counsel's review (`ROADMAP.md`); a hand-checked fixture exists (`TODO.md` § Next) |
 
