@@ -37,9 +37,10 @@ decisions were taken the same day and are recorded where each belongs.
   (`web/jsonld.py`), and `/llms.txt` no longer linking what robots refuses — ride the next
   release; after deploy, check a sheet's block in Google's Rich Results test
 - **ADR 0024's stage is LIVE** (v2026.09.12, pinned `pymupdf@1.26.0` 2026-09-10 23:19 UTC).
-  First pass 23:45: 25 dispatched, all 25 read in 3.7 s. Still owed: the producer column
-  (§ Owed 5, with schema-critic then the operator), a per-page failure record (2); the
-  `/methodology` queue table (6) is built and rides the next release
+  First pass 23:45: 25 dispatched, all 25 read in 3.7 s. Owed 5 DECIDED 2026-09-11:
+  `ocr_run.dispatch_id`, echoed by the container, checked at admit (ADR 0024 addendum) —
+  migration 0026 + extract image + `/security-review`, deployed UN-PINNED. Still owed: a
+  per-page failure record (2); the `/methodology` queue table (6) rides the next release
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - A no-answer fetch is a status-0 capture on every path, resting one day (decided
   2026-09-10, `deferred.md` § 2026-09-02); stb-ingest-specialist and schema-critic first

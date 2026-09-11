@@ -743,7 +743,7 @@ amendments are listed in the migration's own header; these are the rest.
   adds CPU-bound work to every pass right after the heaviest write. Three misses trips
   `docketyard-webwatch.timer`, which restarts `web`, which adds load. The pass measures no
   duration and nothing alarms on overrun (already recorded above).
-- **`extraction_dispatch` carries no `ingest_mode`** — ADR 0024 § Owed 6's gap, same as
+- **`extraction_dispatch` carries no `ingest_mode`** — ADR 0024 § Owed 5's gap, same as
   `ocr_run`'s. Not urgent: `ADD COLUMN` survives publication, and the primary key is the only
   rebuild-class change the critic's widening survey could find.
 
@@ -778,6 +778,18 @@ amendments are listed in the migration's own header; these are the rest.
   they never disagree, but `ocr_run` still has no correction path: a `review_target_vocab` row
   for it (`surrogate`, on `document_pagination`'s precedent) would give one, since `run_id` is
   followable for the same reasons `pagination_id` is.
+
+## From the schema critic on ADR 0024 Owed 5, the dispatch stamp, 2026-09-11 (v2026.09.12)
+
+The operator chose `ocr_run.dispatch_id`, echoed (ADR 0024 addendum 2026-09-11). Left for later:
+
+- **A single-column REFERENCES cannot enforce "a dispatch of THIS document".** The admit step
+  checks it; a BEFORE INSERT trigger (same document, `dispatched_at <= ran_at`) would make
+  the store check it too, and names only public tables.
+- **`document_pagination` has the same blindness about its producer.** Not on the halt path.
+- **Which off-instance machine loaded a root** stays unrecorded on `ocr_run`;
+  `producer_declaration.declared_by` and the pass key (ADR 0025 D2) carry what is needed, and
+  `text load` declaring from the root's `_manifest.json` (below) is still the open step.
 
 ## From the schema critic on migration 0024, the producer registry, 2026-09-05
 

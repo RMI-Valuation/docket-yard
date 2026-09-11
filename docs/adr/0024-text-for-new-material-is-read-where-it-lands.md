@@ -364,3 +364,35 @@ still reads against the original.)
    census — and the census now counts `exhausted` apart from `resting`, because the item's
    own point, a terminal count told from one in flight, was one number until then.
 7. Ordering by the record's own date rather than `first_seen_at`: accepted as recorded.
+
+## Addendum (2026-09-11): Owed 5 — a reading names the dispatch it answers
+
+**The operator's decision.** `ocr_run` gains a nullable `dispatch_id` referencing
+`extraction_dispatch`; `extraction_dispatch` gains nothing, having one writer by construction.
+This narrows Owed 5's wording ("a producer column on `ocr_run` and `extraction_dispatch`",
+"`ingest_mode`"): the question the item asks — did the instance's container answer this
+dispatch — is answered by a join rather than labelled.
+
+- **The stamp is COPIED, never derived.** The container writes the `dispatched_at` of the
+  request it served into the record's header; the admit step accepts it only if it names a
+  dispatch of that document at or before the reading, and the loader stamps that dispatch.
+  "The latest dispatch before `ran_at`" was refused: a document re-dispatched after
+  `EXTRACT_RETRY_HOURS` whose first reading lands late would be stamped with the second
+  dispatch, publishing the first as unanswered, permanently (schema-critic).
+- **Only the stage stamps.** A hand `text load` never does, whatever a file says —
+  `dispatched_at` is public, so a forged root could quote a real one.
+- **NULL means no dispatch of the instance's stage is answered by this row**, which is exactly
+  true of the 89,019 rows the store held when this was decided, all from hand loads.
+- **The halt becomes a proof**: a dispatch is answered when a `read` row names it.
+- **An answered dispatch can no longer be deleted** (foreign keys on); the reset is the pin
+  bump, as D4 designed it.
+- **Deploy with the stage un-pinned** across the migration, so readings wait in the spool and
+  land stamped; otherwise readings landed before it carry no stamp and the halt fires falsely
+  until twenty new dispatches accrue.
+- `/security-review` before it ships: it moves the trust boundary in `admit`.
+
+Set aside: `ingest_mode` (a published word meaning something else on `capture`, under a CHECK
+whose third value would rebuild 89k public rows, its NULLs ambiguous for ever), and a
+producer vocabulary (its value supplied by a manifest the loader cannot verify, the fleet's
+machine names published under CC0, and the wrong grain for leased pages). Either can still be
+added later by `ADD COLUMN`.
