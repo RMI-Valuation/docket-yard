@@ -144,6 +144,12 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sheet", type=Path, default=Path("docs/research/party-types/labels.csv"))
     ap.add_argument("--show", default="", help="print the misses for one judged type")
+    ap.add_argument(
+        "--pick",
+        choices=("type", "first"),
+        default="type",
+        help="score the final pick, or the first (blind) pick — the held-out gate reads first",
+    )
     args = ap.parse_args()
     rows = list(csv.DictReader(args.sheet.open(encoding="utf-8")))
     per = collections.defaultdict(lambda: [0, 0])  # judged type -> [found, total]
@@ -159,7 +165,9 @@ def main() -> int:
     if not rows:
         return 0
     for r in rows:
-        judged, got = r["type"], draft(r["as_filed"])
+        # the first pick where the sheet was judged blind; a sheet without one has only `type`
+        judged = (r.get("first") or r["type"]) if args.pick == "first" else r["type"]
+        got = draft(r["as_filed"])
         per[judged][1] += 1
         emitted[got] += 1
         if got == judged:
