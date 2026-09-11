@@ -652,8 +652,9 @@ regression; all three are gaps that have always been open and were never counted
   beside the letter, not the letter. Wave work — extraction then OCR on the enrichment box —
   and the largest single block of the record that search cannot reach. **Extraction ran
   2026-09-11** on RMI-AI-MACHINE at the pin (pymupdf 1.26.0): 25,583 read, 0 failed, **12,184
-  image-only** — those are the OCR half still owed; the text page they will show at landed
-  the same day (the operator's decision: shown as a filing's text is). (Checked and NOT a
+  image-only** — those are the OCR half still owed. Loaded into production after v2026.09.14
+  the same day (180 s): 25,612 comment files hold text, 15,137 with a non-empty page, shown at
+  the comment's text page (the operator's decision: as a filing's text is). (Checked and NOT a
   gap: the 7,930 comments with no attachment at all, whose inline words are their whole
   record. Those already render on the sheet and the record page and are already indexed, and
   `sheet.present` strips `--` at every surface — display, MCP and the index. Putting them in

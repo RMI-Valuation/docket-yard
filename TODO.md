@@ -22,11 +22,9 @@ decisions were taken the same day and are recorded where each belongs.
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
 
-- **Environmental-comment text** (the operator's decision, 2026-09-11: shown as a filing's
-  is): 25,583 attachments read on RMI-AI-MACHINE at the pin, 12,184 image-only (OCR owed).
-  The text page, its search hits, migration 0027 (an index) and his two sentences for
-  `/privacy` and `/methodology` are on main. Next, his order: release behind the wall, then
-  stream the root to the instance and `text load` it (manual mode for both)
+- **Comment attachments' OCR is owed**: v2026.09.14 shows their text (loaded 2026-09-11) and
+  15,137 of the 25,612 comment files read have some; 12,184 are image-only scans — a fleet
+  pass once the NUC's `second` and `graphic` roots are loaded
 
 ## Next
 
