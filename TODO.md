@@ -11,9 +11,10 @@ decisions were taken the same day and are recorded where each belongs.
 ## In motion
 
 - **The citator has never run a real load** (`citation`: 0 rows). The chain into a copy
-  (2026-09-04) gave 15,164 distinct edges and 0 failures; `declare --scores` and reviewer 1
-  are ready; 1,946 exposed keys are ~16 h of reading. The work card is judged (§ Next), so
-  what is left is the operator's hours
+  (2026-09-04) gave 15,164 distinct edges and 0 failures. The load waits only on his yes —
+  the 1,946 exposed keys are HELD, not a precondition (runbook § Blocker 2). Decided
+  2026-09-11: 1,360 of them cite their own docket; he judges a random 50, and if they hold a
+  rule clears that class (an ADR 0017 addendum for him); the other 586 stay held
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)

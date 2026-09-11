@@ -284,6 +284,16 @@ seconds of reading each is about sixteen hours. One reviewer exists; whether one
 for that backlog is the decision, and loading first is allowed because the edges are simply
 held, which is what the gate is for.
 
+**Measured and decided 2026-09-11.** On the 2026-09-04 rehearsal store the 1,946 keys are 178
+distinct targets from 984 citing documents — ten targets hold 866 (AB 55 alone 162) — and for
+**1,360 of them the citing document is filed in the very docket the number names** (a decision
+in AB 55 citing "AB 55", usually its own caption); for none is it filed in the stripped
+number's docket. The operator chose, of four: a rule clearing an exposed key whose citing
+document is filed in the named docket, **measured first on a random 50 of those 1,360 that he
+judges** (about 25 minutes); if they hold, the rule reaches him as an ADR 0017 addendum —
+it narrows what D5 leaves to a person — and the other 586 stay held. The load itself waits
+only on his yes.
+
 ### Blocker 3 — the figures are the benchmark's, and the load does not change that
 
 Every one of the 15,164 edges would be stamped with a precision measured on sixty decisions.
