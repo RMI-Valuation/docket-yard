@@ -409,8 +409,19 @@ its old rows, wrong parent keys included. `citator load` refuses a batch found b
 version of this build's finder, so an old findings directory cannot take the new rank.
 
 The card is `citation_dryrun.py --work` with the new finder, and its work block must include
-the operator's verdicts on the claims the wrap creates (31 new on the sheet, drafted
-2026-09-11) — a precision measured without them does not describe the rows it stamps.
+the operator's verdicts on the claims the wrap creates. **Built 2026-09-11 with the final
+code:** the draft is the one he judged, 216 claims with none added or lost. The checked sheet
+holds 160 rows:
+
+- 124 earlier verdicts still apply;
+- his 31 new verdicts;
+- 4 claims naming exactly the document he had written as "should be";
+- one stop carrying his earlier answer.
+
+Five rows on claims the new finder no longer makes were dropped; git holds them. The
+work block reads **140 of 140** judged claims right, with no recall (56 stops unjudged). The
+three stages match the rehearsal's card: citation 224/257, resolution 218/248, projection
+216/220. The card is `data/card-final.json`, and it goes to the instance for `declare`.
 
 **Rehearsed 2026-09-11 on a `litestream restore` of production taken after the first load**
 (5.47 GB, 17:39 UTC): declare under v2, find 19,944 documents in 12 s (72,935 findings), load

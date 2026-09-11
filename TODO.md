@@ -12,7 +12,7 @@ decisions were taken the same day and are recorded where each belongs.
 
 - **The citator is LOADED** (2026-09-11 16:55 UTC): 15,198 edges, none shown. **The finder's
   line wrap is PR #25** (his decisions: before any review, both wraps in one change); its final
-  card waits for his verdicts on the 31 new work claims. Then the review page — easy,
+  card is built (work 140/140, his verdicts of 2026-09-11). Then the review page — easy,
   explained, one look settling docket, sub-docket and document, linked to scan, text, both
   dockets and the matched document, over a queue of only what can publish — with an ICC flag
   for `(ICC served …)`. His requirement: same-docket filings and decisions must be citable

@@ -58,7 +58,6 @@ citing_decision,target_key,drafted_decision,verdict
 52448,FD 36137,46403,right
 52519,EP 753,47262,right
 52526,EP 726,46402,right
-52526,EP 755,51387,right
 52537,FD 36486,50671,right
 52537,FD 36486 (2),51134,right
 52537,FD 36486 (4),51612,right
@@ -110,7 +109,6 @@ citing_decision,target_key,drafted_decision,verdict
 51532,NOR 39909,,right-to-stop
 51532,NOR 42060 (1),,"should-be:the ""served"" is incorrect in the citation, that is the decided date, 2007-01-26 is the served date (see 36657)"
 52211,FD 34424,,should-be:References 34554
-52211,FD 36368,,"should-be:References 50223, date is cutoff with year on 2nd line in referencing doc"
 52211,FD 36500,,should-be:References 51549
 52211,FD 36732,,should-be:This is referencing a prior decision in same Docket (51953)
 52238,EP 392 (1),,right-to-stop
@@ -124,7 +122,40 @@ citing_decision,target_key,drafted_decision,verdict
 52295,FD 31329,,right-to-stop
 52295,FD 31445,,right-to-stop
 52295,FD 31469,,right-to-stop
-52295,FD 33388 (90),,should-be:References 30671 (note year in citation is on next line)
-52295,FD 33556 (4),,should-be:References 30849 (citation's date on next line)
-52295,FD 34738,,should-be:References 36342
 52295,FD 35873,,should-be:References 44295 (date in 1st citation in doc)
+51532,NOR 42075,33648,right
+52211,FD 36732,51913,right
+52295,FD 35157,39311,right
+52295,FD 36368,50223,right
+52295,FD 36744,52081,right
+52330,FD 32760,45755,right
+52330,NOR 42124,41211,right
+52395,FD 36320,47176,right
+52526,EP 765,51376,right
+52573,FD 34114,33131,right
+52676,EP 736,46292,right
+52748,EP 552 (26),51375,right
+52748,EP 748,51765,right
+52757,EP 670,38193,right
+52822,FD 35874,44986,right
+52835,AB 1014,38878,right
+52835,AB 1242 (1),50314,right
+52835,AB 1296 (X),51128,right
+52835,AB 290 (404X),51648,right
+52835,AB 857 (2),52018,right
+52835,FD 30186 (3),36956,right
+52835,FD 32821,29194,right
+52835,FD 34465,34584,right
+52846,FD 36500,51348,right
+52860,FD 35288,40193,right
+52908,EP 670,38193,right
+52978,EP 774,51915,right
+52988,EP 711 (2),52104,right
+52988,EP 748,52642,right
+52988,EP 787,52744,right
+53052,FD 33984,31734,right
+52295,EP 711 (2),52104,right
+52295,FD 33388 (90),30671,right
+52295,FD 33556 (4),30849,right
+52295,FD 34738,36342,right
+52526,EP 755,,should-be:References 51387 (judged right on the old finder's claim; two served dates on the page now stop it at the docket)
