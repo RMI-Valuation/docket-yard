@@ -66,14 +66,43 @@ def stale(con, stamps: dict) -> list[tuple]:
     """
     work = stamps.get(methods.WORK_KEY)
     docket = stamps["citation_resolution"]
+    # ONLY KEYS THE MEASURED FINDER WROTE (code review, 2026-09-11). A key can stay live at an
+    # older finder version — held from retraction, on a page the new walk skipped, in a
+    # document it did not yield — and re-stamping its resolution with the new card's figures
+    # is the borrowed precision `load_document` refuses (ADR 0017 D3).
+    # Both stamps must measure ONE finder, or the filter below would admit keys for one card's
+    # figures on the other's say-so — refused, as `load_document` refuses it (code review).
+    ids = sorted({s[0] for s in (docket, work) if s is not None})
+    rows = con.execute(
+        f"SELECT extraction_method_version FROM class_measurement"
+        f" WHERE measurement_id IN ({', '.join('?' * len(ids))})",
+        ids,
+    ).fetchall()
+    finders = {v for (v,) in rows}
+    if len(rows) != len(ids) or len(finders) != 1:  # a stamp naming no measurement, too
+        raise methods.Unscored(
+            f"the stamps name finder version(s) {sorted(finders)} across measurements {ids};"
+            " a re-stamp needs every class measured on one finder"
+        )
+    (finder,) = finders
     out = []
     for row in con.execute(
         f"SELECT resolution_id, measured_class, score_row_id, cited_decision_id,"
         f" {', '.join(_CARRIED)}"
         " FROM citation_resolution"
         " WHERE superseded_by IS NULL AND confidence_state = 'measured'"
-        f"   AND measured_class IN ({', '.join('?' * len(_OURS))})",
-        _OURS,
+        f"   AND measured_class IN ({', '.join('?' * len(_OURS))})"
+        # on a LIVE key: a retracted key's resolution is left live beside a retired identity
+        # row (load.py, 2026-09-11), and re-stamping it would write a fresh `measured` row on a
+        # key the record no longer asserts (schema-critic, 2026-09-11). Names qualified: an
+        # unqualified column binds to the inner scope, the trap `project.py` records.
+        "   AND EXISTS (SELECT 1 FROM citation c"
+        "                WHERE c.citing_document = citation_resolution.citing_document"
+        "                  AND c.page = citation_resolution.page"
+        "                  AND c.target_kind = citation_resolution.target_kind"
+        "                  AND c.target_key = citation_resolution.target_key"
+        "                  AND c.superseded_by IS NULL AND c.method_version = ?)",
+        (*_OURS, finder),
     ):
         wanted = work if (row[3] is not None and work is not None) else docket
         want_class = (

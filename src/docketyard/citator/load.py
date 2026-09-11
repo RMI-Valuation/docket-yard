@@ -64,6 +64,8 @@ class Loaded:
     exposed: int = 0
     unchanged: int = 0  # this exact pass had already asserted the key: a restart, not a
     human_held: int = 0  # second edge. And a `human` row a model pass may never supersede.
+    retracted: int = 0  # an older finder's key this pass no longer emits, retired at itself
+    retraction_held: int = 0  # ... one a person decided, or another channel reads, left alone
     review: list[str] = field(default_factory=list)  # rendered keys, for ADR 0017 D5's queues
 
 
@@ -129,12 +131,24 @@ def load_document(
     scored = [*methods.STAGES, *([methods.WORK_KEY] if methods.WORK_KEY in stamps else [])]
     ids = sorted({stamps[stage][0] for stage in scored})
     found = con.execute(
-        "SELECT measured_target, reading_channel FROM class_measurement"
-        f" WHERE measurement_id IN ({','.join('?' for _ in ids)})",
+        "SELECT measured_target, reading_channel, extraction_method_version"
+        f" FROM class_measurement WHERE measurement_id IN ({','.join('?' for _ in ids)})",
         ids,
     ).fetchall()
     if len(found) != len(ids):
         raise methods.Unscored("the stamps point at measurements the store does not hold")
+    # AND OF THIS FINDER'S VERSION (schema-critic, 2026-09-11). `stamp` picks the newest
+    # measurement by stage, class and channel and never asks which finder it measured, so the
+    # new finder's findings loaded before its card is declared would stamp every row `measured`
+    # from the OLD finder's figures — borrowed precision (ADR 0017 D3), and `restamp` reaches
+    # resolutions only, so the citation rows could be repaired by hand alone. The first finder
+    # bump is what made this reachable.
+    other_finder = sorted({v for _, _, v in found if v != version})
+    if other_finder:
+        raise methods.Unscored(
+            f"{sha[:12]} was found by {method}@{version} but the stamps were measured on finder"
+            f" version(s) {other_finder}; declare the card this finder was measured with first"
+        )
     # AND THE WORK STAMP IS OF THE WORK CLASS. The channel check above cannot see this: the
     # foreign key on `citation_resolution` is (score_row_id, measured_target), and BOTH classes
     # of a resolution measurement satisfy it identically, so a docket figure handed in under
@@ -150,7 +164,7 @@ def load_document(
                 f"the work stamp points at a {cls[0]}/{cls[1]} measurement; a row naming a"
                 f" document is stamped from citation_resolution/{methods.WORK_CLASS}"
             )
-    borrowed = [(stage, c) for stage, c in found if c != channel]
+    borrowed = [(stage, c) for stage, c, _ in found if c != channel]
     if borrowed:
         raise WrongChannel(
             f"{sha[:12]} was read on channel {channel!r} but the stamps for"
@@ -534,6 +548,77 @@ def load_document(
         # never the queue's source of truth.
         if r.exposed or r.outcome == "repaired":
             out.review.append(keys.render(sha, page, "stb", key))
+
+    # RETRACTION (2026-09-11). A key an OLDER version of this finder asserted on this document,
+    # which this pass no longer emits, stops counting: the finder that read `AB-12 ↵ (Sub-No.
+    # 162X)` as the parent `AB 12` is corrected by one that keys it `AB 12 (162X)`, and without
+    # this the stale parent key stays live beside the new one and keeps projecting. Only the
+    # identity row is superseded — the projection's and every queue's `citation.superseded_by
+    # IS NULL` join is what makes a retraction bite (`project.py`) — and it points at its
+    # SUCCESSOR where there is exactly one, ADR 0018 D2's shape (the mis-keyed row points at
+    # its replacement): the parent points at the sub-docket row this pass wrote on the same
+    # page, which names the pass and dates the retraction by its `asserted_at`. With none, or
+    # two sub-dockets of it on the page, it is retired AT ITSELF, the registry's deliberate
+    # retirement, which is undated (`superseded_at` is owed: docs/deferred.md).
+    #
+    # FOUR THINGS ARE LEFT ALONE (schema-critic, 2026-09-11). A key on a page this pass did not
+    # READ: `walk` skips a page a person corrected and files each page under its live primary's
+    # channel, so absence there is not a finding (ADR 0018 D10) — the interchange names the
+    # pages it read, `pages_walked`, and a document that does not retracts nothing. A key
+    # another channel reads CURRENTLY — a stale reading of another channel is as stale as this
+    # one's, and deferring to it would let two channels hold each other's old keys for ever. A
+    # key a person DECIDED (ADR 0017 D5). And a key with a question still OPEN before a person:
+    # an escalation writes no human row, and retracting its key would drop the item unseen.
+    emitted = set(passages)
+    walked = {int(p) for p in doc.get("pages_walked") or ()}
+    for citation_id, page, key in con.execute(
+        "SELECT citation_id, page, target_key FROM citation WHERE citing_document = ?"
+        " AND target_kind = 'stb' AND superseded_by IS NULL AND method = ? AND method_version <> ?",
+        (sha, method, version),
+    ).fetchall():
+        if (page, key) in emitted or page not in walked:
+            continue
+        at = (sha, page, key)
+        other_channel = con.execute(
+            "SELECT 1 FROM citation_reading WHERE citing_document = ? AND page = ?"
+            " AND target_kind = 'stb' AND target_key = ? AND superseded_by IS NULL"
+            " AND reading_channel <> ? AND (reading_channel = ? OR method_version = ?) LIMIT 1",
+            (*at, channel, methods.HUMAN, version),
+        ).fetchone()
+        decided = (
+            con.execute(
+                "SELECT 1 FROM citation_resolution WHERE citing_document = ? AND page = ?"
+                " AND target_kind = 'stb' AND target_key = ? AND superseded_by IS NULL"
+                " AND confidence_state = 'human' LIMIT 1",
+                at,
+            ).fetchone()
+            or con.execute(
+                "SELECT 1 FROM review_action WHERE target_table = 'citation_resolution'"
+                " AND target_key = ? AND superseded_by IS NULL LIMIT 1",
+                (keys.render(sha, page, "stb", key),),
+            ).fetchone()
+        )
+        if other_channel or decided:
+            out.retraction_held += 1
+            continue
+        successors = [k for (p, k) in emitted if p == page and k.startswith(key + " (")]
+        successor = (
+            con.execute(
+                "SELECT citation_id FROM citation WHERE citing_document = ? AND page = ?"
+                " AND target_kind = 'stb' AND target_key = ? AND superseded_by IS NULL",
+                (sha, page, successors[0]),
+            ).fetchone()
+            if len(successors) == 1
+            else None
+        )
+        if successor:
+            con.execute(
+                "UPDATE citation SET superseded_by = ? WHERE citation_id = ?",
+                (successor[0], citation_id),
+            )
+        else:
+            supersede.retire(con, "citation", "citation_id", citation_id)
+        out.retracted += 1
 
     # ADR 0018 D10. Absence is not a measurement: this row is what separates READ AND FOUND
     # NOTHING from NOT YET READ, and it carries the out-of-class count that makes "not kept"

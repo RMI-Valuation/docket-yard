@@ -43,8 +43,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 import benchmark_score as bs  # noqa: E402
 
 from docketyard.citator import keys, resolve  # noqa: E402
+from docketyard.web import urls as site  # noqa: E402
 
 SHEET = Path("docs/research/benchmark/labels.csv")
+# The public record, where the operator checks a claim fastest: the cited docket's sheet lists
+# every decision in it with its service date (the operator's request, 2026-09-11).
+SITE = "https://docketyard.org"
 # The work column, checked by the operator 2026-09-10 — `SHEET`'s sibling and the same kind of
 # thing: ground truth, kept in the repository, because a judging sitting is not reproducible
 # from the pipeline and everything in `data/` is.
@@ -130,14 +134,22 @@ def decisions(con: sqlite3.Connection) -> dict[str, dict]:
         "       r.docket_id, d.raw_docket"
         " FROM decision_record r JOIN docket d USING (docket_id)"
     ):
-        out[str(did)] = {
-            "decision_id": str(did),
-            "service_date": service_date,
-            "decision_type": dtype,
-            "deciding_body": body,
-            "docket_id": docket_id,
-            "raw_docket": raw,
-        }
+        row = out.setdefault(
+            str(did),
+            {
+                "decision_id": str(did),
+                "service_date": service_date,
+                "decision_type": dtype,
+                "deciding_body": body,
+                "docket_id": docket_id,
+                "raw_docket": raw,
+                "dockets": {},
+            },
+        )
+        # EVERY DOCKET IT IS ENTERED IN: a consolidated decision has one row per docket, and
+        # keeping only one showed the operator decision 31734 "served in FD_34007_0" against a
+        # citation of FD 33984, which it is also entered in (his note, 2026-09-11)
+        row["dockets"][docket_id] = raw
     return out
 
 
@@ -253,6 +265,10 @@ def build(store: Path, run: Path) -> list[dict]:
                 else:  # pragma: no cover — `works` and this query would have to disagree
                     why = "no document, and the reasons above do not explain it"
         target = decs.get(answer or "", {})
+        # the docket the citation named, where the decision is entered in it; the rest beside it
+        entered = target.get("dockets", {})
+        shown = entered.get(got["docket_id"]) or target.get("raw_docket", "")
+        others = sorted(raw for raw in entered.values() if raw != shown)
         cite_row = (sheet_rows_here or [{}])[0]
         rows.append(
             {
@@ -267,7 +283,8 @@ def build(store: Path, run: Path) -> list[dict]:
                 "drafted_service_date": target.get("service_date", ""),
                 "drafted_type": target.get("decision_type", ""),
                 "drafted_body": target.get("deciding_body", ""),
-                "drafted_docket": target.get("raw_docket", ""),
+                "drafted_docket": shown
+                + (f" (also entered in {', '.join(others)})" if others else ""),
                 "drafted_url": urls.get(answer or "", ""),
                 "why_no_document": why,
                 "pages": ",".join(str(p) for p in pages),
@@ -291,6 +308,24 @@ def build(store: Path, run: Path) -> list[dict]:
     return rows
 
 
+def links(row: dict) -> dict:
+    """The record's own pages for a row: the cited docket's sheet, the citing decision's
+    docket, and the drafted decision's record page. Derived at render, from fields every row
+    already carries, so a saved queue re-renders with them. A docket the site's grammar cannot
+    read gets no link rather than a wrong one."""
+
+    def sheet(text: str) -> str:
+        identity = site.lookup(text) if text else None
+        return f"{SITE}{site.docket_path(identity)}" if identity else ""
+
+    drafted = row.get("drafted_decision")
+    return {
+        "target_docket_url": sheet(row.get("target_key", "")),
+        "citing_docket_url": sheet(row.get("citing_docket", "")),
+        "drafted_page_url": f"{SITE}{site.decision_path(drafted)}" if drafted else "",
+    }
+
+
 def render(rows: list[dict], out: Path) -> Path:
     """The check queue, from the template beside this file.
 
@@ -300,7 +335,7 @@ def render(rows: list[dict], out: Path) -> Path:
     being a file somebody has to still have.
     """
     page = TEMPLATE.read_text(encoding="utf-8")
-    data = json.dumps([{k: r[k] for k in PAGE_FIELDS} for r in rows], ensure_ascii=False)
+    data = json.dumps([{k: r[k] for k in PAGE_FIELDS} | links(r) for r in rows], ensure_ascii=False)
     if "/*DATA*/[]" not in page:  # pragma: no cover — the template is ours
         raise SystemExit(f"{TEMPLATE} has no /*DATA*/[] placeholder to fill")
     out.write_text(page.replace("/*DATA*/[]", data), encoding="utf-8")

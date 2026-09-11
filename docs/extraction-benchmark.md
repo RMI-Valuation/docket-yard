@@ -208,6 +208,60 @@ sheet holds — so the extractor invents none. Confidence is the measured precis
 edge's class, not the model's opinion; the review queue takes the short-sequence dockets,
 the in-range unresolved and the same-docket citations that do not resolve to a decision.
 
+## Local models as reviewers — measure first (the operator's decision, 2026-09-11)
+
+The citator's first load held 1,945 keys for a person (1,476 after the line-wrap fix). The
+operator asked whether local models on the fleet, checking one another, could take the first
+pass. The table above already shows the two role classifiers erring in opposite directions:
+qwen3:14b at 95.9% precision and llama3.1:8b at 96.9% recall. So the question is what their
+agreement is worth, and that has not been measured. **Decided: measure before the review page
+is designed.**
+
+1. Score the stored role runs (`runs-roles/`) for agreement: the precision of the keys both
+   models call a citation, and how many keys that covers.
+2. Run two or three models over the 225 checked targets. Ask each the review question
+   ("which docket, sub-docket and document?") and hand it the candidates the record holds:
+   the registry's dockets, and the decisions served on the printed date. Report each model
+   and the pair.
+
+**Step 1 measured, 2026-09-11.** The two stored role runs were combined hit by hit, then
+scored as `(decision, target)` pairs on the 225 docket-shaped targets (the page check on):
+
+| Bucket | Pairs | Real citations | Not citations |
+|---|---|---|---|
+| Both say citation | 197 | 189 (95.9%) | 8 |
+| Both say caption | 38 | 8 | 30 (78.9%) |
+| They split: to a person | 95 | 38 | 57 |
+
+(17 pairs fall in two buckets, split across pages. The 6 targets the regex never hit are in
+none.) **Agreement is no more precise than qwen3:14b alone**: 95.9% on 197 pairs, against its
+95.9% on 195. And the two dismiss 8 real citations as captions. Agreement would clear 71% of
+pairs and leave 29% to a person, but both of its answers fall short of the card's 98.2%
+projected precision. That is on the old question, though: "document or proceeding?" with no
+record behind it. Step 2 asks the review question and hands over the candidates, and that is
+where the answer lies.
+
+**Step 2 runs on every machine (the operator's decision, 2026-09-11).** The sixty decisions
+hold 768 mentions, and the Mac mini takes 2.3 s a mention with qwen3:14b. llama3.1:8b, the one
+model that fits on all four boxes, runs over all 768 on the Mac, RMI-AI-MACHINE, the Jetson and
+the NUC (on its CPU, at low priority), with qwen3:14b too wherever it fits. Two things are
+measured. The first is the pace on each box. The second is whether the same model, weights
+and temperature give the same answers on Metal, CUDA and CPU. If they don't, the host is part
+of a model judgement's method key, as another engine is already another pass
+(`compute-fleet.md`).
+
+**Measured the same day: llama3.1:8b does not fit on the Jetson.** It needs 5,027 MiB of GPU
+memory, and only about 4,460 MiB of the Orin's 7.3 GiB of shared memory is free once the
+system has its share. Ollama tried to load it again on every request (89 requests, load
+average 13) until the run was stopped. **The Jetson runs qwen3:4b instead** (the operator's
+decision, 2026-09-11), and the Mac runs it too, so the Metal-and-CUDA comparison still has a
+Jetson half.
+
+Nothing ships from this. A model's answer would be an assertion with its method, version and
+channel, stamped with its measured precision (ADR 0017 D3). Letting agreement clear a held key
+is not the same as "the local model does not write edges" (step 3 above), so it would take an
+ADR 0017 addendum, and that decision is the operator's.
+
 > Step 1 note (2026-08-26): the tabled UP–NS tracker holds 988 hand-checked documents in FD 36873 — 33 decisions among them — with a tiering scheme (A/B/C) worth reading before designing routing here; see `upns-tracker-inheritance.md`. Its page-capped extraction makes labels from long exhibits weaker evidence.
 
 > Step 0 re-run 2026-08-26 on waves 2–3's first 9,663 new files: **1,480 image-only** (15%, against 2 of 4,273 in wave 1) — the older record is substantially scanned, which is M3's question and bounds what step 2 can read without OCR. Step 2's local candidate (qwen3:14b) ran over all 60 sampled decisions on 2026-08-26 in 2 h 07 m; output at `/data/docketyard/benchmark/runs/qwen3-14b/`, unscored until the labels are checked.

@@ -379,6 +379,21 @@ def _citator(args: argparse.Namespace) -> int:
         # by nobody — the operator's choice of 2026-09-04, reasoned in `citator/scorecard.py`.
         try:
             card = scorecard.read(args.scores)
+            # A CARD MEASURED ON ANOTHER VERSION OF THIS BUILD'S FINDER IS REFUSED (code review,
+            # 2026-09-11), as `load` refuses such a batch: declaring it makes that finder the
+            # owner of this build's rank_version, and the registry is append-only — so this
+            # build's own findings could never load under it.
+            from docketyard.citator import find as finder  # noqa: PLC0415
+
+            if (
+                card.get("extractor") == methods.EXTRACTOR
+                and card.get("extractor_version") != finder.FINDER_VERSION
+            ):
+                print(
+                    f"refused: the card measured {card['extractor']}@{card['extractor_version']};"
+                    f" this build's finder is {finder.FINDER_VERSION}. Measure with it."
+                )
+                return 1
             scored = scorecard.figures(card)
             scorecard.declare(con, card)
         except (scorecard.Unusable, methods.Unscored, methods.Conflict) as e:
@@ -520,6 +535,20 @@ def _citator(args: argparse.Namespace) -> int:
         print(f"refused: the batch mixes {sorted(passes, key=str)} — one pass per load")
         return 1
     method, version, channel = passes.pop()
+    # A BATCH FROM ANOTHER VERSION OF THIS BUILD'S FINDER IS REFUSED BEFORE IT DECLARES ANYTHING
+    # (schema-critic, 2026-09-11). `declare` below makes the batch's version the owner of the
+    # docket class in this build's rank_version, and the registry is append-only — so an old
+    # findings directory loaded by mistake after a finder bump would take the new rank for the
+    # old finder, and the new one would need a rank_version of its own.
+    from docketyard.citator import find as finder  # noqa: PLC0415 — the finder, not the verb
+
+    if method == methods.EXTRACTOR and version != finder.FINDER_VERSION:
+        print(
+            f"refused: the batch was found by {method}@{version}; this build's finder is"
+            f" {finder.FINDER_VERSION}. Loading it would make it the owner of rank"
+            f" {methods.RANK_VERSION}. Re-run `citator find`."
+        )
+        return 1
     machine = methods.machine_channels(con)
     if channel not in machine:  # a null, a typo, or 'human' on a model pass
         print(f"refused: reading_channel {channel!r} is not one of {sorted(machine)}")
@@ -552,9 +581,16 @@ def _citator(args: argparse.Namespace) -> int:
 
     held = keys.registry(con)
     works = keys.works(con)
-    totals = dict.fromkeys(
-        ("documents", "emitted", "out_of_class", "unresolved", "unchanged", "human_held"), 0
+    counted = (
+        "emitted",
+        "out_of_class",
+        "unresolved",
+        "unchanged",
+        "human_held",
+        "retracted",
+        "retraction_held",
     )
+    totals = dict.fromkeys(("documents", *counted), 0)
     owed_keys: list[str] = []
     failed = 0
     for path, doc in docs:
@@ -567,7 +603,7 @@ def _citator(args: argparse.Namespace) -> int:
             failed += 1
             continue
         totals["documents"] += 1
-        for field in ("emitted", "out_of_class", "unresolved", "unchanged", "human_held"):
+        for field in counted:
             totals[field] += getattr(result, field)
         owed_keys.extend(result.review)
     print(totals | {"unreadable": unreadable, "failed": failed})

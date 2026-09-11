@@ -12,11 +12,20 @@ import sqlite3
 import pytest
 
 from docketyard import cli
-from docketyard.citator import judge, keys, load, methods, project, resolve, review
+from docketyard.citator import find, judge, keys, load, methods, project, resolve, review
 from docketyard.store import db
 
 STAMP = "2026-09-01T00:00:00+00:00"
 SHA = "d" * 64
+
+
+@pytest.fixture(autouse=True)
+def _this_builds_finder_is_v1(monkeypatch):
+    """These tests' findings say `v1`. `citator load` refuses a batch found by another version
+    of this build's finder (schema-critic, 2026-09-11), so the build's finder is `v1` here —
+    and each refusal these tests expect is then refused for the reason it tests, not that one.
+    The refusal itself is tested in `test_citator_retraction.py`, against the real version."""
+    monkeypatch.setattr(find, "FINDER_VERSION", "v1")
 
 
 def _store(tmp_path):
@@ -455,15 +464,15 @@ def test_a_channel_is_ranked_only_when_both_of_the_projections_joins_would_hold(
     con.execute(
         "INSERT INTO assertion_method (target_table, method, method_version, reading_channel,"
         " role, precedence_rank, rank_version, declared_at) VALUES ('citation_resolution',"
-        " ?, ?, 'ocr', 'resolve', 3, 'v1', 't')",
-        (resolve.RESOLVER, resolve.RULE_1),
+        " ?, ?, 'ocr', 'resolve', 3, ?, 't')",
+        (resolve.RESOLVER, resolve.RULE_1, methods.RANK_VERSION),
     )
     assert not methods.ranked(con, "ocr")  # half of the join
     con.execute(
         "INSERT INTO assertion_method (target_table, method, method_version, reading_channel,"
         " role, precedence_rank, rank_version, declared_at) VALUES ('citation_judgement',"
-        " ?, ?, 'ocr', NULL, 3, 'v1', 't')",
-        (methods.SPAN_METHOD, judge.SPAN_VERSION),
+        " ?, ?, 'ocr', NULL, 3, ?, 't')",
+        (methods.SPAN_METHOD, judge.SPAN_VERSION, methods.RANK_VERSION),
     )
     assert methods.ranked(con, "ocr")
 
@@ -922,8 +931,9 @@ def test_declare_refuses_a_declaration_that_contradicts_the_registry(tmp_path):
     methods.declare(con, "v1")  # idempotent: an identical declaration is a restart
     with pytest.raises(methods.Conflict):
         methods.declare(con, "v2")  # a different owner version at the same rank_version
-    # a re-rank is a NEW rank_version, which is what the append-only registry already says
-    methods.declare(con, "v2", rank_version="v2")
+    # a re-rank is a NEW rank_version, which is what the append-only registry already says —
+    # derived from the default, so the test stays about a NEW one whatever the constant is
+    methods.declare(con, "v2", rank_version=methods.RANK_VERSION + ".next")
 
 
 def test_a_document_whose_method_does_not_own_the_class_is_refused(tmp_path):
