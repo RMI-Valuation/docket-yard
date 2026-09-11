@@ -198,6 +198,10 @@ def test_viewable_is_the_first_held_file_a_browser_shows():
     # lives in this one function because the sheet, the record page and the text page
     # all ask it — guarding them one at a time is how one gets missed
     assert documents.viewable_index(E(A("x", "pdf"), kind="comment")) is None
+    # ...but it has had a text page since 2026-09-11 (the operator's decision), so the text's
+    # own rule admits it: the frame and the text are two sets, each asked by name
+    assert documents.text_index(E(A("x", "pdf"), kind="comment")) == 0
+    assert documents.text_index(E(A("x", "jpg"), kind="comment")) is None
     assert set(fetcher._EXTENSION_TYPES.values()) <= set(documents.MEDIA)
 
 

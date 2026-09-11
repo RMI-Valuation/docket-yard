@@ -1,21 +1,46 @@
-"""The page-text render (ADR 0021 D7-D9): `/filing/<id>/text` and `/decision/<id>/text`,
-one address per record, a page per anchor, every read page labelled with who read it, the
-scan one click away, the band's operand or its absence, and a way to report a misreading.
+"""The page-text render (ADR 0021 D7-D9): `/filing/<id>/text`, `/decision/<id>/text` and,
+since 2026-09-11, a comment's `/d/<docket>/comment/<number>/text`; one address per record,
+a page per anchor, every read page labelled with who read it, the scan one click away, the
+band's operand or its absence, and a way to report a misreading.
 """
+
+import hashlib
 
 from fastapi.testclient import TestClient
 
+from docketyard.capture import documents as fetcher
 from docketyard.store import db
 from docketyard.text import load
-from docketyard.web.app import create_app
+from docketyard.web.app import _self_validated, create_app
 from tests.test_documents import (  # noqa: F401 — the fixture registers itself here too
     _store_with_document,
     no_store_in_the_environment,
 )
+from tests.test_enviro_ingest import S3, comment_row
+from tests.test_enviro_ingest import ingest as ingest_comments
 from tests.test_text_load import LATER, STAMP, _extraction, _ocr, _reading
 
 AGAINST_TEXT_LAYER = {"method": "pymupdf", "method_version": "1.24.10", "render_profile": "native"}
 AGAINST_OCR = {"method": "dots.mocr", "method_version": "1.5", "render_profile": "150"}
+COMMENT = "/d/FD-36873/comment/EI-34280"
+COMMENT_PDF = b"%PDF-1.4 a letter to the Board"
+
+
+def _comment_with_text(tmp_path, pages):
+    """The web store with FD 36873's comment EI-34280 ingested, its attachment fetched and a
+    text-layer reading of it loaded: a document that only a comment carries."""
+    path, _ = _store_with_document(tmp_path)
+    con = db.connect(path)
+    ingest_comments(con, tmp_path, comment_row())
+    url = f"{S3}/830758/EI-34280.pdf"
+    fetcher.fetch_attachments(
+        con, tmp_path, lambda u: (200, COMMENT_PDF) if u == url else (404, b"")
+    )
+    con.commit()
+    con.close()
+    sha = hashlib.sha256(COMMENT_PDF).hexdigest()
+    assert _loaded(path, tmp_path, _extraction(sha, pages)) == "loaded"
+    return path, sha
 
 
 def _loaded(path, data_dir, doc):
@@ -234,6 +259,49 @@ def test_a_record_with_no_file_or_no_reading_still_has_a_page(tmp_path):
     r = client.get("/filing/311981/text?file=9")  # falls back to the first, as the viewer does
     assert r.status_code == 200
     assert '<link rel="canonical" href="https://docketyard.org/filing/311981/text">' in r.text
+
+
+def test_a_comments_file_has_a_text_page_beside_the_comment(tmp_path):
+    """The operator's decision, 2026-09-11: a comment's attachment is shown as a filing's
+    text is — labelled, contact details omitted, held from indexing — at `/text` beside the
+    comment's own address. A comment's page has no frame, so the scan is the file itself."""
+    path, sha = _comment_with_text(tmp_path, ("I write about groundwater; jo@example.org",))
+    client = TestClient(create_app(path))
+    r = client.get(f"{COMMENT}/text")
+    assert r.status_code == 200
+    html = r.text
+    assert "I write about groundwater" in html
+    assert "[email omitted]" in html and "jo@example.org" not in html
+    assert r.headers["x-robots-tag"] == "noindex" and 'content="noindex"' in html
+    assert f'<link rel="canonical" href="https://docketyard.org{COMMENT}/text">' in html
+    assert "Comment EI-34280" in html and "what it says is its author" in html
+    assert f'href="/document/{sha}.pdf">Scan</a>' in html  # the file: there is no frame
+    assert f'href="{COMMENT}">The record</a>' in html
+    assert "publisher&#39;s own text layer" in html or "publisher's own text layer" in html
+    # one click from the comment's own page, and HEAD answers as GET
+    assert f'href="{COMMENT}/text"' in client.get(COMMENT).text
+    assert client.head(f"{COMMENT}/text").status_code == 200
+    # canonicalised as the comment is, carrying `?file=N`; a comment not held is a 404
+    r = client.get("/d/FD-36873/comment/ei-34280/text?file=1", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == f"{COMMENT}/text?file=1"
+    assert client.get("/d/FD-36873/comment/EI-99999/text").status_code == 404
+    # held from the named agents, as a filing's text is, and the prose names what the rule does
+    robots = client.get("/robots.txt").text
+    assert "Disallow: /d/*/comment/*/text" in robots
+    assert "/d/<docket>/comment/<number>/text" in robots
+    assert "/d/<docket>/comment/<number>/text" in client.get("/llms.txt").text
+
+
+def test_every_text_route_computes_its_own_validator():
+    """The middleware's site-wide validator can never match a text page's own, so it is not
+    computed there — for a comment's text too, which sits under its docket (review,
+    2026-09-11)."""
+    assert _self_validated("/filing/1/text") and _self_validated("/decision/1/text")
+    assert _self_validated("/d/FD-36873/comment/EI-1/text")
+    assert _self_validated("/d/FD-36873/sub/1/comment/EI-1/text")
+    assert not _self_validated("/d/FD-36873/comment/EI-1")
+    assert not _self_validated("/d/FD-36873/x/1/comment/EI-1/text")
+    assert not _self_validated("/filing/1")
 
 
 def test_pages_beyond_the_count_are_said_plainly(tmp_path):

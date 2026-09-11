@@ -19,7 +19,7 @@ from tests.test_documents import (  # noqa: F401 — the fixture registers itsel
     no_store_in_the_environment,
 )
 from tests.test_text_load import _extraction, _ocr
-from tests.test_text_page import _loaded, _paginated, _second
+from tests.test_text_page import _comment_with_text, _loaded, _paginated, _second
 
 PAGES = (
     "abandonment in Perry County, counsel jane.doe@example-law.com",
@@ -468,10 +468,10 @@ def test_a_stale_index_row_is_counted_where_the_operator_can_see_it(tmp_path, mo
 
 
 def test_a_document_with_no_text_address_is_dropped_without_moving_the_drift_counter(tmp_path):
-    """`dropped` and the metric are not the same number. A comment's attachment has text and
-    no address to show it at, so its pages are dropped from every search of a HEALTHY store;
-    counting those as drift would move the one signal in proportion to traffic and bury it
-    (review, 2026-09-04)."""
+    """`dropped` and the metric are not the same number. A document no record carries has
+    text and no address to show it at, so its pages are dropped from every search of a
+    HEALTHY store; counting those as drift would move the one signal in proportion to traffic
+    and bury it (review, 2026-09-04)."""
     path, sha = _with_text(tmp_path)
     con = db.connect(path)
     orphan = "f" * 64  # held, read, and carried by no filing or decision
@@ -492,6 +492,41 @@ def test_a_document_with_no_text_address_is_dropped_without_moving_the_drift_cou
     found = search.search_pages(con, "marmoset")
     assert found.hits == [] and found.dropped == 1, "it is in the index and has no address"
     assert search.stale_page_rows() == before, "an expected drop moved the drift counter"
+    con.close()
+
+
+def test_every_record_lookup_is_answered_by_its_index(tmp_path):
+    """Migrations 0021 and 0027: `_record_of` runs for every page hit on an unauthenticated
+    page, and without these indexes each ask scans its whole table. A later rebuild of one of
+    the three tables that forgot its index would fail nothing else (schema-critic,
+    2026-09-11)."""
+    path, _ = _store_with_document(tmp_path)
+    con = db.connect(path)
+    for sql, index in (
+        (search._FILING_OF, "filing_attachment_by_document"),
+        (search._DECISION_OF, "decision_attachment_by_document"),
+        (search._COMMENT_OF, "enviro_comment_attachment_by_document"),
+    ):
+        plan = " ".join(row[-1] for row in con.execute("EXPLAIN QUERY PLAN " + sql, ("0" * 64,)))
+        assert index in plan, plan
+    con.close()
+
+
+def test_a_comments_page_is_a_hit_at_the_comments_text_address(tmp_path):
+    """A comment's attachment has had a text address since 2026-09-11 (the operator's
+    decision), so its pages are hits rather than drops: under the comment's own address,
+    named as a comment, with the file itself as the scan, because a comment's page has no
+    frame to land on."""
+    path, sha = _comment_with_text(tmp_path, ("groundwater recharge near Laramie",))
+    con = db.connect(path)
+    search.rebuild_pages(con, force=True)
+    found = search.search_pages(con, "recharge")
+    assert len(found.hits) == 1 and found.dropped == 0
+    h = found.hits[0]
+    assert h.path == "/d/FD-36873/comment/EI-34280/text#p1"
+    assert h.title == "Comment EI-34280, page 1" and h.fact == "in FD 36873"
+    assert h.scan == f"/document/{sha}.pdf"
+    assert h.label == "The publisher's own text layer, read by pymupdf 1.24.10."
     con.close()
 
 

@@ -168,6 +168,16 @@ def text_path(kind: str, record_id: str, index: int = 0) -> str:
     return record_path(kind, record_id) + "/text" + (f"?file={index}" if index else "")
 
 
+def entry_text_path(kind: str, record_id: str, docket_raw: str, index: int = 0) -> str:
+    """A sheet entry's text page, whatever kind it is: `text_path` for a filing or a
+    decision, and for a comment the same `/text` beside the comment's own address, under its
+    docket (the operator's decision, 2026-09-11) — `record_path` refuses a comment for the
+    reason `entry_path` gives."""
+    if kind != "comment":
+        return text_path(kind, record_id, index)
+    return entry_path(kind, record_id, docket_raw) + "/text" + (f"?file={index}" if index else "")
+
+
 def entry_path(kind: str, record_id: str, docket_raw: str) -> str:
     """The permanent address of a sheet entry, whatever kind it turns out to be.
 

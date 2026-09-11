@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 {% set identity = parse_docket_id(entry.docket_raw) %}
 {% set printed = printed_docket(identity) %}
-{% set label = 'Decision' if entry.kind == 'decision' else 'Filing' %}
-{% set here = text_path(entry.kind, entry.record_id, index) %}
-{% set scan = viewer_path(entry.kind, entry.record_id, index) %}
+{% set label = {'decision': 'Decision', 'comment': 'Comment'}.get(entry.kind, 'Filing') %}
+{% set here = entry_text_path(entry.kind, entry.record_id, entry.docket_raw, index) %}
+{#- a comment's page has no frame (`documents.VIEWABLE_KINDS`), so its scan is the file -#}
+{% set scan = viewer_path(entry.kind, entry.record_id, index) if has_frame(entry) else (document_path(current.document_sha256, current.media_type) if current else '') %}
 {% block title %}Text of {{ label | lower }} {{ entry.record_id }} — {{ printed }} — {{ site_name }}{% endblock %}
 {% block description %}The text of {{ label | lower }} {{ entry.record_id }} in {{ printed }}, page by page, as read by machine from the Board's file — labelled, with the scan one click away.{% endblock %}
 {% block head %}<meta name="robots" content="noindex">{{ super() }}{% endblock %}
@@ -11,7 +12,7 @@
 <section class="viewer">
   <div class="viewer-doc pages">
     {% if current and (rows or pagination) %}
-    <p class="small muted">{% if pagination and pagination.page_count is not none %}{% if read <= pagination.page_count %}{{ read }} of {{ pagination.page_count }} page{{ 's' if pagination.page_count != 1 }} read{% else %}{{ read }} pages read; the file was counted at {{ pagination.page_count }}{% endif %}{% elif pagination %}The file did not paginate ({{ pagination.outcome }}){% if read %}; {{ read }} page{{ 's' if read != 1 }} read{% endif %}{% else %}{{ read }} page{{ 's' if read != 1 }} read; the page count is not yet recorded{% endif %}. Nothing here is the Board's text: it is what a machine read from the Board's file, shown so it can be found and checked, and <a href="{{ scan }}">the scan</a> is the record. <a href="/corrections">Report a misreading</a> with the page's address; it is read, though outside the corrections promise. Email addresses and telephone numbers are omitted from the text shown and searched here where a pattern finds them, marked where they stood; the scan carries them. Search engines are asked not to index this page.</p>
+    <p class="small muted">{% if pagination and pagination.page_count is not none %}{% if read <= pagination.page_count %}{{ read }} of {{ pagination.page_count }} page{{ 's' if pagination.page_count != 1 }} read{% else %}{{ read }} pages read; the file was counted at {{ pagination.page_count }}{% endif %}{% elif pagination %}The file did not paginate ({{ pagination.outcome }}){% if read %}; {{ read }} page{{ 's' if read != 1 }} read{% endif %}{% else %}{{ read }} page{{ 's' if read != 1 }} read; the page count is not yet recorded{% endif %}. Nothing here is the Board's text: it is what a machine read from the Board's file, shown so it can be found and checked, and <a href="{{ scan }}">the scan</a> is the record.{% if entry.kind == 'comment' %} The Board publishes this file in its environmental-comment table for this proceeding; what it says is its author's, not this record's.{% endif %} <a href="/corrections">Report a misreading</a> with the page's address; it is read, though outside the corrections promise. Email addresses and telephone numbers are omitted from the text shown and searched here where a pattern finds them, marked where they stood; the scan carries them. Search engines are asked not to index this page.</p>
     {% for n, page in rows %}
     <article class="page" id="p{{ n }}">
       <h2 class="page-heading">Page {{ n }} <a class="anchor" href="{{ here }}#p{{ n }}" title="This page's address">¶</a></h2>
@@ -37,13 +38,13 @@
       <h1 class="serif docket-number"><a href="{{ docket_path(identity) }}">{{ printed }}</a></h1>
       {% if sheet_title %}<p class="small as-printed">{{ sheet_title }}</p>{% endif %}
       <p class="small"><time datetime="{{ entry.date or '' }}">{{ entry.date | fmt_date }}</time>{% if entry.date_printed %} <span class="muted">(printed as {{ entry.date_printed }})</span>{% endif %}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}</p>
-      <p class="small"><a href="{{ record_path(entry.kind, entry.record_id) }}">The record</a>{% if current %} · <a href="{{ scan }}">The scan</a> · <a href="{{ document_path(current.document_sha256, current.media_type) }}">The file</a>{% endif %}</p>
+      <p class="small"><a href="{{ entry_path(entry.kind, entry.record_id, entry.docket_raw) }}">The record</a>{% if current %}{% if has_frame(entry) %} · <a href="{{ scan }}">The scan</a>{% endif %} · <a href="{{ document_path(current.document_sha256, current.media_type) }}">The file</a>{% endif %}</p>
     </div>
     <div>
       <h2>Files</h2>
       <ul class="plain small">
       {% for a in entry.attachments %}
-        <li>{% if a.document_sha256 and a.media_type == 'pdf' %}<a href="{{ text_path(entry.kind, entry.record_id, loop.index0) }}"{% if a is sameas current %} aria-current="true"{% endif %}>{{ a.label or 'The file' }}</a>{% elif a.document_sha256 %}<a href="{{ document_path(a.document_sha256, a.media_type) }}">{{ a.label or 'The file' }}</a> <span class="muted">(download, .{{ a.media_type or 'bin' }}; no text is read from it)</span>{% else %}{{ a.label or 'The file' }} <span class="muted">(not yet held here)</span>{% endif %} · <a href="{{ a.url }}" rel="noopener">the Board’s copy</a></li>
+        <li>{% if a.document_sha256 and a.media_type == 'pdf' %}<a href="{{ entry_text_path(entry.kind, entry.record_id, entry.docket_raw, loop.index0) }}"{% if a is sameas current %} aria-current="true"{% endif %}>{{ a.label or 'The file' }}</a>{% elif a.document_sha256 %}<a href="{{ document_path(a.document_sha256, a.media_type) }}">{{ a.label or 'The file' }}</a> <span class="muted">(download, .{{ a.media_type or 'bin' }}; no text is read from it)</span>{% else %}{{ a.label or 'The file' }} <span class="muted">(not yet held here)</span>{% endif %} · <a href="{{ a.url }}" rel="noopener">the Board’s copy</a></li>
       {% endfor %}
       </ul>
     </div>

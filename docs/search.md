@@ -53,8 +53,9 @@ never in `/suggest`, and carries three things a record hit does not — who read
 ADR 0021 D7 forbids machine-read text reaching a reader through search without them. At most
 twenty on every surface — the limit is clamped inside `search_pages`, and the page says when
 the record held more — one per page, addressed under the earliest-filed filing that carries
-the document, else the earliest-served decision (migration 0021 indexes that lookup); a
-comment's attachment has no text address.
+the document, else the earliest-served decision, else the earliest comment — whose text page
+has sat beside the comment's own address since 2026-09-11, the operator's decision (migrations
+0021 and 0027 index those lookups).
 
 **At most three of the twenty come from any one document** (added 2026-09-04,
 `search.PAGE_PER_DOCUMENT`). The record path cannot be monopolised — its grain is one row

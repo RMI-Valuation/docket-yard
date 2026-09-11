@@ -7,6 +7,18 @@ when it is fixed (the commit is the record) or graduates back to `TODO.md` when 
 
 ## Web tier
 
+- **A comment's page hit counts `?file=N` in the copy it picks; the page reads the canonical
+  copy's list** (schema-critic, 2026-09-11, against the comment-text change after
+  v2026.09.13). `search._COMMENT_OF` orders a cross-posted comment's copies by date before
+  sub-docket, and the text page 301s to the copy nearest the parent. Were the copies ever to
+  differ in date or in their file lists, `N` could name another file there and the page would
+  show a document other than the one that matched, silently. **Measured on production the
+  same day: 108 cross-posted comments, none differing in date or file list, and no copy
+  carrying a file the canonical copy lacks** — so nothing to fix yet. When one appears: pick
+  the canonical copy inside the query (`NOT EXISTS` a nearer copy of the same number and row
+  ref) and drop the hit when that copy does not carry the document. `_FILING_OF` and
+  `_DECISION_OF` share the shape — `N` counted in the picked copy, the page rendering the one
+  `_record_docket` picks — and the same re-measure answers for them.
 - **Search rebuild is whole, not a diff** (2026-08-26, v2026.08.28): any moved id rebuilds
   every row; a diff by `(kind, ref)` would write only what changed. **The timing half of
   this item is answered and closed; the diff half stands.** Measured on the instance
@@ -638,7 +650,10 @@ regression; all three are gaps that have always been open and were never counted
   carry only the `--` placeholder inline, 2,278 have 20-499 characters and 306 have 500+. So
   the inline `comment_text_printed` does NOT stand in for the attachment: it is a short note
   beside the letter, not the letter. Wave work — extraction then OCR on the enrichment box —
-  and the largest single block of the record that search cannot reach. (Checked and NOT a
+  and the largest single block of the record that search cannot reach. **Extraction ran
+  2026-09-11** on RMI-AI-MACHINE at the pin (pymupdf 1.26.0): 25,583 read, 0 failed, **12,184
+  image-only** — those are the OCR half still owed; the text page they will show at landed
+  the same day (the operator's decision: shown as a filing's text is). (Checked and NOT a
   gap: the 7,930 comments with no attachment at all, whose inline words are their whole
   record. Those already render on the sheet and the record page and are already indexed, and
   `sheet.present` strips `--` at every surface — display, MCP and the index. Putting them in

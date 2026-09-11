@@ -22,6 +22,12 @@ decisions were taken the same day and are recorded where each belongs.
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
 
+- **Environmental-comment text** (the operator's decision, 2026-09-11: shown as a filing's
+  is): 25,583 attachments read on RMI-AI-MACHINE at the pin, 12,184 image-only (OCR owed).
+  The text page, its search hits and migration 0027 (an index) are on main. Owed: stream the
+  root to the instance and `text load` (manual mode); his sentences for `/privacy` and
+  `/methodology`; then the release, behind the wall
+
 ## Next
 
 - **The work card is judged and the plumbing shipped**: 106 of 106 (ADR 0017 addendum,

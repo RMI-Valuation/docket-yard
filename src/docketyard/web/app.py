@@ -109,9 +109,14 @@ def _file_index(raw: str) -> int:
 
 def _self_validated(path: str) -> bool:
     """The page-text routes compute their own validator (`page_stamp`); the middleware's
-    site-wide one can never match theirs, so running it there is a wasted store read."""
+    site-wide one can never match theirs, so running it there is a wasted store read. A
+    comment's text sits under its docket: `/d/<id>/comment/<n>/text`, or with `/sub/<s>`."""
     parts = path.split("/")
-    return len(parts) == 4 and parts[1] in ("filing", "decision") and parts[3] == "text"
+    if len(parts) == 4:
+        return parts[1] in ("filing", "decision") and parts[3] == "text"
+    if len(parts) not in (6, 8) or parts[1] != "d" or (len(parts) == 8 and parts[3] != "sub"):
+        return False
+    return parts[-3] == "comment" and parts[-1] == "text"
 
 
 PUBLIC_CACHE = {"Cache-Control": "public, max-age=1800"}  # the numbers move once a poll
@@ -316,6 +321,7 @@ def create_app(
         record_path=urls.record_path,
         viewer_path=urls.viewer_path,
         text_path=urls.text_path,
+        entry_text_path=urls.entry_text_path,  # a comment's text sits under its docket
         page_label=store_pages.label,  # who read a page, and its band: one wording for the
         page_band=store_pages.band,  # text page and the search hit (ADR 0021 D7, D8)
         entry_path=urls.entry_path,  # a sheet entry's address, whatever kind it is
@@ -512,6 +518,7 @@ def create_app(
             "Disallow: /parties",
             "Disallow: /filing/*/text",
             "Disallow: /decision/*/text",
+            "Disallow: /d/*/comment/*/text",  # `*` spans a `/sub/<n>` segment too
             "Disallow: /search",
         ]
         for agent in AI_AGENTS:
@@ -523,7 +530,8 @@ def create_app(
             "# AI crawlers are welcome, and training on the raw index is permitted: it is",
             "# dedicated to the public domain under CC0 1.0. No permission or attribution",
             "# is needed. The party module (/p/, /parties) and the machine-read page",
-            "# text (/filing/<id>/text, /decision/<id>/text) are held back from that",
+            "# text (/filing/<id>/text, /decision/<id>/text, and a comment's under its",
+            "# docket, /d/<docket>/comment/<number>/text) are held back from that",
             "# dedication pending a licence review, so they are disallowed above for the",
             "# agents named here — readable by people, not offered for training. Search",
             "# results (/search) print both, so they are disallowed for those agents too.",
@@ -2011,7 +2019,7 @@ def create_app(
         to = urls.viewer_path("filing", stb_id, _file_index(file))
         return RedirectResponse(to, status_code=301)
 
-    def text_page(request: Request, kind: str, stb_id: str, file: int):
+    def text_page(request: Request, kind: str, record_id: str, file: int, docket_of):
         """The record's text, page by page (ADR 0021 D7): every read page shows its text,
         labelled with who read it and how, the scan one click away, a way to report a
         misreading, and the band's operand where there is one (D8). Display is the view's
@@ -2022,14 +2030,18 @@ def create_app(
         before a page of text is read. The record's entry is read WITHOUT its neighbours:
         this page is one click from every record page, so it costs what the record page
         costs, plus the document's own rows.
+
+        `docket_of(con)` is the docket the record is addressed under: `_record_docket` for a
+        filing or a decision, `_comment_docket` for a comment — whose text sits beside the
+        comment's own address, under its docket (the operator's decision, 2026-09-11).
         """
         con = _connect(db_path)
         try:
-            got = sheet.one_entry(con, _record_docket(con, kind, stb_id), kind, stb_id)
+            got = sheet.one_entry(con, docket_of(con), kind, record_id)
             if got is None:
                 raise HTTPException(404)
             context, entry = got
-            index = documents.pick(entry, file, documents.PAGINABLE)
+            index = documents.text_pick(entry, file)
             current = entry.attachments[index] if index is not None else None
             sha = current.document_sha256 if current else ""
             etag = f'W/"{page_stamp(con, sha)}"'
@@ -2051,7 +2063,7 @@ def create_app(
             rows=[(n, by_page.get(n)) for n in range(1, last + 1)],
             read=len(pages),
             pagination=count,
-            canonical=urls.text_path(kind, stb_id, index or 0),
+            canonical=urls.entry_text_path(kind, record_id, entry.docket_raw, index or 0),
         )
         response.headers["ETag"] = etag
         response.headers["Cache-Control"] = f"public, max-age={PAGE_CACHE}"
@@ -2064,11 +2076,45 @@ def create_app(
 
     @app.get("/decision/{stb_id}/text")
     def decision_text(request: Request, stb_id: str, file: str = "0"):
-        return text_page(request, "decision", stb_id, _file_index(file))
+        return text_page(
+            request,
+            "decision",
+            stb_id,
+            _file_index(file),
+            lambda con: _record_docket(con, "decision", stb_id),
+        )
 
     @app.get("/filing/{stb_id}/text")
     def filing_text(request: Request, stb_id: str, file: str = "0"):
-        return text_page(request, "filing", stb_id, _file_index(file))
+        return text_page(
+            request,
+            "filing",
+            stb_id,
+            _file_index(file),
+            lambda con: _record_docket(con, "filing", stb_id),
+        )
+
+    def _comment_text_at(request: Request, ident: str, sub: str | None, number: str, file: str):
+        """A comment's text, beside the comment's own address and canonicalised the same
+        way: a copy entered in a sub-docket, or a number in lower case, answers 301 to the
+        one address (ADR 0013), carrying `?file=N` with it."""
+        index = _file_index(file)
+        got = _comment_canonical(request, ident, sub, number, suffix="/text")
+        if isinstance(got, str):
+            to = got + "/text" + (f"?file={index}" if index else "")
+            return RedirectResponse(to, status_code=301)
+        canonical = number.strip().upper()
+        return text_page(
+            request, "comment", canonical, index, lambda con: _comment_docket(con, got, canonical)
+        )
+
+    @app.get("/d/{ident}/comment/{number}/text")
+    def comment_text(request: Request, ident: str, number: str, file: str = "0"):
+        return _comment_text_at(request, ident, None, number, file)
+
+    @app.get("/d/{ident}/sub/{sub}/comment/{number}/text")
+    def sub_comment_text(request: Request, ident: str, sub: str, number: str, file: str = "0"):
+        return _comment_text_at(request, ident, sub, number, file)
 
     # `/review` last, so its `/{queue}` catch-all cannot shadow a named route above it, and
     # in its own module because its rules are not this one's (ADR 0016).
@@ -2198,22 +2244,29 @@ def _comment_entry(db_path, identity, number: str):
     """
     con = _connect(db_path)
     try:
-        row = con.execute(
-            "SELECT c.docket_id FROM enviro_comment c JOIN docket d"
-            " ON d.docket_id = c.docket_id WHERE c.comment_number = ?"
-            " AND d.prefix = ? AND d.sequence = ?"
-            " AND COALESCE(d.sub_sequence, -1) = COALESCE(?, -1)"
-            " AND COALESCE(d.suffix, '') = COALESCE(?, '')",
-            (number, identity.prefix, identity.sequence, identity.sub_sequence, identity.suffix),
-        ).fetchone()
-        if row is None:
-            raise HTTPException(404)
-        got = sheet.one_entry(con, row[0], "comment", number)
+        got = sheet.one_entry(con, _comment_docket(con, identity, number), "comment", number)
     finally:
         con.close()
     if got is None:
         raise HTTPException(404)
     return got
+
+
+def _comment_docket(con, identity, number: str) -> int:
+    """The docket a comment is read under, given that docket's identity and the comment's
+    number — 404 if it holds no such comment. The comment's page asks it, and its text page
+    since 2026-09-11."""
+    row = con.execute(
+        "SELECT c.docket_id FROM enviro_comment c JOIN docket d"
+        " ON d.docket_id = c.docket_id WHERE c.comment_number = ?"
+        " AND d.prefix = ? AND d.sequence = ?"
+        " AND COALESCE(d.sub_sequence, -1) = COALESCE(?, -1)"
+        " AND COALESCE(d.suffix, '') = COALESCE(?, '')",
+        (number, identity.prefix, identity.sequence, identity.sub_sequence, identity.suffix),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(404)
+    return row[0]
 
 
 def _comment_page(request, db_path, render, identity, number: str):

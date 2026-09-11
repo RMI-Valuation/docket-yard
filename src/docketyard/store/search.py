@@ -626,10 +626,11 @@ PAGE_OVERFETCH = 10
 # 1.1M times and no way to run a scrape. `web` runs one uvicorn worker, so this is the whole
 # of the process's answer.
 #
-# It counts DRIFT ONLY, not everything `PageResults.dropped` counts. A comment's attachment
-# has text and no text address to show it at, so its pages are dropped from every search of
-# a healthy store; counting those here would have moved this in proportion to traffic and
-# buried the signal it exists to carry (code review, 2026-09-04).
+# It counts DRIFT ONLY, not everything `PageResults.dropped` counts. A document no record
+# carries has text and no text address to show it at, so its pages are dropped from every
+# search of a healthy store; counting those here would move this in proportion to traffic
+# and bury the signal it exists to carry (code review, 2026-09-04). Until 2026-09-11 the
+# common case was a comment's attachment, which now has an address.
 _stale_page_rows = 0
 
 
@@ -671,8 +672,8 @@ def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> Page
     shows, contact details already omitted (migration 0020).
 
     One hit per page. A document attached to several records is addressed under the
-    earliest-filed filing that carries it, else the earliest-served decision; a comment's
-    attachment has no text address and is not a hit (`documents.VIEWABLE_KINDS`). The limit
+    earliest-filed filing that carries it, else the earliest-served decision, else the
+    earliest comment, at the text page beside the comment's own address. The limit
     is clamped to `PAGE_LIMIT` for every caller: the number is a published promise, not a
     default."""
     limit = max(1, min(limit, PAGE_LIMIT))
@@ -741,9 +742,10 @@ def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> Page
         if sha not in records:
             records[sha] = _record_of(con, sha)
         if records[sha] is None:
-            # NOT drift: a comment's attachment has text and no text address to show it at
-            # (`documents.VIEWABLE_KINDS`), so this is the expected outcome for a healthy
-            # store and is counted in `dropped` without touching the drift signal.
+            # NOT drift: a document no filing, decision or comment carries has text and no
+            # text address to show it at, so this is an expected outcome for a healthy store
+            # and is counted in `dropped` without touching the drift signal. (A comment's
+            # attachment was the common case until 2026-09-11, when it was given one.)
             dropped += 1
             continue
         per_document[sha] += 1
@@ -767,7 +769,7 @@ def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> Page
         kind, record_id, index, raw_docket, caption = record
         identity = parse_docket_id(raw_docket)
         printed = urls.printed_docket(identity) if identity else raw_docket
-        noun = "Decision" if kind == "decision" else "Filing"
+        noun = {"decision": "Decision", "comment": "Comment"}.get(kind, "Filing")
         # `rebuild()` strips the markers from every record row before indexing, so on that
         # path no marker can come from the record. The page index holds the view's bytes
         # unstripped, so a page whose own text carries one is shown without a snippet
@@ -776,14 +778,14 @@ def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> Page
         hits.append(
             Hit(
                 "page",
-                urls.text_path(kind, record_id, index) + f"#p{page.page_no}",
+                urls.entry_text_path(kind, record_id, raw_docket, index) + f"#p{page.page_no}",
                 f"{noun} {record_id}, page {page.page_no}",
                 f"in {printed}",
                 caption or "",
                 _shown_snippet(excerpt or "", caption or ""),
                 label=pages.label(page),
                 band=pages.band(page),
-                scan=urls.viewer_path(kind, record_id, index),
+                scan=_scan(con, kind, record_id, index, sha),
             )
         )
     global _stale_page_rows
@@ -825,16 +827,45 @@ SELECT r.stb_decision_id,
  ORDER BY r.service_date IS NULL, r.service_date, r.stb_decision_id,
           COALESCE(k.sub_sequence, -1), COALESCE(k.suffix, ''), a.source_url LIMIT 1
 """
+# A comment entered in a docket and its sub-docket is one comment, addressed under the copy
+# nearest the parent (`app._addressing_docket`). Its copies share a number and, as measured,
+# a date and a file list — 108 such comments in production, none differing in either
+# (2026-09-11) — so the sub-docket order below picks that copy and `?file=N` counts in the
+# list its page shows. Copies that ever diverged would break that; docs/deferred.md says how.
+_COMMENT_OF = """
+SELECT c.comment_number,
+       (SELECT COUNT(*) FROM enviro_comment_attachment b
+         WHERE b.comment_pk = a.comment_pk AND b.source_url < a.source_url),
+       k.raw_docket, json_extract(k.latest_payload, '$.title')
+  FROM enviro_comment_attachment a
+  JOIN enviro_comment c ON c.comment_pk = a.comment_pk
+  JOIN docket_current k ON k.docket_id = c.docket_id
+ WHERE a.document_sha256 = ?
+ ORDER BY c.date_received_or_sent IS NULL, c.date_received_or_sent, c.comment_number,
+          COALESCE(k.sub_sequence, -1), COALESCE(k.suffix, ''), a.source_url LIMIT 1
+"""
 
 
 def _record_of(con: Connection, sha: str):
     """(kind, record id, attachment index, raw docket, caption) for the record that carries
-    the document — a filing before a decision — or None. Indexed by migration 0021."""
-    for kind, sql in (("filing", _FILING_OF), ("decision", _DECISION_OF)):
+    the document — a filing before a decision, and either before a comment — or None.
+    Indexed by migrations 0021 and 0027."""
+    for kind, sql in (("filing", _FILING_OF), ("decision", _DECISION_OF), ("comment", _COMMENT_OF)):
         row = con.execute(sql, (sha,)).fetchone()
         if row is not None:
             return (kind, row[0], row[1], row[2], row[3])
     return None
+
+
+def _scan(con: Connection, kind: str, record_id: str, index: int, sha: str) -> str:
+    """A page hit's scan: the record's frame for a filing or a decision, and the file itself
+    for a comment, whose page has no frame (`documents.VIEWABLE_KINDS`)."""
+    if kind != "comment":
+        return urls.viewer_path(kind, record_id, index)
+    row = con.execute(
+        "SELECT media_type FROM document WHERE document_sha256 = ?", (sha,)
+    ).fetchone()
+    return urls.document_path(sha, row[0] if row else None)
 
 
 def held_docket(con: Connection, text: str) -> Hit | None:

@@ -55,6 +55,9 @@ MIGRATIONS: list[tuple[int, str]] = [
     # container quoted, so the halt is a proof. Deploy by infra/deploy/README.md: stop
     # `extract`, let one pass land the old container's records, stop `ingest`, then migrate.
     (26, "0026_ocr_run_dispatch.sql"),
+    # 0027 indexes `enviro_comment_attachment` by document, as 0021 did its two siblings: a
+    # comment's attachment was given a text address on 2026-09-11, so page search asks it.
+    (27, "0027_comment_attachment_by_document.sql"),
 ]
 
 

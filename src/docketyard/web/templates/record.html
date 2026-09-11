@@ -23,7 +23,7 @@
     <p class="small muted">The Board publishes this comment in its environmental-comment table for this proceeding. It is quoted here as printed; nothing is inferred from it, and it states the commenter's own position in their own words, not this record's.</p>
   {% endif %}
   <p>
-    {% if current %}<a class="btn" href="#file">Read it here</a> {% endif %}{% set t = text_index(entry) %}{% if t is not none %}<a class="btn" href="{{ text_path(entry.kind, entry.record_id, t) }}">The text</a> {% endif %}
+    {% if current %}<a class="btn" href="#file">Read it here</a> {% endif %}{% set t = text_index(entry) %}{% if t is not none %}<a class="btn" href="{{ entry_text_path(entry.kind, entry.record_id, entry.docket_raw, t) }}">The text</a> {% endif %}
     {% for a in entry.attachments %}<a class="btn" href="{{ a.url }}">{{ a.label or 'The Board’s own file' }} ↓</a> {% endfor %}
   </p>
   {#- The file addresses are the rail's Cite block on a page that HAS a rail, and printing

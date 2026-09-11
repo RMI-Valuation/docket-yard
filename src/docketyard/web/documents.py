@@ -171,6 +171,10 @@ def headers_for(sha256: str, ext: str) -> tuple[str, dict[str, str]]:
 # at each call site: the sheet, the record page and the text page all ask this one function,
 # and guarding them one at a time is how the third one gets missed (code review, 2026-08-31).
 VIEWABLE_KINDS = ("filing", "decision")
+# kinds whose file has a text page: every kind since 2026-09-11, when a comment's attachment
+# was given one beside the comment's own address (the operator's decision: its text is shown
+# as a filing's is). A comment still has no frame, so its text page's scan is the file itself.
+TEXT_KINDS = ("filing", "decision", "comment")
 PAGINABLE = {"pdf"}  # what the text passes read: a page count and a text layer come from a PDF
 
 
@@ -184,7 +188,16 @@ def text_index(entry) -> int | None:
     """The first file the text page can show, or None — the gate for offering the text
     page at all. A static property of the file list, so a page validated by `stamp()` may
     read it without depending on the page tables (docs/deferred.md, 2026-09-03)."""
-    return pick(entry, 0, PAGINABLE)
+    return text_pick(entry, 0)
+
+
+def text_pick(entry, file: int) -> int | None:
+    """The file the text page shows for `?file=N`: `pick`'s rule over the paginable kinds,
+    on every record kind that has a text page — a comment's included, though it has no
+    frame for the rule to agree with."""
+    if entry.kind not in TEXT_KINDS:
+        return None
+    return _choose(entry, file, PAGINABLE)
 
 
 def pick(entry, file: int, kinds) -> int | None:
@@ -194,6 +207,10 @@ def pick(entry, file: int, kinds) -> int | None:
     file whose text is shown. A `file` outside the wanted set falls back to the first."""
     if entry.kind not in VIEWABLE_KINDS:
         return None
+    return _choose(entry, file, kinds)
+
+
+def _choose(entry, file: int, kinds) -> int | None:
     ok = [i for i, a in enumerate(entry.attachments) if a.document_sha256 and a.media_type in kinds]
     if not ok:
         return None
