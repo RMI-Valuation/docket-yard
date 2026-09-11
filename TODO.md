@@ -33,16 +33,14 @@ decisions were taken the same day and are recorded where each belongs.
   When the Copy block (party_id, type, first, note) returns: apply both picks to its
   `labels.csv`, score with `party_types_rules.py --sheet`, 95% per type on the FIRST pick;
   then the assertion migration (schema-critic first) and the browse on `/parties`
-- **v2026.09.13 is built and rehearsed, unreleased**: robots `/search` and JSON-LD, the
-  no-answer fetch and truncated-download fix, migration 0026 (Owed 5), the admit-window fix.
-  Deploy in MANUAL mode behind the wall by `infra/deploy/README.md` § Migration 0026; after
-  it, check a sheet's JSON-LD block in Google's Rich Results test
-- ADR 0024's stage is live and verified (2026-09-11: 75 read over three passes, none
-  quarantined); still owed, a per-page failure record (Owed 2)
+- v2026.09.13 is deployed (2026-09-11 10:17 UTC): the operator checks a sheet's JSON-LD
+  block in Google's Rich Results test, from a browser
+- ADR 0024's stage is live, the dispatch stamp with it: 345 of 375 read by 10:18 UTC, the
+  first quoted stamp landed at deploy. Still owed, a per-page failure record (Owed 2)
 - **Held by the operator for rewording (2026-09-11)**: `/methodology`'s text-stage section
   (`848e366`) and the one-day-rest sentence (`3b538bc`); § Documents has his narrowed one
-- **Pruned blobs are never read by the stage** (the parser has no network): 27 of 143 due
-  (2026-09-11), a problems line every pass. Fetch them back from S3 before dispatch
+- **Pruned blobs are never read by the stage** (the parser has no network): every one of the
+  21 still due at 10:18 UTC 2026-09-11, a problems line every pass. Fetch them from S3 first
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)

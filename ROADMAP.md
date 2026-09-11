@@ -17,7 +17,7 @@ with its index, captions for newly-opened proceedings, environmental comments (v
 the third record row, walked back to September 2000), the record's own text (Migration A,
 v2026.09.2: 976,058 pages, one row per reading), the citator's finder and work-level step
 (v2026.09.9–11), the derivation fleet on the operator's LAN (ADR 0025, 2026-09-09), and text for
-new material read on the instance (ADR 0024, v2026.09.12). The
+new material read on the instance (ADR 0024, v2026.09.12–13). The
 Ripe list is the menu for what follows.
 
 ## Chosen
