@@ -20,10 +20,10 @@ decisions were taken the same day and are recorded where each belongs.
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
 
-- **Comment scans to the fleet** (the operator's decision, 2026-09-11): the 12,184 image-only
-  comment attachments, 51,000 pages, through the record's wave under its keys — Paddle route
-  and primary on RMI-AI-MACHINE (`comment-pass/ocr`), `dots` on the degraded pages through the
-  queue, `second` and `graphic` on the NUC; load primary, dots, second, graphic, in order
+- **Comment scans to the fleet** (the operator's decision, 2026-09-11): 12,184 image-only
+  attachments, 51,000 pages. Paddle done 20:51 UTC (0 failed); **primary LOADED** 20:55 (8,211
+  documents); `dots` SEEDED on the NUC, 13,825 degraded pages of 6,707 documents, RMI's worker
+  after its review runs. Then `second`, `graphic` on the NUC; load dots, second, graphic in order
 
 ## Next
 
