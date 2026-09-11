@@ -208,31 +208,40 @@ checks. A per-table check in `db.migrate` would cut it and is recorded in `docs/
 
 ### Migration 0026 — the dispatch stamp (ADR 0024 § Owed 5)
 
-A migrating release that also REBUILDS `extract` (the container now echoes each request's
-`dispatched_at`). It has an ORDER, because a reading the stage lands while the old code runs
-carries no stamp, and a record the old container wrote quotes no dispatch and is refused by
-the new code. The migration stamps what has landed (its header gives the rule); these steps
-make sure everything the old container wrote has landed before it runs. `text pin` cannot
-un-pin, and this does not need it. **No maintenance wall**: `ADD COLUMN` is instant and the
-UPDATE touches the few hundred stage rows. Rehearse it first on a `litestream restore` copy
-(below), as v2026.09.12 was.
+A **migrating release, so it goes behind the wall** (§ Deploying a migrating release, ADR
+0020) and rolls back by Litestream restore, not by a tag. It also REBUILDS `extract` (the
+container now echoes each request's `dispatched_at`), and it has an ORDER inside the window:
+a reading the stage lands while the old code runs carries no stamp, and a record the old
+container wrote quotes no dispatch and is refused by the new code. The migration stamps what
+has landed (its header gives the rule); the steps make sure everything the old container
+wrote has landed first. `text pin` cannot un-pin, and this does not need it. **Budget about
+five minutes for `migrate`**: the `ADD COLUMN` is quick, but the runner's
+`foreign_key_check` after the script walks the whole store (§ above, 280 s on a cold copy).
+Rehearse on a `litestream restore` copy first.
 
 ```sh
 cd /srv/docketyard
 # copy the repository's infra/extract/ to /srv/docketyard/extract (the echo is in extract.py)
-docker compose stop extract           # nothing new is parsed by the old container
+docker compose stop extract           # the old container parses nothing more
 docker compose logs -f ingest         # wait for ONE pass to end with a `text` block: it
                                       # admits and loads what the old container wrote; its own
                                       # new requests wait in data/extract/requests for the new one
 docker compose stop ingest            # nothing lands between here and the migration
+touch data/flags/maintenance          # readers get 503 + the page
+curl -sD- -o /dev/null https://docketyard.org/ | head -1   # confirm: 503
 $EDITOR .env                          # DY_TAG=<the release>
 docker compose pull --ignore-buildable && docker compose up -d --build
-docker compose logs migrate           # schema 26
-# every stage reading carries a stamp: must print (0,) — and the correction row says how many
+docker compose logs migrate           # schema 26 — allow minutes for the foreign-key check
+curl -s https://docketyard.org/health # answers throughout; check `schema`
+# BEFORE clearing the flag: every stage reading carries a stamp — must print (0,) — and the
+# correction row says how many were stamped and how many left NULL
 docker compose exec -T web python -c "import sqlite3; c = sqlite3.connect('file:/data/docketyard.sqlite?mode=ro', uri=True); print(c.execute(\"SELECT COUNT(*) FROM ocr_run WHERE reading_channel = 'text-layer' AND method = 'pymupdf' AND method_version = '1.26.0' AND dispatch_id IS NULL\").fetchone()); print(c.execute(\"SELECT note FROM correction WHERE target_table = 'ocr_run'\").fetchone())"
+rm data/flags/maintenance             # back
 docker compose logs -f extract        # answers the waiting requests, echoing each one
 docker compose run --rm --no-deps ingest text pin </dev/null   # `unanswered` falls as they land
 ```
+
+If the check fails, restore from Litestream while nothing else is writing, as § above says.
 
 A record that slips past this order (quoting nothing) is quarantined with "it quotes no
 dispatch", and its document is asked for again after `EXTRACT_RETRY_HOURS` by the new
