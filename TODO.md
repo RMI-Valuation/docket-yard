@@ -18,9 +18,10 @@ decisions were taken the same day and are recorded where each belongs.
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
 
-- **Comment attachments' OCR is owed**: v2026.09.14 shows their text (loaded 2026-09-11) and
-  15,137 of the 25,612 comment files read have some; 12,184 are image-only scans — a fleet
-  pass; the fleet is free, `dots`, `second` and `graphic` all loaded 2026-09-11
+- **Comment scans to the fleet** (the operator's decision, 2026-09-11): the 12,184 image-only
+  comment attachments, 51,000 pages, through the record's wave under its keys — Paddle route
+  and primary on RMI-AI-MACHINE (`comment-pass/ocr`), `dots` on the degraded pages through the
+  queue, `second` and `graphic` on the NUC; load primary, dots, second, graphic, in order
 
 ## Next
 
