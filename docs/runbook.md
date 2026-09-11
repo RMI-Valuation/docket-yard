@@ -453,6 +453,29 @@ After that rehearsal, a last review replaced the parenthesis count with an in-or
 or kind. The samples each run to the parenthesis they close, one gaining its year (`(ICC
 served July 24, ↵ 1991)`). The final card is built with this code.
 
+**RUN 2026-09-11 with v2026.09.15, on the operator's yes**, deployed 20:13 UTC with no wall:
+
+- ingest's start-up pass finished 20:14:14;
+- `declare` at 20:14:37, from the final card (`/data/citator-card-2026-09-11-wrap.json`);
+- `find` at 20:14:39: 19,944 documents, 72,935 findings, 28 s;
+- `load` at 20:15:07: 80 s, 0 failed, 903 retracted, 0 held;
+- `restamp --apply` at 20:16:27: 27,206 rows.
+
+The after snapshot (read-only, from `web`) matches the second rehearsal on every figure:
+
+| After the re-load | Production |
+|---|---|
+| Live citations | 72,935 |
+| Live at the old finder | 0 |
+| Resolutions naming a document | 10,611 |
+| Projected edges (rank v2) | 15,535 |
+| … naming a document | 9,863 |
+| Exposed / unresolved / repaired queues | 1,476 / 502 / 1 |
+
+Of the 73,077 old rows now pointing at a newer one, 768 point to a different key (the
+retractions to a successor) and 72,309 are the same key re-asserted by the new finder.
+Every successor is a sub-docket of the same key on the same page.
+
 **A running header was checked for, and measured (the ingest specialist's item 6).** Across
 the text layer of 21,002 decision documents on the same copy, 2,719 targets absorb a wrapped
 sub-number and 5,777 gain a continuation line; 37 and 12 of them sit on a page's first
