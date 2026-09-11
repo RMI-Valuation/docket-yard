@@ -4,25 +4,31 @@
 Thirty capabilities for a public STB records platform, ranked by how much pain they remove
 and how defensible they are. Evidence base: [`research/comparable-platforms.md`](research/comparable-platforms.md).
 
-**This is a menu, not a roadmap.** Version one is scoped to a wedge — agency-wide docket sheets
-plus alerting, forward-only. Everything else waits for users to ask.
+**This is a menu, not a roadmap.** Version one was a wedge — agency-wide docket sheets plus
+alerting, forward-only — and it shipped 2026-08-26; what follows is chosen from here by the
+operator, one decision at a time, and recorded in `ROADMAP.md` § Chosen.
 
-"Exists nowhere" means no public source was found that assembles the capability, not that none
-exists. Effort ratings are relative judgements, not estimates.
+**Two columns say two different things** (the operator's decision, 2026-09-11). **Elsewhere**
+is the landscape finding: "Exists nowhere" means no public source was found that assembles the
+capability, not that none exists. **Here** is what this record has done with it — shipped, in
+motion, chosen, ripe, measured not ripe, later, or not yet — and it points at the entry that
+holds the detail (`milestones.md`, `ROADMAP.md`, `TODO.md`) rather than restating it. Until
+2026-09-11 one Status column carried both, and it went stale at each: F1, the wedge itself,
+still read "Exists nowhere". Effort ratings are relative judgements, not estimates.
 
 ## Tier 0 — The spine
 
 Nothing else works without these.
 
-| | Capability | Effort | Status |
-| --- | --- | --- | --- |
-| `F1` | **The unified docket sheet** | Low | Exists nowhere |
-| `F2` | **Permanent, guessable URLs** | Low | Addresses shipped (ADR 0013); the citation resolver chosen 2026-08-27 |
-| `F3` | **A carrier and party registry** | High | Exists nowhere |
-| `F4` | **Fielded search that respects sub-dockets** | Medium | Partial |
-| `F5` | **Free API, bulk dumps, coverage page** | Medium | Shipped (M9, `/api` 2026-08-27) |
-| `F6` | **The cross-agency join** | Medium | Exists nowhere |
-| `F7` | **A machine-agent surface** | Low | Exists nowhere — built 2026-08-31 |
+| | Capability | Effort | Elsewhere | Here |
+| --- | --- | --- | --- | --- |
+| `F1` | **The unified docket sheet** | Low | Exists nowhere | Shipped — the wedge (M3, v2026.08.2); comments its third row (v2026.08.42). The service list and a next deadline are not (C4) |
+| `F2` | **Permanent, guessable URLs** | Low | Adjacent art | Shipped — the addresses (ADR 0013, M3) and the citation resolver, `/d?q=` and `/cite` (v2026.08.36) |
+| `F3` | **A carrier and party registry** | High | Exists nowhere | Partly — parties with aliases and successions (M6) at `/p/<id>` (M10); party types chosen 2026-08-30 (`ROADMAP.md` § Chosen) |
+| `F4` | **Fielded search that respects sub-dockets** | Medium | Partial | Partly — one box over captions, parties and summaries (v2026.08.28) and document pages (v2026.09.4); fields, boolean and proximity are Ripe on `ROADMAP.md` |
+| `F5` | **Free API, bulk dumps, coverage page** | Medium | Exists nowhere | Shipped — `/coverage` (M5), the snapshot and JSON (M9), `/api` (v2026.08.32) |
+| `F6` | **The cross-agency join** | Medium | Exists nowhere | Not yet |
+| `F7` | **A machine-agent surface** | Low | Exists nowhere | Shipped — chosen 2026-08-31, read-only MCP (v2026.08.44) |
 
 **F1 — The unified docket sheet.** One chronological view per proceeding, merging filings, decisions and environmental comments, with the service list and a computed next deadline. *STB says its own system cannot combine filings and decisions into a single list.*
 
@@ -42,12 +48,12 @@ Nothing else works without these.
 
 Each surfaced independently from constituencies sharing no interests.
 
-| | Capability | Effort | Status |
-| --- | --- | --- | --- |
-| `C1` | **Alerting — docket, search and citation** | Medium | Exists nowhere |
-| `C2` | **An STB and ICC citator** | High | Exists nowhere |
-| `C3` | **Address-to-docket lookup** | Medium | Exists nowhere |
-| `C4` | **The deadline engine** | Medium | Exists nowhere |
+| | Capability | Effort | Elsewhere | Here |
+| --- | --- | --- | --- | --- |
+| `C1` | **Alerting — docket, search and citation** | Medium | Exists nowhere | Docket alerts shipped — email (M4), feeds per docket and party and signed webhooks (M8); search and citation subscriptions are not |
+| `C2` | **An STB and ICC citator** | High | Exists nowhere | In motion, not yet a milestone — schema, finder, resolver and work step shipped (v2026.08.51–v2026.09.11); the first load waits on the operator's reading (`TODO.md` § In motion); the citation graph is Ripe on `ROADMAP.md` |
+| `C3` | **Address-to-docket lookup** | Medium | Exists nowhere | Not yet — places quoted from captions, its first slice, is Ripe on `ROADMAP.md` |
+| `C4` | **The deadline engine** | Medium | Exists nowhere | Later — waits on a decision and counsel's review (`ROADMAP.md`); a hand-checked fixture exists (`TODO.md` § Next) |
 
 **C1 — Alerting — docket, search and citation.** Three subscriptions: everything new in this proceeding, anything matching this query, anything newly citing this decision. Email, RSS, webhook. *FERC's equivalent is the one feature its bar uses daily. STB has none of it.*
 
@@ -61,15 +67,15 @@ Each surfaced independently from constituencies sharing no interests.
 
 Public, mandated or routinely published, never collected in one place.
 
-| | Capability | Effort | Status |
-| --- | --- | --- | --- |
-| `D1` | **Trail-use and railbanking register** | Medium | Exists nowhere — its events (NITU issued, extended, consummated) are the typed acts `summaries.md` specifies; first slice arrives through P6 |
-| `D2` | **System diagram maps, aggregated** | Medium | Exists nowhere |
-| `D3` | **Reference-data time series** | Medium | Exists nowhere |
-| `D4` | **Rule-status tracker** | Low | Exists nowhere — first slice (court-action index from 491 held notices) chosen 2026-08-27 |
-| `D5` | **Rate-case casebook** | Low | Exists nowhere |
-| `D6` | **Service-metrics warehouse** | Low | Partial |
-| `D7` | **Confidentiality and designation tracking** | Low | Exists nowhere — first slice (695 held protective-order motions) chosen 2026-08-27 |
+| | Capability | Effort | Elsewhere | Here |
+| --- | --- | --- | --- | --- |
+| `D1` | **Trail-use and railbanking register** | Medium | Exists nowhere | Measured not ripe (`ROADMAP.md`) — its events (NITU issued, extended, consummated) are the typed acts `summaries.md` specifies, arriving through P6 |
+| `D2` | **System diagram maps, aggregated** | Medium | Exists nowhere | Measured not ripe — no geography rows yet; the caption slice is Ripe on `ROADMAP.md`, with C3 |
+| `D3` | **Reference-data time series** | Medium | Exists nowhere | Measured not ripe — other sources; later, waiting on a decision (`ROADMAP.md`) |
+| `D4` | **Rule-status tracker** | Low | Exists nowhere | First slice shipped — the court-action register `/court` (v2026.08.36); rule status proper is later |
+| `D5` | **Rate-case casebook** | Low | Exists nowhere | Ripe on `ROADMAP.md` — the NOR index; the casebook proper is human coding |
+| `D6` | **Service-metrics warehouse** | Low | Partial | Measured not ripe — other sources (`ROADMAP.md`) |
+| `D7` | **Confidentiality and designation tracking** | Low | Exists nowhere | First slice shipped — the protective-order register `/protective` (v2026.08.36) |
 
 **D1 — Trail-use and railbanking register.** Every interim trail use certificate and notice: docket, railroad, mileposts, counties, issue date, extensions, expiration, outcome. *Notice issuance is the date of taking in Court of Federal Claims litigation. Dispositive, and only in scattered PDFs.*
 
@@ -89,14 +95,14 @@ Public, mandated or routinely published, never collected in one place.
 
 Mostly writing, not engineering. Highest ratio of value to cost.
 
-| | Capability | Effort | Status |
-| --- | --- | --- | --- |
-| `P1` | **The jurisdiction router** | Low | Exists nowhere |
-| `P2` | **Plain-language docket-type explainers** | Low | Exists nowhere |
-| `P3` | **A participation toolkit** | Medium | Exists nowhere |
-| `P4` | **A conditions-and-precedent library** | Medium | Exists nowhere |
-| `P5` | **The newsroom kit** | Low | Exists nowhere |
-| `P6` | **Docket summaries, generated and labelled** | Medium | Exists nowhere — specified 2026-09-10 (`summaries.md`), not chosen |
+| | Capability | Effort | Elsewhere | Here |
+| --- | --- | --- | --- | --- |
+| `P1` | **The jurisdiction router** | Low | Exists nowhere | Measured not ripe (`ROADMAP.md`) |
+| `P2` | **Plain-language docket-type explainers** | Low | Exists nowhere | Shipped — `/about/prefixes` and five prefixes, every statement graded by source (v2026.08.39) |
+| `P3` | **A participation toolkit** | Medium | Exists nowhere | Measured not ripe (`ROADMAP.md`) |
+| `P4` | **A conditions-and-precedent library** | Medium | Exists nowhere | Measured not ripe (`ROADMAP.md`) |
+| `P5` | **The newsroom kit** | Low | Exists nowhere | Measured not ripe (`ROADMAP.md`) |
+| `P6` | **Docket summaries, generated and labelled** | Medium | Exists nowhere | Specified 2026-09-10 (`summaries.md`), not chosen (`TODO.md` § Parked) |
 
 **P1 — The jurisdiction router.** An honest page answering 'who actually handles this?' — blocked crossings, horn noise, crossing safety, derailments, hazmat. *A large share of people who reach the STB are at the wrong agency, and nothing tells them.*
 
@@ -114,13 +120,13 @@ Mostly writing, not engineering. Highest ratio of value to cost.
 
 Years of work, and why a competitor never catches up.
 
-| | Capability | Effort | Status |
-| --- | --- | --- | --- |
-| `M1` | **ICC-era finding aid, 1887–1995** | High | Exists nowhere |
-| `M2` | **The valuation-map index** | High | Exists nowhere |
-| `M3` | **OCR the pre-2000 record** | High | Exists nowhere |
-| `M4` | **Recordation reconciliation** | High | Partial |
-| `M5` | **Outcome coding** | High | Exists nowhere |
+| | Capability | Effort | Elsewhere | Here |
+| --- | --- | --- | --- | --- |
+| `M1` | **ICC-era finding aid, 1887–1995** | High | Exists nowhere | Not yet |
+| `M2` | **The valuation-map index** | High | Exists nowhere | Not yet |
+| `M3` | **OCR the pre-2000 record** | High | Exists nowhere | In motion — chosen 2026-08-28 (`ROADMAP.md` § Chosen): the record's text (M12) and the `dots` wave loaded; the review layer is owed |
+| `M4` | **Recordation reconciliation** | High | Partial | Not yet — rail recordations are not captured (`/coverage`) |
+| `M5` | **Outcome coding** | High | Exists nowhere | Not yet |
 
 **M1 — ICC-era finding aid, 1887–1995.** Index the printed reports by docket, railroad and geography; deep-link existing scans; cross-walk predecessors to modern dockets. *The volumes are already digitised and free — reachable only if you know the citation. A metadata project, not a scanning project.*
 
@@ -147,11 +153,15 @@ Years of work, and why a competitor never catches up.
 
 ## Sequence
 
+The order proposed before anything was built; where each step stands, 2026-09-11.
+
 1. Ingest the dockets table alone — metadata only, no PDFs. Yields the validated docket registry
    that makes citation extraction trustworthy, plus the graph skeleton, before a single document
-   is downloaded.
-2. Docket sheets and permanent URLs.
+   is downloaded. **Done** (M1, 2026-08-25).
+2. Docket sheets and permanent URLs. **Done** (M3).
 3. Alerting — the reason people return daily. Email first, RSS and webhooks immediately after.
-4. The geographic index.
-5. The citator, starting at 1996 where the record is structured.
+   **Done for dockets** (M4, M8); search and citation alerts are not.
+4. The geographic index. **Not yet**; its first slice, places from captions, is Ripe on `ROADMAP.md`.
+5. The citator, starting at 1996 where the record is structured. **In motion** (C2).
 6. Reference data and rule status — a calendar reason to come back between proceedings.
+   **Rule status's first slice shipped** (`/court`); reference data is later.

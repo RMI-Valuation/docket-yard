@@ -4,7 +4,7 @@
 
 | Document | What it is |
 | --- | --- |
-| [`capability-map.md`](capability-map.md) | 30 capabilities in five tiers, with effort and status. **A menu, not a roadmap.** |
+| [`capability-map.md`](capability-map.md) | 30 capabilities in five tiers, with effort, what exists elsewhere, and what this record has done with each (split 2026-09-11). **A menu, not a roadmap.** |
 | [`research/comparable-platforms.md`](research/comparable-platforms.md) | The evidence base — what CourtListener, FERC, the Federal Register and the paid products solved, what failed, and what sustains these projects. |
 | [`stb-data-source.md`](stb-data-source.md) | The AJAX endpoint, its traps, and everything measured about the corpus. |
 | [`ocr-plan.md`](ocr-plan.md) | OCR of the image-only record (M3): ground truth, measured candidates, the review layer. Chosen 2026-08-28; the operator's four framing answers recorded 2026-09-02, and the census that corrects its page count by 42%. |
