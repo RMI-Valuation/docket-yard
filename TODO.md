@@ -48,8 +48,8 @@ decisions were taken the same day and are recorded where each belongs.
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
 - **The review measurement across the fleet** (his decision, 2026-09-11): llama3.1:8b over the
-  768 mentions on the Mac, RMI, Jetson and NUC (niced), qwen3:14b where it fits; pace and
-  agreement with the Mac. RMI between OCR waves. Two workers on the node: activation peak first
+  768 mentions on the Mac, RMI and NUC (niced), qwen3:14b where it fits; the Jetson (8B won't
+  fit) and the Mac run qwen3:4b. Pace, agreement with the Mac. Two workers: activation peak first
 
 ## Parked
 

@@ -250,6 +250,13 @@ and temperature give the same answers on Metal, CUDA and CPU. If they don't, the
 of a model judgement's method key, as another engine is already another pass
 (`compute-fleet.md`).
 
+**Measured the same day: llama3.1:8b does not fit on the Jetson.** It needs 5,027 MiB of GPU
+memory, and only about 4,460 MiB of the Orin's 7.3 GiB of shared memory is free once the
+system has its share. Ollama tried to load it again on every request (89 requests, load
+average 13) until the run was stopped. **The Jetson runs qwen3:4b instead** (the operator's
+decision, 2026-09-11), and the Mac runs it too, so the Metal-and-CUDA comparison still has a
+Jetson half.
+
 Nothing ships from this. A model's answer would be an assertion with its method, version and
 channel, stamped with its measured precision (ADR 0017 D3). Letting agreement clear a held key
 is not the same as "the local model does not write edges" (step 3 above), so it would take an
