@@ -67,6 +67,9 @@ from docketyard.store import (
 )
 from docketyard.store import pages as store_pages
 from docketyard.store.db import MIGRATIONS, dump_json, utcnow
+from docketyard.text import dispatch as text_dispatch
+from docketyard.text import load as text_load
+from docketyard.text import queue as text_queue
 from docketyard.web import (
     cite,
     documents,
@@ -1061,6 +1064,37 @@ def create_app(
     def corrections_page(request: Request):
         return render(request, "corrections.html", issues_url=CORRECTIONS_URL)
 
+    _text_queue: dict[str, tuple[str | None, dict | None]] = {}
+
+    def text_queue_state() -> tuple[str | None, dict | None]:
+        """(the pinned reader, the queue's census) as `/methodology` publishes them (ADR 0024
+        § Owed 6), memoised on the store stamp like `registry_rows`: the census is eight
+        counts over the forward scope, and the footer links the page from every address a
+        crawler walks. The stamp moves with every pass's captures, so a pin change or a
+        document leaving the retry interval shows within one pass."""
+        key = stamp()
+        if key not in _text_queue:
+            con = _connect(db_path)
+            try:
+                pin = text_load.pinned(
+                    con, text_queue.CHANNEL, text_queue.RENDER, text_dispatch.ROLE
+                )
+                since = datetime.now(UTC) - timedelta(hours=text_queue.EXTRACT_RETRY_HOURS)
+                counts = (
+                    text_queue.census(
+                        con, method=pin[0], version=pin[1], since=since.isoformat("T", "seconds")
+                    )
+                    if pin
+                    else None
+                )
+            finally:
+                con.close()
+            built = (f"{pin[0]} {pin[1]}" if pin else None, counts)
+            _text_queue[key] = built  # assigned before the old are dropped, as registry_rows
+            for stale in [k for k in _text_queue if k != key]:
+                del _text_queue[stale]
+        return _text_queue[key]
+
     @app.get("/methodology")
     def methodology_page(request: Request):
         con = _connect(db_path)
@@ -1069,6 +1103,7 @@ def create_app(
         finally:
             con.close()
         per_day = poll.RECHECK_LIMIT * (24 * 60 // POLL_MINUTES)
+        reader, counts = text_queue_state()
         return render(
             request,
             "methodology.html",
@@ -1078,6 +1113,14 @@ def create_app(
             recheck_after_days=observations.RECHECK_AFTER_DAYS,
             recheck_max_mb=observations.RECHECK_MAX_BYTES >> 20,
             recheck_cycle_days=max(observations.RECHECK_AFTER_DAYS, -(-held // per_day)),
+            # the text stage's terms, read from the constants that enforce them (§ Owed 6)
+            text_limit=text_queue.EXTRACT_LIMIT,
+            text_max_mb=text_queue.EXTRACT_MAX_BYTES >> 20,
+            text_attempts=text_queue.EXTRACT_ATTEMPTS,
+            text_retry_hours=text_queue.EXTRACT_RETRY_HOURS,
+            text_halt=text_dispatch.HALT_AFTER,
+            text_reader=reader,
+            text_counts=counts,
         )
 
     @app.get("/privacy")

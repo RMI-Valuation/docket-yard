@@ -36,10 +36,10 @@ decisions were taken the same day and are recorded where each belongs.
 - **Built, unreleased**: `Disallow: /search` for the named AI agents, site-level JSON-LD
   (`web/jsonld.py`), and `/llms.txt` no longer linking what robots refuses — ride the next
   release; after deploy, check a sheet's block in Google's Rich Results test
-- **ADR 0024's stage is LIVE** (v2026.09.12, pinned to `pymupdf@1.26.0` 2026-09-10 23:19 UTC;
-  218 documents were due). Watch the first passes. Still owed: the producer column on
-  `ocr_run`/`extraction_dispatch` (§ Owed 5), the queue's constants on `/methodology` (6),
-  a per-page failure record (2)
+- **ADR 0024's stage is LIVE** (v2026.09.12, pinned `pymupdf@1.26.0` 2026-09-10 23:19 UTC).
+  First pass 23:45: 25 dispatched, all 25 read in 3.7 s. Still owed: the producer column
+  (§ Owed 5, with schema-critic then the operator), a per-page failure record (2); the
+  `/methodology` queue table (6) is built and rides the next release
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - A no-answer fetch is a status-0 capture on every path, resting one day (decided
   2026-09-10, `deferred.md` § 2026-09-02); stb-ingest-specialist and schema-critic first

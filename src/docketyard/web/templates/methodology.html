@@ -39,6 +39,30 @@
   <h2 id="documents">Documents</h2>
   <p>Every file the Board serves is fetched, hashed and kept; the hash is the file's identity. A file the Board's host refuses is recorded as refused and asked for again a week later. A PDF or image is shown on its record's own page, and the bytes of every file have a permanent address, <span class="mono">/document/&lt;sha256&gt;.pdf</span> (or <span class="mono">.jpg</span>, <span class="mono">.zip</span>, <span class="mono">.xlsx</span>, <span class="mono">.docx</span> — the suffix says what the bytes are), which answers with exactly the bytes that hash to that name, forever. A file the Board replaces is a new hash with the old one chained to it; the Board's own link stays beside every file. Replacements are looked for, not waited for: every pass fetches {{ recheck_per_pass }} held files again, the longest-unchecked first and none sooner than {{ recheck_after_days }} days after its last check, so every file up to {{ recheck_max_mb }} MB is checked about every {{ recheck_cycle_days }} days; the few larger ones are re-fetched by hand.</p>
 
+  {#- ADR 0024 § Owed 6: the text stage's terms from the constants that enforce them, and the
+      queue's counts from `text/queue.census`, so "handed over and nothing came back", "still
+      in flight" and "never attempted" are three published numbers rather than one silence. -#}
+  <h2 id="new-text">Text for new material</h2>
+  <p>A PDF the watch fetches is read on this server, by its text layer, in isolation: the reader has no network, no key and no view of the record, and nothing it writes is loaded until it has been checked against what it was asked to read. Each pass hands it at most {{ text_limit }} files, the most recently fetched first. Only a PDF of {{ text_max_mb }} MB or less is handed over; anything else is never attempted, and is counted below rather than dropped in silence. A file handed over that does not come back read is asked for again no sooner than {{ text_retry_hours }} hours later, and at most {{ text_attempts }} times at one version of the reader; after that it waits for the next version. If the last {{ text_halt }} hand-offs have all gone unanswered, each pass sends a single file until the reader answers again.</p>
+  {% if text_counts %}
+  <table class="moved">
+    <caption class="small muted">Files from the watch, as of the record's last change. The reader: {{ text_reader }}. “Read” counts a reading from any source.</caption>
+    <thead><tr><th scope="col">Files</th><th scope="col" class="num">Count</th></tr></thead>
+    <tbody>
+      <tr><td class="title">Read</td><td class="num">{{ text_counts.already_read | commas }}</td></tr>
+      <tr><td class="title">Waiting to be handed over</td><td class="num">{{ text_counts.due | commas }}</td></tr>
+      <tr><td class="title">Handed over in the last {{ text_retry_hours }} hours, not yet read</td><td class="num">{{ text_counts.resting | commas }}</td></tr>
+      <tr><td class="title">Not read after {{ text_attempts }} attempts at this version</td><td class="num">{{ text_counts.exhausted | commas }}</td></tr>
+      <tr><td class="title">Never handed over: not a PDF</td><td class="num">{{ text_counts.media_other | commas }}</td></tr>
+      <tr><td class="title">Never handed over: larger than {{ text_max_mb }} MB</td><td class="num">{{ text_counts.oversize | commas }}</td></tr>
+      <tr><td class="title">Never handed over: file type not recorded</td><td class="num">{{ text_counts.media_null | commas }}</td></tr>
+      <tr><th scope="row" class="title">All files from the watch</th><td class="num">{{ text_counts.forward | commas }}</td></tr>
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No reader is declared at present, so nothing is being handed over.</p>
+  {% endif %}
+
   <h2 id="search">Search</h2>
   <p>One box. A docket number in any spelling opens its sheet without a search. Anything else is matched, word by word, against three things: docket captions as the Board prints them (a sub-docket with a caption of its own is a result at its own address, which opens the family sheet); every name a party is currently on record under; and the Board's own printed decision summaries. Documents are searched too, by their own index and shown in their own section under the record results: a page hit names the record, the page, who read it (the tool or engine and its version, and the class the page was routed as), the distance from a second reading where one exists or why there is none, and the scan one click away. The text is a finding aid and the scan is the record; nothing a search finds in machine-read text is asserted by this site. The index is rebuilt from the record whenever the record has changed; it holds no reader's query, and the server keeps none.</p>
 

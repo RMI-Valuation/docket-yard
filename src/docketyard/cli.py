@@ -633,7 +633,7 @@ def _text_pin(args: argparse.Namespace) -> int:
         timespec="seconds"
     )
     counts = queue.census(con, method=live[0], version=live[1], since=since)
-    for word in ("forward", "eligible", "due", "already_read", "exhausted_or_resting"):
+    for word in ("forward", "eligible", "due", "already_read", "resting", "exhausted"):
         print(f"  {counts[word]:>8,}  {word.replace('_', ' ')}")
     print(
         f"  excluded: {counts['media_null']:,} no media type, {counts['media_other']:,} not a"

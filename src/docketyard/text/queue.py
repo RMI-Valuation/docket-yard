@@ -195,4 +195,16 @@ def census(con: Connection, *, method: str, version: str, since: str) -> dict[st
         out["forward"] - out["eligible"] - out["media_null"] - out["media_other"] - out["oversize"]
     )
     out["exhausted_or_resting"] = out["eligible"] - out["due"]
+    # and the two apart, which is what lets a reader tell a terminal count from one in flight
+    # (§ Owed 6): EXHAUSTED spent every attempt at this pin and waits for the next version;
+    # RESTING was handed over inside the retry interval and is still being answered. A
+    # document both spent and recent is exhausted — the attempts are the terminal fact.
+    out["exhausted"] = one(
+        "SELECT COUNT(*)" + _ELIGIBLE + " AND (SELECT COUNT(*) FROM extraction_dispatch x"
+        "       WHERE x.document_sha256 = d.document_sha256"
+        "         AND x.pinned_method = :method AND x.pinned_method_version = :version"
+        "     ) >= :attempts",
+        terms,
+    ).fetchone()[0]
+    out["resting"] = out["exhausted_or_resting"] - out["exhausted"]
     return out

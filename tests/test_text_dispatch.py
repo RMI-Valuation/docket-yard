@@ -131,6 +131,61 @@ def test_the_size_and_media_terms_belong_to_the_queue(tmp_path):
     con.close()
 
 
+def test_the_census_tells_a_terminal_count_from_one_in_flight(tmp_path):
+    """§ Owed 6: without the split a reader cannot tell a document the stage has given up on
+    at this version from one it is still waiting on — "handed over and nothing came back"
+    and "in flight" were one number."""
+    con = _store(tmp_path)
+    due, resting, spent = _doc(con, "a"), _doc(con, "b"), _doc(con, "c")
+    _run(con, _doc(con, "d"))
+
+    def hand_over(sha, at):
+        con.execute(
+            "INSERT INTO extraction_dispatch (document_sha256, pinned_method,"
+            " pinned_method_version, dispatched_at) VALUES (?, ?, ?, ?)",
+            (sha, *PIN, at),
+        )
+
+    hand_over(resting, "2026-09-10T11:00:00+00:00")
+    for _ in range(queue.EXTRACT_ATTEMPTS):
+        hand_over(spent, "2026-09-01T00:00:00+00:00")
+    # spent AND recent is exhausted: the attempts are the terminal fact
+    hand_over(spent, "2026-09-10T11:30:00+00:00")
+    c = queue.census(con, method=PIN[0], version=PIN[1], since="2026-09-10T06:00:00+00:00")
+    assert (c["due"], c["resting"], c["exhausted"], c["already_read"]) == (1, 1, 1, 1)
+    assert c["eligible"] == c["due"] + c["resting"] + c["exhausted"]
+    assert _due(con, since="2026-09-10T06:00:00+00:00") == [due]
+    con.close()
+
+
+def test_methodology_publishes_the_queue_from_its_own_constants(tmp_path):
+    """The sentence and the table come from the constants and the census, so they cannot
+    drift from what the stage does; with no pin the page says nothing is being handed over."""
+    from fastapi.testclient import TestClient
+
+    from docketyard.web.app import create_app
+    from tests.test_web import build_store
+
+    path = build_store(tmp_path)
+    body = TestClient(create_app(path)).get("/methodology").text
+    assert "No reader is declared at present" in body
+    for phrase in (
+        f"at most {queue.EXTRACT_LIMIT} files",
+        f"a PDF of {queue.EXTRACT_MAX_BYTES >> 20} MB or less",
+        f"no sooner than {queue.EXTRACT_RETRY_HOURS} hours",
+        f"at most {queue.EXTRACT_ATTEMPTS} times",
+        f"the last {dispatch.HALT_AFTER} hand-offs",
+    ):
+        assert phrase in body, phrase
+    con = db.connect(path)
+    load.declare_producer(con, queue.CHANNEL, queue.RENDER, dispatch.ROLE, *PIN, by="test")
+    con.commit()
+    con.close()
+    body = TestClient(create_app(path)).get("/methodology").text
+    assert "No reader is declared" not in body
+    assert "The reader: pymupdf 1.26.0" in body and "All files from the watch" in body
+
+
 def test_a_failed_run_does_not_silence_a_document_for_ever(tmp_path):
     """D4: the OUTCOME is part of the read test, not the row's existence. Under "no row at
     that key" one `failed` would silence this queue for that document at every version and

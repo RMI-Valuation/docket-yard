@@ -359,4 +359,8 @@ still reads against the original.)
    says so where it is written.
 6. **The constants rendered on `/methodology`.** The queue's exclusions are counted
    (`queue.census`, and `text pin` prints them) but nothing publishes them.
+   **Built 2026-09-11, unreleased**: `/methodology` § Text for new material states the
+   limit, size, attempts, retry interval and halt from the constants, and a table from the
+   census — and the census now counts `exhausted` apart from `resting`, because the item's
+   own point, a terminal count told from one in flight, was one number until then.
 7. Ordering by the record's own date rather than `first_seen_at`: accepted as recorded.
