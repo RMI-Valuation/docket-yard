@@ -27,6 +27,8 @@ Ripe list is the menu for what follows.
 | — | Party types on `/parties` (F3's first slice) | Every party carries a typed classification (railroad, company, government, association, individual, law firm, …) as a derived assertion with ADR 0007 provenance and an ADR 0016 review path; `/parties` gains a browse by type (large types collapsed) beside the search, which stays | 2026-08-30 | Design done (`docs/party-types.md`); rules v2 at 83.3% on its own sheet, a second unseen sample must confirm before any type ships; schema-critic before the assertion table exists |
 | — | OCR of the image-only record (M3's first slice, `docs/ocr-plan.md`) | Ground truth the operator checks (90 pages, three tiers); candidates measured by CER/WER and by docket-number and date errors, API candidate included; a review layer (agreement → confidence, registry checks, a reviewer queue with identity from the start, ~50 pages a week); text published only above the measured threshold, with provenance | 2026-08-28 | Ground truth checked 2026-08-29; five engines scored; ADRs 0017–0023 accepted; Migration A shipped 2026-09-03 (v2026.09.2, 161,801 text-layer pages loaded 2026-09-04); the `dots` OCR wave read on the fleet (ADR 0025) and, with Paddle's `second` and `graphic` passes, loaded 2026-09-11 — 41,622 `dots` pages each with a band, 13,943 routed graphic; the review layer (Migration B) is owed |
 
+| — | The finder's line wrap (C2's precision and recall) | A docket citation whose `(Sub-No. …)` or `served` date wraps onto the next line resolves to the sub-docket and the document it names; the benchmark re-measured and every edge the old span stamped re-asserted (a `SPAN_VERSION` bump, `resolve.py`), before any review of the queue | 2026-09-11 | Measured on the first load: 584 of 71,296 resolved citations lost a wrapped sub-number (all 584 held), 233 projected edges among them; the served-date wrap was 4 of 106 judged claims |
+
 ## Ripe — awaiting a decision
 
 Candidates the record can support now, in the order recommended 2026-08-27 (reviewed against
@@ -45,12 +47,7 @@ the capability map with the whole record held). None is chosen.
 3. **Rate-case index** (D5's first slice) — the 3,952 NOR dockets with parties and quoted
    spans; only 136 carry held filings, so thin until the ICC-era gap closes. The casebook
    proper (methodology, outcome) is human coding.
-4. **The served date that wraps a line** (the citator's recall, C2) — chosen as a candidate
-   2026-09-10 on the operator's own judging: the finder quotes ONE line, so a citation whose
-   `served` date carries its year to the next line is unreachable and the edge stays at
-   docket level. Four instances in 106 judged claims, each named by the operator. The price
-   is stated in `resolve.py`: widening what is quoted is a `SPAN_VERSION` bump and a
-   re-measurement of every edge stamped by the old one, never a quiet widening.
+4. *(Chosen 2026-09-11 — see § Chosen, the finder's line wrap.)*
 5. **Places quoted from captions** (C3/D2's first slice, ADR 0008) — re-taken ripe 2026-09-10:
    3,730 of 30,184 held captions name a county, parish or borough, 52.1% of AB captions
    (3,158 of 6,056); a `place` row per mention with the caption as provenance, AB first, a

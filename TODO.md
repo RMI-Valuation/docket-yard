@@ -10,10 +10,14 @@ decisions were taken the same day and are recorded where each belongs.
 
 ## In motion
 
-- **The citator is LOADED** (2026-09-11 16:55 UTC, runbook § first load): 15,198 edges
-  projected, nothing shown to readers. **With him: `/review/citation_exposed`** — the first 50
-  own-docket keys he answers in its hash order are the sample (the 50th is at position 92;
-  every answer is a real decision). If none is fused, the rule and its ADR 0017 addendum
+- **The citator is LOADED** (2026-09-11 16:55 UTC): 15,198 edges, none shown. **The finder's
+  line wrap comes BEFORE any review** (his decision): 584 citations lost a `(Sub-No. …)` on
+  the next line and resolved to the parent (all 584 sub-dockets held; 233 projected edges),
+  with the served-date wrap (ROADMAP). Then the review page — easy, explained, one look
+  settling docket, sub-docket and document, linked to scan, text, both dockets and the
+  matched document — over a queue of only what can publish (1,326 of 1,945 exposed never
+  can; the own-docket sample is moot). His requirement: same-docket citations of other
+  filings and decisions must be citable
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)

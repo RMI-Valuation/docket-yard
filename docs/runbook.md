@@ -317,6 +317,17 @@ Every answer is credited and permanent. The local sample drawn from the rehearsa
 superseded, never judged. The load publishes nothing a reader sees: no page renders the
 citator yet, and the snapshot holds every citator table.
 
+**Superseded before a single answer (the same day), on two measurements of the real load.**
+1,326 of the 1,945 exposed keys are inside the citing decision's own docket family with no
+live `span_names_document` = true, so ADR 0017 D4's family term suppresses them WHATEVER a
+review says; the own-docket group was that set plus 33, so the rule could have released at
+most 33 edges. And 768 exposed keys are followed by a `(Sub-No. …)` the finder never read —
+584 corpus-wide wrapped onto the next line, every one naming a held sub-docket — so "right or
+fused?" is often the wrong question. The operator's decisions: **the finder's line wrap is
+fixed before any review** (ROADMAP § Chosen), the review page is rebuilt to be easy,
+explained and to settle docket, sub-docket and document in one look, over a queue of only
+what can publish; and same-docket citations of other filings and decisions must be citable.
+
 ### Blocker 3 — the figures are the benchmark's, and the load does not change that
 
 Every one of the 15,164 edges would be stamped with a precision measured on sixty decisions.
