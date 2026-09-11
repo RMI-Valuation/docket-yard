@@ -290,6 +290,13 @@ def test_a_comments_file_has_a_text_page_beside_the_comment(tmp_path):
     assert "Disallow: /d/*/comment/*/text" in robots
     assert "/d/<docket>/comment/<number>/text" in robots
     assert "/d/<docket>/comment/<number>/text" in client.get("/llms.txt").text
+    # the two sentences the operator approved (2026-09-11), on the pages that publish them
+    privacy = client.get("/privacy").text
+    assert "People named in the record" in privacy
+    assert "appears here as the Board publishes them" in privacy
+    assert "nothing else is withheld" in privacy  # ADR 0021: no name is implied held back
+    methodology = client.get("/methodology").text
+    assert "attached file is read and shown the same way, at a text address beside" in methodology
 
 
 def test_every_text_route_computes_its_own_validator():

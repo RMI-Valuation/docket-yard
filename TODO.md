@@ -24,9 +24,9 @@ decisions were taken the same day and are recorded where each belongs.
 
 - **Environmental-comment text** (the operator's decision, 2026-09-11: shown as a filing's
   is): 25,583 attachments read on RMI-AI-MACHINE at the pin, 12,184 image-only (OCR owed).
-  The text page, its search hits and migration 0027 (an index) are on main. Owed: stream the
-  root to the instance and `text load` (manual mode); his sentences for `/privacy` and
-  `/methodology`; then the release, behind the wall
+  The text page, its search hits, migration 0027 (an index) and his two sentences for
+  `/privacy` and `/methodology` are on main. Next, his order: release behind the wall, then
+  stream the root to the instance and `text load` it (manual mode for both)
 
 ## Next
 
