@@ -26,10 +26,10 @@ decisions were taken the same day and are recorded where each belongs.
 
 ## Next
 
-- **The work card is judged and the plumbing shipped**: 106 of 106 (ADR 0017 addendum,
-  `docs/research/benchmark/work-labels.csv`). What remains is the load itself — build the
-  card on a production copy with `citation_dryrun.py --work`, then `citator declare`, as
-  part of the first load below. A reader is shown no number; a shown edge names the sheet
+- **The card is BUILT** (2026-09-11, `data/card.json`, from `work-registry.sqlite`, the copy
+  the sheet was drafted from): projection 213 of 218 shown right (97.7%), work 106/106; the
+  SQL chain agrees (210 of 215 once 5 exposed are held). `citator declare` and the load wait on
+  his yes (runbook § Blocker 1 for the commands). A reader is shown no number
 - **Party types, the held-out sheet is drawn and WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`; blind queue `data/party-types-heldout-check.html`).
   When the Copy block (party_id, type, first, note) returns: apply both picks to its
