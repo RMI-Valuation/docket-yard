@@ -264,7 +264,8 @@ under memory pressure. But it is too cautious to review: on "is it a citation" i
 (97.1%), at 23.1% recall. qwen3:14b on the Mac scored 91.0% / 81.3% on the first question and
 88.5% / 78.9% on the second. **Two more runs (the operator's decision, the same day):**
 gemma3:4b on the Jetson, to tell the small size from the model family, and gemma4:e4b on the
-Mac. gemma4:e4b is 9.6 GB, so it cannot run on the Jetson.
+Mac. gemma4:e4b is 9.6 GB, so it cannot run on the Jetson. NVIDIA's nemotron-3-nano:4b (2.8 GB)
+follows gemma3:4b on the Jetson, at the operator's suggestion.
 
 Nothing ships from this. A model's answer would be an assertion with its method, version and
 channel, stamped with its measured precision (ADR 0017 D3). Letting agreement clear a held key
