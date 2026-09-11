@@ -10,10 +10,10 @@ decisions were taken the same day and are recorded where each belongs.
 
 ## In motion
 
-- **The `dots` OCR wave** reads on the fleet (`docs/compute-fleet.md`, ADR 0025): rmi-nuc
-  coordinates, RMI-AI-MACHINE and the workstation's gate read, Grafana watches. When the
-  queue empties: `second`, then `graphic`, on the NUC; rsync and `text load` each root on
-  the instance IN THAT ORDER (`graphic` needs its own `ran_at` or the loader says `restart`)
+- **The `dots` OCR wave is read and LOADED** (2026-09-11: 12,482 documents, 41,622 pages
+  live, 66 pages failed as their own). `second` runs on the NUC in tmux `ocr-derived`,
+  `graphic` after it; then stream each root to the instance's `data/ocr` and `text load`
+  `ppocr-second` before `ppocr-graphic` (each file its own `ran_at`)
 - **The citator has never run a real load** (`citation`: 0 rows). The chain into a copy
   (2026-09-04) gave 15,164 distinct edges and 0 failures; `declare --scores` and reviewer 1
   are ready; 1,946 exposed keys are ~16 h of reading. The work card is judged (§ Next), so
