@@ -267,6 +267,22 @@ gemma3:4b on the Jetson, to tell the small size from the model family, and gemma
 Mac. gemma4:e4b is 9.6 GB, so it cannot run on the Jetson. NVIDIA's nemotron-3-nano:4b (2.8 GB)
 follows gemma3:4b on the Jetson, at the operator's suggestion.
 
+**The same model does not answer the same way on different machines (measured 2026-09-11).**
+Each run used the same weights, temperature 0 and the same prompt, and was compared mention
+by mention:
+
+| Model | Machines | Identical answers | Pace |
+|---|---|---|---|
+| qwen3:14b | Mac (Metal) vs RMI's 4070 (CUDA) | 96.5% (27 of 768 differ) | 2.75 s vs 0.74 s |
+| llama3.1:8b | Mac vs RMI's 4070 | 89.1% | 1.48 s vs 0.41 s |
+| qwen3:4b | Mac vs the Jetson's Orin (CUDA) | 91.9% | 0.99 s vs 2.89 s |
+
+So if a model's judgement is ever stored, **the machine is part of its method key**, just as
+another OCR engine is another pass. RMI's 4070 was the fastest reviewer by far: the 768
+mentions took qwen3:14b under 10 minutes. The models also stray from the candidates they are
+given. Asked for a decision id, some answered `Decision No. 1`, `NOR 35404` or a case name.
+Those are scored as wrong; a later prompt would constrain the answer to the list.
+
 Nothing ships from this. A model's answer would be an assertion with its method, version and
 channel, stamped with its measured precision (ADR 0017 D3). Letting agreement clear a held key
 is not the same as "the local model does not write edges" (step 3 above), so it would take an
