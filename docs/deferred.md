@@ -801,6 +801,52 @@ amendments are listed in the migration's own header; these are the rest.
   the churn the workstation gate no longer does. Cheap there — its vLLM is always up by design
   — but the same `GET /pending` check would quiet it.
 
+## From the schema critic on the finder's line wrap, 2026-09-11 (branch `finder-line-wrap`)
+
+Fixed on the branch: stamps refused unless measured on the findings' own finder version (D1);
+a retraction points at its successor sub-docket row where there is exactly one (D2); only
+pages the pass read are retracted, `pages_walked` in the interchange (D3); a stale reading on
+another channel no longer holds a key (D4); an old finder's batch refused before it can take
+the new rank (D5); an open review action holds a key (D7, part); `restamp.stale` and
+`unstamped_work_rows` read live keys only (D8, part). Deferred:
+
+- **Which ranking was in force on a date is undated** (D6; ADR 0018's one accepted deferral).
+  There were two from 2026-09-11 (v1, then v2 for the new finder's owner row) and nothing
+  records which the deployed code bound. No reader has seen an edge, so nothing unrecoverable
+  is lost yet — **it must be recorded before any page renders the citator**: an additive
+  `projection_rule` table (rank_version, in force from, release) was the critic's shape.
+  `PROJECTION_RULE` also reads `rank=v2` though v2 differs from v1 only in the owner row.
+- **A self-pointing retraction is undated and reasonless** (D2, residue). Where no single
+  successor exists the row points at itself with no `superseded_at` — the citator's families
+  carry none (2026-09-01) — and an interrupted supersession looks the same. A nullable
+  `superseded_at` is an ALTER, not a rebuild; a `correction` row per retraction would move the
+  search signature and the ETag (`MAX(correction_id)`), so it is not the vehicle.
+- **A key a person holds is neither stored nor queued** (D7, residue). `retraction_held` is
+  printed, never stored, and nothing puts the parent key a reviewer answered in front of a
+  person when the sub-docket appears beside it; the parent keeps projecting beside the new key.
+  A queue predicate over "live citation at a non-owner version with a human row" is the shape.
+- **The retraction counts are printed, not stored** in `extraction_run` (D9).
+- **Readers without the live-`citation` join, harmless today** (D8, residue): the `cited_by`
+  work gate (a retracted row can open it; `CITED_BY_WORK` filters each row) and
+  `tools/rmi-ai-machine/work_check_sheet.py` (drafts claims on retracted keys if pointed at a
+  store that holds retractions).
+- **`restamp` does not reach `citation_judgement`** (D11): an unchanged span `true` keeps its
+  pointer at the older projection measurement after a new card.
+- **Between deploy and the first v2 declaration the projection is empty and exits 0** (D10) —
+  the runbook's order covers it while nothing renders the citator.
+
+And from the stb-ingest-specialist on the same branch (its items 1, 2, 4, 10 and 11 were the
+critic's D1, D3, D4, D8 and D7, fixed; 3, 5, 9 and 12 fixed or in the runbook):
+
+- **A two-column table row can graft a sub-number onto the wrong docket** (item 7): `FD 35087
+  FD 36873 ↵ (Sub-No. 8) (Sub-No. 1)` keys the right-hand docket `FD 36873 (8)`. Not seen in
+  the sixty decisions; a layout-aware reading is the real fix.
+- **A differently-named extractor taking over the class retracts nothing of its predecessor's**
+  (item 8): the retraction scopes on `method = ?`. Until a second extractor exists it cannot
+  arise.
+- **A page line ending in `|` joins as ` | `** (item 13), the separator `resolve._anchored`
+  splits on — it only shortens the window (dates lost, never misattributed).
+
 ## From restoring the text stage's pruned blobs, 2026-09-11 (v2026.09.13)
 
 - **The stage never reads a pruned blob, and nothing restores one.** The parser has no

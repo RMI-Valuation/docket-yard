@@ -383,6 +383,72 @@ the card first means never needing it.
         /data/citation-findings/text-layer </dev/null
     # it prints the totals and what the queues now hold. `failed` must be 0.
 
+### The line-wrap re-load (finder 2026-09-11, rank v2)
+
+The first load keyed 628 wrapped `(Sub-No. …)` citations as their parent and left 3,438
+served dates on the line below unread. The finder of 2026-09-11 reads both (ROADMAP § Chosen;
+branch `finder-line-wrap`), and a new finder version is a new OWNER row, so it is also a new
+`rank_version` (`methods.RANK_VERSION` v2): under the new code the projection is EMPTY until
+`declare` has run, which costs nothing while no page renders the citator. No migration, no
+wall. The order is load-bearing — declare, then find, then load, between two forward passes:
+
+    docker compose run --rm --no-deps ingest citator declare \
+        --scores /data/<the card built with the new finder> </dev/null
+    docker compose run --rm --no-deps ingest citator find /data/citation-findings-<date> \
+        --channel text-layer </dev/null
+    docker compose run --rm --no-deps ingest citator load \
+        /data/citation-findings-<date>/text-layer </dev/null   # failed 0; retracted printed
+    docker compose run --rm --no-deps ingest citator restamp --apply </dev/null
+    # a resolution whose ANSWER did not change keeps the old card's pointer — `if_changed`
+    # compares answers, not stamps (ingest specialist, 2026-09-11); span judgements have no
+    # re-stamp path yet (docs/deferred.md)
+
+Then check that no document was left behind: live `citation` rows at the OLD finder version
+should number only the load's `retraction_held` — a document the new walk did not yield keeps
+its old rows, wrong parent keys included. `citator load` refuses a batch found by any other
+version of this build's finder, so an old findings directory cannot take the new rank.
+
+The card is `citation_dryrun.py --work` with the new finder, and its work block must include
+the operator's verdicts on the claims the wrap creates (31 new on the sheet, drafted
+2026-09-11) — a precision measured without them does not describe the rows it stamps.
+
+**Rehearsed 2026-09-11 on a `litestream restore` of production taken after the first load**
+(5.47 GB, 17:39 UTC): declare under v2, find 19,944 documents in 12 s (72,935 findings), load
+in 56 s with 0 failed and **903 retracted** — every one a bare parent whose sub-docket key is
+now live on the same page (checked, 903 of 903). Before → after: sub-docket keys 35,120 →
+35,746; resolutions naming a document 7,607 → **10,583**; projected edges 15,198 → **15,538**,
+those naming a document 7,150 → **9,851**; exposed queue 1,945 → 1,476; unresolved 489 → 502.
+That rehearsal ran the branch before its reviews. Since them:
+
+- a retraction points at its successor sub-docket row where there is exactly one, and at
+  itself otherwise;
+- it touches only pages the pass read (`pages_walked`);
+- it skips a key a person decided, a question still open before one, or a current reading on
+  another channel (`load.py`);
+- `restamp` touches only keys the measured finder wrote;
+- `declare` and `load` both refuse another version of this build's finder.
+
+**Rehearsed again 2026-09-11 on a fresh restore, with all of that:** find took 13 s and load
+62 s, with 0 failed. **903 were retracted**: 768 to a successor and 135 at themselves (a page
+naming more than one sub-docket of the key). No successor is anything other than a sub-docket
+of the same key on the same page, and no live row is left at the old finder version
+(`retraction_held` 0). `restamp` re-stamped 27,206 rows, 7,449 of them to the work class.
+After: resolutions naming a document **10,611**, projected edges **15,535** (naming a
+document **9,863**), exposed 1,476, unresolved 502. The card declared was the draft, whose
+work block lacks the 31 new verdicts, so the release waits for the final card.
+
+After that rehearsal, a last review replaced the parenthesis count with an in-order scan
+(`find._left_open`). Re-run over the same copy, it changes **24 quotes of 72,935**, and no key
+or kind. The samples each run to the parenthesis they close, one gaining its year (`(ICC
+served July 24, ↵ 1991)`). The final card is built with this code.
+
+**A running header was checked for, and measured (the ingest specialist's item 6).** Across
+the text layer of 21,002 decision documents on the same copy, 2,719 targets absorb a wrapped
+sub-number and 5,777 gain a continuation line; 37 and 12 of them sit on a page's first
+non-blank line, and every one sampled was the page's own caption (`Docket No. AB-55 ↵ (Sub-No.
+595X), CSX Transportation…`) or a citation (`FD 34836, 2009 WL 921533 (S.T.B. April 6,
+2009)`), not a header grafted onto the body.
+
 ### Verifying, and going back
 
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null

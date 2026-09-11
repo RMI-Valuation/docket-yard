@@ -5,7 +5,7 @@ operator's decision, 2026-09-01). Both are ways of discarding a row, and both we
 measured tool behaved.
 """
 
-from docketyard.citator import find, keys
+from docketyard.citator import find, keys, resolve
 
 OWN = {"FD 36873"}
 
@@ -72,6 +72,110 @@ def test_pages_are_split_the_way_the_box_writes_them():
     assert doc["pages_read"] == 2
     assert [f["page"] for f in doc["findings"]] == [1, 7]
     assert doc["method"] == "regex-docket-cite"
+
+
+def test_a_sub_docket_the_line_break_pushed_down_is_read():
+    """628 citations in the first load (2026-09-11) keyed as the parent because `keys.SUBNO`
+    will not cross a newline; with the words `Sub-No.` it may, and the target's second line is
+    quoted, so the served date printed on it reaches the resolver too."""
+    page = (
+        "Southern Pacific—Aban. Exemption, Docket No. AB-12 \n"
+        "(Sub-No. 162X) (STB served May 29, 1996). \n"
+    )
+    f = find.find(page, OWN)[0]
+    assert f["target"] == "AB-12 (Sub-No. 162X)"
+    assert keys.normalise(f["target"]) == "AB 12 (162X)"
+    assert resolve.served_date(resolve._anchored(f["quoted"], f["target"])) == "1996-05-29"
+
+
+def test_a_bare_parenthesis_on_the_next_line_is_still_a_list_marker():
+    """The guard `keys.SUBNO` exists for: only the words cross a line break. Both bare cases in
+    the first load were list items."""
+    page = "STB Docket No. AB-88 (Sub-No. 10X)\n(3) Retain its interest in an\n"
+    f = find.find(page, OWN)[0]
+    assert f["target"] == "AB-88 (Sub-No. 10X)"
+    assert f["quoted"] == "STB Docket No. AB-88 (Sub-No. 10X)"  # the list item is not quoted
+    assert [f["target"] for f in find.find("the carrier in EP 445\n(a) shall file", OWN)] == [
+        "EP 445"
+    ]
+
+
+def test_a_served_date_the_line_break_pushed_down_is_quoted():
+    """3,438 citations in the first load printed their served date only on the next line. The
+    two shapes that continue a citation: its own parenthesis left open, and `, et al.` before
+    a served parenthetical on the next line."""
+    for page, served in (
+        (
+            "Discon., Docket No. AB-379X (ICC\nserved Nov. 4, 1992) (Cheatham County); Fore",
+            "1992-11-04",
+        ),
+        (
+            "Line in Okla. County, Okla., AB 6 (Sub-No. 430X), et al. \n"
+            "(STB served June 5, 2008). \n",
+            "2008-06-05",
+        ),
+    ):
+        f = find.find(page, OWN)[0]
+        assert resolve.served_date(resolve._anchored(f["quoted"], f["target"])) == served
+
+
+def test_a_line_that_is_not_the_citations_is_not_quoted():
+    """The continuation feeds the span test as well as the resolver, so a caption followed by
+    prose — even prose that says `served` — is quoted alone, exactly as before."""
+    page = "Docket No. FD 36873\nThe Board served notice on the parties.\n"
+    assert find.find(page, OWN)[0]["quoted"] == "Docket No. FD 36873"
+    one = "In Docket No. EP 542 (Sub-No. 32) the Board said so.  \n"
+    assert (
+        find.find(one, OWN)[0]["quoted"] == "In Docket No. EP 542 (Sub-No. 32) the Board said so."
+    )
+
+
+def test_a_later_citations_parenthesis_does_not_continue_an_earlier_one():
+    """A parenthesis opened after a later target on the line is that target's (ingest
+    specialist, 2026-09-11): EP 445 must not gain FD 36873's date line."""
+    page = "See EP 445 and FD 36873 (STB\nserved Mar. 12, 2021).\n"
+    quotes = {f["target"]: f["quoted"] for f in find.find(page, OWN)}
+    assert quotes["EP 445"] == "See EP 445 and FD 36873 (STB"
+    assert quotes["FD 36873"] == "See EP 445 and FD 36873 (STB served Mar. 12, 2021)"
+
+
+def test_a_parenthesis_closed_after_a_later_docket_is_closed():
+    """Opened before a later target and closed after it on the same line: nothing is left open,
+    so the next line of prose is not quoted (code review, 2026-09-11 — it put `slip op.` into
+    the span test's hands and flipped an in-family edge)."""
+    page = "EP 711 (Sub-No. 1) (citing FD 36873), the Board held\nthat Decision No. 5, slip op."
+    quotes = {f["target"]: f["quoted"] for f in find.find(page, OWN)}
+    assert quotes["EP 711 (Sub-No. 1)"] == "EP 711 (Sub-No. 1) (citing FD 36873), the Board held"
+
+
+def test_parentheses_are_matched_in_order():
+    """Counting opens and closes apart could not see either of these (code review, 2026-09-11):
+    a later target's own sub-docket pair inside this target's open parenthesis, and a stray
+    close before the parenthesis this target opens."""
+    nested = "EP 445 (see FD 1 (Sub-No. 2)\nserved Mar. 12, 2021) and a paragraph.\n"
+    quotes = {f["target"]: f["quoted"] for f in find.find(nested, OWN)}
+    assert quotes["EP 445"] == "EP 445 (see FD 1 (Sub-No. 2) served Mar. 12, 2021)"
+    stray = "EP 445 (Sub-No. 3)) (STB\nserved June 5, 2008). And a paragraph.\n"
+    assert find.find(stray, OWN)[0]["quoted"] == ("EP 445 (Sub-No. 3)) (STB served June 5, 2008)")
+
+
+def test_the_continuation_stops_at_the_parenthesis_it_closes():
+    """Everything quoted reaches the span test, so a paragraph printed on one line after the
+    date is not handed to it."""
+    page = (
+        "Discon., Docket No. AB-379X (ICC\n"
+        "served Nov. 4, 1992) (Cheatham County); and a paragraph the text layer ran on.\n"
+    )
+    assert find.find(page, OWN)[0]["quoted"] == (
+        "Discon., Docket No. AB-379X (ICC served Nov. 4, 1992)"
+    )
+
+
+def test_crlf_text_reads_as_lf():
+    page = "Docket No. AB-12 \r\n(Sub-No. 162X) (STB served May 29, 1996). \r\n"
+    f = find.find(page, OWN)[0]
+    assert keys.normalise(f["target"]) == "AB 12 (162X)"
+    assert resolve.served_date(resolve._anchored(f["quoted"], f["target"])) == "1996-05-29"
 
 
 def test_a_document_with_no_page_markers_is_one_page():

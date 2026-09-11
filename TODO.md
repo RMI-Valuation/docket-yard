@@ -11,13 +11,11 @@ decisions were taken the same day and are recorded where each belongs.
 ## In motion
 
 - **The citator is LOADED** (2026-09-11 16:55 UTC): 15,198 edges, none shown. **The finder's
-  line wrap comes BEFORE any review** (his decision): 584 citations lost a `(Sub-No. …)` on
-  the next line and resolved to the parent (all 584 sub-dockets held; 233 projected edges),
-  with the served-date wrap (ROADMAP). Then the review page — easy, explained, one look
-  settling docket, sub-docket and document, linked to scan, text, both dockets and the
-  matched document — over a queue of only what can publish (1,326 of 1,945 exposed never
-  can; the own-docket sample is moot). His requirement: same-docket citations of other
-  filings and decisions must be citable
+  line wrap is PR #25** (his decisions: before any review, both wraps in one change); its final
+  card waits for his verdicts on the 31 new work claims. Then the review page — easy,
+  explained, one look settling docket, sub-docket and document, linked to scan, text, both
+  dockets and the matched document, over a queue of only what can publish — with an ICC flag
+  for `(ICC served …)`. His requirement: same-docket filings and decisions must be citable
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
@@ -28,6 +26,12 @@ decisions were taken the same day and are recorded where each belongs.
   queue, `second` and `graphic` on the NUC; load primary, dots, second, graphic, in order
 
 ## Next
+
+- **Local models as the first reviewers: MEASURE FIRST** (his decision, 2026-09-11, the
+  citations brief's avenue J). Step 1 done: the stored role runs agree at 95.9%, no better than
+  qwen3 alone. Step 2: 2–3 models over the 225 checked targets, asked the review question with
+  the record's candidates and the own-docket fact. Nothing ships; clearing a key on agreement
+  is an ADR 0017 addendum, his. The review page is designed after it
 
 - **Party types, the held-out sheet is drawn and WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`; blind queue `data/party-types-heldout-check.html`).

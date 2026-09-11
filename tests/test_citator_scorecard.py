@@ -14,9 +14,17 @@ import json
 import pytest
 
 from docketyard import cli
-from docketyard.citator import methods, scorecard
+from docketyard.citator import find, methods, scorecard
 from docketyard.store import db
 from tests.test_citator_pipeline import _store
+
+
+@pytest.fixture(autouse=True)
+def _this_builds_finder_is_v1(monkeypatch):
+    """The cards and findings here say `v1`; `citator load` refuses a batch found by another
+    version of this build's finder (schema-critic, 2026-09-11). As in the pipeline tests."""
+    monkeypatch.setattr(find, "FINDER_VERSION", "v1")
+
 
 # migration 0016 § The figures, measured 2026-09-01 over sixty decisions
 SCORES = {
@@ -33,7 +41,9 @@ SCORES = {
 def _card(**over):
     card = scorecard.build(
         SCORES,
-        extractor_version="2026-09-01",
+        # this build's finder, as the autouse fixture sets it: `declare` refuses a card that
+        # measured another version of it (code review, 2026-09-11)
+        extractor_version="v1",
         score_file="migration 0016 The figures",
         benchmark_date="2026-09-01",
     )
@@ -128,7 +138,7 @@ def test_the_declare_verb_reports_what_it_declared_and_refuses_a_bad_card(tmp_pa
     assert cli._citator(args) == 0
     out = capsys.readouterr().out
     # it says what claim it just made, and on which channel, and where the figures came from
-    assert "regex-docket-cite@2026-09-01" in out and "text-layer" in out
+    assert "regex-docket-cite@v1" in out and "text-layer" in out
     assert "migration 0016 The figures" in out and "225 truth targets" in out
     assert "0.977" in out, "the projection's precision is what a shown edge carries"
 

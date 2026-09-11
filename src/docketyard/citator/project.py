@@ -234,7 +234,14 @@ def unstamped_work_rows(con) -> int:
     return con.execute(
         "SELECT COUNT(*) FROM citation_resolution"
         " WHERE superseded_by IS NULL AND cited_decision_id IS NOT NULL"
-        "   AND confidence_state = 'measured' AND measured_class <> ?",
+        "   AND confidence_state = 'measured' AND measured_class <> ?"
+        # on a LIVE key, or a retracted one inflates the count `declare` prints (2026-09-11)
+        "   AND EXISTS (SELECT 1 FROM citation c"
+        "                WHERE c.citing_document = citation_resolution.citing_document"
+        "                  AND c.page = citation_resolution.page"
+        "                  AND c.target_kind = citation_resolution.target_kind"
+        "                  AND c.target_key = citation_resolution.target_key"
+        "                  AND c.superseded_by IS NULL)",
         (WORK_CLASS,),
     ).fetchone()[0]
 

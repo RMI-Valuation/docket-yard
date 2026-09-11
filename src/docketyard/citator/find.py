@@ -34,7 +34,7 @@ import re
 
 from docketyard.citator.keys import DOCKET, SUBNO, normalise
 
-FINDER_VERSION = "2026-09-01"
+FINDER_VERSION = "2026-09-11"  # the wrapped `(Sub-No. …)`, and the quote's continuation line
 
 # Words that mean a DOCUMENT rather than a proceeding, within a window round the number.
 # `\bv\.\s` catches a case name; `S.T.B.` and `I.C.C.` catch a reporter cite beside the
@@ -47,30 +47,121 @@ DOC_WORDS = re.compile(
 WINDOW = 160
 PAGE_RE = re.compile(r"^===== page (\d+) =====$", re.M)
 
+# THE WRAPPED SUB-DOCKET (2026-09-11). `keys.SUBNO` refuses a newline before its parenthesis
+# on purpose — `EP 445` ending a line above a list marker `(a)` must not key as `EP 445 (A)` —
+# so a sub-number the Board's line breaking pushed onto the next line was lost: 628 citations
+# in the first load, `Docket No. AB-12 ↵ (Sub-No. 162X)` keyed as the parent AB 12, 626 of
+# them naming a sub-docket the registry holds. ACROSS A LINE BREAK THE WORDS ARE REQUIRED:
+# `(Sub-No. 162X)` is a sub-docket wherever it sits, while a bare `(3)` on the next line is a
+# list item — both bare cases the first load held were. The contents are `keys.SUBNO`'s, year
+# exclusion included, so one grammar reads both; `keys.normalise` then keys the whitespace-
+# collapsed target exactly as it keys a one-line one, and KEY_VERSION does not move.
+WRAPPED_SUBNO = re.compile(
+    r"[^\S\n]*\n[^\S\n]*\(\s*Sub[-\s]*No\.?\s*"
+    r"(?!(?:19|20)\d\d\s*\))(\d{1,4}[A-Z]?|[A-Z]{1,2})\s*\)",
+    re.I,
+)
+# THE CONTINUATION LINE (2026-09-11). `find` quotes the line a target sat on, and the resolver
+# reads a served date only from the quote (`resolve._anchored`), so a date the line breaking
+# pushed onto the next line was unreachable: 3,438 citations in the first load printed their
+# served date only there, 3,293 of them left with no document. The next line is quoted when
+# the citation PLAINLY runs onto it, and only then: the rest of the target's line opens a
+# parenthesis it does not close (`AB-379X (ICC ↵ served Nov. 4, 1992)`), or holds nothing but
+# a comma or `et al.` and the next line opens a served parenthetical (`AB 6 (Sub-No. 430X),
+# et al. ↵ (STB served June 5, 2008)`). A caption line followed by prose, or a list item, is
+# quoted alone as before — the continuation feeds the span test too, and a line that is not
+# the citation's would hand it words the citation never printed.
+TRAILING = re.compile(r"^[\s,]*(?:et\s+al\.?)?[\s,]*$", re.I)
+OPENS_SERVED = re.compile(r"^\s*\(\s*(?:[A-Z][A-Za-z.]*\s+){0,2}served\b", re.I)
+
+
+def _target_end(page_text: str, m: re.Match) -> int:
+    """Where the target ends: the number, then a same-line or wrapped sub-docket
+    parenthetical, or a hyphenated sub-docket."""
+    end = m.end()
+    tail = SUBNO.match(page_text[end:])
+    if tail:
+        return end + tail.end()
+    if wrapped := WRAPPED_SUBNO.match(page_text, end):
+        return wrapped.end()
+    # THE HYPHENATED SUB-DOCKET, which `keys.DOCKET` stops short of: the Board prints
+    # `WB25-33` for `WB 25 (Sub-No. 33)`, and decision 52676 in the benchmark is docketed
+    # that way and cites `WB-20-50`. Absorbed here so `cited_raw` is honest — migration 0014
+    # defines it as "the string as THIS reading printed it". Whether the KEY should carry the
+    # sub-docket too is a `keys.py` and ADR question, and it is in docs/deferred.md rather
+    # than answered in passing.
+    hyphenated = re.match(r"-\d{1,4}[A-Z]?\b", page_text[end:])
+    return end + hyphenated.end() if hyphenated else end
+
 
 def printed(page_text: str, m: re.Match) -> str:
-    """The target EXACTLY as the page prints it — `EP 542 (Sub-No. 32)`, `AB 1296X`.
+    """The target EXACTLY as the page prints it — `EP 542 (Sub-No. 32)`, `AB 1296X` — with
+    whitespace collapsed, so a sub-docket wrapped onto the next line reads as one target.
 
     Sliced from the source rather than rebuilt from the match groups, because `keys.DOCKET`
     has no group for the parenthetical: rebuilding gives `EP 542` where the page says
     `EP 542 (Sub-No. 32)`, and `citation_reading.cited_raw` is defined as "the string as THIS
     reading printed it". `keys.normalise` is the only thing allowed to turn it into a key.
     """
-    end = m.end()
-    tail = SUBNO.match(page_text[end:])
-    if tail:
-        end += tail.end()
-    else:
-        # THE HYPHENATED SUB-DOCKET, which `keys.DOCKET` stops short of: the Board prints
-        # `WB25-33` for `WB 25 (Sub-No. 33)`, and decision 52676 in the benchmark is
-        # docketed that way and cites `WB-20-50`. Absorbed here so `cited_raw` is honest —
-        # migration 0014 defines it as "the string as THIS reading printed it". Whether the
-        # KEY should carry the sub-docket too is a `keys.py` and ADR question, and it is in
-        # docs/deferred.md rather than answered in passing.
-        hyphenated = re.match(r"-\d{1,4}[A-Z]?\b", page_text[end:])
-        if hyphenated:
-            end += hyphenated.end()
-    return " ".join(page_text[m.start() : end].split())
+    return " ".join(page_text[m.start() : _target_end(page_text, m)].split())
+
+
+def quoted(page_text: str, start: int, end: int) -> str:
+    """The line or lines a target sat on: from the start of its first line to the end of the
+    line it ends on — two lines when its sub-docket wrapped — plus the next line when the
+    citation plainly continues there (`TRAILING`, `OPENS_SERVED`). ONE LINE COMES BACK EXACTLY
+    AS BEFORE, stripped and nothing else, so a re-load does not rewrite every unchanged quote;
+    several are joined with one space."""
+    first = page_text.rfind("\n", 0, start) + 1
+    last = page_text.find("\n", end)
+    last = len(page_text) if last < 0 else last
+    # THIS TARGET'S rest of line, up to the next docket number: a parenthesis opened after a
+    # later target is that target's (ingest specialist, 2026-09-11 — `See EP 445 and FD 36873
+    # (STB ↵ served Mar. 12, 2021)` gave EP 445 FD 36873's date line, and flipped its span test)
+    following_target = DOCKET.search(page_text, end, last)
+    boundary = following_target.start() if following_target else last
+    lines = page_text[first:last]
+    if last < len(page_text):
+        following = page_text.find("\n", last + 1)
+        following = len(page_text) if following < 0 else following
+        nxt = page_text[last + 1 : following]
+        depth = _left_open(page_text, end, last, boundary)
+        if depth > 0 or (TRAILING.match(page_text[end:boundary]) and OPENS_SERVED.match(nxt)):
+            lines += "\n" + _to_close(nxt, depth)
+    return " ".join(line.strip() for line in lines.split("\n") if line.strip())
+
+
+def _left_open(page_text: str, end: int, last: int, boundary: int) -> int:
+    """How many closes the next line owes before THIS target's parenthesis is shut: 0 when it
+    left none open. The rest of the line is scanned IN ORDER (code review, 2026-09-11 — two
+    counts could not tell `(see FD 1 (Sub-No. 2) ↵` from a closed pair, nor `) (STB ↵` from
+    nothing open): a `(` opened before `boundary`, the next docket number, is this target's
+    and one opened after it is that target's; a `)` shuts the innermost open one, and a stray
+    `)` shuts nothing opened here. What is owed runs from the outermost of ours to the top."""
+    stack: list[bool] = []
+    for i, ch in enumerate(page_text[end:last], start=end):
+        if ch == "(":
+            stack.append(i < boundary)
+        elif ch == ")" and stack:
+            stack.pop()
+    return len(stack) - stack.index(True) if True in stack else 0
+
+
+def _to_close(line: str, depth: int) -> str:
+    """The continuation line up to the parenthesis that closes what is open — `depth` left
+    open on the line before, or the one this line opens itself — or the whole line if nothing
+    closes. Never a paragraph a text layer happened to print on one line: everything quoted
+    reaches the span test (ingest specialist, 2026-09-11)."""
+    opened = depth > 0
+    for i, ch in enumerate(line):
+        if ch == "(":
+            depth += 1
+            opened = True
+        elif ch == ")":
+            depth -= 1
+            if opened and depth <= 0:
+                return line[: i + 1]
+    return line
 
 
 def find(page_text: str, own: set[str]) -> list[dict]:
@@ -86,7 +177,8 @@ def find(page_text: str, own: set[str]) -> list[dict]:
     """
     found: dict[str, dict] = {}
     for m in DOCKET.finditer(page_text):
-        raw = printed(page_text, m)
+        end = _target_end(page_text, m)
+        raw = " ".join(page_text[m.start() : end].split())  # `printed`, without a second scan
         # THE KEY IS NORMALISED FROM THE RAW, never from a window past the match. A window
         # made `find` judge `own` and de-duplicate under one key while `load` stored another
         # — `load` normalises `target`, which is this raw — so the `kind` written against a
@@ -96,9 +188,7 @@ def find(page_text: str, own: set[str]) -> list[dict]:
             continue
         context = page_text[max(0, m.start() - WINDOW) : m.end() + WINDOW]
         names_document = bool(DOC_WORDS.search(context)) or key not in own
-        start = page_text.rfind("\n", 0, m.start()) + 1
-        end = page_text.find("\n", m.end())
-        line = page_text[start : end if end > 0 else len(page_text)].strip()
+        line = quoted(page_text, m.start(), end)
 
         if key not in found:
             found[key] = {
@@ -185,5 +275,8 @@ def findings_document(
         "method_version": FINDER_VERSION,
         "reading_channel": reading_channel,
         "pages_read": len(page_list),
+        # WHICH pages, not only how many: the loader retracts an older finder's key only on a
+        # page this pass read, because a page it did not read found nothing (ADR 0018 D10)
+        "pages_walked": [page for page, _ in page_list],
         "findings": found,
     }

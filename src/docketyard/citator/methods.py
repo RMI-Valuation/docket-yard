@@ -15,7 +15,12 @@ from docketyard.store.db import utcnow
 EXTRACTOR = "regex-docket-cite"
 SPAN_METHOD = "span-names-document"
 CHANNEL_TEXT = "text-layer"
-RANK_VERSION = "v1"
+# v2 (2026-09-11): `find.FINDER_VERSION` moved to 2026-09-11 — the wrapped sub-docket and the
+# quote's continuation line — and the finder's version is the OWNER row of the docket class.
+# `assertion_method_one_owner` allows one owner per class per rank_version and this registry is
+# append-only, so a new finder version is a new rank_version (`declare` says so when refused).
+# Every rank row is re-declared under it, unchanged but for the owner; v1 stays on record.
+RANK_VERSION = "v2"
 # A human is a method, a channel and a version like any other — `reading_vocab` carries
 # 'human' for exactly this reason (ADR 0018 D3: the channel is in every key, so a human row
 # must carry something legal).
