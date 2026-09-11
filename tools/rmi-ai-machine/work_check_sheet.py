@@ -134,14 +134,22 @@ def decisions(con: sqlite3.Connection) -> dict[str, dict]:
         "       r.docket_id, d.raw_docket"
         " FROM decision_record r JOIN docket d USING (docket_id)"
     ):
-        out[str(did)] = {
-            "decision_id": str(did),
-            "service_date": service_date,
-            "decision_type": dtype,
-            "deciding_body": body,
-            "docket_id": docket_id,
-            "raw_docket": raw,
-        }
+        row = out.setdefault(
+            str(did),
+            {
+                "decision_id": str(did),
+                "service_date": service_date,
+                "decision_type": dtype,
+                "deciding_body": body,
+                "docket_id": docket_id,
+                "raw_docket": raw,
+                "dockets": {},
+            },
+        )
+        # EVERY DOCKET IT IS ENTERED IN: a consolidated decision has one row per docket, and
+        # keeping only one showed the operator decision 31734 "served in FD_34007_0" against a
+        # citation of FD 33984, which it is also entered in (his note, 2026-09-11)
+        row["dockets"][docket_id] = raw
     return out
 
 
@@ -257,6 +265,10 @@ def build(store: Path, run: Path) -> list[dict]:
                 else:  # pragma: no cover — `works` and this query would have to disagree
                     why = "no document, and the reasons above do not explain it"
         target = decs.get(answer or "", {})
+        # the docket the citation named, where the decision is entered in it; the rest beside it
+        entered = target.get("dockets", {})
+        shown = entered.get(got["docket_id"]) or target.get("raw_docket", "")
+        others = sorted(raw for raw in entered.values() if raw != shown)
         cite_row = (sheet_rows_here or [{}])[0]
         rows.append(
             {
@@ -271,7 +283,8 @@ def build(store: Path, run: Path) -> list[dict]:
                 "drafted_service_date": target.get("service_date", ""),
                 "drafted_type": target.get("decision_type", ""),
                 "drafted_body": target.get("deciding_body", ""),
-                "drafted_docket": target.get("raw_docket", ""),
+                "drafted_docket": shown
+                + (f" (also entered in {', '.join(others)})" if others else ""),
                 "drafted_url": urls.get(answer or "", ""),
                 "why_no_document": why,
                 "pages": ",".join(str(p) for p in pages),
