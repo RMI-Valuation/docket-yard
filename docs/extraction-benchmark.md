@@ -257,6 +257,15 @@ average 13) until the run was stopped. **The Jetson runs qwen3:4b instead** (the
 decision, 2026-09-11), and the Mac runs it too, so the Metal-and-CUDA comparison still has a
 Jetson half.
 
+**qwen3:4b measured on the Jetson, 2026-09-11.** It kept the Mac's pace, 2.89 s a mention
+(the Mac's qwen3:14b: 2.75 s), and 13 of 768 requests failed as its model process restarted
+under memory pressure. But it is too cautious to review: on "is it a citation" it scored
+91.8% precision and 29.8% recall, and on "which document" 34 of the 35 it named are right
+(97.1%), at 23.1% recall. qwen3:14b on the Mac scored 91.0% / 81.3% on the first question and
+88.5% / 78.9% on the second. **Two more runs (the operator's decision, the same day):**
+gemma3:4b on the Jetson, to tell the small size from the model family, and gemma4:e4b on the
+Mac. gemma4:e4b is 9.6 GB, so it cannot run on the Jetson.
+
 Nothing ships from this. A model's answer would be an assertion with its method, version and
 channel, stamped with its measured precision (ADR 0017 D3). Letting agreement clear a held key
 is not the same as "the local model does not write edges" (step 3 above), so it would take an
