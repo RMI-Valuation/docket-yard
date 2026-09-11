@@ -67,9 +67,15 @@ def now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())
 
 
-def header(sha: str, size: int, version: str) -> dict:
+def header(sha: str, size: int, version: str, at: str) -> dict:
     """What every record carries, read or refused — the loader's key is (tool, tool_version,
-    'native'), so these five fields are the reading's identity."""
+    'native'), so these five fields are the reading's identity.
+
+    `dispatched_at` is the REQUEST's, echoed (ADR 0024 addendum, 2026-09-11): the loader
+    stamps the dispatch a record quotes, and checks it, rather than working one out from the
+    clock — which would stamp a document re-dispatched after the retry interval with the wrong
+    request. It stays in the header, ahead of `page_text`, because the loader's `read_head`
+    parses only what precedes that key."""
     return {
         "document_sha256": sha,
         "size_bytes": size,
@@ -78,6 +84,7 @@ def header(sha: str, size: int, version: str) -> dict:
         "tool": "pymupdf",
         "tool_version": version,
         "extracted_at": now(),
+        "dispatched_at": at,
     }
 
 
@@ -91,29 +98,30 @@ def read_pages(path: Path) -> list[str]:
         return [page.get_text() for page in doc]
 
 
-def extract(sha: str, version: str) -> dict:
-    """One document's record: the pages, or a stub saying why not."""
+def extract(sha: str, version: str, at: str) -> dict:
+    """One document's record: the pages, or a stub saying why not. `at` is the request's
+    `dispatched_at`, echoed in every record, stubs included — a refusal answers a dispatch too."""
     path = BLOBS / sha[:2] / sha
     if not path.is_file():
         # the poller named a document whose bytes this box does not hold — the blob cache is
         # pruned, so this is expected rather than exceptional, and it is a refusal with a
         # reason so the attempt is on record instead of vanishing
-        return header(sha, 0, version) | {"outcome": "failed", "note": "no blob on this box"}
+        return header(sha, 0, version, at) | {"outcome": "failed", "note": "no blob on this box"}
     size = path.stat().st_size
     try:
         with path.open("rb") as f:
             if f.read(5) != b"%PDF-":
-                return header(sha, size, version) | {
+                return header(sha, size, version, at) | {
                     "outcome": "not-paginable",
                     "note": "not a PDF",
                 }
         pages = read_pages(path)
     except Exception as e:  # noqa: BLE001 — one hostile file must not stop the service
-        return header(sha, size, version) | {
+        return header(sha, size, version, at) | {
             "outcome": "failed",
             "note": f"{type(e).__name__}: {e}"[:500],
         }
-    return header(sha, size, version) | {
+    return header(sha, size, version, at) | {
         "pages": len(pages),
         "chars": sum(len(p) for p in pages),
         "image_only": all(len(p.strip()) < MIN_CHARS_PER_PAGE for p in pages),
@@ -180,7 +188,7 @@ def serve_one(request: Path) -> dict:
     while named:
         sha, named = named[0], named[1:]
         remaining(request, named, at)
-        record = extract(sha, version)
+        record = extract(sha, version, at)
         write(record)
         counts["read" if "page_text" in record else "refused"] += 1
     request.unlink(missing_ok=True)

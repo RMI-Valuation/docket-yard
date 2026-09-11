@@ -206,6 +206,38 @@ checks. A per-table check in `db.migrate` would cut it and is recorded in `docs/
 
 ## Routine operations
 
+### Migration 0026 — the dispatch stamp (ADR 0024 § Owed 5)
+
+A migrating release that also REBUILDS `extract` (the container now echoes each request's
+`dispatched_at`). It has an ORDER, because a reading the stage lands while the old code runs
+carries no stamp, and a record the old container wrote quotes no dispatch and is refused by
+the new code. The migration stamps what has landed (its header gives the rule); these steps
+make sure everything the old container wrote has landed before it runs. `text pin` cannot
+un-pin, and this does not need it. **No maintenance wall**: `ADD COLUMN` is instant and the
+UPDATE touches the few hundred stage rows. Rehearse it first on a `litestream restore` copy
+(below), as v2026.09.12 was.
+
+```sh
+cd /srv/docketyard
+# copy the repository's infra/extract/ to /srv/docketyard/extract (the echo is in extract.py)
+docker compose stop extract           # nothing new is parsed by the old container
+docker compose logs -f ingest         # wait for ONE pass to end with a `text` block: it
+                                      # admits and loads what the old container wrote; its own
+                                      # new requests wait in data/extract/requests for the new one
+docker compose stop ingest            # nothing lands between here and the migration
+$EDITOR .env                          # DY_TAG=<the release>
+docker compose pull --ignore-buildable && docker compose up -d --build
+docker compose logs migrate           # schema 26
+# every stage reading carries a stamp: must print (0,) — and the correction row says how many
+docker compose exec -T web python -c "import sqlite3; c = sqlite3.connect('file:/data/docketyard.sqlite?mode=ro', uri=True); print(c.execute(\"SELECT COUNT(*) FROM ocr_run WHERE reading_channel = 'text-layer' AND method = 'pymupdf' AND method_version = '1.26.0' AND dispatch_id IS NULL\").fetchone()); print(c.execute(\"SELECT note FROM correction WHERE target_table = 'ocr_run'\").fetchone())"
+docker compose logs -f extract        # answers the waiting requests, echoing each one
+docker compose run --rm --no-deps ingest text pin </dev/null   # `unanswered` falls as they land
+```
+
+A record that slips past this order (quoting nothing) is quarantined with "it quotes no
+dispatch", and its document is asked for again after `EXTRACT_RETRY_HOURS` by the new
+container — self-healing, at the cost of one attempt.
+
 ### v2026.09.12 — the text stage's first deploy (ADR 0024)
 
 The only release so far that ships a SECOND IMAGE, and the only one that needs a step on the

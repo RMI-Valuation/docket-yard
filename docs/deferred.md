@@ -803,7 +803,24 @@ The operator chose `ocr_run.dispatch_id`, echoed (ADR 0024 addendum 2026-09-11).
 
 - **A single-column REFERENCES cannot enforce "a dispatch of THIS document".** The admit step
   checks it; a BEFORE INSERT trigger (same document, `dispatched_at <= ran_at`) would make
-  the store check it too, and names only public tables.
+  the store check it too, and names only public tables. It would NOT catch a reused id:
+  `dispatch_id` has no AUTOINCREMENT, so a keys-off DELETE of the newest cited dispatch lets
+  the next one take its integer and an existing reading silently names another document's
+  dispatch. AUTOINCREMENT needs a rebuild of a published table; 0026's header says do not
+  delete dispatches. Both, or neither, deliberately.
+- **Nothing proves the published `schema.sql` parses** for a third party: the tests check it
+  by regex. Loading it into a fresh database is the test; 0026 spliced a column into
+  `ocr_run`'s stored DDL.
+- **The spool file name loses answers**: `extract.py` writes `<sha>.json`, so two requests
+  for one document served back to back (after an outage) keep only the second record, and
+  the first dispatch publishes as unanswered — true of the store, but a lost answer.
+- **`correction.target_key = 'dispatch_id'` names a column, not a row**, as 0022's
+  `'excerpt'` did before it; migration 0014's convention is a row's natural key.
+- **Admit and the loader can parse different heads**: a record whose first 4 KB carry
+  `"reading_role": null` passes admit's shape test while the loader parses it whole, so a
+  duplicate key after `page_text` changes what the loader sees. Not exploitable — the stamp
+  re-runs the same rule on the loader's own header, so it names this document's dispatch or
+  refuses — but admit's one rule is then two reads (security review, 2026-09-11).
 - **`document_pagination` has the same blindness about its producer.** Not on the halt path.
 - **Which off-instance machine loaded a root** stays unrecorded on `ocr_run`;
   `producer_declaration.declared_by` and the pass key (ADR 0025 D2) carry what is needed, and

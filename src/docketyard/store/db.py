@@ -51,6 +51,10 @@ MIGRATIONS: list[tuple[int, str]] = [
     # of the sixty-decision sheet can be declared when it is checked. It writes no
     # measurement, so the work grain stays shut the day it applies.
     (25, "0025_work_class.sql"),
+    # 0026 settles ADR 0024 § Owed 5: `ocr_run.dispatch_id`, stamped by the stage from what the
+    # container quoted, so the halt is a proof. Deploy by infra/deploy/README.md: stop
+    # `extract`, let one pass land the old container's records, stop `ingest`, then migrate.
+    (26, "0026_ocr_run_dispatch.sql"),
 ]
 
 

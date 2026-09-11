@@ -396,3 +396,15 @@ whose third value would rebuild 89k public rows, its NULLs ambiguous for ever), 
 producer vocabulary (its value supplied by a manifest the loader cannot verify, the fleet's
 machine names published under CC0, and the wrong grain for leased pages). Either can still be
 added later by `ADD COLUMN`.
+
+**Corrected the same day, on the build's reviews.** The deploy cannot un-pin — `text pin` has
+no such verb — and need not: migration 0026 stamps the readings already landed under a
+narrower rule of its own (the one dispatch pinned to that very version, inside the window),
+naming the boundary in a `correction` row, and the deploy stops `extract`, lets one pass land
+the old container's records, and stops `ingest` before migrating. A record that quotes no
+dispatch is refused, so every stamp after the migration is one the container quoted. The
+admit window is now counted back from the loader's clock as well as the reading's, and only
+the container's own timestamp form is accepted: measured from the parser's `ran_at` alone, it
+let a compromised parser answer any dispatch it had ever been handed — a flaw in the check of
+2026-09-10, found by the security review of this one. D6's premise that SQLite cannot add a
+foreign key by `ALTER` holds for existing columns only; 0026 adds one to a new column.

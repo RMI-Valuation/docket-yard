@@ -19,6 +19,13 @@ STAMP = "2026-09-10T12:00:00+00:00"
 PIN = ("pymupdf", "1.26.0")
 
 
+@pytest.fixture(autouse=True)
+def _loader_clock(monkeypatch):
+    """Admit counts its window back from the LOADER's clock (security review, 2026-09-11);
+    these tests' dispatches are dated 2026-09-10, so the clock is fixed an hour after them."""
+    monkeypatch.setattr(dispatch, "clock", lambda: datetime(2026, 9, 10, 14, 0, tzinfo=UTC))
+
+
 def _store(tmp_path):
     con = db.connect(tmp_path / "s.sqlite")
     con.execute(
@@ -344,8 +351,10 @@ def test_the_halt_is_a_query_and_sends_one_canary(tmp_path):
 
 def test_a_landing_clears_the_halt_without_an_operator(tmp_path):
     """The other half: the query is asked again next pass, so a container that comes back
-    clears its own halt. The floor `ran_at >= dispatched_at` is what stops a wave load
-    landing during an outage from clearing it — a narrowing, not a proof (§ Owed 5)."""
+    clears its own halt. Since § Owed 5 was settled (2026-09-11) a landing is a reading that
+    NAMES its dispatch: a run dated after the dispatch but naming none — a hand load, a wave
+    landing during an outage — answers nothing, where under the old floor it cleared the
+    halt for documents the parser never read."""
     con = _store(tmp_path)
     _pin(con)
     shas = [_doc(con, f"{i:02d}") for i in range(dispatch.HALT_AFTER)]
@@ -355,11 +364,13 @@ def test_a_landing_clears_the_halt_without_an_operator(tmp_path):
             " pinned_method_version, dispatched_at) VALUES (?, ?, ?, ?)",
             (sha, *PIN, STAMP),
         )
-    # a run that predates its dispatch does not answer it
-    _run(con, shas[0], at="2026-01-01T00:00:00+00:00")
+    _run(con, shas[0], at="2026-09-10T13:00:00+00:00")  # after its dispatch, naming none
     con.commit()
     assert dispatch.halted(con)
-    _run(con, shas[0], at="2026-09-10T13:00:00+00:00")
+    did = con.execute(
+        "SELECT dispatch_id FROM extraction_dispatch WHERE document_sha256 = ?", (shas[0],)
+    ).fetchone()[0]
+    con.execute("UPDATE ocr_run SET dispatch_id = ? WHERE document_sha256 = ?", (did, shas[0]))
     con.commit()
     assert not dispatch.halted(con)
     con.close()
@@ -424,6 +435,9 @@ def _spool(tmp_path, sha, *, at="spool", **over):
         "tool": PIN[0],
         "tool_version": PIN[1],
         "extracted_at": "2026-09-10T13:00:00+00:00",
+        # the request it answers, echoed ahead of `page_text` as the container writes it
+        # (ADR 0024 addendum, 2026-09-11); these tests' dispatches are dated STAMP
+        "dispatched_at": STAMP,
         "pages": 1,
         "chars": 5,
         "image_only": False,

@@ -45,6 +45,7 @@ clean pass.
 """
 
 import json
+import re
 import time
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
@@ -68,24 +69,22 @@ def _pin(con: Connection) -> tuple[str, str] | None:
 
 
 def unanswered(con: Connection, *, window: int = HALT_AFTER) -> int:
-    """Of the last `window` dispatches, how many have no successful run at or after them.
+    """Of the last `window` dispatches, how many no successful reading NAMES.
 
-    THE FLOOR `ran_at >= dispatched_at` IS A NARROWING, NOT A PROOF, and ADR 0024 § Owed 5
-    says so: neither table records which producer wrote it, so a wave load landing during a
-    container outage can satisfy this and clear the halt for documents the parser never read.
-    `ocr_run.ran_at` is the parser's own clock from a spool header that may have been written
-    on the enrichment box weeks earlier, which is what the floor excludes. A producer column
-    settles it and `ADD COLUMN` survives publication.
+    A PROOF, where it was a narrowing (ADR 0024 § Owed 5, settled 2026-09-11): a reading the
+    stage loaded carries the `dispatch_id` it answers, stamped from what the container quoted
+    and checked at admit, and a hand load carries none — so a wave load landing during a
+    container outage can no longer clear the halt for documents the parser never read, as the
+    old floor `ran_at >= dispatched_at` let it. `read` stays part of the test: a container
+    that is up and failing every document lands stubs, and a halt that counted those as
+    answers would never engage.
     """
     return con.execute(
-        "SELECT COUNT(*) FROM (SELECT x.document_sha256, x.dispatched_at"
-        "   FROM extraction_dispatch x"
+        "SELECT COUNT(*) FROM (SELECT x.dispatch_id FROM extraction_dispatch x"
         "  ORDER BY x.dispatched_at DESC, x.dispatch_id DESC LIMIT ?) recent"
         " WHERE NOT EXISTS (SELECT 1 FROM ocr_run r"
-        "                    WHERE r.document_sha256 = recent.document_sha256"
-        "                      AND r.reading_channel = ? AND r.render_profile = ?"
-        "                      AND r.outcome = 'read' AND r.ran_at >= recent.dispatched_at)",
-        (window, CHANNEL, RENDER),
+        "                    WHERE r.dispatch_id = recent.dispatch_id AND r.outcome = 'read')",
+        (window,),
     ).fetchone()[0]
 
 
@@ -104,24 +103,76 @@ def halted(con: Connection, *, window: int = HALT_AFTER) -> bool:
 AUTHORISED_HOURS = queue.EXTRACT_RETRY_HOURS * (queue.EXTRACT_ATTEMPTS + 1)
 
 
-def _authorised(con: Connection, sha: str, ran_at: str) -> bool:
-    """Whether a dispatch of this document PRECEDES the reading and is recent enough to be
-    what it answers. `ran_at` is the parser's own clock and therefore untrusted; the window is
-    what stops a compromised parser back-dating a reading onto a dispatch from months ago."""
-    if not ran_at:
-        return False
+# The one form the container writes a timestamp in (`extract.now()`, and `utcnow()` for the
+# dispatch rows). Anything else is refused before it is parsed: `datetime.fromisoformat`
+# accepts `20260911` and `2026-W37-4`, and the SQL below compares strings, so a non-canonical
+# form fell outside the window's arithmetic entirely (security review, 2026-09-11).
+_CANONICAL = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00$")
+# The container and the poller share a host and a clock; this is slack, not tolerance.
+CLOCK_SKEW = timedelta(minutes=10)
+
+
+def clock() -> datetime:
+    """The LOADER's clock — the one input to `answering` a compromised parser cannot write.
+    A function rather than a call so a test can fix it."""
+    return datetime.now(UTC)
+
+
+def answering(con: Connection, sha: str, ran_at: str, echo) -> tuple[int | None, str]:
+    """(the dispatch this reading answers, or None; why not). ONE rule for admit and for the
+    loader's stamp, so what is let into `ready/` and what is written into `ocr_run` can never
+    be two different judgements.
+
+    The dispatch must be of THIS document, PRECEDE the reading, be unanswered, and be recent
+    ON THE LOADER'S CLOCK. `ran_at` is the parser's own clock and therefore untrusted: until
+    2026-09-11 the window was measured from it alone, so a compromised parser could date a
+    reading five minutes after ANY dispatch and replace the text of every document the stage
+    had ever handed over (security review, 2026-09-11, confirmed by running this function). So
+    the reading may not be dated in the future, the dispatch must be inside the window counted
+    back from now, and a dispatch a `read` row already names cannot be answered twice.
+
+    WHICH dispatch is the one the record QUOTES (ADR 0024 addendum, 2026-09-11) — never the
+    latest before `ran_at`, which stamps a document re-dispatched after the retry interval
+    with its second request when the first one's reading lands late, publishing the first as
+    unanswered for good (schema-critic). A record that quotes NO dispatch is refused, never
+    stamped by inference, so every stamp after migration 0026 is one the container quoted.
+    """
+    if not isinstance(ran_at, str) or not _CANONICAL.match(ran_at):
+        return None, "its clock is not in the form the container writes"
+    now = clock()
     try:
-        floor = (datetime.fromisoformat(ran_at) - timedelta(hours=AUTHORISED_HOURS)).isoformat()
-    except ValueError:
-        return False
-    return (
-        con.execute(
-            "SELECT 1 FROM extraction_dispatch WHERE document_sha256 = ?"
-            "   AND dispatched_at <= ? AND dispatched_at >= ? LIMIT 1",
-            (sha, ran_at, floor),
-        ).fetchone()
-        is not None
+        read = datetime.fromisoformat(ran_at)
+        floor = (read - timedelta(hours=AUTHORISED_HOURS)).isoformat()
+    except (ValueError, OverflowError):  # year 1 minus a day overflows; it is not a reading
+        return None, "its clock is not a plausible timestamp"
+    if read > now + CLOCK_SKEW:
+        return None, "it is dated in the future"
+    # the later of the two floors: counted back from the reading AND from now, as strings in
+    # the one canonical form both columns hold
+    floor = max(floor, (now - timedelta(hours=AUTHORISED_HOURS)).isoformat(timespec="seconds"))
+    window = (
+        "SELECT dispatch_id FROM extraction_dispatch x WHERE x.document_sha256 = ?"
+        "   AND x.dispatched_at <= ? AND x.dispatched_at >= ?"
+        "   AND NOT EXISTS (SELECT 1 FROM ocr_run r"
+        "                    WHERE r.dispatch_id = x.dispatch_id AND r.outcome = 'read')"
     )
+    if con.execute(window + " LIMIT 1", (sha, ran_at, floor)).fetchone() is None:
+        return None, "no dispatch precedes it"
+    if echo is None:
+        # NO FALLBACK (schema-critic, 2026-09-11): a record from the container before the echo
+        # is refused, not stamped by inference. The deploy lands those records before the
+        # migration, which stamps them under its own recorded rule; one that slips through is
+        # asked for again after the retry interval, by the container that echoes.
+        return None, "it quotes no dispatch"
+    if not isinstance(echo, str) or not _CANONICAL.match(echo):
+        return None, "the dispatch it quotes is not a timestamp"
+    row = con.execute(
+        window + " AND x.dispatched_at = ? ORDER BY x.dispatch_id DESC LIMIT 1",
+        (sha, ran_at, floor, echo),
+    ).fetchone()
+    if row is None:
+        return None, "the dispatch it quotes is not one of this document's before it"
+    return row[0], ""
 
 
 def admit(con: Connection, spool: Path, ready: Path, problems: list[str]) -> tuple[int, int]:
@@ -178,8 +229,14 @@ def admit(con: Connection, spool: Path, ready: Path, problems: list[str]) -> tup
                 why = "its digest is not its filename"
             elif head.get("tool") is None or head.get("reading_role") is not None:
                 why = "it is not an extraction record, which is all this stage produces"
-            elif not _authorised(con, sha, ran_at):
-                why = "no dispatch precedes it"
+            elif "dispatched_at" in head and not isinstance(head["dispatched_at"], str):
+                # an explicit null is not an absence: absence falls back to the one unambiguous
+                # dispatch, and a parser must not choose that path (the loader refuses it too)
+                why = "the dispatch it quotes is not a timestamp"
+            else:
+                answers, reason = answering(con, sha, ran_at, head.get("dispatched_at"))
+                if answers is None:
+                    why = reason
             if why is None:
                 target = ready / shard.name / path.name
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -319,7 +376,20 @@ def run(
     if ready.is_dir():
         for name, pass_ in (("paginated", paginate), ("loaded", load)):
             try:
-                totals = pass_.run(con, ready, data_dir) if pass_ is load else pass_.run(con, ready)
+                totals = (
+                    # the stage stamps what it loads with the dispatch each reading answers,
+                    # by the same rule admit just applied (ADR 0024 addendum, 2026-09-11)
+                    pass_.run(
+                        con,
+                        ready,
+                        data_dir,
+                        stamp=lambda h: answering(
+                            con, h.document_sha256, h.ran_at, h.dispatched_at
+                        )[0],
+                    )
+                    if pass_ is load
+                    else pass_.run(con, ready)
+                )
             except Exception as e:  # noqa: BLE001 — the stage must never cost the pass
                 con.rollback()
                 aborted = True

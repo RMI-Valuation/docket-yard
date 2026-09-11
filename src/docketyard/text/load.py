@@ -145,6 +145,11 @@ class Header:
     # carry it, so every reason was dropped at the boundary and the column stayed NULL
     # (ADR 0024 § Owed 2). Not a key: it explains a row, it does not identify one.
     note: str | None = None
+    # The request's `dispatched_at` as the instance's container quoted it (ADR 0024 addendum,
+    # 2026-09-11), or None where the record carries none. It is a CLAIM from a parser that
+    # has just read a hostile file, compared against the store and never trusted: the loader
+    # stamps a dispatch only through the stage's resolver, and never from this field alone.
+    dispatched_at: str | None = None
 
 
 class Reading:
@@ -380,6 +385,20 @@ def _note(record: dict) -> str | None:
     return said.strip()[:NOTE_MAX]
 
 
+def _echo(record: dict) -> str | None:
+    """The request's `dispatched_at`, echoed by the container, or None where the record has
+    none — the container before that release, or a record made anywhere else. Present and not
+    a non-empty string is REFUSED rather than read as absent: an absent echo falls back to the
+    one unambiguous dispatch, and a parser must not be able to choose that path by writing a
+    number where a timestamp belongs."""
+    if "dispatched_at" not in record:
+        return None
+    said = record["dispatched_at"]
+    if not isinstance(said, str) or not said.strip():
+        raise Unreadable(f"dispatched_at is {said!r}")
+    return said.strip()
+
+
 def header_of_extraction(record: dict) -> Header:
     """`extract_text.py`'s record as the text layer's reading. `method` is the TOOL, not the
     extraction's name for itself (`text-layer`), which is the channel."""
@@ -412,6 +431,7 @@ def header_of_extraction(record: dict) -> Header:
         "extract_text.json",
         None,
         _note(record),
+        _echo(record),
     )
 
 
@@ -512,7 +532,14 @@ def _run_recorded(con, h: Header) -> bool:
 
 
 def load_reading(
-    con, data_dir, reading: Reading, now: str | None = None, *, machine=None, pinned_keys=None
+    con,
+    data_dir,
+    reading: Reading,
+    now: str | None = None,
+    *,
+    machine=None,
+    pinned_keys=None,
+    stamp=None,
 ) -> str:
     """One reading into `document_text`, `text_payload`, `ocr_run` and `page_fts`; the
     CALLER holds the transaction. Returns `loaded`, `unchanged` (every page already said
@@ -543,6 +570,17 @@ def load_reading(
             f"{'/'.join(key)} is pinned to {pin[0]}@{pin[1]};"
             f" this reading is {h.key.method}@{h.key.method_version}"
         )
+    # WHICH DISPATCH THIS ANSWERS (ADR 0024 addendum, 2026-09-11). Only the stage passes
+    # `stamp`; `cli._text` never does, so a hand load is NULL whatever its file quotes —
+    # `dispatched_at` is published, and a forged root could quote a real one. Resolved BELOW
+    # the restart and pin checks, and never part of the restart lookup, so re-walking a root
+    # the stage already landed stays a free `restart` (schema-critic, 2026-09-11). A stage
+    # reading that answers nothing is refused, never written NULL: NULL is the hand load's.
+    dispatch_id = None
+    if stamp is not None:
+        dispatch_id = stamp(h)
+        if dispatch_id is None:
+            raise Unreadable("it answers no dispatch of this document")
     payload, pages = reading.body()
     digest = hashlib.sha256(payload).hexdigest()
     con.execute(
@@ -554,8 +592,8 @@ def load_reading(
     written = sum(_load_page(con, h, page, digest, now, by_role, by_key) for page in pages)
     con.execute(
         "INSERT INTO ocr_run (document_sha256, method, method_version, reading_channel,"
-        " render_profile, outcome, pages_read, pages_failed, note, ran_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " render_profile, outcome, pages_read, pages_failed, note, ran_at, dispatch_id)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             sha,
             h.key.method,
@@ -567,6 +605,7 @@ def load_reading(
             h.pages_failed,
             h.note,
             h.ran_at,
+            dispatch_id,
         ),
     )
     records.save_blob(data_dir, payload)  # after the rows: a refused reading leaves no file
@@ -656,7 +695,13 @@ def _load_page(con, h: Header, page: Page, digest: str, now: str, by_role, by_ke
 
 
 def run(
-    con, root: Path, data_dir, *, log=print, commit_every: int = batches.COMMIT_EVERY
+    con,
+    root: Path,
+    data_dir,
+    *,
+    log=print,
+    commit_every: int = batches.COMMIT_EVERY,
+    stamp=None,  # the stage's dispatch resolver; a hand load passes none (see load_reading)
 ) -> Counter:
     """The pass over a directory of readings, through `store.batches`.
 
@@ -679,7 +724,9 @@ def run(
     return batches.run(
         con,
         batches.walk(root, lambda path: read_file(path, allowed)),
-        lambda r: load_reading(con, data_dir, r, machine=machine, pinned_keys=pinned_keys),
+        lambda r: load_reading(
+            con, data_dir, r, machine=machine, pinned_keys=pinned_keys, stamp=stamp
+        ),
         log=log,
         commit_every=commit_every,
     )
