@@ -408,3 +408,7 @@ the container's own timestamp form is accepted: measured from the parser's `ran_
 let a compromised parser answer any dispatch it had ever been handed — a flaw in the check of
 2026-09-10, found by the security review of this one. D6's premise that SQLite cannot add a
 foreign key by `ALTER` holds for existing columns only; 0026 adds one to a new column.
+
+**Owed 6 does not ship in v2026.09.13** (2026-09-11): the operator held the `/methodology`
+section it built (`848e366`) for rewording, so the addendum's "built, unreleased" above
+means built and held. The census's `exhausted`/`resting` split ships; the page does not.
