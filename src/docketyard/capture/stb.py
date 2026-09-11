@@ -146,6 +146,15 @@ def _wire_url(url: str) -> str:
 # attempt. `observations.NO_ANSWER_STATUSES` rests exactly these, with 0, a day; a test holds
 # the two lists together.
 RETRIED = (429, 500, 502, 503, 504)
+# What a failed transport looks like, whichever read it failed on: the retry tuple, and the
+# test an error ANSWER's body must also pass before it is recorded as the answer.
+_TRANSPORT = (
+    urllib.error.URLError,
+    TimeoutError,
+    ConnectionError,
+    http.client.HTTPException,  # IncompleteRead, RemoteDisconnected mid-body
+    ssl.SSLError,  # a TLS failure mid-body that is not a clean close
+)
 
 
 def _read(resp, size: int) -> bytes:
@@ -242,6 +251,18 @@ class StbClient:
                 "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
             }
         last_error: Exception | None = None
+
+        def answered(e):
+            """An error ANSWER is the record only if it arrives INTACT. Its body is read inside
+            the `HTTPError` handler, where a failure is not caught by the handlers beside it: a
+            404 cut short of its Content-Length escaped as `IncompleteRead`, recorded nothing,
+            and was asked for again every pass (code review, 2026-09-11). So a body that fails
+            to arrive is the transport failing, returned for the caller to retry."""
+            try:
+                return consume(e)
+            except _TRANSPORT as cut:
+                return cut
+
         for attempt in range(3):
             self._throttle()
             self._last_request = time.monotonic()
@@ -259,7 +280,12 @@ class StbClient:
                 ):
                     # a document host refusing one object (403 on a legacy /MPD/ path,
                     # measured 2026-08-27; a 404): the answer is the record of the attempt
-                    return consume(e)
+                    got = answered(e)
+                    if not isinstance(got, Exception):
+                        return got
+                    last_error = got
+                    time.sleep(self.min_interval * (2**attempt))
+                    continue
                 if e.code == 403:
                     body = e.read(200).decode("utf-8", "replace").strip()
                     if body == "-1":
@@ -278,18 +304,16 @@ class StbClient:
                         # the host ANSWERED, every time: its last answer is the record of the
                         # attempt, kept raw like any other response (the operator, 2026-09-11),
                         # and the caller rests it a day like silence, not a refusal's week
-                        return consume(e)
+                        got = answered(e)
+                        if not isinstance(got, Exception):
+                            return got
+                        last_error = got  # the answer did not arrive intact: unanswered
+                        continue
                     last_error = e
                     time.sleep(self.min_interval * (2**attempt))
                     continue
                 raise
-            except (
-                urllib.error.URLError,
-                TimeoutError,
-                ConnectionError,
-                http.client.HTTPException,  # IncompleteRead, RemoteDisconnected mid-body
-                ssl.SSLError,  # a TLS failure mid-body that is not a clean close
-            ) as e:
+            except _TRANSPORT as e:
                 # transient transport failures (DNS, reset, read timeout) retry like 5xx
                 last_error = e
                 time.sleep(self.min_interval * (2**attempt))

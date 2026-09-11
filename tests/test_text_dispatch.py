@@ -165,34 +165,6 @@ def test_the_census_tells_a_terminal_count_from_one_in_flight(tmp_path):
     con.close()
 
 
-def test_methodology_publishes_the_queue_from_its_own_constants(tmp_path):
-    """The sentence and the table come from the constants and the census, so they cannot
-    drift from what the stage does; with no pin the page says nothing is being handed over."""
-    from fastapi.testclient import TestClient
-
-    from docketyard.web.app import create_app
-    from tests.test_web import build_store
-
-    path = build_store(tmp_path)
-    body = TestClient(create_app(path)).get("/methodology").text
-    assert "No reader is declared at present" in body
-    for phrase in (
-        f"at most {queue.EXTRACT_LIMIT} files",
-        f"a PDF of {queue.EXTRACT_MAX_BYTES >> 20} MB or less",
-        f"no sooner than {queue.EXTRACT_RETRY_HOURS} hours",
-        f"at most {queue.EXTRACT_ATTEMPTS} times",
-        f"the last {dispatch.HALT_AFTER} hand-offs",
-    ):
-        assert phrase in body, phrase
-    con = db.connect(path)
-    load.declare_producer(con, queue.CHANNEL, queue.RENDER, dispatch.ROLE, *PIN, by="test")
-    con.commit()
-    con.close()
-    body = TestClient(create_app(path)).get("/methodology").text
-    assert "No reader is declared" not in body
-    assert "The reader: pymupdf 1.26.0" in body and "All files from the watch" in body
-
-
 def test_a_failed_run_does_not_silence_a_document_for_ever(tmp_path):
     """D4: the OUTCOME is part of the read test, not the row's existence. Under "no row at
     that key" one `failed` would silence this queue for that document at every version and

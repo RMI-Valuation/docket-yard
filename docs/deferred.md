@@ -774,6 +774,24 @@ amendments are listed in the migration's own header; these are the rest.
   for it (`surrogate`, on `document_pagination`'s precedent) would give one, since `run_id` is
   followable for the same reasons `pagination_id` is.
 
+## From a high code review of v2026.09.12 itself, 2026-09-11
+
+Run against the released range by mistake (the unreleased range was reviewed after it); what
+it found is in the released code and is recorded here rather than dropped.
+
+- **An `extract` outage longer than the admit window strands documents at the pin.**
+  Requests wait in `data/extract/requests` while the container is down and are answered when
+  it returns; a document dispatched at T, T+6 h and T+12 h whose readings arrive at T+40 h has
+  every reading quarantined ("no dispatch precedes it") and every attempt spent. The halt
+  bounds how many (one canary a pass), and the designed reset is the pin bump. A fix would
+  let the container drop a request older than the window unread, or count an attempt only
+  once its reading is refused rather than when it is handed over. The loader-clock floor
+  added 2026-09-11 adds the poller's own outage to this, and that case heals: the stale
+  records are quarantined and their documents, with attempts left, are asked for again.
+- **`citator declare` tells the operator the wrong thing** (`cli.py` ~420, and
+  `project.unstamped_work_rows`'s docstring): "nothing re-stamps an unchanged answer", in the
+  release that ships `citator restamp --apply`, which does.
+
 ## From the no-answer fetch's reviews, 2026-09-11 (v2026.09.12)
 
 stb-ingest-specialist and schema-critic on the status-0 change; what was fixed is in the

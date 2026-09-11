@@ -480,6 +480,20 @@ def test_a_refused_answer_is_recorded_not_stored_and_rested_a_week(con, tmp_path
     assert con.execute("SELECT COUNT(*) FROM document").fetchone()[0] == 0
 
 
+def test_methodology_says_the_refusal_rest_the_code_enforces(tmp_path):
+    """The operator's own words on /methodology say "a week" (2026-09-11), and the page is
+    generated from the same source as the code: this fails the moment either moves alone."""
+    from fastapi.testclient import TestClient
+
+    from docketyard.ingest import observations
+    from docketyard.web.app import create_app
+    from tests.test_web import build_store
+
+    body = TestClient(create_app(build_store(tmp_path))).get("/methodology").text
+    assert "is recorded as refused and asked for again a week later" in body
+    assert observations.REFUSAL_REST_DAYS == 7
+
+
 def test_the_client_hands_a_document_hosts_refusal_back_as_the_answer(tmp_path, monkeypatch):
     """A 404/403 from the Board's bucket for one object is an answer to record, not a
     stop; the same code from stb.gov itself is still the WAF diagnosis."""
@@ -598,6 +612,37 @@ def test_a_body_cut_short_of_its_length_is_not_a_document(tmp_path, monkeypatch)
     with pytest.raises(stb.Unanswered):
         stb.StbClient(min_interval=0).download(f"{S3}/1/1.pdf", tmp_path)
     assert not any(records.staging_dir(tmp_path).glob("dl-*"))  # nothing half-kept
+
+
+def test_a_refusal_whose_body_is_cut_short_is_retried_not_lost(tmp_path, monkeypatch):
+    """An error answer's body is read inside the HTTPError handler, where a failure escaped
+    as IncompleteRead, recorded nothing, and was asked for again every pass (code review,
+    2026-09-11). An answer is the record only if it arrives intact; otherwise it is retried,
+    and three failures are `Unanswered`. A REAL response, cut short of its length."""
+    import http.client
+    import io
+    import urllib.error
+    import urllib.request
+
+    from docketyard.capture import stb
+
+    class Short:
+        def makefile(self, mode):
+            return io.BytesIO(b"HTTP/1.1 404 Not Found\r\nContent-Length: 100\r\n\r\n" + b"x" * 20)
+
+    calls = []
+
+    def refuse(req, timeout=None):
+        calls.append(req.full_url)
+        r = http.client.HTTPResponse(Short())
+        r.begin()
+        raise urllib.error.HTTPError(req.full_url, 404, "Not Found", r.headers, r)
+
+    monkeypatch.setattr(urllib.request, "urlopen", refuse)
+    with pytest.raises(stb.Unanswered):
+        stb.StbClient(min_interval=0).download(f"{S3}/1/1.pdf", tmp_path)
+    assert len(calls) == 3
+    assert not any(records.staging_dir(tmp_path).glob("dl-*"))
 
 
 def test_a_tls_failure_mid_body_is_the_transport_and_is_retried(tmp_path, monkeypatch):

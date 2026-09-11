@@ -217,7 +217,11 @@ has landed (its header gives the rule); the steps make sure everything the old c
 wrote has landed first. `text pin` cannot un-pin, and this does not need it. **Budget about
 five minutes for `migrate`**: the `ADD COLUMN` is quick, but the runner's
 `foreign_key_check` after the script walks the whole store (§ above, 280 s on a cold copy).
-Rehearse on a `litestream restore` copy first.
+**Rehearsed 2026-09-11 on a `litestream restore` of production** (4.29 GB, restored 01:28
+UTC): 25 → 26 in 2.8 s with the check, `integrity_check` ok, 0 foreign-key violations, 75
+of 75 stage readings stamped and 0 left NULL, the correction row as written, and home,
+`/coverage`, `/methodology`, `/parties`, `/dockets`, `/stats`, `/api`, `/llms.txt`,
+`/robots.txt`, `/data`, a docket sheet and a search all 200 from the migrated copy.
 
 ```sh
 cd /srv/docketyard
