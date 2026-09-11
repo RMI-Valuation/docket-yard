@@ -323,6 +323,33 @@ def test_the_transport_carries_the_lease(remote):
     assert e.value.code == 404
 
 
+def test_claimable_counts_what_a_claim_could_lease_now(q):
+    """The gate asks this before it loads a model (2026-09-11: an empty queue cost 222 worker
+    launches in 37 minutes). A live lease is not claimable; an expired one is, while it has an
+    attempt left; a page out of attempts never is."""
+    assert q.claimable("dots") == 3
+    [job] = q.claim("w1", "dots", 1, 60)
+    assert q.claimable("dots") == 2
+    q.con.execute("UPDATE job SET lease_until = 0 WHERE job_id = ?", (job["job_id"],))
+    assert q.claimable("dots") == 3  # the reap a claim runs first would return it
+    q.con.execute("UPDATE job SET attempts = max_attempts WHERE job_id = ?", (job["job_id"],))
+    assert q.claimable("dots") == 2
+
+
+def test_the_transport_answers_what_is_claimable(remote):
+    r, _ = remote
+    assert r.claimable("dots") == 3
+    req = urllib.request.Request(
+        r.url + "/pending?pass=nope", headers={"Authorization": f"Bearer {TOKEN}"}
+    )
+    with pytest.raises(urllib.error.HTTPError) as e:
+        urllib.request.urlopen(req, timeout=5)
+    assert e.value.code == 400  # a pass the queue does not know is refused, not zero
+    with pytest.raises(urllib.error.HTTPError) as e:
+        pq.RemoteQueue(r.url, "x" * 40).claimable("dots")
+    assert e.value.code == 401
+
+
 def test_the_transport_refuses_a_bad_token(remote):
     r, _ = remote
     bad = pq.RemoteQueue(r.url, "x" * 40)

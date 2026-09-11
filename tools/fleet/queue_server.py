@@ -12,6 +12,7 @@ another machine (docs/compute-fleet.md § Joining a node).
     POST /done      {worker, job_id, raw}                  -> {accepted: bool}
     POST /fail      {worker, job_id, error, final}         -> {}            (ValueError: 400)
     GET  /blob/<sha256>                                    -> the document's bytes
+    GET  /pending?pass=<pass>                              -> {pass, claimable}
 
 Every request carries `Authorization: Bearer <token>`, the token being one line in a file
 that exists on the node and on each joining machine and in no repository. The LAN is the
@@ -29,11 +30,12 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from pagequeue import KeyMismatch, Queue  # noqa: E402
+from pagequeue import PASSES, KeyMismatch, Queue  # noqa: E402
 
 HEX64 = frozenset("0123456789abcdef")
 
@@ -51,6 +53,14 @@ def serve(db: Path, blobs: Path, token: str, port: int, bind: str) -> None:
             if not self._authorised():
                 return self._json(401, {"error": "unauthorised"})
             path = self.path.split("?", 1)[0]
+            if path == "/pending":
+                # what a claim could lease now, so a gate asks before it loads a model for an
+                # empty queue (2026-09-11). A pass the queue does not know is refused, not zero.
+                pass_ = parse_qs(urlsplit(self.path).query).get("pass", [""])[0]
+                if pass_ not in PASSES:
+                    return self._json(400, {"error": "unknown pass"})
+                with lock:
+                    return self._json(200, {"pass": pass_, "claimable": q.claimable(pass_)})
             if path.startswith("/blob/"):
                 sha = path[6:]
                 if len(sha) != 64 or set(sha) - HEX64:

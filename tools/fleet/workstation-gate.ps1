@@ -8,6 +8,14 @@ input and decides:
     any input, or the off switch                         -> STOP: the worker first (it releases
                                                             its pages at once), then the container
                                                             (its VRAM comes back to the person)
+    idle, but the node has nothing to lease              -> HOLD: nothing starts; the node is
+                                                            asked again every --RecheckMinutes
+    every worker exits 0 (the queue ran dry)             -> EMPTY: the container stops and the
+                                                            gate holds, as above
+
+HOLD and EMPTY exist because of 2026-09-11: with the `dots` queue empty from 05:51, the gate kept
+the model resident and relaunched six workers a minute — 222 launches in 37 minutes — on a
+machine the operator was about to come back to. It asks the node's `GET /pending` first now.
 
 The switches are files in ~/.docketyard: `fleet-off` (never run, whatever the idle time) and
 `fleet-on` (run now, idle or not). The node's address is the one line in `fleet-node` there,
@@ -32,6 +40,8 @@ while pages are in flight costs their leases, nothing else: the lease makes this
 #>
 param(
     [int]$IdleMinutes = 10,
+    [int]$RecheckMinutes = 5,   # how often a held gate asks the node for work again
+    [string]$Pass = "dots",
     [int]$Workers = 6,     # concurrent requests: measured 2026-09-09, 1 -> 11.2 s/page, 6 -> 3.3 s/page effective
     [string]$Node = "",   # default: the one line in ~/.docketyard/fleet-node, e.g. http://<node>:8131
     [string]$Repo = "E:\DevProjects\docket-yard",
@@ -104,6 +114,9 @@ function StartWorkers {
         $script:procs[$i] = Start-Process -FilePath $python -ArgumentList $args -NoNewWindow -PassThru `
             -RedirectStandardOutput (Join-Path $dir "dots-worker-$i.log") `
             -RedirectStandardError (Join-Path $dir "dots-worker-$i.err")
+        # without a handle taken now, a -PassThru process can report a null ExitCode once it has
+        # exited, and EMPTY must tell exit 0 (queue dry) from 2..5 (server gone)
+        $null = $script:procs[$i].Handle
         Log "worker $i started (pid $($script:procs[$i].Id))"
     }
 }
@@ -121,23 +134,57 @@ function StopAll {
     $script:procs = @{}
 }
 
+function QueueHasWork {
+    # The node's count of pages a claim could lease now. An unreachable node counts as no work:
+    # a worker started against it would only wait out --server-wait and exit 2.
+    try {
+        $t = (Get-Content $token -ErrorAction Stop).Trim()
+        $r = Invoke-RestMethod -Uri "$Node/pending?pass=$Pass" -TimeoutSec 15 `
+            -Headers @{ Authorization = "Bearer $t" }
+        return ([int]$r.claimable -gt 0)
+    } catch {
+        Log "queue check failed ($($_.Exception.Message)); holding"
+        return $false
+    }
+}
+
 Log "gate up: idle threshold $IdleMinutes min; switches in $dir"
 $running = $false
+$held = $false          # the node had nothing to lease at the last look
+$nextLook = Get-Date    # when a held gate asks the node again
 while ($true) {
     $idle = [Idle]::Seconds()
     $wantOn = ((Test-Path $on) -or ($idle -ge $IdleMinutes * 60)) -and -not (Test-Path $off)
     if ($wantOn -and -not $running) {
-        Log ("START: idle {0:n0} s" -f $idle)
-        StartContainer; StartWorkers; $running = $true
+        if ((Get-Date) -ge $nextLook) {
+            if (QueueHasWork) {
+                Log ("START: idle {0:n0} s" -f $idle)
+                StartContainer; StartWorkers; $running = $true; $held = $false
+            } else {
+                if (-not $held) { Log "HOLD: the node has nothing to lease; asking again every $RecheckMinutes min" }
+                $held = $true
+                $nextLook = (Get-Date).AddMinutes($RecheckMinutes)
+            }
+        }
     } elseif (-not $wantOn -and $running) {
         Log ("STOP: idle {0:n0} s, off switch {1}" -f $idle, (Test-Path $off))
         StopAll; $running = $false
     } elseif ($running -and -not (AnyRunning)) {
-        # workers exit on their own when the queue is empty (0) or the server is gone (2..5);
-        # they are started again a minute later — this branch's sleep plus the loop's — as
-        # the node's loop does. $wantOn holds here: the branch above handles its other value
-        Start-Sleep -Seconds 30
-        StartWorkers
+        $codes = @($script:procs.Values | ForEach-Object { $_.ExitCode })
+        if (@($codes | Where-Object { $_ -ne 0 }).Count -eq 0) {
+            # every worker said the queue is dry (exit 0): the model goes, and the gate holds
+            # until the node has pages again, where it used to relaunch six workers a minute
+            Log "EMPTY: every worker exited 0; stopping the container and holding"
+            StopAll; $running = $false; $held = $true
+            $nextLook = (Get-Date).AddMinutes($RecheckMinutes)
+        } else {
+            # a server gone or failing (2..5): started again a minute later — this branch's
+            # sleep plus the loop's — as the node's loop does
+            Log ("workers exited ({0}); starting them again" -f ($codes -join ","))
+            Start-Sleep -Seconds 30
+            StartWorkers
+        }
     }
+    if (-not $wantOn) { $held = $false; $nextLook = Get-Date }   # back at the keyboard: ask at once next time
     Start-Sleep -Seconds 30
 }

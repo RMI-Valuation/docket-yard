@@ -40,6 +40,7 @@ import sqlite3
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
@@ -188,6 +189,17 @@ class Queue:
     def reap(self) -> int:
         with self.tx():
             return self._reap()
+
+    def claimable(self, pass_: str) -> int:
+        """How many pages a `claim` could lease now: pending with an attempt left, or leased
+        past its time with one left (the reap `claim` runs first would return it). Read-only.
+        A gate asks this before it starts a worker: starting one against an empty queue is
+        what loaded a model and relaunched six workers a minute for nothing (2026-09-11)."""
+        return self.con.execute(
+            "SELECT COUNT(*) FROM job WHERE pass = ? AND attempts < max_attempts"
+            " AND (state = 'pending' OR (state = 'leased' AND lease_until < ?))",
+            (pass_, time.time()),
+        ).fetchone()[0]
 
     def claim(self, worker: str, pass_: str, n: int, lease_seconds: int) -> list[dict]:
         """Up to `n` pending pages, leased to `worker`. Atomic: two workers never hold one.
@@ -461,6 +473,14 @@ class RemoteQueue:
 
     def register(self, name: str, pass_: str, producer: dict) -> None:
         self._post("/register", {"name": name, "pass": pass_, "producer": producer})
+
+    def claimable(self, pass_: str) -> int:
+        req = urllib.request.Request(
+            f"{self.url}/pending?pass={urllib.parse.quote(pass_)}",
+            headers={"Authorization": f"Bearer {self.token}"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return int(json.loads(resp.read())["claimable"])
 
     def claim(self, worker: str, pass_: str, n: int, lease_seconds: int) -> list[dict]:
         body = {"worker": worker, "pass": pass_, "n": n, "lease_seconds": lease_seconds}

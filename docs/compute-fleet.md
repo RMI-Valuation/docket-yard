@@ -203,7 +203,11 @@ A second node needs three things and no redesign:
    first input it writes the worker's stop file, stops the container, and the worker is gone
    within seconds with its pages released. Two switch files override the idle rule either
    way. The lease makes a hard stop cost nothing. The Mac's and the Jetson's rules are
-   whatever they are for.
+   whatever they are for. **Since 2026-09-11 it starts only when the node has work**: it asks
+   `GET /pending` first and holds otherwise, re-asking every five minutes, and when every
+   worker exits "queue empty" it stops the container rather than relaunching them. With the
+   `dots` queue dry from 05:51 that morning it had kept the model resident and relaunched six
+   workers a minute — 222 launches in 37 minutes on a machine the operator came back to.
 
    **Measured 2026-09-09, the workstation's first hour.** vLLM 0.28.0 in a container under
    WSL2 with `VLLM_USE_V2_MODEL_RUNNER=0` — the V2 runner needs unified virtual addressing,

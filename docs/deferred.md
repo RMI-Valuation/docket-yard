@@ -774,6 +774,17 @@ amendments are listed in the migration's own header; these are the rest.
   for it (`surrogate`, on `document_pagination`'s precedent) would give one, since `run_id` is
   followable for the same reasons `pagination_id` is.
 
+## From the fleet gate's fix, 2026-09-11 (v2026.09.13)
+
+- **`queue_server.py` answers 401 to a POST without reading its body**, and on Windows the
+  client can then see `ConnectionAbortedError` (the peer reset before the response is read)
+  instead of the 401. `test_the_transport_refuses_a_bad_token` failed once that way in six
+  runs, right after a new test that also sends refused requests; it predates the gate fix.
+  The fix: drain `Content-Length` (bounded) before replying 401 in `do_POST`.
+- **RMI-AI-MACHINE's worker loop relaunches a worker a minute after it exits "queue empty"**,
+  the churn the workstation gate no longer does. Cheap there — its vLLM is always up by design
+  — but the same `GET /pending` check would quiet it.
+
 ## From a high code review of v2026.09.12 itself, 2026-09-11
 
 Run against the released range by mistake (the unreleased range was reviewed after it); what
