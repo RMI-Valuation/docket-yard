@@ -268,20 +268,106 @@ Mac. gemma4:e4b is 9.6 GB, so it cannot run on the Jetson. NVIDIA's nemotron-3-n
 follows gemma3:4b on the Jetson, at the operator's suggestion.
 
 **The same model does not answer the same way on different machines (measured 2026-09-11).**
-Each run used the same weights, temperature 0 and the same prompt, and was compared mention
-by mention:
+Each run used the same weights, temperature 0 and the same prompt, and was compared mention by
+mention over the whole answer — the kind, the docket and the document named:
 
-| Model | Machines | Identical answers | Pace |
+| Model | Machines | Identical answers | Pace, seconds a mention |
 |---|---|---|---|
-| qwen3:14b | Mac (Metal) vs RMI's 4070 (CUDA) | 96.5% (27 of 768 differ) | 2.75 s vs 0.74 s |
-| llama3.1:8b | Mac vs RMI's 4070 | 89.1% | 1.48 s vs 0.41 s |
-| qwen3:4b | Mac vs the Jetson's Orin (CUDA) | 91.9% | 0.99 s vs 2.89 s |
+| qwen3:14b | Mac (Metal) vs RMI's 4070 (CUDA) | 96.5% (27 of 768 differ) | 2.75 vs 0.74 |
+| qwen3:14b | Mac vs the NUC's CPU (224 mentions) | 92.0% | 2.75 vs 22.70 |
+| qwen3:4b | Mac vs the Jetson's Orin (CUDA) | 90.4% | 0.99 vs 2.89 |
+| llama3.1:8b | Mac vs RMI's 4070 | 89.1% | 1.48 vs 0.41 |
+| llama3.1:8b | Mac vs the Jetson, headless | 88.4% | 1.48 vs 3.29 |
+| llama3.1:8b | Mac vs the NUC's CPU | 88.0% | 1.48 vs 11.40 |
+| llama3.1:8b | the Jetson vs RMI's 4070 | 87.2% | 3.29 vs 0.41 |
+| llama3.1:8b | the NUC vs RMI's 4070 | 86.3% | 11.40 vs 0.41 |
+| llama3.1:8b | the Jetson vs the NUC | 83.7% | 3.29 vs 11.40 |
+| nemotron-3-nano:4b | the Jetson, desktop on vs headless (224) | 87.9% | 3.73 vs 3.24 |
 
-So if a model's judgement is ever stored, **the machine is part of its method key**, just as
-another OCR engine is another pass. RMI's 4070 was the fastest reviewer by far: the 768
-mentions took qwen3:14b under 10 minutes. The models also stray from the candidates they are
-given. Asked for a decision id, some answered `Decision No. 1`, `NOR 35404` or a case name.
-Those are scored as wrong; a later prompt would constrain the answer to the list.
+**The bigger the model, the steadier it is across machines**: qwen3:14b holds 96.5% between
+two GPUs, llama3.1:8b 83.7–89.1% across four boxes. So if a model's judgement is ever stored,
+**the machine is part of its method key**, just as another OCR engine is another pass.
+
+(The 91.9% recorded earlier for qwen3:4b was taken before the later runs landed; recomputed
+over the whole answer it is 90.4%. On the citation question alone the two hosts agree 97.0%.)
+
+RMI's 4070 was the fastest reviewer by far, at 0.41 s a mention for llama3.1:8b and 0.74 s for
+qwen3:14b — the whole 768 in under ten minutes. The NUC's CPU is 28–31× slower than that same
+4070 on the same weights: 11.40 s a mention for llama3.1:8b, and 22.70 s for qwen3:14b, which
+is 17 minutes for one decision. **qwen3:14b on the NUC was stopped at 5 of 60 decisions
+(the operator's decision, 2026-09-11): its pace is the finding, and 11 further hours would
+not have changed it.** A CPU-only box is not a reviewer, whatever it scores.
+
+**Step 2 measured in full, 2026-09-11** — twelve complete runs of all sixty decisions, scored
+against the 225 checked docket-shaped targets and, for the document, against the work sheet
+(147 documents over 148 pairs, 8 of them where stopping was right):
+
+| Run | Host | Is it a citation? P / R | Which document? P / R | s/mention |
+|---|---|---|---|---|
+| **the record's own rules** | **no model** | **87.2 / 99.6** | — | — |
+| gemma4:e4b | Mac | 95.7 / 88.0 | 86.7 / 61.9 | 1.47 |
+| qwen3:4b | Mac | 92.4 / 32.4 | 97.4 / 25.2 | 0.99 |
+| qwen3:14b | RMI's 4070 | 91.9 / 80.9 | 90.6 / 78.2 | 0.74 |
+| qwen3:4b | the Jetson | 91.8 / 29.8 † | 97.1 / 23.1 | 2.89 |
+| qwen3:14b | Mac | 91.0 / 81.3 | 88.5 / 78.9 | 2.75 |
+| gemma3:12b | Mac | 85.8 / 93.8 | 76.2 / 89.1 | 3.63 |
+| llama3.1:8b | Mac | 80.1 / 68.0 | 77.1 / 57.1 | 1.48 |
+| llama3.1:8b | RMI's 4070 | 79.3 / 69.8 | 77.5 / 58.5 | 0.41 |
+| llama3.1:8b | the Jetson, headless | 79.3 / 68.0 | 77.4 / 55.8 | 3.29 |
+| llama3.1:8b | the NUC's CPU | 76.1 / 70.7 | 73.9 / 57.8 | 11.40 |
+| gemma3:4b | the Jetson | 76.4 / 68.9 † | 58.7 / 48.3 | 4.83 |
+| nemotron-3-nano:4b | the Jetson, headless | 70.7 / 51.6 | 75.3 / 39.5 | 3.24 |
+
+† **A floor, not a measurement.** 59 of gemma3:4b's 768 mentions and 13 of qwen3:4b's
+never reached the model: Ollama answered HTTP 500 as the model process restarted under the
+Orin's memory pressure, with the desktop up. Even if every one had been answered perfectly,
+gemma3:4b reaches 76.9% recall and qwen3:4b 34.7%, so neither can approach the rules and
+re-running them was declined (2026-09-11). Every other run in the table is complete.
+
+**No model beats the record's own rules, and neither does agreement.** The finder alone recalls
+99.6% of the real citations at 87.2% precision. The best model recall is gemma3:12b's 93.8%,
+six points short, and it buys that with worse precision than the rules. The best precision,
+gemma4:e4b's 95.7%, costs twelve points of recall — 27 real citations dropped. Every model
+except gemma3:12b finds fewer real citations than the rules do.
+
+Agreement does not rescue it. Where gemma4:e4b, qwen3:14b and gemma3:12b all three say
+citation, 174 of 179 are real (97.2%) — better precision than any one of them alone. But it
+finds 174 of the 225 real citations where the rules find 224, it throws away 14 more that all
+three call captions, and it splits on 49 pairs that go to a person anyway. Across all twelve
+runs unanimity collapses to 34 pairs, a seventh of the record.
+
+**The models stray from the candidate list they are handed, and straying is the model's
+property, not the machine's.** Each was given the registry's dockets and the decisions served
+on the printed date, and asked to pick from them. Naming something that was never offered:
+
+| Model | Names a docket not offered | Names a decision not offered |
+|---|---|---|
+| qwen3:14b | 0.3–0.4% | 2.9–3.8% |
+| gemma3:12b | 1.0% | 21.1% |
+| gemma4:e4b | 1.8% | 5.7% |
+| gemma3:4b | 3.8% | 28.4% |
+| llama3.1:8b | 12.1–12.5% | 9.8–11.7% |
+| nemotron-3-nano:4b | 16.1% | 15.8% |
+| qwen3:4b | 31.5% | 0.0% |
+
+The ranges are the same model on different hosts, and they barely move — llama3.1:8b strays on
+the docket 12.1% on the Mac, 12.1% on the 4070, 12.4% on the Jetson and 12.5% on the NUC, while
+its *answers* differ between those hosts on 11–16% of mentions. The machine changes which
+answer comes out; it does not change the model's discipline. qwen3:4b's 31.5% is the extreme:
+it almost never invents a decision id but rewrites the docket number a third of the time, which
+is why its recall is 32.4% while what it does name is 97.4% right.
+
+**The 8B model could not run beside the Jetson's desktop at all.** Its one attempted decision
+returned 88 empty answers. Headless, the same weights answered all 768 at 3.29 s a mention —
+recorded in `compute-fleet.md`. nemotron-3-nano:4b, small enough to load either way, agrees
+with itself 87.9% across that boundary: even freeing memory changes the answers.
+
+**What this measures: local models are not the first reviewer.** On the question the review
+page would ask them, the rules the record already runs are more complete than any of the seven
+models on any of the four machines, and the one thing models add — precision on the subset
+three of them agree about — leaves more than a fifth of the queue untouched and discards real
+citations on the way. The review page is designed for a person, with the record's candidates
+in front of them.
 
 Nothing ships from this. A model's answer would be an assertion with its method, version and
 channel, stamped with its measured precision (ADR 0017 D3). Letting agreement clear a held key

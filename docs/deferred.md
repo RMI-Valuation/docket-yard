@@ -1078,3 +1078,36 @@ What his 23 judged stops found, kept because each names a cause rather than a co
 - **Five of his sixteen corrections are a second page of a pair that already resolved.** The
   fold at projection publishes an edge once, so those cost nothing; only eleven are edges the
   rule does not reach at all.
+
+## From the code review of the review harness, 2026-09-11 (`benchmark_review.py`, v2026.09.15)
+
+Seven of the eight findings were fixed in the commit that first tracked the file; the numbers
+in `extraction-benchmark.md` were re-scored against the fixed scorer and are unchanged. One is
+deferred, because acting on it means discarding twelve runs:
+
+- **The snippet is cut around the mention's FIRST occurrence, while the class, the served date
+  and the offered decisions come from every occurrence** (`benchmark_review.py:191`,
+  `locate()` returns the first match only). 155 of the 768 mentions appear more than once on
+  their page, so for a fifth of the measurement the model reads one passage and is asked about
+  the evidence of another — it can be offered a decision whose date is printed somewhere it
+  cannot see, and `find.py` already warns that the first occurrence biases toward
+  "proceeding". **Not fixed, because the fix invalidates every run**: all twelve were asked
+  the same way, so the comparison between models and between machines is sound, and the
+  conclusion (no model reaches the rules' 99.6% recall) has a 25-point margin that a snippet
+  change cannot close. Fix it before any *new* run is scored beside the old ones, and re-run
+  the lot rather than mixing the two prompts.
+
+- **Two runs' recall is a floor, not a measurement, and they stay that way.** 59 of
+  gemma3:4b@jetson's 768 mentions and 13 of qwen3:4b@jetson's never reached the model (Ollama
+  returned HTTP 500 as the model process restarted under the Orin's memory pressure, the same
+  fault the section already records). Re-running cannot change a conclusion: if every errored
+  mention had been answered perfectly, gemma3:4b tops out at 76.9% recall and qwen3:4b at
+  34.7%, against the rules' 99.6%. The scorer now prints the floor beside the figure, and the
+  resume no longer skips a decision whose answers failed.
+
+- **Two of the work sheet's `should-be` verdicts name their id in prose**, so
+  `should-be:References (\d+)` misses them and both pairs leave the truth set: 51532 NOR 42060
+  (1) `(see 36657)` and 52211 FD 36732 `(51953)`. The scorer now prints them by name instead
+  of counting them. **The sheet is the operator's judged work, so normalising the two rows is
+  his**, not a scorer change; until then the document column is scored over 147 documents
+  rather than 149.

@@ -11,11 +11,12 @@ decisions were taken the same day and are recorded where each belongs.
 ## In motion
 
 - **The citator is loaded, and re-loaded with the line wrap** (v2026.09.15, 2026-09-11 20:16
-  UTC): 15,535 edges, 9,863 naming a document, none shown; exposed 1,476. Next the review page,
-  after the local-model measurement: easy, explained, one look settling docket, sub-docket and
-  document, linked to scan, text, both dockets and the matched document, over a queue of only
-  what can publish, with an ICC flag for `(ICC served …)`. Same-docket filings and decisions
-  must be citable (his requirement)
+  UTC): 15,535 edges, 9,863 naming a document, none shown; exposed 1,476. **Next the review
+  page, for a person** (the measurement is in): easy, explained, one look settling docket,
+  sub-docket and document, linked to scan, text, both dockets and the matched document, over a
+  queue of only what can publish, with an ICC flag for `(ICC served …)`. Same-docket filings
+  and decisions must be citable (his requirement). GATED on the citations brief's four
+  questions
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
@@ -27,11 +28,11 @@ decisions were taken the same day and are recorded where each belongs.
 
 ## Next
 
-- **Local models as the first reviewers: MEASURE FIRST** (his decision, 2026-09-11, the
-  citations brief's avenue J). Step 1 done: the stored role runs agree at 95.9%, no better than
-  qwen3 alone. Step 2: 2–3 models over the 225 checked targets, asked the review question with
-  the record's candidates and the own-docket fact. Nothing ships; clearing a key on agreement
-  is an ADR 0017 addendum, his. The review page is designed after it
+- **Local models are NOT the first reviewers — MEASURED, 2026-09-11**
+  (`docs/extraction-benchmark.md`). Twelve runs, seven models, four machines: the record's own
+  rules recall 99.6% at 87.2% precision and no model or agreement comes within six points.
+  **The review page is designed for a person**, and needs no ADR 0017 addendum. Two rows of the
+  sheet name an id in prose the scorer cannot read — normalising them is his (`deferred.md`)
 
 - **Party types, the held-out sheet is drawn and WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`; blind queue `data/party-types-heldout-check.html`).
@@ -47,9 +48,6 @@ decisions were taken the same day and are recorded where each belongs.
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
-- **The review measurement across the fleet** (his decisions, 2026-09-11): llama3.1:8b over the
-  768 mentions on the Mac, RMI and NUC (niced), qwen3:14b where it fits; Jetson: qwen3:4b,
-  gemma3:4b, nemotron-3-nano:4b; Mac also qwen3:4b, gemma4:e4b. Pace, agreement. Node: peak first
 
 ## Parked
 
