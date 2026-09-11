@@ -33,19 +33,16 @@ decisions were taken the same day and are recorded where each belongs.
   When the Copy block (party_id, type, first, note) returns: apply both picks to its
   `labels.csv`, score with `party_types_rules.py --sheet`, 95% per type on the FIRST pick;
   then the assertion migration (schema-critic first) and the browse on `/parties`
-- **Built, unreleased**: `Disallow: /search` for the named AI agents, site-level JSON-LD
-  (`web/jsonld.py`), and `/llms.txt` no longer linking what robots refuses — ride the next
-  release; after deploy, check a sheet's block in Google's Rich Results test
-- **ADR 0024's stage is LIVE** (v2026.09.12, pinned `pymupdf@1.26.0` 2026-09-10 23:19 UTC).
-  First pass 23:45: 25 dispatched, all 25 read in 3.7 s. Owed 5 DECIDED 2026-09-11:
-  `ocr_run.dispatch_id`, echoed by the container, checked at admit (ADR 0024 addendum) —
-  BUILT, unreleased (0026, the echo, the admit window fixed); deploy in MANUAL mode by
-  `infra/deploy/README.md` § Migration 0026 (stop extract, one pass, stop ingest). Still owed: a
-  per-page failure record (2); the `/methodology` queue table (6) rides the next release
+- **The next release is built on main, unreleased** — deploy in MANUAL mode, rehearsed on a
+  litestream copy, by `infra/deploy/README.md` § Migration 0026 (copy `infra/extract/`, stop
+  extract, one pass, stop ingest, `up --build`, check 0 NULL). It carries: robots `/search`
+  and JSON-LD; the `/methodology` queue table (new public wording — the operator reads it
+  first); the no-answer fetch and the truncated-download fix; migration 0026 (Owed 5) and
+  the admit-window fix. After deploy: a sheet's block in Google's Rich Results test
+- **ADR 0024's stage is LIVE** (pinned `pymupdf@1.26.0` 2026-09-10 23:19 UTC): three passes
+  verified in the store by 00:45 UTC, 75 read, 0 quarantined. Still owed: a per-page failure
+  record (Owed 2)
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
-- **Built, unreleased**: the no-answer fetch (status 0 on every path, a day's rest; a host's
-  429/5xx kept as its answer) and a download cut short no longer stored as a document —
-  measured 2026-09-11: none of the 82,946 PDFs on the box since 08-26 lacks `%%EOF`
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
 - The Mac's and the Jetson's passes, when a workload is chosen; two workers on the node,
