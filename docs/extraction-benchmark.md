@@ -324,17 +324,45 @@ Orin's memory pressure, with the desktop up. Even if every one had been answered
 gemma3:4b reaches 76.9% recall and qwen3:4b 34.7%, so neither can approach the rules and
 re-running them was declined (2026-09-11). Every other run in the table is complete.
 
-**No model beats the record's own rules, and neither does agreement.** The finder alone recalls
-99.6% of the real citations at 87.2% precision. The best model recall is gemma3:12b's 93.8%,
-six points short, and it buys that with worse precision than the rules. The best precision,
-gemma4:e4b's 95.7%, costs twelve points of recall — 27 real citations dropped. Every model
-except gemma3:12b finds fewer real citations than the rules do.
+**No single model replaces the record's own rules** — but replacing them was never the job.
+The finder alone recalls 99.6% of the real citations at 87.2% precision. The best model recall
+is gemma3:12b's 93.8%, six points short, and the best precision, gemma4:e4b's 95.7%, costs
+twelve points of recall. Every model except gemma3:12b finds fewer real citations than the
+rules do. **Read as candidates for the finder's job, none of them is one.**
 
-Agreement does not rescue it. Where gemma4:e4b, qwen3:14b and gemma3:12b all three say
-citation, 174 of 179 are real (97.2%) — better precision than any one of them alone. But it
-finds 174 of the 225 real citations where the rules find 224, it throws away 14 more that all
-three call captions, and it splits on 49 pairs that go to a person anyway. Across all twelve
-runs unanimity collapses to 34 pairs, a seventh of the record.
+**That is the wrong question, and the first draft of this section asked it** (corrected
+2026-09-11, on the operator's challenge). The rules are not up for replacement: they have
+already found these citations, and every one of the 257 pairs they call a citation goes to a
+person today. The question the review page turns on is whether agreement between models can
+CLEAR part of that queue — publish without a person — and that is a filter on the rules'
+output, not a competitor to it.
+
+**Measured as a filter, agreement clears.** A key clears only when every model in the panel
+agrees on both halves: that the mention is a citation, and which document it names. Scored
+over the 148 of the rules' 257 pairs that the operator settled on the work sheet:
+
+| Panel | Clears | Right | Wrong | Precision | Queue cut |
+|---|---|---|---|---|---|
+| gemma4:e4b + qwen3:14b | 70 | 70 | 0 | 100.0% | 47.3% |
+| gemma4:e4b + qwen3:14b + gemma3:12b | 64 | 64 | 0 | 100.0% | 43.2% |
+| qwen3:14b + gemma3:12b | 93 | 92 | 1 | 98.9% | 62.8% |
+| gemma4:e4b + gemma3:12b | 71 | 70 | 1 | 98.6% | 48.0% |
+
+Two models agreeing settle about half the queue with no error in this sample, or 63% with one.
+Agreement is also a good filter on the rules' own mistakes: where gemma4:e4b and qwen3:14b both
+say citation, **28 of the rules' 33 false positives are caught** and do not clear. And the
+document half is where agreement earns the most — the two models name the same document 70
+times and are right 70 times, against 88.5% and 86.7% for those models taken singly.
+
+**Two things bound this, and neither is fatal.** First, **a clean run does not establish what
+it looks like**: 70 of 70 has a 95% lower bound of 94.8%, and 92 of 93 one of 94.2% — both
+under the 98.0% the citation class already ships at. This is the wall the work card hit at
+106 of 106, where the operator's decision was to store the raw figure and show a reader no
+number. Second, **these 148 pairs are a sample of the record, not of the queue**: the 1,476
+exposed keys are exposed because something about them was uncertain, so they are a harder
+population by construction and these figures are most likely a ceiling. **Decided 2026-09-11:
+run the panel over all 1,476 before any clearing rule is written**, and score it on a slice
+the operator checks.
 
 **The models stray from the candidate list they are handed, and straying is the model's
 property, not the machine's.** Each was given the registry's dockets and the decisions served
@@ -362,17 +390,18 @@ returned 88 empty answers. Headless, the same weights answered all 768 at 3.29 s
 recorded in `compute-fleet.md`. nemotron-3-nano:4b, small enough to load either way, agrees
 with itself 87.9% across that boundary: even freeing memory changes the answers.
 
-**What this measures: local models are not the first reviewer.** On the question the review
-page would ask them, the rules the record already runs are more complete than any of the seven
-models on any of the four machines, and the one thing models add — precision on the subset
-three of them agree about — leaves more than a fifth of the queue untouched and discards real
-citations on the way. The review page is designed for a person, with the record's candidates
-in front of them.
+**What this measures: a panel of local models is a plausible FIRST pass over the review queue,
+and no model is a reviewer on its own.** Singly, every one of the seven is worse than the rules
+the record already runs, and the worst of them invent docket numbers they were never offered.
+In pairs, where both must agree on the citation and on the same document, they settle about
+half the benchmark's queue without an error and catch most of the rules' false positives on the
+way. The review page is still designed for a person — but for a person looking at the half that
+did not clear, with the cleared half shown as cleared and overturnable.
 
-Nothing ships from this. A model's answer would be an assertion with its method, version and
-channel, stamped with its measured precision (ADR 0017 D3). Letting agreement clear a held key
-is not the same as "the local model does not write edges" (step 3 above), so it would take an
-ADR 0017 addendum, and that decision is the operator's.
+Nothing ships from this yet. A model's answer is an assertion with its method, version, host
+and channel, stamped with its measured precision (ADR 0017 D3), and **letting agreement clear a
+held key needs an ADR 0017 addendum, which is the operator's decision.** The measurement that
+addendum should rest on is the panel over the real 1,476 exposed keys, not these 148.
 
 > Step 1 note (2026-08-26): the tabled UP–NS tracker holds 988 hand-checked documents in FD 36873 — 33 decisions among them — with a tiering scheme (A/B/C) worth reading before designing routing here; see `upns-tracker-inheritance.md`. Its page-capped extraction makes labels from long exhibits weaker evidence.
 

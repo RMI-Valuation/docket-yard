@@ -30,21 +30,21 @@ decisions were taken the same day and are recorded where each belongs.
 
 ## Next
 
-- **Local models are NOT the first reviewers — MEASURED, 2026-09-11**
-  (`docs/extraction-benchmark.md`). Twelve runs, seven models, four machines: the record's own
-  rules recall 99.6% at 87.2% precision and no model or agreement comes within six points.
-  **The review page is designed for a person**, and needs no ADR 0017 addendum. Two rows of the
-  sheet name an id in prose the scorer cannot read — normalising them is his (`deferred.md`)
+- **A PANEL of local models CLEARS about half the review queue — MEASURED, 2026-09-11**
+  (`docs/extraction-benchmark.md`). No model is a reviewer alone; two agreeing on both the
+  citation and the same document settle 70 of 148 with 0 wrong (gemma4:e4b + qwen3:14b) and
+  catch 28 of the rules' 33 false positives. **His decision, 2026-09-11: run the panel over all
+  1,476 exposed keys on the Mac before any clearing rule is written** — the benchmark's 148 are
+  a sample of the record, not of the queue. Then he checks a slice; a clearing rule is an ADR
+  0017 addendum, his. Two sheet rows name an id in prose the scorer cannot read — his to fix
 
 - **Party types, the held-out sheet is drawn and WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`; blind queue `data/party-types-heldout-check.html`).
   When the Copy block (party_id, type, first, note) returns: apply both picks to its
   `labels.csv`, score with `party_types_rules.py --sheet`, 95% per type on the FIRST pick;
   then the assertion migration (schema-critic first) and the browse on `/parties`
-- v2026.09.13 is deployed (2026-09-11 10:17 UTC): the operator checks a sheet's JSON-LD
-  block in Google's Rich Results test, from a browser
-- ADR 0024's stage is live, the dispatch stamp with it: 345 of 375 read by 10:18 UTC, the
-  first quoted stamp landed at deploy. Still owed, a per-page failure record (Owed 2)
+- With the operator: a sheet's JSON-LD block in Google's Rich Results test, from a browser
+- ADR 0024's stage: a per-page failure record is still owed (Owed 2)
 - **Held by the operator for rewording (2026-09-11)**: `/methodology`'s text-stage section
   (`848e366`) and the one-day-rest sentence (`3b538bc`); § Documents has his narrowed one
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
