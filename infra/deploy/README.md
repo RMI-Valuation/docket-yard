@@ -206,6 +206,46 @@ checks. A per-table check in `db.migrate` would cut it and is recorded in `docs/
 
 ## Routine operations
 
+### Migration 0027 — a comment's attachment by document (v2026.09.14)
+
+A **migrating release, so it goes behind the wall** (§ Deploying a migrating release, ADR
+0020) and rolls back by Litestream restore, not by a tag. The migration is one `CREATE
+INDEX` (`enviro_comment_attachment_by_document`, migration 0021's third table), so there is
+no order inside the window: `extract` is unchanged and keeps running, and nothing stops but
+the readers. **Budget about five minutes for `migrate`** all the same — the runner's
+`foreign_key_check` after the script walks the whole store (§ above).
+**Rehearsed 2026-09-11 on a `litestream restore` of production** (4.45 GB, restored 13:46
+UTC in 215 s): 26 → 27 in 3.1 s with the check, `integrity_check` ok, 0 foreign-key
+violations, all three by-document lookups planned on their indexes, `/coverage` listing no
+filings-and-decisions month, page search answering in 0.01–0.11 s, and home, `/coverage`,
+`/methodology`, `/privacy`, `/parties`, `/dockets`, `/stats`, `/api`, `/llms.txt`,
+`/robots.txt`, `/data`, a docket sheet, a search, a comment and its text page all 200 from
+the migrated copy — the text page showing a read page, since 31 comment files already hold
+text the forward stage read.
+
+```sh
+cd /srv/docketyard
+touch data/flags/maintenance          # readers get 503 + the page
+curl -sD- -o /dev/null https://docketyard.org/ | head -1   # confirm: 503
+$EDITOR .env                          # DY_TAG=v2026.09.14
+docker compose pull --ignore-buildable && docker compose up -d --build
+docker compose logs migrate           # schema 27 — allow minutes for the foreign-key check
+curl -s https://docketyard.org/health # answers throughout; check `schema`
+# BEFORE clearing the flag: schema 27, and the index page search plans on
+docker compose exec -T web python -c "import sqlite3; c = sqlite3.connect('file:/data/docketyard.sqlite?mode=ro', uri=True); print(c.execute('PRAGMA user_version').fetchone(), c.execute(\"SELECT name FROM sqlite_master WHERE name = 'enviro_comment_attachment_by_document'\").fetchone())"
+rm data/flags/maintenance             # back
+```
+
+**Then the comment text, in the operator's order (2026-09-11): the release first, so every
+page shows as it lands.** The root is RMI-AI-MACHINE's `/data/docketyard/comment-pass/text`
+(25,583 records, 332 MB, pymupdf 1.26.0 — the pin, so the loader admits it). Stream it into
+`data/ocr/comment-text` on the box, then load it by hand — a hand load never stamps a
+dispatch, as § Migration 0026 says:
+
+```sh
+docker compose run --rm --no-deps ingest text load /data/ocr/comment-text </dev/null
+```
+
 ### Migration 0026 — the dispatch stamp (ADR 0024 § Owed 5)
 
 A **migrating release, so it goes behind the wall** (§ Deploying a migrating release, ADR
