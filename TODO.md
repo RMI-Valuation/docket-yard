@@ -11,11 +11,11 @@ decisions were taken the same day and are recorded where each belongs.
 ## In motion
 
 - **The citator is LOADED** (2026-09-11 16:55 UTC): 15,198 edges, none shown. **The finder's
-  line wrap is PR #25** (his decisions: before any review, both wraps in one change); its final
-  card is built (work 140/140, his verdicts of 2026-09-11). Then the review page — easy,
-  explained, one look settling docket, sub-docket and document, linked to scan, text, both
-  dockets and the matched document, over a queue of only what can publish — with an ICC flag
-  for `(ICC served …)`. His requirement: same-docket filings and decisions must be citable
+  line wrap is PR #25** (his decisions: before any review, both wraps in one change); card
+  built (work 140/140). It waits on Copilot and Codex, silent since #22: he checks the settings.
+  Then the review page — easy, explained, one look settling docket, sub-docket and document,
+  linked to scan, text, both dockets and the matched document, over a queue of only what can
+  publish — with an ICC flag for `(ICC served …)`. Same-docket filings and decisions citable
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
