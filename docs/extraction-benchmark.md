@@ -208,6 +208,27 @@ sheet holds — so the extractor invents none. Confidence is the measured precis
 edge's class, not the model's opinion; the review queue takes the short-sequence dockets,
 the in-range unresolved and the same-docket citations that do not resolve to a decision.
 
+## Local models as reviewers — measure first (the operator's decision, 2026-09-11)
+
+The citator's first load held 1,945 keys for a person (1,476 after the line-wrap fix). The
+operator asked whether local models on the fleet, checking one another, could take the first
+pass. The table above already shows the two role classifiers erring in opposite directions:
+qwen3:14b at 95.9% precision and llama3.1:8b at 96.9% recall. So the question is what their
+agreement is worth, and that has not been measured. **Decided: measure before the review page
+is designed.**
+
+1. Score the stored role runs (`runs-roles/`) for agreement: the precision of the keys both
+   models call a citation, and how many keys that covers.
+2. Run two or three models over the 225 checked targets. Ask each the review question
+   ("which docket, sub-docket and document?") and hand it the candidates the record holds:
+   the registry's dockets, and the decisions served on the printed date. Report each model
+   and the pair.
+
+Nothing ships from this. A model's answer would be an assertion with its method, version and
+channel, stamped with its measured precision (ADR 0017 D3). Letting agreement clear a held key
+is not the same as "the local model does not write edges" (step 3 above), so it would take an
+ADR 0017 addendum, and that decision is the operator's.
+
 > Step 1 note (2026-08-26): the tabled UP–NS tracker holds 988 hand-checked documents in FD 36873 — 33 decisions among them — with a tiering scheme (A/B/C) worth reading before designing routing here; see `upns-tracker-inheritance.md`. Its page-capped extraction makes labels from long exhibits weaker evidence.
 
 > Step 0 re-run 2026-08-26 on waves 2–3's first 9,663 new files: **1,480 image-only** (15%, against 2 of 4,273 in wave 1) — the older record is substantially scanned, which is M3's question and bounds what step 2 can read without OCR. Step 2's local candidate (qwen3:14b) ran over all 60 sampled decisions on 2026-08-26 in 2 h 07 m; output at `/data/docketyard/benchmark/runs/qwen3-14b/`, unscored until the labels are checked.
