@@ -61,6 +61,9 @@ $log = Join-Path $dir "fleet-gate.log"
 $scratch = Join-Path $dir "render"
 $python = Join-Path $Repo ".venv\Scripts\python.exe"
 if (-not $Node) { $Node = (Get-Content (Join-Path $dir "fleet-node") -ErrorAction Stop).Trim() }
+# the gate builds "$Node/pending"; a trailing slash asks for //pending, which the queue answers
+# 404 and the gate reads as "no work" for ever (release review, 2026-09-11). The workers strip it
+$Node = $Node.TrimEnd('/')
 $worker = Join-Path $Repo "tools\fleet\dots_worker.py"
 
 Add-Type @"
