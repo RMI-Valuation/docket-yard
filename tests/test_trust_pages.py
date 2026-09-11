@@ -215,6 +215,39 @@ def test_a_partly_walked_month_is_unfinished_on_the_coverage_page_too(tmp_path):
     con.close()
 
 
+def test_a_month_the_watch_finished_is_not_listed_as_unfinished(tmp_path):
+    """A wave walks up to where the watch began, so the month the watch began in was listed
+    unfinished for ever while every day of it was held (2026-08 on production, 2026-09-11).
+    The watch's days count by `home.covered`'s rule — from its first asserted forward capture
+    less the window that pass asked for — and an outage it never caught up on still counts
+    against it."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    for action in (FILINGS, DECISIONS):
+        con.execute(
+            "INSERT INTO walk_slice (slice_key, table_action, criteria, status, rows, captures,"
+            " completed_at) VALUES (?, ?, '[]', 'done', 0, 1, 't')",
+            (f"{action}:2026-08:2026-08-01..2026-08-19", action),
+        )
+        moved = con.execute(
+            "UPDATE capture SET captured_at = '2026-08-26T00:00:00+00:00'"
+            " WHERE ingest_mode = 'forward' AND filter_asserted = 1 AND table_action = ?",
+            (action,),
+        ).rowcount
+        assert moved, f"fixture precondition: the watch captured {action}"
+    con.commit()
+    # the wave walked 08-01..08-19; the watch's first pass asked for 08-20..08-26 onward
+    assert coverage.coverage(con).records_incomplete == ()
+    # an outage from 08-21 that the resuming pass's window could not reach back over
+    con.execute(
+        "INSERT INTO coverage_gap (started_at, ended_at, failure, note) VALUES"
+        " ('2026-08-21T00:00:00+00:00', '2026-09-05T00:00:00+00:00', 'captures', 'test')"
+    )
+    con.commit()
+    assert coverage.coverage(con).records_incomplete == ("2026-08",)
+    con.close()
+
+
 def test_a_wholly_walked_month_is_finished_however_it_was_sliced(tmp_path):
     """Two complementary range slices finish a month between them; neither does alone."""
     path = build_store(tmp_path)

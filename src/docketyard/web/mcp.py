@@ -328,13 +328,13 @@ def _coverage(con: Connection, args: dict, host: str) -> str:
         # (navigation-review.md A3). A machine reading this makes the same mistake a
         # person does.
         + (
-            "- Months a backfill has not finished, for filings and decisions:"
+            "- Months not yet complete (neither walked nor watched), for filings and decisions:"
             f" {', '.join(coverage_store.month_runs(c.records_incomplete))}.\n"
             if c.records_incomplete
             else ""
         )
         + (
-            "- Months a backfill has not finished, for environmental comments:"
+            "- Months not yet complete (neither walked nor watched), for environmental comments:"
             f" {', '.join(coverage_store.month_runs(c.comments_incomplete))}.\n"
             if c.comments_incomplete
             else ""

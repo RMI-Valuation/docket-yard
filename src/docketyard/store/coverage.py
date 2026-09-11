@@ -7,6 +7,7 @@ whatever has been walked so far.
 """
 
 from dataclasses import dataclass
+from datetime import date, timedelta
 from sqlite3 import Connection
 
 from docketyard.capture import walk
@@ -18,6 +19,7 @@ from docketyard.capture.stb import (
     FILINGS,
 )
 from docketyard.ingest import observations
+from docketyard.store import home
 
 
 @dataclass(frozen=True)
@@ -46,8 +48,8 @@ class Coverage:
     backfill_from: str | None  # earliest filed/served date observed by a backfill wave
     backfill_filings: int  # records first observed by a wave
     backfill_decisions: int
-    # Months a wave has not finished, BY TABLE — never unioned. The page's sentence about
-    # them has filings and decisions for its subject, and the comment walk's own gaps
+    # Months neither a wave nor the watch has finished, BY TABLE — never unioned. The page's
+    # sentence about them has filings and decisions for its subject, and the comment walk's own gaps
     # reach four and a half years further back than either (navigation-review.md A3): one
     # list under that sentence told readers that 1996-01 through 2000-08 were incomplete
     # for filings and decisions, which they are not.
@@ -58,8 +60,25 @@ class Coverage:
     gaps: list[Gap]
 
 
-def _incomplete(q, *actions: str) -> tuple[str, ...]:
-    """The YYYY-MM months a wave has not finished for these tables, oldest first.
+def _watch_starts(q, actions) -> dict[str, date]:
+    """Per table, the first day the forward watch asked the Board for: its first asserted
+    forward capture, less the trailing window that pass asked for (`home.covered`'s rule).
+    Per table, because comments joined the watch later than filings and decisions."""
+    starts = {}
+    for action in actions:
+        (first,) = q(
+            "SELECT MIN(captured_at) FROM capture WHERE ingest_mode = 'forward'"
+            " AND filter_asserted = 1 AND table_action = ?",
+            (action,),
+        ).fetchone()
+        if first:
+            starts[action] = date.fromisoformat(first[:10]) - timedelta(days=home.WEEK_DAYS - 1)
+    return starts
+
+
+def _incomplete(con: Connection, *actions: str, today: date | None = None) -> tuple[str, ...]:
+    """The YYYY-MM months neither a wave nor the watch has finished for these tables, oldest
+    first.
 
     A month is finished only when the days its slices actually asked for cover the whole
     month. Testing the STATUS alone was not enough: a wave that walked 15–31 July records a
@@ -68,8 +87,18 @@ def _incomplete(q, *actions: str) -> tuple[str, ...]:
     `/week` correctly called them partial. Two modules, one ledger, and the same defect A1
     was, pointing the other way (code review, 2026-08-31).
 
+    THE WATCH'S DAYS COUNT TOO (the operator's decision, 2026-09-11). A wave walks the archive
+    up to where the watch began, so the month the watch began in was listed unfinished for
+    ever while every day of it was held — 2026-08 on production. The watch's days are
+    `home.covered`'s: from `_watch_starts` through today, less every span a recorded outage
+    left it unable to ask for (`home.gap_shadows`), so nothing is claimed that was not asked.
+
     The grammar is `walk.slice_days`, shared with `home.walked_days`, so a key shape only
     one of them understands cannot arise."""
+    q = con.execute
+    today = today or date.today()
+    starts = _watch_starts(q, actions)
+    shadows = home.gap_shadows(con, today)
     placeholders = ", ".join("?" * len(actions))
     # One pass. Every (table, month) the ledger mentions is a month a wave has begun, and
     # only its done/empty slices count toward finishing it — so a month holding nothing but
@@ -87,6 +116,15 @@ def _incomplete(q, *actions: str) -> tuple[str, ...]:
         days = finished.setdefault((action, month), set())
         if status in ("done", "empty"):
             days |= walk.slice_days(key)
+    for (action, month), days in finished.items():
+        start = starts.get(action)
+        if start is None:
+            continue
+        days |= {
+            d
+            for d in walk.month_days(month)
+            if start <= d <= today and not any(lo <= d <= hi for lo, hi in shadows)
+        }
     return tuple(
         sorted({month for (_, month), days in finished.items() if days < walk.month_days(month)})
     )
@@ -192,8 +230,8 @@ def coverage(con: Connection) -> Coverage:
         # wave has not finished is as unfinished as a filings month and the page exists to
         # say so — but it is not a filings month, and the sentence that names them is about
         # filings and decisions.
-        records_incomplete=_incomplete(q, FILINGS, DECISIONS),
-        comments_incomplete=_incomplete(q, ENVIRO_COMMENTS),
+        records_incomplete=_incomplete(con, FILINGS, DECISIONS),
+        comments_incomplete=_incomplete(con, ENVIRO_COMMENTS),
         comments_from=one("SELECT MIN(NULLIF(date_received_or_sent, '')) FROM enviro_comment"),
         empty_prefixes=tuple(sorted(EXPECTED_EMPTY_PREFIXES)),
         gaps=[
