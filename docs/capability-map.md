@@ -124,7 +124,7 @@ Years of work, and why a competitor never catches up.
 | --- | --- | --- | --- | --- |
 | `M1` | **ICC-era finding aid, 1887–1995** | High | Exists nowhere | Not yet |
 | `M2` | **The valuation-map index** | High | Exists nowhere | Not yet |
-| `M3` | **OCR the pre-2000 record** | High | Exists nowhere | In motion — chosen 2026-08-28 (`ROADMAP.md` § Chosen): the record's text (M12) and the `dots` wave loaded; the review layer is owed |
+| `M3` | **OCR the pre-2000 record** | High | Exists nowhere | In motion — chosen 2026-08-28 (`ROADMAP.md` § Chosen): the record's text (M12) and the `dots`, `second` and `graphic` passes loaded; the review layer is owed |
 | `M4` | **Recordation reconciliation** | High | Partial | Not yet — rail recordations are not captured (`/coverage`) |
 | `M5` | **Outcome coding** | High | Exists nowhere | Not yet |
 

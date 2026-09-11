@@ -10,10 +10,6 @@ decisions were taken the same day and are recorded where each belongs.
 
 ## In motion
 
-- **The `dots` OCR wave is read and LOADED** (2026-09-11: 12,482 documents, 41,622 pages
-  live, 66 pages failed as their own). `second` runs on the NUC in tmux `ocr-derived`,
-  `graphic` after it; then stream each root to the instance's `data/ocr` and `text load`
-  `ppocr-second` before `ppocr-graphic` (each file its own `ran_at`)
 - **The citator has never run a real load** (`citation`: 0 rows). The chain into a copy
   (2026-09-04) gave 15,164 distinct edges and 0 failures; `declare --scores` and reviewer 1
   are ready; 1,946 exposed keys are ~16 h of reading. The work card is judged (§ Next), so
@@ -24,7 +20,7 @@ decisions were taken the same day and are recorded where each belongs.
 
 - **Comment attachments' OCR is owed**: v2026.09.14 shows their text (loaded 2026-09-11) and
   15,137 of the 25,612 comment files read have some; 12,184 are image-only scans — a fleet
-  pass once the NUC's `second` and `graphic` roots are loaded
+  pass; the fleet is free, `dots`, `second` and `graphic` all loaded 2026-09-11
 
 ## Next
 
