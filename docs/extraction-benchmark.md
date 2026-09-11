@@ -224,6 +224,23 @@ is designed.**
    the registry's dockets, and the decisions served on the printed date. Report each model
    and the pair.
 
+**Step 1 measured, 2026-09-11.** The two stored role runs were combined hit by hit, then
+scored as `(decision, target)` pairs on the 225 docket-shaped targets (the page check on):
+
+| Bucket | Pairs | Real citations | Not citations |
+|---|---|---|---|
+| Both say citation | 197 | 189 (95.9%) | 8 |
+| Both say caption | 38 | 8 | 30 (78.9%) |
+| They split: to a person | 95 | 38 | 57 |
+
+(17 pairs fall in two buckets, split across pages. The 6 targets the regex never hit are in
+none.) **Agreement is no more precise than qwen3:14b alone**: 95.9% on 197 pairs, against its
+95.9% on 195. And the two dismiss 8 real citations as captions. Agreement would clear 71% of
+pairs and leave 29% to a person, but both of its answers fall short of the card's 98.2%
+projected precision. That is on the old question, though: "document or proceeding?" with no
+record behind it. Step 2 asks the review question and hands over the candidates, and that is
+where the answer lies.
+
 Nothing ships from this. A model's answer would be an assertion with its method, version and
 channel, stamped with its measured precision (ADR 0017 D3). Letting agreement clear a held key
 is not the same as "the local model does not write edges" (step 3 above), so it would take an
