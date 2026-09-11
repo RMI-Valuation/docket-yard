@@ -135,7 +135,15 @@ def week(con: Connection, start: str, end: str) -> Week:
             (start, end),
         )
     ]
-    checked = con.execute("SELECT MAX(captured_at) FROM capture").fetchone()[0]
+    # The watch's own last look at the Board — a forward, asserted table capture, the same
+    # definition as /coverage's `last_checked` — not any capture: a document fetch nobody
+    # answered is a capture too, and during an outage the page said "record checked" just
+    # now when nothing had answered (stb-ingest-specialist, 2026-09-11).
+    checked = con.execute(
+        "SELECT MAX(captured_at) FROM capture WHERE ingest_mode = 'forward'"
+        " AND filter_asserted = 1 AND table_action IN (?, ?)",
+        (FILINGS, DECISIONS),
+    ).fetchone()[0]
     return Week(
         start=start,
         end=end,

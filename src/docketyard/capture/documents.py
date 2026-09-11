@@ -19,6 +19,7 @@ from pathlib import Path
 from sqlite3 import Connection
 
 from docketyard.capture import records
+from docketyard.capture.stb import Unanswered
 from docketyard.ingest import dockets, observations
 from docketyard.store import events
 from docketyard.store.db import utcnow
@@ -100,15 +101,32 @@ def fetch_attachments(
                     head = f.read(16)
             else:
                 size, head = len(body), body[:16]
+        except Unanswered as e:
+            # Nobody answered, after the client's own retries (a 429/5xx the host GAVE is its
+            # answer, and arrives below with its status and body). ON EVERY PATH the attempt
+            # is a status-0 capture (decided
+            # 2026-09-10, deferred.md § 2026-09-02). Until then only the re-check recorded
+            # one, so a new file whose host timed out was asked for every pass with nothing
+            # on record. It rests NO_ANSWER_REST_DAYS, a day rather than a refusal's week:
+            # an outage is transient, and a new filing's text should not wait a week for it.
+            # Only THIS exception: a 403 from stb.gov or a full disk is not the host's silence,
+            # and a capture saying so would be a false statement in the ledger.
+            print(f"  NO ANSWER {url} ({e})")
+            stats["failed"] += 1
+            stats["unanswered"] = stats.get("unanswered", 0) + 1
+            _record_attempt(con, data_dir, url, ingest_mode)
+            continue
         except Exception as e:  # noqa: BLE001 — one bad URL must not strand the batch
             print(f"  FAILED {url} ({type(e).__name__}: {e})")
             stats["failed"] += 1
             if isinstance(body, Path):
                 body.unlink(missing_ok=True)
-            if refresh:
-                # the attempt is on record with no answer (status 0), so the URL goes to
-                # the back of the re-check line instead of heading it every pass
-                _record_attempt(con, data_dir, url, ingest_mode)
+            # NO CAPTURE, on either path. Status 0 means the host was silent (above); this is a
+            # failure on THIS side — a full disk, a vanished staging file, the WAF's 403
+            # diagnosis — and says nothing about the host. Until 2026-09-11 the re-check wrote
+            # a status-0 row for any failure, to move the URL to the back of its line; now it
+            # keeps its place at the head and the pass's problems say so every pass until the
+            # cause is fixed, which is the loud direction (stb-ingest-specialist).
             continue
         capture_id = records.save_capture(
             con,
@@ -131,7 +149,8 @@ def fetch_attachments(
         if status != 200 or size == 0:
             # an error page, or nothing, is not the document: the attempt is on record
             # (capture-first) and the attachment stays unfetched — left alone for
-            # REFUSAL_REST_DAYS, then asked for again (observations.attachments)
+            # REFUSAL_REST_DAYS (a 429/5xx the host gave every time: NO_ANSWER_REST_DAYS), then
+            # asked for again (observations.attachments)
             print(f"  REFUSED {url} (HTTP {status}, {size} bytes)")
             stats["failed"] += 1
             con.commit()

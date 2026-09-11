@@ -355,15 +355,10 @@ The en-dash fix (`_wire_url`, `capture/stb.py`) closed two causes of a never-fet
 The reviewer's point is that the *class* is wider than its two causes, and these are what is
 left of it.
 
-- **An unanswered attempt leaves no capture — decided 2026-09-10, in TODO § Next.** Measured
-  that day in production: 0 no-answer attempts ever recorded, 121 attachments unfetched (1
-  filing, 120 comments) and all 121 are the 403 refusals of the last 30 days resting as
-  designed; the drain has completed, so only the `--limit`-bounded poll touches the class.
-  The operator chose: the attempt is a status-0 capture on EVERY path (the row shape refresh
-  mode already writes, so no new grain — schema-critic confirms that before commit), and
-  `recently_refused` rests a status-0 attempt ONE day where a refusal rests seven, so a
-  transient outage does not hold a new filing's text back a week (ADR 0024's same-day aim).
-  `drain.sh` (instance-only) should still stop on a pass that makes no progress.
+- **`drain.sh` (instance-only) should stop on a pass that makes no progress** — all that is
+  left of "an unanswered attempt leaves no capture", which landed on main 2026-09-11: a
+  status-0 capture on every path, rested a day (with a host's repeated 429/5xx, kept as its
+  answer), schema-critic confirming no new grain.
 - **`_wire_url` percent-encodes the netloc along with the path.** A no-op on the two hosts that
   exist (measured 2026-09-02: 110,107 `dcms-external.s3.amazonaws.com`, 3
   `dcms-external.s3.us-east-1.amazonaws.com`, both ASCII), and the docstring now says so. A
@@ -778,6 +773,29 @@ amendments are listed in the migration's own header; these are the rest.
   they never disagree, but `ocr_run` still has no correction path: a `review_target_vocab` row
   for it (`surrogate`, on `document_pagination`'s precedent) would give one, since `run_id` is
   followable for the same reasons `pagination_id` is.
+
+## From the no-answer fetch's reviews, 2026-09-11 (v2026.09.12)
+
+stb-ingest-specialist and schema-critic on the status-0 change; what was fixed is in the
+commit. Left:
+
+- **MEASURE: were truncated documents minted?** `download` streamed through
+  `shutil.copyfileobj` from 2026-08-26 until 2026-09-11, and a body cut short of its
+  Content-Length read as a clean end (reproduced on CPython 3.13). Any such file is a
+  `document` under the wrong hash, and a later re-check would append a false
+  `document_replaced`. A PDF lacking `%%EOF` in its last kilobyte is the cheap test, run over
+  the blob mirror; `document_replaced` events whose old document is the shorter one are the
+  second. Not measured.
+- **`_LAST_FETCH` counts an unanswered attempt as a check**, so `/methodology`'s "checked
+  about every N days" is an attempt, not a check, while the host is silent. Wording or a
+  filter; the re-check has done this on purpose since v2026.08.35.
+- **A verdict crash window**: `save_capture` commits before `_record_attempt`'s verdict
+  update, so a kill between them leaves an unjudged row. The success path shares it.
+- **A CLI `fetch attachments` over a wave's backlog with the default `--mode forward`**
+  stamps its captures `forward`, which pulls those documents into the text stage's scope
+  (`text/queue.py` D1). Predates the stage; `drain.sh` passes `--mode backfill`.
+- **A truncated error body** raised inside `consume(e)` escapes the retry (it is raised from
+  within the `HTTPError` handler) and leaves no capture. Rare; noted.
 
 ## From the schema critic on ADR 0024 Owed 5, the dispatch stamp, 2026-09-11 (v2026.09.12)
 

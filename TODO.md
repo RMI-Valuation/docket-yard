@@ -42,8 +42,9 @@ decisions were taken the same day and are recorded where each belongs.
   migration 0026 + extract image + `/security-review`, deployed UN-PINNED. Still owed: a
   per-page failure record (2); the `/methodology` queue table (6) rides the next release
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
-- A no-answer fetch is a status-0 capture on every path, resting one day (decided
-  2026-09-10, `deferred.md` § 2026-09-02); stb-ingest-specialist and schema-critic first
+- **Built, unreleased**: the no-answer fetch (status 0 on every path, a day's rest; a host's
+  429/5xx kept as its answer) and a download cut short no longer stored as a document —
+  MEASURE whether any truncated one was minted since 2026-08-26 (`deferred.md` 2026-09-11)
 - Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
   fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
 - The Mac's and the Jetson's passes, when a workload is chosen; two workers on the node,

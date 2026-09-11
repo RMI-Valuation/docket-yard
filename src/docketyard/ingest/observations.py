@@ -493,24 +493,47 @@ def _upsert_record(
 
 
 REFUSAL_REST_DAYS = 7  # a URL the host refused is not asked for again this soon
+# A fetch nobody answered (a status-0 capture: the client's retries ran out) rests a DAY, not
+# a week: an outage is transient, and ADR 0024 reads a new filing the day it arrives (the
+# operator's decision, 2026-09-10, deferred.md § 2026-09-02). So does a 429/5xx the host gave
+# on every attempt, recorded with its status and body (the operator, 2026-09-11): "not now"
+# is the host, not the file. These are `capture.stb.RETRIED` with 0; a test holds them together.
+NO_ANSWER_REST_DAYS = 1
+NO_ANSWER_STATUSES = frozenset({0, 429, 500, 502, 503, 504})
 RECHECK_AFTER_DAYS = 30  # a held file is fetched again no sooner than this (errata, ADR 0002)
 RECHECK_MAX_BYTES = 64 << 20  # the watch re-fetches files up to this; larger ones (a 1.07 GB
 # application, measured) are the operator's `fetch attachments --refresh`, not every cycle's
 _EMPTY_SHA = hashlib.sha256(b"").hexdigest()
 
 
-def recently_refused(con: Connection, days: int = REFUSAL_REST_DAYS) -> set[str]:
-    """URLs whose latest fetch was refused (a non-200, or an empty body) within `days`:
-    the attempt is on record as a capture; asking again every pass is not politeness."""
-    since = (datetime.now(UTC) - timedelta(days=days)).isoformat(timespec="seconds")
-    latest: dict[str, bool] = {}
-    for url, status, sha in con.execute(
-        "SELECT endpoint, http_status, response_sha256 FROM capture"
+def recently_refused(
+    con: Connection, days: int = REFUSAL_REST_DAYS, *, no_answer_days: int = NO_ANSWER_REST_DAYS
+) -> set[str]:
+    """URLs whose latest fetch was refused (a non-200, or an empty body) within `days`, or
+    went unanswered (status 0, or a 429/5xx every time) within `no_answer_days`: the attempt
+    is on record as a capture; asking again every pass is not politeness. The LATEST attempt
+    governs, as it always has — a URL refused last week and unanswered yesterday rests a day.
+    Each rule has its own cutoff, so neither rests for the other's length."""
+    now = datetime.now(UTC)
+    since = (now - timedelta(days=max(days, no_answer_days))).isoformat(timespec="seconds")
+    refused_floor = (now - timedelta(days=days)).isoformat(timespec="seconds")
+    quiet = (now - timedelta(days=no_answer_days)).isoformat(timespec="seconds")
+    latest: dict[str, tuple[int, str, str]] = {}
+    for url, status, sha, at in con.execute(
+        "SELECT endpoint, http_status, response_sha256, captured_at FROM capture"
         " WHERE captured_at > ? ORDER BY capture_id",
         (since,),
     ):
-        latest[url] = status != 200 or sha == _EMPTY_SHA
-    return {url for url, refused in latest.items() if refused}
+        latest[url] = (status, sha, at)
+    return {
+        url
+        for url, (status, sha, at) in latest.items()
+        if (
+            at > quiet
+            if status in NO_ANSWER_STATUSES
+            else (status != 200 or sha == _EMPTY_SHA) and at > refused_floor
+        )
+    }
 
 
 # Built from SPECS rather than named by hand: these two drive the errata re-check (ADR

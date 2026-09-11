@@ -502,6 +502,204 @@ def test_the_client_hands_a_document_hosts_refusal_back_as_the_answer(tmp_path, 
         client.get("https://www.stb.gov/x")
 
 
+def test_an_unanswered_fetch_is_on_record_on_every_path_and_rests_a_day(con, tmp_path):
+    """Decided 2026-09-10 (deferred.md § 2026-09-02): until then only the re-check recorded
+    an attempt nobody answered, so a NEW file whose host timed out was asked for every pass
+    with nothing on record. It is a status-0 capture on every path now, and it rests one day
+    where a refusal rests seven — an outage is transient, and a new filing's text should not
+    wait a week for it (ADR 0024)."""
+    from datetime import UTC, datetime, timedelta
+
+    from docketyard.capture.stb import Unanswered
+    from docketyard.ingest import observations
+
+    ingest(con, tmp_path, filing_row())
+    asked = []
+
+    def silent(u):
+        asked.append(u)
+        raise Unanswered("STB endpoint failed after retries: timed out")
+
+    stats = documents.fetch_attachments(con, tmp_path, silent)
+    assert stats["failed"] == 1 and stats["unanswered"] == 1 and len(asked) == 1
+    status, processed = con.execute(
+        "SELECT http_status, processed_at FROM capture WHERE table_action = ?",
+        (documents.FETCH_ACTION,),
+    ).fetchone()
+    assert status == 0 and processed  # on record, and never pending work
+    assert observations.attachments(con, unfetched_only=True) == []  # resting
+    assert documents.fetch_attachments(con, tmp_path, silent)["failed"] == 0 and len(asked) == 1
+    # two days on it is asked for again ...
+    two_days = (datetime.now(UTC) - timedelta(days=2)).isoformat(timespec="seconds")
+    con.execute("UPDATE capture SET captured_at = ?", (two_days,))
+    assert len(observations.attachments(con, unfetched_only=True)) == 1
+    # ... where a refusal two days old is still resting: the week is the refusal's
+    con.execute(
+        "UPDATE capture SET http_status = 404 WHERE table_action = ?", (documents.FETCH_ACTION,)
+    )
+    assert observations.attachments(con, unfetched_only=True) == []
+
+
+def test_a_failure_on_this_side_is_not_recorded_as_the_host_not_answering(con, tmp_path):
+    """A vanished staging file is a failure here, not a statement about the host: no
+    status-0 capture, so the ledger never says the Board was silent when it was not."""
+    ingest(con, tmp_path, filing_row())
+    gone = records.staging_dir(tmp_path) / "dl-gone"
+    stats = documents.fetch_attachments(con, tmp_path, lambda u: (200, gone))
+    assert stats["failed"] == 1 and "unanswered" not in stats
+    assert (
+        con.execute(
+            "SELECT COUNT(*) FROM capture WHERE table_action = ?", (documents.FETCH_ACTION,)
+        ).fetchone()[0]
+        == 0
+    )
+
+
+def test_the_client_says_when_nobody_answered(tmp_path, monkeypatch):
+    """Three transport failures are `Unanswered`, still a RuntimeError for every caller that
+    caught the untyped one — and the only exception a fetch records as the host's silence."""
+    import urllib.error
+    import urllib.request
+
+    from docketyard.capture import stb
+
+    def down(req, timeout=None):
+        raise urllib.error.URLError("timed out")
+
+    monkeypatch.setattr(urllib.request, "urlopen", down)
+    client = stb.StbClient(min_interval=0)
+    with pytest.raises(stb.Unanswered) as raised:
+        client.download("https://dcms-external.s3.amazonaws.com/x/1.pdf", tmp_path)
+    assert isinstance(raised.value, RuntimeError)
+
+
+def test_a_body_cut_short_of_its_length_is_not_a_document(tmp_path, monkeypatch):
+    """`http.client` answers a chunked read past a dropped connection with b"", not
+    IncompleteRead (reproduced on CPython 3.13, 2026-09-11), so a PDF closed halfway was
+    stored as a complete 200 document under the wrong hash. A REAL response over a short
+    socket, because `_FakeResponse` above raises where the real class does not."""
+    import http.client
+    import io
+    import urllib.request
+
+    from docketyard.capture import stb
+
+    class Short:
+        def makefile(self, mode):
+            head = b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n"
+            return io.BytesIO(head + b"%PDF-" + b"x" * 45)
+
+    def short(req, timeout=None):
+        r = http.client.HTTPResponse(Short())
+        r.begin()
+        return r
+
+    monkeypatch.setattr(urllib.request, "urlopen", short)
+    with pytest.raises(stb.Unanswered):
+        stb.StbClient(min_interval=0).download(f"{S3}/1/1.pdf", tmp_path)
+    assert not any(records.staging_dir(tmp_path).glob("dl-*"))  # nothing half-kept
+
+
+def test_a_tls_failure_mid_body_is_the_transport_and_is_retried(tmp_path, monkeypatch):
+    """An `ssl.SSLError` mid-body is a bare OSError, outside the retry tuple: it escaped as
+    a local failure and a new file's silence left no capture (stb-ingest-specialist)."""
+    import ssl
+    import urllib.request
+
+    from docketyard.capture import stb
+
+    calls = []
+
+    class Broken:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self, n=-1):
+            raise ssl.SSLError("bad record mac")
+
+    def open_(req, timeout=None):
+        calls.append(req.full_url)
+        return Broken()
+
+    monkeypatch.setattr(urllib.request, "urlopen", open_)
+    with pytest.raises(stb.Unanswered):
+        stb.StbClient(min_interval=0).download(f"{S3}/1/1.pdf", tmp_path)
+    assert len(calls) == 3
+
+
+def test_a_host_that_answers_503_every_time_is_kept_as_its_answer_and_rests_a_day(
+    con, tmp_path, monkeypatch
+):
+    """The operator, 2026-09-11: the host ANSWERED, so its last answer is the record of the
+    attempt, status and body kept raw — and "not now" rests a day like silence, not a week."""
+    import io
+    import urllib.error
+    import urllib.request
+    from datetime import UTC, datetime, timedelta
+
+    from docketyard.capture import stb
+    from docketyard.ingest import observations
+
+    def slow_down(req, timeout=None):
+        raise urllib.error.HTTPError(
+            req.full_url, 503, "Slow Down", {}, io.BytesIO(b"<Error>SlowDown</Error>")
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", slow_down)
+    client = stb.StbClient(min_interval=0)
+    ingest(con, tmp_path, filing_row())
+    stats = documents.fetch_attachments(con, tmp_path, client.fetcher(tmp_path))
+    assert stats["failed"] == 1 and "unanswered" not in stats
+    status, sha = con.execute(
+        "SELECT http_status, response_sha256 FROM capture WHERE table_action = ?",
+        (documents.FETCH_ACTION,),
+    ).fetchone()
+    assert status == 503  # the answer, kept
+    assert (tmp_path / "blobs" / sha[:2] / sha).read_bytes() == b"<Error>SlowDown</Error>"
+    assert observations.attachments(con, unfetched_only=True) == []  # resting
+    two_days = (datetime.now(UTC) - timedelta(days=2)).isoformat(timespec="seconds")
+    con.execute("UPDATE capture SET captured_at = ?", (two_days,))
+    assert len(observations.attachments(con, unfetched_only=True)) == 1  # a day, not a week
+
+
+def test_the_retried_statuses_and_the_day_rest_are_one_list():
+    from docketyard.capture import stb
+    from docketyard.ingest import observations
+
+    assert observations.NO_ANSWER_STATUSES == {0, *stb.RETRIED}
+
+
+def test_a_recheck_that_fails_on_this_side_writes_no_capture(con, tmp_path):
+    """Status 0 is the host's silence. A vanished staging file is not, so a re-check that
+    fails here writes nothing, where until 2026-09-11 it wrote a status-0 row."""
+    url = f"{S3}/830599/311981.pdf"
+    ingest(con, tmp_path, filing_row())
+    assert documents.fetch_attachments(con, tmp_path, fake_fetch({url: b"%PDF-A"}))["fetched"] == 1
+    count = "SELECT COUNT(*) FROM capture WHERE table_action = 'document_fetch'"
+    before = con.execute(count).fetchone()[0]
+    gone = records.staging_dir(tmp_path) / "dl-gone"
+    stats = documents.fetch_attachments(con, tmp_path, lambda u: (200, gone), refresh=True)
+    assert stats["failed"] == 1
+    assert con.execute(count).fetchone()[0] == before
+
+
+def test_the_home_page_checked_stamp_is_the_watch_and_not_any_capture(con, tmp_path):
+    """A document fetch nobody answered is a capture; during an outage the home page said
+    "record checked" just now when nothing had answered."""
+    from docketyard.store import home
+
+    ingest(con, tmp_path, filing_row())
+    before = home.this_week(con).checked
+    assert before
+    documents._record_attempt(con, tmp_path, f"{S3}/x/9.pdf", "forward")
+    assert home.this_week(con).checked == before
+
+
 def test_a_shared_url_keeps_its_chain_and_fills_its_new_owner(con, tmp_path):
     """The same file under a docket and a later sub-docket row: a forward fetch of the new
     row must not restart the errata chain, and an unchanged re-check must still give the
@@ -551,9 +749,13 @@ def test_the_recheck_walks_the_longest_unchecked_first_within_its_bounds(con, tm
     assert observations.recheck_urls(con, limit=10, after_days=30, max_bytes=3) == []  # too big
     assert observations.held_url_count(con, 3) == 0 and observations.held_url_count(con) == 1
 
-    # a re-check that raises is an attempt on record: the URL goes to the back of the line
+    # a re-check nobody answers is an attempt on record: the URL goes to the back of the line.
+    # `Unanswered` is what the client raises once its own retries have run out on a reset; a
+    # bare ConnectionError never escapes it (and a failure on this side writes no row)
+    from docketyard.capture.stb import Unanswered
+
     def boom(u):
-        raise ConnectionError("reset")
+        raise Unanswered("reset")
 
     stats = documents.fetch_attachments(con, tmp_path, boom, refresh=True)
     assert stats["failed"] == 1

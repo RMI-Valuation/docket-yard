@@ -1112,6 +1112,8 @@ def create_app(
             recheck_per_pass=poll.RECHECK_LIMIT,
             recheck_after_days=observations.RECHECK_AFTER_DAYS,
             recheck_max_mb=observations.RECHECK_MAX_BYTES >> 20,
+            refusal_rest_days=observations.REFUSAL_REST_DAYS,
+            no_answer_rest_days=observations.NO_ANSWER_REST_DAYS,
             recheck_cycle_days=max(observations.RECHECK_AFTER_DAYS, -(-held // per_day)),
             # the text stage's terms, read from the constants that enforce them (§ Owed 6)
             text_limit=text_queue.EXTRACT_LIMIT,

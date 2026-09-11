@@ -11,7 +11,7 @@ Everything here follows docs/stb-data-source.md. The traps this module answers:
 import http.client
 import os
 import re
-import shutil
+import ssl
 import tempfile
 import time
 import urllib.error
@@ -142,6 +142,37 @@ def _wire_url(url: str) -> str:
     return urllib.parse.quote(url, safe=_WIRE_SAFE)
 
 
+# The statuses a request is retried on — and so the ones a document host can give on every
+# attempt. `observations.NO_ANSWER_STATUSES` rests exactly these, with 0, a day; a test holds
+# the two lists together.
+RETRIED = (429, 500, 502, 503, 504)
+
+
+def _read(resp, size: int) -> bytes:
+    """One chunk of a body. A read that fails is the TRANSPORT failing, whatever its type: an
+    `ssl.SSLError` mid-body or an `EHOSTUNREACH` is a bare `OSError`, outside the retry tuple,
+    and escaped as a local failure that recorded nothing (stb-ingest-specialist, 2026-09-11).
+    So it is re-raised as a `ConnectionError` and retried. A failure WRITING the file (a full
+    disk) never passes through here, and stays unretried."""
+    try:
+        return resp.read(size)
+    except (TimeoutError, ConnectionError):
+        raise
+    except OSError as e:
+        raise ConnectionError(f"the body stopped: {type(e).__name__}: {e}") from e
+
+
+class Unanswered(RuntimeError):
+    """No usable answer: the last of three attempts failed in transport (DNS, a reset, a read
+    timeout, a body cut short of its Content-Length) — or, for a table query, the endpoint gave
+    a 429/5xx every time. A document host's 429/5xx on the last attempt is not this: it is the
+    host's answer, returned like a refusal (the operator, 2026-09-11). The ONE failure a fetch
+    records as a status-0 capture — the host's silence — as distinct from an answer (recorded
+    with its status and body) and a failure on this side (a full disk), which is no statement
+    about the host at all. A `RuntimeError` still, so every caller that caught the untyped one
+    catches this."""
+
+
 class StbClient:
     """Rate-limited client. One instance per run; nonces are cached per instance only."""
 
@@ -174,7 +205,18 @@ class StbClient:
             fd, name = tempfile.mkstemp(dir=tmp_dir, prefix="dl-")
             try:
                 with os.fdopen(fd, "wb") as out:
-                    shutil.copyfileobj(resp, out, CHUNK)
+                    while chunk := _read(resp, CHUNK):
+                        out.write(chunk)
+                # A BODY CUT SHORT READS AS A CLEAN END. `http.client` answers a chunked read
+                # past a dropped connection with b"", not `IncompleteRead` — only a whole-body
+                # `read()` raises — so a PDF closed halfway was stored as a complete 200
+                # document under the wrong hash, and "replaced" a month later by a false
+                # erratum (stb-ingest-specialist, 2026-09-11; reproduced on CPython 3.13). What
+                # the response still owes against its Content-Length is the test; a chunked
+                # body has no length and raises on its own.
+                owed = getattr(resp, "length", None)
+                if owed:
+                    raise http.client.IncompleteRead(b"", owed)
             except BaseException:
                 Path(name).unlink(missing_ok=True)
                 raise
@@ -231,7 +273,12 @@ class StbClient:
                     raise RuntimeError(
                         f"{host} returned 403 — {why}; see docs/stb-data-source.md"
                     ) from e
-                if e.code in (429, 500, 502, 503, 504):
+                if e.code in RETRIED:
+                    if keep_refusals and attempt == 2:
+                        # the host ANSWERED, every time: its last answer is the record of the
+                        # attempt, kept raw like any other response (the operator, 2026-09-11),
+                        # and the caller rests it a day like silence, not a refusal's week
+                        return consume(e)
                     last_error = e
                     time.sleep(self.min_interval * (2**attempt))
                     continue
@@ -241,12 +288,16 @@ class StbClient:
                 TimeoutError,
                 ConnectionError,
                 http.client.HTTPException,  # IncompleteRead, RemoteDisconnected mid-body
+                ssl.SSLError,  # a TLS failure mid-body that is not a clean close
             ) as e:
                 # transient transport failures (DNS, reset, read timeout) retry like 5xx
                 last_error = e
                 time.sleep(self.min_interval * (2**attempt))
                 continue
-        raise RuntimeError(f"STB endpoint failed after retries: {last_error}") from last_error
+        host = urllib.parse.urlsplit(url).netloc
+        raise Unanswered(
+            f"{host} gave no usable answer in 3 attempts: {last_error}"
+        ) from last_error
 
     def get(self, url: str) -> tuple[int, bytes]:
         """Rate-limited GET of a small page, whole, in memory. Never a document: the record

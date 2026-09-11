@@ -525,7 +525,11 @@ def forward_pass(
         summary["problems"].append(f"attachment fetch aborted ({type(e).__name__}: {e})")
     summary["fetched"] = fetched
     if fetched.get("failed"):
-        summary["problems"].append(f"attachments failed: {fetched['failed']}")
+        silent = fetched.get("unanswered", 0)  # the host, not the file: rested a day
+        summary["problems"].append(
+            f"attachments failed: {fetched['failed']}"
+            + (f" ({silent} unanswered)" if silent else "")
+        )
     if alerts is not None:
         try:
             summary["alerts"] = alerts()
@@ -555,7 +559,11 @@ def forward_pass(
             summary["rechecked"] = {"failed": -1}
             summary["problems"].append(f"re-check aborted ({type(e).__name__}: {e})")
     if summary["rechecked"].get("failed", 0) > 0:  # a held file the host no longer serves
-        summary["problems"].append(f"re-check refused: {summary['rechecked']['failed']}")
+        silent = summary["rechecked"].get("unanswered", 0)  # or the host did not answer
+        summary["problems"].append(
+            f"re-check refused: {summary['rechecked']['failed']}"
+            + (f" ({silent} unanswered)" if silent else "")
+        )
     summary["search"] = search.rebuild_or_report(con, summary["problems"])
     # THE TEXT STAGE RUNS LAST (ADR 0024 D10), after the errata re-check and the search
     # rebuild, both of which feed published numbers. Nothing downstream needs the readings
