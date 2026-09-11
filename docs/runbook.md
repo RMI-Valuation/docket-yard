@@ -294,6 +294,18 @@ judges** (about 25 minutes); if they hold, the rule reaches him as an ADR 0017 a
 it narrows what D5 leaves to a person — and the other 586 stay held. The load itself waits
 only on his yes.
 
+**Revised the same day: the yes is given, and the fifty are judged in `/review`.** The
+operator asked why production's `/review` was not the place; it could not be yet — production
+held 0 `citation` rows, and `/review` serves a queue oldest-first rather than a random draw.
+His choice, of three: **load first, then judge in `/review`**. No view needed building: the
+queue is already served in the citing document's hash order (`review.pending`), which is
+random with respect to anything on the page, so he works `/review/citation_exposed` as it
+stands (his second choice, of two) — **the first fifty own-docket keys he answers are the
+sample**, and the others answered along the way (about twenty) are real decisions besides.
+Every answer is credited and permanent. The local sample drawn from the rehearsal store is
+superseded, never judged. The load publishes nothing a reader sees: no page renders the
+citator yet, and the snapshot holds every citator table.
+
 ### Blocker 3 — the figures are the benchmark's, and the load does not change that
 
 Every one of the 15,164 edges would be stamped with a precision measured on sixty decisions.

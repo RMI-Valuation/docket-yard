@@ -126,6 +126,43 @@ def test_an_exposed_edge_does_not_reach_a_page_until_a_human_has_answered(tmp_pa
     assert review.pending(con, "citation_exposed") == []  # the answer clears the item
 
 
+def test_the_queue_is_served_in_the_citing_documents_hash_order(tmp_path):
+    """`review.pending` sorts by the citing document's sha256, which is independent of
+    anything on the page, so the first N a reviewer answers are a random sample of the queue.
+    The exposed-class check of 2026-09-11 is measured on exactly that (`docs/runbook.md`
+    § Blocker 2); an order by date, docket or passage would bias it with nothing to show it."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    early = "a" * 64  # sorts before SHA, and is loaded after it: load order is not the order
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'pdf', ?)",
+        (early, STAMP),
+    )
+    con.execute(
+        "INSERT INTO decision_attachment (decision_pk, source_url, document_sha256)"
+        " VALUES (1, 'u2', ?)",
+        (early,),
+    )
+    _load(con, stamps, EXPOSED)
+    load.load_document(
+        con,
+        {
+            "document_sha256": early,
+            "method": methods.EXTRACTOR,
+            "method_version": "v1",
+            "reading_channel": methods.CHANNEL_TEXT,
+            "pages_read": 9,
+            "findings": [EXPOSED],
+        },
+        keys.registry(con),
+        keys.works(con),
+        stamps,
+    )
+    queue = review.pending(con, "citation_exposed")
+    assert [q["citing_document"] for q in queue] == [early, SHA]
+
+
 def test_a_correction_moves_the_edge_and_the_old_answer_is_superseded(tmp_path):
     """A reviewer who finds the fusion real names the docket it should have been."""
     con = _store(tmp_path)

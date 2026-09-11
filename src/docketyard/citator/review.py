@@ -269,7 +269,13 @@ def owed(con, queue: str) -> int:
 
 
 def pending(con, queue: str, limit: int | None = 50) -> list[dict]:
-    """One queue, oldest key first, with the evidence beside the question (ADR 0016).
+    """One queue, in the citing document's hash order, with the evidence beside the question
+    (ADR 0016).
+
+    THE ORDER IS A MEASUREMENT'S PREMISE, not a convenience. A sha256 sorts independently of
+    anything on the page, so the first N a reviewer answers are a random sample of the queue —
+    which the exposed-class check of 2026-09-11 relies on (`docs/runbook.md` § Blocker 2). An
+    order by date, docket or passage would make that sample a biased one; a test pins this.
 
     Rendering a queue writes NOTHING. ADR 0011's promise to readers covers reviewers too:
     the surfaces log the decision and nothing else — no page views, no timing beyond the
