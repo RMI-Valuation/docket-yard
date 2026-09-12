@@ -36,6 +36,35 @@ in the store records that it happened. Three sequences do it, all ordinary:
 3. **A re-read at a new `method_version` or `render_profile`**, which displaces the page's live
    primary through `document_text_one_primary`.
 
+### Measured on production, 2026-09-12: the exposure has not fired, and the reason is ORDERING
+
+The question was written down before the query ran, with the falsifier that a count of zero
+would mean the exposure is prospective and not urgent. Over all **73,838** live readings — the
+same figure `rehearse-wrap2` holds, so every measurement in `../citation-grain.md` carries to
+production — **not one** stands on a page holding more than one `document_text` row, a live
+`human` row, or a demonstrated supersession. Zero, zero, zero.
+
+**But the mechanism has already fired 268,198 times.** `document_text` holds 1,666,949 rows:
+1,088,931 live `text-layer` primaries, **268,198 SUPERSEDED `text-layer` primaries**, 268,198
+live `ocr` primaries and 41,622 live `ocr` seconds. `document_text_one_primary` permits one live
+primary per page, so every OCR primary that landed retired the page's text-layer primary. That
+is sequence 3, at scale, already done.
+
+It has not touched a citation reading for one reason only: those 268,198 pages had no readable
+text layer to begin with, and `walk.documents:120` skips a document with no non-blank text — so
+the citator never read them. **Every one of the 73,838 readings is `text-layer`** (measured, one
+channel), sitting on pages whose text-layer primary is still live.
+
+So the citator is clear by an accident of ordering, not by design. **7,431 live `ocr` primary
+pages on 1,023 documents a decision carries** are what the next walk would read, and after that
+walk every subsequent re-read — a better engine, a new render, a second wave — supersedes a
+primary a citation reading is standing on, with nothing in the store recording it.
+
+**That is the argument for the ordering of this work, and it is the only urgency claimed here:**
+do it before the citator walks the OCR channel, not after. Afterwards the same re-load is over a
+corpus that includes the OCR readings too, and the window in which the table is provably clean
+is gone.
+
 `quoted_passage` is self-contained provenance — it carries its evidence, so a reader can check
 the claim from the row. `source_location` is a pointer, and a pointer into a text the row
 cannot name is provenance that looks checkable and is not. ADR 0007 requires "the location
@@ -119,7 +148,8 @@ the display rule in the store is the `web/cite.py` failure `0018:508-511` names.
 skipped by `walk._PAGES:43-49`, so the re-load never reaches it, so its reading keeps
 `'pre-0026'` and is gated out of D2 for ever. That population is empty today for a citable
 reason: `0018:482` makes a page-text correction writable but says nothing must write one until
-`search.signature()`'s split lands (`../ocr-migration.md` item 11). The floor is real and it is
+`search.signature()`'s split lands (`../ocr-migration.md` item 11). Measured on production
+2026-09-12: **`document_text` holds zero live `human` rows.** The floor is real and it is
 currently zero.
 
 It is a **re-walk trigger, not an error**: the passage may still be right, but it is
