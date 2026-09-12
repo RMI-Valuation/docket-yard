@@ -316,6 +316,15 @@ def verify_spans(pages: list[tuple[int, str]], doc: dict) -> None:
         text = body.get(page, "")
         key = normalise(finding.get("target", ""))
         for start, end, raw in finding.get("spans") or []:
+            # IN RANGE FIRST (Codex review on PR #26, 2026-09-12): Python clamps a slice, so
+            # `[-6, 999]` over a page ending in "EP 445" slices to "EP 445" and would pass the
+            # predicate below while storing coordinates nobody can use literally
+            ok = all(type(i) is int for i in (start, end)) and 0 <= start < end <= len(text)
+            if not ok:
+                raise Unanchored(
+                    f"{doc['document_sha256'][:12]} page {page}: [{start}:{end}] is not a span"
+                    f" of a {len(text)}-character page"
+                )
             if " ".join(text[start:end].split()) != raw:
                 raise Unanchored(
                     f"{doc['document_sha256'][:12]} page {page}:"

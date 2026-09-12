@@ -147,6 +147,15 @@ def load_document(
             " offset is a derived assertion and carries its own method version (ADR 0026 D7);"
             " migration 0028 states it as a writer obligation SQLite cannot express"
         )
+    # AND THE METHOD NAMED IS THE ONE THAT EXISTS (Codex review on PR #26, 2026-09-12). The
+    # finder's method is checked against its declared owner below; the offsets have no owner
+    # row, so without this any non-empty pair would be stored as the provenance of locations no
+    # such method produced. `find` is the only offset producer, and it ships with this loader.
+    if carries_spans and (span_method, span_version) != (find.OFFSET_METHOD, find.OFFSET_VERSION):
+        raise WrongChannel(
+            f"{sha[:12]} names offset method {span_method}@{span_version}; the offsets this"
+            f" code produces are {find.OFFSET_METHOD}@{find.OFFSET_VERSION} (ADR 0026 D7)"
+        )
     # EVERY POINTER IS CHECKED AGAINST WHAT IT CLAIMS TO BE, before anything is written (Codex
     # review on PR #26, 2026-09-12). The foreign key proves a `document_text` row EXISTS; it
     # does not prove it is THIS document's page on THIS channel. A corrupted findings file, or
@@ -168,6 +177,19 @@ def load_document(
             raise WrongChannel(
                 f"{sha[:12]} page {page_no}: text_id {text_id} names {found}, not this"
                 f" document's page on channel {channel!r} (ADR 0026 D1)"
+            )
+    # AND EVERY PAGE A 'store' READING SAYS IT WALKED HAS A POINTER (Codex review on PR #26,
+    # 2026-09-12). The per-finding check below sees only pages with findings, while the
+    # retraction trusts `pages_walked` as proof a page was read and can retire an older
+    # finder's live citations on it — so a walked page naming no text would retract results on
+    # the word of a reading that identifies nothing it read. `findings_document` refuses the
+    # same shape at the producer; this is the boundary.
+    if text_ref == "store":
+        unpointed = sorted({int(p) for p in doc.get("pages_walked") or ()} - set(text_ids))
+        if unpointed:
+            raise WrongChannel(
+                f"{sha[:12]} page(s) {unpointed[:5]}: walked by a 'store' reading with no"
+                " text_id, so a retraction there would rest on no identified text (ADR 0026 D1)"
             )
     # THE STAMPS MUST BE WHOLE AND OF THIS DOCUMENT'S CHANNEL, checked against the
     # measurement rows themselves and not against whatever the caller believes it asked

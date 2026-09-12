@@ -270,7 +270,7 @@ CREATE TRIGGER citation_reading_superseded_at_is_append_only
 BEFORE UPDATE OF superseded_at ON citation_reading
 WHEN OLD.superseded_at IS NOT NULL
 BEGIN
-    SELECT RAISE(ABORT, 'ADR 0026 D5: superseded_at is append-only once set (0020:48s idiom)');
+    SELECT RAISE(ABORT, 'ADR 0026 D5: superseded_at is append-only once set (0020:48''s idiom)');
 END;
 
 PRAGMA user_version = 28;

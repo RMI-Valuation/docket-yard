@@ -388,6 +388,9 @@ def test_a_page_number_serialised_as_a_string_still_verifies(tmp_path):
         ("shifted", "slices to"),
         ("missing", "carries no spans"),
         ("foreign", "not the finding's target"),
+        ("negative", "is not a span of"),
+        ("offset_method", "names offset method"),
+        ("unwalked", "walked by a 'store' reading with no text_id"),
     ],
 )
 def test_forged_or_missing_spans_are_refused_at_the_load_boundary(tmp_path, tamper, match):
@@ -399,8 +402,9 @@ def test_forged_or_missing_spans_are_refused_at_the_load_boundary(tmp_path, tamp
     from docketyard.citator import load as citator_load
     from tests.test_citator_pipeline import _scored
 
+    text = "See EP 445, slip op. at 3, and FD 36873."
     con = _store(tmp_path)
-    _page(con, SHA, 1, "See EP 445, slip op. at 3, and FD 36873.")
+    _page(con, SHA, 1, text)
     con.commit()
     stamps = _scored(con, extractor_version=find.FINDER_VERSION)
 
@@ -410,8 +414,15 @@ def test_forged_or_missing_spans_are_refused_at_the_load_boundary(tmp_path, tamp
         by_key["EP 445"]["spans"][0][0] += 1  # "EP 445" -> slices to "P 445"
     elif tamper == "missing":
         by_key["EP 445"]["spans"] = []
-    else:
+    elif tamper == "foreign":
         by_key["EP 445"]["spans"] = [list(s) for s in by_key["FD 36873"]["spans"]]
+    elif tamper == "negative":
+        # the same slice Python would take, from a start no consumer can read literally
+        by_key["EP 445"]["spans"][0][0] -= len(text)
+    elif tamper == "offset_method":
+        doc["span_method_version"] = "1999-01-01"
+    else:
+        doc["pages_walked"] = [*doc["pages_walked"], 2]  # a page with no text_id
 
     with pytest.raises((find.Unanchored, citator_load.WrongChannel), match=match):
         citator_load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
