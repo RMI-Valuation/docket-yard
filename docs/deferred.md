@@ -1179,28 +1179,34 @@ distinguish the passage from the offsets, and one of the two has to give.
 
 ## `text load`'s lock budget is shorter than a poll's write window, 2026-09-12 (v2026.09.15)
 
-**Found by its cost, twice in one sitting.** Loading `ocr/ppocr-second` (6,664 documents) and
-`ocr/ppocr-graphic` (1,298) into production both **aborted** on the write lock, the second
-having loaded 1,459 and the third nothing: `batches.under_lock` retries `LOCK_RETRIES` times at
-`LOCK_BACKOFF * 2**attempt`, which totals about 62 seconds — and the 30-minute poll's write
-transaction (a search build, the parties split over 3,775 filings) outlasts that. The earlier
-`ocr/dots` load of the same size survived because it collided once and won the retry.
+**Found by its cost, and the first write-up of it named the wrong mechanism.** Loading
+`ocr/ppocr-second` (6,664 documents) and `ocr/ppocr-graphic` (1,298) into production both
+**aborted** on the write lock, the first having loaded 1,459 and the second nothing. Both
+succeeded later, unchanged, once the real blocker was gone — an orphaned read-only query of
+mine holding a read lock for 33 minutes (see § the WAL note in the same session's commits).
+
+**The mechanism, corrected 2026-09-12.** `db.connect` passes `timeout=30` to the driver, so
+there IS a 30-second busy timeout and the first draft of this entry was wrong to price the
+budget at "about 62 seconds". The budget is never spent: `batches._apply` opens its transaction
+with `con.execute("BEGIN")` (`batches.py:158`) — **deferred** — so it reads, then upgrades to a
+write, and on contention SQLite returns `SQLITE_BUSY` **at once** rather than waiting, because
+waiting cannot resolve a read-to-write upgrade. Measured: the aborting run took 71 seconds,
+which is `under_lock`'s 2+4+8+16+32 = 62 seconds of backoff plus overhead, with every one of
+its six attempts failing instantly and using none of its 30 seconds.
 
 The abort is correct behaviour and nothing was corrupted — the loader rolls back, says
-"re-run when it is free", and resumes on the next run. The cost is operational: a large root has
-to be timed into the ~29 minutes between polls, and each failed attempt re-walks the shards it
-already checked.
+"re-run when it is free", and resumes on the next run.
 
-- **`lock_retries` is a keyword argument with no CLI route** (`batches.under_lock`,
-  `text load`). Exposing it — `--lock-retries`, or a longer default for a root above some size
-  — is the whole fix, and it is the same want `batches.py`'s own docstring records for
-  Migration A: "A shell loop of twelve restarts was doing this by hand, one whole pass at a
-  time", which is what `under_lock` was built to replace and does not yet fully.
-- **Or the loader could yield to the poll rather than race it**, which is the more interesting
-  shape: the poll's schedule is known, so a load could check the time to the next firing and
-  size its batch to fit. Not proposed, just named.
-- Until then: `infra/deploy/README.md` should say to run a large `text load` just after a poll,
-  and that a re-run resumes.
+- **`BEGIN IMMEDIATE` is the fix**: take the write lock up front and the busy timeout applies,
+  turning six instant failures into six 30-second waits — which is what would have carried
+  these loads through. **The trade-off to weigh, not gloss:** the load would then hold the
+  write lock for a whole 200-document batch, which can make the poller wait instead. Substantive
+  code, so `/code-review` before it lands.
+- `lock_retries` also has no CLI route (`batches.under_lock`), which is a smaller knob on the
+  same problem.
+- Either way `batches.py`'s own docstring records the want, for Migration A: "A shell loop of
+  twelve restarts was doing this by hand, one whole pass at a time" — what `under_lock` was
+  built to replace and does not yet fully.
 
 ## `keys.render` has no version, and human decisions are keyed on its output, 2026-09-12 (v2026.09.15)
 
