@@ -1,7 +1,9 @@
 # ADR 0026 — A citation reading names the text it read
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-12
+- **Accepted:** 2026-09-12 (the operator, choosing "accept as written" after two schema-critic
+  passes and the § Checked against table CLAUDE.md gates acceptance on)
 - **Scope:** `citation_reading` only. The GRAIN of a finding, whether `citation_resolution`
   becomes per-occurrence, and whether the engine's name and render profile belong in this
   table's key are **deliberately not here**; see § What this record does not decide, and read
@@ -406,5 +408,4 @@ human decision already made survives a reversal untouched.
 
 ---
 
-*Proposed, not accepted. Accept only after this decision has been checked against
-`../validation-queries.md`.*
+*Accepted 2026-09-12, checked against `../validation-queries.md` in § Checked against above.*
