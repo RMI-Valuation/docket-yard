@@ -249,9 +249,11 @@ Expect `[('store', 73838)]`, or `('human', n)` beside it once anyone has reviewe
 `'pre-0026'` left means the pass did not finish** — three ways it can happen, and only the
 third is a fault: a page whose live primary now belongs to a channel this run did not walk
 (measured at zero today, and one OCR wave from non-zero); a page a person has corrected (the
-floor ADR 0026 D2 states); or a document that FAILED during the load, which `cli._citator`
-counts and prints but does not exit non-zero for. Re-run the two verbs on a fresh output
-directory rather than clearing the flag.
+floor ADR 0026 D2 states); or a document that FAILED during the load — which since this PR
+makes `citator load` **exit non-zero**, so the shell will tell you before this count does. A
+malformed findings FILE is deliberately not fatal (`unreadable`, pinned by
+`test_the_load_verb_runs_end_to_end`), and is the case this count exists to catch. Re-run the
+two verbs on a fresh output directory rather than clearing the flag.
 
 `extract` keeps running through this window, as it does for 0027 — it writes `document_text`
 and never `citation_reading`. If it lands a new primary between the `find` and the `load`, the

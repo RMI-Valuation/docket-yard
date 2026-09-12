@@ -279,13 +279,14 @@ class Unmarked(ValueError):
 
 class Unanchored(ValueError):
     """A span that does not slice to the string it claims. ADR 0026 D4 writes the predicate
-        down, migration 0028's header repeats it, and until 2026-09-12 nothing executed it — which
-        is the endpoint's own lesson in the store: a pointer whose correctness is asserted nowhere
-        reads exactly like a checked one (ingest specialist, F1). Any change to the text the finder
-        is handed before it counts — a whitespace normaliser in front of it, a `
-    ` fixup, a
-        caller that strips a leading blank line — would write offsets off by a constant, and every
-        CHECK, the pointer and the slice would still pass."""
+    down, migration 0028's header repeats it, and until 2026-09-12 nothing executed it — which
+    is the endpoint's own lesson in the store: a pointer whose correctness is asserted nowhere
+    reads exactly like a checked one (ingest specialist, F1).
+
+    Any change to the text the finder is handed before it counts — a whitespace normaliser in
+    front of it, a line-ending fixup, a caller that strips a leading blank line — would write
+    offsets off by a constant, and every CHECK, the pointer and the slice would still pass.
+    """
 
 
 def verify_spans(pages: list[tuple[int, str]], doc: dict) -> None:
