@@ -1,6 +1,9 @@
 # The grain of a citation finding
 
-**Status: a brief for the operator, 2026-09-12. Nothing here is decided.** It exists because
+**Status: CLOSED 2026-09-12. The operator decided question 0: the grain does not change.**
+See § The decision, at the end. The brief is kept whole because the measurements in it are the
+reason, and because two of its own drafts were wrong in ways worth being able to read. It exists
+because
 a night of measurement ended at a wall that is not a bug: the record decides caption-versus-
 citation at a grain coarser than the distinction itself. Everything below is measured against
 a production copy (`rehearse-wrap2`, the line-wrap re-load that matched production figure for
@@ -364,3 +367,40 @@ in the 85. The floor caveat still holds in the same direction as before —
 `find.py:206` de-duplicates identical lines, so two occurrences printing the same line collapse
 to one element and cannot enter the one-line count; a collapsed identical line cannot carry two
 different dates, so the 85 is a floor.
+
+## The decision, 2026-09-12: the grain does not change
+
+**The operator answered question 0: no.** ADR 0017 D4 stands, unedited and unsuperseded — the
+span test remains disjunctive over occurrences, `find.find` keeps folding, and
+`(citing_document, page, target_kind, target_key)` remains the key of a finding.
+
+The reasons, all measured and all in this document above:
+
+- **The loss is 0.69% of rows** — 506 of 73,838 live readings, confirmed over the whole store
+  rather than the 4,000-row sample.
+- **14.4% of that loss is reachable by NO grain change.** 73 of the 85 one-line cases are one
+  citation carrying its subsequent history — `corrected`, `aff'd`, `vacated`, `recon. denied` —
+  with a single match of the number and several dates hung off it. 78 of the 85 have a history
+  word between the dates. A finer grain cannot separate what the page prints as one cite.
+- **The 85.6% that IS reachable needs a per-occurrence `citation_resolution`**, which is shape
+  A — withdrawn because it breaks validation query 2. Measured again on 2026-09-12 from the
+  other side: it is a four-table key change (`citation_resolution`, `citation_judgement` and
+  `citation_treatment` all key on `reading_channel` as the only handle on a reading) plus a
+  fan-out fix at three join sites — `project.py:170-173`, `citator-query-2.sql:199-203` and
+  `review._base` (`review.py:92-94`) — where `cited_raw` and `quoted_passage` differ per row so
+  `SELECT DISTINCT` cannot collapse them.
+- **Every multi-document pair the operator judged survives today.** 6 of 134 judged pairs name
+  two documents and in all six the citations fall on different pages, which the key already
+  distinguishes.
+
+**And the thing that actually costs him time was never a grain question.** The review burden is
+66% of a 1,476-item queue, because `citation_exposed` filters on the exposure judgement and not
+on `kind`. He chose to fix that predicate the same day. It needs no schema change, no ADR and no
+re-read — which is the whole reason this brief separated citation LOSS from REVIEW BURDEN, and
+the reason closing it costs the record nothing.
+
+**What stays open, deliberately:** `citation_occurrence` — the critic's child-table shape — is
+not adopted and not refused. It would make the operator's `FD 00001` example representable and
+stop a caption and a citation on one page contradicting each other, without touching a key. It
+recovers none of the 0.69%. If it is ever wanted, ADR 0026's § Foreclosed prices the rebuild it
+would want to share.
