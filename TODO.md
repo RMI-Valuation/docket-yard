@@ -5,8 +5,6 @@ archive; shipped milestones are recorded in `docs/milestones.md`. `docs/deferred
 pool of accepted-later work: **pull an item from it into Next when capacity or a decision
 makes it near-term**, and delete it there when it lands. Anything stale in Parked graduates
 to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, prune.
-Pruned 2026-09-10: done items and facts that live elsewhere were removed; the nine operator
-decisions were taken the same day and are recorded where each belongs.
 
 ## In motion
 
@@ -21,24 +19,25 @@ decisions were taken the same day and are recorded where each belongs.
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
 
-- **Comment scans to the fleet** (the operator's decision, 2026-09-11): 12,184 image-only
-  attachments, 51,000 pages. Paddle done 20:51 UTC (0 failed); **primary LOADED** 20:55 (8,211
-  documents); `dots` reading, 13,013 pending at 23:55 UTC. The workstation's gate died with his
-  reboot and rejoined 2026-09-11 23:45 UTC — register its ONLOGON task (`deferred.md`).
-  `second` and `graphic` are NOT queue passes: they follow as `ocr_wave.py` documents when the
-  queue empties (`compute-fleet.md`), then rsync and `text load` each root in that order
+- **Comment scans: `dots` is DONE** — 46,838 pages read, 134 failed, 16,632 documents
+  collected 2026-09-12 04:17 UTC. `second` and `graphic` launched on the NUC 13:55 UTC
+  (`second` owed 6,710 documents). **Then rsync and `docketyard text load` each root in
+  order: dots, second, graphic.** The workstation gate's ONLOGON task is still unregistered
 
 ## Next
 
-- **A PANEL of local models CLEARS about half the review queue — MEASURED, 2026-09-11**
-  (`docs/extraction-benchmark.md`). Two models agreeing on both the citation and the document
-  settle 70 of 148 with 0 wrong. **Over the REAL 1,476 the panel clears only 9.7%, not 47.3%.**
-  The finding is elsewhere: both models agree **981 (66.5%) are CAPTIONS, not citations**, 649
-  of them the citing decision's own docket. `find.py:190` has the mechanism — the own-docket
-  rule is a disjunct `DOC_WORDS` defeats, and a caption block holds those words. **WITH HIM: 40
-  drawn to judge** (`data/caption-check.html`). If it holds, the finder is the bug and the queue
-  is two-thirds noise. Precision is measured through the review page (his decision); no
-  threshold — ADR 0017 thresholds on nothing; switching clearing on is an 0017 addendum, his
+- **The panel clears 9.7% of the real 1,476, and 66.5% of the queue is CAPTIONS** (measured
+  2026-09-11, `docs/extraction-benchmark.md`; he judged 40 — 39 captions, 0 citations). The
+  QUEUE PREDICATE is the fix and not the finder: `citation_exposed` filters on the exposure
+  judgement and not on `kind`, needs no schema change, and is what stands between him and a
+  small queue. Switching panel clearing on is an ADR 0017 addendum, his
+- **Offsets in the finder, on PROVENANCE and not recall** (his decision 2026-09-12, and his
+  re-decision the same day on the measurement): `find` reports each match's offset, `load`
+  writes a real `source_location`. Offsets uniquely recover 12 of 506 lost rows — 0.016% of
+  readings — while the per-line split is 421 (`docs/citation-grain.md` § The one number
+  nobody had). The walk reads flat `document_text.text`, so the honest shape is
+  `{page, char_start, char_end}` and NOT migration 0014's declared `{page, block_id, bbox}`:
+  schema-critic on that, then stb-ingest-specialist and `/code-review`
 
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score

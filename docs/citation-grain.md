@@ -274,6 +274,10 @@ It does NOT buy two `cited_decision_id`s for one key on one page — the measure
 
 ### Why offsets come first (the operator's decision, 2026-09-12)
 
+**The recall claim in this section is measured and it is wrong** — see § The one number
+nobody had, below, which was run before the code was written. The decision to report
+offsets stands on provenance, not on recall; the reasoning is left here as it was written.
+
 `resolve._anchored` anchors on the printed string, not on the occurrence: it runs over every
 match of that string in the passage, so where two citations of one key share a LINE both
 findings anchor to the same text, the served-date reader sees several dates and returns none,
@@ -288,9 +292,12 @@ line.** The grain decision is then made with that figure in hand rather than ahe
 
 ## The questions for the operator
 
-0. **Is the grain worth changing at all**, now that the loss is measured at ~0.6% of rows and
+0. **Is the grain worth changing at all**, now that the loss is measured at 0.69% of rows and
    every multi-document pair the operator judged survives? The review burden — the thing that
    costs him time — is a queue-predicate question and can be answered without touching this.
+   **Read § The one number nobody had first**: 14.4% of the loss is recoverable by no grain
+   change at all, and the 85.6% that is needs a per-occurrence RESOLUTION — which is shape A,
+   the shape the critic broke, and not the child table that replaced it.
 1. If it is: per-occurrence, or a cheaper cut — keeping the key but storing `kind` per
    occurrence, so a caption and a citation on one page stop contradicting each other, without
    multiplying the resolution rows?
@@ -298,3 +305,62 @@ line.** The grain decision is then made with that figure in hand rather than ahe
    reading is; a re-read that finds a number the last one missed renumbers everything after it.
 3. Does the projection keep folding to one edge per (citing work, target, document)?
 4. Is this worth a re-read of the corpus now, or does it wait behind the backfill?
+
+## The one number nobody had, measured 2026-09-12 before any code was written
+
+**The question was written down first** — what grain each side was at and what result would
+falsify it — because three of the four analyses that went wrong the night before went wrong by
+comparing two sides at different grains. Both sides here are one row of `citation_reading`,
+one (citing_document, page, target_kind, target_key, reading_channel). The reader is the
+shipped `resolve._anchored` with the shipped `SERVED` and `MONTHS`, called once over the whole
+passage exactly as `resolve.resolve` calls it at `resolve.py:239`, and once per `" | "`
+element of the same passage. Over **all 73,838 live readings** in `rehearse-wrap2`, not a
+sample of 4,000:
+
+| | rows | share |
+|---|---|---|
+| live `citation_reading` rows | 73,838 | |
+| **>= 2 distinct served dates on the key-page — the document is lost** | **506** | **0.69%** of readings |
+| the dates are separated **by line** | 421 | 83.2% of the loss |
+| both dates sit inside **one line** | 85 | 16.8% of the loss |
+
+The 0.69% confirms the sampled ~0.6% over the whole store. The second measurement is the one
+that matters, and it **breaks the reason offsets were chosen**. Counting matches of the printed
+number per line, with `_anchored`'s own compiled pattern rather than a hand-rolled one:
+
+- **73 of the 85 hold ONE match of the number with several dates hung off it.**
+  `EP 558 (Sub-No. 22), slip op. at 2 (STB served Aug. 6, 2019), corrected (STB served
+  Sept. 30, 2019)`. `FD 36168, slip op. at 8 & n.8 (STB served Mar. 15, 2019), pet. for recon.
+  denied (STB served June 20, 2019)`. **An offset cannot separate these**: there is one match,
+  so an occurrence-anchored window is the same window as today's, holds both dates, and
+  `served_date` still returns None.
+- 12 hold two or more matches — and all twelve are also subsequent history
+  (`reconsideration denied, NOR 42125 (STB served Dec. 23, 2015)`); seven of them are one
+  document.
+- **78 of 85 (91.8%) have a history word between the two dates** — `corrected`, `aff'd`,
+  `vacated`, `recon. denied`, `modified`, `clarified`, `stay den.`, `reopening denied`.
+
+### What that settles
+
+1. **Offsets are not a recall fix.** They uniquely recover **12 of 506 rows — 2.4% of the
+   loss, 0.016% of live readings.** § Why offsets come first says a shared LINE is where the
+   second document is lost; measured, a shared line is 16.8% of the loss and five sixths of
+   that is one citation, not two. **They remain worth reporting on their own merits** — the
+   `source_location` ADR 0003 requires and `load.py` does not write, and a discriminator that
+   is stable within a reading — and that is the claim they should be landed on.
+2. **The per-LINE split is where the recall is**: 421 rows, 83.2% of the loss. But it needs a
+   per-occurrence **`citation_resolution`**, one `cited_decision_id` per occurrence. The child
+   table that replaced shape A explicitly does not buy that ("It does NOT buy two
+   `cited_decision_id`s for one key on one page"), and the shape that did is the one the critic
+   broke on validation query 2. So the 83% is gated on the hard problem, not the cheap one.
+3. **14.4% of the loss is reachable by no grain change at all.** 73 rows are one printed number
+   carrying its subsequent history, and the record has no representation for `corrected`,
+   `aff'd` or `vacated`. That is a separate design question from the grain, and it is the
+   question the 78-of-85 history-word figure actually asks.
+
+**What would falsify this**: a count of two-match lines materially above 12, or one-match
+multi-date lines that are two independent citations rather than a history string. Neither is
+in the 85. The floor caveat still holds in the same direction as before —
+`find.py:206` de-duplicates identical lines, so two occurrences printing the same line collapse
+to one element and cannot enter the one-line count; a collapsed identical line cannot carry two
+different dates, so the 85 is a floor.

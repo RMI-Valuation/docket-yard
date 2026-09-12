@@ -1159,6 +1159,23 @@ mistake the benchmark harness made, in a file written an hour after that one was
   `--clears`, because a clearing rule cannot be accepted on a rate: a slice of those keys is
   what gives it a measured precision (ADR 0017 D3).
 
+## `keys.render` has no version, and human decisions are keyed on its output, 2026-09-12 (v2026.09.15)
+
+**Schema-critic, 2026-09-12, on shape A of the citation grain** (`docs/citation-grain.md`).
+`review_action.target_key_version` records the NORMALISER's version, not the render
+convention. Change how a key is rendered — a five-segment form where the store holds
+four-segment strings — and every human decision already made compares unequal to every row it
+was made about, **including the forty the operator judged on 2026-09-12**. It fails silently,
+as an empty result rather than an error, and migration 0014's four-segment CHECKs are
+shape-only and would not catch it.
+
+- **`review_action` and `correction` want a `render_version`** while both tables are still
+  small. That is the whole fix, and it is cheapest now.
+- The second finding from the same pass — `source_location` is declared `{page, block_id,
+  bbox}` and `load.py` writes only the page — is **not** deferred: it is the justification the
+  offsets work now stands on (`TODO.md` § Next), after the recall claim for offsets measured at
+  12 of 506 rows.
+
 ## Deadline engine (C4), graduated from TODO 2026-09-11
 
 Not started, and not blocked on anything but a decision. The STB's decision JSON carries no
