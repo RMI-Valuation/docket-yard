@@ -253,9 +253,24 @@ record spends the last cheap rebuild of `citation_reading` while leaving that de
 and the next rebuild is dearer: `citation_occurrence(reading_id REFERENCES citation_reading)`
 from `../citation-grain.md:263` would give this table its first child to cascade.
 
-If the answer is that both engines' readings must survive, the key should widen **in this
-rebuild** — ADR 0023's shape, the engine's name in the key and its version out — and this
-record should say so instead of D3.
+**But widening it now is not cheap either, and the first draft of this section said it was.**
+Measured 2026-09-12: `citation_resolution`, `citation_judgement` and `citation_treatment` all
+key on `(… , method, method_version, reading_channel)` — the RULE's method, with the channel as
+the only thing naming the reading (`0014:747`, `:814`, `:857`). And both `project.py:170-173`
+and `citator-query-2.sql:199-203` join `citation_reading` on the four key columns **plus
+channel alone**, with `rg.cited_raw` and `rg.quoted_passage` in the select list.
+
+So two live readings on one channel would fan the projection and validation query 2 out, two
+rows per resolution, and `SELECT DISTINCT` could not collapse them because the printed string
+and the passage differ per reading — **the same break shape A was withdrawn for, relocated from
+query 2's treatment join to its reading join.** A resolution could also no longer say which
+reading it resolved. Widening coherently is a FOUR-table key change plus both join sites, not a
+column on this one.
+
+**So the door is dear on both sides, and that is the honest statement.** D3 stands, and this
+record does not pretend the alternative was a free upgrade it declined. Whoever opens that door
+should open it with `citation_occurrence` and the per-occurrence resolution in one decision,
+because those three want the same rebuild and the same fan-out analysis.
 
 ## What this record does not decide
 
@@ -267,7 +282,7 @@ record should say so instead of D3.
   paid twice. A child table needs no parent rebuild, so nothing is foreclosed — but the second
   pass is real.
 - **Whether the engine name and render profile belong in this table's key** — see § Foreclosed,
-  which is where that question now costs something.
+  which prices it in both directions and recommends it be opened together with the grain.
 - **`place_mention`'s pointer**, named beside this one in ADR 0021 § Validation. That table
   does not exist outside `schema-draft.md`.
 - **The review queue's predicate**, where the 66% caption burden lives and which needs no
