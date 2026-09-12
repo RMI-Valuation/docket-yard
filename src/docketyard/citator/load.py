@@ -31,7 +31,7 @@ construction.
 
 from dataclasses import dataclass, field
 
-from docketyard.citator import judge, keys, methods, resolve
+from docketyard.citator import find, judge, keys, methods, resolve
 from docketyard.store import supersede
 from docketyard.store.db import dump_json, utcnow
 
@@ -154,12 +154,16 @@ def load_document(
     # claim provenance in someone else's text while the row reads fully checkable — the exact
     # failure ADR 0026 exists to refuse, arriving through the pointer it added. `walk` builds the
     # map correctly; this is the trust boundary, so it does not assume so.
+    texts: dict[int, str] = {}  # page -> the text the pointer names, for the span check below
     for page_no, text_id in text_ids.items():
         row = con.execute(
-            "SELECT document_sha256, page_no, reading_channel FROM document_text WHERE text_id = ?",
+            "SELECT document_sha256, page_no, reading_channel, text FROM document_text"
+            " WHERE text_id = ?",
             (text_id,),
         ).fetchone()
-        if row is None or tuple(row) != (sha, page_no, channel):
+        if row is not None:
+            texts[page_no] = row[3]
+        if row is None or tuple(row[:3]) != (sha, page_no, channel):
             found = "no document_text row" if row is None else f"{row[0][:12]} p{row[1]} {row[2]}"
             raise WrongChannel(
                 f"{sha[:12]} page {page_no}: text_id {text_id} names {found}, not this"
@@ -260,6 +264,34 @@ def load_document(
         # two agree by construction, since `kind` is a property of the key and the window.
         kinds.setdefault(at, finding.get("kind"))
         spans.setdefault(at, []).extend(finding.get("spans") or [])
+
+    # THE SPANS ARE RE-VERIFIED HERE, against the text the POINTER names (Codex review on PR #26,
+    # 2026-09-12). `find.verify_spans` already runs in `walk.documents`, but that is before the
+    # findings JSON is written, and this is the trust boundary the JSON crosses: a damaged file,
+    # or another producer's, could carry a correct `text_id` with forged spans or none at all and
+    # the row would still read as checkable. So for a 'store' reading every finding must name a
+    # page the pointer map covers, must carry spans (`find` emits at least one per finding, so
+    # none means tampering), and every span must slice out of the named row's text to its own
+    # raw. One predicate, `find.verify_spans`, executed on both sides of the file, and all of it
+    # before the first write so a refused document leaves nothing behind.
+    if text_ref == "store":
+        for finding in doc.get("findings", []):
+            page_no = int(finding["page"])
+            if page_no not in texts:
+                raise WrongChannel(
+                    f"{sha[:12]} page {page_no}: a 'store' finding on a page no text_id names"
+                    " (ADR 0026 D1)"
+                )
+            if not finding.get("spans"):
+                raise WrongChannel(
+                    f"{sha[:12]} page {page_no}: a 'store' finding carries no spans; `find`"
+                    " emits one per occurrence, so an empty list means the file was altered"
+                    " (ADR 0026 D4)"
+                )
+        find.verify_spans(
+            [(page_no, text) for page_no, text in texts.items()],
+            {"document_sha256": sha, "findings": doc.get("findings", [])},
+        )
 
     for (page, key), quotes in sorted(passages.items()):
         passage = " | ".join(q for q in quotes if q)
