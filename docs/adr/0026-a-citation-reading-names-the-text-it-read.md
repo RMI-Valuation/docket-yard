@@ -76,6 +76,19 @@ what the null means.
   because a page read without a route says so; it does not say nothing") and it answers
   `0014:251-252`'s objection to a null meaning three things. The rebuild backfills `'pre-0026'`
   for free.
+- **And `text_ref = 'human'` is BOUND to `reading_channel = 'human'`, both ways**:
+  `CHECK (text_ref <> 'human' OR reading_channel = 'human')` and
+  `CHECK (reading_channel <> 'human' OR text_ref = 'human')`. Without the pair a `text-layer`
+  row could claim `'human'` and a human row could claim `'pre-0026'`, and `text_ref` would be a
+  hint rather than a fact — which D2's gate rests on. `0018:331-339` is this store having
+  learned it once already: "'human' is encoded FOUR ways and all four are bound. … An earlier
+  draft bound three and left `reading_channel` free, **which is the same hole one column
+  over**."
+- **`text_ref_vocab` goes in `dump.HELD_TABLES`.** `citation_reading` is held (`dump.py:120`)
+  and `dump.scrub` drops held tables outright, so a vocabulary left public would ship an orphan
+  taxonomy of a table the CC0 snapshot does not contain — the reason `route_class_vocab` is
+  held (`0018:99-101`). `test_the_published_schema_has_no_dangling_foreign_key` will not catch
+  it: it looks for public-to-held references, not held vocabularies left public.
 
 **D2. A reading standing on text the record no longer shows is detectable, and that is what
 this buys.** The predicate is against the **display view**, not against the pointer's
@@ -90,6 +103,24 @@ removes a primary from the display view **without superseding it**, so a `supers
 returns nothing for the one sequence that can never be repaired by re-loading. One term over
 the view catches supersession and shadowing together, and `document_text_one_human`
 (`0018:390`) is the index that makes it cheap.
+
+**It runs from a connection that has called `display.register`** — `store/db.py:81`, or one of
+the `tools/` readers once it does — and never from the `sqlite3` CLI or a bare
+`sqlite3.connect`. `document_text_display.text` is `dy_display_text(t.text)`
+(`0020_display_mask.sql:34`), a Python-registered function (`store/display.py:80-83`), and
+SQLite resolves function names at prepare time over the whole view body: selecting only
+`v.text_id` does not save you. Seven `tools/` and `tools/fleet/` readers open bare today, and
+they are the measurement and monitoring path this predicate is FOR — so without the obligation
+stated, the detector throws in the monitor, which is the fleet's own lesson repeating one level
+up. **Do not** inline the view's two terms against `document_text` instead: a second copy of
+the display rule in the store is the `web/cite.py` failure `0018:508-511` names.
+
+**Its coverage starts at the re-load, and has a floor.** A page already human-corrected is
+skipped by `walk._PAGES:43-49`, so the re-load never reaches it, so its reading keeps
+`'pre-0026'` and is gated out of D2 for ever. That population is empty today for a citable
+reason: `0018:482` makes a page-text correction writable but says nothing must write one until
+`search.signature()`'s split lands (`../ocr-migration.md` item 11). The floor is real and it is
+currently zero.
 
 It is a **re-walk trigger, not an error**: the passage may still be right, but it is
 unverified. It goes where ADR 0019's telemetry can see it, because the fleet's lesson was that
@@ -158,6 +189,16 @@ trigger requires `NEW.superseded_at IS NOT NULL`. Legacy retirements stay honest
 nothing retired after this migration can be. That is the idiom this store already uses for a
 constraint SQLite cannot express (`0009`, `0014:639`, `0018:410`, `0019:285`).
 
+Three triggers, not one, because `BEFORE UPDATE OF superseded_by` guards one edge of three: an
+INSERT carrying a non-null `superseded_by` with a null `superseded_at` (no shipped writer does
+it), and `UPDATE … SET superseded_at = NULL`, which does not fire it at all. The second is the
+analogue of `document_text_text_is_immutable` (`0020:48`).
+
+The `OF superseded_by` form was checked against all three steps of the retirement idiom: a
+BEFORE UPDATE trigger's `NEW.*` holds the post-update value of every column, so
+`SET superseded_by = ?, superseded_at = ?` in one statement passes, and step three's bare
+repoint (`load.py:311-314`) passes because `NEW.superseded_at` reads what step one wrote.
+
 **This is validation query 3's fix**, and not only migration 0019's third defect: "which
 reading was live on 18 August" is answerable today only from a successor's `asserted_at`, and a
 row retired at itself has no successor and no recovery.
@@ -171,6 +212,13 @@ it touches. `0019:300-304` named the same obligation for its own table and this 
 for this one: `load.py`'s retire call and `supersede.if_changed`'s retire path must pass the
 timestamp.
 
+**And `text_ref` is NOT NULL with no default, so both INSERT paths change too**: `load.py:287`
+writes `'store'` and `review._human_reading` (`review.py:481`) writes `'human'`, along with
+four test fixtures (`test_citator_schema.py:393`, `:483`, `test_citator_retraction.py:49`,
+`test_citator_pipeline.py:735`). A `DEFAULT 'pre-0026'` would be the wrong repair — a new row
+would silently claim to predate this migration, the falsehood `0019:225-231` refused
+`DEFAULT 'native'` for.
+
 **D7. `find` gains its own provenance for the spans, and `FINDER_VERSION` still does not
 move.** `span_method` and `span_method_version`, with the paired-null CHECK the store uses for
 `route_method`/`route_method_version` (`0018:288-289`, "a route class is an assertion too, so
@@ -183,6 +231,11 @@ false provenance of exactly the kind ADR 0017 made four times. With their own tw
 provenance is honest, `FINDER_VERSION` holds (no answer changes, so no new `class_measurement`
 card is owed — `load.py:146-151` would otherwise refuse the load), and the test D8 promises
 still pins it.
+
+**`spans` present if and only if `span_method` present is a WRITER OBLIGATION, not a CHECK**:
+`source_location` is unconstrained `TEXT` and need not be JSON, so SQLite cannot express the
+third pairing. Stated here the way `0018:296-299` states the `text_sha256` obligation it also
+cannot enforce.
 
 **D8. It ships as a REBUILD, and the corpus pass that fills it is a RE-LOAD, priced
 separately.**
@@ -213,6 +266,14 @@ separately.**
 - **A maintenance wall is required** (ADR 0020 § Deploying a migrating release). Migration 0025
   needed none *because* `citation_resolution` held zero rows (`infra/deploy/README.md:297-300`);
   the inverse holds here.
+- **THE INTERCHANGE SHAPE, named here so it is not re-litigated at the keyboard.** Three values
+  must reach `load.load_document`, whose consumed object is specified at `load.py:5-19`:
+  **`text_id` per PAGE** — `walk._PAGES` does not select it and `walk.documents:112-114`
+  discards what it has; **`text_ref` DECLARED BY THE PRODUCER**, never inferred, because
+  `find.findings_document` emits the same shape from store pages and from benchmark markers and
+  only the caller knows which — refused on absence, exactly as `reading_channel` is
+  (`load.py:99, 111-115`); and **`spans` per FINDING**, a list, which `load.py:190-208` unions
+  per `(page, key)` beside the `" | "` passage join it already does.
 - The rebuild moves no published shape and does **not** bump `JSON_SHAPE`, as `0025:49-50`
   states for `citation_resolution`.
 
@@ -222,7 +283,7 @@ separately.**
 | --- | --- |
 | **Q1** segment history through successors | **Expressible, untouched.** `place_segment → proceeding_place → docket → party_relationship`; no citation table appears. |
 | **Q2** what narrowed or overruled a decision | **Expressible, answer set unchanged.** `citator-query-2.sql:199-203` joins on the four key columns plus channel; no key moves, so the join is byte-for-byte the same. **Owed at the migration:** the select list at `:179` returns `rg.source_location` with no `rg.text_id`, so until it and `project.py`'s copy of it are edited, Q2 returns spans with no identity for the text they index — the same defect one level down. Q2 is the ONLY query that reads these tables. |
-| **Q3** point-in-time docket state | **Repaired forward by D5.** Today `citation_reading` has `superseded_by` and no `superseded_at`, so a reading's live window is recoverable only from a successor's `asserted_at`, and a row retired at itself is undated with no recovery. D5 fixes it for everything retired after the migration and honestly leaves the legacy retirements undated. |
+| **Q3** point-in-time docket state | **Repaired forward by D5.** Today `citation_reading` has `superseded_by` and no `superseded_at`, so a reading's live window is recoverable only from a successor's `asserted_at`, and a row retired at itself is undated with no recovery. D5 fixes it for everything retired after the migration and honestly leaves the legacy retirements undated. **The other half:** D4 adds a per-occurrence derived assertion in unconstrained JSON on the parent, and `validation-queries.md:48-49` records untyped JSON as one of the two defects Q3 caught in the first schema draft. Mitigated rather than dismissed — nothing reads `spans`, `resolve._anchored` is untouched, and the typed home for an occurrence is the grain decision this record leaves open. |
 | **Q4** trail-use notice lifecycle | **Expressible, untouched.** Instruments, quoted dates and `decision_decided_date`; no `citation_reading`. |
 | **Q5** service-list membership alert | **Expressible, untouched.** Snapshot events, `party`, subscriptions; alerts never read text. |
 
@@ -234,9 +295,12 @@ distance and blob payload it came from. A reading standing on text the record no
 becomes a query instead of an invisible fact. `place_mention`, when it is built, has a settled
 precedent to copy.
 
-**Hard.** Two writers change in this commit, not later: `load.py`'s retire call must pass a
-timestamp (D6), and both `citator-query-2.sql` and `project.py` must select `text_id` or Q2's
-location stays unresolvable (§ Checked against).
+**Hard.** Four things change in this commit, not later: `load.py`'s retire call must pass a
+timestamp; `load.py` and `review._human_reading` must both write `text_ref`, which is NOT NULL
+with no default (D6); `walk` must carry `text_id` and the producer must declare `text_ref`
+through the interchange (D8); and `citator-query-2.sql` and `project.py` must select `text_id`
+or Q2's location stays unresolvable (§ Checked against). D2's predicate also obliges its caller
+to have registered `dy_display_text`.
 
 **Foreclosed — read this before accepting.** With the key left at `reading_channel`, asserting
 a SECOND engine's citation reading for the same page becomes unreachable without another
@@ -256,9 +320,13 @@ from `../citation-grain.md:263` would give this table its first child to cascade
 **But widening it now is not cheap either, and the first draft of this section said it was.**
 Measured 2026-09-12: `citation_resolution`, `citation_judgement` and `citation_treatment` all
 key on `(… , method, method_version, reading_channel)` — the RULE's method, with the channel as
-the only thing naming the reading (`0014:747`, `:814`, `:857`). And both `project.py:170-173`
-and `citator-query-2.sql:199-203` join `citation_reading` on the four key columns **plus
-channel alone**, with `rg.cited_raw` and `rg.quoted_passage` in the select list.
+the only thing naming the reading (`0025_work_class.sql:148-150`, which recreated the
+resolution index 0014 first declared; `0014:814`, `:857`). And **three** join sites match
+`citation_reading` on the four key columns **plus channel alone**: `project.py:170-173` and
+`citator-query-2.sql:199-203`, both with `rg.cited_raw` and `rg.quoted_passage` in the select
+list, and `review._base` (`review.py:92-94`) — while `review._human_reading`'s existence check
+(`review.py:473-479`) matches on `reading_channel = 'human'` alone. `restamp._CARRIED` would
+need the column too.
 
 So two live readings on one channel would fan the projection and validation query 2 out, two
 rows per resolution, and `SELECT DISTINCT` could not collapse them because the printed string
