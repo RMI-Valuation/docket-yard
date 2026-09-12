@@ -1131,3 +1131,30 @@ the node: no worker, no alarm, `last seen` simply ageing.
   once read and now does not is worth a line on the page — the fleet has a stall alarm for a
   pass, and none for a machine that has stopped asking. This is the same want as the
   `systemd --user` note below: the fleet's own liveness, not the queue's.
+
+## From the code review of the queue panel, 2026-09-11 (`review_queue_panel.py`, v2026.09.15)
+
+All seven findings were fixed before the run that matters was started; the first was caught
+with the run already in flight and cost a restart. Recorded because two of them are the same
+mistake the benchmark harness made, in a file written an hour after that one was fixed:
+
+- **The served date was anchored on the normalised key rather than the number as the page
+  printed it.** `resolve._anchored` takes the raw form, which `resolve.resolve` and
+  `benchmark_review` both pass. Measured over the real queue: **43 of 1,476 exposed items**
+  lost their date, so their offered decision list collapsed to `"none"` and they could never
+  have cleared — a floor on the clearing rate, reported as a rate. Every hyphenated printing
+  (`AB-564`, `AB-12`) was affected. The two runs made before the fix are set aside in
+  `data/` as `.superseded-served-date-bug` rather than deleted.
+- **A page whose live reading is `human` was shown to the panel**, though `walk.documents`
+  narrows `_PAGES` to the machine channels and the finder therefore never read it. Copying a
+  query without copying the filter that follows it is the trap; `pages_of` now takes the
+  channel set.
+- **`decision_attachment` is not unique by document**, so keeping one arbitrary carrier named
+  a decision whose own dockets are not the union the finder used. `walk.own_by_document` is
+  the shipped answer and is now called rather than re-derived.
+- Three guards the benchmark scorer already had were absent here: a division by zero on an
+  empty run, two runs collapsing on a shared basename, and a "panel" of one agreeing with
+  itself. **A sibling tool is not a review** — the guards have to be carried over deliberately.
+- The keys the panel would clear were computed and thrown away. They are now written out with
+  `--clears`, because a clearing rule cannot be accepted on a rate: a slice of those keys is
+  what gives it a measured precision (ADR 0017 D3).
