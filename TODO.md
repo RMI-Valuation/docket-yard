@@ -8,13 +8,12 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **FIRST: ADR 0026's migration** (Accepted 2026-09-12). Rebuild `citation_reading` with
-  `text_id`, `text_ref`, `superseded_at` and the three triggers; `load.py`'s retire call passes
-  a timestamp and both INSERT paths write `text_ref`; `walk` carries `text_id` and the producer
-  declares `text_ref`; `citator-query-2.sql` and `project.py` select `text_id`. Then the
-  re-load, behind the wall (ADR 0020). Milestone-scale: **branch and PR**, Copilot and Codex
-  review it, schema-critic on the migration, stb-ingest-specialist and `/code-review` on the
-  loader
+- **FIRST: merge PR #26 — migration 0028, ADR 0026** (Accepted 2026-09-12). Built and reviewed
+  six times, 820 tests, CI green on `9bf3eef`, rehearsed on a production copy (0 FK violations,
+  146,147 rows, 10 trigger edges). Waiting on Copilot's and Codex's reviews of `9bf3eef`; triage
+  any, then merge, tag, deploy BEHIND THE WALL with the re-load in the same window
+  (`infra/deploy/README.md` § Migration 0028, acceptance = zero live `'pre-0026'`), and publish
+  the Release the same sitting (ADR 0010)
 - **The citator is loaded** (v2026.09.15): 15,535 edges, 9,863 naming a document, none shown;
   exposed 1,476. **The review page, for a person**: one look settling docket, sub-docket and
   document, linked to scan, text, both dockets and the match; same-docket filings and decisions
