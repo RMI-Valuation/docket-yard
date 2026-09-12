@@ -219,6 +219,15 @@ def load_run(run_dir: Path) -> dict[tuple, dict]:
     return out
 
 
+def queues_of(run_dir: Path) -> set[str]:
+    """Which queue a run was drawn from. Stored on every record rather than inferred from the
+    directory's name, which anyone can rename."""
+    return {
+        json.loads(p.read_text(encoding="utf-8")).get("queue", "")
+        for p in sorted(run_dir.glob("*.json"))
+    }
+
+
 def panel(runs: list[Path], out: Path | None = None) -> int:
     """What the panel would CLEAR, and what it leaves to a person. No precision is printed:
     nothing here is scored against a truth, because the queue has none until the operator
@@ -228,11 +237,20 @@ def panel(runs: list[Path], out: Path | None = None) -> int:
         print("a panel is two or more runs; one run agrees with itself on everything")
         return 2
     sets: dict[str, dict] = {}
+    seen_queues: set[str] = set()
     for r in runs:
         if r.name in sets:
             print(f"two runs are both named {r.name}: rename or score them apart")
             return 2
         sets[r.name] = load_run(r)
+        seen_queues |= queues_of(r)
+    # TWO QUEUES ARE TWO QUESTIONS. `citation_exposed` asks which of two docket numbers the
+    # page means; `citation_unresolved` asks something else entirely. Agreement across them
+    # is not agreement, and the sheet that judges the cleared keys joins on one queue's query.
+    if len(seen_queues) != 1:
+        print(f"the runs are not from one queue: {sorted(seen_queues)}")
+        return 2
+    queue = seen_queues.pop()
     for name, s in sets.items():
         print(f"  {name:36s} answered {len(s):,} items")
     shared = set.intersection(*(set(s) for s in sets.values()))
@@ -269,6 +287,7 @@ def panel(runs: list[Path], out: Path | None = None) -> int:
             json.dumps(
                 {
                     "panel": sorted(sets),
+                    "queue": queue,
                     "answered_by_all": len(shared),
                     "would_clear": [
                         {
