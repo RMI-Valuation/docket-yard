@@ -361,15 +361,10 @@ def test_a_text_id_that_is_not_this_documents_page_is_refused(tmp_path, tamper):
     con.close()
 
 
-@pytest.mark.parametrize(
-    ("tamper", "match"),
-    [("shifted", "slices to"), ("missing", "carries no spans")],
-)
-def test_forged_or_missing_spans_are_refused_at_the_load_boundary(tmp_path, tamper, match):
-    """`verify_spans` runs in the walk, before the findings JSON is written; `load` is the trust
-    boundary that JSON crosses (Codex review on PR #26, 2026-09-12). A file carrying a correct
-    `text_id` with a forged span, or with its spans removed, must be refused before any write —
-    otherwise the row reads as checkable provenance it is not."""
+def test_a_page_number_serialised_as_a_string_still_verifies(tmp_path):
+    """`load` coerces `finding["page"]` with `int()`, so `verify_spans` must too (Copilot review
+    on PR #26, 2026-09-12): a producer writing `"page": "1"` would otherwise look up no text and
+    be refused with a misleading empty slice, though every span is correct."""
     from docketyard.citator import load as citator_load
     from tests.test_citator_pipeline import _scored
 
@@ -379,10 +374,44 @@ def test_forged_or_missing_spans_are_refused_at_the_load_boundary(tmp_path, tamp
     stamps = _scored(con, extractor_version=find.FINDER_VERSION)
 
     doc = next(walk.documents(con))
+    for finding in doc["findings"]:
+        finding["page"] = str(finding["page"])
+
+    citator_load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
+    assert con.execute("SELECT count(*) FROM citation_reading").fetchone()[0] > 0
+    con.close()
+
+
+@pytest.mark.parametrize(
+    ("tamper", "match"),
+    [
+        ("shifted", "slices to"),
+        ("missing", "carries no spans"),
+        ("foreign", "not the finding's target"),
+    ],
+)
+def test_forged_or_missing_spans_are_refused_at_the_load_boundary(tmp_path, tamper, match):
+    """`verify_spans` runs in the walk, before the findings JSON is written; `load` is the trust
+    boundary that JSON crosses (Codex review on PR #26, 2026-09-12). A file carrying a correct
+    `text_id` with a forged span, or with its spans removed, must be refused before any write —
+    otherwise the row reads as checkable provenance it is not. `foreign` is the span that
+    slices correctly but over ANOTHER docket: valid offsets, wrong proceeding."""
+    from docketyard.citator import load as citator_load
+    from tests.test_citator_pipeline import _scored
+
+    con = _store(tmp_path)
+    _page(con, SHA, 1, "See EP 445, slip op. at 3, and FD 36873.")
+    con.commit()
+    stamps = _scored(con, extractor_version=find.FINDER_VERSION)
+
+    doc = next(walk.documents(con))
+    by_key = {keys.normalise(f["target"]): f for f in doc["findings"]}
     if tamper == "shifted":
-        doc["findings"][0]["spans"][0][0] += 1  # "See EP 445" -> slices to "P 445"
+        by_key["EP 445"]["spans"][0][0] += 1  # "EP 445" -> slices to "P 445"
+    elif tamper == "missing":
+        by_key["EP 445"]["spans"] = []
     else:
-        doc["findings"][0]["spans"] = []
+        by_key["EP 445"]["spans"] = [list(s) for s in by_key["FD 36873"]["spans"]]
 
     with pytest.raises((find.Unanchored, citator_load.WrongChannel), match=match):
         citator_load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)

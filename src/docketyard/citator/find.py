@@ -296,6 +296,15 @@ def verify_spans(pages: list[tuple[int, str]], doc: dict) -> None:
     equality — `_target_end` crosses a newline for a wrapped sub-docket while the printed form
     is whitespace-collapsed, a population the note above measures at 628 citations.
 
+    AND EVERY SPAN'S RAW IS THE FINDING'S OWN TARGET (Codex review on PR #26, 2026-09-12). A
+    slice that lands proves the offsets index real text, not that the text is this docket: an
+    `EP 445` finding carrying a correct span over `FD 36873` would store another proceeding's
+    printing as EP 445's location. `find` keys each finding by `normalise(raw)` and `load` by
+    `normalise(target)`, so an honest span always agrees and a disagreeing one was not `find`'s.
+
+    The page is coerced to int the way `load` coerces it: JSON may carry it as a string, and a
+    string key would look up no text and report a misleading empty slice (Copilot, PR #26).
+
     Free where it is called: the walk already holds the pages it just passed in, so this is a
     slice per occurrence and no extra read. It raises rather than counting, because an offset
     that does not land is not a lower-confidence finding — it is a coordinate system mismatch,
@@ -303,12 +312,19 @@ def verify_spans(pages: list[tuple[int, str]], doc: dict) -> None:
     """
     body = dict(pages)
     for finding in doc.get("findings", []):
-        text = body.get(finding["page"], "")
+        page = int(finding["page"])
+        text = body.get(page, "")
+        key = normalise(finding.get("target", ""))
         for start, end, raw in finding.get("spans") or []:
             if " ".join(text[start:end].split()) != raw:
                 raise Unanchored(
-                    f"{doc['document_sha256'][:12]} page {finding['page']}:"
+                    f"{doc['document_sha256'][:12]} page {page}:"
                     f" [{start}:{end}] slices to {text[start:end]!r}, not {raw!r}"
+                )
+            if normalise(raw) != key:
+                raise Unanchored(
+                    f"{doc['document_sha256'][:12]} page {page}: [{start}:{end}] is {raw!r},"
+                    f" not the finding's target {key!r}"
                 )
 
 
