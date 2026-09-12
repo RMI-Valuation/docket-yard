@@ -1177,6 +1177,31 @@ distinguish the passage from the offsets, and one of the two has to give.
 - Not urgent: no human `citation_reading` rows exist outside the forty judgements of
   2026-09-12, and none of those went through `review.decide`.
 
+## `text load`'s lock budget is shorter than a poll's write window, 2026-09-12 (v2026.09.15)
+
+**Found by its cost, twice in one sitting.** Loading `ocr/ppocr-second` (6,664 documents) and
+`ocr/ppocr-graphic` (1,298) into production both **aborted** on the write lock, the second
+having loaded 1,459 and the third nothing: `batches.under_lock` retries `LOCK_RETRIES` times at
+`LOCK_BACKOFF * 2**attempt`, which totals about 62 seconds — and the 30-minute poll's write
+transaction (a search build, the parties split over 3,775 filings) outlasts that. The earlier
+`ocr/dots` load of the same size survived because it collided once and won the retry.
+
+The abort is correct behaviour and nothing was corrupted — the loader rolls back, says
+"re-run when it is free", and resumes on the next run. The cost is operational: a large root has
+to be timed into the ~29 minutes between polls, and each failed attempt re-walks the shards it
+already checked.
+
+- **`lock_retries` is a keyword argument with no CLI route** (`batches.under_lock`,
+  `text load`). Exposing it — `--lock-retries`, or a longer default for a root above some size
+  — is the whole fix, and it is the same want `batches.py`'s own docstring records for
+  Migration A: "A shell loop of twelve restarts was doing this by hand, one whole pass at a
+  time", which is what `under_lock` was built to replace and does not yet fully.
+- **Or the loader could yield to the poll rather than race it**, which is the more interesting
+  shape: the poll's schedule is known, so a load could check the time to the next firing and
+  size its batch to fit. Not proposed, just named.
+- Until then: `infra/deploy/README.md` should say to run a large `text load` just after a poll,
+  and that a re-run resumes.
+
 ## `keys.render` has no version, and human decisions are keyed on its output, 2026-09-12 (v2026.09.15)
 
 **Schema-critic, 2026-09-12, on shape A of the citation grain** (`docs/citation-grain.md`).
