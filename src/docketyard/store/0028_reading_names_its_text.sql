@@ -228,7 +228,13 @@ CREATE UNIQUE INDEX citation_reading_live ON citation_reading
 -- (`citator/load.py`, `UPDATE … SET superseded_by = ?`) passes because `NEW.superseded_at`
 -- reads what step one already wrote.
 CREATE TRIGGER citation_reading_retirement_is_dated
-BEFORE UPDATE OF superseded_by ON citation_reading
+-- `OF superseded_by, superseded_at`, not `OF superseded_by` alone (schema-critic, 2026-09-12,
+-- final pass on PR #26). An UPDATE setting `superseded_at` ALONE on a live row did not name
+-- `superseded_by`, so this never fired, and the append-only trigger below let it through
+-- because the old date was NULL — a live row with a retirement date, the state this WHEN
+-- forbids. Checked against `supersede.retire`: step one sets both, step three's bare repoint
+-- still reads the date step one wrote, so both pass.
+BEFORE UPDATE OF superseded_by, superseded_at ON citation_reading
 -- BOTH directions, which a first draft got half right. A pointer with no date is the case D5
 -- names; a row UN-retired while keeping its date is the fourth edge, and it would leave a row
 -- live and dated-retired at once — the state `document_text`'s biconditional (0018:357) forbids

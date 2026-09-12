@@ -1077,3 +1077,26 @@ def test_a_live_row_cannot_be_inserted_carrying_a_retirement_date(tmp_path):
         con.execute(insert, (*KEY, STAMP, STAMP))
     con.execute(insert, (*KEY, STAMP, None))  # and the ordinary live row still goes in
     assert _live(con, "citation_reading") == 1
+
+
+def test_a_live_row_cannot_be_given_a_retirement_date_by_itself(tmp_path):
+    """The fourth edge (schema-critic, 2026-09-12, final pass on PR #26). Setting
+    `superseded_at` alone on a live row named no `superseded_by`, so the retirement trigger did
+    not fire and the append-only trigger let it through, the old date being NULL."""
+    con = _store(tmp_path)
+    _key(con)
+    _citation(con, _extraction_measurement(con))
+    con.execute(
+        "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
+        " reading_channel, text_ref, cited_raw, quoted_passage, method, method_version,"
+        " asserted_at, confidence, confidence_state)"
+        " VALUES (?, ?, ?, ?, 'text-layer', 'benchmark', 'FD 36873', 'q', 'm', 'v', ?, 0.9,"
+        " 'unmeasured')",
+        (*KEY, STAMP),
+    )
+    rid = con.execute("SELECT reading_id FROM citation_reading").fetchone()[0]
+    with pytest.raises(sqlite3.IntegrityError, match="set and cleared together"):
+        con.execute(
+            "UPDATE citation_reading SET superseded_at = ? WHERE reading_id = ?", (STAMP, rid)
+        )
+    assert _live(con, "citation_reading") == 1
