@@ -92,11 +92,47 @@ these before a reader saw it, provenance let the whole thing be reconstructed af
 and the version discipline refused a card measured on a different finder. What is under
 question is one decision — the grain of a finding — and what it implies for the review surface.
 
+## Correction, the same day: the measurement is CITATIONS, and the loss is small
+
+**The operator's correction, 2026-09-12:** a caption is not what this record is for. Nobody
+cares whether a decision mentions itself; the question is whether it names another decision or
+filing, in its own docket or another. So captions are incidental to the measurement, and the
+figure that matters is how many CITATIONS the grain loses — not how many captions it mislabels.
+
+Re-measured on that basis, and the case above is weaker than it was written:
+
+- **A caption folded in with a citation costs nothing.** The disjunction calls the key a
+  citation, the edge still publishes, and the caption is harmlessly along for the ride. The
+  14.1% multi-occurrence figure is therefore NOT a loss figure, and quoting it as one was
+  wrong. It bounds where a *labelling* conflict can occur, which is a review-burden fact.
+- **The six multi-document pairs in the operator's own work sheet all survive.** 6 of 134
+  judged pairs (4.5%) name two documents; in every one the two citations fall on DIFFERENT
+  pages, the page is part of the key, and the record stores both. `52211 -> FD 36732` holds
+  51913 and 51953; `52835 -> AB 290 (286)` holds 37729 and 41895. **Nothing is lost in any of
+  them.**
+- **The demonstrable loss is ~0.6% of stored rows**: two distinct served dates anchored to one
+  key on ONE page, where the schema has room for one. Still a floor — a short-form second cite
+  carries no date and cannot be counted — but a floor over a small number, not a large one.
+
+**So the grain is wrong in principle and cheap in practice.** A per-occurrence key would make
+the operator's example representable; it would not move citation recall much, because the page
+is already doing most of the work a per-occurrence discriminator would do. That is an argument
+for deciding it deliberately rather than urgently.
+
+**And it separates the two problems that this brief ran together.** Citation LOSS is ~0.6% and
+structural. REVIEW BURDEN is 66% of a 1,476-item queue and has nothing to do with the grain:
+those rows are captions that will never publish, queued because `citation_exposed` filters on
+the exposure judgement and not on `kind`. The second is what stands between the operator and a
+small queue, and it is a queue-predicate question, not a grain question.
+
 ## The questions for the operator
 
-1. Is per-occurrence the grain, or is there a cheaper cut that gets most of it — for instance
-   keeping the key but storing `kind` per occurrence, so a caption and a citation on one page
-   stop contradicting each other, without multiplying the resolution rows?
+0. **Is the grain worth changing at all**, now that the loss is measured at ~0.6% of rows and
+   every multi-document pair the operator judged survives? The review burden — the thing that
+   costs him time — is a queue-predicate question and can be answered without touching this.
+1. If it is: per-occurrence, or a cheaper cut — keeping the key but storing `kind` per
+   occurrence, so a caption and a citation on one page stop contradicting each other, without
+   multiplying the resolution rows?
 2. If per-occurrence: what is the stable discriminator? An ordinal is stable only if the
    reading is; a re-read that finds a number the last one missed renumbers everything after it.
 3. Does the projection keep folding to one edge per (citing work, target, document)?
