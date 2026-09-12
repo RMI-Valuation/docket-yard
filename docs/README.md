@@ -17,6 +17,7 @@
 | [`navigation-review.md`](navigation-review.md) | What the record holds against what a reader can reach: eight measured defects, the captions the search index never prints, and a ranked sequence. Analysis 2026-08-31, nothing chosen. |
 | [`validation-queries.md`](validation-queries.md) | The five queries the schema must answer on paper before pipeline code exists. |
 | [`citator-gate.md`](citator-gate.md) | What must be settled before C2 is chosen: the edge shape, docket resolution, and what the benchmark exposed. **Open questions, not decisions.** |
+| [`citation-grain.md`](citation-grain.md) | Whether a finding is keyed per page or per OCCURRENCE. Measured 2026-09-12: 14.1% of stored rows hold a number that appears more than once on its page, so one verdict must be wrong for one of them; 0.6% demonstrably lose a second document, a floor because short forms carry no date. **A brief for the operator — open questions, and it would supersede ADR 0017 D4.** |
 | [`citator-query-2.sql`](citator-query-2.sql) | Validation query 2 written in full against ADR 0017 + 0018, so "Q2 is writable against this shape" is checkable rather than asserted. **Executable since migration 0014**; returns the empty set, which is the correct day-one answer. |
 | [`citator-schema.md`](citator-schema.md) | The tables ADR 0018 needs, worked into concrete shapes, with every citation figure and its method. **Proposals — but the sole home of several constraints both ADRs delegate to it.** |
 
