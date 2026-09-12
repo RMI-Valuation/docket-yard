@@ -125,6 +125,167 @@ those rows are captions that will never publish, queued because `citation_expose
 the exposure judgement and not on `kind`. The second is what stands between the operator and a
 small queue, and it is a queue-predicate question, not a grain question.
 
+## Shape A - WITHDRAWN 2026-09-12, see the critic findings below
+
+**The operator chose this shape 2026-09-12.** It is a draft, not a decision, and the critic is
+being asked to break it before anything is written.
+
+### The observation the shape rests on
+
+The five citation tables already split two kinds of fact:
+
+| table | keyed by | what it asserts |
+|---|---|---|
+| `citation` | document, page, kind, key | **channel-free**: this page mentions this number |
+| `citation_reading` | + `reading_channel` | what THIS reading printed, and where |
+| `citation_judgement` | + channel, judgement, method | caption or citation; span; exposed |
+| `citation_resolution` | + channel, method | which docket, which document |
+| `citation_treatment` | + channel, method | followed, distinguished, overruled (query 2) |
+
+**An occurrence is a property of a READING, not of the document.** The text layer and dots.mocr
+break the same page differently and need not find the same matches, so a line number is a fact
+about one reading of a page rather than about the page. That is why the occurrence goes in the
+four channel-keyed tables and NOT in `citation`.
+
+### The change
+
+1. `occurrence INTEGER NOT NULL DEFAULT 1 CHECK (occurrence >= 1)` on `citation_reading`,
+   `citation_judgement`, `citation_resolution` and `citation_treatment`.
+2. **Its definition**: the 1-based ordinal of *this* `target_key`'s matches on this page, in
+   reading order. Per key, deliberately — not an ordinal over every docket number on the page,
+   which would renumber `FD 00001` because an unrelated `AB 55` was found or missed.
+3. The four `*_live` unique indexes gain `occurrence`.
+4. `citation` and `citation_live` are **unchanged**. "This page mentions FD 00001" is true
+   however many times it does, and every existing join to `citation` survives.
+5. `find.find` stops folding: one finding per occurrence, each with its own `kind`, `quoted`
+   and `source_location`. `FINDER_VERSION` and `RANK_VERSION` move.
+6. The projection keeps folding to one edge per (citing work, target, document) — which is
+   what stops a per-occurrence grain multiplying what a reader is shown.
+7. Migration: every existing row takes `occurrence = 1`, which is what it means today.
+
+### What it buys, measured
+
+The operator's case: a heading names `FD 00001`, two paragraphs cite two different decisions of
+it with their own served dates, a closing sentence names it again. Four occurrences, two
+captions, two citations, two documents — today one row, one `kind`, one `cited_decision_id`.
+Under this shape each occurrence carries its own answer.
+
+- 14.1% of stored rows hold a key that appears more than once on its page.
+- ~0.6% demonstrably name two documents on ONE page; the schema has room for one. A floor:
+  a short-form second cite carries no date and cannot be counted.
+- ADR 0017 D4's disjunction ("one occurrence naming a document makes the target a citation")
+  becomes unnecessary rather than wrong — each occurrence answers for itself. **Superseding D4
+  is a new ADR, never an edit.**
+
+### The five validation queries
+
+Query 2 (negative treatment) is the only one that reads these tables. It asks what narrowed or
+overruled a decision, keyed to the DECISION rather than a content hash. `citation_treatment`
+gains the column and its live index; the query's grain is the edge, which the projection still
+folds, so the answer set is unchanged. Queries 1, 3, 4 and 5 read segments, the event ledger,
+trail-use filings and service lists, and touch no citation table.
+
+### What the critic is asked to attack
+
+1. **Cross-reading stability.** An ordinal is stable only if the reading is. When dots.mocr
+   re-reads a page the text layer already read and finds three matches where there were two,
+   what supersedes what? `citation_reading_live` is per channel so the two coexist — but
+   `citation_judgement` and `citation_resolution` are also per channel, and the projection
+   ranks across channels by `precedence_rank`. Does occurrence 2 of one channel mean the same
+   passage as occurrence 2 of another? **If it does not, ranking across channels is comparing
+   different sentences, and that is the defect this shape could introduce.**
+2. **Re-reads within one channel.** A better finder that catches a number the old one missed
+   renumbers every later occurrence of that key. The live index would treat the renumbered rows
+   as new rather than as supersessions, so the store would hold both. Is `occurrence` therefore
+   the wrong discriminator, and should it be `source_location` (block and bbox, which ADR 0003
+   already captures) with the ordinal derived for display only?
+3. **The human path.** `review_action` records a decision against the queue's four columns and
+   `review.decide` writes an assertion on them. A human answer about occurrence 2 must not
+   clear occurrence 3. Does anything in migration 0015 key a human row in a way that would
+   silently widen?
+4. **The `citation` join.** Leaving `citation` at page grain means one document-level row for
+   several reading-level rows. `review._base` joins `citation` to `citation_reading` on four
+   columns; with occurrence added to one side only, does that join fan out, and where?
+5. **Whether the split is right at all** — should `citation` itself carry the occurrence, and
+   is "this page mentions this number" a fact worth keeping separately?
+
+## Schema-critic broke shape A, 2026-09-12. What it found, and what replaces it
+
+**Shape A above is withdrawn.** It is left in place because the reasoning is worth reading
+beside what was wrong with it, not because it is a live proposal.
+
+### Three breaks that matter
+
+1. **Validation query 2 breaks, and the draft asserted it did not.** `citator-query-2.sql`
+   joins `citation_treatment` and `citation_reading` on the four key columns. Both tables gain
+   `occurrence` under shape A and neither ON clause mentions it, so a key with three
+   occurrences yields 3 x 3 rows. `SELECT DISTINCT` cannot collapse them — the treatment, the
+   raw string, the quoted passage and the source location are all in the select list and all
+   differ per occurrence. A negative polarity then matches when ANY occurrence carries one and
+   is returned beside ANOTHER occurrence's passage. Query 2's product is "this decision
+   overruled that one, and here is the passage"; the fan-out makes the polarity and the passage
+   come from different sentences. `citation_treatment` is empty today, so the defect is latent
+   — which is how it would have survived review.
+
+2. **The store had already rejected both candidate discriminators, in its own DDL.**
+   Migration 0014 on `decision_decided_date.ordinal`: a positional, parser-assigned ordinal
+   mints a row that supersedes nothing the day a layout change reorders two printed lines, and
+   `source_location` was removed from a key for the same reason. Shape A offered a choice
+   between exactly those two and proposed to make that dormant defect live on the three largest
+   citator tables. Two finder changes on 2026-09-11 alone moved match sets inside existing
+   pages (628 wrapped sub-dockets, 3,438 continuation lines), so renumbering is not theoretical.
+
+3. **The human path would DELETE, not widen.** `review.decide` retires every live resolution on
+   the key and inserts one replacement. With `occurrence` in the live index, answering
+   occurrence 2 retires occurrences 1 and 3 with no successor: their edges leave the projection
+   with no reviewer having been asked, and `review_action` records only the one decision.
+   `_human_reading` returns early if any human reading exists on the key, so every reviewed
+   occurrence after the first gets a resolution and no reading, and the projection's INNER
+   reading join drops it.
+
+### Two findings worth acting on whatever happens to the grain
+
+- **`keys.render` has no version.** `review_action.target_key_version` records the NORMALISER's
+  version, not the render convention. A five-segment rendering would compare unequal to every
+  four-segment string in the store — stranding every human decision already made, **including
+  the forty judged on 2026-09-12** — silently, as an empty result rather than an error. The
+  four-segment CHECKs are shape-only and would not catch it. `review_action` and `correction`
+  want a `render_version` while those tables are still small.
+- **`source_location` is declared but not written.** Migration 0014 declares
+  `{page, block_id, bbox}` and ADR 0003 requires layout capture; `load.py` writes the page and
+  nothing else. So the fallback shape A offered — key on `source_location` instead — does not
+  exist to fall back on.
+
+### The shape that replaces it
+
+Keep every key exactly as it is. Make the occurrence a child of the reading's surrogate id:
+
+    citation_occurrence(reading_id REFERENCES citation_reading(reading_id),
+                        ordinal, cited_raw, quoted, kind, source_location,
+                        PRIMARY KEY (reading_id, ordinal))
+
+A re-read supersedes the READING — one row, one live index, semantics unchanged — and replaces
+its whole occurrence list atomically. Nothing renumbers across a supersession because the old
+ordinals stay attached to the old reading. No live index, no projection term, no queue
+predicate and no rendered key moves. An occurrence only means anything relative to one reading,
+which was shape A's own opening observation followed through properly.
+
+It does NOT buy two `cited_decision_id`s for one key on one page — the measured ~0.6%.
+
+### Why offsets come first (the operator's decision, 2026-09-12)
+
+`resolve._anchored` anchors on the printed string, not on the occurrence: it runs over every
+match of that string in the passage, so where two citations of one key share a LINE both
+findings anchor to the same text, the served-date reader sees several dates and returns none,
+and the second document is lost anyway. Its own docstring says so — a finder that reports
+offsets is still the real fix.
+
+So `find` reporting each match's offset and block pays three debts at once: a discriminator
+that is stable within a reading, a window the anchor can actually use, and the
+`source_location` ADR 0003 requires and that is not being written. **And it makes measurable
+the one number nobody has: what share of the multi-document pages have both citations on one
+line.** The grain decision is then made with that figure in hand rather than ahead of it.
+
 ## The questions for the operator
 
 0. **Is the grain worth changing at all**, now that the loss is measured at ~0.6% of rows and
