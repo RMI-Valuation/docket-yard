@@ -61,9 +61,15 @@ walk every subsequent re-read — a better engine, a new render, a second wave �
 primary a citation reading is standing on, with nothing in the store recording it.
 
 **That is the argument for the ordering of this work, and it is the only urgency claimed here:**
-do it before the citator walks the OCR channel, not after. Afterwards the same re-load is over a
+do it before the citator READS the OCR channel, not after. Afterwards the same re-load is over a
 corpus that includes the OCR readings too, and the window in which the table is provably clean
 is gone.
+
+*"Reads the OCR channel" means `citator walk` selecting `document_text` rows where
+`reading_channel = 'ocr'` — the text the OCR wave has ALREADY written to the store. Nothing in
+the citator runs an engine; `find.py`'s own docstring opens "Nothing here reads a PDF", and
+`walk.py`'s opens with the reason the walk is "a store read and not an API round trip". The
+distinction matters here only because those rows are the ones a later re-read supersedes.*
 
 `quoted_passage` is self-contained provenance — it carries its evidence, so a reader can check
 the claim from the row. `source_location` is a pointer, and a pointer into a text the row
