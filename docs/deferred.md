@@ -1159,6 +1159,24 @@ mistake the benchmark harness made, in a file written an hour after that one was
   `--clears`, because a clearing rule cannot be accepted on a rate: a slice of those keys is
   what gives it a measured precision (ADR 0017 D3).
 
+## A human citation reading copies the machine's printed string and passage, 2026-09-12 (v2026.09.15)
+
+**Schema-critic, 2026-09-12, reviewing ADR 0026.** That record's D4 says attributing a
+machine's character offsets to a person as their own reading is the same class of error as
+inferring a party's position from who filed a document — and the shipped code already makes the
+weaker form of that copy. `review._human_reading` takes `item["cited_raw"]` and
+`item["quoted_passage"]` straight off the machine reading it is answering (`review.py:90`,
+`492-493`) and writes them on a row whose `confidence_state` is `human`.
+
+It is defensible as it stands: a reviewer answering a queue item IS looking at that passage, so
+the row records what was in front of them. But the principle ADR 0026 states does not
+distinguish the passage from the offsets, and one of the two has to give.
+
+- **Decide which**, and write the reason on whichever survives. Either the offsets differ in
+  kind from the passage and ADR 0026 should say why, or the passage copy wants the same look.
+- Not urgent: no human `citation_reading` rows exist outside the forty judgements of
+  2026-09-12, and none of those went through `review.decide`.
+
 ## `keys.render` has no version, and human decisions are keyed on its output, 2026-09-12 (v2026.09.15)
 
 **Schema-critic, 2026-09-12, on shape A of the citation grain** (`docs/citation-grain.md`).
