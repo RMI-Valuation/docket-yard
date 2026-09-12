@@ -328,3 +328,34 @@ def test_a_stored_span_slices_back_to_the_text_its_pointer_names(tmp_path):
     )["spans"]
     assert len(spans) == 2, "the span list is the OCCURRENCE list (ADR 0026 D4)"
     con.close()
+
+
+@pytest.mark.parametrize("tamper", ["another_page", "no_such_row"])
+def test_a_text_id_that_is_not_this_documents_page_is_refused(tmp_path, tamper):
+    """The foreign key proves a `document_text` row exists, not that it is THIS document's
+    page on THIS channel (Codex review on PR #26, 2026-09-12). A findings file carrying a real
+    `text_id` from an unrelated page would otherwise store spans claiming provenance in someone
+    else's text while the row read as fully checkable. `load` is the trust boundary, so it
+    checks every pointer before it writes anything."""
+    from docketyard.citator import load as citator_load
+    from tests.test_citator_pipeline import _scored
+
+    con = _store(tmp_path)
+    _page(con, SHA, 1, "See EP 445, slip op. at 3.")
+    _page(con, SHA, 2, "An unrelated page.")
+    con.commit()
+    stamps = _scored(con, extractor_version=find.FINDER_VERSION)
+
+    doc = next(walk.documents(con))
+    other = con.execute(
+        "SELECT text_id FROM document_text WHERE document_sha256 = ? AND page_no = 2", (SHA,)
+    ).fetchone()[0]
+    doc["text_ids"]["1"] = other if tamper == "another_page" else 999_999
+
+    with pytest.raises(citator_load.WrongChannel, match="not this document's page"):
+        citator_load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
+    con.rollback()
+    assert con.execute("SELECT count(*) FROM citation_reading").fetchone()[0] == 0, (
+        "the refusal must come before any write"
+    )
+    con.close()

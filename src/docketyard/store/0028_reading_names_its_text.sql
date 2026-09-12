@@ -243,9 +243,15 @@ END;
 
 CREATE TRIGGER citation_reading_inserted_retirement_is_dated
 BEFORE INSERT ON citation_reading
-WHEN NEW.superseded_by IS NOT NULL AND NEW.superseded_at IS NULL
+-- BOTH directions, as the update trigger above (Codex review on PR #26, 2026-09-12). A first
+-- draft guarded only a retired row with no date, so an insert of a LIVE row carrying a
+-- retirement date passed — the same live-and-dated state the update trigger was widened to
+-- refuse after schema-critic found it there. The sibling was missed.
+WHEN (NEW.superseded_by IS NOT NULL AND NEW.superseded_at IS NULL)
+  OR (NEW.superseded_by IS NULL AND NEW.superseded_at IS NOT NULL)
 BEGIN
-    SELECT RAISE(ABORT, 'ADR 0026 D5: a row inserted already retired must carry superseded_at');
+    SELECT RAISE(ABORT,
+        'ADR 0026 D5: an inserted row carries superseded_by and superseded_at together or neither');
 END;
 
 -- and a retirement's date may not be taken back OR MOVED. The WHEN tests only `OLD`, so it

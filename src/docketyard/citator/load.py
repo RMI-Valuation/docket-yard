@@ -147,6 +147,24 @@ def load_document(
             " offset is a derived assertion and carries its own method version (ADR 0026 D7);"
             " migration 0028 states it as a writer obligation SQLite cannot express"
         )
+    # EVERY POINTER IS CHECKED AGAINST WHAT IT CLAIMS TO BE, before anything is written (Codex
+    # review on PR #26, 2026-09-12). The foreign key proves a `document_text` row EXISTS; it
+    # does not prove it is THIS document's page on THIS channel. A corrupted findings file, or
+    # another caller's, carrying a real `text_id` from an unrelated page would store spans that
+    # claim provenance in someone else's text while the row reads fully checkable — the exact
+    # failure ADR 0026 exists to refuse, arriving through the pointer it added. `walk` builds the
+    # map correctly; this is the trust boundary, so it does not assume so.
+    for page_no, text_id in text_ids.items():
+        row = con.execute(
+            "SELECT document_sha256, page_no, reading_channel FROM document_text WHERE text_id = ?",
+            (text_id,),
+        ).fetchone()
+        if row is None or tuple(row) != (sha, page_no, channel):
+            found = "no document_text row" if row is None else f"{row[0][:12]} p{row[1]} {row[2]}"
+            raise WrongChannel(
+                f"{sha[:12]} page {page_no}: text_id {text_id} names {found}, not this"
+                f" document's page on channel {channel!r} (ADR 0026 D1)"
+            )
     # THE STAMPS MUST BE WHOLE AND OF THIS DOCUMENT'S CHANNEL, checked against the
     # measurement rows themselves and not against whatever the caller believes it asked
     # `stamp` for. The CLI refuses a batch that mixes channels; this is the guard that holds

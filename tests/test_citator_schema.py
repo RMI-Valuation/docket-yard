@@ -1057,3 +1057,23 @@ def test_migration_0028_carries_readings_across_the_rebuild(tmp_path):
         "document_text",  # new at 0028
         "text_ref_vocab",  # new at 0028
     }
+
+
+def test_a_live_row_cannot_be_inserted_carrying_a_retirement_date(tmp_path):
+    """The insert trigger guards BOTH directions (Codex review on PR #26, 2026-09-12). A first
+    draft refused only a retired row with no date, so a LIVE row carrying a retirement date
+    went in — the live-and-dated state the update trigger had already been widened to refuse."""
+    con = _store(tmp_path)
+    _key(con)
+    _citation(con, _extraction_measurement(con))
+    insert = (
+        "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
+        " reading_channel, text_ref, cited_raw, quoted_passage, method, method_version,"
+        " asserted_at, confidence, confidence_state, superseded_at)"
+        " VALUES (?, ?, ?, ?, 'text-layer', 'benchmark', 'FD 36873', 'q', 'm', 'v', ?, 0.9,"
+        " 'unmeasured', ?)"
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="together or neither"):
+        con.execute(insert, (*KEY, STAMP, STAMP))
+    con.execute(insert, (*KEY, STAMP, None))  # and the ordinary live row still goes in
+    assert _live(con, "citation_reading") == 1
