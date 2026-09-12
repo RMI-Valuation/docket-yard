@@ -95,11 +95,6 @@ HELD_TABLES: tuple[str, ...] = (
     # `text_payload` holds digests of blob-tier objects that carry that same text, so
     # publishing it would name the withheld artefacts one indirection away.
     "page_fts",
-    "document_text",
-    # its only referrer is `document_text`, so publishing it would ship an orphan taxonomy of
-    # the held layer's own method. The tiers are public on /methodology; the table is not.
-    "route_class_vocab",
-    "text_payload",
     "filing_party_link",
     "filing_party_span",
     "party_relationship",
@@ -118,6 +113,19 @@ HELD_TABLES: tuple[str, ...] = (
     "citation_judgement",
     "citation_resolution",
     "citation_reading",
+    # its only referrer is `citation_reading`, so publishing it would ship an orphan taxonomy
+    # of the held layer's own method — `route_class_vocab`'s reason, one table over (0018)
+    "text_ref_vocab",
+    # MOVED BELOW THE CITATOR BLOCK AT 0028 (code review, 2026-09-12). `citation_reading` gained
+    # `text_id REFERENCES document_text (text_id)`, so it is now a CHILD of `document_text` —
+    # and this list promises children before parents. It sat above the block, which inverted
+    # that for the one new edge. Latent, `scrub` dropping with foreign keys OFF, which is
+    # exactly the condition the header says the order is kept against.
+    "document_text",
+    # its only referrer is `document_text`, so publishing it would ship an orphan taxonomy of
+    # the held layer's own method. The tiers are public on /methodology; the table is not.
+    "route_class_vocab",
+    "text_payload",
     "citation",
     "citation_key",
     "decision_decided_date",

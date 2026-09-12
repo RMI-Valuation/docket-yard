@@ -68,7 +68,7 @@ def test_the_deadline_sentence_trap_is_not_a_docket():
 def test_pages_are_split_the_way_the_box_writes_them():
     text = "===== page 1 =====\nEP 445, slip op.\n===== page 7 =====\nNOR 42150, slip op."
     assert [p for p, _ in find.pages(text)] == [1, 7]
-    doc = find.findings_document(text, document_sha256="d" * 64, own=OWN)
+    doc = find.findings_document(text, document_sha256="d" * 64, own=OWN, text_ref="benchmark")
     assert doc["pages_read"] == 2
     assert [f["page"] for f in doc["findings"]] == [1, 7]
     assert doc["method"] == "regex-docket-cite"
@@ -179,5 +179,7 @@ def test_crlf_text_reads_as_lf():
 
 
 def test_a_document_with_no_page_markers_is_one_page():
-    doc = find.findings_document("EP 445, slip op. at 3.", document_sha256="d" * 64, own=OWN)
+    doc = find.findings_document(
+        "EP 445, slip op. at 3.", document_sha256="d" * 64, own=OWN, text_ref="benchmark"
+    )
     assert doc["pages_read"] == 1 and doc["findings"][0]["page"] == 1

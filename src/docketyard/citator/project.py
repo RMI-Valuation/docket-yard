@@ -161,6 +161,16 @@ SELECT DISTINCT cw.citing_work_id, rd.target_kind, rd.target_key,
        rd.confidence, rd.confidence_state, rd.score_row_id,
        rd.method, rd.method_version, rd.reading_channel,
        rg.cited_raw, rg.quoted_passage, rd.page, rd.measured_class
+       -- NO `rg.text_id` HERE, and ADR 0026 § Consequences asked for one (ingest specialist,
+       -- 2026-09-12, F5; measured before reverting). This SELECT is DISTINCT and its list omits
+       -- `citing_document`, while `citing_work` folds document -> work — so a column
+       -- functionally determined by the document splits rows that the fold had collapsed.
+       -- MEASURED on a production copy: 38 groups where two documents of one work agree on
+       -- every selected column, which would each become two rows once the re-load makes their
+       -- `text_id`s differ. The ADR's reason for the column was that validation query 2 returns
+       -- `source_location` with no identity for the text it points into; that query selects it
+       -- and this one does not, so the consequence was over-broad. `citator-query-2.sql` gains
+       -- the two columns; this keeps the fold.
 FROM resolved rd
 JOIN citation c         ON (c.citing_document, c.page, c.target_kind, c.target_key)
                          = (rd.citing_document, rd.page, rd.target_kind, rd.target_key)

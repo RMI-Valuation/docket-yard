@@ -36,6 +36,22 @@ from docketyard.citator.keys import DOCKET, SUBNO, normalise
 
 FINDER_VERSION = "2026-09-11"  # the wrapped `(Sub-No. …)`, and the quote's continuation line
 
+# THE SPANS' OWN VERSION, and the reason it is not `FINDER_VERSION` (ADR 0026 D7). A character
+# offset IS a derived assertion — a claim about where in a text a string sits — and CLAUDE.md
+# requires every one to carry its own method version. `FINDER_VERSION` deliberately does NOT
+# move for this change, because no ANSWER moves and the measured precision is a measurement of
+# answers; moving it would force a new `class_measurement` card before a single row could load
+# (`load.py:146-151`). So the spans name themselves instead of borrowing a version that never
+# emitted them, which is the false provenance ADR 0017 made four times.
+#
+# NAMED `OFFSET_*` AND NOT `SPAN_*` (ingest specialist, 2026-09-12): `methods.SPAN_METHOD` is
+# the span TEST — 'span-names-document', a different assertion about the same passage — and
+# `load.load_document` holds both in scope. Two constants one letter apart, either of which
+# would satisfy the paired CHECK, is how the offsets' method comes to be written onto a
+# judgement.
+OFFSET_METHOD = "match-offsets"
+OFFSET_VERSION = "2026-09-12"
+
 # Words that mean a DOCUMENT rather than a proceeding, within a window round the number.
 # `\bv\.\s` catches a case name; `S.T.B.` and `I.C.C.` catch a reporter cite beside the
 # docket. This is the finder's own test and it is NOT the span test — `judge.py` runs a
@@ -174,6 +190,22 @@ def find(page_text: str, own: set[str]) -> list[dict]:
 
     One finding per (page, key), carrying EVERY occurrence's line joined with " | " — the
     separator `load` uses when it joins across findings, so the two agree.
+
+    `spans` carries every occurrence as `[start, end, raw]` in the coordinates of the TEXT
+    THIS CALL WAS HANDED (ADR 0026 D4). It is provenance and nothing else: `resolve._anchored`
+    works in `quoted_passage` coordinates and does not read these. Three things about it are
+    load-bearing and are stated in migration 0028's header too, because the next reader will
+    reach one of them first:
+
+    - it is NOT parallel to `quoted`'s `" | "` elements. Identical lines are de-duplicated
+      below and the separator is an unescaped in-band string, so the counts need not agree and
+      nothing may zip them;
+    - `raw` rides per span because `target` below is the FIRST occurrence's printed form only,
+      while `keys.DOCKET` matches `FD-36500` and `FD 36500` alike — so a verification predicate
+      using the row's `cited_raw` would read false on a correct span of a key printed two ways;
+    - a span verifies as `" ".join(text[start:end].split()) == raw`, never as plain equality:
+      `_target_end` crosses a newline for a wrapped sub-docket while the printed form is
+      whitespace-collapsed (628 citations, the note above).
     """
     found: dict[str, dict] = {}
     for m in DOCKET.finditer(page_text):
@@ -195,8 +227,12 @@ def find(page_text: str, own: set[str]) -> list[dict]:
                 "kind": "citation" if names_document else "caption",
                 "target": raw,
                 "quoted": line,
+                "spans": [[m.start(), end, raw]],
             }
             continue
+        # EVERY occurrence's span, including one whose line was de-duplicated below: the span
+        # list is the occurrence list, and that is the whole of what it is for
+        found[key]["spans"].append([m.start(), end, raw])
         # EVERY OCCURRENCE, not just the first. ADR 0017 D4 settled the span test as
         # disjunctive over occurrences BECAUSE "the extractor quotes the FIRST match's line,
         # which is usually the running caption" — and keeping only the first left that
@@ -241,18 +277,89 @@ class Unmarked(ValueError):
     would key every citation at page 1 and quietly defeat the span test's disjunction."""
 
 
+class Unanchored(ValueError):
+    """A span that does not slice to the string it claims. ADR 0026 D4 writes the predicate
+        down, migration 0028's header repeats it, and until 2026-09-12 nothing executed it — which
+        is the endpoint's own lesson in the store: a pointer whose correctness is asserted nowhere
+        reads exactly like a checked one (ingest specialist, F1). Any change to the text the finder
+        is handed before it counts — a whitespace normaliser in front of it, a `
+    ` fixup, a
+        caller that strips a leading blank line — would write offsets off by a constant, and every
+        CHECK, the pointer and the slice would still pass."""
+
+
+def verify_spans(pages: list[tuple[int, str]], doc: dict) -> None:
+    """Every span in `doc` slices to the `raw` it carries, against the pages it was read from.
+
+    ADR 0026 D4's predicate, executed: `" ".join(text[start:end].split()) == raw`, never plain
+    equality — `_target_end` crosses a newline for a wrapped sub-docket while the printed form
+    is whitespace-collapsed, a population the note above measures at 628 citations.
+
+    Free where it is called: the walk already holds the pages it just passed in, so this is a
+    slice per occurrence and no extra read. It raises rather than counting, because an offset
+    that does not land is not a lower-confidence finding — it is a coordinate system mismatch,
+    and the next one would be wrong the same way.
+    """
+    body = dict(pages)
+    for finding in doc.get("findings", []):
+        text = body.get(finding["page"], "")
+        for start, end, raw in finding.get("spans") or []:
+            if " ".join(text[start:end].split()) != raw:
+                raise Unanchored(
+                    f"{doc['document_sha256'][:12]} page {finding['page']}:"
+                    f" [{start}:{end}] slices to {text[start:end]!r}, not {raw!r}"
+                )
+
+
+class Undeclared(ValueError):
+    """A findings document that does not say which TEXT it read. ADR 0026 D1 and D8: the
+    producer declares `text_ref`, because `findings_document` emits the same shape from store
+    pages and from benchmark markers and only the caller knows which — so a default here would
+    be a guess written into provenance, the way a defaulted `reading_channel` would write an
+    OCR pass's rows as text-layer."""
+
+
 def findings_document(
     text: str | list[tuple[int, str]],
     *,
     document_sha256: str,
     own: set[str],
+    text_ref: str,
+    text_ids: dict[int, int] | None = None,
     reading_channel: str = "text-layer",
 ) -> dict:
     """One document, in the interchange shape `load.load_document` consumes.
 
     Takes either marked-up text (the benchmark corpus) or an explicit page list, which is
     what the enrichment box has and what a caller should pass.
+
+    `text_ref` is REQUIRED and is the producer's declaration (ADR 0026 D8): `'store'` when the
+    pages came from `document_text` rows, with `text_ids` naming each one, or `'benchmark'`
+    when they came from `===== page N =====` markers and no store row exists. The two are
+    otherwise indistinguishable — and they differ in a way that matters, because the benchmark
+    reader's page bodies begin with a newline the store's do not, so a span means a different
+    thing in each.
     """
+    if text_ref not in ("store", "benchmark"):
+        raise Undeclared(
+            f"{document_sha256}: text_ref {text_ref!r}. A machine pass declares 'store' or"
+            " 'benchmark'; 'human' and 'pre-0026' are the review layer's and the migration's"
+        )
+    if text_ref == "store" and isinstance(text, str):
+        raise Undeclared(
+            f"{document_sha256}: text_ref 'store' with MARKED-UP text. `pages()` slices from"
+            " after each `===== page N =====` marker, so every body begins with a newline"
+            " `document_text.text` does not have — the spans would be shifted by at least one"
+            " character against the very row `text_id` names (ingest specialist, 2026-09-12,"
+            " F2). Markers and a store pointer are mutually exclusive coordinate systems"
+        )
+    if (text_ref == "store") != bool(text_ids):
+        raise Undeclared(
+            f"{document_sha256}: text_ref {text_ref!r} with"
+            f" {'no' if not text_ids else len(text_ids)} text_ids. Migration 0028's CHECK is"
+            " `(text_ref = 'store') = (text_id IS NOT NULL)` and it is checked here, where the"
+            " producer can still say, rather than at the insert where it cannot"
+        )
     if not own:
         raise ValueError(
             f"{document_sha256}: no `own` dockets. Every caption would read as a citation"
@@ -269,11 +376,34 @@ def findings_document(
     for page, body in page_list:
         for f in find(body, own):
             found.append({"page": page, **f})
+    missing = [page for page, _ in page_list if text_ids and page not in text_ids]
+    if missing:
+        raise Undeclared(
+            f"{document_sha256}: no text_id for page(s) {missing[:5]}. Every page a 'store'"
+            " reading walked must name the `document_text` row it read, or its spans point"
+            " into a text nobody can identify (ADR 0026 D1)"
+        )
+    # SPANS ARE FOR A 'store' READING ONLY (schema-critic, 2026-09-12, on migration 0028). A
+    # benchmark reading points at no `document_text` row, so offsets into its text would be a
+    # pointer into a file on somebody's disk that the row cannot name — the same "provenance
+    # that looks checkable and is not" ADR 0026 § Context indicts, relocated from the store
+    # channel to this one. `source_location` keeps the page, which is true of both. A CHECK
+    # cannot express this, `source_location` being unconstrained TEXT, so it is enforced at the
+    # producer where it CAN be.
+    if text_ref != "store":
+        for f in found:
+            f.pop("spans", None)
     return {
         "document_sha256": document_sha256,
         "method": "regex-docket-cite",
         "method_version": FINDER_VERSION,
         "reading_channel": reading_channel,
+        "text_ref": text_ref,
+        # page -> the `document_text.text_id` these spans index. JSON keys are strings, so the
+        # loader reads it with the page coerced; empty for a benchmark reading.
+        "text_ids": {str(page): text_ids[page] for page, _ in page_list} if text_ids else {},
+        "span_method": OFFSET_METHOD if text_ref == "store" else None,
+        "span_method_version": OFFSET_VERSION if text_ref == "store" else None,
         "pages_read": len(page_list),
         # WHICH pages, not only how many: the loader retracts an older finder's key only on a
         # page this pass read, because a page it did not read found nothing (ADR 0018 D10)

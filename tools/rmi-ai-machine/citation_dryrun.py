@@ -316,9 +316,18 @@ def main(
                 "method": methods.EXTRACTOR,
                 "method_version": doc["prompt_version"],
                 "reading_channel": methods.CHANNEL_TEXT,
+                # 'benchmark' AND NO SPANS (migration 0028, ADR 0026 D8). This document is
+                # hand-built from the run's JSON, so it points at no `document_text` row —
+                # which is what 'benchmark' means. The findings come straight from `find.find`
+                # and now carry a `spans` key, and `load` refuses spans it cannot anchor to a
+                # text: offsets into a file the store cannot identify are the "provenance that
+                # looks checkable and is not" ADR 0026 exists to refuse. `findings_document`
+                # strips them for the same reason; this path does not go through it.
+                "text_ref": "benchmark",
+                "text_ids": {},
                 "pages_read": len(doc.get("pages", [])),
                 "findings": [
-                    {"page": page["page"], **f}
+                    {"page": page["page"], **{k: v for k, v in f.items() if k != "spans"}}
                     for page in doc.get("pages", [])
                     for f in page.get("findings", [])
                 ],

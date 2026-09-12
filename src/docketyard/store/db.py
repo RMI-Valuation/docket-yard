@@ -58,6 +58,13 @@ MIGRATIONS: list[tuple[int, str]] = [
     # 0027 indexes `enviro_comment_attachment` by document, as 0021 did its two siblings: a
     # comment's attachment was given a text address on 2026-09-11, so page search asks it.
     (27, "0027_comment_attachment_by_document.sql"),
+    # 0028 applies ADR 0026 (Accepted 2026-09-12): a citation reading names the text it read.
+    # A REBUILD of `citation_reading` — `text_id`, `text_ref`, `superseded_at` and the spans'
+    # own method — because an ALTER can add a column but cannot constrain one on a table that
+    # already holds retired rows, nor correct 0014's declared `source_location` shape, which
+    # SQLite keeps verbatim in `sqlite_master`. MIGRATING, so it goes behind the wall
+    # (ADR 0020); the pass that fills `text_id` and the spans is a separate RE-LOAD.
+    (28, "0028_reading_names_its_text.sql"),
 ]
 
 

@@ -47,11 +47,11 @@ def _reading(con, page: int, key: str, channel: str, version: str) -> None:
     """A live reading of the key on another channel, at a given finder version."""
     con.execute(
         "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
-        " reading_channel, reading_method, reading_method_version, cited_raw, quoted_passage,"
-        " source_location, asserted_from_document, method, method_version, asserted_at,"
-        " confidence, confidence_state)"
-        " VALUES (?, ?, 'stb', ?, ?, 'dots.mocr', '1.5', ?, 'q', '{}', ?, ?, ?, ?, 0,"
-        " 'unmeasured')",
+        " reading_channel, text_ref, reading_method, reading_method_version, cited_raw,"
+        " quoted_passage, source_location, asserted_from_document, method, method_version,"
+        " asserted_at, confidence, confidence_state)"
+        " VALUES (?, ?, 'stb', ?, ?, 'benchmark', 'dots.mocr', '1.5', ?, 'q', '{}', ?, ?, ?,"
+        " ?, 0, 'unmeasured')",
         (SHA, page, key, channel, key, SHA, methods.EXTRACTOR, version, STAMP),
     )
 
@@ -161,6 +161,7 @@ def _reviewed(tmp_path, decision: str):
         "method": methods.EXTRACTOR,
         "method_version": "v1",
         "reading_channel": methods.CHANNEL_TEXT,
+        "text_ref": "benchmark",
         "pages_read": 9,
         "pages_walked": [EXPOSED["page"]],
         "findings": [EXPOSED],

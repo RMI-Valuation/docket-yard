@@ -98,6 +98,12 @@ def load_document(
     sha = doc["document_sha256"]
     channel = doc.get("reading_channel")  # no default: a document that does not say is refused
     method, version = doc["method"], doc["method_version"]
+    # ADR 0026 D8: the producer declares which TEXT it read, and the loader CANNOT infer it —
+    # `find.findings_document` emits the same shape from store pages and from benchmark markers
+    # and only the caller knows which. No default, for the reason the channel has none.
+    text_ref = doc.get("text_ref")
+    text_ids = {int(k): v for k, v in (doc.get("text_ids") or {}).items()}
+    span_method, span_version = doc.get("span_method"), doc.get("span_method_version")
     now = utcnow()
     out = Loaded(document_sha256=sha)
 
@@ -112,6 +118,34 @@ def load_document(
         raise WrongChannel(
             f"{sha[:12]} says reading_channel {channel!r}; a model pass reads on one of"
             f" {sorted(machine)}"
+        )
+    # AND THE TEXT IT READ, checked SECOND and not first: the channel's primacy above is
+    # deliberate and documented, and a document that lies about its channel should be refused
+    # for that rather than for a missing declaration it was never asked for (ADR 0026 D8).
+    if text_ref not in ("store", "benchmark"):
+        raise WrongChannel(
+            f"{sha[:12]} says text_ref {text_ref!r}; a model pass declares 'store' or"
+            " 'benchmark' (ADR 0026 D8). 'human' is the review layer's and 'pre-0026' is"
+            " migration 0028's backfill; neither is a pass's to claim"
+        )
+    # THE SPANS ARE REFUSED HERE TOO, not only at the producer (ingest specialist, 2026-09-12,
+    # F3). `find.findings_document` strips them for a non-store reading, and that is right —
+    # but THIS is the boundary the interchange crosses, and a hand-built document or a tool
+    # calling `find.find` directly (`citation_dryrun.py`, `benchmark_review.py` both do, and
+    # both now receive a `spans` key) would otherwise land offsets against no text row and no
+    # method version, satisfying the paired CHECK while breaking 0028's writer obligation.
+    carries_spans = any(f.get("spans") for f in doc.get("findings", []))
+    if carries_spans and text_ref != "store":
+        raise WrongChannel(
+            f"{sha[:12]} carries spans with text_ref {text_ref!r}. Offsets belong to the text"
+            " a `text_id` names; a benchmark reading has none, so its spans point into a file"
+            " nothing in the store identifies (ADR 0026 § Context, one channel over)"
+        )
+    if carries_spans and not (span_method and span_version):
+        raise WrongChannel(
+            f"{sha[:12]} carries spans with no span_method/span_method_version. A character"
+            " offset is a derived assertion and carries its own method version (ADR 0026 D7);"
+            " migration 0028 states it as a writer obligation SQLite cannot express"
         )
     # THE STAMPS MUST BE WHOLE AND OF THIS DOCUMENT'S CHANNEL, checked against the
     # measurement rows themselves and not against whatever the caller believes it asked
@@ -190,6 +224,10 @@ def load_document(
     passages: dict[tuple[int, str], list[str]] = {}
     printed: dict[tuple[int, str], str] = {}
     kinds: dict[tuple[int, str], str | None] = {}
+    # ADR 0026 D4. UNIONED per (page, key) the way the passages are joined, and deliberately
+    # NOT zipped with them: `find` de-duplicates identical lines, so one passage element can
+    # answer for two spans and the counts need not agree.
+    spans: dict[tuple[int, str], list] = {}
     for finding in doc.get("findings", []):
         key = keys.normalise(finding.get("target", ""))
         if key is None or not keys.DOCKET_KEY.match(key):
@@ -203,6 +241,7 @@ def load_document(
         # total nobody can check. A target read twice on a page keeps the first call; the
         # two agree by construction, since `kind` is a property of the key and the window.
         kinds.setdefault(at, finding.get("kind"))
+        spans.setdefault(at, []).extend(finding.get("spans") or [])
 
     for (page, key), quotes in sorted(passages.items()):
         passage = " | ".join(q for q in quotes if q)
@@ -282,14 +321,18 @@ def load_document(
             (sha, page, key, channel),
         ).fetchone()
         if old_reading:
-            supersede.retire(con, "citation_reading", "reading_id", old_reading[0])
+            # `at` IS REQUIRED AT 0028 (ADR 0026 D5/D6). The table's trigger refuses a pointer
+            # without a date, so the bare call this line used to make would abort on the FIRST
+            # supersession of any re-load — which is migration 0028's own corpus pass.
+            supersede.retire(con, "citation_reading", "reading_id", old_reading[0], at=now)
         new_reading = con.execute(
             "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
             " reading_channel, reading_method, reading_method_version, cited_raw,"
-            " quoted_passage, source_location, asserted_from_document, method,"
+            " quoted_passage, source_location, text_id, text_ref, span_method,"
+            " span_method_version, asserted_from_document, method,"
             " method_version, asserted_at, confidence, confidence_state, measured_target,"
             " score_row_id)"
-            " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 sha,
                 page,
@@ -299,7 +342,23 @@ def load_document(
                 doc.get("reading_method_version"),
                 printed[(page, key)],
                 passage,
-                dump_json({"page": page}),
+                # ADR 0026 D4: the page AND every occurrence's span. `spans` is omitted rather
+                # than written empty where the producer sent none — an empty list would assert
+                # that the finder looked and found no occurrence of a key it just emitted.
+                dump_json(
+                    {"page": page, "spans": spans[(page, key)]}
+                    if spans.get((page, key))
+                    else {"page": page}
+                ),
+                # the reading this row read, and what its absence MEANS (ADR 0026 D1). A
+                # benchmark run names no store row, and migration 0028's CHECK binds the two:
+                # `(text_ref = 'store') = (text_id IS NOT NULL)`.
+                text_ids.get(page) if text_ref == "store" else None,
+                text_ref,
+                # the spans' own method, not the finder's (ADR 0026 D7) — and NULL together
+                # with the spans, which the paired CHECK requires
+                span_method if spans.get((page, key)) else None,
+                span_version if spans.get((page, key)) else None,
                 sha,
                 method,
                 version,

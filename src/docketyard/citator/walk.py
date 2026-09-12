@@ -35,8 +35,14 @@ from docketyard.citator import find, keys, methods
 # The pages of one document, best reading per page, in page order. `reading_channel` comes
 # from the row rather than a default: `load.load_document` refuses a document that does not
 # say which channel read it, and inventing one here would launder that refusal.
+#
+# `text_id` IS SELECTED AT 0028 (ADR 0026 D1), and its absence was the defect that record
+# exists to close: this query had the row's identity in hand and dropped it, so every stored
+# reading pointed into "whatever the live text happened to be at load time", which is not a
+# key. It travels to `citation_reading.text_id`, and the row can then be joined back to the
+# exact immutable text it read — `document_text.text` is immutable per `text_id` (0020:48).
 _PAGES = """
-SELECT t.page_no, t.text, t.reading_channel
+SELECT t.page_no, t.text, t.reading_channel, t.text_id
   FROM document_text t
  WHERE t.document_sha256 = ?
    AND t.superseded_by IS NULL
@@ -109,9 +115,11 @@ def documents(con: Connection, channel: str | None = None) -> Iterator[dict]:
     wanted = machine if channel is None else ({channel} & machine)
     for sha in own:
         by_channel: dict[str, list[tuple[int, str]]] = {}
-        for page_no, text, page_channel in con.execute(_PAGES, (sha,)):
+        text_ids: dict[str, dict[int, int]] = {}
+        for page_no, text, page_channel, text_id in con.execute(_PAGES, (sha,)):
             if page_channel in wanted:
                 by_channel.setdefault(page_channel, []).append((page_no, text or ""))
+                text_ids.setdefault(page_channel, {})[page_no] = text_id
         for page_channel, pages in sorted(by_channel.items()):
             # A reading of nothing is not a reading: `pages_read` of zero would record that
             # the finder had looked at a document it never read, and an `extraction_run` row
@@ -119,6 +127,20 @@ def documents(con: Connection, channel: str | None = None) -> Iterator[dict]:
             # until the OCR wave's readings land.
             if not any(text.strip() for _, text in pages):
                 continue
-            yield find.findings_document(
-                pages, document_sha256=sha, own=own[sha], reading_channel=page_channel
+            doc = find.findings_document(
+                pages,
+                document_sha256=sha,
+                own=own[sha],
+                reading_channel=page_channel,
+                # THE WALK IS THE 'store' PRODUCER, and says so rather than letting the loader
+                # infer it — which it cannot, the shape being identical to a benchmark run's
+                # (ADR 0026 D8)
+                text_ref="store",
+                text_ids=text_ids[page_channel],
             )
+            # AND THE SPANS ARE ASSERTED AGAINST THE TEXT THEY INDEX, here, where the pages are
+            # already in hand (ingest specialist, 2026-09-12, F1). ADR 0026 D4 states the
+            # predicate and nothing executed it; a pointer nobody checks is the store-side shape
+            # of trusting a 200.
+            find.verify_spans(pages, doc)
+            yield doc

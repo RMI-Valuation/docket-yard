@@ -161,6 +161,25 @@ def test_a_document_read_on_two_channels_is_two_readings_not_one(tmp_path):
     # two passes, so two batches: `cli._citator` refuses a directory holding both
     assert len({(d["method"], d["method_version"], d["reading_channel"]) for d in docs}) == 2
     assert list(walk.documents(con, "ocr")) == [ocr], "a channel can be walked alone"
+
+    # AND THE POINTER IS PER CHANNEL (ADR 0026 D1; ingest specialist, 2026-09-12, F7 — the
+    # 'store' branch is what production uses and no test reached it). A page's `text_id` must
+    # be the id of the row whose TEXT came back, and must not cross into another channel's
+    # reading — which is what would silently attribute an OCR page's offsets to the text layer.
+    real = {
+        (ch, no): tid
+        for no, ch, tid in con.execute(
+            "SELECT page_no, reading_channel, text_id FROM document_text"
+            " WHERE document_sha256 = ? AND superseded_by IS NULL",
+            (SHA,),
+        )
+    }
+    assert ocr["text_ref"] == layer["text_ref"] == "store"
+    assert {int(p): i for p, i in ocr["text_ids"].items()} == {
+        2: real[("ocr", 2)],
+        3: real[("ocr", 3)],
+    }
+    assert {int(p): i for p, i in layer["text_ids"].items()} == {1: real[("text-layer", 1)]}
     con.close()
 
 
@@ -183,6 +202,16 @@ def test_a_human_page_is_read_by_no_machine_pass(tmp_path):
     assert found == {"EP 446"}
     assert "EP 445" not in found, "a human reading was emitted as a machine pass"
     assert "EP 999" not in found, "the primary a human row shadows was read anyway"
+    # AND NEITHER DOES ITS POINTER (ADR 0026 D1). The shadowed primary is absent from the page
+    # list AND from the map — no fallback, no borrowed id — so page 1 names no text at all
+    # rather than naming a row whose text nobody read.
+    assert [int(p) for p in docs[0]["text_ids"]] == [2]
+    shadowed = con.execute(
+        "SELECT text_id FROM document_text WHERE document_sha256 = ? AND page_no = 1"
+        " AND reading_role = 'primary'",
+        (SHA,),
+    ).fetchone()[0]
+    assert shadowed not in docs[0]["text_ids"].values()
     con.close()
 
 
@@ -216,7 +245,9 @@ def test_a_document_with_no_own_dockets_is_a_refusal_not_a_default(tmp_path):
     _page(con, SHA, 1, "FD 36873.")
     con.commit()
     with pytest.raises(ValueError, match="no `own` dockets"):
-        find.findings_document([(1, "FD 36873.")], document_sha256=SHA, own=set())
+        find.findings_document(
+            [(1, "FD 36873.")], document_sha256=SHA, own=set(), text_ref="benchmark"
+        )
     con.close()
 
 
@@ -234,3 +265,66 @@ def test_a_findings_directory_is_written_once_and_never_reused(tmp_path):
     )
     assert cli._citator(args) == 0
     assert cli._citator(args) == 1, "a second walk into the same directory was allowed"
+
+
+def test_a_stored_span_slices_back_to_the_text_its_pointer_names(tmp_path):
+    """END TO END over the 'store' branch, which is the only one production uses and which no
+    test reached before (ingest specialist, 2026-09-12, F7).
+
+    The whole of ADR 0026 is that a reading can name the text it read. So this asserts the
+    round trip the record now claims: walk -> load -> a stored `text_id` that joins back to a
+    `document_text` row, and every stored span slicing out of THAT row's text to the string it
+    carries — `" ".join(text[start:end].split()) == raw`, D4's predicate, against the store
+    rather than against the page the finder happened to hold."""
+    from tests.test_citator_pipeline import _scored
+
+    con = _store(tmp_path)
+    _page(con, SHA, 1, "See EP 445, slip op. at 3, and EP 445 again lower down.")
+    _page(con, SHA, 2, "Compare Docket No. AB-33 (Sub-No. 148X) (STB served Oct. 30, 2000).")
+    con.commit()
+    # the card must name the finder that actually found these, which the walk reports as
+    # `find.FINDER_VERSION` — the loader refuses a stamp measured on another finder, and that
+    # refusal is the discipline, not an obstacle
+    stamps = _scored(con, extractor_version=find.FINDER_VERSION)
+
+    docs = list(walk.documents(con))
+    assert [d["text_ref"] for d in docs] == ["store"]
+    from docketyard.citator import load as citator_load
+
+    citator_load.load_document(con, docs[0], keys.registry(con), keys.works(con), stamps)
+    con.commit()
+
+    rows = con.execute(
+        "SELECT r.source_location, r.text_id, r.text_ref, r.span_method,"
+        "       r.span_method_version, t.text"
+        "  FROM citation_reading r"
+        "  JOIN document_text t ON t.text_id = r.text_id"
+        " WHERE r.superseded_by IS NULL"
+    ).fetchall()
+    assert rows, "the store branch stored no reading at all"
+    for source_location, text_id, text_ref, method, version, text in rows:
+        assert text_ref == "store" and text_id is not None
+        assert (method, version) == (find.OFFSET_METHOD, find.OFFSET_VERSION)
+        block = json.loads(source_location)
+        assert block["spans"], "a store reading stored no span"
+        for start, end, raw in block["spans"]:
+            # THE PREDICATE, against the text the POINTER names — not the page the finder held
+            assert " ".join(text[start:end].split()) == raw
+
+    # and the page the pointer names is the page the key says (ADR 0026 D1's whole point)
+    assert (
+        con.execute(
+            "SELECT count(*) FROM citation_reading r JOIN document_text t ON t.text_id = r.text_id"
+            " WHERE r.superseded_by IS NULL AND t.page_no <> r.page"
+        ).fetchone()[0]
+        == 0
+    )
+    # two occurrences of EP 445 on page 1 are TWO spans on one row, not one
+    spans = json.loads(
+        con.execute(
+            "SELECT source_location FROM citation_reading WHERE target_key = 'EP 445'"
+            " AND superseded_by IS NULL"
+        ).fetchone()[0]
+    )["spans"]
+    assert len(spans) == 2, "the span list is the OCCURRENCE list (ADR 0026 D4)"
+    con.close()

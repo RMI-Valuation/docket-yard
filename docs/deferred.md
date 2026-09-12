@@ -1208,6 +1208,40 @@ The abort is correct behaviour and nothing was corrupted — the loader rolls ba
   twelve restarts was doing this by hand, one whole pass at a time" — what `under_lock` was
   built to replace and does not yet fully.
 
+## From the ingest specialist on migration 0028's pipeline code, 2026-09-12 (ADR 0026)
+
+Six of its ten findings were fixed in the same branch — the span predicate is now executed
+(`find.verify_spans`, called by the walk), a store reading may not come from marked-up text,
+the loader refuses spans it cannot anchor, the runbook's two wrong verbs are corrected, the
+load exits non-zero on a failed document, and `find.OFFSET_METHOD` no longer collides in scope
+with `methods.SPAN_METHOD`. These four are recorded instead.
+
+- **`load._human_held` skips the `citation_reading` rewrite, so those keys keep `'pre-0026'`
+  for ever** (F8). Unreachable today: `review.py` writes a human `citation_resolution` and a
+  human `citation_reading`, but nothing sets `citation.confidence_state = 'human'`, so the
+  branch never fires. The day a review layer does, that key's machine reading is silently
+  outside ADR 0026 D2's denominator — `'pre-0026'` being exactly what the predicate gates out.
+  It belongs in the ADR's stated floor beside the human-corrected page; the ADR is Accepted and
+  append-only, so it is here.
+- **`find.printed` and `find()`'s inline copy are two implementations of one rule** (F10,
+  sharpened by checking the callers). `find.py`'s loop computes the collapsed slice itself
+  ("`printed`, without a second scan"), so `cited_raw` and every span's `raw` come from the
+  inline copy — but `printed` is NOT dead: `tools/rmi-ai-machine/benchmark_review.py:120` calls
+  it to match a page match against a key. So a correction to `printed` — a new sub-docket form,
+  say — would move the BENCHMARK's answer and not the store's, and the two would disagree about
+  what a page printed while both looked right. Deleting it is not the fix; making `find()` call
+  it, or making both call one helper, is.
+- **Validation query 2's `SELECT DISTINCT` key changed, and not only because of `text_id`**
+  (F5, second half). `citator-query-2.sql` selects `rg.source_location`, which since 0028
+  carries the spans — and spans differ per document even where the printed string does not. So
+  two documents of one work that used to collapse can now return two rows. Measured on a
+  production copy: **38 groups** agree on every other selected column. `citation_treatment` is
+  empty, so the query returns nothing today and this is latent; the same measurement is why
+  `project.py` was NOT given the column (its comment carries the reasoning).
+- **The `text_ref` refusal raises `WrongChannel`**, whose name and docstring are about the
+  reading channel. Cosmetic today — `cli._citator` catches `Exception` — and a mis-triage
+  waiting for the first caller that counts `WrongChannel` as "wrong channel, skipped".
+
 ## `keys.render` has no version, and human decisions are keyed on its output, 2026-09-12 (v2026.09.15)
 
 **Schema-critic, 2026-09-12, on shape A of the citation grain** (`docs/citation-grain.md`).

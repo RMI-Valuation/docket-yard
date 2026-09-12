@@ -176,7 +176,13 @@ SELECT DISTINCT
        cw.citing_work_id, t.treatment, tv.polarity,
        rd.confidence, rd.confidence_state, rd.score_row_id,
        rd.method, rd.method_version, rd.reading_channel,
-       rg.cited_raw, rg.quoted_passage, rg.source_location, rd.page
+       rg.cited_raw, rg.quoted_passage, rg.source_location, rd.page,
+       -- ADR 0026 D1, and this query is the REASON the column exists. `source_location` above
+       -- is a pointer — `{page, spans}` since migration 0028 — and a pointer into a text the
+       -- row cannot name is provenance that looks checkable and is not. These two name it:
+       -- `text_id` resolves to the exact immutable `document_text` row the spans index, and
+       -- `text_ref` says what a null means ('benchmark', 'human', or 'pre-0026').
+       rg.text_id, rg.text_ref
 FROM resolved rd
 -- 0018 D2: the parent MUST be joined and MUST be live, or a retracted target_kind changes
 -- nothing -- its resolutions still read superseded_by IS NULL and the mis-kinded edge
