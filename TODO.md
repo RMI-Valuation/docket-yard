@@ -31,12 +31,13 @@ decisions were taken the same day and are recorded where each belongs.
 ## Next
 
 - **A PANEL of local models CLEARS about half the review queue — MEASURED, 2026-09-11**
-  (`docs/extraction-benchmark.md`). No model is a reviewer alone; two agreeing on both the
-  citation and the same document settle 70 of 148 with 0 wrong (gemma4:e4b + qwen3:14b) and
-  catch 28 of the rules' 33 false positives. **His decision, 2026-09-11: run the panel over all
-  1,476 exposed keys on the Mac before any clearing rule is written** — the benchmark's 148 are
-  a sample of the record, not of the queue. Then he checks a slice; a clearing rule is an ADR
-  0017 addendum, his. Two sheet rows name an id in prose the scorer cannot read — his to fix
+  (`docs/extraction-benchmark.md`). Two models agreeing on both the citation and the document
+  settle 70 of 148 with 0 wrong and catch 28 of the rules' 33 false positives. The panel is
+  running over all 1,476 exposed keys (only 2 of them are already judged, so the queue is its
+  own population). **His decision, 2026-09-11: the precision is measured THROUGH the review
+  page, not in a judging sitting** — the page pre-fills the panel's answer, each key he settles
+  is also a data point, and clearing switches on (or not) once ~100 have accrued. No threshold
+  is adopted; ADR 0017 thresholds on nothing. Switching it on is an ADR 0017 addendum, his
 
 - **Party types, the held-out sheet is drawn and WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`; blind queue `data/party-types-heldout-check.html`).
@@ -48,8 +49,7 @@ decisions were taken the same day and are recorded where each belongs.
 - **Held by the operator for rewording (2026-09-11)**: `/methodology`'s text-stage section
   (`848e366`) and the one-day-rest sentence (`3b538bc`); § Documents has his narrowed one
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
-- Deadline engine (C4): decision JSON carries no obligations (2026-08-26); a hand-checked
-  fixture of 8 for FD 36873 is in `../up-ns-merger-tracker/briefs/2026-08-25.md` (read-only)
+- Deadline engine (C4): no obligations in decision JSON; fixture of 8 in `docs/deferred.md`
 
 ## Parked
 

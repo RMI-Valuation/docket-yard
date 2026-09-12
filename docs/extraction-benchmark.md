@@ -398,6 +398,36 @@ half the benchmark's queue without an error and catch most of the rules' false p
 way. The review page is still designed for a person — but for a person looking at the half that
 did not clear, with the cleared half shown as cleared and overturnable.
 
+**The panel's precision is measured THROUGH the review page, not in a sitting of its own (the
+operator's decision, 2026-09-11).** The question put to him was how large a slice to judge —
+150 for a 96.3% lower bound at one error, 300 for parity with what the rules already achieve.
+His answer was to push back on the premise: the project has one person, a great deal has
+already been measured by hand, and every request of that kind has to earn itself.
+
+Two things settled it. **Nothing already judged can be reused**: of the 1,476 exposed keys,
+only 2 appear among the 148 pairs of the work sheet, and only 3 fall inside the sixty checked
+decisions at all. The queue really is a different population, which is the reason for running
+the panel over it and is also why there is no free measurement in it. **And a slice is not
+extra work**: it is a sample of a queue that is otherwise reviewed in full, so the alternative
+to judging 150 is judging 1,476.
+
+So the measurement is folded into the work rather than added to it. The review page shows the
+panel's answer as a suggestion — *both models read this as `AB 87`, the last digit a footnote
+marker, citing decision 35863* — and each key the operator settles is both a settled key and a
+data point. After about a hundred the class has a measured precision, and clearing can be
+switched on for the rest, or not. Three things follow from that shape: no judgement is spent
+only on measurement, the rule is watched on real work before it is trusted with any, and the
+figure comes from the same population it would be applied to.
+
+**No threshold is adopted, because this record does not have one and declines to invent one.**
+ADR 0017: "the projection admits a row on its `confidence_state`, not on the size of its
+confidence, and nothing in this record compares, orders or thresholds on the value." The 98.0%
+is a measurement of the current rules, not a bar. What a model-cleared edge owes is what every
+derived assertion owes — its method, version, host, channel and its own measured figure (ADR
+0017 D3, ADR 0007) — and a reader shown what was checked. The text tier is the precedent:
+`/methodology` publishes a 12.7% character error rate on degraded scans, openly and with its
+caveats. Switching clearing on remains an ADR 0017 addendum and the operator's.
+
 Nothing ships from this yet. A model's answer is an assertion with its method, version, host
 and channel, stamped with its measured precision (ADR 0017 D3), and **letting agreement clear a
 held key needs an ADR 0017 addendum, which is the operator's decision.** The measurement that

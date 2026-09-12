@@ -1158,3 +1158,11 @@ mistake the benchmark harness made, in a file written an hour after that one was
 - The keys the panel would clear were computed and thrown away. They are now written out with
   `--clears`, because a clearing rule cannot be accepted on a rate: a slice of those keys is
   what gives it a measured precision (ADR 0017 D3).
+
+## Deadline engine (C4), graduated from TODO 2026-09-11
+
+Not started, and not blocked on anything but a decision. The STB's decision JSON carries no
+obligations (measured 2026-08-26), so every deadline would have to be read from the decision's
+own words — which is the one thing `CLAUDE.md` says is never inferred. A hand-checked fixture
+of 8 deadlines for FD 36873 exists in `../up-ns-merger-tracker/briefs/2026-08-25.md`
+(read-only, do not modify that project) and is what a first measurement would score against.
