@@ -19,10 +19,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (decided 2026-09-03:
   publish only when every live reading agrees — `cite.py` still sends `decided` unchanged)
 
-- **Comment scans: `dots` is DONE** — 46,838 pages read, 134 failed, 16,632 documents
-  collected 2026-09-12 04:17 UTC. `second` and `graphic` launched on the NUC 13:55 UTC
-  (`second` owed 6,710 documents). **Then rsync and `docketyard text load` each root in
-  order: dots, second, graphic.** The workstation gate's ONLOGON task is still unregistered
+- **Comment scans: `dots` READ AND LOADED** — 46,838 pages, 134 failed; 6,664 documents loaded
+  to production 2026-09-12 14:20 UTC (12,485 restart, disk 23 GB free, 268,198 live OCR pages).
+  `second` and `graphic` running on the NUC since 13:55; **then rsync and `text load` each, in
+  that order.** The workstation gate's ONLOGON task is still unregistered
 
 ## Next
 
@@ -31,13 +31,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   QUEUE PREDICATE is the fix and not the finder: `citation_exposed` filters on the exposure
   judgement and not on `kind`, needs no schema change, and is what stands between him and a
   small queue. Switching panel clearing on is an ADR 0017 addendum, his
-- **Offsets in the finder, on PROVENANCE and not recall** (his decision 2026-09-12, and his
-  re-decision the same day on the measurement): `find` reports each match's offset, `load`
-  writes a real `source_location`. Offsets uniquely recover 12 of 506 lost rows — 0.016% of
-  readings — while the per-line split is 421 (`docs/citation-grain.md` § The one number
-  nobody had). The walk reads flat `document_text.text`, so the honest shape is
-  `{page, char_start, char_end}` and NOT migration 0014's declared `{page, block_id, bbox}`:
-  schema-critic on that, then stb-ingest-specialist and `/code-review`
+- **ADR 0026 is Proposed and WAITING ON HIM** (2026-09-12): a citation reading names the text
+  it read — a `text_id` FK plus `text_ref`, staleness detected over the display view, the live
+  key held on a measured price, `{page, spans}` with a per-span raw, `superseded_at` on a
+  forward-only trigger, a rebuild and a re-load behind a maintenance wall. Two schema-critic
+  passes, nothing left to break; the offsets that started it are D4 and recover 12 of 506 rows.
+  **On acceptance**: a branch and a PR (Copilot and Codex review it), stb-ingest-specialist and
+  `/code-review` on the loader path
 
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
