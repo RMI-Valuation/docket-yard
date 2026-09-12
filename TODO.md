@@ -32,18 +32,18 @@ decisions were taken the same day and are recorded where each belongs.
 
 - **A PANEL of local models CLEARS about half the review queue — MEASURED, 2026-09-11**
   (`docs/extraction-benchmark.md`). Two models agreeing on both the citation and the document
-  settle 70 of 148 with 0 wrong and catch 28 of the rules' 33 false positives. The panel is
-  running over all 1,476 exposed keys (only 2 of them are already judged, so the queue is its
-  own population). **His decision, 2026-09-11: the precision is measured THROUGH the review
-  page, not in a judging sitting** — the page pre-fills the panel's answer, each key he settles
-  is also a data point, and clearing switches on (or not) once ~100 have accrued. No threshold
-  is adopted; ADR 0017 thresholds on nothing. Switching it on is an ADR 0017 addendum, his
+  settle 70 of 148 with 0 wrong. **Over the REAL 1,476 the panel clears only 9.7%, not 47.3%.**
+  The finding is elsewhere: both models agree **981 (66.5%) are CAPTIONS, not citations**, 649
+  of them the citing decision's own docket. `find.py:190` has the mechanism — the own-docket
+  rule is a disjunct `DOC_WORDS` defeats, and a caption block holds those words. **WITH HIM: 40
+  drawn to judge** (`data/caption-check.html`). If it holds, the finder is the bug and the queue
+  is two-thirds noise. Precision is measured through the review page (his decision); no
+  threshold — ADR 0017 thresholds on nothing; switching clearing on is an 0017 addendum, his
 
-- **Party types, the held-out sheet is drawn and WITH THE OPERATOR** (2026-09-10,
-  `docs/research/party-types/held-out/`; blind queue `data/party-types-heldout-check.html`).
-  When the Copy block (party_id, type, first, note) returns: apply both picks to its
-  `labels.csv`, score with `party_types_rules.py --sheet`, 95% per type on the FIRST pick;
-  then the assertion migration (schema-critic first) and the browse on `/parties`
+- **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
+  `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
+  `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
+  migration (schema-critic first) and the browse on `/parties`
 - With the operator: a sheet's JSON-LD block in Google's Rich Results test, from a browser
 - ADR 0024's stage: a per-page failure record is still owed (Owed 2)
 - **Held by the operator for rewording (2026-09-11)**: `/methodology`'s text-stage section

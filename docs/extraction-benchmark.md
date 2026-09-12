@@ -398,6 +398,58 @@ half the benchmark's queue without an error and catch most of the rules' false p
 way. The review page is still designed for a person — but for a person looking at the half that
 did not clear, with the cleared half shown as cleared and overturnable.
 
+### The panel over the real queue, measured 2026-09-12
+
+gemma4:e4b and qwen3:14b each answered all 1,476 `citation_exposed` items on the Mac, 0 errors,
+34 and 52 minutes. **The benchmark's figures did not carry, and the gap is nearly fivefold:**
+
+| | benchmark (148 judged pairs) | the real queue (1,476 items) |
+|---|---|---|
+| the panel clears | 47.3% | **9.7%** (143) |
+| left to a person | 52.7% | 90.3% (1,333) |
+
+That alone justifies the operator's instruction to run on the queue before writing a rule.
+A clearing rate of 9.7% does not buy much, and a rule built on the benchmark's 47.3% would
+have been sold on a number that was never true of the population it applied to.
+
+**The clearing rate is not the finding, though.** Asked what each mention IS, the two models
+agree far more than they clear:
+
+| both models independently say the mention is | |
+|---|---|
+| a **proceeding** — a caption, naming no document | **981 (66.5%)** |
+| a document | 277 (18.8%) |
+| a party's filing | 5 (0.3%) |
+| they split | 213 (14.4%) |
+
+Of those 981: **649 are the citing decision's own docket**, and **964 have no served date**
+anywhere the resolver could anchor. Sampled passages read `Docket No. AB 1261`,
+`STB Docket No. AB-878`, `SERVICE LIST FOR STB EP 558` — bare numbers and headers.
+
+**There is a mechanism, and it is in the shipped finder.** `find.py:190` reads
+
+    names_document = bool(DOC_WORDS.search(context)) or key not in own
+
+so a mention of the citing decision's OWN docket still becomes a citation whenever `served`,
+`Decision No`, `order` or `slip op` appears within ±160 characters — which is exactly what a
+decision's own caption block contains. The own-docket rule (ADR 0017 D1) is a disjunct, not a
+veto, and the caption block supplies the words that defeat it.
+
+**What is NOT established.** Two models sharing one prompt are not two witnesses: the prompt
+tells them a bare number naming no document is a proceeding, so their agreement is partly the
+prompt talking to itself. The passages and the code path are independent of the models; the
+agreement is not. **Forty of the 981 were drawn for the operator to judge**
+(`caption_check_sheet.py`, seed 20260912; 29 own-docket, 38 with no served date) — enough to
+tell "mostly captions" from "mostly citations", which is all this question needs.
+
+Two figures this session produced and then withdrew, recorded so they are not repeated: a
+claim that 73.4% of the queue could never publish, derived by re-implementing the projection's
+family clause rather than running it. It used `judgement='span'` where the vocabulary says
+`span_names_document`, and it tested per resolution row where the projection is DISTINCT over
+(decision, kind, key). Checked against live rows, 7,816 family/no-span rows ARE projected, so
+the reading was wrong. **Whether these items would publish after review is unmeasured**, and
+the way to measure it is to write approvals on a copy and run the shipped projection.
+
 **The panel's precision is measured THROUGH the review page, not in a sitting of its own (the
 operator's decision, 2026-09-11).** The question put to him was how large a slice to judge —
 150 for a 96.3% lower bound at one error, 300 for parity with what the rules already achieve.
