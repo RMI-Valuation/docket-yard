@@ -1,0 +1,7225 @@
+{
+ "seed": 20260913,
+ "page_cap": 20,
+ "findings_dir": "/data/citation-findings-ocr-2026-09-13/ocr",
+ "population": {
+  "none-found": 744,
+  "dots-2006": 109,
+  "pre-2006": 23,
+  "ppocr-2006": 146
+ },
+ "strata": {
+  "ppocr-2006": 30,
+  "dots-2006": 25,
+  "pre-2006": null,
+  "none-found": 20
+ },
+ "labelled_pages": 548,
+ "labelled_citation_keys": 119,
+ "drawn": [
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "0348b8168776c4d1d839053eaab8b25e3f51a2bcf39b2b0a4d48f4bbfc2ddf7c",
+   "board_pdf": "https://docketyard.org/document/0348b8168776c4d1d839053eaab8b25e3f51a2bcf39b2b0a4d48f4bbfc2ddf7c.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43371",
+     "docket": "NOR 42138",
+     "service_date": "2013-09-27",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 6,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "page_engines": {
+    "dots.mocr": 2,
+    "pp-ocrv6-medium": 4
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 2,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "11d0c4a42f3ae25f94d241b2076c1343c10cd7b0d388c0d5e1211374cfae47ec",
+   "board_pdf": "https://docketyard.org/document/11d0c4a42f3ae25f94d241b2076c1343c10cd7b0d388c0d5e1211374cfae47ec.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "45675",
+     "docket": "AB 33 (297X)",
+     "service_date": "2017-02-03",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2017,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "123542564f1afc02f987cbbc296db51c4042d919df25b8c0acc184334f249c3c",
+   "board_pdf": "https://docketyard.org/document/123542564f1afc02f987cbbc296db51c4042d919df25b8c0acc184334f249c3c.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "46295",
+     "docket": "FD 36075",
+     "service_date": "2018-02-27",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2018,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "2850300502f4b566701de85cf9169b36761161f8ecbc68366489a4a9e8e8168b",
+   "board_pdf": "https://docketyard.org/document/2850300502f4b566701de85cf9169b36761161f8ecbc68366489a4a9e8e8168b.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "45721",
+     "docket": "AB 6 (482X)",
+     "service_date": "2017-03-20",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2017,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "2fb2e189fd207176b2d4b9f3d64d04001deeb6684de8054a0e9c64297853f7d2",
+   "board_pdf": "https://docketyard.org/document/2fb2e189fd207176b2d4b9f3d64d04001deeb6684de8054a0e9c64297853f7d2.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43502",
+     "docket": "AB 33 (261)",
+     "service_date": "2013-12-16",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "354740630e5bb311d17d4d6e05c8179646b04390e3a57003ae4beee3bd06f6f7",
+   "board_pdf": "https://docketyard.org/document/354740630e5bb311d17d4d6e05c8179646b04390e3a57003ae4beee3bd06f6f7.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "45931",
+     "docket": "FD 35918",
+     "service_date": "2017-07-24",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2017,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "38af9ffd72f571944cef1936a2fbf90a8a8e244d41b3035c1eec3d92942e5b1b",
+   "board_pdf": "https://docketyard.org/document/38af9ffd72f571944cef1936a2fbf90a8a8e244d41b3035c1eec3d92942e5b1b.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "42659",
+     "docket": "AB 33 (261)",
+     "service_date": "2012-09-17",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2012,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "47e0b64f546b9a70e711aac40e517841bef47a329843e85d4ceea7ff0a1d589c",
+   "board_pdf": "https://docketyard.org/document/47e0b64f546b9a70e711aac40e517841bef47a329843e85d4ceea7ff0a1d589c.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "44039",
+     "docket": "AB 290 (341X)",
+     "service_date": "2014-09-23",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "51b19793c242c6c8e5f229a78fbee8879368e321779f863aa1154c07f29dbf21",
+   "board_pdf": "https://docketyard.org/document/51b19793c242c6c8e5f229a78fbee8879368e321779f863aa1154c07f29dbf21.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43337",
+     "docket": "NOR 42138",
+     "service_date": "2013-09-12",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 2
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "5b8d97f064975e62563c9c16b76c664185934d3c4299a506a8bf2e3b027bff41",
+   "board_pdf": "https://docketyard.org/document/5b8d97f064975e62563c9c16b76c664185934d3c4299a506a8bf2e3b027bff41.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43931",
+     "docket": "AB 55 (726X)",
+     "service_date": "2014-08-05",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 1,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "5baa352e73b4c845d6df0d101907f6c13148ffafe2bccb4988416a4d5bf70d79",
+   "board_pdf": "https://docketyard.org/document/5baa352e73b4c845d6df0d101907f6c13148ffafe2bccb4988416a4d5bf70d79.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43370",
+     "docket": "NOR 42138",
+     "service_date": "2013-09-27",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 5,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "page_engines": {
+    "dots.mocr": 3,
+    "pp-ocrv6-medium": 2
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 2,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "5cd08f954e4dcb35da6696b16816b6a8e1a2f13be08de19df8b42653f8277844",
+   "board_pdf": "https://docketyard.org/document/5cd08f954e4dcb35da6696b16816b6a8e1a2f13be08de19df8b42653f8277844.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "44691",
+     "docket": "FD 35918",
+     "service_date": "2015-08-20",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2015,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "709382072646bd9bcd37d64e1927dfe3dc46c19667884ddc8319e672737dfdf0",
+   "board_pdf": "https://docketyard.org/document/709382072646bd9bcd37d64e1927dfe3dc46c19667884ddc8319e672737dfdf0.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "44439",
+     "docket": "FD 35842",
+     "service_date": "2015-04-17",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2015,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "7a74ff40650c9e97b0bd10e0591355960fc9f237595da3008e278af094741d22",
+   "board_pdf": "https://docketyard.org/document/7a74ff40650c9e97b0bd10e0591355960fc9f237595da3008e278af094741d22.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "45336",
+     "docket": "FD 35918",
+     "service_date": "2016-07-22",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2016,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "7f629651f8edbb3f2a48ae0e19f0279932645733a0207505e28a23dfd7f858e0",
+   "board_pdf": "https://docketyard.org/document/7f629651f8edbb3f2a48ae0e19f0279932645733a0207505e28a23dfd7f858e0.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "42749",
+     "docket": "FD 35522",
+     "service_date": "2012-11-05",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "42749",
+     "docket": "FD 35661",
+     "service_date": "2012-11-05",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2012,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "1": 2
+   },
+   "citation_page_engines": {
+    "dots.mocr": 2
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "814391838afcc84dc83926868b49aaf1fe3fec506ac80a9bc37e6ae28f2544fe",
+   "board_pdf": "https://docketyard.org/document/814391838afcc84dc83926868b49aaf1fe3fec506ac80a9bc37e6ae28f2544fe.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43079",
+     "docket": "AB 565 (1X)",
+     "service_date": "2013-05-02",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "81fe68315adaacb348df9d7a90212c6a66e9ea61326316428e047b3cf39499ac",
+   "board_pdf": "https://docketyard.org/document/81fe68315adaacb348df9d7a90212c6a66e9ea61326316428e047b3cf39499ac.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "47308",
+     "docket": "AB 312 (4X)",
+     "service_date": "2019-10-22",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2019,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "1": 2
+   },
+   "citation_page_engines": {
+    "dots.mocr": 2
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "8e2720f933f4b8053bffb25a8934d9de2ef154cdcb969af9b3ac0fb08223ac1b",
+   "board_pdf": "https://docketyard.org/document/8e2720f933f4b8053bffb25a8934d9de2ef154cdcb969af9b3ac0fb08223ac1b.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43544",
+     "docket": "AB 33 (298X)",
+     "service_date": "2013-12-24",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "919a14375c04810f616cf41b9ee73f8e188829dfd5458034e513bfe50ad72cf7",
+   "board_pdf": "https://docketyard.org/document/919a14375c04810f616cf41b9ee73f8e188829dfd5458034e513bfe50ad72cf7.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43195",
+     "docket": "AB 33 (306X)",
+     "service_date": "2013-07-05",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 3,
+   "text_pages": [
+    1,
+    2,
+    3
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 2
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 1,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2,
+    3
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "a691a62a6f95b0fd01f78193f01554379f98cf2a6b874062345293cea6aee7fa",
+   "board_pdf": "https://docketyard.org/document/a691a62a6f95b0fd01f78193f01554379f98cf2a6b874062345293cea6aee7fa.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "50030",
+     "docket": "FD 36075",
+     "service_date": "2019-12-03",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2019,
+   "pages_read": 3,
+   "text_pages": [
+    1,
+    2,
+    3
+   ],
+   "page_engines": {
+    "dots.mocr": 3
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "2": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2,
+    3
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "b422a1b4b39a40b62174d732340a866a1bbebc0ad5d5331ed2c3eb4d3968f93a",
+   "board_pdf": "https://docketyard.org/document/b422a1b4b39a40b62174d732340a866a1bbebc0ad5d5331ed2c3eb4d3968f93a.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "46687",
+     "docket": "NOR 42159",
+     "service_date": "2018-11-02",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2018,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "cd787e4ed95fc395891d4a23b03e61428fa0805753d4150661c2bf1f4ddfc51f",
+   "board_pdf": "https://docketyard.org/document/cd787e4ed95fc395891d4a23b03e61428fa0805753d4150661c2bf1f4ddfc51f.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "44078",
+     "docket": "AB 33 (156)",
+     "service_date": "2014-10-20",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 1,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "ea1a24a6017dce46cef30648214f634df3ed74321d6c647c13634601c2911635",
+   "board_pdf": "https://docketyard.org/document/ea1a24a6017dce46cef30648214f634df3ed74321d6c647c13634601c2911635.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "42321",
+     "docket": "NOR 42133",
+     "service_date": "2012-04-04",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2012,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "f24ec79173da8b43f6a493743443c34798f720f661772cf6b92aacc7c56ea05c",
+   "board_pdf": "https://docketyard.org/document/f24ec79173da8b43f6a493743443c34798f720f661772cf6b92aacc7c56ea05c.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "44673",
+     "docket": "AB 33 (297X)",
+     "service_date": "2015-08-17",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2015,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "dots-2006",
+   "document_sha256": "fc07f26dac511bfefea0cb7b6b662b8bab18c77f1e022a44eb707b3385f41562",
+   "board_pdf": "https://docketyard.org/document/fc07f26dac511bfefea0cb7b6b662b8bab18c77f1e022a44eb707b3385f41562.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "46509",
+     "docket": "FD 36178",
+     "service_date": "2018-06-19",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2018,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "01b7c80b1a44fa2ac97b630a48851de6835ccacf702aefe7634ee75b2a0f304f",
+   "board_pdf": "https://docketyard.org/document/01b7c80b1a44fa2ac97b630a48851de6835ccacf702aefe7634ee75b2a0f304f.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "42391",
+     "docket": "AB 33 (268X)",
+     "service_date": "2012-05-17",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2012,
+   "pages_read": 4,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 3
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "1302becc764c23f56e5b0746210b8c845ccd3f7f7d06dd2484711b1ae5779544",
+   "board_pdf": "https://docketyard.org/document/1302becc764c23f56e5b0746210b8c845ccd3f7f7d06dd2484711b1ae5779544.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "47242",
+     "docket": "AB 33 (262X)",
+     "service_date": "2019-09-27",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2019,
+   "pages_read": 4,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 4
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 2,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "184df5a889f04de070b3b4d224c3d807b3c53bbdc65907ad36534e095c47e7db",
+   "board_pdf": "https://docketyard.org/document/184df5a889f04de070b3b4d224c3d807b3c53bbdc65907ad36534e095c47e7db.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "46285",
+     "docket": "AB 55 (718X)",
+     "service_date": "2018-02-16",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2018,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "289c173fcb2b20a426b64d1904c1d7e2babdbf9bb4c9a229df6d61561bfcde0a",
+   "board_pdf": "https://docketyard.org/document/289c173fcb2b20a426b64d1904c1d7e2babdbf9bb4c9a229df6d61561bfcde0a.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "36358",
+     "docket": "AB 55 (663X)",
+     "service_date": "2005-11-08",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2005,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "345215673ae674450f6d68748a5d509e5b38a9cd333e552f529ede5ce1756491",
+   "board_pdf": "https://docketyard.org/document/345215673ae674450f6d68748a5d509e5b38a9cd333e552f529ede5ce1756491.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "32526",
+     "docket": "AB 55 (603X)",
+     "service_date": "2002-02-15",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2002,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "4a913152d84204703ffd38258da98ec20b50a6521ebc34453b40cd4287519ca5",
+   "board_pdf": "https://docketyard.org/document/4a913152d84204703ffd38258da98ec20b50a6521ebc34453b40cd4287519ca5.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "37455",
+     "docket": "AB 32 (99X)",
+     "service_date": "2006-11-09",
+     "decision_type": "Environmental Review"
+    },
+    {
+     "stb_decision_id": "37455",
+     "docket": "AB 355 (33X)",
+     "service_date": "2006-11-09",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2006,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "6145ca9acb84c030eebb9723ee9343f76b0424fff0d0ffaf8b6e44a3017d2770",
+   "board_pdf": "https://docketyard.org/document/6145ca9acb84c030eebb9723ee9343f76b0424fff0d0ffaf8b6e44a3017d2770.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43740",
+     "docket": "AB 6 (487X)",
+     "service_date": "2014-04-09",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "64d2430b4a3ef3f058f8b7ab65fac39edc45f1d6e77f9b69425a34ccde5854fe",
+   "board_pdf": "https://docketyard.org/document/64d2430b4a3ef3f058f8b7ab65fac39edc45f1d6e77f9b69425a34ccde5854fe.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "44958",
+     "docket": "AB 1107 (X)",
+     "service_date": "2015-12-23",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2015,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "6e8a9b8bf3ca959f7eade35f9f68d620866e99cdf94b4dc30d9ee9e497707a9c",
+   "board_pdf": "https://docketyard.org/document/6e8a9b8bf3ca959f7eade35f9f68d620866e99cdf94b4dc30d9ee9e497707a9c.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "35119",
+     "docket": "FD 34284",
+     "service_date": "2004-11-05",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2004,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "7cd8230fa3ce3135bf426452244cf631907ed14bf2d7614ef5d67732f9fe71fe",
+   "board_pdf": "https://docketyard.org/document/7cd8230fa3ce3135bf426452244cf631907ed14bf2d7614ef5d67732f9fe71fe.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "42790",
+     "docket": "AB 33 (263X)",
+     "service_date": "2012-12-10",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2012,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "8e7a60ce1e655839e5b4db00720f56585b1e7d32a975f68a498588c0b2c35ab8",
+   "board_pdf": "https://docketyard.org/document/8e7a60ce1e655839e5b4db00720f56585b1e7d32a975f68a498588c0b2c35ab8.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43771",
+     "docket": "AB 33 (294X)",
+     "service_date": "2014-04-28",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "dots.mocr": 1
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "b72f2133aa312326c42d57ae5b9672dbc9a3cd94335a8dc502c120b528635879",
+   "board_pdf": "https://docketyard.org/document/b72f2133aa312326c42d57ae5b9672dbc9a3cd94335a8dc502c120b528635879.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "44198",
+     "docket": "FD 35875",
+     "service_date": "2015-01-05",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2015,
+   "pages_read": 10,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 9
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "cca55110db05191907b686f5fbcb55b516d0ecb2521ef15128b90dcea3c143a4",
+   "board_pdf": "https://docketyard.org/document/cca55110db05191907b686f5fbcb55b516d0ecb2521ef15128b90dcea3c143a4.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "44362",
+     "docket": "AB 57 (61X)",
+     "service_date": "2015-03-26",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2015,
+   "pages_read": 4,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 4
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 2,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "da98da6c37ce7fa7d30b036177ae6de02b226ff57a0be1b214446e58215133a6",
+   "board_pdf": "https://docketyard.org/document/da98da6c37ce7fa7d30b036177ae6de02b226ff57a0be1b214446e58215133a6.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43867",
+     "docket": "FD 35743",
+     "service_date": "2014-06-20",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 3,
+   "text_pages": [
+    1,
+    2,
+    3
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 2
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 2,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "e7620156c4dcf1668b0778a5c3e60ba795821849018dc59fa24893860f375cec",
+   "board_pdf": "https://docketyard.org/document/e7620156c4dcf1668b0778a5c3e60ba795821849018dc59fa24893860f375cec.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "45428",
+     "docket": "EP 733",
+     "service_date": "2016-09-02",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2016,
+   "pages_read": 10,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 9
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "f2fa982b431b467394adf01e412f35eea7b75932be066aaedd085f11d2a12da3",
+   "board_pdf": "https://docketyard.org/document/f2fa982b431b467394adf01e412f35eea7b75932be066aaedd085f11d2a12da3.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "42457",
+     "docket": "AB 55 (656X)",
+     "service_date": "2012-06-18",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2012,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "f984c556ee2020e0d7849d83c2a0436cf0957fd4e27e38b8bf5e69f889a31641",
+   "board_pdf": "https://docketyard.org/document/f984c556ee2020e0d7849d83c2a0436cf0957fd4e27e38b8bf5e69f889a31641.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43817",
+     "docket": "AB 33 (263X)",
+     "service_date": "2014-05-30",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 2
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "fa6817da9463a1070120f0e207bef6e89dab01f3d35eed43e119124a5cb251ad",
+   "board_pdf": "https://docketyard.org/document/fa6817da9463a1070120f0e207bef6e89dab01f3d35eed43e119124a5cb251ad.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "36690",
+     "docket": "AB 31 (40X)",
+     "service_date": "2006-02-14",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2006,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "fb5681fad1f0e09f3f8fb74d1abc4530928bed27e9c0c56df1375e2f38f20b35",
+   "board_pdf": "https://docketyard.org/document/fb5681fad1f0e09f3f8fb74d1abc4530928bed27e9c0c56df1375e2f38f20b35.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "46141",
+     "docket": "AB 290 (350X)",
+     "service_date": "2017-12-06",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2017,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "none-found",
+   "document_sha256": "fce2ebab6607c2a448bd3d03675354c1fb19e713e8f606447da7a97fcde3f619",
+   "board_pdf": "https://docketyard.org/document/fce2ebab6607c2a448bd3d03675354c1fb19e713e8f606447da7a97fcde3f619.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "32307",
+     "docket": "AB 33 (183)",
+     "service_date": "2001-12-14",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2001,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 0,
+   "citation_keys_by_page": {},
+   "citation_page_engines": {},
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "12b3beb908dcb366b46820f60f64d65c42bde8228555c105db917ec9fb4bee1f",
+   "board_pdf": "https://docketyard.org/document/12b3beb908dcb366b46820f60f64d65c42bde8228555c105db917ec9fb4bee1f.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43589",
+     "docket": "NOR 42138",
+     "service_date": "2014-01-09",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 9,
+   "text_pages": [
+    1,
+    2,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 9
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "4": 1,
+    "8": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "15ece283ea061faae26269ef6f8cb74cc7dafb7fe19efb2ab77d756991389666",
+   "board_pdf": "https://docketyard.org/document/15ece283ea061faae26269ef6f8cb74cc7dafb7fe19efb2ab77d756991389666.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "50016",
+     "docket": "FD 36332",
+     "service_date": "2019-11-22",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2019,
+   "pages_read": 12,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 11
+   },
+   "citation_keys": 3,
+   "citation_keys_by_page": {
+    "2": 1,
+    "4": 1,
+    "11": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 3
+   },
+   "captions": 2,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "labelled_citation_keys": 3
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "16221fd6f30017efa80060bbd512acb2eb91b395d7268ffef8bccf40fb54cc6b",
+   "board_pdf": "https://docketyard.org/document/16221fd6f30017efa80060bbd512acb2eb91b395d7268ffef8bccf40fb54cc6b.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "45512",
+     "docket": "FD 36062",
+     "service_date": "2016-10-12",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2016,
+   "pages_read": 8,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 7
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "7": 1,
+    "8": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 3,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "18ced5698e53dfe9729ec3c2e3e04b242fa49ce5ad0c4642016305f137e0810b",
+   "board_pdf": "https://docketyard.org/document/18ced5698e53dfe9729ec3c2e3e04b242fa49ce5ad0c4642016305f137e0810b.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "44143",
+     "docket": "FD 35877",
+     "service_date": "2014-12-05",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 12,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "page_engines": {
+    "dots.mocr": 3,
+    "pp-ocrv6-medium": 9
+   },
+   "citation_keys": 4,
+   "citation_keys_by_page": {
+    "3": 1,
+    "7": 1,
+    "11": 1,
+    "12": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 4
+   },
+   "captions": 3,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "labelled_citation_keys": 4
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "2ba869408afb3332951da27be1fff8cf762b5bb331331a3e6d44915fb339a66a",
+   "board_pdf": "https://docketyard.org/document/2ba869408afb3332951da27be1fff8cf762b5bb331331a3e6d44915fb339a66a.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "46305",
+     "docket": "FD 36165",
+     "service_date": "2018-03-02",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2018,
+   "pages_read": 10,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "page_engines": {
+    "dots.mocr": 2,
+    "pp-ocrv6-medium": 8
+   },
+   "citation_keys": 3,
+   "citation_keys_by_page": {
+    "3": 1,
+    "9": 1,
+    "10": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 3
+   },
+   "captions": 4,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "labelled_citation_keys": 3
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "456c16aaf41882e7fed88ec47cafb83da4423d634521e84e5b3926a45bdee7d4",
+   "board_pdf": "https://docketyard.org/document/456c16aaf41882e7fed88ec47cafb83da4423d634521e84e5b3926a45bdee7d4.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43315",
+     "docket": "NOR 42117",
+     "service_date": "2013-08-30",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "474fb159fdc58cc6b64960c427e6106cc2cea1bae55fffb35278067b86c207e5",
+   "board_pdf": "https://docketyard.org/document/474fb159fdc58cc6b64960c427e6106cc2cea1bae55fffb35278067b86c207e5.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "45032",
+     "docket": "FD 35992",
+     "service_date": "2016-02-12",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2016,
+   "pages_read": 5,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "page_engines": {
+    "dots.mocr": 2,
+    "pp-ocrv6-medium": 3
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "4": 1,
+    "5": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 2,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "4949935755c9e344158f6bef68f98db3ef2741589b7b0d98c05f4d6f8759027c",
+   "board_pdf": "https://docketyard.org/document/4949935755c9e344158f6bef68f98db3ef2741589b7b0d98c05f4d6f8759027c.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "42477",
+     "docket": "AB 33 (277X)",
+     "service_date": "2012-06-15",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "42477",
+     "docket": "FD 35601",
+     "service_date": "2012-06-15",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2012,
+   "pages_read": 4,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "page_engines": {
+    "dots.mocr": 2,
+    "pp-ocrv6-medium": 2
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "4": 2
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 2,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "4bb3f19cf6460b1d6fa6fb9c85c70cf27508dd054e151a3f6ec67e6722f3c3d3",
+   "board_pdf": "https://docketyard.org/document/4bb3f19cf6460b1d6fa6fb9c85c70cf27508dd054e151a3f6ec67e6722f3c3d3.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "47060",
+     "docket": "AB 290 (394X)",
+     "service_date": "2019-06-12",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2019,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "2": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "4ca06299c2ae9655f01bbf419626f6e15cf14ec1698dd8121f7963c1ae67e0ab",
+   "board_pdf": "https://docketyard.org/document/4ca06299c2ae9655f01bbf419626f6e15cf14ec1698dd8121f7963c1ae67e0ab.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "45238",
+     "docket": "FD 36035",
+     "service_date": "2016-06-10",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2016,
+   "pages_read": 5,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 4
+   },
+   "citation_keys": 4,
+   "citation_keys_by_page": {
+    "2": 1,
+    "3": 2,
+    "5": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 2,
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "labelled_citation_keys": 4
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "5fc95f2f15c49d3d44b9a5e937faf23b986523f203e15431ed67c82707da26bd",
+   "board_pdf": "https://docketyard.org/document/5fc95f2f15c49d3d44b9a5e937faf23b986523f203e15431ed67c82707da26bd.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43607",
+     "docket": "FD 35790",
+     "service_date": "2014-01-16",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "620db3ed45127003412f2109f0418ce10243672d452b8b6075fd4e8affe6a841",
+   "board_pdf": "https://docketyard.org/document/620db3ed45127003412f2109f0418ce10243672d452b8b6075fd4e8affe6a841.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43819",
+     "docket": "AB 55 (712X)",
+     "service_date": "2014-05-23",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 10,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 9
+   },
+   "citation_keys": 4,
+   "citation_keys_by_page": {
+    "1": 1,
+    "2": 1,
+    "7": 1,
+    "8": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 3
+   },
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "labelled_citation_keys": 4
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "6914a1a645ec5c2ab5d36d473e8722ed32a3a7960b5faec3c204fc399dfbd333",
+   "board_pdf": "https://docketyard.org/document/6914a1a645ec5c2ab5d36d473e8722ed32a3a7960b5faec3c204fc399dfbd333.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "46029",
+     "docket": "AB 6 (490X)",
+     "service_date": "2017-09-18",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2017,
+   "pages_read": 4,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 4
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "3": 2
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "697a2dc01f412089b9073c44a0d2d525b07f8cefadd9544a888ec23422e54877",
+   "board_pdf": "https://docketyard.org/document/697a2dc01f412089b9073c44a0d2d525b07f8cefadd9544a888ec23422e54877.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "46280",
+     "docket": "NOR 42154",
+     "service_date": "2018-02-13",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2018,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "779140c388cdd426645e4f7d82269941aef79ff5cf0d02e35fe3763bc157ce6a",
+   "board_pdf": "https://docketyard.org/document/779140c388cdd426645e4f7d82269941aef79ff5cf0d02e35fe3763bc157ce6a.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "45092",
+     "docket": "AB 6 (490X)",
+     "service_date": "2016-03-11",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2016,
+   "pages_read": 4,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 4
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "2": 2
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "7ff679d0f2401ec958952bf9304fecb706fffb7a1c34f87324265f85d0407b47",
+   "board_pdf": "https://docketyard.org/document/7ff679d0f2401ec958952bf9304fecb706fffb7a1c34f87324265f85d0407b47.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43517",
+     "docket": "AB 337 (7X)",
+     "service_date": "2013-12-27",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "9b444ffd8fae5372dc50c73c568492e0dec1d5b1b032c4b49aecf67648df81a9",
+   "board_pdf": "https://docketyard.org/document/9b444ffd8fae5372dc50c73c568492e0dec1d5b1b032c4b49aecf67648df81a9.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43567",
+     "docket": "FD 35790",
+     "service_date": "2013-12-31",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "2": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "a05c68f7f37e925635c58ab58c2b6b471c45c98724d59bd7ba6ba9d0b25aea15",
+   "board_pdf": "https://docketyard.org/document/a05c68f7f37e925635c58ab58c2b6b471c45c98724d59bd7ba6ba9d0b25aea15.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "45709",
+     "docket": "FD 36105",
+     "service_date": "2017-03-06",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2017,
+   "pages_read": 12,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 11
+   },
+   "citation_keys": 4,
+   "citation_keys_by_page": {
+    "4": 1,
+    "7": 1,
+    "11": 1,
+    "12": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 4
+   },
+   "captions": 4,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "labelled_citation_keys": 4
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "a62fdbdab9ef41701a1a9cc2e8c6e58b1ff3b23c72e01c043d2c5556367fb469",
+   "board_pdf": "https://docketyard.org/document/a62fdbdab9ef41701a1a9cc2e8c6e58b1ff3b23c72e01c043d2c5556367fb469.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43234",
+     "docket": "NOR 42137",
+     "service_date": "2013-07-31",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 6,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 6
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "a6f299fdf6d386116dbf909e24f83b5bd4bf161acf6dab8e3b82e1ecd26a8429",
+   "board_pdf": "https://docketyard.org/document/a6f299fdf6d386116dbf909e24f83b5bd4bf161acf6dab8e3b82e1ecd26a8429.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "42751",
+     "docket": "NOR 42130",
+     "service_date": "2012-11-01",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2012,
+   "pages_read": 4,
+   "text_pages": [
+    1,
+    2,
+    4,
+    5
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 3
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "1": 1,
+    "2": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    4,
+    5
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "a9e028956731925a18b03a4489bf14e6fffc0a5d773308344a012ac9b5f5a27f",
+   "board_pdf": "https://docketyard.org/document/a9e028956731925a18b03a4489bf14e6fffc0a5d773308344a012ac9b5f5a27f.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43243",
+     "docket": "AB 303 (39X)",
+     "service_date": "2013-08-09",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 4,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 4
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "1": 1,
+    "4": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "aa52e12210144a3849ba8a66e92a2c7004fd9a91f06b8a6db2a8aa35a65e7e6e",
+   "board_pdf": "https://docketyard.org/document/aa52e12210144a3849ba8a66e92a2c7004fd9a91f06b8a6db2a8aa35a65e7e6e.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43447",
+     "docket": "FD 35780",
+     "service_date": "2013-11-15",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 4,
+   "text_pages": [
+    3,
+    4,
+    5,
+    6
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 4
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "3": 2
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    3,
+    4,
+    5,
+    6
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "b0be4115875116ebcb79f2e89aed80bb3fba79d676079edacd8d9a39ec056243",
+   "board_pdf": "https://docketyard.org/document/b0be4115875116ebcb79f2e89aed80bb3fba79d676079edacd8d9a39ec056243.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43601",
+     "docket": "AB 303 (39X)",
+     "service_date": "2014-01-30",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 4,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 4
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "4": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "b25ebb84c48d05ad1b174f59043a80885e98198320f8a267b205cd7e97fd9c27",
+   "board_pdf": "https://docketyard.org/document/b25ebb84c48d05ad1b174f59043a80885e98198320f8a267b205cd7e97fd9c27.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "47316",
+     "docket": "EP 756",
+     "service_date": "2019-10-25",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2019,
+   "pages_read": 12,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 11
+   },
+   "citation_keys": 5,
+   "citation_keys_by_page": {
+    "1": 1,
+    "2": 1,
+    "5": 1,
+    "11": 1,
+    "12": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 4
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "labelled_citation_keys": 5
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "b4f86f7d3ca437ce97663b0014ec4d1bab662604554d1e62c4de82fe709beb51",
+   "board_pdf": "https://docketyard.org/document/b4f86f7d3ca437ce97663b0014ec4d1bab662604554d1e62c4de82fe709beb51.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "42410",
+     "docket": "NOR 42130",
+     "service_date": "2012-05-25",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2012,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "c16fb8fbfe4b566c18c49f5771a75fc18a84b98b12e73afb76239b785dc56241",
+   "board_pdf": "https://docketyard.org/document/c16fb8fbfe4b566c18c49f5771a75fc18a84b98b12e73afb76239b785dc56241.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "47276",
+     "docket": "NOR 42167",
+     "service_date": "2019-10-04",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2019,
+   "pages_read": 12,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 11
+   },
+   "citation_keys": 5,
+   "citation_keys_by_page": {
+    "1": 1,
+    "2": 1,
+    "3": 1,
+    "10": 1,
+    "11": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 4
+   },
+   "captions": 2,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+   ],
+   "labelled_citation_keys": 5
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "e1607bc79e1752657b22c99955eb10ac297bc887fb6bddb37c40d8c4cff7a5bf",
+   "board_pdf": "https://docketyard.org/document/e1607bc79e1752657b22c99955eb10ac297bc887fb6bddb37c40d8c4cff7a5bf.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "43278",
+     "docket": "AB 303 (18X)",
+     "service_date": "2013-08-19",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "2": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "e1d26046a7b2135917b255b682ba6566f437f48e429b3cc44b53268abfcaca71",
+   "board_pdf": "https://docketyard.org/document/e1d26046a7b2135917b255b682ba6566f437f48e429b3cc44b53268abfcaca71.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "42992",
+     "docket": "NOR 42125",
+     "service_date": "2013-03-08",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "42992",
+     "docket": "NOR 42130",
+     "service_date": "2013-03-08",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2013,
+   "pages_read": 3,
+   "text_pages": [
+    1,
+    2,
+    3
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 2
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "1": 2
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "e998d337e9f28fda43265db40b4569779474e3852aee333cce0a1178cce8eac5",
+   "board_pdf": "https://docketyard.org/document/e998d337e9f28fda43265db40b4569779474e3852aee333cce0a1178cce8eac5.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "45809",
+     "docket": "NOR 42144",
+     "service_date": "2017-05-01",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "45809",
+     "docket": "NOR 42150",
+     "service_date": "2017-05-01",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "45809",
+     "docket": "NOR 42152",
+     "service_date": "2017-05-01",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2017,
+   "pages_read": 9,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 8
+   },
+   "citation_keys": 13,
+   "citation_keys_by_page": {
+    "1": 1,
+    "2": 3,
+    "7": 3,
+    "8": 3,
+    "9": 3
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 12
+   },
+   "captions": 5,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "labelled_citation_keys": 13
+  },
+  {
+   "stratum": "ppocr-2006",
+   "document_sha256": "f75f0ba542e87bff5dc3510d1c68bd2769a322c70883c390fa1c6fa53f1e7149",
+   "board_pdf": "https://docketyard.org/document/f75f0ba542e87bff5dc3510d1c68bd2769a322c70883c390fa1c6fa53f1e7149.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "44014",
+     "docket": "AB 290 (336X)",
+     "service_date": "2014-09-22",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2014,
+   "pages_read": 3,
+   "text_pages": [
+    1,
+    2,
+    3
+   ],
+   "page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 2
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "1": 1,
+    "2": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1,
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "06e622ab85b5661851b1c1a94ec206783f827ca5deebe484702a0c7b7d7ef2bf",
+   "board_pdf": "https://docketyard.org/document/06e622ab85b5661851b1c1a94ec206783f827ca5deebe484702a0c7b7d7ef2bf.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "30060",
+     "docket": "FD 33556",
+     "service_date": "1999-03-08",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 1999,
+   "pages_read": 385,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    36,
+    37,
+    38,
+    39,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    55,
+    56,
+    57,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    127,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    148,
+    152,
+    155,
+    156,
+    157,
+    158,
+    159,
+    160,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    175,
+    176,
+    177,
+    178,
+    188,
+    189,
+    190,
+    196,
+    197,
+    198,
+    199,
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209,
+    210,
+    211,
+    212,
+    213,
+    214,
+    215,
+    216,
+    218,
+    220,
+    221,
+    222,
+    223,
+    224,
+    225,
+    228,
+    244,
+    245,
+    246,
+    247,
+    248,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255,
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    264,
+    265,
+    266,
+    267,
+    268,
+    269,
+    271,
+    272,
+    273,
+    274,
+    275,
+    276,
+    277,
+    278,
+    279,
+    280,
+    282,
+    283,
+    284,
+    285,
+    286,
+    287,
+    288,
+    289,
+    290,
+    291,
+    296,
+    297,
+    298,
+    299,
+    300,
+    301,
+    302,
+    303,
+    304,
+    305,
+    306,
+    307,
+    308,
+    309,
+    310,
+    320,
+    327,
+    328,
+    329,
+    330,
+    331,
+    332,
+    333,
+    334,
+    335,
+    336,
+    337,
+    338,
+    339,
+    340,
+    341,
+    342,
+    343,
+    344,
+    351,
+    352,
+    353,
+    354,
+    357,
+    361,
+    362,
+    363,
+    364,
+    366,
+    368,
+    369,
+    370,
+    371,
+    372,
+    373,
+    375,
+    376,
+    378,
+    379,
+    380,
+    382,
+    383,
+    384,
+    385,
+    386,
+    387,
+    388,
+    390,
+    391,
+    392,
+    393,
+    394,
+    396,
+    397,
+    398,
+    400,
+    401,
+    402,
+    403,
+    404,
+    405,
+    406,
+    409,
+    410,
+    411,
+    412,
+    413,
+    414,
+    415,
+    416,
+    417,
+    418,
+    419,
+    420,
+    421,
+    422,
+    423,
+    424,
+    425,
+    427,
+    430,
+    431,
+    432,
+    433,
+    435,
+    437,
+    438,
+    439,
+    440,
+    441,
+    442,
+    443,
+    444,
+    446,
+    447,
+    448,
+    450,
+    451,
+    452,
+    454,
+    455,
+    456,
+    457,
+    458,
+    460,
+    461,
+    462,
+    464,
+    477,
+    478,
+    479,
+    480,
+    481,
+    482,
+    483,
+    484,
+    485,
+    486,
+    487,
+    488,
+    489,
+    490,
+    491,
+    492,
+    493,
+    494,
+    495,
+    496,
+    497,
+    498,
+    499,
+    500,
+    501,
+    502,
+    503,
+    504,
+    505,
+    506,
+    507,
+    508,
+    509,
+    510,
+    511,
+    512,
+    513,
+    514
+   ],
+   "page_engines": {
+    "dots.mocr": 69,
+    "pp-ocrv6-medium": 316
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "291": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    7,
+    14,
+    104,
+    107,
+    120,
+    140,
+    142,
+    145,
+    155,
+    168,
+    173,
+    225,
+    282,
+    287,
+    310,
+    331,
+    388,
+    479,
+    487,
+    509
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "077627b81a6e2ca1c28067bc881c6691578f933d9fb176f2462c0fe138147a0b",
+   "board_pdf": "https://docketyard.org/document/077627b81a6e2ca1c28067bc881c6691578f933d9fb176f2462c0fe138147a0b.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "35831",
+     "docket": "FD 34435",
+     "service_date": "2005-05-25",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2005,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "1": 1,
+    "2": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "2d830c06f84f3b2e016a4a7cfdf51b872d9cb2bd8122754bd8a60b68964295bc",
+   "board_pdf": "https://docketyard.org/document/2d830c06f84f3b2e016a4a7cfdf51b872d9cb2bd8122754bd8a60b68964295bc.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "35831",
+     "docket": "FD 34435",
+     "service_date": "2005-05-25",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2005,
+   "pages_read": 2,
+   "text_pages": [
+    1,
+    2
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "2": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "35950a11b06e9e81557255756af1c4007edf3e301a7eceebcb576a7337ffb90f",
+   "board_pdf": "https://docketyard.org/document/35950a11b06e9e81557255756af1c4007edf3e301a7eceebcb576a7337ffb90f.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "35119",
+     "docket": "FD 34284",
+     "service_date": "2004-11-05",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2004,
+   "pages_read": 426,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    147,
+    148,
+    149,
+    150,
+    151,
+    152,
+    153,
+    156,
+    157,
+    158,
+    159,
+    160,
+    161,
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    174,
+    175,
+    176,
+    177,
+    178,
+    179,
+    180,
+    181,
+    182,
+    183,
+    184,
+    185,
+    186,
+    187,
+    188,
+    189,
+    190,
+    191,
+    192,
+    193,
+    194,
+    195,
+    196,
+    199,
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209,
+    210,
+    211,
+    212,
+    213,
+    214,
+    215,
+    216,
+    217,
+    218,
+    219,
+    220,
+    221,
+    222,
+    223,
+    225,
+    226,
+    227,
+    228,
+    229,
+    230,
+    231,
+    232,
+    233,
+    234,
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    247,
+    248,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255,
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    264,
+    265,
+    266,
+    267,
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    274,
+    275,
+    276,
+    277,
+    278,
+    279,
+    280,
+    281,
+    282,
+    283,
+    284,
+    285,
+    286,
+    287,
+    288,
+    289,
+    290,
+    291,
+    292,
+    293,
+    294,
+    295,
+    296,
+    297,
+    298,
+    299,
+    300,
+    301,
+    302,
+    303,
+    304,
+    305,
+    306,
+    307,
+    308,
+    309,
+    310,
+    311,
+    312,
+    313,
+    314,
+    315,
+    316,
+    317,
+    318,
+    319,
+    320,
+    321,
+    322,
+    323,
+    324,
+    325,
+    326,
+    327,
+    328,
+    329,
+    330,
+    331,
+    332,
+    333,
+    334,
+    335,
+    336,
+    337,
+    338,
+    339,
+    340,
+    341,
+    342,
+    343,
+    344,
+    345,
+    346,
+    347,
+    348,
+    349,
+    350,
+    351,
+    352,
+    353,
+    354,
+    355,
+    356,
+    357,
+    358,
+    359,
+    360,
+    361,
+    362,
+    363,
+    364,
+    365,
+    366,
+    367,
+    368,
+    369,
+    370,
+    371,
+    372,
+    373,
+    374,
+    375,
+    376,
+    377,
+    378,
+    379,
+    380,
+    381,
+    382,
+    383,
+    384,
+    385,
+    386,
+    387,
+    388,
+    389,
+    390,
+    391,
+    392,
+    393,
+    394,
+    395,
+    396,
+    397,
+    398,
+    399,
+    400,
+    401,
+    402,
+    403,
+    404,
+    405,
+    406,
+    407,
+    408,
+    409,
+    410,
+    411,
+    412,
+    413,
+    414,
+    415,
+    416,
+    417,
+    418,
+    419,
+    420,
+    423,
+    424,
+    425,
+    426,
+    427,
+    428,
+    429,
+    430,
+    431,
+    432,
+    433,
+    434,
+    435,
+    436,
+    437
+   ],
+   "page_engines": {
+    "dots.mocr": 171,
+    "pp-ocrv6-medium": 255
+   },
+   "citation_keys": 3,
+   "citation_keys_by_page": {
+    "321": 1,
+    "324": 1,
+    "325": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 3
+   },
+   "captions": 18,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    2,
+    12,
+    62,
+    89,
+    90,
+    169,
+    186,
+    208,
+    216,
+    232,
+    233,
+    307,
+    318,
+    320,
+    331,
+    340,
+    343,
+    347,
+    369,
+    433
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "55442a35dff59c4277b1fab80cb67efca2e69ba9b4cdf4a502a666115bfbd67b",
+   "board_pdf": "https://docketyard.org/document/55442a35dff59c4277b1fab80cb67efca2e69ba9b4cdf4a502a666115bfbd67b.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "20743",
+     "docket": "FD 33407",
+     "service_date": "2005-12-30",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "36637",
+     "docket": "FD 33407",
+     "service_date": "2006-01-11",
+     "decision_type": "Notice"
+    }
+   ],
+   "earliest_year": 2005,
+   "pages_read": 160,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    14,
+    15,
+    16,
+    17,
+    18,
+    21,
+    22,
+    23,
+    24,
+    27,
+    28,
+    29,
+    31,
+    33,
+    34,
+    35,
+    36,
+    37,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    64,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    118,
+    119,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    147,
+    148,
+    149,
+    150,
+    151,
+    152,
+    153,
+    154,
+    155,
+    156,
+    157,
+    158,
+    159,
+    160,
+    161,
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    174
+   ],
+   "page_engines": {
+    "dots.mocr": 84,
+    "pp-ocrv6-medium": 76
+   },
+   "citation_keys": 3,
+   "citation_keys_by_page": {
+    "21": 1,
+    "33": 1,
+    "103": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 2,
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    4,
+    15,
+    41,
+    54,
+    66,
+    67,
+    85,
+    94,
+    112,
+    113,
+    122,
+    131,
+    139,
+    141,
+    142,
+    146,
+    149,
+    150,
+    151,
+    159
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "59ca110a096b71a42f31ebc4c4ad32215a1e680fad121c104de5ab19e4a0a7d5",
+   "board_pdf": "https://docketyard.org/document/59ca110a096b71a42f31ebc4c4ad32215a1e680fad121c104de5ab19e4a0a7d5.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "31556",
+     "docket": "NOR 42057",
+     "service_date": "2004-06-08",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 2004,
+   "pages_read": 114,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    26,
+    27,
+    28,
+    29,
+    31,
+    32,
+    33,
+    34,
+    35,
+    37,
+    38,
+    39,
+    40,
+    42,
+    43,
+    44,
+    45,
+    46,
+    49,
+    50,
+    51,
+    52,
+    53,
+    55,
+    57,
+    60,
+    61,
+    62,
+    64,
+    66,
+    67,
+    68,
+    69,
+    70,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    79,
+    81,
+    82,
+    83,
+    84,
+    88,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    111,
+    113,
+    114,
+    116,
+    118,
+    119,
+    122,
+    123,
+    126,
+    127,
+    128,
+    129,
+    130,
+    133,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145
+   ],
+   "page_engines": {
+    "dots.mocr": 4,
+    "pp-ocrv6-medium": 110
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "95": 1,
+    "100": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    12,
+    16,
+    18,
+    26,
+    51,
+    52,
+    72,
+    79,
+    82,
+    90,
+    95,
+    97,
+    100,
+    101,
+    108,
+    114,
+    129,
+    135,
+    139,
+    140
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "5b55bb407f89c3fda175926ead1ab4c4889f64238469cfdbd374a6bf0686aaff",
+   "board_pdf": "https://docketyard.org/document/5b55bb407f89c3fda175926ead1ab4c4889f64238469cfdbd374a6bf0686aaff.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "32364",
+     "docket": "AB 596",
+     "service_date": "2002-01-04",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2002,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "61a32b8a4c873df2065c63fc4329db778e23c0216805abd56d6d2ac692cab080",
+   "board_pdf": "https://docketyard.org/document/61a32b8a4c873df2065c63fc4329db778e23c0216805abd56d6d2ac692cab080.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "36549",
+     "docket": "AB 6 (435X)",
+     "service_date": "2005-12-30",
+     "decision_type": "Environmental Review"
+    },
+    {
+     "stb_decision_id": "36549",
+     "docket": "AB 987 (X)",
+     "service_date": "2005-12-30",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2005,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "1": 2
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 2
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "772912e5e0ecc592e75bdd1d991f3f950bd25f098f77b888a99658e7bbd6f23e",
+   "board_pdf": "https://docketyard.org/document/772912e5e0ecc592e75bdd1d991f3f950bd25f098f77b888a99658e7bbd6f23e.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "30962",
+     "docket": "AB 33 (70)",
+     "service_date": "2000-04-14",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2000,
+   "pages_read": 72,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73
+   ],
+   "page_engines": {
+    "dots.mocr": 7,
+    "pp-ocrv6-medium": 65
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "8": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 13,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3,
+    5,
+    10,
+    13,
+    22,
+    30,
+    32,
+    35,
+    46,
+    48,
+    52,
+    56,
+    57,
+    60,
+    64,
+    66,
+    67,
+    68
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "7a23a38a53183f44520d8bbf4911054dccd3806059734ade3b50bccce3253d51",
+   "board_pdf": "https://docketyard.org/document/7a23a38a53183f44520d8bbf4911054dccd3806059734ade3b50bccce3253d51.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "32177",
+     "docket": "FD 34040",
+     "service_date": "2001-10-15",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2001,
+   "pages_read": 63,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    27,
+    28,
+    29,
+    30,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    48,
+    50,
+    52,
+    56,
+    57,
+    58,
+    60,
+    64,
+    65,
+    67,
+    69,
+    71,
+    72,
+    74,
+    77,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87
+   ],
+   "page_engines": {
+    "dots.mocr": 10,
+    "pp-ocrv6-medium": 53
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "57": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    4,
+    5,
+    9,
+    10,
+    19,
+    21,
+    23,
+    30,
+    32,
+    41,
+    44,
+    45,
+    48,
+    58,
+    64,
+    65,
+    69,
+    74,
+    85,
+    87
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "81ca32e19f52f1ed4f4897ad8c130112369435074d31c41a5219a3a75d808328",
+   "board_pdf": "https://docketyard.org/document/81ca32e19f52f1ed4f4897ad8c130112369435074d31c41a5219a3a75d808328.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "35708",
+     "docket": "AB 927 (X)",
+     "service_date": "2005-04-08",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2005,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "897a5a20b9d284d59246226a88c3a5a02f239e0ee4c3bb620c2cf8ffb3b0ec28",
+   "board_pdf": "https://docketyard.org/document/897a5a20b9d284d59246226a88c3a5a02f239e0ee4c3bb620c2cf8ffb3b0ec28.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "36187",
+     "docket": "AB 43 (176X)",
+     "service_date": "2005-09-20",
+     "decision_type": "Notice of Exemption"
+    }
+   ],
+   "earliest_year": 2005,
+   "pages_read": 3,
+   "text_pages": [
+    1,
+    2,
+    3
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 3
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "2": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 2,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    2,
+    3
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "9587349c3c5d17c8a60123589b9b50be076d00eff126c9f988eb0bffd8404259",
+   "board_pdf": "https://docketyard.org/document/9587349c3c5d17c8a60123589b9b50be076d00eff126c9f988eb0bffd8404259.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "29736",
+     "docket": "FD 33556",
+     "service_date": "1998-11-09",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 1998,
+   "pages_read": 212,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    65,
+    70,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    96,
+    97,
+    101,
+    102,
+    103,
+    104,
+    110,
+    114,
+    115,
+    116,
+    117,
+    118,
+    121,
+    125,
+    126,
+    127,
+    128,
+    130,
+    131,
+    134,
+    136,
+    137,
+    138,
+    139,
+    142,
+    145,
+    146,
+    147,
+    150,
+    153,
+    154,
+    155,
+    156,
+    159,
+    160,
+    162,
+    163,
+    164,
+    165,
+    167,
+    170,
+    171,
+    172,
+    173,
+    177,
+    183,
+    184,
+    185,
+    186,
+    188,
+    189,
+    190,
+    193,
+    197,
+    199,
+    200,
+    201,
+    202,
+    203,
+    204,
+    206,
+    208,
+    209,
+    210,
+    212,
+    213,
+    214,
+    215,
+    216,
+    217,
+    218,
+    219,
+    220,
+    221,
+    222,
+    223,
+    224,
+    225,
+    226,
+    227,
+    228,
+    229,
+    230,
+    231,
+    232,
+    233,
+    234,
+    235,
+    236,
+    237,
+    238,
+    240,
+    241,
+    242,
+    243,
+    244,
+    246,
+    247,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255,
+    256,
+    257,
+    262,
+    263,
+    264,
+    265,
+    266,
+    267,
+    272,
+    276,
+    280,
+    295,
+    296,
+    297,
+    298,
+    299,
+    300,
+    301,
+    302,
+    303,
+    304,
+    305,
+    306,
+    307,
+    308,
+    309,
+    310,
+    311,
+    312,
+    313,
+    314
+   ],
+   "page_engines": {
+    "dots.mocr": 56,
+    "pp-ocrv6-medium": 156
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "165": 1,
+    "299": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    26,
+    32,
+    59,
+    145,
+    150,
+    153,
+    170,
+    206,
+    215,
+    227,
+    233,
+    238,
+    246,
+    250,
+    252,
+    272,
+    297,
+    298,
+    300,
+    313
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "9e7dcfd15662b7ba237ce5c4b279fdb19cd1faee7f36e4982bd7b2b871833157",
+   "board_pdf": "https://docketyard.org/document/9e7dcfd15662b7ba237ce5c4b279fdb19cd1faee7f36e4982bd7b2b871833157.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "29810",
+     "docket": "AB 391 (5X)",
+     "service_date": "1998-12-14",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 1998,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "a40182cddb424eb0cf6d513178103bab7654f9cbc2a1a0ea13ac7e2219f95944",
+   "board_pdf": "https://docketyard.org/document/a40182cddb424eb0cf6d513178103bab7654f9cbc2a1a0ea13ac7e2219f95944.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "33543",
+     "docket": "FD 34079",
+     "service_date": "2003-05-02",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2003,
+   "pages_read": 178,
+   "text_pages": [
+    1,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    149,
+    150,
+    151,
+    152,
+    153,
+    154,
+    155,
+    156,
+    157,
+    158,
+    159,
+    160,
+    161,
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    174,
+    176,
+    177,
+    178,
+    180,
+    181,
+    183,
+    185,
+    186,
+    187,
+    188,
+    191,
+    192,
+    193,
+    194,
+    195,
+    196,
+    197,
+    198,
+    199,
+    200,
+    201,
+    202,
+    206,
+    207,
+    208,
+    209,
+    210,
+    211,
+    212,
+    213,
+    214,
+    215,
+    216,
+    217,
+    218,
+    219,
+    221,
+    222
+   ],
+   "page_engines": {
+    "dots.mocr": 161,
+    "pp-ocrv6-medium": 17
+   },
+   "citation_keys": 3,
+   "citation_keys_by_page": {
+    "135": 1,
+    "146": 1,
+    "188": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 3
+   },
+   "captions": 100,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    39,
+    41,
+    51,
+    53,
+    58,
+    62,
+    72,
+    73,
+    100,
+    109,
+    118,
+    141,
+    165,
+    168,
+    171,
+    173,
+    192,
+    195,
+    196,
+    212
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "a7b264182169c992b03658a2340ea752b97915f04f30512a1e154fecaea8978d",
+   "board_pdf": "https://docketyard.org/document/a7b264182169c992b03658a2340ea752b97915f04f30512a1e154fecaea8978d.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "36313",
+     "docket": "AB 167 (1186X)",
+     "service_date": "2005-10-24",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2005,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 1,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "a9590ca2b33475fff105b68b085a4ad8f037aedb34b8d2f308c0518da7d0ebc4",
+   "board_pdf": "https://docketyard.org/document/a9590ca2b33475fff105b68b085a4ad8f037aedb34b8d2f308c0518da7d0ebc4.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "35911",
+     "docket": "AB 70 (5X)",
+     "service_date": "2005-06-21",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2005,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "aa59bdafb508040999b59517fc90a3a791e8122121256808a7e9fdc3ba4bfd0c",
+   "board_pdf": "https://docketyard.org/document/aa59bdafb508040999b59517fc90a3a791e8122121256808a7e9fdc3ba4bfd0c.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "29736",
+     "docket": "FD 33556",
+     "service_date": "1998-11-09",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 1998,
+   "pages_read": 397,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    45,
+    46,
+    47,
+    48,
+    49,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    147,
+    148,
+    149,
+    150,
+    151,
+    152,
+    153,
+    154,
+    155,
+    156,
+    157,
+    158,
+    159,
+    160,
+    161,
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    174,
+    175,
+    176,
+    178,
+    180,
+    181,
+    182,
+    183,
+    184,
+    185,
+    186,
+    187,
+    188,
+    189,
+    190,
+    191,
+    192,
+    193,
+    194,
+    195,
+    196,
+    197,
+    198,
+    199,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209,
+    210,
+    211,
+    212,
+    213,
+    214,
+    215,
+    216,
+    217,
+    218,
+    219,
+    220,
+    221,
+    222,
+    223,
+    224,
+    225,
+    226,
+    227,
+    228,
+    229,
+    230,
+    231,
+    232,
+    233,
+    234,
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    248,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255,
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    264,
+    265,
+    266,
+    267,
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    274,
+    275,
+    276,
+    277,
+    278,
+    279,
+    280,
+    281,
+    282,
+    283,
+    284,
+    285,
+    286,
+    287,
+    288,
+    289,
+    290,
+    291,
+    292,
+    293,
+    294,
+    295,
+    296,
+    297,
+    298,
+    299,
+    300,
+    303,
+    304,
+    309,
+    310,
+    311,
+    312,
+    313,
+    314,
+    315,
+    316,
+    317,
+    318,
+    319,
+    320,
+    321,
+    322,
+    323,
+    324,
+    325,
+    326,
+    327,
+    328,
+    329,
+    330,
+    331,
+    332,
+    333,
+    334,
+    335,
+    336,
+    337,
+    338,
+    339,
+    340,
+    341,
+    342,
+    343,
+    344,
+    345,
+    346,
+    347,
+    348,
+    349,
+    350,
+    351,
+    352,
+    353,
+    354,
+    355,
+    356,
+    357,
+    358,
+    359,
+    360,
+    361,
+    363,
+    364,
+    365,
+    366,
+    367,
+    368,
+    371,
+    374,
+    376,
+    378,
+    379,
+    380,
+    381,
+    382,
+    383,
+    384,
+    385,
+    386,
+    387,
+    388,
+    390,
+    391,
+    392,
+    393,
+    395,
+    396,
+    397,
+    398,
+    399,
+    400,
+    401,
+    402,
+    403,
+    404,
+    405,
+    406,
+    407,
+    408,
+    409,
+    410,
+    414,
+    417,
+    418,
+    433,
+    434,
+    435,
+    436,
+    437,
+    438
+   ],
+   "page_engines": {
+    "dots.mocr": 68,
+    "pp-ocrv6-medium": 329
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "60": 1
+   },
+   "citation_page_engines": {
+    "dots.mocr": 1
+   },
+   "captions": 0,
+   "engine": "dots.mocr",
+   "labelled_pages": [
+    26,
+    29,
+    48,
+    52,
+    105,
+    137,
+    163,
+    170,
+    176,
+    198,
+    203,
+    218,
+    244,
+    290,
+    294,
+    338,
+    376,
+    403,
+    417,
+    435
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "b4fb72bbf3c871400005c4ecf97c4adba4f239f7d272dede5fbac4dea4567680",
+   "board_pdf": "https://docketyard.org/document/b4fb72bbf3c871400005c4ecf97c4adba4f239f7d272dede5fbac4dea4567680.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "36136",
+     "docket": "AB 103 (18X)",
+     "service_date": "2005-09-09",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2005,
+   "pages_read": 1,
+   "text_pages": [
+    1
+   ],
+   "page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "1": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "c3700e7251a45934217a061a3f22ad4a9aede2e0aabc29445505925c8cf8d023",
+   "board_pdf": "https://docketyard.org/document/c3700e7251a45934217a061a3f22ad4a9aede2e0aabc29445505925c8cf8d023.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 3 (129X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 3 (130)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 3 (131)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 3 (132X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 3 (133X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 3 (134X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 8 (36X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 8 (37)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 8 (38)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 8 (39)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 12 (184X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 12 (185X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 12 (187X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 12 (188)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 12 (189X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 33 (93X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 33 (94X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 33 (96)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 33 (97X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 33 (98X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "AB 33 (99X)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (1)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (2)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (3)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (4)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (5)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (6)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (7)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (8)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (9)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (10)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (11)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (12)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (13)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (14)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (16)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    },
+    {
+     "stb_decision_id": "20247",
+     "docket": "FD 32760 (17)",
+     "service_date": "1996-08-12",
+     "decision_type": "Decision"
+    }
+   ],
+   "earliest_year": 1996,
+   "pages_read": 284,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    147,
+    148,
+    149,
+    150,
+    151,
+    152,
+    153,
+    154,
+    155,
+    156,
+    157,
+    158,
+    159,
+    160,
+    161,
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    174,
+    175,
+    176,
+    177,
+    178,
+    179,
+    180,
+    181,
+    182,
+    183,
+    184,
+    185,
+    186,
+    187,
+    188,
+    189,
+    190,
+    191,
+    192,
+    193,
+    194,
+    195,
+    196,
+    197,
+    198,
+    199,
+    200,
+    201,
+    202,
+    204,
+    206,
+    207,
+    209,
+    210,
+    211,
+    212,
+    214,
+    215,
+    216,
+    217,
+    218,
+    219,
+    220,
+    221,
+    222,
+    223,
+    224,
+    225,
+    226,
+    227,
+    228,
+    229,
+    230,
+    231,
+    232,
+    233,
+    234,
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    247,
+    248,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255,
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    264,
+    265,
+    266,
+    267,
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    275,
+    276,
+    277,
+    278,
+    279,
+    280,
+    281,
+    282,
+    283,
+    284,
+    285,
+    286,
+    287,
+    288,
+    289
+   ],
+   "page_engines": {
+    "dots.mocr": 23,
+    "pp-ocrv6-medium": 261
+   },
+   "citation_keys": 12,
+   "citation_keys_by_page": {
+    "20": 1,
+    "21": 2,
+    "49": 1,
+    "206": 1,
+    "212": 2,
+    "215": 1,
+    "225": 1,
+    "237": 3
+   },
+   "citation_page_engines": {
+    "dots.mocr": 3,
+    "pp-ocrv6-medium": 9
+   },
+   "captions": 187,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    8,
+    24,
+    25,
+    28,
+    71,
+    76,
+    79,
+    82,
+    99,
+    109,
+    115,
+    136,
+    151,
+    158,
+    177,
+    195,
+    199,
+    204,
+    249,
+    287
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "c7b02e973a1022c9f3cc1b16a937327634d585e50ea17559031727f90ff1459a",
+   "board_pdf": "https://docketyard.org/document/c7b02e973a1022c9f3cc1b16a937327634d585e50ea17559031727f90ff1459a.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "35119",
+     "docket": "FD 34284",
+     "service_date": "2004-11-05",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2004,
+   "pages_read": 272,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    91,
+    92,
+    93,
+    94,
+    96,
+    97,
+    98,
+    100,
+    101,
+    102,
+    105,
+    106,
+    107,
+    109,
+    110,
+    111,
+    113,
+    114,
+    115,
+    116,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    147,
+    148,
+    149,
+    150,
+    152,
+    154,
+    155,
+    156,
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    174,
+    175,
+    176,
+    177,
+    178,
+    179,
+    180,
+    181,
+    182,
+    183,
+    184,
+    185,
+    186,
+    187,
+    188,
+    189,
+    190,
+    191,
+    192,
+    193,
+    194,
+    195,
+    196,
+    197,
+    198,
+    199,
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209,
+    210,
+    211,
+    213,
+    214,
+    215,
+    217,
+    219,
+    220,
+    221,
+    223,
+    225,
+    226,
+    227,
+    228,
+    229,
+    230,
+    233,
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    247,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    257,
+    258,
+    259,
+    260,
+    262,
+    263,
+    264,
+    266,
+    267,
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    274,
+    275,
+    276,
+    277,
+    278,
+    279,
+    280,
+    281,
+    282,
+    283,
+    284,
+    286,
+    287,
+    288,
+    289,
+    290,
+    291,
+    292,
+    293,
+    294,
+    295,
+    296,
+    297,
+    298,
+    299,
+    300,
+    301,
+    302,
+    303,
+    304,
+    305,
+    306,
+    307,
+    308,
+    309,
+    310,
+    311,
+    312,
+    313,
+    314,
+    315,
+    316,
+    317,
+    318
+   ],
+   "page_engines": {
+    "dots.mocr": 21,
+    "pp-ocrv6-medium": 251
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "211": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 3,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    1,
+    3,
+    15,
+    21,
+    27,
+    44,
+    57,
+    66,
+    74,
+    92,
+    105,
+    139,
+    177,
+    180,
+    187,
+    189,
+    193,
+    237,
+    273,
+    279
+   ],
+   "labelled_citation_keys": 0
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "d53a08d6fcc3b6b30726f1e888f6b33de186758064e25c533b0d53c9b61e8bd6",
+   "board_pdf": "https://docketyard.org/document/d53a08d6fcc3b6b30726f1e888f6b33de186758064e25c533b0d53c9b61e8bd6.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "32177",
+     "docket": "FD 34040",
+     "service_date": "2001-10-15",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2001,
+   "pages_read": 195,
+   "text_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    40,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    65,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    145,
+    146,
+    147,
+    148,
+    149,
+    150,
+    151,
+    152,
+    153,
+    154,
+    155,
+    156,
+    157,
+    158,
+    159,
+    160,
+    161,
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    174,
+    175,
+    176,
+    177,
+    178,
+    182,
+    185,
+    192,
+    199,
+    208,
+    215,
+    223,
+    238,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    247,
+    252,
+    253,
+    254,
+    255,
+    261,
+    262,
+    263,
+    268,
+    269,
+    270,
+    271,
+    277,
+    278,
+    279,
+    284,
+    285,
+    286,
+    287,
+    292,
+    293,
+    294,
+    295,
+    301,
+    302,
+    303,
+    309,
+    310,
+    313,
+    314,
+    315,
+    316,
+    317,
+    320,
+    323,
+    331,
+    332,
+    344,
+    345,
+    350,
+    365,
+    376,
+    379,
+    392
+   ],
+   "page_engines": {
+    "dots.mocr": 40,
+    "pp-ocrv6-medium": 155
+   },
+   "citation_keys": 2,
+   "citation_keys_by_page": {
+    "105": 1,
+    "174": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 2
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    5,
+    7,
+    16,
+    31,
+    43,
+    58,
+    74,
+    75,
+    84,
+    96,
+    107,
+    150,
+    158,
+    168,
+    169,
+    174,
+    242,
+    278,
+    295,
+    302
+   ],
+   "labelled_citation_keys": 1
+  },
+  {
+   "stratum": "pre-2006",
+   "document_sha256": "e014a4213c3a694b1bf1a8ea33e00686db570d52dd9753dc96d001fa8d1fa70f",
+   "board_pdf": "https://docketyard.org/document/e014a4213c3a694b1bf1a8ea33e00686db570d52dd9753dc96d001fa8d1fa70f.pdf",
+   "decisions": [
+    {
+     "stb_decision_id": "35119",
+     "docket": "FD 34284",
+     "service_date": "2004-11-05",
+     "decision_type": "Environmental Review"
+    }
+   ],
+   "earliest_year": 2004,
+   "pages_read": 173,
+   "text_pages": [
+    1,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    19,
+    20,
+    21,
+    22,
+    23,
+    25,
+    26,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    47,
+    48,
+    49,
+    50,
+    51,
+    54,
+    56,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143,
+    144,
+    145,
+    146,
+    147,
+    148,
+    149,
+    150,
+    151,
+    152,
+    153,
+    154,
+    155,
+    156,
+    157,
+    158,
+    159,
+    160,
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    174,
+    175,
+    176,
+    177,
+    178,
+    179,
+    180,
+    181,
+    182,
+    183,
+    184,
+    185,
+    186,
+    187,
+    188
+   ],
+   "page_engines": {
+    "dots.mocr": 56,
+    "pp-ocrv6-medium": 117
+   },
+   "citation_keys": 1,
+   "citation_keys_by_page": {
+    "188": 1
+   },
+   "citation_page_engines": {
+    "pp-ocrv6-medium": 1
+   },
+   "captions": 0,
+   "engine": "pp-ocrv6-medium",
+   "labelled_pages": [
+    26,
+    36,
+    65,
+    66,
+    72,
+    79,
+    117,
+    118,
+    122,
+    127,
+    134,
+    141,
+    162,
+    168,
+    174,
+    176,
+    179,
+    180,
+    186,
+    187
+   ],
+   "labelled_citation_keys": 0
+  }
+ ]
+}

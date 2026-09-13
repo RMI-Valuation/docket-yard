@@ -56,5 +56,20 @@ volume carried by 38 decisions. Those 2,945 pages hold a citation on 40. So a do
 more than twenty pages is labelled on **twenty of its pages drawn at random** (seeded per
 document), and the truth and the dry run are both restricted to the drawn pages, in every
 stratum alike. Choosing the pages where a citation was found would have kept the likeliest
-misreads in the sample, but it would have inflated the recall a card stores. The drawn
-sample is about 548 pages.
+misreads in the sample, but it would have inflated the recall a card stores.
+
+**The draw** (`tools/rmi-ai-machine/ocr_citation_sample.py`, seed 20260913, run against
+production's findings and store; `sample.json` beside this file):
+
+| Stratum | Pool | Drawn | Pages to label | Citations found on them |
+|---|---|---|---|---|
+| PP-OCRv6 medium, 2006 on | 146 | 30 | 170 | 77 |
+| dots.mocr, 2006 on | 109 | 25 | 50 | 27 |
+| pre-2006 | 23 | 23 | 274 | 15 (of 45 in the whole documents) |
+| no citation found | 744 | 20 | 54 | 0 |
+| **All** | | **98** | **548** | **119** |
+
+The pre-2006 pool is 23, not the 25 an earlier count gave: that count added the engine
+tables' document sets together, and a document mixing engines sat in two. The truth will be
+the 119 plus whatever the finder missed on the same pages, well short of the text layer's
+225, so every figure the card carries is wider than that one's.
