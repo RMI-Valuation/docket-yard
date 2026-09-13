@@ -106,3 +106,26 @@ and 11 from 2020 on). 100 drawn by the same strata, **none from a document the f
 drew**, one per document; a second draw is identical byte for byte. On the sixty the new rule's
 card reads citation 223 of 230, resolution 217 of 221, projection 217 of 221 (unchanged), work 140
 of 140. Its verdicts go in `verdicts-2.tsv`.
+
+## Result of the second gate, 2026-09-13
+
+The operator judged all 100 (`verdicts-2.tsv`, matching `sample-2.json` row for row): **94 right,
+5 wrong, 1 caption, 0 unclear — 94 of 100 = 94.0%, 95% Wilson interval 87.5–97.2%**, against
+the 87.5% gate: a pass on the point estimate, with the interval's lower end on the line.
+
+- **Every `wrong` is a digit error, and none publishes.** Four are footnote markers fused onto the
+  number (`FD 342491`, `FD 340192`, `FD 351471`, `FD 339961`) and one a digit split off by a space
+  (`FD 3482` for FD 34821); all five are unresolved (the 176-case pattern in `../../deferred.md`).
+  The one `caption` (`FD 36472`) would be shown.
+- **Over the 80 rows that would reach a reader, 79 are right: 98.8%**, against the card's
+  projection figure of 98.2% — a diagnostic beside the gate, not the gate.
+- **One row reads as a fusion the verdict calls right:** `FD 345614` on `1e029c50a184` p4, "STB
+  Finance Docket Nos. 345614 and 345625" — FD 34561 and FD 34562 with footnotes 4 and 5 fused on
+  (FD 34561 is held, FD 345614 is not). As `wrong` the gate reads 93 of 100 = 93.0%, interval
+  about 86–96%. Put to the operator with the result, as a result this close to the line is.
+
+**Decided 2026-09-13 (the operator):** `FD 345614` is `wrong` (a fused footnote marker), so the
+second gate reads **93 of 100 = 93.0%** (95% interval about 86–96%), and **he accepts it as a
+pass**: every miss but one is a digit fusion that never resolves or publishes, and 79 of the 80
+rows that would reach a reader are right. Finder 2026-09-13b merges by pull request, then the
+production re-load follows `docs/runbook.md` § The long-form re-load.
