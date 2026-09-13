@@ -20,12 +20,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `panel_check_sheet.py`'s card composition is the spec to fold in (untracked, deliberately)
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (`cite.py` sends `decided`)
-- **THIRD: the citator has never read the OCR channel** (measured 2026-09-12). Both
-  `extraction_run` passes are `text-layer` only (19,944 documents) while `ocr` text has been
-  live since 2026-09-05: 1,022 decision-carried documents / 7,386 pages, widened by today's
-  loads — **re-measure**, then `citator walk --channel ocr` and load. No engine, no migration.
-  Third in his order (2026-09-12) so the readings carry `text_id` from their first row and the
-  queue predicate is already fixed: OCR text is noisier, so it adds more noise per document
+- **The OCR walk waits on the family closure** (his decision, 2026-09-13). Re-measured from the
+  shipped `find` (00:40 UTC): 1,022 documents, 7,430 pages, 683 citations + 937 captions. NO
+  OCR-channel measurement exists, so `load` refuses it (`Unscored`) and OCR needs its own
+  `rank_version`. Order: land `stash@{0}` (finder 2026-09-12, 4 defects open, re-measure,
+  release), THEN an OCR citation sample he judges, measure, rank, load
 - **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
   blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where
   `dots.mocr` failed and PP-OCRv6 read it blank. Why `image_only_documents` missed them: unknown
