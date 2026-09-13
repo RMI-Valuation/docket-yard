@@ -1410,3 +1410,41 @@ already carrying another channel's live citation readings, and the fixes wait he
   or holding rule-2 repairs on OCR for review — the operator's decision.
 - **A fractional page is truncated, not refused** (F2 of the same review, low, not new): `4.7`
   is page 4 in the guard and in the insert alike. Refuse a non-integer page at the boundary.
+
+## A migration script that errors partway can leave its earlier DDL committable, 2026-09-13 (v2026.09.20)
+
+Found by the schema critic on the ADR 0018 retirement addendum; tested the same day in
+v2026.09.20's image (SQLite 3.46.1). `db.migrate` runs each script with `executescript`. A
+statement that fails to PARSE partway (not a `RAISE`) raises with the script's `BEGIN` still
+open, and a caller that keeps the connection and commits keeps whatever ran before the error
+(the test kept a `CREATE TABLE`, with `user_version` unchanged). Production is safe today only
+because the `migrate` service's connection closes on the exception, which rolls back. A
+`RAISE(ROLLBACK, '<fixed text>')` left nothing. Fix: `db.migrate` rolls back explicitly before
+re-raising, with a test that commits after a failing script.
+
+## SQLite 3.53.4 in production, 2026-09-13 (v2026.09.20)
+
+*(Decided 2026-09-13 by the operator: the next release carries Debian's `deb13u2` fixes on the
+same 3.46.1; the upgrade below is its own decision, later.)* Every figure was measured or read
+from its primary source that day.
+
+- **Engines on the record:** production image 3.46.1 (`libsqlite3-0 3.46.1-7+deb13u1`, Debian 13,
+  `python:3.12-slim`); Debian stable now `deb13u2`; Litestream v0.3.14 bundles 3.42.0
+  (`go-sqlite3 v1.14.17`); the operator's workstation 3.50.4; CI probably Ubuntu 24.04's 3.45.1
+  (unverified). Newest: 3.53.4, 2026-07-24, also in Debian testing.
+- **The WAL-reset corruption bug** (sqlite.org/wal.html) affects 3.7.0 through 3.51.2: two
+  connections in separate processes writing or checkpointing one WAL at the same instant.
+  Production's shape: `web`, `ingest` and Litestream. Rated about as rare as an SSD fault. No
+  Debian backport. Whether Litestream's bundled 3.42.0 must move too is unestablished.
+- **ALTER for constraints (3.53.0), tested on 3.53.4:** `ADD CONSTRAINT … CHECK`, unnamed
+  `ADD CHECK`, `DROP CONSTRAINT` and `ALTER COLUMN … SET NOT NULL` work and rewrite the stored
+  `CREATE TABLE`. Any existing row that fails is refused, and a NULL counted as failing
+  `CHECK (x > 0)` there. That would have spared the CHECK-only rebuilds (0004, 0012, 0017), not
+  0028's.
+- **`RAISE` with an expression (3.47.0)**, and a behaviour change: from 3.53.0 a REAL rendered
+  as text gets 17 digits (`json_object` printed `0.83720930232558144`). No SQL in `src/` renders
+  a REAL today.
+- **Drift:** local tests on 3.50.4 can pass on features production lacks.
+- **Route:** build 3.53.4 into the image (not `pysqlite3-binary`: one maintainer, Beta, x86_64
+  only, bundled version unstated), align CI and local engines, and consider Litestream separately.
+  Rehearse every migration and the suite on the new engine.

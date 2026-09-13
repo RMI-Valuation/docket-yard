@@ -258,24 +258,34 @@ reached, because no finder emits the key again.
    same transaction. The rule is: a live machine reading whose key holds no live `citation`. A
    key a person decided is already held back from retraction (`load._decided`), so no `human`
    reading is touched. Each retired reading carries `superseded_at` (ADR 0026 D5). It points at
-   the successor key's live reading on its own channel where exactly one exists, following the
-   stored `citation.superseded_by`, and at itself otherwise. **The rule is one held view** that
-   the loader and the migration both read, and a load or the migration leaves it empty.
+   the successor key's live reading on its own channel where exactly one exists, and at itself
+   otherwise. The successor is found by following the retraction's stored `superseded_by` to its
+   KEY. That row need not still be live, because a later load replaces it on the same key. The
+   retraction is the key's latest `citation` row, retired at itself or pointed at another key.
+   **The rule is one held view.** The loader reads it filtered to its document. The migration
+   copies it once into a temporary table before writing, so no row reads another's half-done
+   update. After a load or the migration it is empty. Order of writes: the `citation`, then the
+   reading (pointer and date in one statement), then the retirement row.
 2. **Every retirement writes a retirement row**, append-only: the reading, the retracted
    `citation` row, the reason from a vocabulary (`retracted-key`), the method and version that
    retired it, and the date. **It is a record of an action, like `review_action`, not an ADR 0007
    assertion**: it claims nothing about the document, so it carries no confidence and no source.
    The reading's own columns are not edited beyond the pointer and the date. Triggers refuse a row whose reading is not retired, whose date differs from the reading's
-   `superseded_at`, or whose citation is not a retired row on the same key, and they refuse any
+   `superseded_at`, or whose citation is not its key's retraction as defined above, and they refuse any
    update or delete. The table and its vocabulary are held. It becomes a child of
    `citation_reading` and `citation`, so a later rebuild of either must carry it.
 3. **The 903 are retired by the migration that creates that table**, named by the migration as
    their method, behind the maintenance wall (ADR 0020). They carry one instant, taken once and
    written in the loader's ISO form to the reading and its row alike. That instant is when the
    store retired them, not when v2026.09.15 retracted their keys, which is not recorded. **If a
-   person has decided any of those keys** (`load._decided`'s two tests), the migration aborts
-   whole and names the key. Measured 0, and unreachable while the queues join a live `citation`,
-   so a match means something upstream is wrong.
+   person has decided any of those keys** (`load._decided`'s two tests; the key the SQL renders
+   for `review_action` is pinned to `keys.render` by a test), the migration aborts whole with
+   `RAISE(ROLLBACK)` as its first act after `BEGIN`. The runbook names the keys: it runs the same
+   decided-key query on production before the wall, because production's SQLite (Debian 13's
+   3.46.1) cannot build a `RAISE` message from a value (that arrived in 3.47.0). On 3.46.1 the
+   abort was tested to leave no table and `user_version` unchanged, even for a caller that commits
+   afterwards. Measured 0, and unreachable while the queues join a live `citation`, so a match
+   means something upstream is wrong.
 
 **Left live, and deferred** (`../deferred.md`, 2026-09-13): the key's resolutions and judgements.
 Neither table has `superseded_at`, so retiring them now would be undated. They reach nothing
