@@ -194,9 +194,9 @@ CREATE TEMP TABLE m0029_now AS
 CREATE TEMP TABLE m0029_decided (reading_id INTEGER);
 CREATE TEMP TRIGGER m0029_decided_aborts BEFORE INSERT ON m0029_decided
 BEGIN
-    SELECT RAISE(ROLLBACK,
-        'migration 0029: a person has decided a key among the readings it would retire;'
-        || ' nothing was applied. infra/deploy/0029-precheck.sql names the key.');
+    -- ONE LITERAL. A message joined with `||` is an expression, which RAISE refuses before 3.47.0
+    -- as a syntax error: it failed CI and would have failed production's 3.46.1 (2026-09-13).
+    SELECT RAISE(ROLLBACK, 'migration 0029: a person has decided a key among the readings it would retire; nothing was applied. infra/deploy/0029-precheck.sql names the key.');
 END;
 INSERT INTO m0029_decided SELECT reading_id FROM citation_reading_residue WHERE decided;
 
