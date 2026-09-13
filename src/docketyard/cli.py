@@ -590,6 +590,8 @@ def _citator(args: argparse.Namespace) -> int:
         "caption_held",
         "retracted",
         "retraction_held",
+        "work_gained",
+        "work_lost",
     )
     totals = dict.fromkeys(("documents", *counted), 0)
     owed_keys: list[str] = []

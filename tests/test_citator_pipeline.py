@@ -860,8 +860,22 @@ def test_the_scorer_and_the_shipped_normaliser_read_printed_text_the_same_way():
         "EP 328 (Sub-No. 05)",
         "AB 1182 (Sub-No. 0)",
         "AB 1296X (Sub-No. 0)",
+        # THE LONG NAMES (2026-09-13): both normalisers learned them in one change, and a
+        # scorer that did not would score every long-form finding as a false positive
+        "STB Finance Docket No. 34002",
+        "Finance Docket No. 32760 (Sub-No. 46)",
+        "FINANCE DOCKET NO. 33388",
+        "ICC Finance Docket No. 30000",
+        "Finance Docket Nos. 32760 and 32760 (Sub-No. 1)",
+        "Ex Parte No. 711 (Sub-No. 1)",
+        "STB Ex Parte No. 290 (Sub-No. 5)",
     ):
         assert bs.norm_target(raw) == keys.normalise(raw), raw
+    # AND NEITHER KEYS A LOWER-CASE SUFFIX. Not in the loop above: `norm_target` falls back to a
+    # case-folded string where `normalise` returns None, so "not a docket" reads differently in
+    # each and only the absence of a docket key is comparable.
+    assert keys.normalise("Ex Parte No. 290x") is None
+    assert not bs.DOCKET_KEY.match(bs.norm_target("Ex Parte No. 290x"))
 
 
 def test_an_unresolved_target_resolves_when_the_registry_catches_up(tmp_path):

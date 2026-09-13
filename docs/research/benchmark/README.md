@@ -121,6 +121,14 @@ check, and no row is left without a `target_kind` or an unexplained empty `targe
 Deduplicated to the pairs a citator would consume, the citation set is **360 STB edges**,
 86 court and 7 record.
 
+**The docket-shaped truth grew by one on 2026-09-13, 225 → 226, without a label changing.**
+The scorer's normaliser (`benchmark_score.norm_target`) learned the Board's long names with
+finder 2026-09-13, and one row's `target` is written that way: decision 53072, page 3,
+`STB Finance Docket No. 36491`. It used to fall out of the docket class as a plain string and
+now keys as `FD 36491`. Re-scoring any run made before then counts against 226, so a figure
+recorded against 225 (ADR 0017's 97.8%, the cards through 2026-09-12) does not re-derive
+exactly from today's scorer; the older scorer at its commit does.
+
 ## How to label
 
 One row per thing found. Copy the decision's first five columns down for each row.

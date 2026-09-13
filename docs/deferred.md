@@ -611,7 +611,8 @@ schema-critic pass of their own, not a tidy-up.
   `AB 1182-X` and `urls.cite_docket` as `STB Docket No. AB 1182-X`; `keys.DOCKET` cannot take
   a hyphen between the digits and the letter, so `normalise` drops the suffix and returns
   `AB 1182` — the PARENT. `cite_docket`'s long form for FD and EP (`STB Finance Docket No.
-  36873`) carries no prefix token at all and normalises to None. Re-measured against the store 2026-09-04 (the
+  36873`) carried no prefix token at all and normalised to None (it keys since
+  `norm-docket@2026-09-13`, below). Re-measured against the store 2026-09-04 (the
   note's 2,707 was wrong): **2,711** held dockets are of the suffixed shape and **2,646**
   of them, printed by this site, named a different held docket; 655 across 13 prefixes are
   out of class, confirmed exactly. **The reviewer's half is FIXED** (`review.find_docket`
@@ -622,10 +623,11 @@ schema-critic pass of their own, not a tidy-up.
   this site's invention — the Board prints `AB 1182 (Sub-No. 0X)` and `keys.registry_key`
   spells it `AB 1182 (X)` — so the site shows a reader a third spelling of a key the citator
   will publish under a fourth. Changing it moves reader-visible text on every sheet, in alert
-  mail and on `/cite`, so it is **Cameron's**, not a code fix. Related: whether `keys.DOCKET`
-  should learn the Board's long names the way `urls.lookup` has (`_LONG_FORMS`) — that widens
-  the citation class and moves `KEY_VERSION` and every measured figure, so it is an ADR 0017
-  question, not a patch.
+  mail and on `/cite`, so it is **Cameron's**, not a code fix. Related, and taken up
+  2026-09-13 by the operator's decision: whether `keys.DOCKET` should learn the Board's long
+  names the way `urls.lookup` has (`_LONG_FORMS`) — branch `finder-long-forms` (`keys.
+  LONG_DOCKET`, `KEY_VERSION` norm-docket@2026-09-13, finder 2026-09-13, rank v4, a new card).
+  Whether that widening wants an ADR 0017 addendum was put to him with it.
 
 ## Measured while the citator first ran, 2026-09-04: what the citation class cannot name
 
@@ -1274,3 +1276,52 @@ obligations (measured 2026-08-26), so every deadline would have to be read from 
 own words — which is the one thing `CLAUDE.md` says is never inferred. A hand-checked fixture
 of 8 deadlines for FD 36873 exists in `../up-ns-merger-tracker/briefs/2026-08-25.md`
 (read-only, do not modify that project) and is what a first measurement would score against.
+
+## Docket forms the long-form finder leaves out, 2026-09-13 (branch `finder-long-forms`)
+
+The finder of 2026-09-13 reads `Finance Docket No. N` and `Ex Parte No. N` (the operator's
+decision, closing 6,028 missing text-layer citations before the OCR card). The same count of
+spellings on the 134,723 text-layer pages the citator walks found three more forms it does
+not read, each small or ambiguous enough to want its own decision:
+
+- **`F.D. No. N`** — 22 pages. Keying it is one alternative in `keys.LONG_DOCKET`; the cost is
+  the period-laden form matching inside a reporter or an initials string, which was not
+  measured.
+- **`MC-F-N`** — 25 pages. `keys.DOCKET` holds `MCF` but not the hyphen inside the prefix.
+- **A bare `Docket No. N` with no prefix** — 5,050 (page, number) mentions in the first 4,000
+  decision documents alone. The page does not say which prefix, and a guess (NOR, most likely
+  for five-digit numbers) is a key the page never printed: the one failure the citator must
+  not have. It needs the citing decision's own docket, or a measured rule, before it can key.
+- **A long form printed with no `No.`** — `Finance Docket 32760`, `Ex Parte 711`: about 200
+  page mentions in the count, own-family captions included, against some 30,000 with `No.`.
+  The code review of 2026-09-13 showed why `No.` is required: optional, it keyed prose
+  (`ex parte3` as EP 3, `Finance Docket↵14` as FD 14). A rule admitting them would need the
+  capitalised words and a same-line number at least, measured on its own false positives.
+- **A footnote digit fused onto a five-digit long form stays unresolved and unreviewed**
+  (ingest specialist F6). Measured on the production mirror: **176** long-form matches key a
+  six-digit number the registry does not hold, and in every one the five-digit parent IS held
+  (`STB Finance Docket No. 340871↵TRINIDAD RAILWAY` — a caption with its footnote marker
+  fused). Rule 2 repairs only five printed digits and `review.in_the_held_record` queues nothing
+  above the held range, so they are stored `unresolved` and never shown or reviewed. Before
+  this finder they were not emitted at all, so nothing regressed. Widening rule 2 to six
+  digits reopens ADR 0017's exposure reasoning (`keys.py` names the cost), so it is the
+  operator's decision, not a patch.
+- **The resolver's family limit: a parent takes its own sub-docket's served date.** Pinned by
+  the 2026-09-10 review as a limit that must survive (`test_the_anchor_finds_the_target_as_
+  printed_and_stops_at_a_sentence`), and kept when `resolve._anchored` moved from a spelling to
+  a key (ingest specialist F1, 2026-09-13): `FD 36873` anchors on `FD 36873 (Sub-No. 1) (STB
+  served …)` and names the parent-docket decision served that day, if exactly one. Measured on
+  the production mirror 2026-09-13, retiring it would change **12** work-level answers — **8**
+  documents lost and **4** gained — and at least one kept answer is wrong: `EP 575` on
+  `1c1d6d2eab12` p1 takes the date of `Ex Parte No. 575 (Sub-No. …)` beside it. Whether a
+  same-day decision entered in both dockets makes the parent's answer right often enough to
+  keep is a question about published claims, so it is the operator's.
+- **A long form whose words wrap is not a quote boundary** (ingest specialist F8).
+  `find.quoted` looks for the next docket number within the line, so `…; see Finance↵Docket No.
+  34002 (…` does not end the earlier target's rest-of-line there, while `resolve._anchored`,
+  reading the joined line, does. The effect is a shorter quote (the next line is not added), not
+  a wrong answer.
+- **The gap after `No.` needs no width limit, measured** (ingest specialist F4): 0 long-form
+  matches on the production mirror have more than two spaces between `No.` and the number.
+- **The second number of a `Nos.` list** — `Finance Docket Nos. 32760 and 32760 (Sub-No. 1)`
+  keys the first only, as `FD 36744 et al.` already does for the abbreviated form. Not counted.

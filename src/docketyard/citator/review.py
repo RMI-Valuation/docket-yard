@@ -242,7 +242,9 @@ def find_docket(con, printed: str) -> tuple[int, str] | None:
         to be able to name it.
       * **The site's own long citation form was unreadable.** `urls.cite_docket` prints
         `STB Finance Docket No. 36873`, which carries no `FD` token for `keys.DOCKET` to
-        match. `urls.lookup` knows the Board's long names; the citation grammar does not.
+        match. `urls.lookup` knows the Board's long names; the citation grammar did not
+        until finder 2026-09-13 (`keys.LONG_DOCKET`), and this path still goes through the
+        identity parser first.
 
     Nothing here widens the citation class: this is what a PERSON may type, resolved through
     the record's own identity parser, and no key, `KEY_VERSION` or measured figure moves.

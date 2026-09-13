@@ -116,7 +116,7 @@ def ask(host: str, model: str, prompt: str, timeout: float) -> dict | None:
 
 def locate(page: str, key: str) -> tuple[int, int] | None:
     """Where the first mention of `key` sits on the page, as the finder reads it."""
-    for m in keys.DOCKET.finditer(page):
+    for m in keys.docket_matches(page):  # long forms too, as the finder reads (2026-09-13)
         if keys.normalise(find.printed(page, m)) == key:
             return m.start(), find._target_end(page, m)
     return None

@@ -32,9 +32,12 @@ total nobody can check.
 
 import re
 
-from docketyard.citator.keys import DOCKET, SUBNO, normalise
+from docketyard.citator.keys import SUBNO, docket_matches, docket_search, normalise
 
-FINDER_VERSION = "2026-09-12"  # `own` is the family: a decision's parent docket is its own
+# 2026-09-13: the Board's long names are found (`keys.LONG_DOCKET`) — `STB Finance Docket No.
+# 34002` and `Ex Parte No. 711 (Sub-No. 1)` emitted nothing before. The own-family rule is
+# 2026-09-12's, unchanged.
+FINDER_VERSION = "2026-09-13"
 
 # THE SPANS' OWN VERSION, and the reason it is not `FINDER_VERSION` (ADR 0026 D7). A character
 # offset IS a derived assertion — a claim about where in a text a string sits — and CLAUDE.md
@@ -134,7 +137,7 @@ def quoted(page_text: str, start: int, end: int) -> str:
     # THIS TARGET'S rest of line, up to the next docket number: a parenthesis opened after a
     # later target is that target's (ingest specialist, 2026-09-11 — `See EP 445 and FD 36873
     # (STB ↵ served Mar. 12, 2021)` gave EP 445 FD 36873's date line, and flipped its span test)
-    following_target = DOCKET.search(page_text, end, last)
+    following_target = docket_search(page_text, end, last)
     boundary = following_target.start() if following_target else last
     lines = page_text[first:last]
     if last < len(page_text):
@@ -208,7 +211,7 @@ def find(page_text: str, own: set[str]) -> list[dict]:
       whitespace-collapsed (628 citations, the note above).
     """
     found: dict[str, dict] = {}
-    for m in DOCKET.finditer(page_text):
+    for m in docket_matches(page_text):
         end = _target_end(page_text, m)
         raw = " ".join(page_text[m.start() : end].split())  # `printed`, without a second scan
         # THE KEY IS NORMALISED FROM THE RAW, never from a window past the match. A window
