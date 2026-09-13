@@ -101,6 +101,17 @@ on the three unsure rows whose quote prints a docket and overrides those rows. N
 prints a docket number, so the truth is the drafted rows: **57 (document, docket) pairs**, 43 of
 them printed in a form the finder reads.
 Four part 1 rows were left unjudged; none prints a docket.
+
+**The card, and the decision to load on it (2026-09-13, the operator).** Scored by
+`tools/rmi-ai-machine/ocr_citation_dryrun.py` with finder 2026-09-13b: citation 36 found of 59
+emitted, resolution 36/43, projection 36/43 — recall 63.2% (95% 50.2–74.5), precision 83.7%
+(70.0–91.9), against the text layer's 217/221. The 21 misses are the fourteen unread forms, five
+own-docket mentions the span test does not call document-naming (four `RE:` headings naming a
+decision by docket and service date, and `the protective order the Board entered in NOR 42144 on
+February 10, 2016`), and two `Su-no.` keys that drop the sub-number; the 7 wrong resolutions are OCR misreads of the document's own caption (`AB 10` for
+`AB 103`, `AB 56` for `AB 596`), paired-docket headings, and the same `Su-no.` keys. **He decided
+to load the OCR channel on this card once rank v5 is merged and deployed**, rather than wait for a
+finder version that closes those gaps (runbook § The OCR load).
 - **The shipped finder cannot read the long forms, and that is closed before the OCR card.**
   `find.find` (finder 2026-09-12) emits nothing for `STB Finance Docket No. 34002`,
   `Finance Docket No. 32760 (Sub-No. 46)`, `Ex Parte No. 711` or `ICC Finance Docket No.
