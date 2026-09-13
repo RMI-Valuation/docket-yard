@@ -501,3 +501,31 @@ def test_a_key_still_live_at_an_older_finder_version_is_not_restamped(tmp_path):
         precision=0.99,
     )
     assert restamp.stale(con, methods.stamp(con)) == []
+
+
+def test_a_resolution_that_gains_or_loses_its_document_is_counted(tmp_path):
+    """`work_gained` / `work_lost` (ingest specialist F2, 2026-09-13; Copilot on PR #28): both rows
+    say `registry-match@rule-1`, so a re-load that drops documents to their docket is visible only
+    through these. They must read the LIVE prior resolution, and count a change of named document
+    in either direction and nothing else."""
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO decision_record (decision_pk, docket_id, stb_decision_id, service_date,"
+        " observed_in_event) VALUES (2, 3, '77777', '2021-03-12', 1)"
+    )
+    con.execute("INSERT OR IGNORE INTO decision_work VALUES ('77777')")
+    stamps = _scored(con)
+    served = {"page": 4, "target": "EP 445", "quoted": "See EP 445 (STB served Mar. 12, 2021)."}
+    bare = {"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}
+
+    def counted(finding):
+        result = _load(con, _walked(finding), stamps)
+        return result.work_gained, result.work_lost
+
+    assert counted(served) == (0, 0)  # a first resolution replaces nothing
+    assert con.execute(
+        "SELECT cited_decision_id FROM citation_resolution WHERE superseded_by IS NULL"
+    ).fetchall() == [("77777",)]
+    assert counted(bare) == (0, 1)  # named 77777, now names none
+    assert counted(bare) == (0, 0)  # unchanged, and the superseded row is not read again
+    assert counted(served) == (1, 0)  # names 77777 again

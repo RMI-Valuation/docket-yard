@@ -290,18 +290,24 @@ layer on 2026-09-13, **6,028** (page, docket) citations to held proceedings, 4,0
 decisions served 1996–2005.
 
 **The class now includes those two long names**, keyed as `FD N` and `EP N` with their
-sub-numbers (`keys.LONG_DOCKET`, `KEY_VERSION` norm-docket@2026-09-13, rank v4). `No.` is
-required. `F.D. No.`, `MC-F-`, a bare `Docket No. N`, and a long name printed with no `No.` stay
-out, each measured in `../deferred.md`.
+sub-numbers (`keys.LONG_DOCKET`, `KEY_VERSION` norm-docket@2026-09-13), in **finder 2026-09-13b,
+rank v4**. `No.` is required. `F.D. No.`, `MC-F-`, a bare `Docket No. N`, and a long name printed
+with no `No.` stay out, each measured in `../deferred.md`. The same finder reads an own-family
+mention's kind from the span test on its quoted line, not a document-word window, so the
+finder calls a citation only what the projection could show.
 
 What stands behind it:
 
-- **The card**, measured with finder 2026-09-13 on the sixty: truth 226 (one long-form target
-  joined it), citation 225 of 257, resolution 219 of 248, projection 217 of 221, work 140 of
+- **The card**, measured with finder 2026-09-13b on the sixty: truth 226 (one long-form target
+  joined it), citation 223 of 230, resolution 217 of 221, projection 217 of 221, work 140 of
   140.
-- **A gate the card cannot supply**, because the sixty print one long form: about a hundred
-  long-form citations judged on the page, passing at the card's citation-stage precision
-  (`../research/long-form-check/README.md`). The finder does not merge without it.
+- **A gate the card cannot supply**, because the sixty print one long form: a hundred long-form
+  citations judged on the page, passing at 87.5% (`../research/long-form-check/README.md`). The
+  first draw, under the window rule, failed at 55 of 99, almost entirely own captions; the kind
+  rule above followed, and a fresh draw from other documents passed at **93 of 100**, accepted by
+  the operator. Its misses are footnote markers fused onto a number, none of which resolves.
+- **A rehearsal** on a production copy (`../runbook.md` § The long-form re-load): no edge shown
+  before is lost, and 5,776 new pairs are added.
 
 Unchanged: every figure is still published only with its class and rule, and a class nobody
 has scored still projects nothing.

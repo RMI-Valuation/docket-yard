@@ -74,16 +74,17 @@ SELECT t.page_no, t.text, t.reading_channel, t.text_id
 # WHAT IT CAN LOSE, AND WHAT WAS MEASURED. `find` read `DOC_WORDS(context) or key not in
 # own` until finder 2026-09-13b, so widening `own` only moved a key from "a citation always" to
 # "a citation when a document word is near". (Since 2026-09-13b the document test is the span
-# test itself, `judge.names_document` on the quoted line — the gap named below is closed.)
-# A decision citing a PRIOR decision of its own family normally
-# carries "served", "slip op." or "Decision No." beside the number and still reads as a
-# citation — the operator's own rule, corrected on the work card 2026-09-10. But this is NOT
-# a guarantee by construction (review, 2026-09-12): the span test's `\bDecision\s+\d{4,6}\b`
-# is a document word `DOC_WORDS` does not hold (`load.py` records the same gap), so an
-# in-family citation whose ONLY document word is `Decision 41123` would flip to a caption, be
-# stamped `unmeasured` and never project. A second route: the span test reads the whole quoted
-# line, the finder a ±160-character window, so a served date on the same line but beyond the
-# window is seen by one and not the other (ingest specialist's re-check, 2026-09-13).
+# test itself, `judge.names_document` on the quoted line, and the gap below is closed.)
+# A decision citing a PRIOR decision of its own family normally carries "served", "slip op."
+# or "Decision No." beside the number and reads as a citation — the operator's own rule,
+# corrected on the work card 2026-09-10. Under the window rule this was NOT a guarantee by
+# construction (review, 2026-09-12): the span test's `\bDecision\s+\d{4,6}\b` was a document
+# word `DOC_WORDS` did not hold, so an in-family citation whose only document word was
+# `Decision 41123` flipped to a caption; and the span test read the whole quoted line while the
+# finder read a ±160-character window, so a served date on the line but beyond the window was
+# seen by one and not the other (ingest specialist's re-check, 2026-09-13). One test for both,
+# since 2026-09-13b, is what closes it. What the span test cannot see — an own-family citation
+# by reporter or name alone — is recorded in docs/deferred.md.
 #
 # MEASURED 2026-09-13 on a copy mirroring production's citator (finder 2026-09-11, rank v2):
 # 1,229 keys flip citation -> caption and none the other way; the span test is true for NONE of
