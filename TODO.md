@@ -25,8 +25,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   (`Unscored`) and OCR needs its own `rank_version`. **His decision (2026-09-13): a labelled
   document sample in four strata, a long document on 20 random pages**
   (`docs/research/ocr-citation-benchmark/`). DRAWN: 98 documents, 548 pages, 119 citations
-  found on them. Next: model-drafted labels (a multi-agent run, his go first) he checks against
-  the scans, `citation_dryrun.py` on the `ocr` channel restricted to the labelled pages, card,
+  found on them. Next: labels drafted by ~10 subagents from the page renders (his choice) and
+  checked by him against the scans, `citation_dryrun.py` on the `ocr` channel restricted to the labelled pages, card,
   rank, load
 - **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
   blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where

@@ -69,6 +69,14 @@ production's findings and store; `sample.json` beside this file):
 | no citation found | 744 | 20 | 54 | 0 |
 | **All** | | **98** | **548** | **119** |
 
+**The labels are drafted by subagents and checked by the operator (decided 2026-09-13).** The
+548 labelled pages are rendered from the Board's PDFs; about ten subagents, some fifty-five
+pages each, draft every citation and caption from the page images in the sixty's
+conventions (`../benchmark/README.md` § How to label, citations and captions only); the
+operator checks the draft on a page that shows the scan beside it, with the finder's OCR
+reading highlighted so a miss is visible. A draft nobody checked is a Claude-flavoured target,
+as the sixty's was, and the check is what removes that.
+
 The pre-2006 pool is 23, not the 25 an earlier count gave: that count added the engine
 tables' document sets together, and a document mixing engines sat in two. The truth will be
 the 119 plus whatever the finder missed on the same pages, well short of the text layer's
