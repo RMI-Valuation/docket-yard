@@ -20,12 +20,12 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `panel_check_sheet.py`'s card composition is the spec to fold in (untracked, deliberately)
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (`cite.py` sends `decided`)
-- **The OCR walk is next** (his order, 2026-09-13). The family closure SHIPPED as v2026.09.18
-  and was re-loaded 12:31 UTC (runbook § The family re-load: exposed 505, 19,393 rows, none
-  removed). Sized from the shipped `find` (00:40 UTC): 1,022 documents, 7,430 pages, 683
-  citations + 937 captions. NO OCR-channel measurement exists, so `load` refuses it
-  (`Unscored`) and OCR needs its own `rank_version`. Next: an OCR citation sample he judges,
-  then measure, rank, load
+- **The OCR walk is next** (his order, 2026-09-13). Under finder 2026-09-12: 1,022 documents,
+  509 citations + 1,111 captions; NO OCR-channel measurement, so `load` refuses it
+  (`Unscored`) and OCR needs its own `rank_version`. **His decision (2026-09-13): a labelled
+  document sample, ~100 documents in four strata** (`docs/research/ocr-citation-benchmark/`).
+  Next: the sampler, the draw and its page count, model-drafted labels he checks against the
+  scans, `citation_dryrun.py` on the `ocr` channel, card, rank, load
 - **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
   blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where
   `dots.mocr` failed and PP-OCRv6 read it blank. Why `image_only_documents` missed them: unknown
