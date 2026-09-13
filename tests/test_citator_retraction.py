@@ -132,9 +132,15 @@ def test_a_findings_document_that_names_no_pages_retracts_nothing(tmp_path):
     assert "FD 36873" in _live(con)
 
 
-def test_a_stale_reading_on_another_channel_does_not_hold_the_key(tmp_path):
+def test_a_stale_reading_on_another_channel_does_not_hold_the_key(tmp_path, monkeypatch):
     """Deferring to another channel's OLD reading would let two channels hold each other's
-    stale keys for ever; only a current reading, or a person's, holds one."""
+    stale keys for ever; only a current reading, or a person's, holds one.
+
+    UNREACHABLE THROUGH `load_document` SINCE 2026-09-13: a page already read on another machine
+    channel is refused whole (`load._shared_pages`, the operator's decision), so the guard is
+    lifted here to keep the retraction's rule pinned for the day the fixes in docs/deferred.md
+    § Two channels' readings of one page lift it for real."""
+    monkeypatch.setattr("docketyard.citator.load._shared_pages", lambda *_: [])
     con = _store(tmp_path)
     stamps = _scored(con)
     _older(con, 4, "FD 36873")
@@ -142,7 +148,9 @@ def test_a_stale_reading_on_another_channel_does_not_hold_the_key(tmp_path):
     assert _load(con, _walked(NOW), stamps).retracted == 1
 
 
-def test_a_current_reading_on_another_channel_holds_the_key(tmp_path):
+def test_a_current_reading_on_another_channel_holds_the_key(tmp_path, monkeypatch):
+    # unreachable through `load_document` since 2026-09-13 — see the test above
+    monkeypatch.setattr("docketyard.citator.load._shared_pages", lambda *_: [])
     con = _store(tmp_path)
     stamps = _scored(con)
     _older(con, 4, "FD 36873")

@@ -411,13 +411,15 @@ def test_the_load_verb_refuses_a_batch_that_mixes_channels(tmp_path, capsys):
     assert con.execute("SELECT COUNT(*) FROM citation_reading").fetchone()[0] == 0
 
 
-def test_the_load_verb_refuses_a_channel_nobody_scored_or_ranked(tmp_path, capsys):
-    """Unscored: refused as before. Scored but UNRANKED: `declare` ranks the text layer
-    only, and the projection INNER-joins each resolution and judgement to its rank row on
-    the channel, so an OCR load would have stored `measured` rows no page can ever show,
-    and exited 0. And the refusal leaves NO DECLARATION BEHIND: `declare` ran before the
-    rank check, so a refused load by another method used to commit that method as the
-    class's owner, and the rightful owner's next load met `Conflict`."""
+def test_the_load_verb_refuses_a_channel_nobody_scored_or_ranked(tmp_path, capsys, monkeypatch):
+    """Unscored: refused as before. Scored but UNRANKED: the projection INNER-joins each
+    resolution and judgement to its rank row on the channel, so a load on a channel `declare`
+    does not rank would store `measured` rows no page can ever show, and exit 0. OCR has been
+    ranked since rank v5, so the unranked channel is made here by narrowing `CHANNELS` — the
+    registry every rank up to v4 wrote. And the refusal leaves NO DECLARATION BEHIND: `declare`
+    ran before the rank check, so a refused load by another method used to commit that method
+    as the class's owner, and the rightful owner's next load met `Conflict`."""
+    monkeypatch.setattr(methods, "CHANNELS", (methods.CHANNEL_TEXT,))
     con = _store(tmp_path)
     _scored(con)
     con.commit()
@@ -459,10 +461,58 @@ def test_the_load_verb_refuses_a_channel_nobody_scored_or_ranked(tmp_path, capsy
     assert con.execute("SELECT COUNT(*) FROM assertion_method").fetchone()[0] == 0
 
 
-def test_a_channel_is_ranked_only_when_both_of_the_projections_joins_would_hold(tmp_path):
+def test_declare_ranks_the_text_layer_above_ocr_for_every_method(tmp_path):
+    """ADR 0018 D7: "the text layer outranks OCR for every method, held as registry data".
+    For EVERY method, not only against itself — a text-layer rule-2 repair must still beat an
+    OCR rule-1 answer, or one misread page would displace an edge the text layer repaired."""
+    con = _store(tmp_path)
+    methods.declare(con, "v1")
+    assert methods.ranked(con, methods.CHANNEL_TEXT) and methods.ranked(con, methods.CHANNEL_OCR)
+    for table in ("citation_resolution", "citation_judgement"):
+        rows = con.execute(
+            "SELECT method, method_version, reading_channel, precedence_rank FROM assertion_method"
+            " WHERE target_table = ? AND rank_version = ? AND reading_channel <> 'human'",
+            (table, methods.RANK_VERSION),
+        ).fetchall()
+        by_method: dict = {}
+        for method, version, channel, rank in rows:
+            by_method.setdefault((method, version), {})[channel] = rank
+        assert len(by_method) == 2
+        both = {methods.CHANNEL_TEXT, methods.CHANNEL_OCR}
+        assert all(set(r) == both for r in by_method.values())
+        text = [r for _, _, c, r in rows if c == methods.CHANNEL_TEXT]
+        ocr = [r for _, _, c, r in rows if c == methods.CHANNEL_OCR]
+        assert max(text) < min(ocr)
+    methods.declare(con, "v1")  # and still idempotent with the OCR rows in it
+
+
+def test_declare_refuses_a_rank_version_whose_channels_changed(tmp_path, monkeypatch):
+    """Ranks are computed from `CHANNELS`, so a channel added under the same rank_version takes
+    ranks nothing holds and would be appended silently — the unique indexes cannot see it. The
+    registry says a re-rank is a new version, and `declare` now says so too, in both directions."""
+    con = _store(tmp_path)
+    monkeypatch.setattr(methods, "CHANNELS", (methods.CHANNEL_TEXT,))
+    methods.declare(con, "v1")
+    monkeypatch.undo()
+    with pytest.raises(methods.Conflict, match="NEW rank_version"):
+        methods.declare(con, "v1")  # a channel added
+    fresh = tmp_path / "fresh"
+    fresh.mkdir()
+    con = _store(fresh)
+    methods.declare(con, "v1")
+    monkeypatch.setattr(methods, "CHANNELS", (methods.CHANNEL_TEXT,))
+    with pytest.raises(methods.Conflict, match="NEW rank_version"):
+        methods.declare(con, "v1")  # a channel dropped
+
+
+def test_a_channel_is_ranked_only_when_both_of_the_projections_joins_would_hold(
+    tmp_path, monkeypatch
+):
     """`ranked` mirrors `project._TERMS`: a resolver rank alone would let a load through
     whose in-family edges the span join then drops, the failure `declare` records for a
-    bumped SPAN_VERSION."""
+    bumped SPAN_VERSION. Built on a text-only registry (every rank up to v4) so OCR starts
+    unranked and gains its two joins one at a time."""
+    monkeypatch.setattr(methods, "CHANNELS", (methods.CHANNEL_TEXT,))
     con = _store(tmp_path)
     methods.declare(con, "v1")
     assert methods.ranked(con, methods.CHANNEL_TEXT)
@@ -906,27 +956,47 @@ def test_an_unresolved_target_resolves_when_the_registry_catches_up(tmp_path):
     assert con.execute("SELECT COUNT(*) FROM citation_resolution").fetchone()[0] == 2
 
 
-def test_a_second_reading_channel_is_written_even_though_the_key_is_unchanged(tmp_path):
-    """The citation key carries no channel, so an OCR pass over a document already read from
-    its text layer matches on the key — and must still write its own reading, resolution and
-    judgement. ADR 0018 D3 designs `citation_reading` around exactly that second row."""
+def test_a_page_already_read_on_another_channel_is_refused_and_another_page_is_not(tmp_path):
+    """The citation key carries no channel, so an OCR pass over a page already read from its
+    text layer matches the key and would write a second reading beside the first — the row ADR
+    0018 D3 designs. Three terms still assume one channel per key (docs/deferred.md, 2026-09-13),
+    so until they are fixed such a document is REFUSED, whole and before any write (the
+    operator's decision). Another page of the same document is a second reading of nothing, and
+    loads, stamped from its own channel's measurement."""
     con = _store(tmp_path)
     stamps = _scored(con)
     finding = {"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}
     load.load_document(con, _findings(finding), keys.registry(con), keys.works(con), stamps)
-    ocr = _findings(finding) | {
-        "reading_channel": "ocr",
-        "reading_method": "tesseract",
-        "reading_method_version": "5.3",
-    }
+    ocr = {"reading_channel": "ocr", "reading_method": "tesseract", "reading_method_version": "5.3"}
     # stamped from the OCR channel's OWN measurement: the text-layer stamps are refused
     ocr_stamps = _scored(con, precision=0.5, channel="ocr")
-    result = load.load_document(con, ocr, keys.registry(con), keys.works(con), ocr_stamps)
-    assert result.unchanged == 1  # the identity was already asserted...
-    channels = {r[0] for r in con.execute("SELECT reading_channel FROM citation_reading")}
-    assert channels == {"text-layer", "ocr"}  # ...and the reading still landed
-    assert con.execute("SELECT COUNT(*) FROM citation").fetchone()[0] == 1
-    # and each reading carries the precision of the channel it was read on, not the other's
+    tables = (
+        "citation_key",
+        "citation",
+        "citation_reading",
+        "citation_resolution",
+        "citation_judgement",
+        "extraction_run",
+    )
+
+    def counts():
+        return [con.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in tables]
+
+    before = counts()
+    with pytest.raises(load.WrongChannel, match="already carry live"):
+        load.load_document(
+            con, _findings(finding) | ocr, keys.registry(con), keys.works(con), ocr_stamps
+        )
+    # a page WALKED and found empty is refused too: a retraction trusts a walked page as read
+    walked = _findings() | ocr | {"pages_walked": [4]}
+    with pytest.raises(load.WrongChannel, match="already carry live"):
+        load.load_document(con, walked, keys.registry(con), keys.works(con), ocr_stamps)
+    assert counts() == before
+    # another page of the same document loads, and each reading carries its own channel's figure
+    elsewhere = {"page": 5, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}
+    load.load_document(
+        con, _findings(elsewhere) | ocr, keys.registry(con), keys.works(con), ocr_stamps
+    )
     by_channel = dict(
         con.execute(
             "SELECT r.reading_channel, m.reading_channel FROM citation_reading r"
@@ -934,11 +1004,9 @@ def test_a_second_reading_channel_is_written_even_though_the_key_is_unchanged(tm
         )
     )
     assert by_channel == {"text-layer": "text-layer", "ocr": "ocr"}
-    # THE OCR ROWS DO NOT PROJECT: nothing ranks a resolver on that channel, so the
-    # projection's channel-matched rank join drops them. `citator load` refuses an unranked
-    # channel for this reason; a direct caller stores rows no page shows.
-    assert not methods.ranked(con, "ocr")
-    assert {r[10] for r in project.cited_by(con, docket_id=3)} == {"text-layer"}
+    # and OCR, ranked since rank v5, projects beside the text layer
+    assert methods.ranked(con, "ocr")
+    assert {r[10] for r in project.cited_by(con, docket_id=3)} == {"text-layer", "ocr"}
 
 
 def test_declare_refuses_a_declaration_that_contradicts_the_registry(tmp_path):
@@ -1041,6 +1109,23 @@ def test_the_load_verb_runs_end_to_end(tmp_path):
     assert _load_verb(tmp_path, batch) == 0  # the malformed file is skipped, not fatal
     con = db.connect(tmp_path / "s.sqlite")
     assert len(project.projected(con)) == 1
+
+
+def test_the_load_verb_counts_a_shared_page_apart_from_a_fault(tmp_path, capsys):
+    """A page already read on another machine channel is refused (`load.SharedPage`) on every
+    run until its readings are retired, so the verb counts it apart from `failed` and exits 3,
+    not 1: a runbook that re-runs a failed load would otherwise loop (ingest specialist, F1)."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    finding = {"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."}
+    load.load_document(con, _findings(finding), keys.registry(con), keys.works(con), stamps)
+    _scored(con, precision=0.5, channel="ocr")
+    con.commit()
+    con.close()
+    ocr = {"reading_channel": "ocr", "reading_method": "tesseract", "reading_method_version": "5.3"}
+    assert _load_verb(tmp_path, _batch(tmp_path, a=_findings(finding) | ocr)) == 3
+    out = capsys.readouterr().out
+    assert "'failed': 0" in out and "'refused_shared': 1" in out
 
 
 def test_the_load_verb_reports_the_review_it_created_against_the_queues(tmp_path, capsys):
