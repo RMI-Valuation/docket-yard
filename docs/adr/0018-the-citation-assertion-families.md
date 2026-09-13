@@ -239,8 +239,8 @@ is correct and not a doubling.
 
 ## Addendum (2026-09-13): a retraction retires the key's readings too
 
-**Status: Proposed.** Narrows decision 2's "a retraction supersedes the `citation` row and
-nothing else".
+**Status: Accepted 2026-09-13 by the operator**, after four schema-critic passes (the last
+clean). Narrows decision 2's "a retraction supersedes the `citation` row and nothing else".
 
 A re-load that retracts a key retired its `citation` and left every child row live. The first
 retracting load (v2026.09.15) left **903 live readings** that no pass can replace, because no

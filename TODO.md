@@ -8,13 +8,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **Retraction leaves its readings live — DECIDED 2026-09-13, drafting.** Measured on a restore
-  taken after the OCR load: 903 live readings on keys with no live `citation` (all text-layer,
-  `pre-0026`, finder 2026-09-01; 0 decided; 779 docs; 768 to a successor, 135 at itself), plus 903
-  resolutions and 2,709 judgements; 0 pages changed channel. ADR 0018 D2 says a retraction retires
-  `citation` alone, so this is an addendum. His picks: retire READINGS with the citation (the rest
-  later, `deferred.md`); a per-reading RETIREMENT ROW (method, version, date, reason); the 903 in
-  the MIGRATION, behind the wall. Next: addendum draft, schema-critic, migration, rehearsal
+- **Retire a retracted key's readings** (ADR 0018 addendum, ACCEPTED 2026-09-13, which holds the
+  903's figures). On a branch: migration 0029 + `load.py` + tests, /code-review,
+  stb-ingest-specialist, rehearse on `data/prod-2026-09-13-residue.sqlite` (903 retired, view
+  empty, published edges unchanged), runbook pre-check, PR
 - **The next release carries SQLite `3.46.1-7+deb13u2`** (his decision, 2026-09-13): two FTS5
   CVEs (2026-11822, -11824) that v2026.09.20's `deb13u1` lacks, and search is FTS5. A rebuild is
   NOT enough: `python:3.12-slim` (2026-09-01) still ships `deb13u1`, so the Dockerfile's final
