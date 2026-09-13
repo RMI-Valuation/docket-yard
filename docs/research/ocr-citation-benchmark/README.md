@@ -80,7 +80,22 @@ sixty's checked sheet, split the same way, is 403, 0 and 7.
 - **The truth is the rows whose page PRINTS a docket number**, in either form. The supplied
   targets stay in the labels but outside the card's docket-shaped truth, which is what the
   sixty's truth was in effect, and a docket number taken from a drafter's knowledge is not
-  something the page says.
+  something the page says. The test is the row's own quote, not the page: a prior decision
+  in the document's own docket named by date, on a page whose caption prints that docket,
+  is a supplied target (29 such rows).
+- **A bare `Docket 42125` counts as printed (decided 2026-09-13, the operator)**, although
+  the finder does not read that form (`docs/deferred.md`), so the card carries what the gap
+  costs: two rows, e1d26046a7b2 page 1, footnote 2.
+- **A heading naming two paired dockets is a caption for both (decided 2026-09-13, the
+  operator)**, even where the record files the document under only one of them: AB 312 (4X)
+  with AB 1000 (4X), AB 33 (156) with AB 33 (253X), AB 33 (306X) with AB 1091 (X). The
+  finder's family closure does not reach a paired docket, so it calls the second a citation.
+
+**The check came back 2026-09-13**: part 1 (`check-1.tsv`, 283 verdicts) and part 2
+(`check-2.tsv`, 272, every one ok). `check-1-resolutions.tsv` holds the operator's decisions
+on the three unsure rows whose quote prints a docket and overrides those rows. No missed line
+prints a docket number, so the truth is the drafted rows: **45 (document, docket) pairs**.
+Four part 1 rows were left unjudged; none prints a docket.
 - **The shipped finder cannot read the long forms, and that is closed before the OCR card.**
   `find.find` (finder 2026-09-12) emits nothing for `STB Finance Docket No. 34002`,
   `Finance Docket No. 32760 (Sub-No. 46)`, `Ex Parte No. 711` or `ICC Finance Docket No.
