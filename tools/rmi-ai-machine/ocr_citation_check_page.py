@@ -43,6 +43,9 @@ import ocr_page_images  # noqa: E402
 ROOT = Path(__file__).resolve().parents[2]
 WORK = ROOT / "data" / "ocr-citation"
 SAMPLE = ROOT / "docs" / "research" / "ocr-citation-benchmark" / "sample.json"
+# the finder's output the pages highlight; `--findings` points it at a later finder's run (the
+# pages were first built on finder 2026-09-12, and rebuilt on 2026-09-13b before the check)
+FINDINGS = WORK / "findings"
 SITE = "https://docketyard.org"
 PARTS = ((1, (1, 2, 3, 4, 5)), (2, (6, 7, 8, 9, 10)))
 
@@ -123,7 +126,7 @@ def main() -> int:
         for n in numbers:
             for doc in by_batch[n]["documents"]:
                 sha = doc["document_sha256"]
-                found = json.loads((WORK / "findings" / f"{sha}.json").read_text(encoding="utf-8"))
+                found = json.loads((FINDINGS / f"{sha}.json").read_text(encoding="utf-8"))
                 dockets = sorted({x["docket"] for x in sample[sha]["decisions"]})
                 for page in doc["labelled_pages"]:
                     row = reading[sha][str(page)]
@@ -350,4 +353,9 @@ a{color:var(--accent)}.done{color:var(--yes);font-weight:600}
 """
 
 if __name__ == "__main__":
+    if "--findings" in sys.argv:
+        at = sys.argv.index("--findings")
+        if at + 1 >= len(sys.argv):
+            raise SystemExit("usage: ocr_citation_check_page.py [--findings <findings dir>]")
+        FINDINGS = Path(sys.argv[at + 1])
     raise SystemExit(main())

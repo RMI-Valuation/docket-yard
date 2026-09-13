@@ -1300,7 +1300,14 @@ not read, each small or ambiguous enough to want its own decision:
 - **A footnote digit fused onto a five-digit long form stays unresolved and unreviewed**
   (ingest specialist F6). *(Decided 2026-09-13 by the operator: measure a six-digit repair across
   both forms, draw a sample for him to judge, and bring an ADR 0017 addendum proposal before any
-  code. Ten misses across the two long-form gates were this pattern.)* Measured on the production mirror: **176** long-form matches key a
+  code. Ten misses across the two long-form gates were this pattern.)* **Measured the same day** on
+  the production mirror after the long-form re-load: 352 six-digit findings whose last digit
+  stripped is a held docket, in 337 documents — **346 of them the document's own docket** with a
+  footnote marker fused on (`STB Finance Docket No. 340071` in FD 34007), which are captions, and
+  **6 another proceeding** (`NOR 421278 (STB served April 20, 2023)` for NOR 42127). **Decided
+  (the operator): a finder rule** — a six-digit number whose last digit stripped is the
+  document's own docket is keyed as that docket, so the 346 become the captions they are; its own
+  finder version, card and a small check. The 6 other-proceeding cases stay here. Measured on the production mirror: **176** long-form matches key a
   six-digit number the registry does not hold, and in every one the five-digit parent IS held
   (`STB Finance Docket No. 340871↵TRINIDAD RAILWAY` — a caption with its footnote marker
   fused). Rule 2 repairs only five printed digits and `review.in_the_held_record` queues nothing
@@ -1310,7 +1317,17 @@ not read, each small or ambiguous enough to want its own decision:
   operator's decision, not a patch.
 - **The resolver's family limit: a parent takes its own sub-docket's served date.** *(Decided
   2026-09-13 by the operator: he judges the 12 answers retiring it would change, and the count
-  decides.)* Pinned by
+  decides.)* **Re-measured against the live resolver** (key anchor, limit kept) the 12 were 2: the
+  figure had compared the old spelling anchor. `EP 575` in decision 39033 (FD 35134) cites "STB Ex
+  Parte No. 575 and STB Ex Parte No. 575 (Sub-No. 1) (STB served Oct. 30, 2007)" — decision 36758
+  is filed in both dockets, so the limit is right; `FD 34554` in decision 41393 (FD 34554 (Sub-No.
+  140)) cites "FD 34554 (STB served Oct. 7, 2004) … FD 34554 (Sub-No. 2) (STB served February 11,
+  2005)" — the limit makes the parent see both dates and name nothing, where notice 35093 is right.
+  **Decided (the operator): every citation should reach its own document**, which a FALLBACK
+  anchor does — strict key first, the family's occurrences only when that finds no service date.
+  Checked on both pages: EP 575 and EP 575 (1) keep 36758; FD 34554 gains 35093 while FD 34554
+  (2) keeps 35555 (served 2005-02-11). To be built with the fused-digit finder rule below, as one
+  finder version. Pinned by
   the 2026-09-10 review as a limit that must survive (`test_the_anchor_finds_the_target_as_
   printed_and_stops_at_a_sentence`), and kept when `resolve._anchored` moved from a spelling to
   a key (ingest specialist F1, 2026-09-13): `FD 36873` anchors on `FD 36873 (Sub-No. 1) (STB
