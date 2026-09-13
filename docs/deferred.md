@@ -346,6 +346,14 @@ The silent-data findings were fixed the same session and are pinned by
   carrier, while the projection's family is per work, so a citation to carrier B's parent or
   sub-docket with no document word near it now reads as a caption for work A too, where it is
   not family and used to project. Same five documents; unmeasured.
+- **The card's `own` is per decision; production's is per document** (Codex review on PR #27,
+  2026-09-13, deferred by the operator). `citation_dryrun.own_dockets` builds one family per
+  decision id, while `walk._DOCUMENTS` unions the families of every decision carrying the
+  bytes, and the dry run skips a repeated hash, so for a multi-carrier attachment the first
+  decision's rule would be measured. MEASURED: 0 of the sixty benchmark decisions' documents is
+  carried by more than one decision in `data/prod-copy.sqlite` (and 0 registry-wide there), so
+  the 2026-09-12 card is exactly production's rule. The fix, when a benchmark document has two
+  carriers: build `own` per document from all carriers, with a multi-carrier parity test.
 - **`target_kind` means two things either side of the seam.** The benchmark run shape uses it
   to distinguish caption from citation; in the store it is the target's namespace (`stb` vs
   `court`) and `load` hardcodes `'stb'`. Nothing breaks only because `load` ignores the field.

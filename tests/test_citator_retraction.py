@@ -296,8 +296,12 @@ def test_a_key_reloaded_as_a_caption_keeps_no_measured_resolution_or_span(tmp_pa
     live = "SELECT confidence_state FROM {t} WHERE target_key = 'EP 445' AND superseded_by IS NULL"
     assert con.execute(live.format(t="citation_resolution")).fetchone() == ("measured",)
 
-    _load(con, _findings({**finding, "kind": "caption"}), stamps)
+    result = _load(con, _findings({**finding, "kind": "caption"}), stamps)
     assert con.execute(live.format(t="citation_resolution")).fetchone() == ("unmeasured",)
+    # and the IDENTITY row too, at the SAME finder version: a later sub-docket in the registry
+    # flips `own` with no version bump, so matching on version alone left it measured (Codex)
+    assert result.unchanged == 0, "a changed state is not an unchanged assertion"
+    assert con.execute(live.format(t="citation")).fetchone() == ("unmeasured",)
     assert con.execute(
         "SELECT confidence_state FROM citation_judgement WHERE target_key = 'EP 445'"
         " AND judgement = 'span_names_document' AND superseded_by IS NULL"

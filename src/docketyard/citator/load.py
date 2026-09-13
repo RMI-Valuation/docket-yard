@@ -395,7 +395,16 @@ def load_document(
         # the projection takes `confidence` from the channel-keyed resolution and uses this
         # row as a state gate — but validation query 3's snapshot answers per family.
         # Recorded in `docs/deferred.md` (2026-09-03); not decided here.
-        unchanged = live is not None and (live[1], live[2]) == (method, version)
+        # UNCHANGED MEANS THE SAME ASSERTION, not only the same method and version (Codex review
+        # on PR #27, 2026-09-13). `own` is registry data since finder 2026-09-12, and waves 2-3
+        # still add dockets: a sub-docket ingested later turns an existing key into a caption with
+        # no finder bump, and matching on version alone kept its citation `measured` while every
+        # other family turned unmeasured. So the state this pass would write must match too.
+        unchanged = (
+            live is not None
+            and (live[1], live[2]) == (method, version)
+            and live[3] == stamp("citation")[1]
+        )
         if unchanged:
             out.unchanged += 1
         elif live is not None and live[3] == "human":
