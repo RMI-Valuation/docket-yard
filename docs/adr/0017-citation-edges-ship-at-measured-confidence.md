@@ -279,9 +279,9 @@ pointer to the measurement, and every figure the docket class carries.
 count over the rest is a lower bound and a recall from a lower bound is an upper bound
 published as a measurement. `class_measurement.recall` takes NULL, and it does.
 
-## Addendum (2026-09-13, Proposed): the docket-shaped class includes the Board's long names
+## Addendum (2026-09-13): the docket-shaped class includes the Board's long names
 
-**Status: Proposed**, for the operator's acceptance.
+**Status: Accepted 2026-09-13 by the operator.**
 
 Decision 1 ships the docket-shaped class from `regex-docket-cite`. Until finder 2026-09-13 that
 class was the prefix token (`FD 36500`, `AB-55 (Sub-No. 595X)`), and a page printing `STB
