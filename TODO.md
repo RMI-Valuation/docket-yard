@@ -25,8 +25,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   OCR-channel measurement exists, so `load` refuses it (`Unscored`) and OCR needs its own
   `rank_version`. Order: land the family closure (branch `finder-family-closure`, built and
   reviewed; card `data/card-2026-09-12.json` = 224/255, 218/246, 216/220, work 140/140 against
-  the old finder's 257/248 on the same registry; rehearsal, runbook section, PR owed), THEN an
-  OCR citation sample he judges, measure, rank, load
+  the old finder's 257/248 on the same registry; REHEARSED 2026-09-13: 0 failed, exposed
+  854 -> 505, +7 edges and none lost; runbook section and PR owed), THEN an OCR citation
+  sample he judges, measure, rank, load
 - **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
   blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where
   `dots.mocr` failed and PP-OCRv6 read it blank. Why `image_only_documents` missed them: unknown

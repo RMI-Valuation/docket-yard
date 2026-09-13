@@ -483,6 +483,66 @@ non-blank line, and every one sampled was the page's own caption (`Docket No. AB
 595X), CSX Transportation…`) or a citation (`FD 34836, 2009 WL 921533 (S.T.B. April 6,
 2009)`), not a header grafted onto the body.
 
+### The family re-load (finder 2026-09-12, rank v3)
+
+A decision's own dockets are now its FAMILY: the docket it sits in, its parent and its
+sub-dockets, never a sibling (`walk._DOCUMENTS`; the projection's closure already was). So a
+decision in `EP 558 (2)` stops reading its own running header `EP 558` as a citation. It is a
+new finder version and therefore a new `rank_version` (v3). As with v2, there is no migration
+and no wall, and the order is declare, find, load, restamp, between two forward passes:
+
+    docker compose run --rm --no-deps ingest citator declare \
+        --scores /data/citator-card-2026-09-12-family.json </dev/null
+    docker compose run --rm --no-deps ingest citator find /data/citation-findings-<date> \
+        --channel text-layer </dev/null
+    docker compose run --rm --no-deps ingest citator load \
+        /data/citation-findings-<date>/text-layer </dev/null   # failed 0; caption_held printed
+    docker compose run --rm --no-deps ingest citator restamp --apply </dev/null
+
+**The card** is `citation_dryrun.py` with this finder, run against `data/prod-copy.sqlite`, with
+the work block from `work_check_sheet.py --verdicts`. A production copy that already holds
+citator measurements cannot be the registry, because the dry run then stamps from the card
+already declared. Stages 224/255, 218/246, 216/220, work 140 of 140. The 2026-09-11 finder on
+the same registry gives 224/257, 218/248, 216/220, which is the declared card, so the family
+rule moves two benchmark mentions to captions and changes no found, resolved or projected count.
+
+**Rehearsed 2026-09-13** on a copy of the production mirror, migrated 27 to 28 (5 s, 0
+foreign-key violations): declare 2 s, find 12 s (19,944 documents, 72,935 findings), load 54 s
+(0 failed, `caption_held` 0, retracted 0), restamp 2 s (29,562 rows; 10,611 work class).
+
+| | Before | After |
+|---|---|---|
+| Live citations, measured / unmeasured | 30,817 / 42,118 | 29,588 / 43,347 |
+| Live at the old finder | all | 0 |
+| Live `kind` rows | two versions each | one, plus 903 of 2026-09-01 |
+| Measured resolutions on an unmeasured citation | 1 | 0 |
+| Exposed / repaired / unresolved queues | 854 / 1 / 502 | 505 / 1 / 502 |
+| Rows from `project.projected` (v2 before, v3 after) | 19,386 | 19,393 |
+
+The 1,229 citations that became captions are exactly the flip measured beforehand. None was a
+projected edge, and 349 of them were in the exposed queue.
+
+**Seven edges are ADDED and none removed**, and each should already have been shown. In every
+case the citation was measured, its `kind` a citation, its span test true, but its resolution
+had kept an `unmeasured` stamp from an earlier finder: `if_changed` compared the answer and not
+the state, so the stamp never moved. This release compares the state too (the ingest
+specialist's finding 4), so the re-load rewrote them. Six are `FD 32760 (46)` and one each
+`FD 32760 (48)` and `EP 770 (1)`, all a decision citing its own sub-docket with the span naming
+a document, which ADR 0017 D4 publishes.
+
+**What production should show, and what is residue, not failure:**
+
+- `caption_held` counts keys a person has answered where the finder now says caption. Their
+  citation stays live at the OLD finder version, so the "live at the old finder" check reads
+  that count, not 0, and their resolution keeps the old card's stamp (`restamp` touches only
+  keys the measured finder wrote). Production held no human answer on 2026-09-13, so 0 expected.
+- 903 live `kind` rows stay at 2026-09-01, and the 903 `pre-0026` readings stay: the keys the
+  line-wrap re-load retracted. Nothing emits them again, so nothing supersedes them (`TODO.md`).
+- Every in-family key a reader is shown is unchanged, because the projection's family clause is
+  the same closure (rehearsed: no projection row removed).
+- `extraction_run` gains a row per document for 2026-09-12. Its key carries the finder version,
+  so the 2026-09-01 and 2026-09-11 rows stay, each the record of a pass that happened.
+
 ### Verifying, and going back
 
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null
