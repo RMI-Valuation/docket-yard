@@ -543,6 +543,37 @@ a document, which ADR 0017 D4 publishes.
 - `extraction_run` gains a row per document for 2026-09-12. Its key carries the finder version,
   so the 2026-09-01 and 2026-09-11 rows stay, each the record of a pass that happened.
 
+**RUN 2026-09-13 with v2026.09.18**, deployed 12:25:07 UTC with no wall:
+
+- ingest's start-up pass finished 12:25:23;
+- `declare` at 12:29:12, which is the restore point, from
+  `/data/citator-card-2026-09-12-family.json`;
+- `find` at 12:29:14: 19,944 documents, 72,935 findings, 29 s;
+- `load` at 12:29:43: 97 s, 0 failed, `caption_held` 0, retracted 0;
+- `restamp --apply` at 12:31:20: 29,562 rows, 10,611 of them to the work class.
+
+The after snapshot (read-only, from `web`, with the shipped code) matches the rehearsal on
+every figure:
+
+| | Before | After |
+|---|---|---|
+| Live citations, measured / unmeasured | 30,817 / 42,118 | 29,588 / 43,347 |
+| Live at the old finder | all | 0 |
+| Live `kind` rows at 2026-09-01 | 73,212 | 903 (896 citation, 7 caption) |
+| Readings `store` / `pre-0026` | 72,935 / 903 | 72,935 / 903 |
+| Measured resolutions on an unmeasured citation | 1 | 0 |
+| Exposed / repaired / unresolved queues | 854 / 1 / 502 | 505 / 1 / 502 |
+| Rows from `project.projected` (v2 before, v3 after) | 19,386 | 19,393 |
+| Distinct edges, by the first five columns | 16,765 | 16,766 |
+
+**The seven are rows, not edges.** At an edge's identity (citing work, target kind and key,
+cited docket, cited decision), none was removed and ONE was added: decision 44332 citing
+`FD 32760 (46)`, the docket it is itself filed in, naming no decision (checked on production:
+its `decision_record.docket_id` is the cited 12096). Rows and edges differ because the
+projection's `DISTINCT` includes the stamp columns, so one edge can be several rows. Seven is
+the NET row change: the before snapshot kept identities, not whole rows, so which rows were
+added or retired was not measured.
+
 ### Verifying, and going back
 
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null
