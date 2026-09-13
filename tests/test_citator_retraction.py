@@ -285,6 +285,41 @@ def test_an_accepted_in_family_edge_keeps_publishing_when_the_finder_calls_it_a_
     assert "FD 36873" in shown(), "the edge a person accepted still publishes"
 
 
+def test_a_held_caption_is_counted_even_when_the_citation_is_unchanged(tmp_path):
+    """Codex review on PR #27 (2026-09-13). A backfill can turn a reviewed key into a caption
+    with no finder bump; the held key then stamps as the citation it still is, so its live row
+    at the current version counts as `unchanged` — and `caption_held`, which exists to show the
+    operator where the finder now disagrees with a person, must still count it."""
+    con = _review_store(tmp_path)
+    stamps = _review_scored(con)
+    doc = {
+        "document_sha256": SHA,
+        "method": methods.EXTRACTOR,
+        "method_version": "v1",
+        "reading_channel": methods.CHANNEL_TEXT,
+        "text_ref": "benchmark",
+        "pages_read": 9,
+        "pages_walked": [EXPOSED["page"]],
+        "findings": [EXPOSED],
+    }
+    _load(con, doc, stamps)
+    review.decide(
+        con,
+        reviewer_id=_grant(con),
+        queue="citation_exposed",
+        item=review.pending(con, "citation_exposed")[0],
+        decision="accepted",
+        note="checked the page",
+    )
+    # the SAME finder version, now calling it a caption: nothing in the citation changes
+    result = _load(con, dict(doc, findings=[{**EXPOSED, "kind": "caption"}]), stamps)
+    assert (result.unchanged, result.caption_held) == (1, 1), "unchanged, and still counted"
+    assert con.execute(
+        "SELECT method_version, confidence_state FROM citation WHERE target_key = 'AB 1242'"
+        " AND superseded_by IS NULL"
+    ).fetchone() == ("v1", "measured")
+
+
 def test_a_key_reloaded_as_a_caption_keeps_no_measured_resolution_or_span(tmp_path):
     """`if_changed` compared only the answer, so a key whose `kind` flipped kept a `measured`
     resolution and span judgement pointing at the old card — a class a caption never has —

@@ -354,7 +354,7 @@ def load_document(
         # finder's and can answer `true` where the finder said caption (`Decision 41123`
         # matches one and not the other). What changes this is measuring the caption class,
         # not editing a predicate.
-        caption = kinds.get((page, key)) == "caption"
+        finder_caption = kinds.get((page, key)) == "caption"  # what the FINDER called it
         live = _live_citation(con, sha, page, key)
         # A CAPTION CALL ON A KEY A PERSON HAS ANSWERED IS HELD (`_decided`), and HELD MEANS THE
         # WHOLE PUBLISHABLE STATE, not only the identity row (Codex review on PR #27,
@@ -364,10 +364,17 @@ def load_document(
         # reviewer-approved edge vanished despite the held citation. So a held key is stamped as
         # the citation it still is. The finder's disagreement is kept, as the `kind` row below.
         hold = (
-            caption and live is not None and live[3] == "measured" and _decided(con, sha, page, key)
+            finder_caption
+            and live is not None
+            and live[3] == "measured"
+            and _decided(con, sha, page, key)
         )
+        # and EVERY decision below reads the held state, not the finder's call: the stamps, the
+        # work class, the review list (Copilot review on PR #27). Only the `kind` row keeps the
+        # finder's own word, from `kinds`, so its disagreement with the person stays recorded.
+        caption = finder_caption and not hold
 
-        def stamp(stage: str, _caption: bool = caption and not hold) -> tuple:
+        def stamp(stage: str, _caption: bool = caption) -> tuple:
             """(confidence, confidence_state, measured_target, score_row_id) for a row.
 
             Migration 0014's CHECK is an equivalence, so all four move together: a row is
@@ -405,6 +412,11 @@ def load_document(
             and (live[1], live[2]) == (method, version)
             and live[3] == stamp("citation")[1]
         )
+        # A HELD CAPTION IS COUNTED WHATEVER BRANCH FOLLOWS (Codex review on PR #27): a held key
+        # stamps as a citation, so at the current finder version it is also `unchanged`, and
+        # counting only in the `hold` branch below lost exactly the disagreement it exists to show.
+        if hold:
+            out.caption_held += 1
         if unchanged:
             out.unchanged += 1
         elif live is not None and live[3] == "human":
@@ -418,9 +430,8 @@ def load_document(
             # (`_decided`) — its measured row is what keeps the reviewer's edge publishing — but
             # nothing else is. The finder's `caption` call is still written below as its `kind`
             # judgement, so the store records that the finder now disagrees with the person, and
-            # it is counted apart from `human_held` so the operator can see how many (ingest
-            # specialist's re-check, 2026-09-13: a `continue` here left no trace of it).
-            out.caption_held += 1
+            # it is counted (above) apart from `human_held` so the operator can see how many.
+            pass
         else:
             if live is not None:
                 supersede.retire(con, "citation", "citation_id", live[0])
