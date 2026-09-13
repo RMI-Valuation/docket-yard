@@ -683,6 +683,29 @@ resolution 36/43, projection 36/43 — recall 63.2% (95% 50.2–74.5%), resoluti
 **No text-layer edge changes**: the same 22,547 identities before and after. Of the 3,015 OCR
 readings, 492 are measured citations and 2,523 unmeasured captions.
 
+**RUN 2026-09-13 with v2026.09.20**, deployed 21:47:01 UTC with no wall:
+
+- ingest's start-up pass finished 21:47;
+- `declare` at 21:50:07, which is the restore point, from `/data/citator-card-ocr-2026-09-13b.json`;
+- `find` at 21:50:09: 1,022 readings, 3,015 findings, 8 s;
+- `load` at 21:50:17: 18 s, 0 failed, 0 `refused_shared`, 60 unresolved, exit 0;
+- `restamp --apply` at 21:50:38: 0 rows.
+
+The after snapshot (read-only, from `web`, with the shipped code) matches the rehearsal on every
+figure:
+
+| | Before (v4) | After (v5) |
+|---|---|---|
+| Live readings, text layer / OCR | 102,653 / 0 | 102,653 / 3,015 |
+| Rows from `project.projected` | 25,777 | 26,205 |
+| Edges, text layer | 22,547 | 22,547 |
+| Edges, OCR | 0 | 332 |
+| Exposed / repaired / unresolved queues | 428 / 1 / 867 | 438 / 2 / 900 |
+| Pages with live readings on two machine channels | 0 | 0 |
+
+**No text-layer edge changed**: 0 of the v4 identities are missing under v5 and 0 were added.
+Public pages return 200.
+
 ### Verifying, and going back
 
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null
