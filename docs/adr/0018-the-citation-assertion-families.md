@@ -236,3 +236,57 @@ rather than assumed: 1,736 ids carry several `decision_record` rows with **0 dis
 and 5 documents of 20,992 hang under two `stb_decision_id`s — the same bytes published under
 two decisions served years apart, so the fold yields two citing works for those five, which
 is correct and not a doubling.
+
+## Addendum (2026-09-13): a retraction retires the key's readings too
+
+**Status: Proposed.** Narrows decision 2's "a retraction supersedes the `citation` row and
+nothing else".
+
+A re-load that retracts a key retired its `citation` and left every child row live. The first
+retracting load (v2026.09.15) left **903 live readings** that no pass can replace, because no
+finder emits those keys again. Measured 2026-09-13 on a restore taken after the OCR load: all
+text-layer, finder 2026-09-01, none decided by a person; 768 citations retracted to a successor
+and 135 at themselves. The same keys also hold 903 live resolutions and 2,709 live judgements.
+None of them projects, since every consumer joins a live `citation`. But a live reading of a
+retracted key still trips `load.SharedPage` for any later pass over that page on another channel.
+It also stays for ever in the `pre-0026` count ADR 0026 uses for readings a re-load has not yet
+reached, because no finder emits the key again.
+
+**Decided by the operator:**
+
+1. **When `load` retracts a key, it retires every live non-`human` reading of that key** in the
+   same transaction. The rule is: a live machine reading whose key holds no live `citation`. A
+   key a person decided is already held back from retraction (`load._decided`), so no `human`
+   reading is touched. Each retired reading carries `superseded_at` (ADR 0026 D5). It points at
+   the successor key's live reading on its own channel where exactly one exists, following the
+   stored `citation.superseded_by`, and at itself otherwise. **The rule is one held view** that
+   the loader and the migration both read, and a load or the migration leaves it empty.
+2. **Every retirement writes a retirement row**, append-only: the reading, the retracted
+   `citation` row, the reason from a vocabulary (`retracted-key`), the method and version that
+   retired it, and the date. **It is a record of an action, like `review_action`, not an ADR 0007
+   assertion**: it claims nothing about the document, so it carries no confidence and no source.
+   The reading's own columns are not edited beyond the pointer and the date. Triggers refuse a row whose reading is not retired, whose date differs from the reading's
+   `superseded_at`, or whose citation is not a retired row on the same key, and they refuse any
+   update or delete. The table and its vocabulary are held. It becomes a child of
+   `citation_reading` and `citation`, so a later rebuild of either must carry it.
+3. **The 903 are retired by the migration that creates that table**, named by the migration as
+   their method, behind the maintenance wall (ADR 0020). They carry one instant, taken once and
+   written in the loader's ISO form to the reading and its row alike. That instant is when the
+   store retired them, not when v2026.09.15 retracted their keys, which is not recorded. **If a
+   person has decided any of those keys** (`load._decided`'s two tests), the migration aborts
+   whole and names the key. Measured 0, and unreachable while the queues join a live `citation`,
+   so a match means something upstream is wrong.
+
+**Left live, and deferred** (`../deferred.md`, 2026-09-13): the key's resolutions and judgements.
+Neither table has `superseded_at`, so retiring them now would be undated. They reach nothing
+while the `citation` join stands.
+
+**Not covered:** a page whose primary text moves to another channel keeps its old channel's
+readings. No retraction happens there, so the OCR guard's never-clearing refusal stays in
+`../deferred.md` (0 such pages on 2026-09-13).
+
+**Validation queries.** Query 2's answer set is unchanged, because a retired reading was never
+projected. Query 3 reads the event ledger, not this table. Extended to readings, "live on date D"
+stops answering yes for ever and answers "live until the migration ran" for the 903. For the 135
+retired at themselves, when the key was actually retracted stays unknown, because `citation` has
+no `superseded_at`. Queries 1, 4 and 5 read no citation table.
