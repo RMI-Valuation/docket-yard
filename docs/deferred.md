@@ -1391,6 +1391,14 @@ already carrying another channel's live citation readings, and the fixes wait he
   live — no text-layer walk visits it again — so every OCR load of that document is refused whole,
   counted `refused_shared` and exiting 3. Retiring the readings of a page that changed channel is
   the operator's decision, and belongs with the 903 retraction residue already owed (TODO).
+  *(Measured 2026-09-13 on a restore taken after the OCR load: 0 such pages. The operator decided
+  the same day to retire a retracted key's readings with its citation — TODO.)*
+- **A retracted key's resolutions and judgements stay live, and cannot be dated** (2026-09-13,
+  v2026.09.20). ADR 0018 D2 retires `citation` alone; the operator chose to retire the READINGS
+  with it now and leave these two for later, because neither table has `superseded_at` and a
+  retirement there would be undated. Today: 903 live resolutions and 2,709 live judgements on the
+  903 retracted keys, reaching nothing (every consumer joins a live `citation`). Dating both tables
+  first — a schema change of its own — then retiring them the same way is the owed shape.
 - **OCR readings will carry `reading_method` NULL** (F3). `walk.documents` never supplies the
   engine and one document can mix two; `text_id` → `document_text` still names it per page. Fill
   it in `walk` per page, or correct `load.py`'s interchange docstring, which says it is set.

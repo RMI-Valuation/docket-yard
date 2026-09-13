@@ -8,20 +8,19 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **Retraction leaves its readings live** (v2026.09.16 deploy, 2026-09-13). `load`'s retraction
-  supersedes only the `citation` row, so 903 `citation_reading` rows of keys v2026.09.15
-  retracted are still live and `'pre-0026'` (finder 2026-09-01; none projects, since every
-  consumer joins a live `citation`). He ACCEPTED them as residue and took the wall down. Owed:
-  retire a reading with its citation, a method and `superseded_at` for the 903, and review
+- **Retraction leaves its readings live — DECIDED 2026-09-13, drafting.** Measured on a restore
+  taken after the OCR load: 903 live readings on keys with no live `citation` (all text-layer,
+  `pre-0026`, finder 2026-09-01; 0 decided; 779 docs; 768 to a successor, 135 at itself), plus 903
+  resolutions and 2,709 judgements; 0 pages changed channel. ADR 0018 D2 says a retraction retires
+  `citation` alone, so this is an addendum. His picks: retire READINGS with the citation (the rest
+  later, `deferred.md`); a per-reading RETIREMENT ROW (method, version, date, reason); the 903 in
+  the MIGRATION, behind the wall. Next: addendum draft, schema-critic, migration, rehearsal
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown; exposed
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (`cite.py` sends `decided`)
-- **The 903 retraction residue** (his order, after the OCR load, which ran 2026-09-13 in
-  v2026.09.20: 332 OCR edges, text layer unchanged): retire a reading with its citation. The same
-  retirement clears the OCR guard's never-clearing refusal (`docs/deferred.md`, 2026-09-13)
 - **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
   blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where
   `dots.mocr` failed and PP-OCRv6 read it blank. Why `image_only_documents` missed them: unknown
