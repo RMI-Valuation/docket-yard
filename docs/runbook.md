@@ -614,6 +614,30 @@ pairs, 5,777 identities in all coming from a long-form reading; the other 43 are
 changes seen from the far side. The unresolved queue grows by 365: long-form numbers the
 registry does not hold but whose number sits inside a held range, which ADR 0017 D5 queues.
 
+**RUN 2026-09-13 with v2026.09.19**, deployed 17:46:10 UTC with no wall:
+
+- ingest's start-up pass finished 17:46:24;
+- `declare` at 17:47:51, which is the restore point, from `/data/citator-card-2026-09-13b.json`;
+- `find` at 17:47:53: 19,944 documents, 101,750 findings, 33 s;
+- `load` at 17:48:26: 131 s, 0 failed, `caption_held` 0, retracted 0, `work_gained` 34,
+  `work_lost` 18;
+- `restamp --apply` at 17:50:37: 21,676 rows, 10,593 of them to the work class.
+
+The after snapshot (read-only, from `web`, with the shipped code) matches the rehearsal on
+every figure:
+
+| | Before (v3) | After (v4) |
+|---|---|---|
+| Live citations, measured / unmeasured | 29,588 / 43,347 (2026-09-12) | 28,715 / 73,035 (2026-09-13b) |
+| Rows from `project.projected` | 19,393 | 25,777 |
+| Distinct edges (first five columns) | 16,766 | 22,547 |
+| Exposed / repaired / unresolved queues | 505 / 1 / 502 | 428 / 1 / 867 |
+| Readings `store` / `pre-0026` | 72,935 / 903 | 101,750 / 903 |
+
+Of the 38 edge identities absent after, 24 now name a decision, 14 no longer do, and **none is
+removed**; 5,776 (work, target, docket) pairs are new. The 903 `kind` rows of 2026-09-01 and 903
+`pre-0026` readings remain as the line-wrap retraction's residue.
+
 ### Verifying, and going back
 
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null

@@ -13,23 +13,17 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   retracted are still live and `'pre-0026'` (finder 2026-09-01; none projects, since every
   consumer joins a live `citation`). He ACCEPTED them as residue and took the wall down. Owed:
   retire a reading with its citation, a method and `superseded_at` for the 903, and review
-- **The citator is loaded** (v2026.09.18, rank v3): 19,393 rows, 16,766 edges, none shown; exposed
-  505. **The review page, for a person**: docket, sub-docket and document in one look, linked to
+- **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown; exposed
+  428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (`cite.py` sends `decided`)
 - **The OCR walk** (1,022 documents; `load` refuses it, `Unscored`): his decisions of 2026-09-13
   in `docs/research/ocr-citation-benchmark/` — 98 documents drawn, 548 pages, drafted (813 rows),
-  check pages built; truth = rows whose page PRINTS a docket. WAITS ON the long-form finder, then
-  his check, `citation_dryrun.py` on `ocr` over the labelled pages, card, rank, load
-- **The finder cannot read `Finance Docket No. N` / `Ex Parte No. N`** (2026-09-12's): 6,028
-  (page, docket) held citations missing from the text layer, 4,078 from 1996-2005. **Closed
-  before the OCR card (his decision)**: branch `finder-long-forms` (rank v4, card 226; 217/221),
-  gate 1 FAILED (55/99) -> finder 2026-09-13b (own family is a caption unless the span test names
-  a document, all forms; card 223/230, 217/221); gate 2 passed (93/100, accepted by him);
-  ADR 0017 addendum ACCEPTED. MERGED as PR #28 (`5b32893`), released v2026.09.19. Next: deploy
-  and the production re-load by runbook § The long-form re-load, then the OCR card
+  check pages built; truth = rows whose page PRINTS a docket. NEXT (the long-form finder shipped
+  in v2026.09.19): rebuild the check pages' finder highlights with finder 2026-09-13b (built on
+  2026-09-12's), his check, `citation_dryrun.py` on `ocr` over the labelled pages, card, rank, load
 - **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
   blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where
   `dots.mocr` failed and PP-OCRv6 read it blank. Why `image_only_documents` missed them: unknown
