@@ -5,7 +5,7 @@ and what a retraction must leave alone (schema-critic, 2026-09-11)."""
 
 import pytest
 
-from docketyard.citator import find, keys, load, methods, restamp, review
+from docketyard.citator import find, keys, load, methods, project, restamp, review
 from tests.test_citator_pipeline import (
     SHA,
     STAMP,
@@ -235,6 +235,54 @@ def test_a_decided_key_the_new_finder_calls_a_caption_is_held(tmp_path):
         "SELECT method_version, value FROM citation_judgement WHERE target_key = 'AB 1242'"
         " AND judgement = 'kind' AND superseded_by IS NULL"
     ).fetchall() == [("v1", "caption")]
+
+
+def test_an_accepted_in_family_edge_keeps_publishing_when_the_finder_calls_it_a_caption(tmp_path):
+    """Codex review on PR #27 (2026-09-13). An in-family edge publishes only while its span
+    judgement is measured `true` — a review writes a human resolution and reading, never a
+    span row — so holding the citation alone was not enough: the caption stamp demoted the
+    span and the edge a person accepted disappeared."""
+    con = _review_store(tmp_path)
+    stamps = _review_scored(con)
+    own = {"page": 6, "target": "FD 36873", "quoted": "See FD 36873, slip op. at 3."}
+    doc = {
+        "document_sha256": SHA,
+        "method": methods.EXTRACTOR,
+        "method_version": "v1",
+        "reading_channel": methods.CHANNEL_TEXT,
+        "text_ref": "benchmark",
+        "pages_read": 9,
+        "pages_walked": [own["page"]],
+        "findings": [{**own, "kind": "citation"}],
+    }
+    _load(con, doc, stamps)
+    shown = lambda: {r[2] for r in project.projected(con)}  # noqa: E731
+    assert "FD 36873" in shown(), "in family, and the span names a document: it projects"
+    review.decide(
+        con,
+        reviewer_id=_grant(con),
+        queue="citation_exposed",
+        item={
+            "citing_document": SHA,
+            "page": own["page"],
+            "target_kind": "stb",
+            "target_key": "FD 36873",
+            "cited_docket_id": 1,
+            "cited_raw": "FD 36873",
+            "quoted_passage": own["quoted"],
+        },
+        decision="accepted",
+        note="checked the page",
+    )
+    con.execute("UPDATE citation SET method_version = ? WHERE target_key = 'FD 36873'", (OLD,))
+
+    result = _load(con, dict(doc, findings=[{**own, "kind": "caption"}]), stamps)
+    assert result.caption_held == 1
+    assert con.execute(
+        "SELECT value, confidence_state FROM citation_judgement WHERE target_key = 'FD 36873'"
+        " AND judgement = 'span_names_document' AND superseded_by IS NULL"
+    ).fetchone() == ("true", "measured"), "the span a published in-family edge rests on stays"
+    assert "FD 36873" in shown(), "the edge a person accepted still publishes"
 
 
 def test_a_key_reloaded_as_a_caption_keeps_no_measured_resolution_or_span(tmp_path):

@@ -355,8 +355,19 @@ def load_document(
         # matches one and not the other). What changes this is measuring the caption class,
         # not editing a predicate.
         caption = kinds.get((page, key)) == "caption"
+        live = _live_citation(con, sha, page, key)
+        # A CAPTION CALL ON A KEY A PERSON HAS ANSWERED IS HELD (`_decided`), and HELD MEANS THE
+        # WHOLE PUBLISHABLE STATE, not only the identity row (Codex review on PR #27,
+        # 2026-09-13). A review writes a human resolution and reading but no span judgement, so
+        # an in-family edge publishes only while the machine's `span_names_document` stays
+        # measured `true`; stamping the key's other families as a caption demoted it, and the
+        # reviewer-approved edge vanished despite the held citation. So a held key is stamped as
+        # the citation it still is. The finder's disagreement is kept, as the `kind` row below.
+        hold = (
+            caption and live is not None and live[3] == "measured" and _decided(con, sha, page, key)
+        )
 
-        def stamp(stage: str, _caption: bool = caption) -> tuple:
+        def stamp(stage: str, _caption: bool = caption and not hold) -> tuple:
             """(confidence, confidence_state, measured_target, score_row_id) for a row.
 
             Migration 0014's CHECK is an equivalence, so all four move together: a row is
@@ -384,7 +395,6 @@ def load_document(
         # the projection takes `confidence` from the channel-keyed resolution and uses this
         # row as a state gate — but validation query 3's snapshot answers per family.
         # Recorded in `docs/deferred.md` (2026-09-03); not decided here.
-        live = _live_citation(con, sha, page, key)
         unchanged = live is not None and (live[1], live[2]) == (method, version)
         if unchanged:
             out.unchanged += 1
@@ -394,9 +404,7 @@ def load_document(
             # it a counted outcome rather than an exception mid-batch.
             out.human_held += 1
             continue
-        elif (
-            live is not None and caption and live[3] == "measured" and _decided(con, sha, page, key)
-        ):
+        elif hold:
             # a CAPTION over a measured citation a person has answered: the CITATION is held
             # (`_decided`) — its measured row is what keeps the reviewer's edge publishing — but
             # nothing else is. The finder's `caption` call is still written below as its `kind`
