@@ -69,6 +69,30 @@ production's findings and store; `sample.json` beside this file):
 | no citation found | 744 | 20 | 54 | 0 |
 | **All** | | **98** | **548** | **119** |
 
+**Two findings from the drafts, and what the operator decided (2026-09-13).** The ten drafts
+hold 813 rows. Of the 157 `stb` citations whose target is a docket, **28** quote the docket in
+the abbreviated form the finder reads (`FD 36500`, `AB-55 (Sub-No. 595X)`), **28** quote it
+only in a long form (`Finance Docket No. 32760`, `Ex Parte No. 711`), and **101** quote no
+docket at all: the drafter supplied the target from context (a prior decision in the
+document's own docket named by date) or from its own knowledge (`UP/SP` as `FD 32760`). The
+sixty's checked sheet, split the same way, is 403, 0 and 7.
+
+- **The truth is the rows whose page PRINTS a docket number**, in either form. The supplied
+  targets stay in the labels but outside the card's docket-shaped truth, which is what the
+  sixty's truth was in effect, and a docket number taken from a drafter's knowledge is not
+  something the page says.
+- **The shipped finder cannot read the long forms, and that is closed before the OCR card.**
+  `find.find` (finder 2026-09-12) emits nothing for `STB Finance Docket No. 34002`,
+  `Finance Docket No. 32760 (Sub-No. 46)`, `Ex Parte No. 711` or `ICC Finance Docket No.
+  30000`. Measured on the text layer the citator already walks (134,723 pages): **6,028
+  (page, docket) long-form mentions of another proceeding the registry holds are not emitted**
+  (4,078 in decisions served 1996–2005, 1,864 in 2006–2019, 86 from 2020), with 121 more naming
+  a docket it does not hold, and 21,128 naming the document's own family, which are captions
+  and lose nothing. Sub-numbers were not parsed, so a sibling sub-docket counted as own and the
+  loss is under-counted. An OCR card measured with this finder would record its grammar, not
+  the OCR, so a finder version reading `Finance Docket No.` and `Ex Parte No.` comes first,
+  with its own checked sample (the sixty print no long form) and a text-layer re-load.
+
 **The labels are drafted by subagents and checked by the operator (decided 2026-09-13).** The
 548 labelled pages are rendered from the Board's PDFs; about ten subagents, some fifty-five
 pages each, draft every citation and caption from the page images in the sixty's

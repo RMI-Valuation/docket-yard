@@ -13,21 +13,20 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   retracted are still live and `'pre-0026'` (finder 2026-09-01; none projects, since every
   consumer joins a live `citation`). He ACCEPTED them as residue and took the wall down. Owed:
   retire a reading with its citation, a method and `superseded_at` for the 903, and review
-- **The citator is loaded** (v2026.09.15): 15,535 edges, 9,863 naming a document, none shown;
-  exposed 1,476. **The review page, for a person**: one look settling docket, sub-docket and
-  document, linked to scan, text, both dockets and the match; same-docket filings and decisions
-  citable (his); an ICC flag for `(ICC served …)`. GATED on the citations brief's 1-3.
-  `panel_check_sheet.py`'s card composition is the spec to fold in (untracked, deliberately)
+- **The citator is loaded** (v2026.09.18, rank v3): 19,393 rows, 16,766 edges, none shown; exposed
+  505. **The review page, for a person**: docket, sub-docket and document in one look, linked to
+  scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
+  the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (`cite.py` sends `decided`)
-- **The OCR walk is next** (his order, 2026-09-13). Under finder 2026-09-12: 1,022 documents,
-  509 citations + 1,111 captions; NO OCR-channel measurement, so `load` refuses it
-  (`Unscored`) and OCR needs its own `rank_version`. **His decision (2026-09-13): a labelled
-  document sample in four strata, a long document on 20 random pages**
-  (`docs/research/ocr-citation-benchmark/`). DRAWN: 98 documents, 548 pages, 119 citations
-  found on them. Next: labels drafted by ~10 subagents from the page renders (his choice) and
-  checked by him against the scans, `citation_dryrun.py` on the `ocr` channel restricted to the labelled pages, card,
-  rank, load
+- **The OCR walk** (1,022 documents; `load` refuses it, `Unscored`): his decisions of 2026-09-13
+  in `docs/research/ocr-citation-benchmark/` — 98 documents drawn, 548 pages, drafted (813 rows),
+  check pages built; truth = rows whose page PRINTS a docket. WAITS ON the long-form finder, then
+  his check, `citation_dryrun.py` on `ocr` over the labelled pages, card, rank, load
+- **The finder cannot read `Finance Docket No. N` / `Ex Parte No. N`** (2026-09-12's): 6,028
+  (page, docket) held citations missing from the text layer, 4,078 from 1996-2005. **Closed
+  before the OCR card (his decision)**: a finder version on a branch + PR, its own checked
+  long-form sample, a text-layer re-load (ROADMAP § Chosen)
 - **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
   blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where
   `dots.mocr` failed and PP-OCRv6 read it blank. Why `image_only_documents` missed them: unknown
@@ -35,8 +34,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 ## Next
 
 - **His 39 judged captions**: finder 2026-09-11 called 16 of them `citation`, so they stayed
-  queued. Not yet re-measured under finder 2026-09-12 (the family closure, live since
-  v2026.09.18)
+  queued; not yet re-measured under the family closure (live since v2026.09.18)
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
