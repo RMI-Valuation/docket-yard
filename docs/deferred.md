@@ -1394,5 +1394,11 @@ already carrying another channel's live citation readings, and the fixes wait he
 - **OCR readings will carry `reading_method` NULL** (F3). `walk.documents` never supplies the
   engine and one document can mix two; `text_id` → `document_text` still names it per page. Fill
   it in `walk` per page, or correct `load.py`'s interchange docstring, which says it is set.
+- **A rule-2 repair read on OCR publishes at a precision that never scored one** (Codex on PR #29,
+  2026-09-13). The projection admits `repaired` beside `resolved` and holds only the exposed class
+  for review, so a repaired OCR edge is shown stamped with the OCR card's 83.7%; the benchmark's
+  sample holds no repair (`ocr_citation_dryrun.py` now writes no card when it does), while the full
+  rehearsal's load added one (repaired queue 1 -> 2). Scoring repairs needs a sample that has them,
+  or holding rule-2 repairs on OCR for review — the operator's decision.
 - **A fractional page is truncated, not refused** (F2 of the same review, low, not new): `4.7`
   is page 4 in the guard and in the insert alike. Refuse a non-integer page at the boundary.

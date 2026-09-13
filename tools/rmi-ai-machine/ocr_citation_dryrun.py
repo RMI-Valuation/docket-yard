@@ -356,7 +356,16 @@ def main(registry: Path, store: Path, findings: Path | None, card_out: Path | No
     )
     held_for_review = fold(con.execute(HELD_FOR_REVIEW, (CHANNEL,)))
     expected = py["pairs"] - held_for_review
-    ok = sql_pairs - repaired == expected
+    # A PROJECTED RULE-2 REPAIR IS REFUSED, NOT EXEMPTED (Codex review on PR #29, 2026-09-13).
+    # The projection admits `repaired` beside `resolved` and no gate holds it for review, so a
+    # repaired edge publishes stamped with this card's precision — which the scorer's sets cannot
+    # score, because the raw key is not in the registry. `citation_dryrun.py` only prints them;
+    # here a card is written only for a sample whose projection holds none.
+    projected_repairs = sql_pairs & repaired
+    ok = not projected_repairs and sql_pairs == expected
+    if projected_repairs:
+        print(f"  NOT SCORED: {len(projected_repairs)} rule-2 repairs project and are unscored:")
+        print(f"    {sorted(projected_repairs, key=str)[:8]}")
     print("SQL CHAIN (declare, load, project.projected, per work):")
     print(
         f"  python shows {len(py['pairs'])} (work, docket) pairs, {len(held_for_review)} held for"
