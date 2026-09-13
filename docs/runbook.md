@@ -638,6 +638,51 @@ Of the 38 edge identities absent after, 24 now name a decision, 14 no longer do,
 removed**; 5,776 (work, target, docket) pairs are new. The 903 `kind` rows of 2026-09-01 and 903
 `pre-0026` readings remain as the line-wrap retraction's residue.
 
+### The OCR load (finder 2026-09-13b on `ocr`, rank v5)
+
+The OCR channel is measured for the first time (`docs/research/ocr-citation-benchmark/`), and
+`methods.RANK_VERSION` v5 ranks OCR below the text layer for every method (ADR 0018 D7). No
+finder change, no migration, no wall. **Under v5 the projection is empty for BOTH channels until
+`declare` runs**: declaring the OCR card writes v5's rank rows for both channels (it does not
+re-measure the text layer). No web route reads `project`, so nothing public shows the gap, and
+`declare` is the first command. `load` refuses a document that would read a page another machine
+channel already holds live citation readings on (`load._shared_pages`, the operator's decision;
+`docs/deferred.md` § Two channels' readings of one page). The order, between two forward passes,
+with the UTC time before `declare` noted as the restore point:
+
+    docker compose run --rm --no-deps ingest citator declare \
+        --scores /data/citator-card-ocr-2026-09-13b.json </dev/null
+    docker compose run --rm --no-deps ingest citator find /data/citation-findings-ocr-<date> \
+        --channel ocr </dev/null
+    docker compose run --rm --no-deps ingest citator load \
+        /data/citation-findings-ocr-<date>/ocr </dev/null   # failed 0, refused_shared 0
+    docker compose run --rm --no-deps ingest citator restamp --apply </dev/null
+
+**A `refused_shared` count is not a re-run.** The verb exits 3 for it (1 for a fault): the page's
+other channel keeps its live readings, so the same document is refused on every run until they
+are retired — a decision for the operator (`docs/deferred.md`). The rehearsal counted 0.
+
+**The card** (`tools/rmi-ai-machine/ocr_citation_dryrun.py`: 98 documents on their 548 labelled
+pages, the finder's output identical to production's on every one, and the scorer's sets agreeing
+with the shipped declare, load and projection): truth 57, citation 36 found of 59 emitted,
+resolution 36/43, projection 36/43 — recall 63.2% (95% 50.2–74.5%), resolution precision 83.7%
+(70.0–91.9%). The text layer's card is 217/221.
+
+**Rehearsed 2026-09-13** on a copy of the production mirror at rank v4: declare 0 s, find 2 s
+(1,022 documents, 3,015 findings, the count production's own `find` emitted that day), load 4 s
+(0 failed, 60 unresolved, retracted 0), restamp 0 rows.
+
+| | Before (v4) | After (v5) |
+|---|---|---|
+| Rows from `project.projected` | 25,777 | 26,205 |
+| Edges, text layer (first five columns) | 22,547 | 22,547 |
+| Edges, OCR | 0 | 332 |
+| Exposed / repaired / unresolved queues | 428 / 1 / 867 | 438 / 2 / 900 |
+| Pages with live readings on two machine channels | 0 | 0 |
+
+**No text-layer edge changes**: the same 22,547 identities before and after. Of the 3,015 OCR
+readings, 492 are measured citations and 2,523 unmeasured captions.
+
 ### Verifying, and going back
 
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null
