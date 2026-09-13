@@ -80,7 +80,38 @@ sixty's checked sheet, split the same way, is 403, 0 and 7.
 - **The truth is the rows whose page PRINTS a docket number**, in either form. The supplied
   targets stay in the labels but outside the card's docket-shaped truth, which is what the
   sixty's truth was in effect, and a docket number taken from a drafter's knowledge is not
-  something the page says.
+  something the page says. The test is the row's own quote, not the page: a prior decision
+  in the document's own docket named by date, on a page whose caption prints that docket,
+  is a supplied target (29 such rows).
+- **A number printed in a form the finder does not read counts (decided 2026-09-13, the
+  operator)**: the test is whether the row's own quote prints the docket's NUMBER, not whether
+  the finder's grammar matches it, so the card carries what the gap costs. Fourteen rows, none
+  found: a bare `Docket 42125` (2), `STB Docket No. 42054` with no prefix (4), a long form with no
+  `No.` such as `STB Finance Docket 34079` (4), and misprints — `Ex Part No. 274` twice,
+  `FD_34079`, `STB Finance Docket. 35348` (4). He first decided on the bare form told it was two
+  rows; the pattern behind that count had matched ten, and he decided again on all fourteen.
+- **A heading naming two paired dockets is a caption for both (decided 2026-09-13, the
+  operator)**, even where the record files the document under only one of them: AB 312 (4X)
+  with AB 1000 (4X), AB 33 (156) with AB 33 (253X), AB 33 (306X) with AB 1091 (X). The
+  finder's family closure does not reach a paired docket, so it calls the second a citation.
+
+**The check came back 2026-09-13**: part 1 (`check-1.tsv`, 283 verdicts) and part 2
+(`check-2.tsv`, 272, every one ok). `check-1-resolutions.tsv` holds the operator's decisions
+on the three unsure rows whose quote prints a docket and overrides those rows. No missed line
+prints a docket number, so the truth is the drafted rows: **57 (document, docket) pairs**, 43 of
+them printed in a form the finder reads.
+Four part 1 rows were left unjudged; none prints a docket.
+
+**The card, and the decision to load on it (2026-09-13, the operator).** Scored by
+`tools/rmi-ai-machine/ocr_citation_dryrun.py` with finder 2026-09-13b: citation 36 found of 59
+emitted, resolution 36/43, projection 36/43 — recall 63.2% (95% 50.2–74.5), precision 83.7%
+(70.0–91.9), against the text layer's 217/221. The 21 misses are the fourteen unread forms, five
+own-docket mentions the span test does not call document-naming (four `RE:` headings naming a
+decision by docket and service date, and `the protective order the Board entered in NOR 42144 on
+February 10, 2016`), and two `Su-no.` keys that drop the sub-number; the 7 wrong resolutions are OCR misreads of the document's own caption (`AB 10` for
+`AB 103`, `AB 56` for `AB 596`), paired-docket headings, and the same `Su-no.` keys. **He decided
+to load the OCR channel on this card once rank v5 is merged and deployed**, rather than wait for a
+finder version that closes those gaps (runbook § The OCR load).
 - **The shipped finder cannot read the long forms, and that is closed before the OCR card.**
   `find.find` (finder 2026-09-12) emits nothing for `STB Finance Docket No. 34002`,
   `Finance Docket No. 32760 (Sub-No. 46)`, `Ex Parte No. 711` or `ICC Finance Docket No.

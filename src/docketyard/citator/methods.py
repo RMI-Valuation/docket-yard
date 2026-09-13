@@ -15,6 +15,7 @@ from docketyard.store.db import utcnow
 EXTRACTOR = "regex-docket-cite"
 SPAN_METHOD = "span-names-document"
 CHANNEL_TEXT = "text-layer"
+CHANNEL_OCR = "ocr"
 # v2 (2026-09-11): `find.FINDER_VERSION` moved to 2026-09-11 — the wrapped sub-docket and the
 # quote's continuation line — and the finder's version is the OWNER row of the docket class.
 # `assertion_method_one_owner` allows one owner per class per rank_version and this registry is
@@ -32,7 +33,12 @@ CHANNEL_TEXT = "text-layer"
 # test's rather than a document-word window. 6,028 (page, docket) citations to held proceedings
 # on the text layer were emitted by nothing; a finding the old finder never made is a new
 # answer, so v3 stays on record and the class is re-measured.
-RANK_VERSION = "v4"
+#
+# v5 (2026-09-13): OCR is RANKED — the resolver's two rules and both judgement rows on the `ocr`
+# channel, below the text layer's for every method (ADR 0018 D7, `CHANNELS`). The finder is
+# unchanged. A ranking that only grows is still a new ranking: nothing dates which one was in
+# force (`project`'s one accepted deferral), so v4 stays on record as the text layer alone.
+RANK_VERSION = "v5"
 # A human is a method, a channel and a version like any other — `reading_vocab` carries
 # 'human' for exactly this reason (ADR 0018 D3: the channel is in every key, so a human row
 # must carry something legal).
@@ -59,12 +65,23 @@ PROJECTION_RULE = (
     f";gate=exposed@{resolve.EXPOSURE_VERSION}"
 )
 
-# The text layer outranks OCR for every method, held as registry data (ADR 0018 D7). Ranks
-# are unique per (rank_version, target_table), so "the highest-ranked live row" is singular.
-RANKS = {
-    (resolve.RESOLVER, resolve.RULE_1, CHANNEL_TEXT): 1,
-    (resolve.RESOLVER, resolve.RULE_2, CHANNEL_TEXT): 2,
-}
+# The channels a pass is ranked on, IN RANK ORDER: the text layer outranks OCR for every
+# method, held as registry data (ADR 0018 D7). Ranks are unique per (rank_version,
+# target_table), so "the highest-ranked live row" is singular. A channel left out stores rows no
+# page can show, which `citator load` refuses (`ranked`); adding one is a new rank_version.
+CHANNELS = (CHANNEL_TEXT, CHANNEL_OCR)
+RULES = (resolve.RULE_1, resolve.RULE_2)
+
+
+def ranks() -> dict[tuple[str, str, str], int]:
+    """(resolver, rule, channel) -> precedence_rank. Every rule on a channel outranks every
+    rule on the next channel, so a rule-2 repair read on the text layer still beats a rule-1
+    answer read on OCR. Computed at call time from `CHANNELS`, not frozen at import."""
+    return {
+        (resolve.RESOLVER, rule, channel): 1 + len(RULES) * c + r
+        for c, channel in enumerate(CHANNELS)
+        for r, rule in enumerate(RULES)
+    }
 
 
 class Conflict(RuntimeError):
@@ -130,6 +147,24 @@ def declare(
     ships wrong.
     """
     now = utcnow()
+    # A CHANNEL ADDED OR DROPPED IS A NEW RANK_VERSION, and the indexes cannot say so: ranks are
+    # computed from `CHANNELS`, so a third channel under the same version takes ranks nothing
+    # holds and is appended silently, and a dropped one leaves its rows in force (schema-critic,
+    # 2026-09-13). Checked against what this version already ranks, before anything is written.
+    ranked_on = {
+        channel
+        for (channel,) in con.execute(
+            "SELECT DISTINCT reading_channel FROM assertion_method"
+            " WHERE target_table = 'citation_resolution' AND role = 'resolve'"
+            " AND reading_channel <> ? AND rank_version = ?",
+            (HUMAN, rank_version),
+        )
+    }
+    if ranked_on and ranked_on != set(CHANNELS):
+        raise Conflict(
+            f"rank_version {rank_version!r} ranks {sorted(ranked_on)}; this build ranks"
+            f" {sorted(CHANNELS)}. A channel added or removed is a NEW rank_version."
+        )
     rows = [
         # the ownership row: WHO MAY WRITE the docket-shaped class. No channel, because the
         # citation key carries none — one page read twice is one key, so ownership of a
@@ -138,7 +173,7 @@ def declare(
         # the ranking rows: WHO WINS. `role` only where the projection reads one.
         *[
             ("citation_resolution", method, version, channel, "resolve", rank, None, None)
-            for (method, version, channel), rank in RANKS.items()
+            for (method, version, channel), rank in ranks().items()
         ],
         # THE HUMAN RESOLVER, at rank 0: it outranks every machine rule, because ADR 0017 D5
         # says a review writes a `human` row which a model pass may never supersede — and a
@@ -146,15 +181,21 @@ def declare(
         # Without this declaration the projection's candidate join is INNER and drops it, so
         # an accepted review silently turns a published edge into no edge at all.
         ("citation_resolution", HUMAN, human_version, HUMAN, "resolve", 0, None, None),
-        # the span test ranks and carries no role: its family's projection has no role term
-        ("citation_judgement", SPAN_METHOD, judge.SPAN_VERSION, CHANNEL_TEXT, None, 1, None, None),
-        # `kind` at rank 2, AT THE EXTRACTOR'S OWN METHOD AND VERSION — `load` writes those
-        # from the findings document, so a constant here would register a version nothing
-        # wrote and leave every kind row unregistered. Nothing reads it yet (the projection
-        # reads `span_names_document` and `exposed`), but it is declared so a later ranked
-        # read cannot drop them all through an INNER join, which is how a bumped
-        # SPAN_VERSION suppressed every in-family edge before `declare` learned to refuse.
-        ("citation_judgement", extractor, extractor_version, CHANNEL_TEXT, None, 2, None, None),
+        # Per channel, in `CHANNELS` order: the span test, which ranks and carries no role (its
+        # family's projection has no role term); then `kind`, AT THE EXTRACTOR'S OWN METHOD AND
+        # VERSION — `load` writes those from the findings document, so a constant here would
+        # register a version nothing wrote and leave every kind row unregistered. Nothing reads
+        # `kind` yet (the projection reads `span_names_document` and `exposed`), but it is
+        # declared so a later ranked read cannot drop them all through an INNER join, which is
+        # how a bumped SPAN_VERSION suppressed every in-family edge before `declare` refused.
+        *[
+            ("citation_judgement", method, version, channel, None, rank + 2 * c, None, None)
+            for c, channel in enumerate(CHANNELS)
+            for method, version, rank in (
+                (SPAN_METHOD, judge.SPAN_VERSION, 1),
+                (extractor, extractor_version, 2),
+            )
+        ],
     ]
     for row in rows:
         try:
@@ -200,8 +241,8 @@ def ranked(con, channel: str, *, rank_version: str = RANK_VERSION) -> bool:
     `citation_resolution` and `citation_judgement` to their rank rows on the channel, and
     an in-family edge whose span judgement has no rank row is suppressed by default. A
     channel with neither, or with one, stores rows no page can show — silently, with the
-    load exiting 0. `declare` ranks the text layer only (RANKS and the span row); ranking
-    OCR is a new `rank_version`, not a default."""
+    load exiting 0. `declare` ranks the channels in `CHANNELS` (the text layer and, since rank
+    v5, OCR); ranking another is a new `rank_version`, not a default."""
     return (
         con.execute(
             "SELECT EXISTS (SELECT 1 FROM assertion_method"

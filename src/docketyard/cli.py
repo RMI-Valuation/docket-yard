@@ -566,8 +566,8 @@ def _citator(args: argparse.Namespace) -> int:
         # is not ADR 0017 D3's "stored and unprojected" — that phrase is for the UNMEASURED —
         # so it is refused here, symmetrically with `Unscored`, and BEFORE the commit: a
         # refused load must leave no declaration behind, or the next load at the rightful
-        # owner meets `Conflict` for a pass that never ran. `declare` ranks the text layer
-        # only; a rank for another channel is a new rank_version (ADR 0018 D7), a decision.
+        # owner meets `Conflict` for a pass that never ran. `declare` ranks the channels in
+        # `methods.CHANNELS`; a rank for another is a new rank_version (ADR 0018 D7), a decision.
         if not methods.ranked(con, channel):
             raise methods.Unscored(
                 f"no resolver and span test are ranked on channel {channel!r}"
@@ -595,13 +595,22 @@ def _citator(args: argparse.Namespace) -> int:
     )
     totals = dict.fromkeys(("documents", *counted), 0)
     owed_keys: list[str] = []
-    failed = 0
+    failed = refused_shared = 0
     for path, doc in docs:
         try:
             result = load.load_document(con, doc, held, works, stamps)
             con.commit()  # PER DOCUMENT: a wave killed at document 40,000 keeps 40,000, and
+            # the 30-minute poller is not locked out for the whole run
+        except load.SharedPage as e:
+            # COUNTED APART FROM `failed` (ingest specialist, 2026-09-13, F1). A page already
+            # read on another channel is refused on every run until its readings are retired,
+            # so a runbook that re-runs on a failure would loop; the operator decides instead.
+            con.rollback()
+            print(f"  refused {path.name}: {e}")
+            refused_shared += 1
+            continue
         except Exception as e:  # noqa: BLE001 — one bad document must not take the wave
-            con.rollback()  # the 30-minute poller is not locked out for the whole run
+            con.rollback()
             print(f"  failed {path.name}: {type(e).__name__} {e}")
             failed += 1
             continue
@@ -609,7 +618,7 @@ def _citator(args: argparse.Namespace) -> int:
         for field in counted:
             totals[field] += getattr(result, field)
         owed_keys.extend(result.review)
-    print(totals | {"unreadable": unreadable, "failed": failed})
+    print(totals | {"unreadable": unreadable, "failed": failed, "refused_shared": refused_shared})
     # WHAT THIS SAID UNTIL 2026-09-04, AND WHY IT WAS WRONG BY THEN: "ADR 0017 D5's queues do
     # not exist yet, so these keys are PRINTED and not stored. Until `review_action` is in a
     # migration, the exposed class reaches a page unreviewed." Migration 0015 shipped
@@ -645,7 +654,10 @@ def _citator(args: argparse.Namespace) -> int:
     # finding about something else is not a fix. The unloaded document it leaves is caught by
     # the acceptance count in `infra/deploy/README.md` § Migration 0028, which counts rows
     # rather than exit codes for exactly this reason.
-    return 1 if failed else 0
+    #
+    # A SHARED-PAGE REFUSAL EXITS 3, a fault 1 (which wins when both happen): both are non-zero,
+    # so neither passes for clean, but only a fault is worth re-running.
+    return 1 if failed else 3 if refused_shared else 0
 
 
 def _search_rebuild(args: argparse.Namespace) -> int:

@@ -51,6 +51,13 @@ class WrongChannel(RuntimeError):
     stamp of whichever pass asserted it — see the comment at its insert."""
 
 
+class SharedPage(WrongChannel):
+    """A document that would read a page another machine channel already holds live citation
+    readings on (`_shared_pages`). Not a fault in the document, and RE-RUNNING DOES NOT CLEAR
+    IT: the other channel's readings stay until something retires them, so `citator load`
+    counts it apart from `failed` (ingest specialist, 2026-09-13, F1)."""
+
+
 @dataclass
 class Loaded:
     """What one document's pass did, in the terms `extraction_run` records."""
@@ -106,6 +113,25 @@ def _decided(con, sha: str, page: int, key: str) -> bool:
             " AND target_key = ? AND superseded_by IS NULL LIMIT 1",
             (keys.render(sha, page, "stb", key),),
         ).fetchone()
+    )
+
+
+def _shared_pages(con, doc: dict, channel: str) -> list[tuple[int, str]]:
+    """(page, channel) for every page this document would read that ANOTHER MACHINE CHANNEL
+    already holds live citation readings on. Its walked pages count, not only the pages it found
+    something on: a pass over a page is what a retraction trusts. A `human` reading is the review
+    layer's, not a second pass, and does not count."""
+    walked = {int(p) for p in doc.get("pages_walked") or ()}
+    walked |= {int(f["page"]) for f in doc.get("findings", [])}
+    return sorted(
+        (page, other)
+        for page, other in con.execute(
+            "SELECT DISTINCT page, reading_channel FROM citation_reading"
+            " WHERE citing_document = ? AND superseded_by IS NULL"
+            " AND reading_channel NOT IN (?, ?)",
+            (doc["document_sha256"], channel, methods.HUMAN),
+        )
+        if page in walked
     )
 
 
@@ -289,6 +315,21 @@ def load_document(
         raise NotTheOwner(
             f"{method}@{version} does not own (stb, docket); "
             f"{'nothing does' if declared is None else f'{declared[0]}@{declared[1]} does'}"
+        )
+
+    # ONE MACHINE CHANNEL PER PAGE, until what assumes it is fixed (the operator's decision,
+    # 2026-09-13; docs/deferred.md § Two channels' readings of one page). Rank v5 made an OCR
+    # load possible, and three terms still assume a key is read on one channel: the channel-less
+    # `citation` row, the review queue's `stored` resolution, and `span` ranked across channels —
+    # each can hide or publish an edge silently. None can happen while no page carries two
+    # machine channels' readings (0 on the production mirror that day), so a document that would
+    # make one is REFUSED before anything is written (`_shared_pages` says which pages count).
+    shared = _shared_pages(con, doc, channel)
+    if shared:
+        raise SharedPage(
+            f"{sha[:12]} would be read on {channel!r} on page(s) {[p for p, _ in shared][:5]} that"
+            f" already carry live {sorted({c for _, c in shared})} citation readings. One page read"
+            " on two channels reaches three terms that assume one (docs/deferred.md, 2026-09-13)"
         )
 
     # A target printed several times on one page is ONE key, so the passages are collected

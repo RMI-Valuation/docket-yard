@@ -311,7 +311,9 @@ against the measured flag rate before it is worth specifying. What is known to b
   0017 D3's "stored and unprojected until measured" read as a refusal rather than as an
   unmeasured row; if the OCR pass is to *store* unmeasured rows, that is a deliberate flag
   on the load verb, not a fallback inside `stamp`. And a measured channel nobody has
-  *ranked* is refused too (`methods.ranked`): `declare` ranks the text layer only, and the
-  projection's rank join is channel-matched, so the alternative was rows no page shows and
-  an exit of 0. Ranking OCR is a new `rank_version` (ADR 0018 D7) — the namespace question
-  item 8 above already holds.
+  *ranked* is refused too (`methods.ranked`): the projection's rank join is channel-matched,
+  so the alternative was rows no page shows and an exit of 0. `declare` ranked the text layer
+  only through rank v4; **rank v5 (2026-09-13) ranks OCR below it for every method** (ADR
+  0018 D7, `methods.CHANNELS`), so an OCR load now waits only on the OCR channel's card. The
+  projection binds the rank version, so under v5 it is empty for BOTH channels until that
+  card's `citator declare` writes v5's rows (`docs/runbook.md` § The OCR load).

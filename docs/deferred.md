@@ -1354,3 +1354,51 @@ not read, each small or ambiguous enough to want its own decision:
   matches on the production mirror have more than two spaces between `No.` and the number.
 - **The second number of a `Nos.` list** — `Finance Docket Nos. 32760 and 32760 (Sub-No. 1)`
   keys the first only, as `FD 36744 et al.` already does for the abbreviated form. Not counted.
+
+## Two channels' readings of one page, and what assumes a key has one, 2026-09-13 (branch `ocr-card`, rank v5)
+
+Rank v5 ranks OCR below the text layer for every method (ADR 0018 D7), which makes an OCR load
+possible. The schema critic found three places that assume a (document, page, key) is read on
+one channel only. **Measured the same day on the production mirror: 0 pages carry live citation
+readings on both channels, and 0 pages whose live primary reading is OCR carry live text-layer
+citation readings** — so none of the three can happen on the record as it stands; each needs a
+page read again on the other channel (a re-OCR of a text-layer page, or the reverse).
+*(Decided 2026-09-13 by the operator: `citator load` refuses a document that would write a page
+already carrying another channel's live citation readings, and the fixes wait here.)*
+
+- **The `citation` identity row carries no channel** (`load.py`, gated by `project.py`'s
+  `c.confidence_state` term). A second channel's pass that reads the key as a caption supersedes
+  a measured citation with an `unmeasured` one and the first channel's edge disappears; the
+  reverse publishes an edge the higher-ranked channel withheld; re-running either flips it back.
+  Cheapest fix: never change the identity row's state while a higher-ranked channel holds a live
+  reading of the key. The alternative — gate the edge on the channel-keyed resolution alone — is
+  a grain decision against ADR 0018 D2.
+- **The review queue shows a key once per channel, and an answer can be recorded against the
+  loser** (`review._base`, `review.decide`, `review_routes`' POST). `stored` is the newest
+  non-human resolution, not the ranked winner, so accepting an exposed text-layer edge while an
+  OCR reading of the same key is `unresolved` writes a human `unresolved` row — which `refused`
+  then holds against the edge for good, with `review_action` saying accepted. Fix: the winner
+  only, from `project`'s own ranked CTE, and the channel in the POST's match.
+- **`span` is ranked across channels** (`project.py` and `docs/citator-query-2.sql`). A text-layer
+  `false` is stored `unmeasured` and never a candidate, so an OCR `true` for the same key lets the
+  text layer's in-family edge publish on OCR's judgement, beside the text-layer passage and
+  figure. Fix: partition and join `span` on the reading channel, as `suppressed` already is — a
+  change to D7's judgement rule, so the operator's.
+- **The text-layer projection figure names rank v4.** It is exactly v5's while no page has two
+  channels; if the guard is ever lifted, re-score it under the rank then in force.
+- **The guard's refusal never clears, and costs the document's other OCR pages** (ingest
+  specialist, F1). A page whose live primary reading moves to OCR keeps its text-layer readings
+  live — no text-layer walk visits it again — so every OCR load of that document is refused whole,
+  counted `refused_shared` and exiting 3. Retiring the readings of a page that changed channel is
+  the operator's decision, and belongs with the 903 retraction residue already owed (TODO).
+- **OCR readings will carry `reading_method` NULL** (F3). `walk.documents` never supplies the
+  engine and one document can mix two; `text_id` → `document_text` still names it per page. Fill
+  it in `walk` per page, or correct `load.py`'s interchange docstring, which says it is set.
+- **A rule-2 repair read on OCR publishes at a precision that never scored one** (Codex on PR #29,
+  2026-09-13). The projection admits `repaired` beside `resolved` and holds only the exposed class
+  for review, so a repaired OCR edge is shown stamped with the OCR card's 83.7%; the benchmark's
+  sample holds no repair (`ocr_citation_dryrun.py` now writes no card when it does), while the full
+  rehearsal's load added one (repaired queue 1 -> 2). Scoring repairs needs a sample that has them,
+  or holding rule-2 repairs on OCR for review — the operator's decision.
+- **A fractional page is truncated, not refused** (F2 of the same review, low, not new): `4.7`
+  is page 4 in the guard and in the insert alike. Refuse a non-integer page at the boundary.
