@@ -278,3 +278,30 @@ pointer to the measurement, and every figure the docket class carries.
 **Not decided here:** the recall. 82 of the 105 docket-level stops are unjudged, so a truth
 count over the rest is a lower bound and a recall from a lower bound is an upper bound
 published as a measurement. `class_measurement.recall` takes NULL, and it does.
+
+## Addendum (2026-09-13, Proposed): the docket-shaped class includes the Board's long names
+
+**Status: Proposed**, for the operator's acceptance.
+
+Decision 1 ships the docket-shaped class from `regex-docket-cite`. Until finder 2026-09-13 that
+class was the prefix token (`FD 36500`, `AB-55 (Sub-No. 595X)`), and a page printing `STB
+Finance Docket No. 34002` or `Ex Parte No. 711 (Sub-No. 1)` emitted nothing: measured on the text
+layer on 2026-09-13, **6,028** (page, docket) citations to held proceedings, 4,078 of them in
+decisions served 1996–2005.
+
+**The class now includes those two long names**, keyed as `FD N` and `EP N` with their
+sub-numbers (`keys.LONG_DOCKET`, `KEY_VERSION` norm-docket@2026-09-13, rank v4). `No.` is
+required. `F.D. No.`, `MC-F-`, a bare `Docket No. N`, and a long name printed with no `No.` stay
+out, each measured in `../deferred.md`.
+
+What stands behind it:
+
+- **The card**, measured with finder 2026-09-13 on the sixty: truth 226 (one long-form target
+  joined it), citation 225 of 257, resolution 219 of 248, projection 217 of 221, work 140 of
+  140.
+- **A gate the card cannot supply**, because the sixty print one long form: about a hundred
+  long-form citations judged on the page, passing at the card's citation-stage precision
+  (`../research/long-form-check/README.md`). The finder does not merge without it.
+
+Unchanged: every figure is still published only with its class and rule, and a class nobody
+has scored still projects nothing.
