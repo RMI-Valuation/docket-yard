@@ -86,10 +86,20 @@ def _decided_better(alias: str) -> str:
 
 
 def _base(queue: str, alias: str = "r") -> str:
+    # A QUEUE ASKS ONLY A QUESTION WHOSE ANSWER CAN CHANGE WHAT PUBLISHES (the operator's
+    # decision, 2026-09-12; measured 2026-09-13). The projection gates `citation` on
+    # `confidence_state IN ('measured', 'human')`, and `load` stamps a CAPTION's rows
+    # `unmeasured` — so an answer about a caption writes a human resolution that still never
+    # reaches a page. Without this gate `citation_exposed` held 1,476 items of which 622 were
+    # captions (every one `kind` = caption, every one unmeasured); the other two queues lost
+    # none. It is the projection's own gate rather than a `kind` filter ON PURPOSE: measuring
+    # the caption class is what should make a caption publishable (`load.py`), and this term
+    # follows that automatically where a `kind` filter would go on hiding them.
     return (
         f"SELECT {_cols(alias)}, {alias}.cited_docket_id, g.cited_raw, g.quoted_passage"
         f" FROM citation_resolution {alias}"
         f" JOIN citation c ON {_on('c', alias)} AND c.superseded_by IS NULL"
+        f" AND c.confidence_state IN ('measured', 'human')"
         f" JOIN citation_reading g ON {_on('g', alias)}"
         f" AND g.reading_channel = {alias}.reading_channel AND g.superseded_by IS NULL"
         f" WHERE {alias}.superseded_by IS NULL AND {_unanswered(alias, queue)}"

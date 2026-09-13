@@ -676,8 +676,10 @@ def load_document(
         # ADR 0017 D5, in its order of yield: the exposed class, then every rule-2 repair.
         # These are the keys `citator review list` renders; the queue itself is a QUERY over
         # the store, so this list is a convenience for the operator running the load and
-        # never the queue's source of truth.
-        if r.exposed or r.outcome == "repaired":
+        # never the queue's source of truth. A CAPTION IS NOT OWED ONE: `review._base` gates
+        # every queue on the citation being publishable, and a caption's is `unmeasured`, so
+        # listing it here would print a count the queues do not hold (2026-09-13).
+        if (r.exposed or r.outcome == "repaired") and not caption:
             out.review.append(keys.render(sha, page, "stb", key))
 
     # RETRACTION (2026-09-11). A key an OLDER version of this finder asserted on this document,

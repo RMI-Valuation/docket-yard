@@ -32,11 +32,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **SECOND: fix the queue predicate** (his decision, 2026-09-12). `citation_exposed` filters on
-  the exposure judgement and not on `kind`, so 66.5% of 1,476 are captions that can never
-  publish (two models agree on 981; he judged 40 and found 39 captions, 0 citations). Fixing it
-  takes the queue to roughly 495. No schema change, no ADR, no re-read — a query change plus
-  `/code-review`. Switching panel clearing on is a separate ADR 0017 addendum, his
+- **The queue predicate is BUILT, unreleased** (2026-09-13): `review._base` gates every queue on
+  a publishable citation; `citation_exposed` 1,476 -> 854 (622 finder captions, all unmeasured;
+  the other queues lose none). Of his 39 judged captions the finder calls 16 `citation`, so they
+  stay queued — the family closure in `stash@{0}` is the likely lever. Also: finder 2026-09-01's
+  73,212 `kind` judgements are still live beside 2026-09-11's, the supersession keyed by version
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion

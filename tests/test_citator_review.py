@@ -127,6 +127,29 @@ def test_an_exposed_edge_does_not_reach_a_page_until_a_human_has_answered(tmp_pa
     assert review.pending(con, "citation_exposed") == []  # the answer clears the item
 
 
+def test_an_exposed_caption_is_not_queued_because_no_answer_could_publish_it(tmp_path):
+    """A queue asks only a question whose answer can change what publishes (the operator's
+    decision, 2026-09-12). A caption's rows are `unmeasured`, and the projection gates
+    `citation` on `confidence_state`, so accepting one would write a human resolution that
+    still reaches no page. On 2026-09-13 that was 622 of `citation_exposed`'s 1,476 items."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    result = _load(con, stamps, {**EXPOSED, "kind": "caption"})
+    assert result.exposed == 1, "the fixture must still raise the exposure, or this tests nothing"
+
+    assert review.pending(con, "citation_exposed") == []
+    assert review.owed(con, "citation_exposed") == 0
+    assert result.review == [], "the load would print a review the queues do not hold"
+    assert project.projected(con) == []
+
+    # and the same key read as a CITATION is queued as before: the gate is publishability
+    (tmp_path / "citation").mkdir()
+    con2 = _store(tmp_path / "citation")
+    result2 = _load(con2, _scored(con2), {**EXPOSED, "kind": "citation"})
+    assert [q["target_key"] for q in review.pending(con2, "citation_exposed")] == ["AB 1242"]
+    assert result2.review == [keys.render(SHA, EXPOSED["page"], "stb", "AB 1242")]
+
+
 def test_the_queue_is_served_in_the_citing_documents_hash_order(tmp_path):
     """`review.pending` sorts by the citing document's sha256, which is independent of
     anything on the page, so the first N a reviewer answers are a random sample of the queue.
