@@ -233,6 +233,12 @@ Rehearsed twice on 2026-09-13 on a Litestream restore taken after the OCR load
 - the projection's edges and every review queue are identical before and after (26,205 rows;
   438 / 2 / 900).
 
+**And a third time inside v2026.09.20's own image**, on production's SQLite 3.46.1 with the branch
+mounted and the store in a Docker volume. The same figures, 28 → 29 in **52 s**. That is the
+rehearsal that counts. The first draft joined its abort message with `||`, which `RAISE` refuses
+before 3.47.0: both workstation rehearsals passed on SQLite 3.50.4 while CI failed, and this
+deploy would have failed at `migrate` behind the wall. Rehearse a migration in the live image.
+
 The rule gets no index. Measured on the restore: an ordinary document's load reads it in 0.5 ms,
 a document holding residue in 96 ms on average, and the whole store in 38.7 s, once, behind the
 wall.
