@@ -18,7 +18,7 @@ import unicodedata
 
 # Bump with any change to `normalise`. It is stored on every `citation_key` row, so a change
 # is visible in the store rather than inferred from a commit date.
-KEY_VERSION = "norm-docket@2026-09-04"  # `_sub_key`: a printed sub-number of 0 is none
+KEY_VERSION = "norm-docket@2026-09-13"  # `LONG_DOCKET`: the Board's long names key too
 
 # THE PREFIX IS MATCHED CASE-SENSITIVELY, and that is a scar rather than a style: `IS` and
 # `SO` are English words, so a deadline sentence ("the exemption is 30 days after ...")
@@ -43,6 +43,33 @@ DOCKET = re.compile(
     r"\b(FD|AB|EP|NOR|MCF|MCC|NOM|ISM|IS|SDM|WB|SO|DOP|STA|WCC|SUB|FSB|PCA)"
     r"\s*[-\s]?\s*(\d{1,6})([A-Z])?\b"
 )
+# THE BOARD'S LONG NAMES (2026-09-13). `DOCKET` reads the prefix token, and a page printing
+# `STB Finance Docket No. 34002` or `Ex Parte No. 711 (Sub-No. 1)` carries none, so the finder
+# emitted nothing for either: measured on the text layer the citator walks, 6,028 (page,
+# docket) citations to held proceedings, 4,078 of them in decisions served 1996-2005. The
+# spellings are the record's, counted on the same 134,723 pages: `Finance Docket No.` (with or
+# without `STB`/`ICC` before it, which the match does not need), `Nos.`, a `No` without its
+# period, and all of them in capitals in a caption. `Ex Parte` the same.
+#
+# `No.` IS REQUIRED, AND ONLY A HORIZONTAL SPACE MAY FOLLOW IT (code review, 2026-09-13). A
+# first draft made `No.` optional and let any whitespace reach the number, and it keyed prose:
+# `ex parte3` as EP 3, `an ex parte 12 meeting` as EP 12, `Finance Docket↵14 See` as FD 14 — a
+# docket the page never printed, which is the one failure this package must not have. The count
+# found about 200 page mentions printed with no `No.` at all against some 30,000 with it; they
+# are left out (docs/deferred.md). A line break between the WORDS still reads.
+#
+# THE GROUPS ARE `DOCKET`'S, in the same positions — the words, the number, a glued suffix —
+# so a caller reading `group(2)` or `group(3)` cannot tell which pattern matched, and
+# `prefix_of` is the one place the words become `FD`/`EP`. ONLY THE WORDS ARE CASE-BLIND: the
+# suffix stays `[A-Z]`, so `Ex Parte No. 711and` keys nothing at all, exactly as `EP 711and`.
+#
+# NOT HERE, measured and left for their own decision (docs/deferred.md): `F.D. No.` (22 pages),
+# `MC-F-` (25), and a bare `Docket No. 42057` with no prefix at all (5,050 in the first 4,000
+# documents), whose prefix the page does not say.
+LONG_DOCKET = re.compile(
+    r"\b(?i:(Finance\s+Docket|Ex\s+Parte))\s+(?i:Nos?)\.?[^\S\n]*(\d{1,6})([A-Z])?\b"
+)
+LONG_PREFIX = {"finance docket": "FD", "ex parte": "EP"}
 # The parenthetical after the number, with or without the words "Sub-No.". THE WORDS ARE
 # OPTIONAL, and that is the fix for a defect the scorer still carried on 2026-09-01: with
 # `Sub[-\s]?No\.` REQUIRED, `AB 1296X` normalised to `AB 1296 (X)` while `AB 1296 (X)`
@@ -90,6 +117,33 @@ DOCKET_KEY = re.compile(r"^[A-Z]{2,4} \d+")
 BARE_KEY = re.compile(r"^[A-Z]{2,4} (\d+)$")
 
 
+def docket_matches(text: str) -> list[re.Match]:
+    """Every docket-shaped number on the text, abbreviated or long, in page order.
+
+    ONE LIST FOR BOTH PATTERNS, so the finder, its quote boundary and the resolver's anchor
+    all agree on where a docket number starts. A match overlapping one already kept is
+    dropped: the two grammars share no token, so this is a guard, not a rule that fires."""
+    kept: list[re.Match] = []
+    for m in sorted([*DOCKET.finditer(text), *LONG_DOCKET.finditer(text)], key=lambda m: m.start()):
+        if not kept or m.start() >= kept[-1].end():
+            kept.append(m)
+    return kept
+
+
+def docket_search(text: str, pos: int = 0, endpos: int | None = None) -> re.Match | None:
+    """The first docket-shaped number in `text[pos:endpos]`, abbreviated or long."""
+    end = len(text) if endpos is None else endpos
+    hits = [m for m in (DOCKET.search(text, pos, end), LONG_DOCKET.search(text, pos, end)) if m]
+    return min(hits, key=lambda m: m.start()) if hits else None
+
+
+def prefix_of(m: re.Match) -> str:
+    """The registry's prefix for a match of either pattern: `FD` for `Finance Docket`."""
+    if m.re is LONG_DOCKET:
+        return LONG_PREFIX[" ".join(m.group(1).lower().split())]
+    return m.group(1).upper()
+
+
 def normalise(raw: str) -> str | None:
     """A printed target reduced to the comparable key, or None if it is not docket-shaped.
 
@@ -102,10 +156,10 @@ def normalise(raw: str) -> str | None:
     if not raw:
         return None
     text = unicodedata.normalize("NFKC", raw).replace("—", " ").replace("–", " ")
-    m = DOCKET.search(text)
+    m = docket_search(text)
     if not m:
         return None
-    key = f"{m.group(1).upper()} {int(m.group(2))}"
+    key = f"{prefix_of(m)} {int(m.group(2))}"
     # ANCHORED at the end of the number, so a parenthetical belonging to a later docket in
     # the same sentence — or a year at the end of a citation — cannot be grafted onto it
     sub = SUBNO.match(text[m.end() :])

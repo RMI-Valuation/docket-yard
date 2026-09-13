@@ -43,6 +43,13 @@ OUT = ROOT / "docs/research/benchmark/runs"
 DOCKET = re.compile(
     r"\b(FD|AB|EP|NOR|MCF|MCC|NOM|ISM|IS|SDM|WB|SO|DOP|STA|WCC|SUB)\s*[-\s]?\s*(\d{1,6})([A-Z])?\b",
 )
+# The Board's long names, `Finance Docket No. 34002` and `Ex Parte No. 711`, which carry no prefix
+# token for `DOCKET` (2026-09-13). Its OWN SPELLING of `keys.LONG_DOCKET`, groups in the same
+# positions, pinned equal by the parity test rather than imported.
+LONG_DOCKET = re.compile(
+    r"\b(?i:(Finance\s+Docket|Ex\s+Parte))\s+(?i:Nos?)\.?[^\S\n]*(\d{1,6})([A-Z])?\b"
+)
+LONG_PREFIX = {"finance docket": "FD", "ex parte": "EP"}
 # the document-versus-proceeding test, for placing findings from a run made before
 # target_kind existed: a prior decision is a citation whatever docket it sits in
 DOC_NAMED = re.compile(r"slip op\.|decision|order|served|NPRM|NITU|CITU", re.I)
@@ -68,9 +75,14 @@ def norm_target(raw: str) -> str:
     if not raw:
         return ""
     text = unicodedata.normalize("NFKC", raw).replace("—", " ").replace("–", " ")
-    m = DOCKET.search(text)
+    hits = [x for x in (DOCKET.search(text), LONG_DOCKET.search(text)) if x]
+    m = min(hits, key=lambda x: x.start()) if hits else None
     if m:
-        key = f"{m.group(1).upper()} {int(m.group(2))}"
+        if m.re is LONG_DOCKET:
+            prefix = LONG_PREFIX[" ".join(m.group(1).lower().split())]
+        else:
+            prefix = m.group(1).upper()
+        key = f"{prefix} {int(m.group(2))}"
         # ANCHORED, not searched over a window: a window grafts a later docket's
         # parenthetical, or a trailing year, onto this key (corrected 2026-09-01 with SUBNO)
         sub = SUBNO.match(text[m.end() :])
@@ -168,7 +180,9 @@ def on_page(quoted: str, doc_text: str) -> bool:
     over a page break has a footnote block between its halves in the text layer."""
     raw = quoted or ""
     q = flat(raw)
-    if len(q) < MIN_QUOTE and not (DOCKET.search(raw) or REPORTER.search(raw)):
+    if len(q) < MIN_QUOTE and not (
+        DOCKET.search(raw) or LONG_DOCKET.search(raw) or REPORTER.search(raw)
+    ):
         return True
     if q in doc_text:
         return True

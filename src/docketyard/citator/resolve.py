@@ -29,7 +29,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
-from docketyard.citator import keys
+from docketyard.citator import find, keys
 
 RESOLVER = "registry-match"
 RULE_1 = "rule-1"
@@ -176,31 +176,65 @@ def _anchored(passage: str, printed: str) -> str:
       never matched and its served date was dropped uncounted. The line is collapsed the
       same way before the search.
     - A bare `str.find` matched INSIDE a longer, different-family number: `FD 3687` found
-      itself in `FD 36873` and took that citation's served date. The occurrence must not be
-      followed by another digit. (A parent found inside its own sub-docket form,
-      `FD 36873 (Sub-No. 1)`, still matches — same family, the limit recorded before — and
-      a finder that reports offsets is still the real fix.)
+      itself in `FD 36873` and took that citation's served date.
     - The window ran to the next docket-shaped token or the end of the line, so a later
       citation on the same line that names its proceeding by TITLE handed its served date
       to the numbered docket before it. The window now also ends at a sentence boundary —
       a period, space, and a capitalised word followed by a space (`. Compare `, `. See `)
       — which leaves abbreviations inside a caption (`Ry. Co.—`, `Inc. (`) alone.
+
+    AND AN OCCURRENCE IS FOUND BY ITS KEY, NOT ITS SPELLING (ingest specialist, 2026-09-13,
+    F1). `printed` is the first occurrence's spelling only, and since finder 2026-09-13 one
+    finding folds `Finance Docket No. 34002` and `FD 34002` together: searching for the first
+    spelling never reached `See FD 34002, slip op. at 3 (STB served May 1, 2002)`, and a
+    re-load would have dropped a correct document to its docket. So every docket number on
+    the line is keyed the way the finder keys it (`find.printed`, `keys.normalise`) and each
+    one whose key is the target's anchors a window. A `printed` that keys as nothing keeps the
+    spelling search, since the spelling is all there is to anchor on.
+
+    THE FAMILY LIMIT IS KEPT, deliberately: an occurrence keyed as one of the target's own
+    sub-docket or suffixed forms (`FD 36873 (1)` for `FD 36873`) still anchors the parent, as the
+    spelling search did — a parent found inside `FD 36873 (Sub-No. 1)` takes that line's date,
+    the limit the 2026-09-10 review recorded and pinned. Retiring it changes work-level answers
+    of its own (measured on the production mirror, 2026-09-13: 8 lost, 4 gained, one of them a
+    parent that took its sub-docket's date wrongly) and is the operator's decision, not this
+    fix's (`docs/deferred.md`).
+
+    THIS WINDOW IS VERSIONED BY THE FINDER AND THE RANK, NOT BY `rule-1`: it narrows what a
+    row can be handed and never widens what a row asserts (the condition above), and every
+    answer it changes is written in the load that stamps the new finder's reading, from the
+    card measured with it.
     """
     out = []
     if not printed:
         return ""
-    target = re.compile(r"(?<![A-Za-z0-9])" + re.escape(printed) + r"(?!\d)")
+    key = keys.normalise(printed)
     for raw in passage.split(" | "):
         line = " ".join(raw.split())
-        for m in target.finditer(line):
-            end = m.end()
+        for end in _occurrence_ends(line, printed, key):
             stops = [len(line)]
-            if following := keys.DOCKET.search(line, end):
+            if following := keys.docket_search(line, end):
                 stops.append(following.start())
             if sentence := SENTENCE.search(line, end):
                 stops.append(sentence.start())
             out.append(line[end : min(stops)])
     return " | ".join(out)
+
+
+def _occurrence_ends(line: str, printed: str, key: str | None) -> list[int]:
+    """Where each occurrence of the target ends on the line: every docket number keying as
+    `key` or as one of its own sub-docket or suffixed forms (the family limit, above), to the
+    end the finder gives it, or, when `printed` keys as nothing, every place the spelling
+    itself stands alone."""
+    if key is None:
+        target = re.compile(r"(?<![A-Za-z0-9])" + re.escape(printed) + r"(?!\d)")
+        return [m.end() for m in target.finditer(line)]
+    ends = []
+    for m in keys.docket_matches(line):
+        found = keys.normalise(find.printed(line, m)) or ""
+        if found == key or found.startswith(key + " ("):
+            ends.append(find._target_end(line, m))
+    return ends
 
 
 def _work(docket_id: int, works: dict[tuple[int, str], str], segment: str) -> str | None:

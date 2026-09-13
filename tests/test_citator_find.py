@@ -22,10 +22,9 @@ def test_a_caption_is_emitted_and_labelled_rather_than_dropped():
     """The measured tool kept only what it called a citation — 401 captions dropped against
     356 citations on the sixty decisions. A row is never discarded.
 
-    The document-word window is ±160 characters, so the filler below is not padding: a
-    running caption near a citation reads as a citation, which is the measured behaviour of
-    the rule that scored 95.1% recall at 88.1% precision. Widening or narrowing it is a new
-    FINDER_VERSION and a re-measurement, not a tidy-up.
+    Since finder 2026-09-13b an own-family mention's kind is the span test's, read on the line
+    the target was quoted from, so a document word elsewhere on the page does not make a
+    caption a citation. Changing that test is a new FINDER_VERSION and a re-measurement.
     """
     page = (
         "SURFACE TRANSPORTATION BOARD\nDocket No. FD 36873\n"
@@ -183,3 +182,112 @@ def test_a_document_with_no_page_markers_is_one_page():
         "EP 445, slip op. at 3.", document_sha256="d" * 64, own=OWN, text_ref="benchmark"
     )
     assert doc["pages_read"] == 1 and doc["findings"][0]["page"] == 1
+
+
+# --- the Board's long names (finder 2026-09-13) --------------------------------------------
+
+
+def test_the_boards_long_names_are_found_and_keyed():
+    """Finder 2026-09-12 emitted nothing for either form: 6,028 (page, docket) citations to held
+    proceedings on the text layer, measured 2026-09-13. The spellings are the record's."""
+    page = (
+        "See STB Finance Docket No. 34002, slip op. at 4.\n"
+        "As held in Ex Parte No. 711 (Sub-No. 1), served March 1, 2016.\n"
+        "And FINANCE DOCKET NO. 33388, and Finance Docket Nos. 32760 et al.\n"
+    )
+    found = {keys.normalise(f["target"]): f["kind"] for f in find.find(page, OWN)}
+    assert found == {
+        "FD 34002": "citation",
+        "EP 711 (1)": "citation",
+        "FD 33388": "citation",
+        "FD 32760": "citation",
+    }
+
+
+def test_a_long_form_of_its_own_proceeding_is_a_caption():
+    """The own-docket rule does not care how the number was printed: a decision's caption in
+    capitals is still its own proceeding named as itself."""
+    page = (
+        "SURFACE TRANSPORTATION BOARD\nSTB FINANCE DOCKET NO. 36873\n"
+        + "The parties are directed to confer and report. " * 5
+    )
+    assert [(keys.normalise(f["target"]), f["kind"]) for f in find.find(page, OWN)] == [
+        ("FD 36873", "caption")
+    ]
+
+
+def test_the_words_alone_are_not_a_docket():
+    """`Ex Parte` is a legal phrase and `Finance Docket` a heading; only `No.` and a number make
+    either a proceeding. The four prose cases below are the code review's (2026-09-13): each keyed
+    a docket the page never printed under a first draft that made `No.` optional."""
+    assert find.find("An ex parte communication about the Finance Docket index.", OWN) == []
+    for prose in (
+        "a party's ex parte3 contact with staff",
+        "an ex parte 12 meeting was held",
+        "the ex parte\n2. The Board then turned to",
+        "under Finance Docket No.\n14 See the appendix",
+    ):
+        assert find.find(prose, OWN) == [], prose
+    # while a line break between the WORDS is how a caption wraps, and still reads
+    wrapped = find.find("STB Finance\nDocket No. 32760, slip op. at 2.", OWN)
+    assert [keys.normalise(f["target"]) for f in wrapped] == ["FD 32760"]
+
+
+def test_a_long_and_an_abbreviated_form_of_one_docket_are_one_finding():
+    page = "Finance Docket No. 34002 first, and FD 34002 again, slip op. at 3."
+    found = find.find(page, OWN)
+    assert len(found) == 1 and keys.normalise(found[0]["target"]) == "FD 34002"
+
+
+def test_the_anchor_stops_at_a_following_long_form():
+    """`resolve._anchored` reads a served date only up to the next docket number, so a long
+    form after a target must end the target's window or it hands over its own date."""
+    line = (
+        "See EP 445 (STB served Mar. 12, 2021); Finance Docket No. 34002 (STB served May 1, 2002)."
+    )
+    found = {keys.normalise(f["target"]): f for f in find.find(line, OWN)}
+    ep, fd = found["EP 445"], found["FD 34002"]
+    assert resolve.served_date(resolve._anchored(ep["quoted"], ep["target"])) == "2021-03-12"
+    assert resolve.served_date(resolve._anchored(fd["quoted"], fd["target"])) == "2002-05-01"
+
+
+def test_the_anchor_finds_a_target_by_its_key_whatever_its_first_spelling():
+    """Ingest specialist, 2026-09-13, F1. One finding folds a long and an abbreviated spelling,
+    and `target` is the first. Anchored on that spelling, the served date printed beside the
+    other was never reached, and a re-load would drop a correct document to its docket."""
+    page = (
+        "In Finance Docket No. 34002 the applicant sought an exemption.\n"
+        "See FD 34002, slip op. at 3 (STB served May 1, 2002).\n"
+    )
+    [f] = find.find(page, OWN)
+    assert f["target"] == "Finance Docket No. 34002"
+    assert resolve.served_date(resolve._anchored(f["quoted"], f["target"])) == "2002-05-01"
+
+
+def test_an_own_family_mention_is_a_caption_unless_its_line_names_a_document():
+    """Finder 2026-09-13b, the operator's decision after the long-form gate failed: 36 of 44
+    captions there read as citations only because `served` or `order` sat within 160 characters.
+    The kind is now the span test's (`judge.names_document`), on the quoted line."""
+    # the served date is within the old window but NOT the quoted line: a next line opening
+    # `(STB served …)` would be quoted as the citation's continuation (2026-09-11), and then the
+    # span test, which the projection reads too, rightly calls the line a document
+    beside = (
+        "ORDER\nSTB Finance Docket No. 36873\nDecided: March 10, 2021\n(STB served Mar. 12, 2021)"
+    )
+    assert [(keys.normalise(f["target"]), f["kind"]) for f in find.find(beside, OWN)] == [
+        ("FD 36873", "caption")
+    ]
+    cites = "See FD 36873 (STB served Mar. 12, 2021), which decided the question."
+    assert find.find(cites, OWN)[0]["kind"] == "citation"
+    numbered = "As in Decision No. 5, Finance Docket No. 36873, the Board held."
+    assert find.find(numbered, OWN)[0]["kind"] == "citation"
+    # another proceeding is a citation whatever its line says
+    assert find.find("STB Finance Docket No. 34002", OWN)[0]["kind"] == "citation"
+
+
+def test_a_long_forms_suffix_is_upper_case_only_as_the_abbreviated_one_is():
+    """Only the words are case-blind. `EP 290x` keys as nothing, so `Ex Parte No. 290x` must
+    too, or the two grammars would disagree about one printed proceeding."""
+    assert keys.normalise("Ex Parte No. 290X") == "EP 290 (X)"
+    assert keys.normalise("Ex Parte No. 290x") is None
+    assert keys.normalise("EP 290x") is None

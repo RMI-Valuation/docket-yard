@@ -67,6 +67,11 @@ class Loaded:
     caption_held: int = 0  # a caption call on a key a person answered: its citation kept
     retracted: int = 0  # an older finder's key this pass no longer emits, retired at itself
     retraction_held: int = 0  # ... one a person decided, or another channel reads, left alone
+    # a resolution superseded with a DOCUMENT it did not name before, or without one it did.
+    # Both rows say `registry-match@rule-1`, so without these a re-load that dropped correct
+    # documents to their docket would pass unseen (ingest specialist, 2026-09-13, F2).
+    work_gained: int = 0
+    work_lost: int = 0
     review: list[str] = field(default_factory=list)  # rendered keys, for ADR 0017 D5's queues
 
 
@@ -552,6 +557,18 @@ def load_document(
                 methods.DOCKET_CLASS if score is not None else None,
                 score,
             )
+        prior = con.execute(
+            "SELECT cited_decision_id FROM citation_resolution"
+            " WHERE citing_document = ? AND page = ? AND target_kind = 'stb' AND target_key = ?"
+            " AND method = ? AND method_version = ? AND reading_channel = ?"
+            " AND superseded_by IS NULL",
+            (sha, page, key, resolve.RESOLVER, r.method, channel),
+        ).fetchone()
+        if prior is not None and (prior[0] is None) != (r.decision_id is None):
+            if r.decision_id is None:
+                out.work_lost += 1
+            else:
+                out.work_gained += 1
         supersede.if_changed(
             con,
             table="citation_resolution",

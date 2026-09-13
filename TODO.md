@@ -25,8 +25,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   his check, `citation_dryrun.py` on `ocr` over the labelled pages, card, rank, load
 - **The finder cannot read `Finance Docket No. N` / `Ex Parte No. N`** (2026-09-12's): 6,028
   (page, docket) held citations missing from the text layer, 4,078 from 1996-2005. **Closed
-  before the OCR card (his decision)**: a finder version on a branch + PR, its own checked
-  long-form sample, a text-layer re-load (ROADMAP § Chosen)
+  before the OCR card (his decision)**: branch `finder-long-forms` (rank v4, card 226; 217/221),
+  gate 1 FAILED (55/99) -> finder 2026-09-13b (own family is a caption unless the span test names
+  a document, all forms; card 223/230, 217/221); GATE 2 PASSED (93/100, accepted by him);
+  rehearsed (runbook § The long-form re-load). Next: PR, bots, merge, production re-load; ADR
+  0017 addendum still PROPOSED for him (`docs/research/long-form-check/`)
 - **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
   blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where
   `dots.mocr` failed and PP-OCRv6 read it blank. Why `image_only_documents` missed them: unknown

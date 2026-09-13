@@ -574,6 +574,46 @@ projection's `DISTINCT` includes the stamp columns, so one edge can be several r
 the NET row change: the before snapshot kept identities, not whole rows, so which rows were
 added or retired was not measured.
 
+### The long-form re-load (finder 2026-09-13b, rank v4)
+
+The finder reads `Finance Docket No. N` and `Ex Parte No. N` (`keys.LONG_DOCKET`), and an
+own-family mention's kind is the span test's (`judge.names_document`), not a document-word
+window. A new finder version is a new `rank_version` (v4); no migration, no wall. It merges
+only past the long-form gate (`docs/research/long-form-check/README.md`). The order is the
+family re-load's, between two forward passes, with the UTC time before `declare` noted as the
+restore point:
+
+    docker compose run --rm --no-deps ingest citator declare \
+        --scores /data/citator-card-2026-09-13b.json </dev/null
+    docker compose run --rm --no-deps ingest citator find /data/citation-findings-<date> \
+        --channel text-layer </dev/null
+    docker compose run --rm --no-deps ingest citator load \
+        /data/citation-findings-<date>/text-layer </dev/null   # failed 0; work_gained/lost printed
+    docker compose run --rm --no-deps ingest citator restamp --apply </dev/null
+
+**The card** (`citation_dryrun.py` with this finder on `data/prod-copy.sqlite`, work block
+re-derived and unchanged): truth 226, citation 223/230, resolution 217/221, projection 217/221,
+work 140/140.
+
+**Rehearsed 2026-09-13** on a copy of the production mirror at rank v3 (19,393 rows, 16,766
+edges; queues 505 / 1 / 502): declare 1 s, find 16 s (19,944 documents, 101,750 findings), load
+59 s (0 failed, `caption_held` 0, retracted 0, `work_gained` 34, `work_lost` 18), restamp 26 s
+(21,676 rows, 10,593 to the work class).
+
+| | Before (v3) | After (v4) |
+|---|---|---|
+| Rows from `project.projected` | 19,393 | 25,777 |
+| Distinct edges (first five columns) | 16,766 | 22,547 |
+| Exposed / repaired / unresolved queues | 505 / 1 / 502 | 428 / 1 / 867 |
+
+**No edge a reader sees today is lost.** The 38 edge identities absent after are all the same
+(citing work, target, docket) naming a different decision — 24 now name one, 14 no longer do,
+the resolver's key anchor at work (the 14 were measured on the mirror as refusals where the page
+prints two service dates). Of the 5,819 added identities, 5,776 are new (work, target, docket)
+pairs, 5,777 identities in all coming from a long-form reading; the other 43 are those decision
+changes seen from the far side. The unresolved queue grows by 365: long-form numbers the
+registry does not hold but whose number sits inside a held range, which ADR 0017 D5 queues.
+
 ### Verifying, and going back
 
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null

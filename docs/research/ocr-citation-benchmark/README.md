@@ -87,8 +87,9 @@ sixty's checked sheet, split the same way, is 403, 0 and 7.
   30000`. Measured on the text layer the citator already walks (134,723 pages): **6,028
   (page, docket) long-form mentions of another proceeding the registry holds are not emitted**
   (4,078 in decisions served 1996–2005, 1,864 in 2006–2019, 86 from 2020), with 121 more naming
-  a docket it does not hold, and 21,128 naming the document's own family, which are captions
-  and lose nothing. Sub-numbers were not parsed, so a sibling sub-docket counted as own and the
+  a docket it does not hold, and 21,128 naming the document's own family, which lose nothing
+  (counted by family, not by the finder's `kind`: an own-family mention near `Decision No.`
+  reads as a citation and is suppressed at projection). Sub-numbers were not parsed, so a sibling sub-docket counted as own and the
   loss is under-counted. An OCR card measured with this finder would record its grammar, not
   the OCR, so a finder version reading `Finance Docket No.` and `Ex Parte No.` comes first,
   with its own checked sample (the sixty print no long form) and a text-layer re-load.
