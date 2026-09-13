@@ -1,0 +1,4 @@
+document_sha256	page	row	verdict	note
+35950a11b06e9e81557255756af1c4007edf3e301a7eceebcb576a7337ffb90f	233	0	wrong	operator 2026-09-13 (was unsure): a caption — "STB Finance Docket 34248" is the document's own FD 34284 transposed (FD 34248 is an unrelated 2002 Dallas-area trackage-rights docket)
+81fe68315adaacb348df9d7a90212c6a66e9ea61326316428e047b3cf39499ac	1	1	wrong	operator 2026-09-13 (was unsure): a caption — the letter's heading names both paired dockets, AB 312 (Sub-No. 4X) and AB 1000 (Sub-No. 4X); the record files decision 47308 (served 2019-10-22) under AB 312 (4X) only
+cd787e4ed95fc395891d4a23b03e61428fa0805753d4150661c2bf1f4ddfc51f	1	1	wrong	operator 2026-09-13 (was unsure): a caption — "the Abandonment Dockets" are AB 33 (Sub-No. 156) and AB 33 (Sub-No. 253X), both in the letter's heading; the record files decision 44078 (served 2014-10-20) under AB 33 (156) only
