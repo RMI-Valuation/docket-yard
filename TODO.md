@@ -21,9 +21,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (`cite.py` sends `decided`)
 - **The OCR walk** (1,022 documents; `load` refuses it, `Unscored`): his decisions of 2026-09-13
   in `docs/research/ocr-citation-benchmark/` — 98 documents drawn, 548 pages, drafted (813 rows),
-  check pages built; truth = rows whose page PRINTS a docket. NEXT (the long-form finder shipped
-  in v2026.09.19): rebuild the check pages' finder highlights with finder 2026-09-13b (built on
-  2026-09-12's), his check, `citation_dryrun.py` on `ocr` over the labelled pages, card, rank, load
+  check pages built; truth = rows whose page PRINTS a docket. NEXT (his order, 2026-09-13):
+  rebuild the check pages' finder highlights with finder 2026-09-13b, his check, `citation_dryrun
+  .py` on `ocr` over the labelled pages, card, rank, load. THEN the 903 residue (his order)
 - **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
   blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where
   `dots.mocr` failed and PP-OCRv6 read it blank. Why `image_only_documents` missed them: unknown
@@ -32,6 +32,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 - **His 39 judged captions**: finder 2026-09-11 called 16 of them `citation`, so they stayed
   queued; not yet re-measured under the family closure (live since v2026.09.18)
+- **His decisions of 2026-09-13 (`docs/deferred.md`)**: a check page of the 12 answers retiring
+  the family limit would change, for him to judge; and a six-digit fused-footnote repair measured
+  across both forms, sampled for him, with an ADR 0017 addendum proposal before code
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion

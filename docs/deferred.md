@@ -1298,7 +1298,9 @@ not read, each small or ambiguous enough to want its own decision:
   (`ex parte3` as EP 3, `Finance Docket↵14` as FD 14). A rule admitting them would need the
   capitalised words and a same-line number at least, measured on its own false positives.
 - **A footnote digit fused onto a five-digit long form stays unresolved and unreviewed**
-  (ingest specialist F6). Measured on the production mirror: **176** long-form matches key a
+  (ingest specialist F6). *(Decided 2026-09-13 by the operator: measure a six-digit repair across
+  both forms, draw a sample for him to judge, and bring an ADR 0017 addendum proposal before any
+  code. Ten misses across the two long-form gates were this pattern.)* Measured on the production mirror: **176** long-form matches key a
   six-digit number the registry does not hold, and in every one the five-digit parent IS held
   (`STB Finance Docket No. 340871↵TRINIDAD RAILWAY` — a caption with its footnote marker
   fused). Rule 2 repairs only five printed digits and `review.in_the_held_record` queues nothing
@@ -1306,7 +1308,9 @@ not read, each small or ambiguous enough to want its own decision:
   this finder they were not emitted at all, so nothing regressed. Widening rule 2 to six
   digits reopens ADR 0017's exposure reasoning (`keys.py` names the cost), so it is the
   operator's decision, not a patch.
-- **The resolver's family limit: a parent takes its own sub-docket's served date.** Pinned by
+- **The resolver's family limit: a parent takes its own sub-docket's served date.** *(Decided
+  2026-09-13 by the operator: he judges the 12 answers retiring it would change, and the count
+  decides.)* Pinned by
   the 2026-09-10 review as a limit that must survive (`test_the_anchor_finds_the_target_as_
   printed_and_stops_at_a_sentence`), and kept when `resolve._anchored` moved from a spelling to
   a key (ingest specialist F1, 2026-09-13): `FD 36873` anchors on `FD 36873 (Sub-No. 1) (STB
