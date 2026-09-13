@@ -105,12 +105,14 @@ def describe(con, path: Path) -> dict:
         "earliest_year": earliest_year(decisions),
         "pages_read": int(doc.get("pages_read") or 0),
         "text_pages": sorted(text_ids),
-        "page_engines": dict(Counter(engine_of.values())),
+        # SORTED, as every dict below is: these are counted from sets, whose order changes from
+        # one process to the next, and a re-run must reproduce the recorded file byte for byte
+        "page_engines": dict(sorted(Counter(engine_of.values()).items())),
         "citation_keys": len(cited),
         "citation_keys_by_page": {
             str(p): n for p, n in sorted(Counter(p for p, _ in cited).items())
         },
-        "citation_page_engines": dict(by_engine),
+        "citation_page_engines": dict(sorted(by_engine.items())),
         "captions": sum(1 for f in doc.get("findings") or [] if f.get("kind") == "caption"),
         # the tie rule of the module docstring: DOTS only on a strict majority
         "engine": DOTS if by_engine[DOTS] > by_engine[PPOCR] else PPOCR,
