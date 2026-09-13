@@ -587,6 +587,7 @@ def _citator(args: argparse.Namespace) -> int:
         "unresolved",
         "unchanged",
         "human_held",
+        "caption_held",
         "retracted",
         "retraction_held",
     )

@@ -435,6 +435,12 @@ so a mention of the citing decision's OWN docket still becomes a citation whenev
 decision's own caption block contains. The own-docket rule (ADR 0017 D1) is a disjunct, not a
 veto, and the caption block supplies the words that defeat it.
 
+**Finder 2026-09-12 widens `own` to the family** (self, parent and sub-dockets, the closure
+the projection already suppresses on). Measured 2026-09-13 on a copy mirroring production's
+citator: 1,229 keys move from citation to caption and none the other way, none of them a
+projected edge, and 349 of them in the exposed queue as v2026.09.17 gates it (854 before). The
+649 above was counted under the old, docket-only rule.
+
 **What is NOT established.** Two models sharing one prompt are not two witnesses: the prompt
 tells them a bare number naming no document is a proceeding, so their agreement is partly the
 prompt talking to itself. The passages and the code path are independent of the models; the

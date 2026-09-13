@@ -95,12 +95,26 @@ def citing_documents(con: sqlite3.Connection, ids: set[str]) -> dict[str, str]:
 
 
 def own_dockets(con: sqlite3.Connection) -> dict[str, set[str]]:
-    """Per decision, the normalised keys of every docket it is entered in — the record's own
-    knowledge, which ADR 0017 D1 says no extractor should be asked to guess."""
+    """Per decision, the normalised keys of every docket it is entered in AND THAT DOCKET'S
+    FAMILY — its parent and sub-dockets — the record's own knowledge, which ADR 0017 D1 says no
+    extractor should be asked to guess.
+
+    THE SAME RULE AS `walk._DOCUMENTS` (finder 2026-09-12), keyed by decision here because the
+    benchmark text is one file per decision. It was self-only after the finder moved to the
+    family, so a card stamped 2026-09-12 would have carried figures measured with the rule
+    production no longer runs — ADR 0017 D3's borrowed precision (ingest specialist,
+    2026-09-13, finding 1). A test pins the two to one answer."""
     out: dict[str, set[str]] = {}
     for did, prefix, seq, sub_seq, suffix in con.execute(
         "SELECT r.stb_decision_id, d.prefix, d.sequence, d.sub_sequence, d.suffix"
         " FROM decision_record r JOIN docket d USING (docket_id)"
+        " UNION"
+        " SELECT r.stb_decision_id, p.prefix, p.sequence, p.sub_sequence, p.suffix"  # parent
+        " FROM decision_record r JOIN docket me ON me.docket_id = r.docket_id"
+        " JOIN docket p ON p.docket_id = me.parent_docket_id"
+        " UNION"
+        " SELECT r.stb_decision_id, c.prefix, c.sequence, c.sub_sequence, c.suffix"  # sub-dockets
+        " FROM decision_record r JOIN docket c ON c.parent_docket_id = r.docket_id"
     ):
         out.setdefault(str(did), set()).add(keys.registry_key(prefix, seq, sub_seq, suffix))
     return out

@@ -56,21 +56,65 @@ SELECT t.page_no, t.text, t.reading_channel, t.text_id
  ORDER BY t.page_no
 """
 
-# Every document a DECISION carries, with the dockets its decisions sit in. The join is the
-# whole of what makes a document citable: a filing's attachment has text too, and ADR 0017
-# is about what one decision says of another.
+# Every document a DECISION carries, with the dockets its decisions sit in AND THEIR FAMILY.
+# The join is the whole of what makes a document citable: a filing's attachment has text too,
+# and ADR 0017 is about what one decision says of another.
+#
+# THE FAMILY, NOT THE DOCKET ALONE (measured 2026-09-12). ADR 0017 D4 already treats self,
+# sub-dockets and parent as one family when it SUPPRESSES an edge at projection
+# (`project.family`), and ADR 0005 makes a docket number a composite key with parent and
+# child. The finder's own-docket set did not: a decision entered in `EP 558 (2)` did not hold
+# `EP 558`, so its own running header — "STB Docket No. EP 558" — read as a citation to a
+# proceeding it is itself part of. The projection then suppressed it as family, so no reader
+# was shown a wrong edge, but the row was stored as a citation and filled the review queue:
+# 971 of the 1,476 `citation_exposed` items are captions under this closure against 622
+# without it, which is within 1% of what two models independently said and what the operator
+# confirmed on a judged sample of forty (39 captions, 0 citations).
+#
+# WHAT IT CAN LOSE, AND WHAT WAS MEASURED. `find` reads `DOC_WORDS(context) or key not in
+# own`, so widening `own` only moves a key from "a citation always" to "a citation when a
+# document word is near". A decision citing a PRIOR decision of its own family normally
+# carries "served", "slip op." or "Decision No." beside the number and still reads as a
+# citation — the operator's own rule, corrected on the work card 2026-09-10. But this is NOT
+# a guarantee by construction (review, 2026-09-12): the span test's `\bDecision\s+\d{4,6}\b`
+# is a document word `DOC_WORDS` does not hold (`load.py` records the same gap), so an
+# in-family citation whose ONLY document word is `Decision 41123` would flip to a caption, be
+# stamped `unmeasured` and never project. A second route: the span test reads the whole quoted
+# line, the finder a ±160-character window, so a served date on the same line but beyond the
+# window is seen by one and not the other (ingest specialist's re-check, 2026-09-13).
+#
+# MEASURED 2026-09-13 on a copy mirroring production's citator (finder 2026-09-11, rank v2):
+# 1,229 keys flip citation -> caption and none the other way; the span test is true for NONE of
+# them, NONE is a projected edge today, and 349 are in the gated exposed queue (854 -> ~505).
+# Widening `DOC_WORDS` (or adding the span test to `find`) would close the gap, and is a
+# finder rule of its own, not folded into this change.
 _DOCUMENTS = """
 SELECT a.document_sha256, d.prefix, d.sequence, d.sub_sequence, d.suffix
   FROM decision_attachment a
   JOIN decision_record r ON r.decision_pk = a.decision_pk
   JOIN docket d ON d.docket_id = r.docket_id
  WHERE a.document_sha256 IS NOT NULL
- ORDER BY a.document_sha256
+UNION
+SELECT a.document_sha256, p.prefix, p.sequence, p.sub_sequence, p.suffix   -- the parent
+  FROM decision_attachment a
+  JOIN decision_record r ON r.decision_pk = a.decision_pk
+  JOIN docket me ON me.docket_id = r.docket_id
+  JOIN docket p ON p.docket_id = me.parent_docket_id
+ WHERE a.document_sha256 IS NOT NULL
+UNION
+SELECT a.document_sha256, c.prefix, c.sequence, c.sub_sequence, c.suffix   -- its sub-dockets
+  FROM decision_attachment a
+  JOIN decision_record r ON r.decision_pk = a.decision_pk
+  JOIN docket c ON c.parent_docket_id = r.docket_id
+ WHERE a.document_sha256 IS NOT NULL
+ ORDER BY 1
 """
 
 
 def own_by_document(con: Connection) -> dict[str, set[str]]:
-    """document -> the registry keys of every docket a decision carrying it sits in.
+    """document -> the registry keys of every docket a decision carrying it sits in, AND of
+    that docket's parent and sub-dockets — ADR 0017 D4's family, the same closure the
+    projection suppresses on (see `_DOCUMENTS`).
 
     ADR 0017 D1 keeps the caption/citation judgement with the extractor because the record
     already knows which proceeding a decision belongs to, and `find` refuses an empty set

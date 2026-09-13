@@ -5,7 +5,7 @@ and what a retraction must leave alone (schema-critic, 2026-09-11)."""
 
 import pytest
 
-from docketyard.citator import find, keys, load, methods, restamp, review
+from docketyard.citator import find, keys, load, methods, project, restamp, review
 from tests.test_citator_pipeline import (
     SHA,
     STAMP,
@@ -193,6 +193,187 @@ def test_a_question_still_open_before_a_person_holds_the_key(tmp_path):
     con, result = _reviewed(tmp_path, "escalated")
     assert (result.retracted, result.retraction_held) == (0, 1)
     assert "AB 1242" in _live(con)
+
+
+def test_a_decided_key_the_new_finder_calls_a_caption_is_held(tmp_path):
+    """Finder 2026-09-12 turns 1,229 citations into captions. A review writes
+    `citation_resolution`, never `citation`, so the `human` identity-row check cannot see an
+    answered key — and writing the new `unmeasured` caption over its measured citation would
+    stop the reviewer's accepted edge publishing without superseding the reviewer's row
+    (ingest specialist, 2026-09-13, finding 3; ADR 0017 D5)."""
+    con = _review_store(tmp_path)
+    stamps = _review_scored(con)
+    doc = {
+        "document_sha256": SHA,
+        "method": methods.EXTRACTOR,
+        "method_version": "v1",
+        "reading_channel": methods.CHANNEL_TEXT,
+        "text_ref": "benchmark",
+        "pages_read": 9,
+        "pages_walked": [EXPOSED["page"]],
+        "findings": [EXPOSED],
+    }
+    _load(con, doc, stamps)
+    review.decide(
+        con,
+        reviewer_id=_grant(con),
+        queue="citation_exposed",
+        item=review.pending(con, "citation_exposed")[0],
+        decision="accepted",
+        note="checked the page",
+    )
+    con.execute("UPDATE citation SET method_version = ? WHERE target_key = 'AB 1242'", (OLD,))
+
+    result = _load(con, dict(doc, findings=[{**EXPOSED, "kind": "caption"}]), stamps)
+    assert (result.caption_held, result.human_held) == (1, 0), "counted apart from a human row"
+    assert con.execute(
+        "SELECT method_version, confidence_state FROM citation WHERE target_key = 'AB 1242'"
+        " AND superseded_by IS NULL"
+    ).fetchone() == (OLD, "measured"), "the measured citation a person answered stands"
+    # and the finder's disagreement is RECORDED, not dropped: its caption call is the live kind
+    assert con.execute(
+        "SELECT method_version, value FROM citation_judgement WHERE target_key = 'AB 1242'"
+        " AND judgement = 'kind' AND superseded_by IS NULL"
+    ).fetchall() == [("v1", "caption")]
+
+
+def test_an_accepted_in_family_edge_keeps_publishing_when_the_finder_calls_it_a_caption(tmp_path):
+    """Codex review on PR #27 (2026-09-13). An in-family edge publishes only while its span
+    judgement is measured `true` — a review writes a human resolution and reading, never a
+    span row — so holding the citation alone was not enough: the caption stamp demoted the
+    span and the edge a person accepted disappeared."""
+    con = _review_store(tmp_path)
+    stamps = _review_scored(con)
+    own = {"page": 6, "target": "FD 36873", "quoted": "See FD 36873, slip op. at 3."}
+    doc = {
+        "document_sha256": SHA,
+        "method": methods.EXTRACTOR,
+        "method_version": "v1",
+        "reading_channel": methods.CHANNEL_TEXT,
+        "text_ref": "benchmark",
+        "pages_read": 9,
+        "pages_walked": [own["page"]],
+        "findings": [{**own, "kind": "citation"}],
+    }
+    _load(con, doc, stamps)
+    shown = lambda: {r[2] for r in project.projected(con)}  # noqa: E731
+    assert "FD 36873" in shown(), "in family, and the span names a document: it projects"
+    review.decide(
+        con,
+        reviewer_id=_grant(con),
+        queue="citation_exposed",
+        item={
+            "citing_document": SHA,
+            "page": own["page"],
+            "target_kind": "stb",
+            "target_key": "FD 36873",
+            "cited_docket_id": 1,
+            "cited_raw": "FD 36873",
+            "quoted_passage": own["quoted"],
+        },
+        decision="accepted",
+        note="checked the page",
+    )
+    con.execute("UPDATE citation SET method_version = ? WHERE target_key = 'FD 36873'", (OLD,))
+
+    result = _load(con, dict(doc, findings=[{**own, "kind": "caption"}]), stamps)
+    assert result.caption_held == 1
+    assert con.execute(
+        "SELECT value, confidence_state FROM citation_judgement WHERE target_key = 'FD 36873'"
+        " AND judgement = 'span_names_document' AND superseded_by IS NULL"
+    ).fetchone() == ("true", "measured"), "the span a published in-family edge rests on stays"
+    assert "FD 36873" in shown(), "the edge a person accepted still publishes"
+
+
+def test_a_held_caption_is_counted_even_when_the_citation_is_unchanged(tmp_path):
+    """Codex review on PR #27 (2026-09-13). A backfill can turn a reviewed key into a caption
+    with no finder bump; the held key then stamps as the citation it still is, so its live row
+    at the current version counts as `unchanged` — and `caption_held`, which exists to show the
+    operator where the finder now disagrees with a person, must still count it."""
+    con = _review_store(tmp_path)
+    stamps = _review_scored(con)
+    doc = {
+        "document_sha256": SHA,
+        "method": methods.EXTRACTOR,
+        "method_version": "v1",
+        "reading_channel": methods.CHANNEL_TEXT,
+        "text_ref": "benchmark",
+        "pages_read": 9,
+        "pages_walked": [EXPOSED["page"]],
+        "findings": [EXPOSED],
+    }
+    _load(con, doc, stamps)
+    review.decide(
+        con,
+        reviewer_id=_grant(con),
+        queue="citation_exposed",
+        item=review.pending(con, "citation_exposed")[0],
+        decision="accepted",
+        note="checked the page",
+    )
+    # the SAME finder version, now calling it a caption: nothing in the citation changes
+    result = _load(con, dict(doc, findings=[{**EXPOSED, "kind": "caption"}]), stamps)
+    assert (result.unchanged, result.caption_held) == (1, 1), "unchanged, and still counted"
+    assert con.execute(
+        "SELECT method_version, confidence_state FROM citation WHERE target_key = 'AB 1242'"
+        " AND superseded_by IS NULL"
+    ).fetchone() == ("v1", "measured")
+
+
+def test_a_key_reloaded_as_a_caption_keeps_no_measured_resolution_or_span(tmp_path):
+    """`if_changed` compared only the answer, so a key whose `kind` flipped kept a `measured`
+    resolution and span judgement pointing at the old card — a class a caption never has —
+    and `restamp` would re-stamp it (ingest specialist, 2026-09-13, finding 4)."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    finding = {"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}
+    _load(con, _findings({**finding, "kind": "citation"}), stamps)
+    live = "SELECT confidence_state FROM {t} WHERE target_key = 'EP 445' AND superseded_by IS NULL"
+    assert con.execute(live.format(t="citation_resolution")).fetchone() == ("measured",)
+
+    result = _load(con, _findings({**finding, "kind": "caption"}), stamps)
+    assert con.execute(live.format(t="citation_resolution")).fetchone() == ("unmeasured",)
+    # and the IDENTITY row too, at the SAME finder version: a later sub-docket in the registry
+    # flips `own` with no version bump, so matching on version alone left it measured (Codex)
+    assert result.unchanged == 0, "a changed state is not an unchanged assertion"
+    assert con.execute(live.format(t="citation")).fetchone() == ("unmeasured",)
+    assert con.execute(
+        "SELECT confidence_state FROM citation_judgement WHERE target_key = 'EP 445'"
+        " AND judgement = 'span_names_document' AND superseded_by IS NULL"
+    ).fetchone() == ("unmeasured",)
+
+
+def test_an_older_finders_kind_is_superseded_by_the_new_one(tmp_path):
+    """The `kind` lookup is keyed on the finder version, so a bump left the old answer live
+    beside the new — 73,212 rows of 2026-09-01 beside 2026-09-11's in production (ingest
+    specialist, 2026-09-13, finding 5). The old row now points at the new one."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    _older(con, 4, "EP 445")
+    # TWO older versions live on one key, as production holds (2026-09-01 and 2026-09-11)
+    old_ids = [
+        con.execute(
+            "INSERT INTO citation_judgement (citing_document, page, target_kind, target_key,"
+            " judgement, value_domain, value, method, method_version, reading_channel,"
+            " asserted_from_document, source_location, asserted_at, confidence,"
+            " confidence_state) VALUES (?, 4, 'stb', 'EP 445', 'kind', 'kind', 'caption', ?,"
+            " ?, ?, ?, '{\"page\": 4}', ?, 0, 'unmeasured')",
+            (SHA, methods.EXTRACTOR, older, methods.CHANNEL_TEXT, SHA, STAMP),
+        ).lastrowid
+        for older in (OLD, "2026-08-30")
+    ]
+
+    finding = {"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}
+    _load(con, _walked({**finding, "kind": "citation"}), stamps)
+    live = con.execute(
+        "SELECT judgement_id, method_version, value FROM citation_judgement"
+        " WHERE target_key = 'EP 445' AND judgement = 'kind' AND superseded_by IS NULL"
+    ).fetchall()
+    assert [(v, x) for _, v, x in live] == [("v1", "citation")], "one live answer, the new one"
+    for old_id in old_ids:  # BOTH older versions point at the new row, not only the newest
+        assert con.execute(
+            "SELECT superseded_by FROM citation_judgement WHERE judgement_id = ?", (old_id,)
+        ).fetchone() == (live[0][0],)
 
 
 def test_a_batch_from_another_version_of_this_builds_finder_is_refused(tmp_path):

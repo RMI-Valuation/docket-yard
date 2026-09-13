@@ -101,7 +101,11 @@ def stale(con, stamps: dict) -> list[tuple]:
         "                  AND c.page = citation_resolution.page"
         "                  AND c.target_kind = citation_resolution.target_kind"
         "                  AND c.target_key = citation_resolution.target_key"
-        "                  AND c.superseded_by IS NULL AND c.method_version = ?)",
+        "                  AND c.superseded_by IS NULL AND c.method_version = ?"
+        # and only a PUBLISHABLE key: a caption's citation is `unmeasured`, and re-stamping its
+        # resolution from a card would write a measured class no caption has (ingest
+        # specialist, 2026-09-13, finding 4) — the same gate `review._base` and the projection use
+        "                  AND c.confidence_state IN ('measured', 'human'))",
         (*_OURS, finder),
     ):
         wanted = work if (row[3] is not None and work is not None) else docket

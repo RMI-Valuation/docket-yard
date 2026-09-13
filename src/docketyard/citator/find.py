@@ -34,7 +34,7 @@ import re
 
 from docketyard.citator.keys import DOCKET, SUBNO, normalise
 
-FINDER_VERSION = "2026-09-11"  # the wrapped `(Sub-No. …)`, and the quote's continuation line
+FINDER_VERSION = "2026-09-12"  # `own` is the family: a decision's parent docket is its own
 
 # THE SPANS' OWN VERSION, and the reason it is not `FINDER_VERSION` (ADR 0026 D7). A character
 # offset IS a derived assertion — a claim about where in a text a string sits — and CLAUDE.md

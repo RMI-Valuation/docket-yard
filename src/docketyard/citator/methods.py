@@ -20,7 +20,13 @@ CHANNEL_TEXT = "text-layer"
 # `assertion_method_one_owner` allows one owner per class per rank_version and this registry is
 # append-only, so a new finder version is a new rank_version (`declare` says so when refused).
 # Every rank row is re-declared under it, unchanged but for the owner; v1 stays on record.
-RANK_VERSION = "v2"
+#
+# v3 (2026-09-12): `find.FINDER_VERSION` moved to 2026-09-12 — `walk.own_by_document` now
+# returns ADR 0017 D4's FAMILY (self, parent, sub-dockets) rather than only the dockets a
+# decision sits in, so a decision's own running header stops reading as a citation to a
+# proceeding it is part of. The judgement changes, therefore the version does: v2 stays on
+# record and every edge stamped by it is re-measured rather than reinterpreted.
+RANK_VERSION = "v3"
 # A human is a method, a channel and a version like any other — `reading_vocab` carries
 # 'human' for exactly this reason (ADR 0018 D3: the channel is in every key, so a human row
 # must carry something legal).
