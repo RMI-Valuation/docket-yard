@@ -195,6 +195,100 @@ def test_a_question_still_open_before_a_person_holds_the_key(tmp_path):
     assert "AB 1242" in _live(con)
 
 
+def test_a_decided_key_the_new_finder_calls_a_caption_is_held(tmp_path):
+    """Finder 2026-09-12 turns 1,229 citations into captions. A review writes
+    `citation_resolution`, never `citation`, so the `human` identity-row check cannot see an
+    answered key — and writing the new `unmeasured` caption over its measured citation would
+    stop the reviewer's accepted edge publishing without superseding the reviewer's row
+    (ingest specialist, 2026-09-13, finding 3; ADR 0017 D5)."""
+    con = _review_store(tmp_path)
+    stamps = _review_scored(con)
+    doc = {
+        "document_sha256": SHA,
+        "method": methods.EXTRACTOR,
+        "method_version": "v1",
+        "reading_channel": methods.CHANNEL_TEXT,
+        "text_ref": "benchmark",
+        "pages_read": 9,
+        "pages_walked": [EXPOSED["page"]],
+        "findings": [EXPOSED],
+    }
+    _load(con, doc, stamps)
+    review.decide(
+        con,
+        reviewer_id=_grant(con),
+        queue="citation_exposed",
+        item=review.pending(con, "citation_exposed")[0],
+        decision="accepted",
+        note="checked the page",
+    )
+    con.execute("UPDATE citation SET method_version = ? WHERE target_key = 'AB 1242'", (OLD,))
+
+    result = _load(con, dict(doc, findings=[{**EXPOSED, "kind": "caption"}]), stamps)
+    assert (result.caption_held, result.human_held) == (1, 0), "counted apart from a human row"
+    assert con.execute(
+        "SELECT method_version, confidence_state FROM citation WHERE target_key = 'AB 1242'"
+        " AND superseded_by IS NULL"
+    ).fetchone() == (OLD, "measured"), "the measured citation a person answered stands"
+    # and the finder's disagreement is RECORDED, not dropped: its caption call is the live kind
+    assert con.execute(
+        "SELECT method_version, value FROM citation_judgement WHERE target_key = 'AB 1242'"
+        " AND judgement = 'kind' AND superseded_by IS NULL"
+    ).fetchall() == [("v1", "caption")]
+
+
+def test_a_key_reloaded_as_a_caption_keeps_no_measured_resolution_or_span(tmp_path):
+    """`if_changed` compared only the answer, so a key whose `kind` flipped kept a `measured`
+    resolution and span judgement pointing at the old card — a class a caption never has —
+    and `restamp` would re-stamp it (ingest specialist, 2026-09-13, finding 4)."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    finding = {"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}
+    _load(con, _findings({**finding, "kind": "citation"}), stamps)
+    live = "SELECT confidence_state FROM {t} WHERE target_key = 'EP 445' AND superseded_by IS NULL"
+    assert con.execute(live.format(t="citation_resolution")).fetchone() == ("measured",)
+
+    _load(con, _findings({**finding, "kind": "caption"}), stamps)
+    assert con.execute(live.format(t="citation_resolution")).fetchone() == ("unmeasured",)
+    assert con.execute(
+        "SELECT confidence_state FROM citation_judgement WHERE target_key = 'EP 445'"
+        " AND judgement = 'span_names_document' AND superseded_by IS NULL"
+    ).fetchone() == ("unmeasured",)
+
+
+def test_an_older_finders_kind_is_superseded_by_the_new_one(tmp_path):
+    """The `kind` lookup is keyed on the finder version, so a bump left the old answer live
+    beside the new — 73,212 rows of 2026-09-01 beside 2026-09-11's in production (ingest
+    specialist, 2026-09-13, finding 5). The old row now points at the new one."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    _older(con, 4, "EP 445")
+    # TWO older versions live on one key, as production holds (2026-09-01 and 2026-09-11)
+    old_ids = [
+        con.execute(
+            "INSERT INTO citation_judgement (citing_document, page, target_kind, target_key,"
+            " judgement, value_domain, value, method, method_version, reading_channel,"
+            " asserted_from_document, source_location, asserted_at, confidence,"
+            " confidence_state) VALUES (?, 4, 'stb', 'EP 445', 'kind', 'kind', 'caption', ?,"
+            " ?, ?, ?, '{\"page\": 4}', ?, 0, 'unmeasured')",
+            (SHA, methods.EXTRACTOR, older, methods.CHANNEL_TEXT, SHA, STAMP),
+        ).lastrowid
+        for older in (OLD, "2026-08-30")
+    ]
+
+    finding = {"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}
+    _load(con, _walked({**finding, "kind": "citation"}), stamps)
+    live = con.execute(
+        "SELECT judgement_id, method_version, value FROM citation_judgement"
+        " WHERE target_key = 'EP 445' AND judgement = 'kind' AND superseded_by IS NULL"
+    ).fetchall()
+    assert [(v, x) for _, v, x in live] == [("v1", "citation")], "one live answer, the new one"
+    for old_id in old_ids:  # BOTH older versions point at the new row, not only the newest
+        assert con.execute(
+            "SELECT superseded_by FROM citation_judgement WHERE judgement_id = ?", (old_id,)
+        ).fetchone() == (live[0][0],)
+
+
 def test_a_batch_from_another_version_of_this_builds_finder_is_refused(tmp_path):
     """`citator load` declares the batch's version the owner of this build's rank_version, and
     the registry is append-only: an old findings directory loaded by mistake after a finder

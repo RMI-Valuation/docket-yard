@@ -3,7 +3,9 @@
 Two model families, run over all 1,476 `citation_exposed` items, independently agree that 981
 of them are not citations at all but the deciding decision's own caption — a bare docket
 number naming no document (`docs/extraction-benchmark.md`). 649 of those are the citing
-decision's own docket and 964 have no served date anywhere near them.
+decision's own docket and 964 have no served date anywhere near them. (The 649 was counted
+against the docket alone; `own` is the docket FAMILY since finder 2026-09-12, so a re-run
+prints a larger figure that is not comparable with it.)
 
 **That agreement is not two independent witnesses.** Both models were given the same prompt,
 and that prompt tells them a bare number naming no document is a proceeding. The agreement
@@ -32,8 +34,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 import review_queue_panel as rp  # noqa: E402
 
 from docketyard.citator import resolve, review, walk  # noqa: E402
+from docketyard.web import urls as site  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
+SITE = "https://docketyard.org"
 SEED = 20260912  # named, so the same forty come back and the measurement can be checked
 
 PAGE = """<title>Caption or citation?</title>
@@ -56,6 +60,9 @@ margin-bottom:1em}
 font:.95rem/1.6 "IBM Plex Mono",ui-monospace,monospace;white-space:pre-wrap;
 overflow-wrap:anywhere;margin:.8em 0}
 mark{background:var(--mark);color:inherit}
+.links{font-size:.9rem;margin:.6em 0 .2em}
+.links a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--rule)}
+.links a:hover{border-bottom-color:var(--accent)}
 .says{font-size:.9rem;color:var(--muted);margin:.6em 0 1em}
 .btns{display:flex;gap:.5em;flex-wrap:wrap}
 button{font:inherit;padding:.5em 1em;border-radius:6px;border:1px solid var(--rule);
@@ -96,11 +103,19 @@ function draw(){
     return `<div class=card>
       <div><span class=key>${esc(r.printed)}</span></div>
       <div class=meta>in decision ${esc(r.citing)}${r.own
-          ? " &mdash; <strong>that decision's own docket</strong>" : ""}
+          ? " &mdash; <strong>that decision's own docket family</strong>" : ""}
         &middot; page ${r.page}${r.served
           ? " &middot; date read: " + esc(r.served)
           : " &middot; no served date found"}</div>
       <div class=line>${line}</div>
+      <div class=links>${[
+          [r.text_url,   "the page's text, at page " + r.page],
+          [r.pdf_url,    "the Board's own PDF"],
+          [r.record_url, "decision " + esc(r.citing)],
+          [r.docket_url, esc(r.key) + "'s sheet"],
+        ].filter(x => x[0])
+         .map(x => `<a href="${esc(x[0])}" target="_blank" rel="noopener">${x[1]}</a>`)
+         .join(" &middot; ")}</div>
       <div class=says>both models say: not a citation, just the proceeding named</div>
       <div class=btns>
         <button data-i="${i}" data-v="caption" class="${v==="caption"?"on":""}"
@@ -142,6 +157,13 @@ draw();
 """
 
 
+def _file_of(order: dict[str, list[str]], decision: str, sha: str) -> int:
+    """Which `?file=N` of the decision holds these bytes. 0 when it cannot be placed, which
+    is the same fallback `documents._choose` applies to an index it does not recognise."""
+    files = order.get(decision, [])
+    return files.index(sha) if sha in files else 0
+
+
 def build(runs: list[Path], store: Path, size: int) -> list[dict]:
     con = sqlite3.connect(f"file:{store}?mode=ro", uri=True)
     own = walk.own_by_document(con)
@@ -152,6 +174,30 @@ def build(runs: list[Path], store: Path, size: int) -> list[dict]:
         (i["citing_document"], i["page"], i["target_kind"], i["target_key"]): i
         for i in review.pending(con, "citation_exposed", limit=None)
     }
+    # THE PASSAGE IS NOT ENOUGH TO JUDGE FROM (the operator's requirement, restated
+    # 2026-09-12). A quoted line decides nothing on its own: whether a number is a caption or
+    # a citation is a fact about the page around it. Every card carries the Board's own file,
+    # the record's text AT THAT PAGE, the decision's page and the cited docket's sheet.
+    # THE PDF OF THE FILE THAT HOLDS THE PASSAGE, keyed by (decision, bytes). Keyed by the
+    # decision alone it was the alphabetically first attachment, so on an appendix "the Board's
+    # own PDF" opened the main decision, where the number is not printed (review, 2026-09-12:
+    # 28 of 1,476 cards).
+    pdfs: dict[tuple[str, str], str] = {}
+    # WHICH FILE OF THE DECISION, because `?file=N` indexes the record's attachment list and
+    # a decision can carry several. `store.sheet._attachments` orders ONE record's list by
+    # `source_url`, so the index is that position — without it the text link opens a
+    # different document's text. DISTINCT, because a decision entered in several dockets is
+    # several `decision_record` rows carrying the same attachments, and without it [a, a, b, b]
+    # gave b `?file=2` on a two-file record (review, 2026-09-12: 7 of 1,476 cards).
+    order: dict[str, list[str]] = {}
+    for did, url, sha in con.execute(
+        "SELECT DISTINCT r.stb_decision_id, da.source_url, da.document_sha256"
+        " FROM decision_record r JOIN decision_attachment da ON da.decision_pk = r.decision_pk"
+        " ORDER BY r.stb_decision_id, da.source_url"
+    ):
+        order.setdefault(str(did), []).append(sha)
+        if url and sha:
+            pdfs.setdefault((str(did), sha), url)
     rows = []
     for k in sorted(shared):
         kinds = {(x[k]["answer"] or {}).get("names") for x in loaded}
@@ -163,10 +209,13 @@ def build(runs: list[Path], store: Path, size: int) -> list[dict]:
         printed = item["cited_raw"]
         stripped = resolve._stripped(k[3])
         mine = own.get(k[0], set())
+        who = carriers.get(k[0], [])
+        first = who[0] if who else ""
+        identity = site.lookup(k[3])
         rows.append(
             {
                 "id": "/".join(str(x) for x in k),
-                "citing": ", ".join(carriers.get(k[0], [])) or "?",
+                "citing": ", ".join(who) or "?",
                 "key": k[3],
                 "page": k[1],
                 "printed": printed,
@@ -174,6 +223,16 @@ def build(runs: list[Path], store: Path, size: int) -> list[dict]:
                 "own": k[3] in mine or bool(stripped and stripped in mine),
                 "served": resolve.served_date(resolve._anchored(item["quoted_passage"], printed))
                 or "",
+                # the page the number sits on, anchored — `#p4` is `text_path`'s own convention
+                "text_url": (
+                    f"{SITE}{site.text_path('decision', first, _file_of(order, first, k[0]))}"
+                    f"#p{k[1]}"
+                    if first
+                    else ""
+                ),
+                "record_url": f"{SITE}{site.decision_path(first)}" if first else "",
+                "pdf_url": pdfs.get((first, k[0]), ""),
+                "docket_url": f"{SITE}{site.docket_path(identity)}" if identity else "",
             }
         )
     con.close()
@@ -198,7 +257,7 @@ def main() -> int:
     own = sum(1 for r in rows if r["own"])
     nodate = sum(1 for r in rows if not r["served"])
     print(f"{len(rows)} to judge -> {args.out}")
-    print(f"  {own} are the citing decision's own docket; {nodate} have no served date")
+    print(f"  {own} are the citing decision's own docket family; {nodate} have no served date")
     return 0
 
 

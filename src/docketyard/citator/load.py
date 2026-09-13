@@ -64,6 +64,7 @@ class Loaded:
     exposed: int = 0
     unchanged: int = 0  # this exact pass had already asserted the key: a restart, not a
     human_held: int = 0  # second edge. And a `human` row a model pass may never supersede.
+    caption_held: int = 0  # a caption call on a key a person answered: its citation kept
     retracted: int = 0  # an older finder's key this pass no longer emits, retired at itself
     retraction_held: int = 0  # ... one a person decided, or another channel reads, left alone
     review: list[str] = field(default_factory=list)  # rendered keys, for ADR 0017 D5's queues
@@ -77,6 +78,30 @@ def _live_citation(con, sha: str, page: int, key: str):
         " AND superseded_by IS NULL",
         (sha, page, key),
     ).fetchone()
+
+
+def _decided(con, sha: str, page: int, key: str) -> bool:
+    """A person has answered this key: a live human resolution, or a live review action.
+
+    ONE DEFINITION FOR TWO GUARDS. The retraction below skips a key a person decided, and a
+    re-load must not turn such a key's measured citation into a caption (ingest specialist,
+    2026-09-13, finding 3): a review writes `citation_resolution`, never `citation`, so the
+    `human` identity-row check cannot see it, and an `unmeasured` caption row written over the
+    measured one would stop the reviewer's accepted edge publishing without superseding the
+    reviewer's row — a machine pass undoing a person's decision (ADR 0017 D5)."""
+    return bool(
+        con.execute(
+            "SELECT 1 FROM citation_resolution WHERE citing_document = ? AND page = ?"
+            " AND target_kind = 'stb' AND target_key = ? AND superseded_by IS NULL"
+            " AND confidence_state = 'human' LIMIT 1",
+            (sha, page, key),
+        ).fetchone()
+        or con.execute(
+            "SELECT 1 FROM review_action WHERE target_table = 'citation_resolution'"
+            " AND target_key = ? AND superseded_by IS NULL LIMIT 1",
+            (keys.render(sha, page, "stb", key),),
+        ).fetchone()
+    )
 
 
 def load_document(
@@ -369,6 +394,16 @@ def load_document(
             # it a counted outcome rather than an exception mid-batch.
             out.human_held += 1
             continue
+        elif (
+            live is not None and caption and live[3] == "measured" and _decided(con, sha, page, key)
+        ):
+            # a CAPTION over a measured citation a person has answered: the CITATION is held
+            # (`_decided`) — its measured row is what keeps the reviewer's edge publishing — but
+            # nothing else is. The finder's `caption` call is still written below as its `kind`
+            # judgement, so the store records that the finder now disagrees with the person, and
+            # it is counted apart from `human_held` so the operator can see how many (ingest
+            # specialist's re-check, 2026-09-13: a `continue` here left no trace of it).
+            out.caption_held += 1
         else:
             if live is not None:
                 supersede.retire(con, "citation", "citation_id", live[0])
@@ -498,8 +533,13 @@ def load_document(
                 " AND method = ? AND method_version = ? AND reading_channel = ?"
             ),
             where_args=(sha, page, key, resolve.RESOLVER, r.method, channel),
-            compare="outcome, cited_docket_id, cited_decision_id",
-            values=(r.outcome, r.docket_id, r.decision_id),
+            # AND THE STATE (ingest specialist, 2026-09-13, finding 4). Comparing the answer
+            # alone left a key whose `kind` flipped to caption holding a `measured` resolution
+            # that still pointed at the old card — a class a caption never has (above) — and
+            # `restamp` would then re-stamp it measured from the new one. A state that changes
+            # is a different assertion; an answer and state both unchanged still writes nothing.
+            compare="outcome, cited_docket_id, cited_decision_id, confidence_state",
+            values=(r.outcome, r.docket_id, r.decision_id, resolution_stamp[1]),
             insert=(
                 "INSERT INTO citation_resolution (citing_document, page, target_kind,"
                 " target_key, method, method_version, reading_channel, outcome,"
@@ -545,8 +585,13 @@ def load_document(
                 " AND reading_channel = ?"
             ),
             where_args=(sha, page, key, methods.SPAN_METHOD, judge.SPAN_VERSION, channel),
-            compare="value",
-            values=("true" if names else "false",),
+            # the state too, for the reason the resolution's compare gives: a caption's `true`
+            # is `unmeasured` (`stamp`), and a key that flipped must not keep a measured row
+            compare="value, confidence_state",
+            values=(
+                "true" if names else "false",
+                stamp("projection")[1] if names else "unmeasured",
+            ),
             insert=(
                 "INSERT INTO citation_judgement (citing_document, page, target_kind,"
                 " target_key, judgement, value_domain, value, method, method_version,"
@@ -664,6 +709,26 @@ def load_document(
                     now,
                 ),
             )
+            # AND AN OLDER FINDER'S `kind` ON THIS KEY STOPS BEING LIVE (ingest specialist,
+            # 2026-09-13, finding 5). The lookup above is keyed on `method_version`, so every
+            # finder bump left the previous answer live beside the new one — 73,212 rows of
+            # 2026-09-01 still stood beside 2026-09-11's, and a count not joined through a rank
+            # version read both. They point at this version's row, ADR 0018 D2's shape.
+            current = con.execute(
+                "SELECT judgement_id FROM citation_judgement WHERE citing_document = ?"
+                " AND page = ? AND target_kind = 'stb' AND target_key = ? AND judgement = 'kind'"
+                " AND method = ? AND method_version = ? AND reading_channel = ?"
+                " AND superseded_by IS NULL",
+                (sha, page, key, method, version, channel),
+            ).fetchone()
+            if current is not None:
+                con.execute(
+                    "UPDATE citation_judgement SET superseded_by = ? WHERE citing_document = ?"
+                    " AND page = ? AND target_kind = 'stb' AND target_key = ?"
+                    " AND judgement = 'kind' AND method = ? AND method_version <> ?"
+                    " AND reading_channel = ? AND superseded_by IS NULL",
+                    (current[0], sha, page, key, method, version, channel),
+                )
 
         if r.outcome == "resolved":
             out.resolved += 1
@@ -718,19 +783,7 @@ def load_document(
             " AND reading_channel <> ? AND (reading_channel = ? OR method_version = ?) LIMIT 1",
             (*at, channel, methods.HUMAN, version),
         ).fetchone()
-        decided = (
-            con.execute(
-                "SELECT 1 FROM citation_resolution WHERE citing_document = ? AND page = ?"
-                " AND target_kind = 'stb' AND target_key = ? AND superseded_by IS NULL"
-                " AND confidence_state = 'human' LIMIT 1",
-                at,
-            ).fetchone()
-            or con.execute(
-                "SELECT 1 FROM review_action WHERE target_table = 'citation_resolution'"
-                " AND target_key = ? AND superseded_by IS NULL LIMIT 1",
-                (keys.render(sha, page, "stb", key),),
-            ).fetchone()
-        )
+        decided = _decided(con, sha, page, key)
         if other_channel or decided:
             out.retraction_held += 1
             continue

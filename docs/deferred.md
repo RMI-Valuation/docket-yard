@@ -310,10 +310,10 @@ The silent-data findings were fixed the same session and are pinned by
   `WB-20-50`. `keys.DOCKET` stops at the number, so the key is `WB 25` and the published edge
   points at the parent proceeding. `find.printed` now absorbs the tail so `cited_raw` is
   honest, but the KEY does not carry it — that is a `keys.py` change and an ADR question
-  (116 WB dockets), and it should be decided rather than slipped in. Its second effect: for
-  that decision the own-docket rule inverts, because `own` holds `WB 25 (33)` while the
-  finding keys `WB 25`, so its own caption reads as a citation and is saved from publication
-  only by the family closure's parent term.
+  (116 WB dockets), and it should be decided rather than slipped in. Its second effect was
+  that the own-docket rule inverted, `own` holding `WB 25 (33)` while the finding keyed
+  `WB 25`. Since finder 2026-09-12 `own` is the family, so `WB 25` is the parent and its caption
+  reads as a caption again; the KEY defect above is what stands.
 - **The grammar is not the measured tool's**, so migration 0016's table reproduces ADR
   0017's configuration rather than being it. `keys.DOCKET` allows six digits where
   `benchmark_regex.py` capped at five; it does not accept the interposed words in
@@ -341,11 +341,11 @@ The silent-data findings were fixed the same session and are pinned by
   the citing WORK's dockets; the judgement key has no work in it. ADR 0018 D9 measured 5
   documents of 20,992 hanging under two decision ids — for those, loading from each work in
   turn writes opposite `kind` values on one key and grows an oscillating supersession chain.
-  Nothing reads `kind`, so no edge moves; the chain still grows.
-- **Captions enter the exposed review queue.** No queue carries a `kind` term, so a human can
-  be asked to clear a self-reference the projection suppresses whichever way they answer.
-  Bounded noise, but it is the "trains a reviewer to skim" cost ADR 0017 narrowed the
-  exposure test to avoid.
+  Nothing reads `kind`, so no edge moves; the chain still grows. **Widened by finder
+  2026-09-12** (ingest specialist, 2026-09-13, finding 6): `own` unions the FAMILIES of every
+  carrier, while the projection's family is per work, so a citation to carrier B's parent or
+  sub-docket with no document word near it now reads as a caption for work A too, where it is
+  not family and used to project. Same five documents; unmeasured.
 - **`target_kind` means two things either side of the seam.** The benchmark run shape uses it
   to distinguish caption from citation; in the store it is the target's namespace (`stb` vs
   `court`) and `load` hardcodes `'stb'`. Nothing breaks only because `load` ignores the field.
