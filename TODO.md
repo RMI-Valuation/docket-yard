@@ -8,11 +8,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **FIRST: ship PR #26** (ADR 0026, migration 0028), built and reviewed: merge, tag
-  v2026.09.16, deploy behind the wall with the re-load in the same window; acceptance is zero
-  live `text_ref = 'pre-0026'`. **Stop rule** (his, 2026-09-12): further P2 hardening against
-  hand-built or damaged findings files goes to `docs/deferred.md`; a P1/P0, or anything `walk`
-  can produce, is still fixed before the merge
+- **Retraction leaves its readings live** (v2026.09.16 deploy, 2026-09-13). `load`'s retraction
+  supersedes only the `citation` row, so 903 `citation_reading` rows of keys v2026.09.15
+  retracted are still live and `'pre-0026'` (finder 2026-09-01; none projects, since every
+  consumer joins a live `citation`). He ACCEPTED them as residue and took the wall down. Owed:
+  retire a reading with its citation, a method and `superseded_at` for the 903, and review
 - **The citator is loaded** (v2026.09.15): 15,535 edges, 9,863 naming a document, none shown;
   exposed 1,476. **The review page, for a person**: one look settling docket, sub-docket and
   document, linked to scan, text, both dockets and the match; same-docket filings and decisions

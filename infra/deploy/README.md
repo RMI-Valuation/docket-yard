@@ -245,6 +245,17 @@ docker compose exec -T web python -c "import sqlite3; c = sqlite3.connect('file:
 rm data/flags/maintenance             # back
 ```
 
+**Deployed 2026-09-13 (v2026.09.16), and the count was `[('pre-0026', 903), ('store', 72935)]`,
+not the figure below.** The 903 are a FOURTH case the three below do not name: readings of keys
+v2026.09.15's re-load retracted. Retraction supersedes only the `citation` row, so their
+readings stayed live, and the current finder no longer emits those keys, so no re-load can
+replace them. All 903 were written by finder `2026-09-01`, all have a retired `citation` and no
+live one, and a store reading exists on each page. None can project, because every consumer joins
+a live `citation`. The operator accepted them and took the wall down. **The rule that holds is
+zero live `'pre-0026'` readings whose `citation` is live**, and re-running `find` and `load`
+would not change the 903. The load itself: 19,944 documents, 72,935 emitted, `failed` 0,
+`unreadable` 0, exit 0.
+
 Expect `[('store', 73838)]`, or `('human', n)` beside it once anyone has reviewed. **Any
 `'pre-0026'` left means the pass did not finish** — three ways it can happen, and only the
 third is a fault: a page whose live primary now belongs to a channel this run did not walk
