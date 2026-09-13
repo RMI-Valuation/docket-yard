@@ -58,7 +58,11 @@ TOOL_TABLES = ("_litestream_lock", "_litestream_seq")
 # noticed: the unknown check below enumerates `type = 'table'`, so an unclassified view was
 # invisible, and the snapshot would ship a `CREATE VIEW` over a table it had just dropped.
 # Migration 0018's display view selects from `document_text`, which is held, so it goes too.
-HELD_VIEWS: tuple[str, ...] = ("document_text_display",)
+HELD_VIEWS: tuple[str, ...] = (
+    "document_text_display",
+    # Migration 0029: the retirement rule, over `citation_reading` and `citation`, both held.
+    "citation_reading_residue",
+)
 # And the views that stay. `docket_current` has been in the snapshot since migration 0001 and
 # had never been classified, because until the check below counted views there was nothing to
 # classify it against — it is a projection over `docket` and `event`, both public, so it was
@@ -109,6 +113,9 @@ HELD_TABLES: tuple[str, ...] = (
     "review_decision_vocab",
     "review_queue_vocab",
     "review_target_vocab",
+    # Migration 0029: a record of what retired a reading, a child of `citation_reading` and
+    # `citation`, so it is listed above both; provenance about the held layer, held with it.
+    "citation_reading_retirement",
     "citation_treatment",
     "citation_judgement",
     "citation_resolution",
@@ -116,6 +123,8 @@ HELD_TABLES: tuple[str, ...] = (
     # its only referrer is `citation_reading`, so publishing it would ship an orphan taxonomy
     # of the held layer's own method — `route_class_vocab`'s reason, one table over (0018)
     "text_ref_vocab",
+    # its only referrer is `citation_reading_retirement` (0029), `text_ref_vocab`'s reason
+    "retirement_reason_vocab",
     # MOVED BELOW THE CITATOR BLOCK AT 0028 (code review, 2026-09-12). `citation_reading` gained
     # `text_id REFERENCES document_text (text_id)`, so it is now a CHILD of `document_text` —
     # and this list promises children before parents. It sat above the block, which inverted

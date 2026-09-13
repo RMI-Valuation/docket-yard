@@ -58,6 +58,11 @@ class SharedPage(WrongChannel):
     counts it apart from `failed` (ingest specialist, 2026-09-13, F1)."""
 
 
+class DecidedResidue(RuntimeError):
+    """A reading `_retire_readings` would retire whose key a person has decided (ADR 0017 D5).
+    The retraction holds such keys, so this is a store in a state no pass should have left."""
+
+
 @dataclass
 class Loaded:
     """What one document's pass did, in the terms `extraction_run` records."""
@@ -74,6 +79,7 @@ class Loaded:
     caption_held: int = 0  # a caption call on a key a person answered: its citation kept
     retracted: int = 0  # an older finder's key this pass no longer emits, retired at itself
     retraction_held: int = 0  # ... one a person decided, or another channel reads, left alone
+    readings_retired: int = 0  # live readings of a retracted key, retired with it (ADR 0018 add.)
     # a resolution superseded with a DOCUMENT it did not name before, or without one it did.
     # Both rows say `registry-match@rule-1`, so without these a re-load that dropped correct
     # documents to their docket would pass unseen (ingest specialist, 2026-09-13, F2).
@@ -133,6 +139,43 @@ def _shared_pages(con, doc: dict, channel: str) -> list[tuple[int, str]]:
         )
         if page in walked
     )
+
+
+def _retire_readings(con, sha: str, method: str, version: str, at: str) -> int:
+    """Retire every reading `citation_reading_residue` lists for this document, each with its
+    retirement row, and say how many.
+
+    The rows are READ WHOLE before the first write, so no pointer is read off a row this pass has
+    already changed. Pointer and date go in one statement (migration 0028's trigger), then the
+    row naming the retraction, the pass that retired it and the same date (migration 0029's
+    triggers refuse any other). The pass's own finder is the method: it is the reading of the
+    page that no longer emits the key."""
+    rows = con.execute(
+        "SELECT reading_id, citation_id, pointer, decided FROM citation_reading_residue"
+        " WHERE citing_document = ?",
+        (sha,),
+    ).fetchall()
+    # A KEY A PERSON DECIDED IS NEVER RETIRED BY A MACHINE PASS (ADR 0017 D5), and migration 0029
+    # aborts on one. Unreachable while the retraction above holds a decided key (`_decided`), so
+    # a match means something upstream is wrong: the document fails loudly rather than a reading
+    # a person answered being retired unseen (schema-critic and ingest specialist, 2026-09-13).
+    decided = [reading_id for reading_id, _, _, flag in rows if flag]
+    if decided:
+        raise DecidedResidue(
+            f"readings {decided} of {sha} belong to keys with no live citation that a person"
+            " has decided; retiring them is not a machine pass's call"
+        )
+    for reading_id, citation_id, pointer, _ in rows:
+        con.execute(
+            "UPDATE citation_reading SET superseded_by = ?, superseded_at = ? WHERE reading_id = ?",
+            (pointer, at, reading_id),
+        )
+        con.execute(
+            "INSERT INTO citation_reading_retirement (reading_id, citation_id, reason, method,"
+            " method_version, retired_at) VALUES (?, ?, 'retracted-key', ?, ?, ?)",
+            (reading_id, citation_id, method, version, at),
+        )
+    return len(rows)
 
 
 def load_document(
@@ -891,6 +934,13 @@ def load_document(
         else:
             supersede.retire(con, "citation", "citation_id", citation_id)
         out.retracted += 1
+
+    # AND ITS READINGS GO WITH IT (ADR 0018 addendum, Accepted 2026-09-13). Until then the loop
+    # above retired `citation` alone, and a retracted key's readings stayed live for ever: no
+    # finder emits the key again, so no pass replaced them, and they tripped `SharedPage` for the
+    # page's next channel. The rule is the held view migration 0029 created, read AFTER the loop
+    # so every retraction and its successor rows are written, and filtered to this document.
+    out.readings_retired = _retire_readings(con, sha, method, version, now)
 
     # ADR 0018 D10. Absence is not a measurement: this row is what separates READ AND FOUND
     # NOTHING from NOT YET READ, and it carries the out-of-class count that makes "not kept"

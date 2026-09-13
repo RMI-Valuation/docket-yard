@@ -65,6 +65,11 @@ MIGRATIONS: list[tuple[int, str]] = [
     # SQLite keeps verbatim in `sqlite_master`. MIGRATING, so it goes behind the wall
     # (ADR 0020); the pass that fills `text_id` and the spans is a separate RE-LOAD.
     (28, "0028_reading_names_its_text.sql"),
+    # 0029 applies ADR 0018's addendum (Accepted 2026-09-13): a retraction retires the key's
+    # readings too, each with a retirement row, and the 903 already stranded are retired here.
+    # MIGRATING, so it goes behind the wall; a key a person decided aborts it whole, and the
+    # runbook's pre-check (`infra/deploy/0029-precheck.sql`) names that key first.
+    (29, "0029_retire_retracted_readings.sql"),
 ]
 
 

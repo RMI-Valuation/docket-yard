@@ -590,6 +590,7 @@ def _citator(args: argparse.Namespace) -> int:
         "caption_held",
         "retracted",
         "retraction_held",
+        "readings_retired",
         "work_gained",
         "work_lost",
     )
