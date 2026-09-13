@@ -46,6 +46,15 @@ finder over the same documents' OCR text to build a three-stage card for `ocr`.
 | no citation found | 20 |
 
 The fourth stratum is what measures recall against the OCR itself. A document whose pages
-are mixed is stratified by the engine of most of its citation pages. Expected truth: about
-150–180 citations, thinner than the text layer's 225; the page count of the drawn sample is
-measured before any time is quoted.
+are mixed is stratified by the engine of most of its citation pages, a tie going to
+PP-OCRv6.
+
+**Long documents are labelled on a page sample (decided 2026-09-13, the operator).** A trial
+draw came to 3,219 pages, 2,945 of them in the 23 pre-2006 documents: ten Environmental
+Review volumes of 173–426 pages carrying one to three citations each, and a 284-page
+volume carried by 38 decisions. Those 2,945 pages hold a citation on 40. So a document of
+more than twenty pages is labelled on **twenty of its pages drawn at random** (seeded per
+document), and the truth and the dry run are both restricted to the drawn pages, in every
+stratum alike. Choosing the pages where a citation was found would have kept the likeliest
+misreads in the sample, but it would have inflated the recall a card stores. The drawn
+sample is about 548 pages.
