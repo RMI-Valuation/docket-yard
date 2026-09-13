@@ -261,10 +261,12 @@ reached, because no finder emits the key again.
    the successor key's live reading on its own channel where exactly one exists, and at itself
    otherwise. The successor is found by following the retraction's stored `superseded_by` to its
    KEY. That row need not still be live, because a later load replaces it on the same key. The
-   retraction is the key's latest `citation` row, retired at itself or pointed at another key.
+   retraction is the key's `citation` row with the highest `citation_id`, retired at itself or
+   pointed at another key.
    **The rule is one held view.** The loader reads it filtered to its document. The migration
    copies it once into a temporary table before writing, so no row reads another's half-done
-   update. After a load or the migration it is empty. Order of writes: the `citation`, then the
+   update. Its temporary objects carry no foreign keys and are dropped before `COMMIT`: the
+   migrating connection is handed to the app, and on 3.46.1 they were tested to survive otherwise. After a load or the migration it is empty. Order of writes: the `citation`, then the
    reading (pointer and date in one statement), then the retirement row.
 2. **Every retirement writes a retirement row**, append-only: the reading, the retracted
    `citation` row, the reason from a vocabulary (`retracted-key`), the method and version that
@@ -279,12 +281,14 @@ reached, because no finder emits the key again.
    written in the loader's ISO form to the reading and its row alike. That instant is when the
    store retired them, not when v2026.09.15 retracted their keys, which is not recorded. **If a
    person has decided any of those keys** (`load._decided`'s two tests; the key the SQL renders
-   for `review_action` is pinned to `keys.render` by a test), the migration aborts whole with
-   `RAISE(ROLLBACK)` as its first act after `BEGIN`. The runbook names the keys: it runs the same
-   decided-key query on production before the wall, because production's SQLite (Debian 13's
-   3.46.1) cannot build a `RAISE` message from a value (that arrived in 3.47.0). On 3.46.1 the
-   abort was tested to leave no table and `user_version` unchanged, even for a caller that commits
-   afterwards. Measured 0, and unreachable while the queues join a live `citation`, so a match
+   for `review_action` is pinned to `keys.render` by a test), the migration creates the view, then
+   aborts whole with `RAISE(ROLLBACK)` before any row is written. On 3.46.1 that was tested to undo
+   the view too, leaving no table and `user_version` unchanged, even for a caller that commits
+   afterwards. The runbook names the keys, because production's SQLite (Debian 13's 3.46.1) cannot
+   build a `RAISE` message from a value (that arrived in 3.47.0). Its pre-check runs on production
+   before the wall, where the view does not yet exist, so it is a SECOND COPY of the predicate. A
+   test runs both copies over a store holding a decided retracted key and asserts both name it.
+   Measured 0, and unreachable while the queues join a live `citation`, so a match
    means something upstream is wrong.
 
 **Left live, and deferred** (`../deferred.md`, 2026-09-13): the key's resolutions and judgements.
