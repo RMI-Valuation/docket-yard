@@ -108,6 +108,59 @@ def test_the_documents_own_dockets_are_the_union_of_its_carriers(tmp_path):
     con.close()
 
 
+def test_the_documents_own_dockets_are_the_family_self_parent_and_sub_dockets(tmp_path):
+    """Finder 2026-09-12: `own` is ADR 0017 D4's family — the docket a decision sits in, its
+    PARENT and its SUB-DOCKETS — the closure the projection already suppresses on. A decision
+    entered in `FD 36873 (1)` naming `FD 36873` in its running header was reading that header
+    as a citation to a proceeding it is part of. A SIBLING is not family: two sub-dockets of
+    one parent are unrelated proceedings (`web/cite.py`), so it stays a citation."""
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO docket (docket_id, raw_docket, prefix, sequence, sub_sequence, suffix,"
+        " parent_docket_id) VALUES (5, 'FD_36873_2', 'FD', 36873, 2, NULL, 1)"
+    )
+    con.execute("UPDATE decision_record SET docket_id = 2 WHERE decision_pk = 1")  # the sub-docket
+    con.commit()
+    assert walk.own_by_document(con)[SHA] == {"FD 36873 (1)", "FD 36873"}, "self and parent only"
+
+    _page(con, SHA, 1, "STB Docket No. FD 36873. FD 36873 (Sub-No. 2) is another proceeding.")
+    con.commit()
+    doc = next(iter(walk.documents(con)))
+    kinds = {(keys.normalise(f["target"]), f["kind"]) for f in doc["findings"]}
+    assert ("FD 36873", "caption") in kinds, "the parent's running header is this document's own"
+    assert ("FD 36873 (2)", "citation") in kinds, "a sibling is not family"
+
+    # and from the parent's side, the sub-dockets are its own
+    con.execute("UPDATE decision_record SET docket_id = 1 WHERE decision_pk = 1")
+    con.commit()
+    assert walk.own_by_document(con)[SHA] == {"FD 36873", "FD 36873 (1)", "FD 36873 (2)"}
+    con.close()
+
+
+def test_the_dry_runs_own_dockets_are_the_walks_family(tmp_path):
+    """`citation_dryrun.own_dockets` builds the card; `walk.own_by_document` runs in
+    production. They are keyed differently (decision / document) and must give ONE answer, or
+    a card stamped with this finder's version carries figures measured with another rule —
+    ADR 0017 D3's borrowed precision (ingest specialist, 2026-09-13, finding 1)."""
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools" / "rmi-ai-machine"))
+    import citation_dryrun
+
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO docket (docket_id, raw_docket, prefix, sequence, sub_sequence, suffix,"
+        " parent_docket_id) VALUES (5, 'FD_36873_2', 'FD', 36873, 2, NULL, 1)"
+    )
+    for docket_id in (1, 2):  # the parent's view, then a sub-docket's
+        con.execute("UPDATE decision_record SET docket_id = ? WHERE decision_pk = 1", (docket_id,))
+        con.commit()
+        by_decision = citation_dryrun.own_dockets(con)["52526"]
+        assert by_decision == walk.own_by_document(con)[SHA], f"docket {docket_id}"
+    con.close()
+
+
 def test_a_superseded_reading_is_not_read(tmp_path):
     """`document_text` is append-only and a correction supersedes rather than updates (ADR
     0021 D1). The finder reads what is live, so a withdrawn reading cannot mint an edge."""
