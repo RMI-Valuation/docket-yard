@@ -266,16 +266,18 @@ reached, because no finder emits the key again.
    **The rule is one held view.** The loader reads it filtered to its document. The migration
    copies it once into a temporary table before writing, so no row reads another's half-done
    update. Its temporary objects carry no foreign keys and are dropped before `COMMIT`: the
-   migrating connection is handed to the app, and on 3.46.1 they were tested to survive otherwise. After a load or the migration it is empty. Order of writes: the `citation`, then the
-   reading (pointer and date in one statement), then the retirement row.
+   migrating connection is handed to the app, and on 3.46.1 they were tested to survive
+   otherwise. After a load or the migration it is empty. Order of writes: the `citation`, then
+   the reading (pointer and date in one statement), then the retirement row.
 2. **Every retirement writes a retirement row**, append-only: the reading, the retracted
    `citation` row, the reason from a vocabulary (`retracted-key`), the method and version that
    retired it, and the date. **It is a record of an action, like `review_action`, not an ADR 0007
    assertion**: it claims nothing about the document, so it carries no confidence and no source.
-   The reading's own columns are not edited beyond the pointer and the date. Triggers refuse a row whose reading is not retired, whose date differs from the reading's
-   `superseded_at`, or whose citation is not its key's retraction as defined above, and they refuse any
-   update or delete. The table and its vocabulary are held. It becomes a child of
-   `citation_reading` and `citation`, so a later rebuild of either must carry it.
+   The reading's own columns are not edited beyond the pointer and the date. Triggers refuse a
+   row whose reading is not retired, whose date differs from the reading's `superseded_at`, or
+   whose citation is not its key's retraction as defined above, and they refuse any update or
+   delete. The table and its vocabulary are held. It becomes a child of `citation_reading` and
+   `citation`, so a later rebuild of either must carry it.
 3. **The 903 are retired by the migration that creates that table**, named by the migration as
    their method, behind the maintenance wall (ADR 0020). They carry one instant, taken once and
    written in the loader's ISO form to the reading and its row alike. That instant is when the
