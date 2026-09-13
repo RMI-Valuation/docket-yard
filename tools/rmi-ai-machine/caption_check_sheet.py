@@ -159,7 +159,9 @@ draw();
 
 def _file_of(order: dict[str, list[str]], decision: str, sha: str) -> int:
     """Which `?file=N` of the decision holds these bytes. 0 when it cannot be placed, which
-    is the same fallback `documents._choose` applies to an index it does not recognise."""
+    means OMIT `?file=` (`text_path` leaves it off for 0) and let the record page choose its
+    default — `documents._choose` falls back to the first PAGINABLE attachment, which is not
+    necessarily index 0 (Copilot, PR #27)."""
     files = order.get(decision, [])
     return files.index(sha) if sha in files else 0
 

@@ -548,8 +548,11 @@ a document, which ADR 0017 D4 publishes.
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null
     docker compose run --rm --no-deps ingest citator review citation_exposed </dev/null
 
-Rollback is Litestream restore, as for any migrating change — but note the load writes no
-schema and supersedes nothing, so an unwanted load is *additive*: the rows can also be left
-in place and the projection starved by withdrawing the measurement, which is ADR 0017 D3's
-own mechanism ("unmeasured projects nothing"). That is the cheaper reversal and the one to
-reach for first.
+**Rollback is a Litestream restore to a point before the re-load, and nothing cheaper exists.**
+Note the UTC time just before `declare`: that is the restore point. A re-load is NOT additive.
+`load` retires and repoints live citations, readings, resolutions and judgements (an older
+finder's `kind` rows included), and `restamp --apply` supersedes resolutions again. Nor can
+the projection be starved instead: there is no verb that withdraws a measurement, and a
+`class_measurement` row cannot be deleted while the assertions stamped from it point at it.
+An earlier version of this paragraph offered that as the first reversal, and it was never
+possible (Codex review on PR #27, 2026-09-13).
