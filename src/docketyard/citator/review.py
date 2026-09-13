@@ -477,11 +477,18 @@ def _human_reading(con, item: dict, now: str, reviewer_id: int) -> None:
     args = (item["citing_document"], item["page"], item["target_kind"], item["target_key"])
     if con.execute(f"SELECT 1 FROM citation_reading WHERE {where}", args).fetchone():
         return
+    # `text_ref` IS 'human' AND `text_id` STAYS NULL (ADR 0026 D1/D4). A reviewer read no
+    # machine text, so there is no `document_text` row for this assertion to point at, and the
+    # `source_location` below carries no `spans` key — not an empty list, which would assert
+    # that the reviewer found no occurrence. Attributing a machine's character offsets to a
+    # person as their own reading is the same class of error as inferring a party's position
+    # from who filed a document; migration 0028's two `text_ref`/`reading_channel` CHECKs make
+    # the pairing structural rather than a rule to remember.
     con.execute(
         "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
         " reading_channel, cited_raw, quoted_passage, asserted_from_document,"
-        " source_location, method, method_version, asserted_at, confidence,"
-        " confidence_state) VALUES (?, ?, ?, ?, 'human', ?, ?, ?, ?, 'human', ?, ?,"
+        " source_location, text_ref, method, method_version, asserted_at, confidence,"
+        " confidence_state) VALUES (?, ?, ?, ?, 'human', ?, ?, ?, ?, 'human', 'human', ?, ?,"
         " 1.0, 'human')",
         (
             *args,

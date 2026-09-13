@@ -8,12 +8,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **FIRST: merge PR #26 — migration 0028, ADR 0026** (Accepted 2026-09-12). Built and reviewed
-  six times, 820 tests, CI green on `9bf3eef`, rehearsed on a production copy (0 FK violations,
-  146,147 rows, 10 trigger edges). Waiting on Copilot's and Codex's reviews of `9bf3eef`; triage
-  any, then merge, tag, deploy BEHIND THE WALL with the re-load in the same window
-  (`infra/deploy/README.md` § Migration 0028, acceptance = zero live `'pre-0026'`), and publish
-  the Release the same sitting (ADR 0010)
+- **FIRST: ship PR #26** (ADR 0026, migration 0028), built and reviewed: merge, tag
+  v2026.09.16, deploy behind the wall with the re-load in the same window; acceptance is zero
+  live `text_ref = 'pre-0026'`. **Stop rule** (his, 2026-09-12): further P2 hardening against
+  hand-built or damaged findings files goes to `docs/deferred.md`; a P1/P0, or anything `walk`
+  can produce, is still fixed before the merge
 - **The citator is loaded** (v2026.09.15): 15,535 edges, 9,863 naming a document, none shown;
   exposed 1,476. **The review page, for a person**: one look settling docket, sub-docket and
   document, linked to scan, text, both dockets and the match; same-docket filings and decisions

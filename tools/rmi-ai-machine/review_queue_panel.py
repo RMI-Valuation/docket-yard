@@ -77,8 +77,15 @@ def pages_of(con, sha: str, machine: set[str]) -> dict[int, str]:
     machine channels, because a page whose live reading is `human` is never what a model pass
     read from and the finder skips it outright. Dropping that filter here would show the
     panel a corrected page the finder never saw (code review 2026-09-11)."""
+    # `*_` ABSORBS THE REST OF THE ROW, deliberately (code review ultra, 2026-09-12). This
+    # unpacked exactly three columns until migration 0028 widened `_PAGES` to select `text_id`
+    # as well, and a fixed-arity unpack of a query that lives in another module crashes on its
+    # first row the day that module grows a column. This panel wants the page and the text; the
+    # rest is the walk's business.
     return {
-        page: text for page, text, channel in con.execute(walk._PAGES, (sha,)) if channel in machine
+        page: text
+        for page, text, channel, *_ in con.execute(walk._PAGES, (sha,))
+        if channel in machine
     }
 
 

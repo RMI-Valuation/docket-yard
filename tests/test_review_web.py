@@ -91,6 +91,7 @@ def store(tmp_path):
             "method": methods.EXTRACTOR,
             "method_version": "v1",
             "reading_channel": methods.CHANNEL_TEXT,
+            "text_ref": "benchmark",
             "pages_read": 9,
             "findings": [EXPOSED],
         },

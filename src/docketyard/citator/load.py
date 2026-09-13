@@ -31,7 +31,7 @@ construction.
 
 from dataclasses import dataclass, field
 
-from docketyard.citator import judge, keys, methods, resolve
+from docketyard.citator import find, judge, keys, methods, resolve
 from docketyard.store import supersede
 from docketyard.store.db import dump_json, utcnow
 
@@ -98,6 +98,12 @@ def load_document(
     sha = doc["document_sha256"]
     channel = doc.get("reading_channel")  # no default: a document that does not say is refused
     method, version = doc["method"], doc["method_version"]
+    # ADR 0026 D8: the producer declares which TEXT it read, and the loader CANNOT infer it —
+    # `find.findings_document` emits the same shape from store pages and from benchmark markers
+    # and only the caller knows which. No default, for the reason the channel has none.
+    text_ref = doc.get("text_ref")
+    text_ids = {int(k): v for k, v in (doc.get("text_ids") or {}).items()}
+    span_method, span_version = doc.get("span_method"), doc.get("span_method_version")
     now = utcnow()
     out = Loaded(document_sha256=sha)
 
@@ -113,6 +119,78 @@ def load_document(
             f"{sha[:12]} says reading_channel {channel!r}; a model pass reads on one of"
             f" {sorted(machine)}"
         )
+    # AND THE TEXT IT READ, checked SECOND and not first: the channel's primacy above is
+    # deliberate and documented, and a document that lies about its channel should be refused
+    # for that rather than for a missing declaration it was never asked for (ADR 0026 D8).
+    if text_ref not in ("store", "benchmark"):
+        raise WrongChannel(
+            f"{sha[:12]} says text_ref {text_ref!r}; a model pass declares 'store' or"
+            " 'benchmark' (ADR 0026 D8). 'human' is the review layer's and 'pre-0026' is"
+            " migration 0028's backfill; neither is a pass's to claim"
+        )
+    # THE SPANS ARE REFUSED HERE TOO, not only at the producer (ingest specialist, 2026-09-12,
+    # F3). `find.findings_document` strips them for a non-store reading, and that is right —
+    # but THIS is the boundary the interchange crosses, and a hand-built document or a tool
+    # calling `find.find` directly (`citation_dryrun.py`, `benchmark_review.py` both do, and
+    # both now receive a `spans` key) would otherwise land offsets against no text row and no
+    # method version, satisfying the paired CHECK while breaking 0028's writer obligation.
+    carries_spans = any(f.get("spans") for f in doc.get("findings", []))
+    if carries_spans and text_ref != "store":
+        raise WrongChannel(
+            f"{sha[:12]} carries spans with text_ref {text_ref!r}. Offsets belong to the text"
+            " a `text_id` names; a benchmark reading has none, so its spans point into a file"
+            " nothing in the store identifies (ADR 0026 § Context, one channel over)"
+        )
+    if carries_spans and not (span_method and span_version):
+        raise WrongChannel(
+            f"{sha[:12]} carries spans with no span_method/span_method_version. A character"
+            " offset is a derived assertion and carries its own method version (ADR 0026 D7);"
+            " migration 0028 states it as a writer obligation SQLite cannot express"
+        )
+    # AND THE METHOD NAMED IS THE ONE THAT EXISTS (Codex review on PR #26, 2026-09-12). The
+    # finder's method is checked against its declared owner below; the offsets have no owner
+    # row, so without this any non-empty pair would be stored as the provenance of locations no
+    # such method produced. `find` is the only offset producer, and it ships with this loader.
+    if carries_spans and (span_method, span_version) != (find.OFFSET_METHOD, find.OFFSET_VERSION):
+        raise WrongChannel(
+            f"{sha[:12]} names offset method {span_method}@{span_version}; the offsets this"
+            f" code produces are {find.OFFSET_METHOD}@{find.OFFSET_VERSION} (ADR 0026 D7)"
+        )
+    # EVERY POINTER IS CHECKED AGAINST WHAT IT CLAIMS TO BE, before anything is written (Codex
+    # review on PR #26, 2026-09-12). The foreign key proves a `document_text` row EXISTS; it
+    # does not prove it is THIS document's page on THIS channel. A corrupted findings file, or
+    # another caller's, carrying a real `text_id` from an unrelated page would store spans that
+    # claim provenance in someone else's text while the row reads fully checkable — the exact
+    # failure ADR 0026 exists to refuse, arriving through the pointer it added. `walk` builds the
+    # map correctly; this is the trust boundary, so it does not assume so.
+    texts: dict[int, str] = {}  # page -> the text the pointer names, for the span check below
+    for page_no, text_id in text_ids.items():
+        row = con.execute(
+            "SELECT document_sha256, page_no, reading_channel, text FROM document_text"
+            " WHERE text_id = ?",
+            (text_id,),
+        ).fetchone()
+        if row is not None:
+            texts[page_no] = row[3]
+        if row is None or tuple(row[:3]) != (sha, page_no, channel):
+            found = "no document_text row" if row is None else f"{row[0][:12]} p{row[1]} {row[2]}"
+            raise WrongChannel(
+                f"{sha[:12]} page {page_no}: text_id {text_id} names {found}, not this"
+                f" document's page on channel {channel!r} (ADR 0026 D1)"
+            )
+    # AND EVERY PAGE A 'store' READING SAYS IT WALKED HAS A POINTER (Codex review on PR #26,
+    # 2026-09-12). The per-finding check below sees only pages with findings, while the
+    # retraction trusts `pages_walked` as proof a page was read and can retire an older
+    # finder's live citations on it — so a walked page naming no text would retract results on
+    # the word of a reading that identifies nothing it read. `findings_document` refuses the
+    # same shape at the producer; this is the boundary.
+    if text_ref == "store":
+        unpointed = sorted({int(p) for p in doc.get("pages_walked") or ()} - set(text_ids))
+        if unpointed:
+            raise WrongChannel(
+                f"{sha[:12]} page(s) {unpointed[:5]}: walked by a 'store' reading with no"
+                " text_id, so a retraction there would rest on no identified text (ADR 0026 D1)"
+            )
     # THE STAMPS MUST BE WHOLE AND OF THIS DOCUMENT'S CHANNEL, checked against the
     # measurement rows themselves and not against whatever the caller believes it asked
     # `stamp` for. The CLI refuses a batch that mixes channels; this is the guard that holds
@@ -190,6 +268,10 @@ def load_document(
     passages: dict[tuple[int, str], list[str]] = {}
     printed: dict[tuple[int, str], str] = {}
     kinds: dict[tuple[int, str], str | None] = {}
+    # ADR 0026 D4. UNIONED per (page, key) the way the passages are joined, and deliberately
+    # NOT zipped with them: `find` de-duplicates identical lines, so one passage element can
+    # answer for two spans and the counts need not agree.
+    spans: dict[tuple[int, str], list] = {}
     for finding in doc.get("findings", []):
         key = keys.normalise(finding.get("target", ""))
         if key is None or not keys.DOCKET_KEY.match(key):
@@ -203,6 +285,35 @@ def load_document(
         # total nobody can check. A target read twice on a page keeps the first call; the
         # two agree by construction, since `kind` is a property of the key and the window.
         kinds.setdefault(at, finding.get("kind"))
+        spans.setdefault(at, []).extend(finding.get("spans") or [])
+
+    # THE SPANS ARE RE-VERIFIED HERE, against the text the POINTER names (Codex review on PR #26,
+    # 2026-09-12). `find.verify_spans` already runs in `walk.documents`, but that is before the
+    # findings JSON is written, and this is the trust boundary the JSON crosses: a damaged file,
+    # or another producer's, could carry a correct `text_id` with forged spans or none at all and
+    # the row would still read as checkable. So for a 'store' reading every finding must name a
+    # page the pointer map covers, must carry spans (`find` emits at least one per finding, so
+    # none means tampering), and every span must slice out of the named row's text to its own
+    # raw. One predicate, `find.verify_spans`, executed on both sides of the file, and all of it
+    # before the first write so a refused document leaves nothing behind.
+    if text_ref == "store":
+        for finding in doc.get("findings", []):
+            page_no = int(finding["page"])
+            if page_no not in texts:
+                raise WrongChannel(
+                    f"{sha[:12]} page {page_no}: a 'store' finding on a page no text_id names"
+                    " (ADR 0026 D1)"
+                )
+            if not finding.get("spans"):
+                raise WrongChannel(
+                    f"{sha[:12]} page {page_no}: a 'store' finding carries no spans; `find`"
+                    " emits one per occurrence, so an empty list means the file was altered"
+                    " (ADR 0026 D4)"
+                )
+        find.verify_spans(
+            [(page_no, text) for page_no, text in texts.items()],
+            {"document_sha256": sha, "findings": doc.get("findings", [])},
+        )
 
     for (page, key), quotes in sorted(passages.items()):
         passage = " | ".join(q for q in quotes if q)
@@ -282,14 +393,18 @@ def load_document(
             (sha, page, key, channel),
         ).fetchone()
         if old_reading:
-            supersede.retire(con, "citation_reading", "reading_id", old_reading[0])
+            # `at` IS REQUIRED AT 0028 (ADR 0026 D5/D6). The table's trigger refuses a pointer
+            # without a date, so the bare call this line used to make would abort on the FIRST
+            # supersession of any re-load — which is migration 0028's own corpus pass.
+            supersede.retire(con, "citation_reading", "reading_id", old_reading[0], at=now)
         new_reading = con.execute(
             "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
             " reading_channel, reading_method, reading_method_version, cited_raw,"
-            " quoted_passage, source_location, asserted_from_document, method,"
+            " quoted_passage, source_location, text_id, text_ref, span_method,"
+            " span_method_version, asserted_from_document, method,"
             " method_version, asserted_at, confidence, confidence_state, measured_target,"
             " score_row_id)"
-            " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " VALUES (?, ?, 'stb', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 sha,
                 page,
@@ -299,7 +414,23 @@ def load_document(
                 doc.get("reading_method_version"),
                 printed[(page, key)],
                 passage,
-                dump_json({"page": page}),
+                # ADR 0026 D4: the page AND every occurrence's span. `spans` is omitted rather
+                # than written empty where the producer sent none — an empty list would assert
+                # that the finder looked and found no occurrence of a key it just emitted.
+                dump_json(
+                    {"page": page, "spans": spans[(page, key)]}
+                    if spans.get((page, key))
+                    else {"page": page}
+                ),
+                # the reading this row read, and what its absence MEANS (ADR 0026 D1). A
+                # benchmark run names no store row, and migration 0028's CHECK binds the two:
+                # `(text_ref = 'store') = (text_id IS NOT NULL)`.
+                text_ids.get(page) if text_ref == "store" else None,
+                text_ref,
+                # the spans' own method, not the finder's (ADR 0026 D7) — and NULL together
+                # with the spans, which the paired CHECK requires
+                span_method if spans.get((page, key)) else None,
+                span_version if spans.get((page, key)) else None,
                 sha,
                 method,
                 version,

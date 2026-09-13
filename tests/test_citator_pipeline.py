@@ -86,6 +86,7 @@ def _scored(
     precision=0.981,
     channel=methods.CHANNEL_TEXT,
     stages=("citation", "citation_resolution", "projection"),
+    extractor_version="v1",
 ):
     """Score every stage, because an unscored class projects nothing (ADR 0017 D3) — on ONE
     channel, because a measurement is of the text it was taken on (ADR 0018 D8)."""
@@ -94,14 +95,14 @@ def _scored(
             con,
             measured_target=stage,
             cls="docket",
-            extractor_version="v1",
+            extractor_version=extractor_version,
             score_file="test",
             benchmark_date="2026-09-01",
             reading_channel=channel,
             recall=0.911,
             precision=precision,
         )
-    methods.declare(con, "v1")
+    methods.declare(con, extractor_version)
     return methods.stamp(con, stages=stages, channel=channel)
 
 
@@ -122,12 +123,17 @@ def _load_verb(tmp_path, batch) -> int:
     )
 
 
-def _findings(*findings):
+def _findings(*findings, text_ref="benchmark", text_ids=None):
+    # `text_ref` defaults to 'benchmark' HERE and nowhere in the shipped code: these fixtures
+    # build the interchange by hand and point at no `document_text` row, which is exactly what
+    # 'benchmark' means (ADR 0026 D8). A test that wants the pointer passes `text_ids`.
     return {
         "document_sha256": SHA,
         "method": methods.EXTRACTOR,
         "method_version": "v1",
         "reading_channel": methods.CHANNEL_TEXT,
+        "text_ref": text_ref,
+        "text_ids": text_ids or {},
         "pages_read": 9,
         "findings": list(findings),
     }
@@ -733,9 +739,9 @@ def test_a_human_resolution_needs_a_human_reading_or_it_projects_nothing(tmp_pat
     assert project.projected(con) == []
     con.execute(
         "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
-        " reading_channel, cited_raw, quoted_passage, method, method_version, asserted_at,"
-        " confidence, confidence_state) VALUES (?, ?, ?, ?, 'human', 'EP 445', 'as read',"
-        " 'human', 'v1', ?, 1.0, 'human')",
+        " reading_channel, text_ref, cited_raw, quoted_passage, method, method_version,"
+        " asserted_at, confidence, confidence_state) VALUES (?, ?, ?, ?, 'human', 'human',"
+        " 'EP 445', 'as read', 'human', 'v1', ?, 1.0, 'human')",
         (*row, STAMP),
     )
     assert len(project.projected(con)) == 1

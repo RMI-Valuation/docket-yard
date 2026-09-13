@@ -625,7 +625,24 @@ def _citator(args: argparse.Namespace) -> int:
         print(f"\n{len(owed_keys)} of these keys are owed a human review (ADR 0017 D5).")
         print(f"Queued now, derived from the rows just written: {counts}")
         print("They are held out of the projection until answered; the queues are at /review.")
-    return 0
+    # A FAILED DOCUMENT MAKES THE VERB FAIL (ingest specialist, 2026-09-12, F4). Until now a
+    # load that died on 500 documents printed one dict and exited 0 — and a caller that reads
+    # the exit code, a deploy runbook included, would call that a clean pass. The per-document
+    # rollback above is right and stays: one bad document must not take the wave. What was
+    # wrong was saying so only in a printed line.
+    #
+    # It matters most for migration 0028's re-load, where a document left unloaded keeps
+    # `text_ref = 'pre-0026'` — the value ADR 0026 D2's staleness predicate gates OUT, so the
+    # detector cannot see what the pass missed either.
+    #
+    # `unreadable` IS DELIBERATELY NOT HERE. A first draft failed on it too, and
+    # `test_the_load_verb_runs_end_to_end` caught it: that test pins "the malformed file is
+    # skipped, not fatal" as a decision, and a file that is not JSON is a batch-preparation
+    # fault rather than this verb's. Silently reversing a pinned decision to satisfy a review
+    # finding about something else is not a fix. The unloaded document it leaves is caught by
+    # the acceptance count in `infra/deploy/README.md` § Migration 0028, which counts rows
+    # rather than exit codes for exactly this reason.
+    return 1 if failed else 0
 
 
 def _search_rebuild(args: argparse.Namespace) -> int:

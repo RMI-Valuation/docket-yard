@@ -388,13 +388,16 @@ def test_an_extraction_may_be_superseded_at_a_higher_version_and_retracted_with_
 
 def test_a_child_cannot_hang_on_a_key_that_was_never_minted(tmp_path):
     con = _store(tmp_path)
-    with pytest.raises(sqlite3.IntegrityError):
+    # `match=` PINS WHICH constraint refuses it (schema-critic, 2026-09-12). Without it this
+    # test stayed green when migration 0028 made `text_ref` NOT NULL and the insert began
+    # failing for that instead — proving nothing about `citation_key` at all.
+    with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
         con.execute(
             "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
-            " reading_channel, cited_raw, quoted_passage, method, method_version, asserted_at,"
-            " confidence, confidence_state)"
-            " VALUES (?, ?, ?, ?, 'text-layer', 'FD 36873', 'q', 'm', 'v', ?, 0.9,"
-            " 'unmeasured')",
+            " reading_channel, text_ref, cited_raw, quoted_passage, method, method_version,"
+            " asserted_at, confidence, confidence_state)"
+            " VALUES (?, ?, ?, ?, 'text-layer', 'benchmark', 'FD 36873', 'q', 'm', 'v', ?,"
+            " 0.9, 'unmeasured')",
             (*KEY, STAMP),
         )
 
@@ -481,16 +484,22 @@ def test_a_reading_supersedes_within_its_channel_and_the_engine_is_not_in_the_ke
     _citation(con, _extraction_measurement(con))
     sql = (
         "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
-        " reading_channel, reading_method, reading_method_version, cited_raw,"
+        " reading_channel, text_ref, reading_method, reading_method_version, cited_raw,"
         " quoted_passage, method, method_version, asserted_at, confidence,"
-        " confidence_state) VALUES (?, ?, ?, ?, 'ocr', ?, ?, 'FD 36873', 'q', 'm', 'v',"
-        " ?, 0.9, 'unmeasured')"
+        " confidence_state) VALUES (?, ?, ?, ?, 'ocr', 'benchmark', ?, ?, 'FD 36873', 'q',"
+        " 'm', 'v', ?, 0.9, 'unmeasured')"
     )
     con.execute(sql, (*KEY, "tesseract", "5.3", STAMP))
-    with pytest.raises(sqlite3.IntegrityError):  # a better engine must MATCH and supersede
+    # and here too: the live index is what must refuse it, not a column the row forgot
+    with pytest.raises(sqlite3.IntegrityError, match="citation_reading_live|UNIQUE"):
         con.execute(sql, (*KEY, "tesseract", "5.4", STAMP))
     rid = con.execute("SELECT reading_id FROM citation_reading").fetchone()[0]
-    con.execute("UPDATE citation_reading SET superseded_by = ? WHERE reading_id = ?", (rid, rid))
+    # `superseded_at` IN THE SAME STATEMENT since migration 0028 (ADR 0026 D5): the trigger
+    # refuses a pointer with no date, so a retirement is dated or it does not happen
+    con.execute(
+        "UPDATE citation_reading SET superseded_by = ?, superseded_at = ? WHERE reading_id = ?",
+        (rid, STAMP, rid),
+    )
     con.execute(sql, (*KEY, "tesseract", "5.4", STAMP))
     assert _live(con, "citation_reading") == 1
 
@@ -955,3 +964,139 @@ def test_a_resolution_whose_method_is_unregistered_projects_nothing(tmp_path):
         {"rank_version": "v1", "target_work": "52526"},
     ).fetchall()
     assert rows == []  # no assertion_method row ranks it, so it is not a candidate
+
+
+def test_migration_0028_carries_readings_across_the_rebuild(tmp_path):
+    """0028 rebuilds `citation_reading`, and its `INSERT ... SELECT` runs over 0 rows in every
+    other test — so a misaligned column, a `text_ref` landing in the wrong slot, or a dropped
+    `REFERENCES` clause would pass the whole suite. This is the one place the copy is executed,
+    and it is the analogue of `test_migration_0019_carries_a_decided_date_row_across_the_rebuild`
+    (schema-critic, 2026-09-12, which asked for it by name)."""
+    path = tmp_path / "s.sqlite"
+    con = db.connect(path, upto=27)  # the shape before the rebuild: no pointer, no timestamp
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'pdf', ?)",
+        (KEY[0], STAMP),
+    )
+    _key(con)
+    _citation(con, _extraction_measurement(con))
+    reading = (
+        "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
+        " reading_channel, reading_method, reading_method_version, cited_raw, quoted_passage,"
+        " source_location, asserted_from_document, method, method_version, asserted_at,"
+        " confidence, confidence_state)"
+        " VALUES (?, ?, ?, ?, ?, 'dots.mocr', '1.5', 'FD 36873', 'q', '{\"page\": 3}', ?,"
+        " 'm', 'v', ?, 0.9, 'unmeasured')"
+    )
+    con.execute(reading, (*KEY, "ocr", KEY[0], STAMP))
+    machine = con.execute("SELECT MAX(reading_id) FROM citation_reading").fetchone()[0]
+    # a HUMAN row, which must come out 'human' and not 'pre-0026' — the CASE in the copy, and
+    # the binding CHECKs would refuse the bare constant a first draft would have written
+    con.execute(
+        "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
+        " reading_channel, cited_raw, quoted_passage, asserted_from_document, method,"
+        " method_version, asserted_at, confidence, confidence_state)"
+        " VALUES (?, ?, ?, ?, 'human', 'FD 36873', 'as read', ?, 'human', 'v1', ?, 1.0,"
+        " 'human')",
+        (*KEY, KEY[0], STAMP),
+    )
+    # and a RETIRED predecessor, which is the row the absent biconditional CHECK is for: it
+    # carries `superseded_by` and there is no `superseded_at` to recover for it (0019:212-217
+    # forbids inventing one), so a biconditional would roll the whole migration back
+    con.execute(reading, (*KEY, "text-layer", KEY[0], STAMP))
+    retired = con.execute("SELECT MAX(reading_id) FROM citation_reading").fetchone()[0]
+    con.execute(
+        "UPDATE citation_reading SET superseded_by = ? WHERE reading_id = ?",
+        (machine, retired),
+    )
+    con.commit()
+    con.close()
+
+    con = db.connect(path)  # the migration production will run
+    assert con.execute("PRAGMA user_version").fetchone()[0] == db.MIGRATIONS[-1][0]
+    assert con.execute("PRAGMA foreign_key_check").fetchall() == []
+    assert con.execute("SELECT count(*) FROM citation_reading").fetchone()[0] == 3
+
+    rows = dict(con.execute("SELECT reading_channel, text_ref FROM citation_reading").fetchall())
+    assert rows == {"ocr": "pre-0026", "human": "human", "text-layer": "pre-0026"}
+
+    carried = con.execute(
+        "SELECT reading_method, reading_method_version, cited_raw, quoted_passage,"
+        " source_location, text_id, span_method, span_method_version, confidence,"
+        " confidence_state, superseded_by, superseded_at FROM citation_reading"
+        " WHERE reading_id = ?",
+        (retired,),
+    ).fetchone()
+    assert carried == (
+        "dots.mocr",
+        "1.5",
+        "FD 36873",
+        "q",
+        '{"page": 3}',  # the JSON is carried across untouched; 0028 only changes what is WRITTEN
+        None,  # text_id: the column did not exist, so no row can be said to have had one
+        None,
+        None,
+        0.9,
+        "unmeasured",
+        machine,  # the pointer survives, because `reading_id` is copied explicitly
+        None,  # and it is honestly undated
+    )
+
+    # every foreign key of the 0014 table survived the rebuild and the rename, plus the two
+    # 0028 adds. The composite into `class_measurement` reports as TWO rows sharing one id, so
+    # the constraints are the distinct ids and not the row count.
+    fks = con.execute("PRAGMA foreign_key_list(citation_reading)").fetchall()
+    assert {r[2] for r in fks} == {
+        "citation_key",
+        "class_measurement",
+        "capture",
+        "document",
+        "reading_vocab",
+        "citation_reading",  # the self-reference, rewritten by the RENAME
+        "document_text",  # new at 0028
+        "text_ref_vocab",  # new at 0028
+    }
+
+
+def test_a_live_row_cannot_be_inserted_carrying_a_retirement_date(tmp_path):
+    """The insert trigger guards BOTH directions (Codex review on PR #26, 2026-09-12). A first
+    draft refused only a retired row with no date, so a LIVE row carrying a retirement date
+    went in — the live-and-dated state the update trigger had already been widened to refuse."""
+    con = _store(tmp_path)
+    _key(con)
+    _citation(con, _extraction_measurement(con))
+    insert = (
+        "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
+        " reading_channel, text_ref, cited_raw, quoted_passage, method, method_version,"
+        " asserted_at, confidence, confidence_state, superseded_at)"
+        " VALUES (?, ?, ?, ?, 'text-layer', 'benchmark', 'FD 36873', 'q', 'm', 'v', ?, 0.9,"
+        " 'unmeasured', ?)"
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="together or neither"):
+        con.execute(insert, (*KEY, STAMP, STAMP))
+    con.execute(insert, (*KEY, STAMP, None))  # and the ordinary live row still goes in
+    assert _live(con, "citation_reading") == 1
+
+
+def test_a_live_row_cannot_be_given_a_retirement_date_by_itself(tmp_path):
+    """The fourth edge (schema-critic, 2026-09-12, final pass on PR #26). Setting
+    `superseded_at` alone on a live row named no `superseded_by`, so the retirement trigger did
+    not fire and the append-only trigger let it through, the old date being NULL."""
+    con = _store(tmp_path)
+    _key(con)
+    _citation(con, _extraction_measurement(con))
+    con.execute(
+        "INSERT INTO citation_reading (citing_document, page, target_kind, target_key,"
+        " reading_channel, text_ref, cited_raw, quoted_passage, method, method_version,"
+        " asserted_at, confidence, confidence_state)"
+        " VALUES (?, ?, ?, ?, 'text-layer', 'benchmark', 'FD 36873', 'q', 'm', 'v', ?, 0.9,"
+        " 'unmeasured')",
+        (*KEY, STAMP),
+    )
+    rid = con.execute("SELECT reading_id FROM citation_reading").fetchone()[0]
+    with pytest.raises(sqlite3.IntegrityError, match="set and cleared together"):
+        con.execute(
+            "UPDATE citation_reading SET superseded_at = ? WHERE reading_id = ?", (STAMP, rid)
+        )
+    assert _live(con, "citation_reading") == 1

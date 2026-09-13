@@ -14,11 +14,16 @@ def retire(con, table: str, id_col: str, row_id: int, *, at: str | None = None) 
     live. The caller holds the transaction — a crash between the two steps leaves a
     self-pointer that cannot be told apart from a deliberate retirement.
 
-    `at` writes `superseded_at` IN THE SAME STATEMENT, for the tables that carry
-    `CHECK ((superseded_by IS NULL) = (superseded_at IS NULL))` — `document_pagination` and
-    `document_text` (0018), `decision_decided_date` (0019) — which refuse the pointer alone.
-    The citator's families carry no `superseded_at` (deferred.md, 2026-09-01) and pass
-    nothing."""
+    `at` writes `superseded_at` IN THE SAME STATEMENT, for the tables that refuse the pointer
+    alone: `document_pagination` and `document_text` (0018) and `decision_decided_date` (0019)
+    by `CHECK ((superseded_by IS NULL) = (superseded_at IS NULL))`, and **`citation_reading`
+    since migration 0028** by a trigger instead — the CHECK could not be applied there, that
+    table holding 72,309 rows retired before the column existed and 0019:212-217 forbidding an
+    invented date for them (ADR 0026 D5).
+
+    THE REST OF THE CITATOR'S FAMILIES STILL CARRY NO `superseded_at` and still pass nothing
+    (deferred.md, 2026-09-01), so this is now a per-table fact rather than a per-package one.
+    `citator/load.py` passes `at` for the reading and not for `citation`."""
     if at is None:
         con.execute(f"UPDATE {table} SET superseded_by = ? WHERE {id_col} = ?", (row_id, row_id))
     else:

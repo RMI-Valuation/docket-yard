@@ -206,6 +206,70 @@ checks. A per-table check in `db.migrate` would cut it and is recorded in `docs/
 
 ## Routine operations
 
+### Migration 0028 — a citation reading names the text it read (ADR 0026)
+
+A **migrating release, so it goes behind the wall** (§ Deploying a migrating release, ADR
+0020) and rolls back by Litestream restore, not by a tag. Migration 0025 needed no wall
+*because* `citation_resolution` held zero rows; the inverse holds here — `citation_reading`
+holds **146,147 rows** (73,838 live plus their retired predecessors) and every one is copied.
+
+**IT IS TWO OPERATIONS AND THEY ARE PRICED SEPARATELY.** The migration is a rebuild; the pass
+that fills `text_id` and the spans is a **RE-LOAD** through `citator load`, because the loader
+retires and re-inserts and an `UPDATE` would be an edit to a stored assertion. Both go behind
+the same wall.
+
+Rehearsed 2026-09-12 on a copy of production (`rehearse-wrap2`, 5.5 GB, the store the citator
+figures were measured on): 27 → 28 with `integrity_check` ok, **0 foreign-key violations**,
+146,147 rows carried, `text_ref` `'pre-0026'` throughout (`'human'` where the channel is), one
+index and three triggers. All six trigger edges executed, including a backdated retirement and
+an un-retirement. The staleness sweep runs in **0.02 s** over all 73,838 live rows, which is
+why it gets no index.
+
+```sh
+cd /srv/docketyard
+touch data/flags/maintenance          # readers get 503 + the page
+curl -sD- -o /dev/null https://docketyard.org/ | head -1   # confirm: 503
+$EDITOR .env                          # DY_TAG=<the tag>
+docker compose pull --ignore-buildable && docker compose up -d --build
+docker compose logs migrate           # schema 28 — allow ~5 min for the foreign-key check
+# the re-load, in the SAME window. THE VERB IS `find`, not `walk` — `walk` is the backfill
+# campaign, a different top-level command — and `load` globs `*.json` NON-recursively, so it
+# takes the CHANNEL directory `find` wrote, not the root (ingest specialist, 2026-09-12, F6:
+# both wrong lines would have failed after the readers were already 503'd, and `find` refuses
+# a non-empty output directory, so a fumbled retry needs a fresh path)
+docker compose run --rm --no-deps ingest citator find /data/findings-0028 </dev/null
+docker compose run --rm --no-deps ingest citator load /data/findings-0028/text-layer </dev/null
+# BEFORE the wall comes down: the pass left no residue. `'pre-0026'` is what D2's predicate
+# gates OUT, so a reading the pass missed is invisible to the detector as well (F4).
+docker compose exec -T web python -c "import sqlite3; c = sqlite3.connect('file:/data/docketyard.sqlite?mode=ro', uri=True); print(c.execute(\"SELECT text_ref, count(*) FROM citation_reading WHERE superseded_by IS NULL GROUP BY 1\").fetchall())"
+rm data/flags/maintenance             # back
+```
+
+Expect `[('store', 73838)]`, or `('human', n)` beside it once anyone has reviewed. **Any
+`'pre-0026'` left means the pass did not finish** — three ways it can happen, and only the
+third is a fault: a page whose live primary now belongs to a channel this run did not walk
+(measured at zero today, and one OCR wave from non-zero); a page a person has corrected (the
+floor ADR 0026 D2 states); or a document that FAILED during the load — which since this PR
+makes `citator load` **exit non-zero**, so the shell will tell you before this count does. A
+malformed findings FILE is deliberately not fatal (`unreadable`, pinned by
+`test_the_load_verb_runs_end_to_end`), and is the case this count exists to catch. Re-run the
+two verbs on a fresh output directory rather than clearing the flag.
+
+`extract` keeps running through this window, as it does for 0027 — it writes `document_text`
+and never `citation_reading`. If it lands a new primary between the `find` and the `load`, the
+stored `text_id` still names the text that was actually read, which is an honest pointer; D2
+then flags that row for a re-walk, so a small non-zero D2 count just after the window is
+expected rather than alarming.
+
+**Two things to expect and not be alarmed by.** Every live reading's `asserted_at` becomes the
+migration date — history survives on the predecessors, so validation query 3 still replays, but
+"what the record knew by then" for the reading family will say it learned every citation that
+day. And the re-load can **abort on the write lock** and say "re-run when it is free"; it
+resumes, and `docs/deferred.md` § the lock budget explains why (a deferred `BEGIN` returns
+SQLITE_BUSY at once rather than waiting out its 30-second timeout). **Check for an orphaned
+query first** — `sudo lsof /srv/docketyard/data/docketyard.sqlite-wal` — because a long-lived
+reader blocks every checkpoint and was what made this fail on 2026-09-12.
+
 ### Migration 0027 — a comment's attachment by document (v2026.09.14)
 
 A **migrating release, so it goes behind the wall** (§ Deploying a migrating release, ADR
