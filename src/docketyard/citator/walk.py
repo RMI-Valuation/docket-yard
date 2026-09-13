@@ -71,9 +71,11 @@ SELECT t.page_no, t.text, t.reading_channel, t.text_id
 # without it, which is within 1% of what two models independently said and what the operator
 # confirmed on a judged sample of forty (39 captions, 0 citations).
 #
-# WHAT IT CAN LOSE, AND WHAT WAS MEASURED. `find` reads `DOC_WORDS(context) or key not in
-# own`, so widening `own` only moves a key from "a citation always" to "a citation when a
-# document word is near". A decision citing a PRIOR decision of its own family normally
+# WHAT IT CAN LOSE, AND WHAT WAS MEASURED. `find` read `DOC_WORDS(context) or key not in
+# own` until finder 2026-09-13b, so widening `own` only moved a key from "a citation always" to
+# "a citation when a document word is near". (Since 2026-09-13b the document test is the span
+# test itself, `judge.names_document` on the quoted line — the gap named below is closed.)
+# A decision citing a PRIOR decision of its own family normally
 # carries "served", "slip op." or "Decision No." beside the number and still reads as a
 # citation — the operator's own rule, corrected on the work card 2026-09-10. But this is NOT
 # a guarantee by construction (review, 2026-09-12): the span test's `\bDecision\s+\d{4,6}\b`

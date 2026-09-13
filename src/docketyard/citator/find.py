@@ -32,12 +32,16 @@ total nobody can check.
 
 import re
 
+from docketyard.citator import judge
 from docketyard.citator.keys import SUBNO, docket_matches, docket_search, normalise
 
-# 2026-09-13: the Board's long names are found (`keys.LONG_DOCKET`) — `STB Finance Docket No.
-# 34002` and `Ex Parte No. 711 (Sub-No. 1)` emitted nothing before. The own-family rule is
-# 2026-09-12's, unchanged.
-FINDER_VERSION = "2026-09-13"
+# 2026-09-13b: the Board's long names are found (`keys.LONG_DOCKET`) — `STB Finance Docket No.
+# 34002` and `Ex Parte No. 711 (Sub-No. 1)` emitted nothing before — AND the kind of an
+# own-family mention is the span test's (`judge.names_document` on the quoted line), not a
+# ±160-character document-word window (below). The suffix `b` because `2026-09-13` was measured
+# and sampled with the window rule and never shipped: a second answer under that name would make
+# its card and its sample name a finder that never produced them.
+FINDER_VERSION = "2026-09-13b"
 
 # THE SPANS' OWN VERSION, and the reason it is not `FINDER_VERSION` (ADR 0026 D7). A character
 # offset IS a derived assertion — a claim about where in a text a string sits — and CLAUDE.md
@@ -55,15 +59,16 @@ FINDER_VERSION = "2026-09-13"
 OFFSET_METHOD = "match-offsets"
 OFFSET_VERSION = "2026-09-12"
 
-# Words that mean a DOCUMENT rather than a proceeding, within a window round the number.
-# `\bv\.\s` catches a case name; `S.T.B.` and `I.C.C.` catch a reporter cite beside the
-# docket. This is the finder's own test and it is NOT the span test — `judge.py` runs a
-# narrower one at projection, and the two are measured separately on purpose.
-DOC_WORDS = re.compile(
-    r"slip op|Decision No|served|NPRM|\border\b|\bv\.\s|Notice of Interim|\bS\.T\.B\.|I\.C\.C\.",
-    re.I,
-)
-WINDOW = 160
+# AN OWN-FAMILY MENTION IS A CAPTION UNLESS THE SPAN TEST NAMES A DOCUMENT (the operator's
+# decision, 2026-09-13, for every docket form). Until finder 2026-09-13 the kind was a
+# document-word window of ±160 characters (`slip op|Decision No|served|NPRM|order|v.|…`), a
+# wider test than the projection's, so a caption printed beside `(STB served …)` or an `ORDER`
+# heading read as a citation, was stamped measured, and was then suppressed by the projection it
+# disagreed with. The long-form gate showed the cost on the Board's older decisions: 100
+# long-form citations judged on the page, 44 of them the document's own caption, 36 of those
+# called citations by that window alone (`docs/research/long-form-check/README.md`). The span
+# test is the classifier ADR 0017 D4 publishes edges with, so reading the kind from it moves no
+# projected edge by construction; it is gated again on a fresh sample.
 PAGE_RE = re.compile(r"^===== page (\d+) =====$", re.M)
 
 # THE WRAPPED SUB-DOCKET (2026-09-11). `keys.SUBNO` refuses a newline before its parenthesis
@@ -221,9 +226,8 @@ def find(page_text: str, own: set[str]) -> list[dict]:
         key = normalise(raw)
         if key is None:
             continue
-        context = page_text[max(0, m.start() - WINDOW) : m.end() + WINDOW]
-        names_document = bool(DOC_WORDS.search(context)) or key not in own
         line = quoted(page_text, m.start(), end)
+        names_document = key not in own or judge.names_document(line)
 
         if key not in found:
             found[key] = {

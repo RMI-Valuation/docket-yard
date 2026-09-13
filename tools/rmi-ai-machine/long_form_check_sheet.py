@@ -103,9 +103,11 @@ def candidates(con) -> list[dict]:
     return out
 
 
-def draw(pool: list[dict]) -> list[dict]:
-    rng = random.Random(SEED)
-    used: set[str] = set()
+def draw(pool: list[dict], seed: int = SEED, excluded: frozenset[str] = frozenset()) -> list[dict]:
+    rng = random.Random(seed)
+    # A DOCUMENT AN EARLIER SAMPLE DREW IS NEVER DRAWN AGAIN: a rule chosen after seeing those
+    # verdicts is gated only on documents nobody has judged (the operator, 2026-09-13)
+    used: set[str] = set(excluded)
     drawn: list[dict] = []
 
     def take(rows: list[dict], n: int, stratum: str) -> None:
@@ -142,17 +144,26 @@ def marked(item: dict) -> str:
     return "".join(out)
 
 
-def main(store: Path) -> int:
+def main(store: Path, seed: int = SEED, exclude: Path | None = None, name: str = "sample") -> int:
+    excluded: frozenset[str] = frozenset()
+    if exclude is not None:
+        excluded = frozenset(
+            d["document_sha256"] for d in json.loads(exclude.read_text(encoding="utf-8"))["drawn"]
+        )
+    sample_path = SAMPLE.with_name(f"{name}.json")
+    page_path = PAGE if name == "sample" else PAGE.with_name(f"long-form-check-{name}.html")
     con = sqlite3.connect(f"file:{store}?mode=ro", uri=True)
     pool = candidates(con)
     con.close()
-    drawn = draw(pool)
+    drawn = draw(pool, seed, excluded)
     population = {}
     for c in pool:
         k = f"{c['era']} {c['outcome']}"
         population[k] = population.get(k, 0) + 1
     record = {
-        "seed": SEED,
+        "seed": seed,
+        "excluded_documents_from": exclude.as_posix() if exclude is not None else None,
+        "excluded_documents": len(excluded),
         "store": store.as_posix(),
         "finder_version": find.FINDER_VERSION,
         "key_version": keys.KEY_VERSION,
@@ -160,7 +171,7 @@ def main(store: Path) -> int:
         "strata": {**dict(STRATA), "unresolved": UNRESOLVED_EXTRA},
         "drawn": [{k: v for k, v in d.items() if k not in ("excerpt", "spans")} for d in drawn],
     }
-    SAMPLE.write_text(json.dumps(record, indent=1) + "\n", encoding="utf-8", newline="\n")
+    sample_path.write_text(json.dumps(record, indent=1) + "\n", encoding="utf-8", newline="\n")
     items = [
         {
             "k": f"{d['document_sha256']}/{d['page']}/{d['key']}",
@@ -176,13 +187,21 @@ def main(store: Path) -> int:
         for d in drawn
     ]
     data = json.dumps(items, separators=(",", ":")).replace("</", "<\\/")
-    PAGE.write_text(HTML.replace("__DATA__", data), encoding="utf-8", newline="\n")
-    print(f"{len(pool)} long-form citations; drew {len(drawn)} -> {SAMPLE}, {PAGE}")
+    html_out = HTML.replace("__DATA__", data)
+    if name != "sample":
+        # its own name in the gallery, and its own verdicts: two checks must never share a store
+        html_out = html_out.replace(
+            "<title>Long-Form Docket Check</title>",
+            f"<title>Long-Form Docket Check ({name})</title>",
+        ).replace('"dy-long-form-check-v1"', f'"dy-long-form-check-{name}"')
+    page_path.write_text(html_out, encoding="utf-8", newline="\n")
+    print(f"{len(pool)} long-form citations; drew {len(drawn)} -> {sample_path}, {page_path}")
     print("by stratum:", {s: sum(1 for d in drawn if d["stratum"] == s) for s in record["strata"]})
     return 0
 
 
-HTML = """<title>Long-form citations — the gate</title>
+HTML = """<title>Long-Form Docket Check</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
 :root{--paper:#faf8f5;--card:#fff;--ink:#1b1a17;--muted:#6d675f;--rule:#e0dad1;--accent:#24427a;
 --yes:#2f6b3f;--no:#a3391f;--hold:#7d5f10;--mark:#fdf0b8}
@@ -202,12 +221,13 @@ button{font:inherit;padding:.35em .9em;border-radius:6px;border:1px solid var(--
 button.on[data-v=right]{background:var(--yes);color:#fff;border-color:var(--yes)}
 button.on[data-v=wrong]{background:var(--no);color:#fff;border-color:var(--no)}
 button.on[data-v=unclear]{background:var(--hold);color:#fff;border-color:var(--hold)}
+button.on[data-v=caption]{background:var(--accent);color:var(--card);border-color:var(--accent)}
 input{font:inherit;width:100%;box-sizing:border-box;margin-top:.5em;border:1px solid var(--rule);border-radius:6px;padding:.35em .5em;background:var(--paper);color:var(--ink)}
 a{color:var(--accent)}
 </style>
 <div class="wrap">
 <h1>Long-form citations — the gate for finder 2026-09-13</h1>
-<p class="muted">A row is <b>right</b> only when both hold: the key names the proceeding the page prints, and it is a citation, not the document's own proceeding named as itself. A document cited in the own docket (<i>Decision No. 5</i>, <i>served …</i>) is a citation. Check against the Board's page where the text is unclear.</p>
+<p class="muted"><b>right</b>: the key names the proceeding the page prints, and it is a citation. A document cited in the own docket (<i>Decision No. 5</i>, <i>served …</i>) is a citation. The quoted line is only the line the number sat on, so a case name cut short is still right. <b>wrong</b>: the key is not the proceeding printed. <b>caption</b>: the document's own proceeding named as itself (its caption, a heading, a bare docket number). <b>unclear</b>: the page does not settle it. Check against the Board's page where the text is unclear.</p>
 <div class="bar"><span id="prog"></span><button id="copy">Copy findings</button><span id="copied" class="muted"></span></div>
 <div id="cards"></div>
 </div>
@@ -231,7 +251,7 @@ a{color:var(--accent)}
       '<div class="line">' + it.excerpt + '</div>' +
       '<div><a target="_blank" rel="noopener" href="' + esc(it.pdf) + '">The Board\\'s page</a></div>' +
       '<div style="margin-top:.6em;display:flex;gap:.4em;flex-wrap:wrap">' +
-      ["right", "wrong", "unclear"].map(function (v) { return '<button data-v="' + v + '" class="' + (s.v === v ? "on" : "") + '">' + v + "</button>"; }).join("") + "</div>" +
+      ["right", "wrong", "caption", "unclear"].map(function (v) { return '<button data-v="' + v + '" class="' + (s.v === v ? "on" : "") + '">' + v + "</button>"; }).join("") + "</div>" +
       '<input placeholder="Note (what is wrong, or why unclear)" value="' + esc(s.note || "") + '"></div>';
   }).join("");
   Array.prototype.forEach.call(box.querySelectorAll(".card"), function (card) {
@@ -268,4 +288,7 @@ if __name__ == "__main__":
         if "--store" in argv
         else ROOT / "data/rehearse-family.sqlite"
     )
-    raise SystemExit(main(store))
+    seed = int(argv[argv.index("--seed") + 1]) if "--seed" in argv else SEED
+    exclude = Path(argv[argv.index("--exclude") + 1]) if "--exclude" in argv else None
+    name = argv[argv.index("--name") + 1] if "--name" in argv else "sample"
+    raise SystemExit(main(store, seed, exclude, name))

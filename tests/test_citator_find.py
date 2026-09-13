@@ -22,10 +22,9 @@ def test_a_caption_is_emitted_and_labelled_rather_than_dropped():
     """The measured tool kept only what it called a citation — 401 captions dropped against
     356 citations on the sixty decisions. A row is never discarded.
 
-    The document-word window is ±160 characters, so the filler below is not padding: a
-    running caption near a citation reads as a citation, which is the measured behaviour of
-    the rule that scored 95.1% recall at 88.1% precision. Widening or narrowing it is a new
-    FINDER_VERSION and a re-measurement, not a tidy-up.
+    Since finder 2026-09-13b an own-family mention's kind is the span test's, read on the line
+    the target was quoted from, so a document word elsewhere on the page does not make a
+    caption a citation. Changing that test is a new FINDER_VERSION and a re-measurement.
     """
     page = (
         "SURFACE TRANSPORTATION BOARD\nDocket No. FD 36873\n"
@@ -263,6 +262,27 @@ def test_the_anchor_finds_a_target_by_its_key_whatever_its_first_spelling():
     [f] = find.find(page, OWN)
     assert f["target"] == "Finance Docket No. 34002"
     assert resolve.served_date(resolve._anchored(f["quoted"], f["target"])) == "2002-05-01"
+
+
+def test_an_own_family_mention_is_a_caption_unless_its_line_names_a_document():
+    """Finder 2026-09-13b, the operator's decision after the long-form gate failed: 36 of 44
+    captions there read as citations only because `served` or `order` sat within 160 characters.
+    The kind is now the span test's (`judge.names_document`), on the quoted line."""
+    # the served date is within the old window but NOT the quoted line: a next line opening
+    # `(STB served …)` would be quoted as the citation's continuation (2026-09-11), and then the
+    # span test, which the projection reads too, rightly calls the line a document
+    beside = (
+        "ORDER\nSTB Finance Docket No. 36873\nDecided: March 10, 2021\n(STB served Mar. 12, 2021)"
+    )
+    assert [(keys.normalise(f["target"]), f["kind"]) for f in find.find(beside, OWN)] == [
+        ("FD 36873", "caption")
+    ]
+    cites = "See FD 36873 (STB served Mar. 12, 2021), which decided the question."
+    assert find.find(cites, OWN)[0]["kind"] == "citation"
+    numbered = "As in Decision No. 5, Finance Docket No. 36873, the Board held."
+    assert find.find(numbered, OWN)[0]["kind"] == "citation"
+    # another proceeding is a citation whatever its line says
+    assert find.find("STB Finance Docket No. 34002", OWN)[0]["kind"] == "citation"
 
 
 def test_a_long_forms_suffix_is_upper_case_only_as_the_abbreviated_one_is():

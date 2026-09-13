@@ -1316,6 +1316,14 @@ not read, each small or ambiguous enough to want its own decision:
   `1c1d6d2eab12` p1 takes the date of `Ex Parte No. 575 (Sub-No. …)` beside it. Whether a
   same-day decision entered in both dockets makes the parent's answer right often enough to
   keep is a question about published claims, so it is the operator's.
+- **The span test cannot see an own-family citation by reporter or by name.** Finder
+  2026-09-13b reads an own-family mention's kind from `judge.names_document` (the operator's
+  decision), and on the sixty two truth citations became captions: decision 51532's `EP 328`
+  (`Investigation of Tank Car Allowance Sys. (EP 328), 3 I.C.C.2d 196`) and decision 53052's
+  `FD 36873 (1)` (`… Union Railway, Docket No. FD 36873 (Sub-No. 1). However, the Board will hold
+  both`). Both were already suppressed at projection, so nothing published changed (projection
+  217/221 either way); what the old window's `I.C.C.`/`v.` words caught, the span test does not.
+  Widening the span test is a SPAN_VERSION bump and a re-measurement of every edge it stamps.
 - **A long form whose words wrap is not a quote boundary** (ingest specialist F8).
   `find.quoted` looks for the next docket number within the line, so `…; see Finance↵Docket No.
   34002 (…` does not end the earlier target's rest-of-line there, while `resolve._anchored`,

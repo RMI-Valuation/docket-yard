@@ -27,10 +27,11 @@ CHANNEL_TEXT = "text-layer"
 # proceeding it is part of. The judgement changes, therefore the version does: v2 stays on
 # record and every edge stamped by it is re-measured rather than reinterpreted.
 #
-# v4 (2026-09-13): `find.FINDER_VERSION` moved to 2026-09-13 — the Board's long names
-# (`Finance Docket No.`, `Ex Parte No.`) are found. 6,028 (page, docket) citations to held
-# proceedings on the text layer were emitted by nothing; a finding the old finder never made is
-# a new answer, so v3 stays on record and the class is re-measured.
+# v4 (2026-09-13): `find.FINDER_VERSION` moved to 2026-09-13b — the Board's long names
+# (`Finance Docket No.`, `Ex Parte No.`) are found, and an own-family mention's kind is the span
+# test's rather than a document-word window. 6,028 (page, docket) citations to held proceedings
+# on the text layer were emitted by nothing; a finding the old finder never made is a new
+# answer, so v3 stays on record and the class is re-measured.
 RANK_VERSION = "v4"
 # A human is a method, a channel and a version like any other — `reading_vocab` carries
 # 'human' for exactly this reason (ADR 0018 D3: the channel is in every key, so a human row
