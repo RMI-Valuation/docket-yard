@@ -23,9 +23,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **The OCR walk is next** (his order, 2026-09-13). Under finder 2026-09-12: 1,022 documents,
   509 citations + 1,111 captions; NO OCR-channel measurement, so `load` refuses it
   (`Unscored`) and OCR needs its own `rank_version`. **His decision (2026-09-13): a labelled
-  document sample, ~100 documents in four strata** (`docs/research/ocr-citation-benchmark/`).
-  Next: the sampler, the draw and its page count, model-drafted labels he checks against the
-  scans, `citation_dryrun.py` on the `ocr` channel, card, rank, load
+  document sample in four strata, a long document on 20 random pages**
+  (`docs/research/ocr-citation-benchmark/`). DRAWN: 98 documents, 548 pages, 119 citations
+  found on them. Next: model-drafted labels (a multi-agent run, his go first) he checks against
+  the scans, `citation_dryrun.py` on the `ocr` channel restricted to the labelled pages, card,
+  rank, load
 - **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
   blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where
   `dots.mocr` failed and PP-OCRv6 read it blank. Why `image_only_documents` missed them: unknown
