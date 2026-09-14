@@ -307,7 +307,7 @@ def test_a_work_block_is_declared_as_its_own_class_with_its_own_denominator(tmp_
     assert row[3] is None
     assert row[4] == 104, "the claims the rule answered are what a reader is SHOWN"
     assert row[5] == "data/work-verdicts.tsv", "the operator's judgements, not the scorer's"
-    assert row[6] == "rule-1"
+    assert row[6] == methods.RULES[0], "the rule the card measured, which `stamp` checks"
     assert row[7] is None, "`found_count` is what the FINDER found, and this is not that"
     # the docket class is still declared beside it, at its own figure
     assert stamps["citation_resolution"][1] == pytest.approx(216 / 221)

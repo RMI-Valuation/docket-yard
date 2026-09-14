@@ -22,10 +22,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 - **His 39 judged captions**: finder 2026-09-11 called 16 of them `citation`, so they stayed
   queued; not yet re-measured under the family closure (live since v2026.09.18)
-- **Next finder version (his decisions of 2026-09-13, `docs/deferred.md`)**: the resolver's
-  FALLBACK anchor (strict key first, the family only when that finds no date: FD 34554 gains 35093,
-  EP 575 keeps 36758) and a fused-footnote rule keying a six-digit number to the document's own
-  docket (346 of 352 are own captions). Branch + PR, card, rehearsal, re-load
+- **Finder 2026-09-14 / rank v6: the resolver fallback, branch `finder-fallback-anchor`** — built,
+  both cards unchanged, REHEARSED in prod image (one edge identity: 41393 FD 34554 -> 35093;
+  26,205 rows, queues 438/2/900). PR #32 OPEN; Codex P1 (verified): the resolver's method version
+  must move too — DONE: rules `rule-1-2026-09-14`/`rule-2-repair-2026-09-14`, rehearsed in prod image,
+  GATE 0 (104,765 -> 0 old-rule rows on live keys), one edge changes. Next: push, bots, his go
+- **Then the six-digit own-docket rule** (346 findings; the finding carries its key): an ADR 0018
+  addendum first — schema-critic found it changes identity (`docs/deferred.md`, 2026-09-14)
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion

@@ -706,6 +706,71 @@ figure:
 **No text-layer edge changed**: 0 of the v4 identities are missing under v5 and 0 were added.
 Public pages return 200.
 
+### The fallback re-load (finder 2026-09-14, rank v6)
+
+The resolver's served-date window anchors on a target's own occurrences first, and on its family's
+only when those print no date. That is the operator's decision (`docs/deferred.md`, the family
+limit). **The rules carry that version** (Codex on PR #32): `resolve.RULE_1` is
+`rule-1-2026-09-14` and `RULE_2` `rule-2-repair-2026-09-14`, ranked under v6, and `load` retires
+every older-version resolver row on a key and channel onto the new one. `find.FINDER_VERSION` moves
+to 2026-09-14 with them, though the finder emits exactly what it did. No migration, no wall.
+
+**The gate (the operator's decision): after the load, no live `registry-match` resolution may be
+left at `rule-1` or `rule-2-repair` on a key with a live citation.** v6 ranks only the new rules,
+so such a row would stop publishing. The after snapshot counts them and must read 0.
+
+**Both channels are re-declared and re-loaded.** A card is refused by `load` for any finder but its
+own, so the text layer and OCR each need a card measured on 2026-09-14. The order, between two
+forward passes, with the UTC time before the first `declare` noted as the restore point:
+
+    docker compose run --rm --no-deps ingest citator declare \
+        --scores /data/citator-card-2026-09-14.json </dev/null
+    docker compose run --rm --no-deps ingest citator declare \
+        --scores /data/citator-card-ocr-2026-09-14.json </dev/null
+    docker compose run --rm --no-deps ingest citator find /data/citation-findings-2026-09-14 </dev/null
+    docker compose run --rm --no-deps ingest citator load \
+        /data/citation-findings-2026-09-14/text-layer </dev/null   # failed 0; work_gained 1
+    docker compose run --rm --no-deps ingest citator load \
+        /data/citation-findings-2026-09-14/ocr </dev/null          # failed 0, refused_shared 0
+    docker compose run --rm --no-deps ingest citator restamp --apply </dev/null
+    docker compose run --rm --no-deps ingest citator restamp --channel ocr --apply </dev/null
+
+**The cards are yesterday's but for the finder version and the date:**
+
+- Text layer (`citation_dryrun.py` on `data/prod-copy.sqlite`, work block from
+  `work_check_sheet.py --verdicts`): truth 226, citation 223/230, resolution 217/221, projection
+  217/221, work 140/140.
+- OCR (`ocr_citation_dryrun.py`): truth 57, 36/59, 36/43, 36/43.
+
+**The OCR card must be built on a store WITHOUT production's OCR citator rows**, e.g. a copy from
+before the OCR load. On a restore that holds them, the shipped chain projects those rows too and
+the card refuses to write. Its `--findings` is the channel folder `citator find` writes
+(`<out>/ocr`).
+
+**Rehearsed 2026-09-14** inside v2026.09.22's image, on a restore of that day, store in a Docker
+volume, with the rules' new versions; the before figures are an untouched copy at v5:
+
+- `find` 11 s: 19,944 text-layer and 1,022 OCR readings, 104,765 findings;
+- text-layer `load` 47 s: 0 failed, retracted 0, readings retired 0, `work_gained` 1, `work_lost` 0;
+- OCR `load` 3 s: 0 failed, 0 `refused_shared`;
+- `restamp`: 0 rows on either channel, since every resolution was re-written under the new rules
+  and stamped from the new cards as it was.
+
+| | Before (v5) | After (v6) |
+|---|---|---|
+| Rows from `project.projected` | 26,205 | 26,205 |
+| Edges, text layer / OCR | 22,547 / 332 | 22,547 / 332 |
+| Exposed / repaired / unresolved queues | 438 / 2 / 900 | 438 / 2 / 900 |
+| Live resolutions by rule | `rule-1` 105,666, `rule-2-repair` 2 | new rules 104,763 + 2, `rule-1` 903 |
+| **Old-rule rows left on live keys (the gate)** | 104,765 | **0** |
+| Human resolutions; pages read on two machine channels | 0; 0 | 0; 0 |
+
+The 903 left at `rule-1` all sit on keys whose citation v2026.09.15 retracted; every consumer joins a
+live citation, so they reach nothing (`docs/deferred.md`, a retracted key's resolutions).
+
+**One edge identity changes, and it is the one decided**: decision 41393's `FD 34554`, docket-level
+under v5, names notice 35093 under v6. Nothing is removed otherwise and nothing else is added.
+
 ### Verifying, and going back
 
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null

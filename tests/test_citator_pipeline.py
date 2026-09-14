@@ -1413,6 +1413,31 @@ def test_the_anchor_finds_the_target_as_printed_and_stops_at_a_sentence():
     assert work("FD 36873", "See FD 36873, slip op. at 6 (STB served Mar. 12, 2021).") == "Y"
 
 
+def test_the_family_is_a_fallback_anchor_not_a_peer():
+    """The operator's decision, 2026-09-13 (docs/deferred.md): a target's own occurrences anchor
+    first, and its sub-dockets' only when those print no service date. The two pages he checked:
+    decision 41393 gives the parent and its sub-docket a date each, and the parent, holding both
+    as peers, named nothing; decision 39033 prints one date after both forms, which must still
+    reach the parent through its sub-docket (measured: one answer of 104,765 moves, 2026-09-14)."""
+    held = {"FD 34554": 1, "FD 34554 (2)": 2, "EP 575": 3, "EP 575 (1)": 4}
+    works = {
+        (1, "2004-10-07"): "35093",
+        (2, "2005-02-11"): "35555",
+        (3, "2007-10-30"): "36758",
+        (4, "2007-10-30"): "36758",
+    }
+
+    def work(key, line, printed):
+        return resolve.resolve(key, held, works, line, printed).decision_id
+
+    two = "FD 34554 (STB served Oct. 7, 2004); FD 34554 (Sub-No. 2) (STB served February 11, 2005)"
+    assert work("FD 34554", two, "FD 34554") == "35093", "its own date, not both"
+    assert work("FD 34554 (2)", two, "FD 34554 (Sub-No. 2)") == "35555"
+    one = "STB Ex Parte No. 575 and STB Ex Parte No. 575 (Sub-No. 1) (STB served Oct. 30, 2007)"
+    assert work("EP 575", one, "Ex Parte No. 575") == "36758", "no date of its own: the family's"
+    assert work("EP 575 (1)", one, "Ex Parte No. 575 (Sub-No. 1)") == "36758"
+
+
 def test_a_work_card_declared_before_the_load_stamps_the_rows_that_name_a_document(tmp_path):
     """The order the operator chose on 2026-09-10, and the reason it is load-bearing.
 

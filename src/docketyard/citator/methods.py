@@ -38,7 +38,12 @@ CHANNEL_OCR = "ocr"
 # channel, below the text layer's for every method (ADR 0018 D7, `CHANNELS`). The finder is
 # unchanged. A ranking that only grows is still a new ranking: nothing dates which one was in
 # force (`project`'s one accepted deferral), so v4 stays on record as the text layer alone.
-RANK_VERSION = "v5"
+#
+# v6 (2026-09-14): the resolver's served-date window anchors on a target's own occurrences
+# before its family's, so both rules take a new version (`resolve.RULE_1`/`RULE_2`) and are ranked
+# here under them; `find.FINDER_VERSION` moved to 2026-09-14 with it (the operator's decision),
+# though the finder emits exactly what it did. v5 stays on record with every edge it stamped.
+RANK_VERSION = "v6"
 # A human is a method, a channel and a version like any other — `reading_vocab` carries
 # 'human' for exactly this reason (ADR 0018 D3: the channel is in every key, so a human row
 # must carry something legal).
@@ -288,12 +293,15 @@ def _work_measurement(con, channel: str) -> tuple[int, float] | None:
     vocabulary; until the sixty-decision sheet's work column is checked and declared, this
     returns None and every resolution is stamped `docket`, exactly as before it existed.
     """
+    # measured on THIS build's rule, or not at all (schema-critic, 2026-09-14): an older rule's
+    # work card is no card for rows the current rule writes, and `stamp` refuses the docket
+    # stages' counterpart outright; here it reads as the ordinary "no work class" state
     row = con.execute(
         "SELECT measurement_id, precision FROM class_measurement"
         " WHERE measured_target = 'citation_resolution' AND class = ? AND reading_channel = ?"
-        "   AND precision IS NOT NULL"
+        "   AND precision IS NOT NULL AND resolution_method_version = ?"
         " ORDER BY benchmark_date DESC, measurement_id DESC LIMIT 1",
-        (WORK_CLASS, channel),
+        (WORK_CLASS, channel, resolve.RULE_1),
     ).fetchone()
     return (row[0], row[1]) if row else None
 
@@ -328,13 +336,21 @@ def stamp(
     out: dict[str, tuple[int, float]] = {}
     for stage in stages:
         row = con.execute(
-            "SELECT measurement_id, precision FROM class_measurement"
+            "SELECT measurement_id, precision, resolution_method_version FROM class_measurement"
             " WHERE measured_target = ? AND class = ? AND reading_channel = ?"
             " ORDER BY benchmark_date DESC, measurement_id DESC LIMIT 1",
             (stage, cls, channel),
         ).fetchone()
         if row is None:
             raise Unscored(f"no class_measurement for ({stage}, {cls}) on channel {channel!r}")
+        # A CARD NAMES THE RULE IT MEASURED (schema-critic, 2026-09-14). `measure` writes the rule
+        # version onto every resolution and projection card, and nothing read it: a card declared
+        # before a rule bump would stamp the new rule's rows while naming the old one.
+        if stage != "citation" and row[2] != resolve.RULE_1:
+            raise Unscored(
+                f"({stage}, {cls}) on channel {channel!r} was measured on resolver {row[2]!r};"
+                f" this build's rule is {resolve.RULE_1!r}. Declare a card measured on it"
+            )
         if row[1] is None:
             raise Unscored(
                 f"({stage}, {cls}) on channel {channel!r} has been measured but carries no"

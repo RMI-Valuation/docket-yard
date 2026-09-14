@@ -1307,7 +1307,33 @@ not read, each small or ambiguous enough to want its own decision:
   **6 another proceeding** (`NOR 421278 (STB served April 20, 2023)` for NOR 42127). **Decided
   (the operator): a finder rule** — a six-digit number whose last digit stripped is the
   document's own docket is keyed as that docket, so the 346 become the captions they are; its own
-  finder version, card and a small check. The 6 other-proceeding cases stay here. Measured on the production mirror: **176** long-form matches key a
+  finder version, card and a small check. The 6 other-proceeding cases stay here.
+  *(Re-measured 2026-09-14 on a restore of that day, rule applied to finder 2026-09-13b's output:
+  346 text-layer findings in 331 documents, 0 on OCR, no six-digit key a held docket, all 346
+  `citation` today and `caption` once keyed as the own docket; 6 other-proceeding. Decided the
+  same day by the operator: THE FINDING CARRIES ITS KEY — `find` applies the rule and emits the
+  key, `load` and the span check read it and refuse any other departure from the printed number,
+  `cited_raw` stays as printed; schema-critic before code.)*
+  *(Schema-critic on that design, 2026-09-14, verified the same day. It changes ADR 0018 D1's
+  identity — a key becomes the normaliser plus a rule over registry data — so it needs an ADR 0018
+  addendum, and `KEY_VERSION` must move (0014:560-561 define `target_key` as the normalised target
+  and `key_version` as its normaliser). Breaks, each confirmed:*
+  - *177 of the 346 sit on a page that also emits the stripped own key (116 caption, 61
+    citation), so `find` merges the two forms and `verify_spans`, which checks each span against
+    `normalise(target)` (`find.py:324,340`), fails the document;*
+  - *`own` is registry data still growing, and retraction fires only across versions
+    (`load.py:903`), so a same-version re-load after `own` changes leaves both keys live, and
+    nothing records the `own` a key was built from;*
+  - *`resolve._anchored` keys occurrences by `normalise(printed)` (`resolve.py:211,234`), so a
+    re-keyed target misses the other printed form;*
+  - *`load` must check the stripped key is own, or a forged file re-keys one of the 6
+    other-proceeding cases to a measured, unexposed, unreviewed edge;*
+  - *ADR 0018 D2 has a mis-keyed row point at its replacement, not at itself;*
+  - *`benchmark_review.py`, `review_queue_panel.py` and the check sheets also re-derive or anchor
+    from the printed form.*
+  *Decided by the operator the same day: ship the resolver fallback as its own finder version
+  first; the six-digit rule follows as an ADR 0018 addendum, critic passes and his acceptance, then
+  its own finder version.)* Measured on the production mirror: **176** long-form matches key a
   six-digit number the registry does not hold, and in every one the five-digit parent IS held
   (`STB Finance Docket No. 340871↵TRINIDAD RAILWAY` — a caption with its footnote marker
   fused). Rule 2 repairs only five printed digits and `review.in_the_held_record` queues nothing
@@ -1327,7 +1353,24 @@ not read, each small or ambiguous enough to want its own decision:
   anchor does — strict key first, the family's occurrences only when that finds no service date.
   Checked on both pages: EP 575 and EP 575 (1) keep 36758; FD 34554 gains 35093 while FD 34554
   (2) keeps 35555 (served 2005-02-11). To be built with the fused-digit finder rule below, as one
-  finder version. Pinned by
+  finder version. *(Measured 2026-09-14 on a restore of that day, main's resolver against the
+  branch `finder-fallback-anchor`'s over every live reading, 104,765 on both channels: ONE answer
+  changes, reading 308248, `FD 34554` gaining 35093; nothing lost or altered.)*
+  *(Codex on PR #32, 2026-09-14, P1, verified: the fallback changes what a resolution ASSERTS, but
+  the row is still `registry-match@rule-1`/`rule-2-repair`, and `FINDER_VERSION` lives on `citation`
+  and `citation_reading`, not on `citation_resolution`. `resolve.py`'s own note of 2026-09-10 says
+  "any LATER widening of what a row asserts is a version bump", and `_anchored`'s docstring
+  contradicts it. Decided the same day by the operator: BUMP THE RESOLVER'S VERSION, schema-critic
+  scoping how older-version rows are superseded, ranked and queued before any code; rehearse again.)*
+  *(Schema-critic's scope, verified 2026-09-14: `citation_resolution` has NO human-row trigger (the
+  loader's `method = 'registry-match'` filter is the only guard); the projection inner-joins
+  resolutions to rank rows by `method_version` (`project.py:52-57`), so a row left at the old
+  version stops publishing; `measure` writes `RULE_1` into the card and `stamp` never checks it.
+  Design: bump both rules (`rule-1/2026-09-14`, `rule-2-repair/2026-09-14`), retire every older
+  resolver row on the key and channel onto the new one, read `work_gained`/`work_lost` against any
+  version, `stamp` refuses a card of another resolver version, rebuild both cards, rehearse on a
+  fresh restore. Decided by the operator: THE RE-LOAD MUST REACH EVERY LIVE RESOLUTION and the
+  release waits for 0 left at the old version on live keys; FINDER_VERSION stays 2026-09-14.)* Pinned by
   the 2026-09-10 review as a limit that must survive (`test_the_anchor_finds_the_target_as_
   printed_and_stops_at_a_sentence`), and kept when `resolve._anchored` moved from a spelling to
   a key (ingest specialist F1, 2026-09-13): `FD 36873` anchors on `FD 36873 (Sub-No. 1) (STB
