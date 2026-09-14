@@ -8,11 +8,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **The next release carries SQLite `3.46.1-7+deb13u2`** (his decision, 2026-09-13): two FTS5
-  CVEs (2026-11822, -11824) that v2026.09.20's `deb13u1` lacks, and search is FTS5. A rebuild is
-  NOT enough: `python:3.12-slim` (2026-09-01) still ships `deb13u1`, so the Dockerfile's final
-  stage must upgrade `libsqlite3-0` (/code-review). Verify it in the built image with
-  `dpkg -s libsqlite3-0`. The 3.53.4 upgrade is in `docs/deferred.md`
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown; exposed
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on

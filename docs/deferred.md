@@ -1425,7 +1425,8 @@ re-raising, with a test that commits after a failing script.
 ## SQLite 3.53.4 in production, 2026-09-13 (v2026.09.20)
 
 *(Decided 2026-09-13 by the operator: the next release carries Debian's `deb13u2` fixes on the
-same 3.46.1; the upgrade below is its own decision, later.)* Every figure was measured or read
+same 3.46.1; the upgrade below is its own decision, later. `deb13u2` shipped in v2026.09.22,
+2026-09-14: the Dockerfile now upgrades `libsqlite3-0` itself.)* Every figure was measured or read
 from its primary source that day.
 
 - **Engines on the record:** production image 3.46.1 (`libsqlite3-0 3.46.1-7+deb13u1`, Debian 13,
