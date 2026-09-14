@@ -159,7 +159,7 @@ def _stripped(key: str) -> str | None:
     return key[:-1]
 
 
-def _anchored(passage: str, printed: str) -> str:
+def _anchored(passage: str, printed: str, *, family: bool = True) -> str:
     """The parts of the passage that belong to THIS target: from the end of each of its
     printed occurrences to the next docket-shaped number, or the end of that line.
 
@@ -192,13 +192,14 @@ def _anchored(passage: str, printed: str) -> str:
     one whose key is the target's anchors a window. A `printed` that keys as nothing keeps the
     spelling search, since the spelling is all there is to anchor on.
 
-    THE FAMILY LIMIT IS KEPT, deliberately: an occurrence keyed as one of the target's own
-    sub-docket or suffixed forms (`FD 36873 (1)` for `FD 36873`) still anchors the parent, as the
-    spelling search did — a parent found inside `FD 36873 (Sub-No. 1)` takes that line's date,
-    the limit the 2026-09-10 review recorded and pinned. Retiring it changes work-level answers
-    of its own (measured on the production mirror, 2026-09-13: 8 lost, 4 gained, one of them a
-    parent that took its sub-docket's date wrongly) and is the operator's decision, not this
-    fix's (`docs/deferred.md`).
+    THE FAMILY IS A FALLBACK, NOT A PEER (the operator's decision, 2026-09-13; `resolve` makes
+    it). `family=False` anchors on occurrences keyed exactly as the target; `family=True` also
+    lets one of its own sub-docket or suffixed forms (`FD 36873 (1)` for `FD 36873`) anchor the
+    parent, the limit the 2026-09-10 review pinned. Held as a peer, it handed a parent every
+    date its sub-dockets printed: decision 41393 cites `FD 34554 (STB served Oct. 7, 2004) …
+    FD 34554 (Sub-No. 2) (STB served February 11, 2005)`, the parent saw two dates and named
+    nothing, where notice 35093 is right. As a fallback it still carries `EP 575 and EP 575
+    (Sub-No. 1) (STB served Oct. 30, 2007)` to decision 36758, filed in both dockets.
 
     THIS WINDOW IS VERSIONED BY THE FINDER AND THE RANK, NOT BY `rule-1`: it narrows what a
     row can be handed and never widens what a row asserts (the condition above), and every
@@ -211,7 +212,7 @@ def _anchored(passage: str, printed: str) -> str:
     key = keys.normalise(printed)
     for raw in passage.split(" | "):
         line = " ".join(raw.split())
-        for end in _occurrence_ends(line, printed, key):
+        for end in _occurrence_ends(line, printed, key, family):
             stops = [len(line)]
             if following := keys.docket_search(line, end):
                 stops.append(following.start())
@@ -221,9 +222,9 @@ def _anchored(passage: str, printed: str) -> str:
     return " | ".join(out)
 
 
-def _occurrence_ends(line: str, printed: str, key: str | None) -> list[int]:
+def _occurrence_ends(line: str, printed: str, key: str | None, family: bool) -> list[int]:
     """Where each occurrence of the target ends on the line: every docket number keying as
-    `key` or as one of its own sub-docket or suffixed forms (the family limit, above), to the
+    `key`, and with `family` also as one of its own sub-docket or suffixed forms (above), to the
     end the finder gives it, or, when `printed` keys as nothing, every place the spelling
     itself stands alone."""
     if key is None:
@@ -232,7 +233,7 @@ def _occurrence_ends(line: str, printed: str, key: str | None) -> list[int]:
     ends = []
     for m in keys.docket_matches(line):
         found = keys.normalise(find.printed(line, m)) or ""
-        if found == key or found.startswith(key + " ("):
+        if found == key or (family and found.startswith(key + " (")):
             ends.append(find._target_end(line, m))
     return ends
 
@@ -270,7 +271,10 @@ def resolve(
     silently resolve every target to the docket, and `cited_decision_id` being NULL on every
     row is the state these arguments exist to end.
     """
-    segment = _anchored(passage, printed)
+    # the target's own occurrences first; its family's only when they print no service date
+    segment = _anchored(passage, printed, family=False)
+    if served_date(segment) is None:
+        segment = _anchored(passage, printed)
     bare = keys.BARE_KEY.match(key)
     digits = len(bare.group(1)) if bare else 0
     docket_id = held.get(key)

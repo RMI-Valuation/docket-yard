@@ -1307,7 +1307,13 @@ not read, each small or ambiguous enough to want its own decision:
   **6 another proceeding** (`NOR 421278 (STB served April 20, 2023)` for NOR 42127). **Decided
   (the operator): a finder rule** — a six-digit number whose last digit stripped is the
   document's own docket is keyed as that docket, so the 346 become the captions they are; its own
-  finder version, card and a small check. The 6 other-proceeding cases stay here. Measured on the production mirror: **176** long-form matches key a
+  finder version, card and a small check. The 6 other-proceeding cases stay here.
+  *(Re-measured 2026-09-14 on a restore of that day, rule applied to finder 2026-09-13b's output:
+  346 text-layer findings in 331 documents, 0 on OCR, no six-digit key a held docket, all 346
+  `citation` today and `caption` once keyed as the own docket; 6 other-proceeding. Decided the
+  same day by the operator: THE FINDING CARRIES ITS KEY — `find` applies the rule and emits the
+  key, `load` and the span check read it and refuse any other departure from the printed number,
+  `cited_raw` stays as printed; schema-critic before code.)* Measured on the production mirror: **176** long-form matches key a
   six-digit number the registry does not hold, and in every one the five-digit parent IS held
   (`STB Finance Docket No. 340871↵TRINIDAD RAILWAY` — a caption with its footnote marker
   fused). Rule 2 repairs only five printed digits and `review.in_the_held_record` queues nothing
@@ -1327,7 +1333,9 @@ not read, each small or ambiguous enough to want its own decision:
   anchor does — strict key first, the family's occurrences only when that finds no service date.
   Checked on both pages: EP 575 and EP 575 (1) keep 36758; FD 34554 gains 35093 while FD 34554
   (2) keeps 35555 (served 2005-02-11). To be built with the fused-digit finder rule below, as one
-  finder version. Pinned by
+  finder version. *(Measured 2026-09-14 on a restore of that day, main's resolver against the
+  branch `finder-fallback-anchor`'s over every live reading, 104,765 on both channels: ONE answer
+  changes, reading 308248, `FD 34554` gaining 35093; nothing lost or altered.)* Pinned by
   the 2026-09-10 review as a limit that must survive (`test_the_anchor_finds_the_target_as_
   printed_and_stops_at_a_sentence`), and kept when `resolve._anchored` moved from a spelling to
   a key (ingest specialist F1, 2026-09-13): `FD 36873` anchors on `FD 36873 (Sub-No. 1) (STB
