@@ -38,7 +38,12 @@ CHANNEL_OCR = "ocr"
 # channel, below the text layer's for every method (ADR 0018 D7, `CHANNELS`). The finder is
 # unchanged. A ranking that only grows is still a new ranking: nothing dates which one was in
 # force (`project`'s one accepted deferral), so v4 stays on record as the text layer alone.
-RANK_VERSION = "v5"
+#
+# v6 (2026-09-14): `find.FINDER_VERSION` moved to 2026-09-14 — the finder emits exactly what it
+# did, but the resolver's served-date window, which the finder's version and the rank carry, now
+# anchors on a target's own occurrences before its family's. A new owner is a new rank_version;
+# v5 stays on record with every edge it stamped.
+RANK_VERSION = "v6"
 # A human is a method, a channel and a version like any other — `reading_vocab` carries
 # 'human' for exactly this reason (ADR 0018 D3: the channel is in every key, so a human row
 # must carry something legal).
