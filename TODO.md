@@ -8,20 +8,21 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **Retraction leaves its readings live** (v2026.09.16 deploy, 2026-09-13). `load`'s retraction
-  supersedes only the `citation` row, so 903 `citation_reading` rows of keys v2026.09.15
-  retracted are still live and `'pre-0026'` (finder 2026-09-01; none projects, since every
-  consumer joins a live `citation`). He ACCEPTED them as residue and took the wall down. Owed:
-  retire a reading with its citation, a method and `superseded_at` for the 903, and review
+- **Retire a retracted key's readings** (ADR 0018 addendum, ACCEPTED 2026-09-13): BUILT on branch
+  `retire-retracted-readings` (migration 0029, `load.py`, runbook § Migration 0029), reviewed
+  (schema-critic, ingest specialist, /code-review high) and REHEARSED twice (903 retired, 154 s,
+  edges and queues identical). Next: PR, bots, his merge go, release behind the wall, pre-check first
+- **The next release carries SQLite `3.46.1-7+deb13u2`** (his decision, 2026-09-13): two FTS5
+  CVEs (2026-11822, -11824) that v2026.09.20's `deb13u1` lacks, and search is FTS5. A rebuild is
+  NOT enough: `python:3.12-slim` (2026-09-01) still ships `deb13u1`, so the Dockerfile's final
+  stage must upgrade `libsqlite3-0` (/code-review). Verify it in the built image with
+  `dpkg -s libsqlite3-0`. The 3.53.4 upgrade is in `docs/deferred.md`
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown; exposed
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
 - **Owed with the citator's pipeline**: the "not in the record" display joining live
   `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (`cite.py` sends `decided`)
-- **The 903 retraction residue** (his order, after the OCR load, which ran 2026-09-13 in
-  v2026.09.20: 332 OCR edges, text layer unchanged): retire a reading with its citation. The same
-  retirement clears the OCR guard's never-clearing refusal (`docs/deferred.md`, 2026-09-13)
 - **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
   blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where
   `dots.mocr` failed and PP-OCRv6 read it blank. Why `image_only_documents` missed them: unknown

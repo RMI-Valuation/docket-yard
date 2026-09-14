@@ -206,6 +206,69 @@ checks. A per-table check in `db.migrate` would cut it and is recorded in `docs/
 
 ## Routine operations
 
+### Migration 0029 — a retraction retires the key's readings too (ADR 0018 addendum)
+
+A **migrating release, so it goes behind the wall** (§ Deploying a migrating release, ADR 0020).
+It rolls back by Litestream restore, not by a tag: note the restore point before the wall goes
+up. It creates `citation_reading_retirement`, its vocabulary and the held view
+`citation_reading_residue`. It then retires every live machine reading whose key holds no live
+`citation`: the 903 v2026.09.15's re-load left, each with a retirement row naming the migration.
+From this release on, `citator load` does the same whenever it retracts a key, and it prints
+`readings_retired` in its totals.
+
+**A key a person has decided aborts the migration whole** (the operator's decision). The
+migration's own message cannot name the key, because production's SQLite (Debian 13's 3.46.1)
+cannot build a `RAISE` message from a value. So the pre-check runs FIRST, read-only, before the
+wall. It is the same rule as the view, a copy pinned by a test.
+
+Rehearsed twice on 2026-09-13 on a Litestream restore taken after the OCR load
+(`data/prod-2026-09-13-residue.sqlite`), the second time on the reviewed SQL:
+
+- pre-check: 903 readings, 0 decided;
+- 28 → 29 in **154 s**, with the foreign-key check;
+- 903 retirement rows at one instant in `db.utcnow()`'s form, 135 retired at themselves and 768
+  pointing at the successor key's live reading on the same channel;
+- afterwards the view is empty, no reading is `'pre-0026'`, the foreign-key check is clean and no
+  temporary object is left;
+- the projection's edges and every review queue are identical before and after (26,205 rows;
+  438 / 2 / 900).
+
+**And a third time inside v2026.09.20's own image**, on production's SQLite 3.46.1 with the branch
+mounted and the store in a Docker volume. The same figures, 28 → 29 in **52 s**. That is the
+rehearsal that counts. The first draft joined its abort message with `||`, which `RAISE` refuses
+before 3.47.0: both workstation rehearsals passed on SQLite 3.50.4 while CI failed, and this
+deploy would have failed at `migrate` behind the wall. Rehearse a migration in the live image.
+
+The rule gets no index. Measured on the restore: an ordinary document's load reads it in 0.5 ms,
+a document holding residue in 96 ms on average, and the whole store in 38.7 s, once, behind the
+wall.
+
+```sh
+cd /srv/docketyard
+# 1. BEFORE the wall, read-only: what the migration will retire, and any key a person decided.
+#    Copy infra/deploy/0029-precheck.sql here first. Expect "903 0 []" unless a load ran since.
+#    A non-zero second number means the migration WILL abort: stop and take it to the operator.
+docker compose exec -T web python -c "import sqlite3, sys; c = sqlite3.connect('file:/data/docketyard.sqlite?mode=ro', uri=True); rows = c.execute(sys.stdin.read()).fetchall(); print(len(rows), sum(r[4] for r in rows), [r[0] for r in rows if r[4]])" < 0029-precheck.sql
+touch data/flags/maintenance          # readers get 503 + the page
+curl -sD- -o /dev/null https://docketyard.org/ | head -1   # confirm: 503
+$EDITOR .env                          # DY_TAG=<the tag>
+docker compose pull --ignore-buildable && docker compose up -d --build
+docker compose logs migrate           # schema 29 — allow ~5 min for the foreign-key check
+# 2. BEFORE the wall comes down: nothing left to retire, every retirement recorded, no pre-0026.
+docker compose exec -T web python -c "import sqlite3; c = sqlite3.connect('file:/data/docketyard.sqlite?mode=ro', uri=True); print(c.execute('SELECT COUNT(*) FROM citation_reading_residue').fetchone(), c.execute('SELECT method, COUNT(*) FROM citation_reading_retirement GROUP BY 1').fetchall(), c.execute('SELECT text_ref, COUNT(*) FROM citation_reading WHERE superseded_by IS NULL GROUP BY 1').fetchall())"
+rm data/flags/maintenance             # back
+```
+
+Expect `(0,)`, `[('migration', 903)]`, and no `'pre-0026'` in the last list. If the migration
+aborted, `docker compose logs migrate` says `migration 0029: a person has decided a key…`, the
+store is untouched at schema 28 (tested), and the pre-check names the key: set the previous
+`DY_TAG` back and take the wall down.
+
+**Two things to expect.** The 903 carry the migration's date, which is when the store retired
+them, not when their keys were retracted, since nothing recorded that. And a future rebuild of
+`citation_reading` or `citation` must drop the residue view and the retirement triggers first
+and recreate them afterwards (the migration's header, and a test).
+
 ### Migration 0028 — a citation reading names the text it read (ADR 0026)
 
 A **migrating release, so it goes behind the wall** (§ Deploying a migrating release, ADR
