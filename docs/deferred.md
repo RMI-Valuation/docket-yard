@@ -1313,7 +1313,27 @@ not read, each small or ambiguous enough to want its own decision:
   `citation` today and `caption` once keyed as the own docket; 6 other-proceeding. Decided the
   same day by the operator: THE FINDING CARRIES ITS KEY — `find` applies the rule and emits the
   key, `load` and the span check read it and refuse any other departure from the printed number,
-  `cited_raw` stays as printed; schema-critic before code.)* Measured on the production mirror: **176** long-form matches key a
+  `cited_raw` stays as printed; schema-critic before code.)*
+  *(Schema-critic on that design, 2026-09-14, verified the same day. It changes ADR 0018 D1's
+  identity — a key becomes the normaliser plus a rule over registry data — so it needs an ADR 0018
+  addendum, and `KEY_VERSION` must move (0014:560-561 define `target_key` as the normalised target
+  and `key_version` as its normaliser). Breaks, each confirmed:*
+  - *177 of the 346 sit on a page that also emits the stripped own key (116 caption, 61
+    citation), so `find` merges the two forms and `verify_spans`, which checks each span against
+    `normalise(target)` (`find.py:324,340`), fails the document;*
+  - *`own` is registry data still growing, and retraction fires only across versions
+    (`load.py:903`), so a same-version re-load after `own` changes leaves both keys live, and
+    nothing records the `own` a key was built from;*
+  - *`resolve._anchored` keys occurrences by `normalise(printed)` (`resolve.py:211,234`), so a
+    re-keyed target misses the other printed form;*
+  - *`load` must check the stripped key is own, or a forged file re-keys one of the 6
+    other-proceeding cases to a measured, unexposed, unreviewed edge;*
+  - *ADR 0018 D2 has a mis-keyed row point at its replacement, not at itself;*
+  - *`benchmark_review.py`, `review_queue_panel.py` and the check sheets also re-derive or anchor
+    from the printed form.*
+  *Decided by the operator the same day: ship the resolver fallback as its own finder version
+  first; the six-digit rule follows as an ADR 0018 addendum, critic passes and his acceptance, then
+  its own finder version.)* Measured on the production mirror: **176** long-form matches key a
   six-digit number the registry does not hold, and in every one the five-digit parent IS held
   (`STB Finance Docket No. 340871↵TRINIDAD RAILWAY` — a caption with its footnote marker
   fused). Rule 2 repairs only five printed digits and `review.in_the_held_record` queues nothing
