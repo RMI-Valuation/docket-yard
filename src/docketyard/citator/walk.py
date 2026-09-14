@@ -91,27 +91,39 @@ SELECT t.page_no, t.text, t.reading_channel, t.text_id
 # them, NONE is a projected edge today, and 349 are in the gated exposed queue (854 -> ~505).
 # Widening `DOC_WORDS` (or adding the span test to `find`) would close the gap, and is a
 # finder rule of its own, not folded into this change.
-_DOCUMENTS = """
+_FAMILY = """
 SELECT a.document_sha256, d.prefix, d.sequence, d.sub_sequence, d.suffix
   FROM decision_attachment a
   JOIN decision_record r ON r.decision_pk = a.decision_pk
   JOIN docket d ON d.docket_id = r.docket_id
- WHERE a.document_sha256 IS NOT NULL
+ WHERE a.document_sha256 IS NOT NULL{only}
 UNION
 SELECT a.document_sha256, p.prefix, p.sequence, p.sub_sequence, p.suffix   -- the parent
   FROM decision_attachment a
   JOIN decision_record r ON r.decision_pk = a.decision_pk
   JOIN docket me ON me.docket_id = r.docket_id
   JOIN docket p ON p.docket_id = me.parent_docket_id
- WHERE a.document_sha256 IS NOT NULL
+ WHERE a.document_sha256 IS NOT NULL{only}
 UNION
 SELECT a.document_sha256, c.prefix, c.sequence, c.sub_sequence, c.suffix   -- its sub-dockets
   FROM decision_attachment a
   JOIN decision_record r ON r.decision_pk = a.decision_pk
   JOIN docket c ON c.parent_docket_id = r.docket_id
- WHERE a.document_sha256 IS NOT NULL
- ORDER BY 1
+ WHERE a.document_sha256 IS NOT NULL{only}
 """
+_DOCUMENTS = _FAMILY.format(only="") + " ORDER BY 1\n"
+# ONE DOCUMENT'S FAMILY, by the same query (ADR 0018 addendum of 2026-09-14, item 6): `load`
+# rebuilds `own` from the record to check the own-fused rule, and a second spelling of the
+# closure would be a second rule
+_DOCUMENT = _FAMILY.format(only=" AND a.document_sha256 = :sha")
+
+
+def own_of(con: Connection, sha: str) -> set[str]:
+    """`own_by_document(con)[sha]`, read for one document; empty when no decision carries it."""
+    return {
+        keys.registry_key(prefix, seq, sub, suffix)
+        for _, prefix, seq, sub, suffix in con.execute(_DOCUMENT, {"sha": sha})
+    }
 
 
 def own_by_document(con: Connection) -> dict[str, set[str]]:
@@ -189,5 +201,5 @@ def documents(con: Connection, channel: str | None = None) -> Iterator[dict]:
             # already in hand (ingest specialist, 2026-09-12, F1). ADR 0026 D4 states the
             # predicate and nothing executed it; a pointer nobody checks is the store-side shape
             # of trusting a 200.
-            find.verify_spans(pages, doc)
+            find.verify_spans(pages, doc, own[sha])
             yield doc

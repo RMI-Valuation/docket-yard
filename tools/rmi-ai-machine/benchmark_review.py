@@ -114,10 +114,14 @@ def ask(host: str, model: str, prompt: str, timeout: float) -> dict | None:
     return out if isinstance(out, dict) and out.get("names") in NAMES else None
 
 
-def locate(page: str, key: str) -> tuple[int, int] | None:
-    """Where the first mention of `key` sits on the page, as the finder reads it."""
+def locate(
+    page: str, key: str, own: frozenset[str] | set[str] = frozenset()
+) -> tuple[int, int] | None:
+    """Where the first mention of `key` sits on the page, as the finder reads it — through the
+    own-fused rule for `own`, so `FD 340071` is found for FD 34007 (ADR 0018 addendum of
+    2026-09-14)."""
     for m in keys.docket_matches(page):  # long forms too, as the finder reads (2026-09-13)
-        if keys.normalise(find.printed(page, m)) == key:
+        if keys.own_key(keys.normalise(find.printed(page, m)), own) == key:
             return m.start(), find._target_end(page, m)
     return None
 
@@ -192,14 +196,16 @@ def review(args) -> int:
         for page_no, body in find.pages(path.read_text(encoding="utf-8", errors="replace")):
             findings = []
             for f in find.find(body, own[did]):
-                key = keys.normalise(f["target"])
-                where = locate(body, key) if key else None
+                key = f.get("key") or keys.normalise(f["target"])
+                where = locate(body, key, own[did]) if key else None
                 if key is None or where is None:
                     continue
                 s, e = where
                 snippet = f"{body[max(0, s - SNIPPET) : s]}<<{body[s:e]}>>{body[e : e + SNIPPET]}"
                 dockets = docket_options(key, held)
-                served = resolve.served_date(resolve._anchored(f["quoted"], f["target"]))
+                served = resolve.served_date(
+                    resolve._anchored(f["quoted"], f["target"], key=key, own=own[did])
+                )
                 offered = [
                     (dec, f"{kind} in {k}, served {served}")
                     for k, _ in dockets

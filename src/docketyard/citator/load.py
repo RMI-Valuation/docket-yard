@@ -14,7 +14,7 @@ per document:
       "reading_method_version": null,      is 'ocr' — payload, never key (ADR 0018 D3)
       "pages_read": 33,                    so "read and found nothing" is not "not yet read"
       "findings": [
-        {"page": 4, "target": "EP 328", "quoted": "... the line the target sat on ..."}
+        {"page": 4, "key": "EP 328", "target": "EP 328", "quoted": "... the line ..."}
       ]
     }
 
@@ -31,7 +31,7 @@ construction.
 
 from dataclasses import dataclass, field
 
-from docketyard.citator import find, judge, keys, methods, resolve
+from docketyard.citator import find, judge, keys, methods, resolve, walk
 from docketyard.store import supersede
 from docketyard.store.db import dump_json, utcnow
 
@@ -56,6 +56,13 @@ class SharedPage(WrongChannel):
     readings on (`_shared_pages`). Not a fault in the document, and RE-RUNNING DOES NOT CLEAR
     IT: the other channel's readings stay until something retires them, so `citator load`
     counts it apart from `failed` (ingest specialist, 2026-09-13, F1)."""
+
+
+class FusedHeld(RuntimeError):
+    """A document whose finding the own-fused rule re-keyed from a six-digit number the registry
+    holds (ADR 0018 addendum of 2026-09-14, item 3). The finder cannot see the registry, so it
+    re-emits the same finding and THIS REFUSAL DOES NOT CLEAR ON A LATER WALK: `citator load`
+    counts and names every such document on every run, and that count is the signal."""
 
 
 class DecidedResidue(RuntimeError):
@@ -386,12 +393,36 @@ def load_document(
     # NOT zipped with them: `find` de-duplicates identical lines, so one passage element can
     # answer for two spans and the counts need not agree.
     spans: dict[tuple[int, str], list] = {}
+    # THE OWN-FUSED RULE IS CHECKED HERE, not trusted (ADR 0018 addendum of 2026-09-14, items 3,
+    # 6 and 7). `own` is rebuilt from the record by the walk's own query, and every finding's key
+    # must be what `keys.own_key` makes of its target for it: a finding carrying another key, or
+    # one the rule no longer re-keys because `own` changed since `find`, is `find.Departed`.
+    # `fused` collects, per key, every printed number the rule put on it — the target's and each
+    # span's — for the registry check below and for the reading's record (item 4).
+    own = walk.own_of(con, sha)
+    fused: dict[tuple[int, str], set[str]] = {}
     for finding in doc.get("findings", []):
-        key = keys.normalise(finding.get("target", ""))
-        if key is None or not keys.DOCKET_KEY.match(key):
+        number = keys.normalise(finding.get("target", ""))
+        if number is None or not keys.DOCKET_KEY.match(number):
             out.out_of_class += 1  # counted, never silently dropped (ADR 0018 D1)
             continue
+        key = keys.own_key(number, own) or number
+        # A FINDING WITH NO KEY IS REFUSED TOO (schema-critic, 2026-09-14): recomputing one here
+        # would skip the one comparison that sees `own` change since `find`, and store a `kind`
+        # the finder made for another key
+        if finding.get("key") != key:
+            raise find.Departed(
+                f"{sha[:12]} page {finding['page']}: the finding carries key"
+                f" {finding.get('key')!r}, but its target {finding.get('target')!r} keys as"
+                f" {key!r} for this document's own dockets (ADR 0018 addendum of 2026-09-14)"
+            )
         at = (int(finding["page"]), key)
+        occurrences = [s[2] for s in finding.get("spans") or []]
+        if text_ref != "store":  # a benchmark reading carries its printed forms without offsets
+            occurrences += finding.get("printed") or []
+        for printed_number in {number, *(keys.normalise(raw) for raw in occurrences)}:
+            if printed_number != key and keys.own_key(printed_number, own) == key:
+                fused.setdefault(at, set()).add(printed_number)
         passages.setdefault(at, []).append(finding.get("quoted", ""))
         printed.setdefault(at, finding.get("target", ""))
         # the finder's own reading of the page, kept because a CAPTION IS STORED LIKE ANY
@@ -427,6 +458,18 @@ def load_document(
         find.verify_spans(
             [(page_no, text) for page_no, text in texts.items()],
             {"document_sha256": sha, "findings": doc.get("findings", [])},
+            own,
+        )
+    # AND NO RE-KEYED NUMBER IS ITSELF A HELD DOCKET (item 3). None was on 2026-09-14, and 104 held
+    # dockets carry a six-digit sequence: re-keying one onto the document's own docket would erase a
+    # citation to a real proceeding. Checked after the spans, so a forged span is refused as the
+    # departure it is rather than as this.
+    fused_held = sorted({n for numbers in fused.values() for n in numbers if n in held})
+    if fused_held:
+        raise FusedHeld(
+            f"{sha[:12]}: the own-fused rule re-keys {fused_held} onto this document's own docket,"
+            " and the registry holds them. Refused on every walk until the rule or the finding"
+            " changes (ADR 0018 addendum of 2026-09-14, item 3)"
         )
 
     for (page, key), quotes in sorted(passages.items()):
@@ -569,10 +612,24 @@ def load_document(
                 # ADR 0026 D4: the page AND every occurrence's span. `spans` is omitted rather
                 # than written empty where the producer sent none — an empty list would assert
                 # that the finder looked and found no occurrence of a key it just emitted.
+                # `key_rule` (ADR 0018 addendum of 2026-09-14, items 4 and 11) is written only
+                # where the own-fused rule shaped this key, once per reading and OUTSIDE `spans`:
+                # the rule, the six-digit keys it re-keyed, and the `own` set checked here, which
+                # is what the drift queries compare with the record's current family.
                 dump_json(
-                    {"page": page, "spans": spans[(page, key)]}
-                    if spans.get((page, key))
-                    else {"page": page}
+                    {"page": page}
+                    | ({"spans": spans[(page, key)]} if spans.get((page, key)) else {})
+                    | (
+                        {
+                            "key_rule": {
+                                "rule": keys.OWN_FUSED,
+                                "printed_keys": sorted(fused[(page, key)]),
+                                "own": sorted(own),
+                            }
+                        }
+                        if fused.get((page, key))
+                        else {}
+                    )
                 ),
                 # the reading this row read, and what its absence MEANS (ADR 0026 D1). A
                 # benchmark run names no store row, and migration 0028's CHECK binds the two:
@@ -602,7 +659,7 @@ def load_document(
         # hold is `unresolved`. Waves 2-3 are still adding dockets, so ADR 0017 D2's "store
         # it unresolved, resolve it later" would have had no later. Instead the live row is
         # compared and superseded when the ANSWER changed.
-        r = resolve.resolve(key, held, works, passage, printed[(page, key)])
+        r = resolve.resolve(key, held, works, passage, printed[(page, key)], own)
         # A ROW THAT NAMES A DOCUMENT IS STAMPED FROM THE WORK CLASS, and one that stops at the
         # proceeding from the docket class. The row asserts the complete outcome (migration
         # 0014, owed item 3), so its one confidence is the confidence of the whole assertion —
@@ -939,6 +996,13 @@ def load_document(
             out.retraction_held += 1
             continue
         successors = [k for (p, k) in emitted if p == page and k.startswith(key + " (")]
+        # AND THE OWN KEY THE RULE RE-KEYS IT ONTO (ADR 0018 addendum of 2026-09-14, item 11),
+        # decision 2's second successor shape, used ONLY WHERE THE RULE FIRED ON THIS PAGE: an older
+        # finder's `FD 340071` points at this pass's `FD 34007` row when this pass re-keyed that
+        # very number onto it (`fused`), so the pointer never claims a re-key no reading records
+        # (schema-critic and ingest specialist, 2026-09-14)
+        if (rekeyed := keys.own_key(key, own)) != key and key in fused.get((page, rekeyed), ()):
+            successors = [rekeyed]
         successor = (
             con.execute(
                 "SELECT citation_id FROM citation WHERE citing_document = ? AND page = ?"

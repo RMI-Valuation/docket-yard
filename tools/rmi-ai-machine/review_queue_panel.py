@@ -142,7 +142,7 @@ def run(args) -> int:
                 # different findings, kept apart: no text at all, or text without the key.
                 record["items"].append({**_key_of(item), "skipped": "the page has no reading"})
                 continue
-            where = locate(body, key)
+            where = locate(body, key, mine)
             if where is None:
                 record["items"].append({**_key_of(item), "skipped": "not found on its page"})
                 continue
@@ -154,8 +154,10 @@ def run(args) -> int:
             # Handing it the normalised key loses the date on every hyphenated printing —
             # measured 2026-09-11 as 43 of the 1,476 exposed items, whose decision list then
             # collapsed to "none" and which could never have cleared (code review).
+            # and the stored KEY with the family, so an own key printed with a fused footnote
+            # digit anchors too (ADR 0018 addendum of 2026-09-14)
             served = resolve.served_date(
-                resolve._anchored(item["quoted_passage"], item["cited_raw"])
+                resolve._anchored(item["quoted_passage"], item["cited_raw"], key=key, own=mine)
             )
             offered = [
                 (dec, f"{kind} in {k}, served {served}")

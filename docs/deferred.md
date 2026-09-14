@@ -1492,3 +1492,32 @@ from its primary source that day.
 - **Route:** build 3.53.4 into the image (not `pysqlite3-binary`: one maintainer, Beta, x86_64
   only, bundled version unstated), align CI and local engines, and consider Litestream separately.
   Rehearse every migration and the suite on the new engine.
+
+## From reviewing the own-fused rule's build, 2026-09-14 (branch `six-digit-own-docket`, finder 2026-09-14b)
+
+Schema-critic, the ingest specialist and `/code-review` medium on the ADR 0018 addendum of 2026-09-14,
+each finding verified against the code the same day. **Fixed on the branch:** a finding with no `key`
+is refused (`Departed`) rather than keyed at load; a benchmark reading keeps each occurrence's printed
+form (`printed`) so `key_rule` and the registry check see every re-keyed number; the retraction's
+own-key successor is used only where this pass re-keyed that number on the page; `resolve.resolve`
+takes `own` with no default; the scorers read `key` only in a finder run, since a review run's `target`
+is the model's answer. **How the build reads the addendum**, for the operator to see:
+
+- item 7 is ONE test, `own_key(normalise(x), own) == key`, for the finding and each span. It is
+  stricter than "normalises to the key, or re-keys to it" in one place only: a six-digit finding the
+  rule would NOW re-key (`own` gained the stripped docket since `find`) is refused, and loads on the
+  next walk. Expect `refused_departed` above 0 while waves 2-3 add dockets between a walk and a load;
+- `key_rule.printed_keys` is a list, since one page can print two fused digits;
+- `Departed` counts a forged span over another proceeding's number with drift, as item 7 says, so the
+  count no longer tells a corrupt file from a changed family.
+
+**Left, and why:**
+
+- **`walk.own_of` runs once per document** at load, and `docket.parent_docket_id` has no index (its
+  third branch). Measured by the rehearsal's load time; an index is a schema change.
+- **`work_check_sheet.py` anchors with the citing DECISION's family** (`citation_dryrun.own_dockets`),
+  not the loader's per-document union, so a document carried by decisions in unrelated dockets can
+  miss a re-key on the sheet. The tool only.
+- **`tools/rmi-ai-machine/panel_check_sheet.py`** (untracked, the operator's) calls `_anchored` without
+  `key`/`own`. No re-keyed key can reach the exposed or repaired queue it reads (a re-keyed key is a
+  five-digit own docket, rule 1, never exposed).

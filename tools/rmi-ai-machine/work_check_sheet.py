@@ -41,6 +41,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 import benchmark_score as bs  # noqa: E402
+from citation_dryrun import own_dockets  # noqa: E402
 
 from docketyard.citator import keys, resolve  # noqa: E402
 from docketyard.web import urls as site  # noqa: E402
@@ -120,7 +121,8 @@ def passages(run: Path) -> dict[tuple[str, int, str], list[str]]:
             for f in page.get("findings", []):
                 if f.get("kind") != "citation":
                     continue
-                key = keys.normalise(f.get("target", ""))
+                # the finding's key, which the own-fused rule can set apart from its target
+                key = f.get("key") or keys.normalise(f.get("target", ""))
                 if key:
                     out.setdefault((did, int(page["page"]), key), []).append(f.get("quoted", ""))
     return out
@@ -194,6 +196,7 @@ def build(store: Path, run: Path) -> list[dict]:
     con = sqlite3.connect(f"file:{store}?mode=ro", uri=True)
     sheet, quotes = sheet_rows(), passages(run)
     decs, urls, caps = decisions(con), pdf_urls(con), captions(con)
+    own = own_dockets(con)  # the family the anchor's own-fused rule reads, by citing decision
     registered = {r[0] for r in con.execute("SELECT stb_decision_id FROM decision_work")}
 
     # ONE DRAFTED ROW IS ONE CLAIM, and a claim is (citing work, target, document): a citing
@@ -231,7 +234,11 @@ def build(store: Path, run: Path) -> list[dict]:
         segments, lines, day = [], [], None
         for page in pages:
             passage = " | ".join(q for q in quotes.get((citing, page, key), []) if q)
-            segment = resolve._anchored(passage, printed) if passage else ""
+            segment = (
+                resolve._anchored(passage, printed, key=key, own=own.get(citing, set()))
+                if passage
+                else ""
+            )
             if segment:
                 segments.append(segment)
             if passage:

@@ -596,12 +596,28 @@ def _citator(args: argparse.Namespace) -> int:
     )
     totals = dict.fromkeys(("documents", *counted), 0)
     owed_keys: list[str] = []
-    failed = refused_shared = 0
+    failed = refused_shared = refused_departed = 0
+    refused_fused_held: list[str] = []
     for path, doc in docs:
         try:
             result = load.load_document(con, doc, held, works, stamps)
             con.commit()  # PER DOCUMENT: a wave killed at document 40,000 keeps 40,000, and
             # the 30-minute poller is not locked out for the whole run
+        except load.FusedHeld as e:
+            # NAMED ON EVERY RUN (ADR 0018 addendum of 2026-09-14, item 3): the finder re-emits the
+            # same finding, so this refusal never clears on a later walk, and the list is the signal
+            con.rollback()
+            print(f"  refused {path.name}: {e}")
+            refused_fused_held.append(doc["document_sha256"])
+            continue
+        except finder.Departed as e:
+            # a key the own-fused rule does not give (item 7): counted apart from a fault, and one
+            # refused because `own` changed since `find` loads on the next walk, while a decision
+            # still carries the document
+            con.rollback()
+            print(f"  refused {path.name}: {e}")
+            refused_departed += 1
+            continue
         except load.SharedPage as e:
             # COUNTED APART FROM `failed` (ingest specialist, 2026-09-13, F1). A page already
             # read on another channel is refused on every run until its readings are retired,
@@ -619,7 +635,18 @@ def _citator(args: argparse.Namespace) -> int:
         for field in counted:
             totals[field] += getattr(result, field)
         owed_keys.extend(result.review)
-    print(totals | {"unreadable": unreadable, "failed": failed, "refused_shared": refused_shared})
+    print(
+        totals
+        | {
+            "unreadable": unreadable,
+            "failed": failed,
+            "refused_shared": refused_shared,
+            "refused_departed": refused_departed,
+            "refused_fused_held": len(refused_fused_held),
+        }
+    )
+    if refused_fused_held:
+        print(f"refused, a held docket re-keyed (never clears): {sorted(refused_fused_held)}")
     # WHAT THIS SAID UNTIL 2026-09-04, AND WHY IT WAS WRONG BY THEN: "ADR 0017 D5's queues do
     # not exist yet, so these keys are PRINTED and not stored. Until `review_action` is in a
     # migration, the exposed class reaches a page unreviewed." Migration 0015 shipped
@@ -658,7 +685,9 @@ def _citator(args: argparse.Namespace) -> int:
     #
     # A SHARED-PAGE REFUSAL EXITS 3, a fault 1 (which wins when both happen): both are non-zero,
     # so neither passes for clean, but only a fault is worth re-running.
-    return 1 if failed else 3 if refused_shared else 0
+    # The own-fused rule's two refusals (ADR 0018 addendum of 2026-09-14) exit 3 the same way.
+    refused = refused_shared or refused_departed or refused_fused_held
+    return 1 if failed else 3 if refused else 0
 
 
 def _search_rebuild(args: argparse.Namespace) -> int:

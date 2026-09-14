@@ -93,7 +93,8 @@ def describe(con, path: Path) -> dict:
         (int(f["page"]), key)
         for f in doc.get("findings") or []
         if f.get("kind") == "citation"
-        and (key := keys.normalise(f.get("target", ""))) is not None
+        # the finding's key, which the own-fused rule can set apart from its printed target
+        and (key := f.get("key") or keys.normalise(f.get("target", ""))) is not None
         and keys.DOCKET_KEY.match(key)
     }
     by_engine = Counter(engine_of.get(page, "unknown") for page, _ in cited)

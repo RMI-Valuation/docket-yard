@@ -252,7 +252,12 @@ def test_an_accepted_in_family_edge_keeps_publishing_when_the_finder_calls_it_a_
     span and the edge a person accepted disappeared."""
     con = _review_store(tmp_path)
     stamps = _review_scored(con)
-    own = {"page": 6, "target": "FD 36873", "quoted": "See FD 36873, slip op. at 3."}
+    own = {
+        "page": 6,
+        "key": "FD 36873",
+        "target": "FD 36873",
+        "quoted": "See FD 36873, slip op. at 3.",
+    }
     doc = {
         "document_sha256": SHA,
         "method": methods.EXTRACTOR,

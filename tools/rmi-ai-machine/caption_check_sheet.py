@@ -224,7 +224,10 @@ def build(runs: list[Path], store: Path, size: int) -> list[dict]:
                 "printed": printed,
                 "passage": item["quoted_passage"] or "",
                 "own": k[3] in mine or bool(stripped and stripped in mine),
-                "served": resolve.served_date(resolve._anchored(item["quoted_passage"], printed))
+                # anchored on the stored key through the own-fused rule, as `load` anchors it
+                "served": resolve.served_date(
+                    resolve._anchored(item["quoted_passage"], printed, key=k[3], own=mine)
+                )
                 or "",
                 # the page the number sits on, anchored — `#p4` is `text_path`'s own convention
                 "text_url": (

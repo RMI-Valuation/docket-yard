@@ -135,7 +135,9 @@ def _findings(*findings, text_ref="benchmark", text_ids=None):
         "text_ref": text_ref,
         "text_ids": text_ids or {},
         "pages_read": 9,
-        "findings": list(findings),
+        # every finding carries its key, as `find` writes it (ADR 0018 addendum of 2026-09-14);
+        # a fixture naming one keeps it, so a test can hand `load` a departing key
+        "findings": [{"key": keys.normalise(f.get("target", "")), **f} for f in findings],
     }
 
 
@@ -248,12 +250,12 @@ def test_the_rendered_key_is_readable_and_never_a_digest():
 def test_rule_one_resolves_and_an_unresolved_target_is_kept(tmp_path):
     con = _store(tmp_path)
     held = keys.registry(con)
-    assert resolve.resolve("FD 36873", held, {}, "", "") == resolve.Resolution(
+    assert resolve.resolve("FD 36873", held, {}, "", "", set()) == resolve.Resolution(
         outcome="resolved", method=resolve.RULE_1, docket_id=1
     )
     # ADR 0017 D2: a target the registry cannot resolve is a REAL EDGE bound for a human,
     # and a finder that could not emit one would empty that queue by construction
-    miss = resolve.resolve("NOR 99999", held, {}, "", "")
+    miss = resolve.resolve("NOR 99999", held, {}, "", "", set())
     assert miss.outcome == "unresolved" and miss.docket_id is None
 
 
@@ -264,12 +266,12 @@ def test_rule_two_repairs_a_five_digit_number_and_never_rewrites_the_raw(tmp_pat
         "'FD', 3687)"
     )
     held = keys.registry(con)
-    repaired = resolve.resolve("FD 36878", held, {}, "", "")  # not held; `FD 3687` is
+    repaired = resolve.resolve("FD 36878", held, {}, "", "", set())  # not held; `FD 3687` is
     assert repaired.outcome == "repaired" and repaired.docket_id == 5
     assert repaired.method == resolve.RULE_2  # a DISTINCT method, so it can be ranked below
     # four digits is not the repair's shape: `\d{1,5}` caps the finder, so only a five-digit
     # number can have absorbed a sixth character
-    assert resolve.resolve("FD 3688", held, {}, "", "").outcome == "unresolved"
+    assert resolve.resolve("FD 3688", held, {}, "", "", set()).outcome == "unresolved"
 
 
 def test_the_exposure_test_flags_a_fused_footnote_marker(tmp_path):
@@ -285,9 +287,15 @@ def test_the_exposure_test_flags_a_fused_footnote_marker(tmp_path):
         "'AB', 1242)"
     )
     held = keys.registry(con)
-    assert resolve.resolve("AB 1242", held, {}, "", "").exposed is True  # `AB 124` + footnote `2`
-    assert resolve.resolve("FD 36873", held, {}, "", "").exposed is False  # five digits: capped
-    assert resolve.resolve("AB 1296 (X)", held, {}, "", "").exposed is False  # not a bare digit run
+    assert (
+        resolve.resolve("AB 1242", held, {}, "", "", set()).exposed is True
+    )  # `AB 124` + footnote `2`
+    assert (
+        resolve.resolve("FD 36873", held, {}, "", "", set()).exposed is False
+    )  # five digits: capped
+    assert (
+        resolve.resolve("AB 1296 (X)", held, {}, "", "", set()).exposed is False
+    )  # not a bare digit run
 
 
 # --- the measurement a row is stamped from ----------------------------------------------
@@ -1302,6 +1310,7 @@ def test_a_repair_carries_the_work_down_with_it(tmp_path):
         keys.works(con),
         "FD 36878 (STB served Mar. 12, 2021)",
         "FD 36878",
+        set(),
     )
     assert (r.outcome, r.method, r.docket_id, r.decision_id) == (
         "repaired",
@@ -1388,7 +1397,7 @@ def test_the_anchor_finds_the_target_as_printed_and_stops_at_a_sentence():
     works = {(1, "2021-03-12"): "X", (2, "2021-03-12"): "Y"}
 
     def work(key, line):
-        return resolve.resolve(key, held, works, line, key).decision_id
+        return resolve.resolve(key, held, works, line, key, set()).decision_id
 
     assert (
         work("FD 3687", "See FD 36873, slip op. at 3 (STB served Mar. 12, 2021); cf. FD 3687.")
@@ -1428,7 +1437,7 @@ def test_the_family_is_a_fallback_anchor_not_a_peer():
     }
 
     def work(key, line, printed):
-        return resolve.resolve(key, held, works, line, printed).decision_id
+        return resolve.resolve(key, held, works, line, printed, set()).decision_id
 
     two = "FD 34554 (STB served Oct. 7, 2004); FD 34554 (Sub-No. 2) (STB served February 11, 2005)"
     assert work("FD 34554", two, "FD 34554") == "35093", "its own date, not both"

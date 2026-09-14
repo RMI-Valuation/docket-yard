@@ -71,10 +71,12 @@ def candidates(con) -> list[dict]:
         for f in doc["findings"]:
             if f["kind"] != "citation" or not keys.LONG_DOCKET.match(f["target"]):
                 continue
-            key = keys.normalise(f["target"])
+            # the finding's own key, and the family its anchor reads (ADR 0018 addendum of
+            # 2026-09-14): the printed target alone misses the own-fused rule
+            key = f.get("key") or keys.normalise(f["target"])
             if key is None:  # a long form always keys; a None here is a grammar bug, not a row
                 raise SystemExit(f"{sha} p{f['page']}: {f['target']!r} matched but keys as nothing")
-            r = resolve.resolve(key, held, works, f["quoted"], f["target"])
+            r = resolve.resolve(key, held, works, f["quoted"], f["target"], walk.own_of(con, sha))
             text_id = (doc.get("text_ids") or {}).get(str(f["page"]))
             text = con.execute(
                 "SELECT text FROM document_text WHERE text_id = ?", (text_id,)
