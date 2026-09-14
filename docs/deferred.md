@@ -1361,7 +1361,16 @@ not read, each small or ambiguous enough to want its own decision:
   and `citation_reading`, not on `citation_resolution`. `resolve.py`'s own note of 2026-09-10 says
   "any LATER widening of what a row asserts is a version bump", and `_anchored`'s docstring
   contradicts it. Decided the same day by the operator: BUMP THE RESOLVER'S VERSION, schema-critic
-  scoping how older-version rows are superseded, ranked and queued before any code; rehearse again.)* Pinned by
+  scoping how older-version rows are superseded, ranked and queued before any code; rehearse again.)*
+  *(Schema-critic's scope, verified 2026-09-14: `citation_resolution` has NO human-row trigger (the
+  loader's `method = 'registry-match'` filter is the only guard); the projection inner-joins
+  resolutions to rank rows by `method_version` (`project.py:52-57`), so a row left at the old
+  version stops publishing; `measure` writes `RULE_1` into the card and `stamp` never checks it.
+  Design: bump both rules (`rule-1/2026-09-14`, `rule-2-repair/2026-09-14`), retire every older
+  resolver row on the key and channel onto the new one, read `work_gained`/`work_lost` against any
+  version, `stamp` refuses a card of another resolver version, rebuild both cards, rehearse on a
+  fresh restore. Decided by the operator: THE RE-LOAD MUST REACH EVERY LIVE RESOLUTION and the
+  release waits for 0 left at the old version on live keys; FINDER_VERSION stays 2026-09-14.)* Pinned by
   the 2026-09-10 review as a limit that must survive (`test_the_anchor_finds_the_target_as_
   printed_and_stops_at_a_sentence`), and kept when `resolve._anchored` moved from a spelling to
   a key (ingest specialist F1, 2026-09-13): `FD 36873` anchors on `FD 36873 (Sub-No. 1) (STB

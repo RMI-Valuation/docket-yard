@@ -641,12 +641,15 @@ def load_document(
                 methods.DOCKET_CLASS if score is not None else None,
                 score,
             )
+        # THE PRIOR IS THE LIVE RESOLVER ROW AT ANY RULE VERSION (schema-critic, 2026-09-14). At
+        # this rule's own version it finds nothing on the first load after a rule bump, and
+        # `work_gained`/`work_lost` — the only visible sign that documents moved — would read 0.
         prior = con.execute(
             "SELECT cited_decision_id FROM citation_resolution"
             " WHERE citing_document = ? AND page = ? AND target_kind = 'stb' AND target_key = ?"
-            " AND method = ? AND method_version = ? AND reading_channel = ?"
-            " AND superseded_by IS NULL",
-            (sha, page, key, resolve.RESOLVER, r.method, channel),
+            " AND method = ? AND reading_channel = ? AND superseded_by IS NULL"
+            " ORDER BY resolution_id DESC LIMIT 1",
+            (sha, page, key, resolve.RESOLVER, channel),
         ).fetchone()
         if prior is not None and (prior[0] is None) != (r.decision_id is None):
             if r.decision_id is None:
@@ -691,6 +694,25 @@ def load_document(
                 now,
                 *resolution_stamp,
             ),
+        )
+        # AN OLDER RULE VERSION'S ROW IS RETIRED ONTO THIS ONE (the operator's decision,
+        # 2026-09-14). The live index carries `method_version`, so a bumped rule's row would sit
+        # beside the old one and the projection, ranking only the current rules, would drop the
+        # old — or two answers would stand. EVERY older-version resolver row on the key and
+        # channel points at the row this pass holds live, as the `kind` judgement's rows do below.
+        # The filter names `registry-match`: nothing else keeps a `human` resolution from being
+        # retired, since `citation_resolution` carries no trigger for it.
+        current = con.execute(
+            "SELECT resolution_id FROM citation_resolution WHERE citing_document = ? AND page = ?"
+            " AND target_kind = 'stb' AND target_key = ? AND method = ? AND method_version = ?"
+            " AND reading_channel = ? AND superseded_by IS NULL",
+            (sha, page, key, resolve.RESOLVER, r.method, channel),
+        ).fetchone()
+        con.execute(
+            "UPDATE citation_resolution SET superseded_by = ? WHERE citing_document = ?"
+            " AND page = ? AND target_kind = 'stb' AND target_key = ? AND method = ?"
+            " AND method_version NOT IN (?, ?) AND reading_channel = ? AND superseded_by IS NULL",
+            (current[0], sha, page, key, resolve.RESOLVER, *methods.RULES, channel),
         )
         # The span judgement is a STORED ASSERTION (ADR 0017 D4) — it decides what every
         # published edge IS, so it carries its own method, version and confidence and is

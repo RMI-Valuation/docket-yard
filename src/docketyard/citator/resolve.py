@@ -32,8 +32,15 @@ from datetime import date
 from docketyard.citator import find, keys
 
 RESOLVER = "registry-match"
-RULE_1 = "rule-1"
-RULE_2 = "rule-2-repair"
+# THE RULES CARRY THE ANCHOR'S VERSION (Codex on PR #32, 2026-09-14; the operator's decision). The
+# served-date window changed what a row asserts — the family became a fallback, not a peer — and
+# the note below says any later widening of what a row asserts is a version bump, because a
+# resolution row carries no finder version: `registry-match@rule-1` written before and after the
+# change would be indistinguishable. `load` retires every older-version row onto the new one, and
+# the release waits for none to be left on a live key. No separator in the value, as the store's
+# other versioned tables refuse one. Until 2026-09-14 these were `rule-1` and `rule-2-repair`.
+RULE_1 = "rule-1-2026-09-14"
+RULE_2 = "rule-2-repair-2026-09-14"
 
 # The exposure test is a DISTINCT RULE with its own definition and its own history — ADR 0017
 # reconsidered its membership between 3, 5 and 14 before settling on 3 — so it carries its own
@@ -201,10 +208,10 @@ def _anchored(passage: str, printed: str, *, family: bool = True) -> str:
     nothing, where notice 35093 is right. As a fallback it still carries `EP 575 and EP 575
     (Sub-No. 1) (STB served Oct. 30, 2007)` to decision 36758, filed in both dockets.
 
-    THIS WINDOW IS VERSIONED BY THE FINDER AND THE RANK, NOT BY `rule-1`: it narrows what a
-    row can be handed and never widens what a row asserts (the condition above), and every
-    answer it changes is written in the load that stamps the new finder's reading, from the
-    card measured with it.
+    THIS WINDOW IS VERSIONED BY THE RULES (`RULE_1`, `RULE_2`). An earlier note here said the
+    finder and the rank versioned it; neither is written on a resolution row, so a changed answer
+    and an unchanged one read alike (Codex on PR #32, 2026-09-14). Any change to what the window
+    hands a row is a rule version, a re-scored card and a re-load that leaves no older row live.
     """
     out = []
     if not printed:

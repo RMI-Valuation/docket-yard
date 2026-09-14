@@ -42,11 +42,11 @@ from docketyard.citator.keys import SUBNO, docket_matches, docket_search, normal
 # and sampled with the window rule and never shipped: a second answer under that name would make
 # its card and its sample name a finder that never produced them.
 #
-# 2026-09-14: NOTHING HERE EMITS DIFFERENTLY. The resolver's served-date anchor moved: a target's
-# own occurrences anchor first and its family's only when those print no date (`resolve.
-# _anchored`, the operator's decision), and that window is versioned by this finder and the rank,
-# not by `rule-1` (its docstring), so the version moves with it. Measured 2026-09-14: one answer
-# of 104,765 live readings changes. The six-digit own-docket rule is NOT in this version.
+# 2026-09-14: NOTHING HERE EMITS DIFFERENTLY. The resolver's served-date anchor moved — a target's
+# own occurrences anchor first and its family's only when those print no date — and the rules
+# carry that version (`resolve.RULE_1`/`RULE_2`). This version moves with them by the operator's
+# decision, dating the re-load. Measured 2026-09-14: one answer of 104,765 live readings changes.
+# The six-digit own-docket rule is NOT in this version.
 FINDER_VERSION = "2026-09-14"
 
 # THE SPANS' OWN VERSION, and the reason it is not `FINDER_VERSION` (ADR 0026 D7). A character
