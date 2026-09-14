@@ -8,10 +8,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **Retire a retracted key's readings** (ADR 0018 addendum, ACCEPTED 2026-09-13): BUILT on branch
-  `retire-retracted-readings` (migration 0029, `load.py`, runbook § Migration 0029), reviewed
-  (schema-critic, ingest specialist, /code-review high) and REHEARSED twice (903 retired, 154 s,
-  edges and queues identical). Next: PR, bots, his merge go, release behind the wall, pre-check first
 - **The next release carries SQLite `3.46.1-7+deb13u2`** (his decision, 2026-09-13): two FTS5
   CVEs (2026-11822, -11824) that v2026.09.20's `deb13u1` lacks, and search is FTS5. A rebuild is
   NOT enough: `python:3.12-slim` (2026-09-01) still ships `deb13u1`, so the Dockerfile's final

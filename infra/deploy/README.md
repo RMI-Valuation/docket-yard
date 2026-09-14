@@ -264,6 +264,22 @@ aborted, `docker compose logs migrate` says `migration 0029: a person has decide
 store is untouched at schema 28 (tested), and the pre-check names the key: set the previous
 `DY_TAG` back and take the wall down.
 
+**Deployed 2026-09-14 (v2026.09.21), and every figure matched the rehearsal.** The pre-check at
+09:10:42 UTC read `903 0 []`. The wall went up at 09:14:10, which is the restore point (Litestream
+generation `073494ca664fa87f`). `migrate` exited 0, and the retirements are dated
+`2026-09-14T09:14:42+00:00`. The checks read `(0,)`, `[('migration', 903)]` and
+`[('store', 104765)]`, and `/health` read v2026.09.21, schema 29. The wall came down at 09:19:06,
+with public pages 200.
+
+Measured afterwards with the shipped code:
+
+- 135 readings retired at themselves and 768 pointing at a successor;
+- the projection still has 26,205 rows;
+- the queues still read 438 / 2 / 900;
+- no page is read on two machine channels.
+
+`.env.bak-v2026.09.20` is on the box.
+
 **Two things to expect.** The 903 carry the migration's date, which is when the store retired
 them, not when their keys were retracted, since nothing recorded that. And a future rebuild of
 `citation_reading` or `citation` must drop the residue view and the retirement triggers first
