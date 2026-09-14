@@ -24,7 +24,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   queued; not yet re-measured under the family closure (live since v2026.09.18)
 - **Finder 2026-09-14 / rank v6: the resolver fallback, branch `finder-fallback-anchor`** — built,
   both cards unchanged, REHEARSED in prod image (one edge identity: 41393 FD 34554 -> 35093;
-  26,205 rows, queues 438/2/900). Next: PR, bots, his go, release, re-load (runbook § fallback)
+  26,205 rows, queues 438/2/900). PR #32 OPEN; Codex P1 (verified): the resolver's method version
+  must move too. His call: bump it, schema-critic scopes first, rehearse again, push to PR #32
 - **Then the six-digit own-docket rule** (346 findings; the finding carries its key): an ADR 0018
   addendum first — schema-critic found it changes identity (`docs/deferred.md`, 2026-09-14)
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,

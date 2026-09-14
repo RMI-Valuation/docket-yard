@@ -1355,7 +1355,13 @@ not read, each small or ambiguous enough to want its own decision:
   (2) keeps 35555 (served 2005-02-11). To be built with the fused-digit finder rule below, as one
   finder version. *(Measured 2026-09-14 on a restore of that day, main's resolver against the
   branch `finder-fallback-anchor`'s over every live reading, 104,765 on both channels: ONE answer
-  changes, reading 308248, `FD 34554` gaining 35093; nothing lost or altered.)* Pinned by
+  changes, reading 308248, `FD 34554` gaining 35093; nothing lost or altered.)*
+  *(Codex on PR #32, 2026-09-14, P1, verified: the fallback changes what a resolution ASSERTS, but
+  the row is still `registry-match@rule-1`/`rule-2-repair`, and `FINDER_VERSION` lives on `citation`
+  and `citation_reading`, not on `citation_resolution`. `resolve.py`'s own note of 2026-09-10 says
+  "any LATER widening of what a row asserts is a version bump", and `_anchored`'s docstring
+  contradicts it. Decided the same day by the operator: BUMP THE RESOLVER'S VERSION, schema-critic
+  scoping how older-version rows are superseded, ranked and queued before any code; rehearse again.)* Pinned by
   the 2026-09-10 review as a limit that must survive (`test_the_anchor_finds_the_target_as_
   printed_and_stops_at_a_sentence`), and kept when `resolve._anchored` moved from a spelling to
   a key (ingest specialist F1, 2026-09-13): `FD 36873` anchors on `FD 36873 (Sub-No. 1) (STB
