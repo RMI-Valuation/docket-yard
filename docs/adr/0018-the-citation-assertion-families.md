@@ -309,7 +309,8 @@ no `superseded_at`. Queries 1, 4 and 5 read no citation table.
 
 ## Addendum (2026-09-14): a footnote digit fused onto the document's own docket keys as that docket
 
-**Status: Proposed.** Narrows decision 1's "normalised target key".
+**Status: Accepted 2026-09-14 by the operator**, including proposals 6-12, after five schema-critic
+passes (the last clean). Narrows decision 1's "normalised target key".
 
 The Board prints a footnote marker straight after a docket number, and the text layer fuses the
 two: `STB Finance Docket No. 340071` in a decision filed in FD 34007. Measured 2026-09-14 on a
