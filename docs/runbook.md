@@ -771,6 +771,32 @@ live citation, so they reach nothing (`docs/deferred.md`, a retracted key's reso
 **One edge identity changes, and it is the one decided**: decision 41393's `FD 34554`, docket-level
 under v5, names notice 35093 under v6. Nothing is removed otherwise and nothing else is added.
 
+**RUN 2026-09-14 with v2026.09.23**, deployed 12:11:20 UTC with no wall (`.env.bak-v2026.09.22` on the
+box); the cards copied to `/data` and their hashes checked first:
+
+- the before snapshot, read-only from `web` under v5, at 12:11:55, which is the restore point;
+- `declare` both cards at 12:13:25 and 12:13:27;
+- `find` at 12:13:28: 19,944 text-layer and 1,022 OCR readings, 104,765 findings;
+- text-layer `load` at 12:14:06: 0 failed, retracted 0, readings retired 0, `work_gained` 1,
+  `work_lost` 0;
+- OCR `load` at 12:16:09: 0 failed, 0 `refused_shared`;
+- `restamp --apply` on both channels at 12:16:17 and 12:16:19: 0 rows;
+- the after snapshot at 12:16:21.
+
+Every figure matches the rehearsal:
+
+| | Before (v5) | After (v6) |
+|---|---|---|
+| Rows from `project.projected` | 26,205 | 26,205 |
+| Edges, text layer / OCR | 22,547 / 332 | 22,547 / 332 |
+| Exposed / repaired / unresolved queues | 438 / 2 / 900 | 438 / 2 / 900 |
+| Live resolutions by rule | `rule-1` 105,666, `rule-2-repair` 2 | new rules 104,763 + 2, `rule-1` 903 |
+| **Old-rule rows left on live keys (the gate)** | — | **0** |
+| Human resolutions; pages read on two machine channels | 0 | 0; 0 |
+
+**The gate reads 0**, and the one edge identity that changed is the decided one: decision 41393's
+`FD 34554` names 35093.
+
 ### Verifying, and going back
 
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null
