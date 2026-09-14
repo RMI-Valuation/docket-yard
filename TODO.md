@@ -22,8 +22,12 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 - **His 39 judged captions**: finder 2026-09-11 called 16 of them `citation`, so they stayed
   queued; not yet re-measured under the family closure (live since v2026.09.18)
-- **Then the six-digit own-docket rule** (346 findings; the finding carries its key): an ADR 0018
-  addendum first — schema-critic found it changes identity (`docs/deferred.md`, 2026-09-14)
+- **The six-digit own-docket rule** (346 findings; the finding carries its key): ADR 0018 addendum
+  (2026-09-14) DRAFTED, Proposed. Critic pass 1: rework (own finder + rule version, second successor
+  shape, one keys.py rule, per-span load check). His calls: load checks held; same-version risk
+  stated + input recorded. Pass 2 not clean; his calls: KEY_VERSION stays, reading records the own
+  set read. Rewritten (v7, document-level refusal, record outside spans); pass 3's wording fixes
+  in (item 4's two queries, item 3's refusal permanent + counted); critic pass 4 running
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion

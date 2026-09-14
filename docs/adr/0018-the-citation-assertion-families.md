@@ -306,3 +306,104 @@ projected. Query 3 reads the event ledger, not this table. Extended to readings,
 stops answering yes for ever and answers "live until the migration ran" for the 903. For the 135
 retired at themselves, when the key was actually retracted stays unknown, because `citation` has
 no `superseded_at`. Queries 1, 4 and 5 read no citation table.
+
+## Addendum (2026-09-14): a footnote digit fused onto the document's own docket keys as that docket
+
+**Status: Proposed.** Narrows decision 1's "normalised target key".
+
+The Board prints a footnote marker straight after a docket number, and the text layer fuses the
+two: `STB Finance Docket No. 340071` in a decision filed in FD 34007. Measured 2026-09-14 on a
+production restore, applying the rule below to finder 2026-09-13b's output:
+
+- **346 text-layer findings in 331 documents**, none on OCR, read as a six-digit number;
+- **no such six-digit number is a held docket**, so each is stored `unresolved`, shown nowhere and
+  queued for nobody, although it names the document's own proceeding;
+- all 346 read `citation` today, because the six-digit key is not own. Keyed as the own docket,
+  the span test makes every one a `caption`;
+- **177 of them sit on a page that also prints the five-digit own key** (116 caption, 61 citation);
+- **6 further six-digit numbers** strip to a held docket that is *not* own. They stay out of this
+  rule (`../deferred.md`).
+
+**Decided by the operator** (2026-09-13 and 2026-09-14):
+
+1. **The rule.** A bare six-digit key that is not own, and whose last digit stripped is the
+   document's own docket, is keyed as that own docket. `cited_raw` stays as printed.
+2. **The finding carries its key.** `find` applies the rule and writes the key on the finding.
+   Every reader that rebuilt a key from the printed number reads that key instead: `load`, the span
+   check, and the check-sheet tools.
+3. **The finder never reads the registry** (ADR 0017 D2 stands). `load`, which holds the registry,
+   refuses a document carrying a re-keyed finding whose six-digit number is a held docket, counted
+   apart from a fault. None is today, and 104 held dockets carry a six-digit sequence. **This
+   refusal does not clear on a later walk**: the finder cannot see the registry, so it re-emits the
+   same finding. A document not yet loaded has its citations withheld until the code changes; one
+   already loaded keeps its earlier rows live, since a refusal writes nothing. Either way `load`
+   counts and names every such document in its totals, on every run, and that count is the signal.
+4. **What stays open is stated, and its input recorded.** `own` is record data and waves 2-3 still
+   add dockets, so a family that later gains a docket can change what this rule keys, with no
+   finder bump. The old key would stay live beside the new one, the exposure the family closure
+   already carries (finder 2026-09-12). Each reading the rule shaped records, once per reading,
+   `key_rule: own-fused`, the printed six-digit key and **the own set `load` checked it against**.
+   Two queries then find the drift:
+   - comparing that recorded set with the record's current family finds any key the rule made that
+     it would now make differently;
+   - the other direction needs no record: a six-digit key with a live `citation` and a live
+     `unresolved` resolution, whose last digit stripped is in the document's current own set, is
+     one the rule would now re-key. The live `citation` matters: a retracted key keeps its
+     resolutions live (the 2026-09-13 addendum defers them), so without it the 346 keys this
+     rule already re-keyed would all read as drift.
+
+   A six-digit number that later becomes a held docket outside the family is caught by neither
+   query; `load`'s count under item 3 names the document on its next walk.
+5. **`KEY_VERSION` does not move.** `normalise` is unchanged, and a bump would stamp every newly
+   seen key as if the rule had shaped it. A re-keyed key's `key_version` names the normaliser
+   only; the reading (item 4) is what says the rule shaped it.
+
+**Proposed to hold them, for the operator's acceptance:**
+
+6. **One function holds the rule**, in `keys.py`, taking the printed key and the document's `own`.
+   `find` calls it. `find.verify_spans` gains `own` (which `walk` holds) and `load` rebuilds `own`
+   from the record (`walk.own_by_document`'s query); both call it, and `load` then applies item 3's
+   registry check.
+7. **`load` refuses any other departure from the printed number, per finding and, for a `store`
+   reading, per span.** Every span's printed number must normalise to the finding's key, or re-key
+   to it under the rule for this document's `own`. A span printing another proceeding's number
+   inside an own-key finding refuses its document, so a damaged or forged file cannot re-key one
+   of the 6 other-proceeding numbers into a measured, unexposed, unreviewed edge. So does a finding
+   the rule no longer re-keys at load time, `own` having changed since `find`. A refused document is
+   counted apart from a fault and writes nothing. One refused here loads on a later walk at the
+   same version; one refused under item 3 does not.
+8. **A page printing both forms is one finding**, and the span check accepts both forms by item 7's
+   test, so the 177 pages verify.
+9. **The served-date window anchors on the key**: `resolve` takes the finding's key, and an
+   occurrence of either printed form anchors the window. That changes what the window hands a row,
+   so **the rules take a new version** (`resolve.py`'s note), as the fallback did.
+10. **Its own finder version, v7.** v6 is live (v2026.09.23), and retraction fires only across
+   finder versions (`load.py`), so the rule ships as `FINDER_VERSION` and the rules moving together,
+   rank v7, new cards for both channels declared before the load, and a second full re-load. A work
+   card measured on an older rule is not read (`methods._work_measurement` filters on the rule), so
+   a load before the declaration would publish work-level answers at docket level. `stamp` refuses
+   a resolution or projection card measured on an older rule, but it does not version-check the
+   `citation` stage's card and it silently skips an older work card, so for those two the order
+   is the runbook's to enforce.
+11. **The retraction points the old six-digit key at the own key**, decision 2's successor shape:
+   `load` gains that second shape beside the sub-docket one, used only where the rule fired. Its
+   readings retire with it (the 2026-09-13 addendum). Item 4's record is a key of the reading's
+   `source_location`, once per reading and **outside `spans`**, whose triples stay the offsets
+   method's own. The shape is declared here: migration 0028's `{page, spans}` is a comment inside a
+   `CREATE TABLE` that only a rebuild of every reading could correct.
+12. **The tools that rebuild keys or anchor on the printed form read the finding's key**:
+   `work_check_sheet.py`, `long_form_check_sheet.py`, `ocr_citation_sample.py`,
+   `benchmark_review.py`, `review_queue_panel.py`, `caption_check_sheet.py`, and the scorers
+   `benchmark_score.py`, `projection_score.py` and `ocr_citation_dryrun.py`.
+
+**Validation queries.**
+
+- **Query 2:** the 346 were unresolved and unprojected, and become captions, still unprojected.
+  Item 7 keeps a forged file from adding an edge. **Not yet measured, and counted by the
+  rehearsal:** the 61 own-key citations on shared pages gain occurrences in their date window, so
+  their decisions could change; and any resolution that named a document before and names none
+  after, which item 10's order should hold at 0.
+- **Query 3:** the retraction's pointer to the own key keeps "which key was live on date D"
+  answerable, dated by the successor's `asserted_at`; the reading, not `key_version`, says the rule
+  shaped a key (items 4 and 5).
+- **Queries 1, 4 and 5** read no citation table.
