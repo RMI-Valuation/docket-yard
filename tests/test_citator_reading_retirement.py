@@ -218,7 +218,7 @@ def test_migration_0029_retires_the_stranded_readings_at_one_instant_and_leaves_
     con.commit()
     con.close()
 
-    con = db.connect(path)  # the migration production will run
+    con = db.connect(path, upto=29)  # the migration production will run
     assert con.execute("PRAGMA user_version").fetchone()[0] == 29
     assert con.execute("PRAGMA foreign_key_check").fetchall() == []
     assert con.execute("SELECT name FROM sqlite_temp_master").fetchall() == [], "nothing left"
