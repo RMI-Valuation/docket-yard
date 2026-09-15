@@ -359,7 +359,7 @@ class _OOM(Exception):
     pass
 
 
-def test_out_of_memory_retries_once_with_the_cache_emptied_then_is_the_pages():
+def test_out_of_memory_retries_once_with_the_cache_emptied_then_is_the_cards():
     def is_oom(e):
         return isinstance(e, _OOM)
 
@@ -377,14 +377,57 @@ def test_out_of_memory_retries_once_with_the_cache_emptied_then_is_the_pages():
     def always():
         raise _OOM
 
-    with pytest.raises(hw.PageFailed, match="^oom$"):
+    with pytest.raises(hw.GpuOutOfMemory):  # the card's, never PageFailed
         hw.read_with_oom_retry(always, is_oom, lambda: None)
 
     def broken():
         raise ValueError("not memory")
 
-    with pytest.raises(ValueError):  # not an OOM: not the page's, the worker exits 4
+    with pytest.raises(ValueError):  # not an OOM: the engine's, handled by the loop
         hw.read_with_oom_retry(broken, is_oom, lambda: None)
+
+    # two OOMs on the same page is still that page's retry; on a different page, the card
+    assert not hw.card_at_fault(None, (A, 1))
+    assert not hw.card_at_fault((A, 1), (A, 1))
+    assert hw.card_at_fault((A, 1), (A, 2))
+
+
+@pytest.mark.parametrize("error", ["gpu: oom", "engine: RuntimeError: CUDA error"])
+def test_a_page_given_back_keeps_its_attempt_spent_and_is_not_the_pages_own(q, error):
+    """The engine raising on a page, or the card running out of memory on it: the page in
+    flight spends its attempt (claimed first again, it would otherwise loop for ever), the
+    pages after it do not, and after max_attempts the document is re-read, never whole."""
+    ids = [j["job_id"] for j in q.claim("w1", "dots", 3, 60)]  # A p1, A p2, B p1
+    hw.give_back(q, "w1", ids, 0, error)
+    attempts = dict(q.con.execute("SELECT job_id, attempts FROM job WHERE state = 'pending'"))
+    assert attempts == {ids[0]: 1, ids[1]: 0, ids[2]: 0}
+    for _ in range(2):
+        (again,) = q.claim("w1", "dots", 1, 60)
+        assert again["job_id"] == ids[0]  # first in claim order, attempt by attempt
+        hw.give_back(q, "w1", [again["job_id"]], 0, error)
+    row = q.con.execute("SELECT state, error FROM job WHERE job_id = ?", (ids[0],)).fetchone()
+    assert (row["state"], row["error"]) == ("failed", error)
+    assert not row["error"].startswith(pq.PAGE_OWNED)
+    a2 = q.claim("w1", "dots", 1, 60)[0]["job_id"]
+    q.done("w1", a2, "[]")
+    q.mark_collected(
+        "dots", A, {"ran_at": "t", "outcome": "read", "pages": [{}], "pages_failed": 1}
+    )
+    assert q.known("dots", A) == "reread"
+
+
+def test_a_card_short_of_memory_claims_nothing(q):
+    free, need = 1 * hw.GIB, hw.MIN_HEADROOM
+    assert hw.short_of_memory(free, 0, 0, need)
+    assert hw.short_of_memory(free, 2 * hw.GIB, 1 * hw.GIB, need) is None  # its own cache counts
+    assert hw.short_of_memory(8 * hw.GIB, 0, 0, hw.MIN_FREE_TO_LOAD) is None
+    jobs, why = hw.claim_if_room(q, "w1", 4, 60, lambda: (free, 0, 0))
+    assert jobs is None and "GiB" in why
+    assert q.claimable("tabular") == 0 and q.claimable("dots") == 3  # nothing leased
+    q.seed("tabular", [(A, 1)], reread=set())
+    q.register("w1", "tabular", {**TAB, "host": "x"})
+    jobs, why = hw.claim_if_room(q, "w1", 4, 60, lambda: (8 * hw.GIB, 0, 0))
+    assert why is None and [j["page_no"] for j in jobs] == [1]
 
 
 def test_the_weights_revision_is_the_loaded_hash_else_the_caches_ref(tmp_path):

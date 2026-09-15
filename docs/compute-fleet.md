@@ -165,7 +165,7 @@ Two roles, tmux sessions for each, started idempotently by `tools/fleet/fleet-up
 | worker | `dots-vllm` | `dots-serve.sh`: vLLM, restarted a minute after it dies | `ocr/logs/vllm.log` |
 | worker | `dots-worker` | `dots_worker.py`, restarted a minute after it exits (0: queue empty; 2: server gone 30 min; 3: server dies on consecutive pages; 4: not the page's fault; 5: too many page failures in a row) | `ocr/logs/dots-worker.log` |
 | coordinator | `tabular-collect` | `pagequeue.py collect --pass tabular` every ten minutes; writes nothing until the pass is seeded | `ocr/logs/tabular-collect.log` |
-| tabular | `tabular-worker` | `hunyuan_worker.py` under `DY_FLEET_HUNYUAN_PY`, restarted a minute after it exits (0: queue empty, model not loaded; 4: not the page's fault, or the model did not load; 5: too many page failures in a row). Its own role, never part of `worker` or `all` | `ocr/logs/tabular-worker.log` |
+| tabular | `tabular-worker` | `hunyuan_worker.py` under `DY_FLEET_HUNYUAN_PY`, restarted a minute after it exits (0: queue empty, model not loaded; 3: out of GPU memory on two different pages in a row; 4: the model did not load, the card is short of free memory, the engine raised on a page, or not the page's fault; 5: too many page failures in a row). Its own role, never part of `worker` or `all` | `ocr/logs/tabular-worker.log` |
 
 The coordinator is rmi-nuc (data under the operator's home; `DY_FLEET_PY=python3`, since it
 needs no engine). A worker names the coordinator in `<data>/fleet-node` and, if it holds a
@@ -206,11 +206,19 @@ tokens — because vLLM 0.28's HunYuanVL fails on start and the benchmark's numb
 transformers path's. The producer names `transformers` and its version, `tencent/HunyuanOCR`
 and the snapshot revision it loaded (the config's commit hash, else the cache's `refs/main`;
 a worker that cannot name it does not claim). What is the page's own, finally: `oversize`
-over 6 MP at 150 DPI (29 of the 26,294 pages, measured 2026-09-15), a render that fails,
-`finish_reason length` (every new token spent and no EOS), and `oom` — out of GPU memory
-twice on the page, the cache emptied between, because a 1B model reading one page at a time
-varies only by the page. **The card must be the worker's**: with the dots server holding 90%
-of the 4070 every page would fail `oom`, and only the breaker (exit 5) would stop it. So:
+over 6 MP at 150 DPI (29 of the 26,294 pages, measured 2026-09-15), a render that fails, and
+`finish_reason length` (every new token spent and no EOS). **Out of GPU memory is not the
+page's**: the likeliest cause is another process on the card, and a final failure would count
+the document whole with no text. The worker refuses to load with under 4 GiB free
+(`MIN_FREE_TO_LOAD`: the 2 GB model plus 2 GiB headroom, a bound the parity probe owes a
+measurement for) and to claim with under 2 GiB usable (`MIN_HEADROOM`), exiting 4 with nothing
+claimed. An OOM that survives one retry with the cache emptied puts the page back as
+`gpu: oom`, attempt spent, and claims again; OOM on two different pages in a row exits 3. The
+engine raising anything else on a page puts that page back as `engine: <Exception>`, attempt
+spent — it is first in claim order, so a refund would loop it for ever — and exits 4. Neither
+is `page:`, so after three attempts the document is re-read at a later seed, never whole.
+**The card must be the worker's**: with the dots server holding 90% of the 4070 the floor
+refuses every start. So:
 
 ```bash
 tmux kill-session -t dots-vllm; tmux kill-session -t dots-worker          # on a shared card

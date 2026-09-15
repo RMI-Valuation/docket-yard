@@ -21,34 +21,46 @@ change a worker that is running. A change to either loop's rules belongs in both
 
 The model loads ONCE, before anything is claimed — a queue with nothing to claim loads
 nothing, since the restart loop would otherwise load 2 GB of weights a minute — and a load
-that fails (an import, no CUDA, weights not in the cache, a revision it cannot name) is the
-environment's: exit 4, nothing held. Then the worker declares its producer — the pass's key,
-this host, `transformers` and its version, the model and its snapshot revision, the page bound
-— and the queue refuses it if the key is not the pass's (ADR 0023, ADR 0024 § Owed 1).
+that fails (an import, no CUDA, too little free GPU memory, weights not in the cache, a
+revision it cannot name) is the environment's: exit 4, nothing held. Then the worker declares
+its producer — the pass's key, this host, `transformers` and its version, the model and its
+snapshot revision, the page bound — and the queue refuses it if the key is not the pass's
+(ADR 0023, ADR 0024 § Owed 1).
 
 WHOSE FAULT A FAILURE IS:
 
     the page's own      a sheet over the pass's megapixel bound (`oversize: N MP at 150 DPI`);
                         a page pymupdf opened but will not rasterise; a generation that
                         produced max_new_tokens tokens and no EOS (`finish_reason length`, the
-                        name dots uses for a cut answer); out of GPU memory TWICE on the page
-                        (`oom`). Failed FINALLY as `page: ...`; the document is whole with it
+                        name dots uses for a cut answer). Failed FINALLY as `page: ...`; the
+                        document is whole with it failed
+    the card's          out of GPU memory, twice on one page with the cache emptied between.
+                        NOT the page's (below). The page goes back as `gpu: oom` with its
+                        attempt spent, the rest of the batch unspent, and the batch is claimed
+                        again; OOM on two DIFFERENT pages in a row is the card: exit 3
     the document's      the blob is missing, will not open, or has fewer pages than the route
                         says: `blob: ...`, attempt spent, not final; re-read at a later seed
-    nobody's we named   everything else — the queue, an import, a model that raises something
-                        other than out-of-memory. Every leased page goes back unspent; exit 4
+    the engine's        the model raised anything else while reading a page: that page goes
+                        back as `engine: <Exception>` with its attempt spent — it may be the
+                        cause, and claims run in document order, so a refunded attempt would
+                        bring it back first after every restart for ever — the pages after it
+                        unspent; exit 4. After max_attempts it fails, not finally, and the
+                        document is re-read at a later seed rather than counted whole
+    nobody's we named   the queue, an import, anything outside a page's read. Every leased
+                        page goes back unspent; exit 4
+    too little memory   free GPU memory under the floor before loading or before a claim:
+                        exit 4 with nothing claimed
     too many in a row   --max-consecutive-failures page-owned failures with no page read
                         between: release, exit 5
 
-WHY OUT-OF-MEMORY IS THE PAGE'S, after one retry. The model is 1B parameters in about 2 GB
-and this process reads one page at a time, so what varies between pages is the page — its
-image tokens and the length of its answer — and nothing else in the process. A first OOM may
-be the allocator's fragmentation after an earlier large page, so the cache is emptied and the
-page read again; a second on the same page with the cache empty is that page's size. Unlike
-vLLM's engine, torch survives an OOM in the process, so there is no server to wait for. The
-one cause this misnames is ANOTHER PROCESS on the card (the dots vLLM server holds 90% of the
-4070): then every page fails `oom`, no page reads, and the breaker's exit 5 is what stops it.
-Stop `dots-vllm` before starting this worker on a shared card (docs/compute-fleet.md).
+WHY OUT-OF-MEMORY IS NOT THE PAGE'S. A 1B model reading one page at a time varies by the page,
+so an OOM LOOKS like the page's — but the likeliest cause on this fleet is another process on
+the card: the dots vLLM server holds 90% of the 4070. Failed finally, every such page would be
+counted whole with no text, and a later seed would skip its document: the restart loop would
+throw away a batch a minute. So memory is checked before the model loads (`MIN_FREE_TO_LOAD`)
+and before every claim (`MIN_HEADROOM`), and an OOM that survives the retry is the card's. A
+page that truly exceeds the card fails non-finally three times and its document is re-read at
+a later seed, which costs a little box time and loses nothing.
 
 THE OVERSIZE GUARD is the pass's (`PASSES["tabular"]["max_megapixels"]`, 6 MP): measured
 2026-09-15 over the 26,294 tabular pages at 150 DPI, median 2.1 MP, p99 2.4, 29 over 6. The
@@ -78,7 +90,16 @@ from pagequeue import PASSES, Queue, RemoteQueue  # noqa: E402
 PASS = "tabular"
 DPI = int(PASSES[PASS]["key"]["render_profile"])  # the render IS the key; one source
 MODEL = "tencent/HunyuanOCR"
-EXIT_ENVIRONMENT, EXIT_BREAKER = 4, 5
+EXIT_CARD, EXIT_ENVIRONMENT, EXIT_BREAKER = 3, 4, 5
+
+GIB = 1024**3
+# The floors. The model is 2.0 GB of VRAM in bfloat16 (the benchmark's measurement,
+# `ocr_run.run_hunyuan_ocr`); a page's activations and KV cache at up to 2.4 MP and 4,096 new
+# tokens are given 2 GiB. The headroom is a bound, not a measurement: the parity probe on the
+# GPU owes the real peak, and these follow it. The point is to refuse a card another process
+# holds, not to size this one exactly.
+MIN_HEADROOM = 2 * GIB
+MIN_FREE_TO_LOAD = 2 * GIB + MIN_HEADROOM
 
 
 class PageFailed(Exception):
@@ -87,6 +108,10 @@ class PageFailed(Exception):
 
 class DocumentFailed(Exception):
     """The document's — its bytes are not here or will not open; not final."""
+
+
+class GpuOutOfMemory(Exception):
+    """Out of GPU memory after the retry: the card's, not the page's; not final."""
 
 
 def log(msg: str) -> None:
@@ -105,8 +130,8 @@ def generation_failure(new_tokens: int, max_new_tokens: int, ended_with_eos: boo
 
 
 def read_with_oom_retry(read, is_oom, empty_cache):
-    """`read()`, once more after `empty_cache()` if it ran out of GPU memory; a second OOM is
-    the page's (`PageFailed("oom")`). Any other exception is not classified here: it rises."""
+    """`read()`, once more after `empty_cache()` if it ran out of GPU memory; a second OOM
+    raises `GpuOutOfMemory`. Any other exception is not classified here: it rises."""
     try:
         return read()
     except Exception as e:  # noqa: BLE001 — only an OOM is handled; the rest re-raises
@@ -119,7 +144,39 @@ def read_with_oom_retry(read, is_oom, empty_cache):
         if not is_oom(e):
             raise
         empty_cache()
-        raise PageFailed("oom") from e
+        raise GpuOutOfMemory("oom") from e
+
+
+def short_of_memory(free: int, reserved: int, allocated: int, need: int) -> str | None:
+    """Why the card cannot take work, or None. What this process could use is the device's
+    free memory plus what torch has cached and is not using — its own cache is not a
+    stranger's — so a worker that has read large pages is not refused for its own cache."""
+    usable = free + max(reserved - allocated, 0)
+    if usable < need:
+        return f"{usable / GIB:.1f} GiB usable on the card, {need / GIB:.1f} GiB needed"
+    return None
+
+
+def claim_if_room(q, name: str, batch: int, lease: int, memory, need: int = MIN_HEADROOM):
+    """The next batch, or `(None, why)` without claiming when the card is short. `memory()`
+    answers `(free, reserved, allocated)` in bytes."""
+    why = short_of_memory(*memory(), need)
+    if why:
+        return None, why
+    return q.claim(name, PASS, batch, lease), None
+
+
+def give_back(q, name: str, ids: list[int], i: int, error: str) -> None:
+    """The page in flight at `ids[i]` goes back with its attempt SPENT — it may be the cause —
+    and every page after it unspent. `error` must not be the page's own (`page:`), so the
+    queue never counts its document whole on this failure."""
+    q.fail(name, ids[i], error, final=False)
+    q.release(name, ids[i + 1 :])
+
+
+def card_at_fault(last_oom: tuple[str, int] | None, here: tuple[str, int]) -> bool:
+    """Two OOMs on DIFFERENT pages in a row: the card, not a page (dots' server-dies rule)."""
+    return last_oom is not None and last_oom != here
 
 
 def hf_hub_cache() -> Path:
@@ -199,6 +256,14 @@ def read_page(cfg: dict, pdf, no: int, png: Path, mp: float) -> str:
     return last["raw"]
 
 
+def gpu_memory() -> tuple[int, int, int]:
+    """(free on the device, reserved by this process, allocated by this process), bytes."""
+    import torch  # noqa: PLC0415
+
+    free, _ = torch.cuda.mem_get_info()
+    return free, torch.cuda.memory_reserved(), torch.cuda.memory_allocated()
+
+
 # --- the loop -------------------------------------------------------------------------------
 
 
@@ -249,6 +314,10 @@ def main() -> int:
         if not torch.cuda.is_available():
             log(f"torch sees no CUDA device; exit {EXIT_ENVIRONMENT}")
             return EXIT_ENVIRONMENT
+        why = short_of_memory(*gpu_memory(), MIN_FREE_TO_LOAD)
+        if why:
+            log(f"the card is short before loading ({why}); another process holds it? exit 4")
+            return EXIT_ENVIRONMENT
         cfg: dict = {"hunyuan_model": args.model}
         model = load_hunyuan(cfg)
     except Exception:  # noqa: BLE001 — nothing is claimed yet: the environment's
@@ -277,8 +346,10 @@ def main() -> int:
     args.scratch.mkdir(parents=True, exist_ok=True)
 
     read = failed = streak = 0
+    last_oom: tuple[str, int] | None = None
     held: tuple[str, bytes] | None = None  # the last document fetched, for a remote worker
     ids: list[int] = []
+    in_flight: int | None = None  # the index in `ids` of the page the model is reading
 
     def stopping() -> bool:
         return bool(args.stop_file and args.stop_file.exists())
@@ -288,7 +359,11 @@ def main() -> int:
             if args.max_pages and read + failed >= args.max_pages:
                 log(f"--max-pages reached: {read} read, {failed} failed")
                 return 0
-            jobs = q.claim(name, PASS, args.batch, args.lease)
+            ids = []
+            jobs, why = claim_if_room(q, name, args.batch, args.lease, gpu_memory)
+            if jobs is None:
+                log(f"the card is short ({why}); nothing claimed; exit {EXIT_ENVIRONMENT}")
+                return EXIT_ENVIRONMENT
             if not jobs:
                 log(f"queue empty: {read} read, {failed} failed this session")
                 return 0
@@ -312,8 +387,11 @@ def main() -> int:
                                     raise DocumentFailed("not on the node") from e
                                 raise
                         pdf = held[1]
+                    in_flight = i
                     raw = read_page(cfg, pdf, no, png, spec["max_megapixels"])
+                    in_flight = None
                 except PageFailed as e:
+                    in_flight = None
                     q.fail(name, job["job_id"], f"page: {e}", final=True)
                     failed += 1
                     streak += 1
@@ -323,26 +401,43 @@ def main() -> int:
                         log(f"{streak} page failures in a row, no page read; exit {EXIT_BREAKER}")
                         return EXIT_BREAKER
                 except DocumentFailed as e:
+                    in_flight = None
                     q.fail(name, job["job_id"], f"blob: {e}", final=False)
                     failed += 1
                     log(f"  document {sha[:12]} {e}; p{no} back for a later seed")
+                except GpuOutOfMemory:
+                    in_flight = None
+                    give_back(q, name, ids, i, "gpu: oom")
+                    log(f"  OUT OF GPU MEMORY on {sha[:12]} p{no}; {len(ids) - i - 1} released")
+                    if card_at_fault(last_oom, (sha, no)):
+                        log(f"out of memory on two different pages in a row; exit {EXIT_CARD}")
+                        return EXIT_CARD
+                    last_oom = (sha, no)
+                    break  # claim again: the page comes back first while it has attempts
                 else:
                     if q.done(name, job["job_id"], raw):
                         read += 1
                         streak = 0
+                        last_oom = None
                     else:
                         log(f"  lease lost on {sha[:12]} p{no}; answer dropped")
                 if ids[i + 1 :]:
                     q.extend(name, ids[i + 1 :], args.lease)
             if (read + failed) % 40 < args.batch:
                 log(f"  {read} read, {failed} failed this session")
-    except Exception:  # noqa: BLE001 — nobody's we named: the queue, the venv, the model
-        log("NOT THE PAGE'S FAULT; releasing what is held and exiting")
+    except Exception as exc:  # noqa: BLE001 — the engine's on a page, else nobody's we named
         log(traceback.format_exc())
         try:
-            q.release(name, ids)  # the whole batch: the page in flight is not to blame
+            if in_flight is not None:
+                # the model raised on this page: its attempt stays spent, or a page that
+                # breaks the engine is claimed first after every restart for ever
+                log("THE ENGINE RAISED ON A PAGE; that page's attempt spent, the rest released")
+                give_back(q, name, ids, in_flight, f"engine: {type(exc).__name__}: {exc}")
+            else:
+                log("NOT THE PAGE'S FAULT; releasing what is held and exiting")
+                q.release(name, ids)
         except Exception:  # noqa: BLE001 — the queue itself may be what failed
-            log("could not release; the leases expire on their own")
+            log("could not give the pages back; the leases expire on their own")
         return EXIT_ENVIRONMENT
 
 
