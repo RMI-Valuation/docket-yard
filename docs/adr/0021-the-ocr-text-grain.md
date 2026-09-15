@@ -357,7 +357,9 @@ as a table"). Migration 0032.
    per page, naming the router, its version and the render it saw, with ADR 0007's confidence
    block and supersession rather than update. **Two clocks**: `asserted_at` and
    `superseded_at` are the store's, when the row entered and left the record; `routed_at` is
-   the router's own, and only orders verdicts. A different class, router, version or render
+   the router's own, in UTC, and only orders verdicts: a differing verdict routed no later than
+   the live one as first loaded is stale and writes nothing (a load that changes nothing writes
+   nothing, so agreement never moves that date). A different class, router, version or render
    is a new row; no column the row asserts changes in place. A page the router failed on has
    no verdict and no row.
 2. **Decision 4's `route_class` on a reading is unchanged**: it is the class the page was read
@@ -371,7 +373,8 @@ as a table"). Migration 0032.
 4. **Held** from the snapshot, with `route_class_vocab`.
 
 **Validation** (`docs/validation-queries.md`). Query 3, point-in-time state, is the one this
-touches: what a page showed on date D is the display row live on D together with the
-`page_route` row whose `asserted_at` ≤ D and whose `superseded_at` is null or after D, on the
-store's clock throughout; `routed_at` is never read for it. Queries 1, 2, 4 and 5 read no page
+touches: what a page showed on date D is the display row live on D, the `document_pagination`
+row live on D (its `page_count` and `had_text_layer` feed the rule) and the `page_route` row
+live on D — each the row whose `asserted_at` ≤ D and whose `superseded_at` is null or after D,
+on the store's clock throughout; `routed_at` is never read for it. Queries 1, 2, 4 and 5 read no page
 text and no route, and are unchanged.

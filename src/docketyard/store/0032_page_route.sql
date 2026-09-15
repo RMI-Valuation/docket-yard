@@ -16,7 +16,8 @@
 -- TWO CLOCKS, NEVER ONE (schema-critic, 2026-09-15). `asserted_at` is the STORE's: when this row
 -- entered the record, as `document_text.asserted_at` is, so that it and `superseded_at` replay
 -- what a page showed on a date (validation query 3). `routed_at` is the ROUTER's own clock, from
--- the file; it orders two verdicts for staleness and is never read as a record date.
+-- the file; it orders two verdicts for staleness and is never read as a record date. One shape,
+-- UTC to the second, so that ordering the strings orders the instants.
 --
 -- `render_profile` is the render the router saw (the file's `dpi`, e.g. '150'): a verdict at
 -- another render is another verdict, as a reading at another render is (ADR 0021 D2).
@@ -49,7 +50,8 @@ CREATE TABLE page_route (
     confidence_state TEXT NOT NULL REFERENCES confidence_state_vocab (confidence_state),
     measured_target  TEXT CHECK (measured_target IS NULL OR measured_target = 'page_route'),
     score_row_id     INTEGER,
-    routed_at        TEXT NOT NULL CHECK (routed_at <> ''),
+    routed_at        TEXT NOT NULL CHECK (routed_at GLOB
+        '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]+00:00'),
     asserted_at      TEXT NOT NULL CHECK (asserted_at <> ''),
     superseded_by    INTEGER REFERENCES page_route (route_id),
     superseded_at    TEXT,

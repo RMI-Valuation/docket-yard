@@ -1616,7 +1616,9 @@ Measured for the tabular pass: 26,294 tabular pages at 150 DPI, median 2.1 MP, p
 
 - **A re-route that omits pages reports `unchanged`**, and so does a route file for a document the
   router failed to open (no pages): `text route` compares only the pages a file names, so a verdict
-  the new file no longer gives stays live, and nothing counts the omission.
+  the new file no longer gives stays live, and nothing counts the omission. The converse also holds:
+  an OLDER root still fills a page that has no live row because the newer run failed there, since
+  staleness is judged only against a live row.
 - **`superseded_by` and `superseded_at` can be rewritten in place** on a retired row — inherited from
   `document_pagination`, which has the same gap. `citation_reading`'s forward-only triggers (migration
   0028) are the model to copy.

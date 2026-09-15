@@ -265,6 +265,44 @@ def test_an_older_file_with_a_differing_verdict_is_refused_whatever_its_version(
     assert _route(con, agreeing, now=AFTER) == "unchanged"
 
 
+def test_an_equal_time_file_with_a_differing_verdict_is_stale_and_the_first_wins(tmp_path):
+    con = _store(tmp_path)
+    _paginate(con, SHA_A, 1)
+    assert _route(con, _record(SHA_A, {1: "clean"}, routed_at=ROUTED)) == "loaded"
+    same_instant = _record(SHA_A, {1: "tabular"}, routed_at="2026-09-05T14:00:00+02:00")
+    assert _route(con, same_instant, now=AFTER) == "stale"
+    assert [r[1] for r in _live(con)] == ["clean"]
+
+
+@pytest.mark.parametrize(
+    ("given", "stored"),
+    [
+        ("2026-09-05T12:00:00Z", "2026-09-05T12:00:00+00:00"),
+        ("2026-09-05T17:00:00+05:00", "2026-09-05T12:00:00+00:00"),
+        ("2026-09-05T12:00:00.734512+00:00", "2026-09-05T12:00:00+00:00"),
+    ],
+)
+def test_routed_at_is_stored_in_one_utc_shape(tmp_path, given, stored):
+    con = _store(tmp_path)
+    _paginate(con, SHA_A, 1)
+    assert _route(con, _record(SHA_A, {1: "tabular"}, routed_at=given)) == "loaded"
+    assert _live(con)[0][5] == stored
+
+
+@pytest.mark.parametrize("given", ["2026-09-05T12:00:00", "yesterday", "", 20260905])
+def test_routed_at_without_a_zone_or_a_shape_is_unreadable(tmp_path, given):
+    con = _store(tmp_path)
+    with pytest.raises(Unreadable, match="routed_at"):
+        route.from_record(_record(SHA_A, {1: "tabular"}, routed_at=given), route.classes(con))
+
+
+def test_the_store_refuses_a_routed_at_in_any_other_shape(tmp_path):
+    con = _store(tmp_path)
+    for bad in ("2026-09-05T12:00:00", "2026-09-05T12:00:00Z", "2026-09-05T17:00:00+05:00"):
+        with pytest.raises(sqlite3.IntegrityError):
+            _insert(con, routed_at=bad)
+
+
 def test_a_page_above_the_live_count_refuses_the_whole_document(tmp_path):
     con = _store(tmp_path)
     _paginate(con, SHA_A, 2)

@@ -9,7 +9,9 @@ pages: {"<n>": {class, regions, labels[, error]}}}`.
 TWO CLOCKS. A row's `asserted_at` is the store's — when the pass wrote it, as `document_text`'s
 is — and `superseded_at` is the same clock, so the pair replays what a page showed on a date.
 The file's `routed_at` is kept beside them as the router's own clock, and is what staleness
-compares. `dpi` becomes `render_profile` (e.g. '150').
+compares — parsed, REQUIRED to carry a timezone, and stored in UTC as
+`2026-09-05T13:22:13+00:00`, so that comparing two of them as strings compares instants; any
+other shape is `Unreadable`. `dpi` becomes `render_profile` (e.g. '150').
 
 WHAT EACH PAGE BECOMES, against the page's live row:
 
@@ -19,9 +21,11 @@ WHAT EACH PAGE BECOMES, against the page's live row:
 - a person's row: left alone (`human_held`), as `paginate` leaves a corrected count;
 - a different verdict: retire at itself, insert, repoint, with `superseded_at` set in the
   retiring statement (`superseded`);
-- UNLESS the file was routed BEFORE the live row was: a differing verdict from an older file is
-  refused and the document writes nothing (`stale`), whatever its version, so re-running an old
-  root cannot undo a newer verdict.
+- UNLESS the file was routed NO LATER than the live row was: a differing verdict from an older
+  file, or from one routed at the same instant (the first of two loaded wins), is refused and the
+  document writes nothing (`stale`), whatever its version, so re-running an old root cannot undo
+  a newer verdict. The live row's `routed_at` is that of the verdict AS FIRST LOADED: an
+  `unchanged` load writes nothing, so a later file agreeing with it does not move the date.
 
 WHOLE DOCUMENT OR NOTHING. Every page is judged before any is written, and a document the store
 cannot take is raised out of `route_document`, which `store.batches` rolls back to the document's
@@ -36,6 +40,7 @@ counts such pages under `route_error_pages`.
 
 from collections import Counter
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 from docketyard.store import batches, supersede
@@ -71,6 +76,19 @@ def classes(con) -> frozenset[str]:
     return frozenset(r[0] for r in con.execute("SELECT route_class FROM route_class_vocab"))
 
 
+def _routed_at(record: dict) -> str:
+    """The router's clock as one UTC shape, or `Unreadable`: a time with no zone is not an
+    instant, and staleness compares these as strings."""
+    raw = text_field(record, "routed_at")
+    try:
+        at = datetime.fromisoformat(raw)
+    except ValueError:
+        raise Unreadable(f"routed_at {raw!r} is not an ISO 8601 time") from None
+    if at.tzinfo is None or at.utcoffset() is None:
+        raise Unreadable(f"routed_at {raw!r} carries no timezone")
+    return at.astimezone(UTC).isoformat(timespec="seconds")
+
+
 def _render(record: dict) -> str:
     dpi = record.get("dpi")
     if isinstance(dpi, bool) or not isinstance(dpi, int) or dpi <= 0:
@@ -84,7 +102,7 @@ def from_record(record: dict, allowed: frozenset[str] | set[str]) -> Route:
         raise Unreadable("not a JSON object")
     sha = sha_field(record)
     method, version = text_field(record, "method"), text_field(record, "method_version")
-    routed_at = text_field(record, "routed_at")
+    routed_at = _routed_at(record)
     render = _render(record)
     pages = record.get("pages")
     if not isinstance(pages, dict):
@@ -168,7 +186,7 @@ def route_document(con, route: Route, now: str | None = None) -> str:
             plan.append((page, "human_held", None))
         elif (cls, method, version, render) == (page.route_class, *verdict):
             plan.append((page, "unchanged", None))
-        elif route.routed_at < routed_at:
+        elif route.routed_at <= routed_at:
             return "stale"  # an older file's differing verdict: nothing of it is written
         else:
             plan.append((page, "superseded", route_id))
