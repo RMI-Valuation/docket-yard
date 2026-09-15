@@ -12,9 +12,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **Three schema PRs (2026-09-15), critic passes done**: #35 `veto-trigger` (0030), then
-  #37 `ocr-page-failure` (0031), then #36 `page-route` (0032). Merge in number
-  order; each addendum is Proposed, his to accept; rehearse in production's image before release
+- **Three schema PRs (2026-09-15), critic + `/code-review` findings all fixed**: #35 `veto-trigger`
+  (0030, ee7e2ac), then #37 `ocr-page-failure` (0031, ebf7cc5), then #36 `page-route` (0032,
+  f9d5473). Merge in number order; each addendum is Proposed, his to accept; NOT yet rehearsed in
+  production's image (3.46.1) — that comes before any release
 - **HunyuanOCR tabular pass, PR #34** (26,245 pages unread, 1,394 decision-carried); the GPU
   parity probe waits on his fleet rule (`settings.local.json`); loading waits for his go
 - **Claude batch for the 134 pages dots refused: SUBMITTED 2026-09-15** (two batches, render
