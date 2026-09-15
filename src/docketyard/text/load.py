@@ -327,7 +327,9 @@ CLASSIFIER_MAX = 64
 # The only details published (migration 0031): a measurement in a closed shape per reason. A
 # COPY of `tools/rmi-ai-machine/ocr_wave.DETAIL_SHAPES`, which this package cannot import;
 # `tests/test_fleet.py` holds the two equal. Re-checked here so a hand-built file cannot
-# publish free text: a detail that does not match is written NULL and the reason stands.
+# publish free text: a detail that does not match is written NULL and the reason stands. The
+# stored classifier and version are the producer's, so a shape narrowed here later shows as a
+# NULL detail under an older classifier version.
 DETAIL_SHAPES = {
     "oversize": r"oversize: [0-9]{1,4}\.[0-9] MP at [0-9]{2,4} DPI",
     "cut-answer": r"finish_reason (length|content_filter|abort|tool_calls|function_call)",

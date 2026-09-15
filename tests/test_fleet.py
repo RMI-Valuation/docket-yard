@@ -261,8 +261,9 @@ def test_an_operators_page_owned_failure_keeps_the_document_whole(tmp_path):
 
 def test_every_error_the_queue_writes_maps_to_a_reason_page_owned_iff_page(tmp_path):
     """ONE classifier (`ocr_wave.failure_reason`) for the store's `page_failure_reason_vocab`,
-    and it must agree with the queue's `page:` rule: a page-owned reason is final, so a
-    disagreement either re-reads a page for ever or files a transient failure as final."""
+    and it must agree with the queue's `page:` rule: a page-owned reason is final in the queue
+    (not retried in that pass), so a disagreement either re-reads a page for ever or files a
+    transient failure as final in the queue."""
     con = db.connect(tmp_path / "s.sqlite")
     vocab = dict(con.execute("SELECT reason, page_owned FROM page_failure_reason_vocab"))
     con.close()

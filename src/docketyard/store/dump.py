@@ -197,7 +197,7 @@ PUBLIC_TABLES = frozenset(
         # Migration 0023, ADR 0024 D4 — PUBLIC on `ocr_run`'s own precedent (the operator's
         # decision, 2026-09-05). It carries a document hash, the parser and version it was
         # handed off on, and a timestamp — the attempt's number is computed, never stored.
-        # `ocr_run`, three lines up, already publishes the method,
+        # The `ocr_run` entry above already publishes the method,
         # version, channel, render, outcome, page counts and a free-text note for the same
         # documents, so withholding the lesser while publishing the greater was not a line
         # anyone could defend. It is also the only row that separates "handed to a parser and

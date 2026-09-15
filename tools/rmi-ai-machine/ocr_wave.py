@@ -133,7 +133,8 @@ layout element's bbox, its category, and the corresponding text content within t
 
 # --- why a page failed: the one classifier (migration 0031, ADR 0024 § Owed 2) ----------------
 
-# The fleet queue's prefix for a failure that is the page's own, and final (`pagequeue.py`
+# The fleet queue's prefix for a failure that is the page's own, and final in the queue — not
+# retried in that pass, and not permanent (migration 0031) (`pagequeue.py`
 # takes it from here, so the two cannot drift).
 PAGE_OWNED = "page:"
 # The store's `page_failure_reason_vocab`: reason -> page_owned. `tests/test_fleet.py` holds
@@ -189,8 +190,9 @@ _WRITER_PREFIXES = (PAGE_OWNED, "server:", "blob:", "operator:")
 def failure_reason(error: str | None) -> str:
     """The reason code for a queue's `job.error`. Page-owned exactly when the error is
     `page:`; a `page:` error whose reason is not known RAISES rather than being filed as a
-    transient one, because a page-owned failure is final and a wrong code would re-read it
-    for ever or, worse, file a transient failure as final."""
+    transient one, because a page-owned failure is final in the queue (not retried in that
+    pass) and a wrong code would re-read it for ever or, worse, file a transient failure as
+    final in the queue."""
     said = (error or "").strip()
     if said.startswith(PAGE_OWNED):
         word = re.split(r"[\s:]", said[len(PAGE_OWNED) :].strip(), maxsplit=1)[0]
