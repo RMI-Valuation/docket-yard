@@ -74,6 +74,7 @@ as text that was already there.
 
 import hashlib
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -136,7 +137,9 @@ class PageFailure:
 
     page_no: int
     reason: str
-    detail: str | None = None
+    classifier: str  # what chose the reason, and at which version: once per reading document
+    classifier_version: str
+    detail: str | None = None  # only its reason's closed shape (`DETAIL_SHAPES`), never free text
 
 
 @dataclass(frozen=True)
@@ -318,6 +321,25 @@ def failure_reasons(con) -> frozenset[str]:
 
 # The outcomes a pass that attempted pages can have; the store's trigger holds the same pair.
 FAILING_OUTCOMES = ("read", "failed")
+# The only details published (migration 0031): a measurement in a closed shape per reason. A
+# COPY of `tools/rmi-ai-machine/ocr_wave.DETAIL_SHAPES`, which this package cannot import;
+# `tests/test_fleet.py` holds the two equal. Re-checked here so a hand-built file cannot
+# publish free text: a detail that does not match is written NULL and the reason stands.
+DETAIL_SHAPES = {
+    "oversize": r"oversize: [0-9]{1,4}\.[0-9] MP at [0-9]{2,4} DPI",
+    "cut-answer": r"finish_reason [a-z_]{1,32}",
+    "timeout": r"timeout: [0-9]{1,6}s with the server healthy",
+    "lease-expired": r"lease expired on attempt [0-9]{1,3}",
+    "server": r"HTTP [0-9]{3}",
+}
+
+
+def shaped_detail(reason: str, detail) -> str | None:
+    """`detail` if it is exactly its reason's shape, else None."""
+    shape = DETAIL_SHAPES.get(reason)
+    if shape is None or not isinstance(detail, str):
+        return None
+    return detail if re.fullmatch(shape, detail) else None
 
 
 def _page_failures(
@@ -335,6 +357,14 @@ def _page_failures(
         raise Unreadable(f"page_failures lists {len(raw)} pages and pages_failed is {failed}")
     if raw and outcome not in FAILING_OUTCOMES:
         raise Unreadable(f"a {outcome!r} pass attempted no pages to fail")
+    # ONCE PER READING DOCUMENT: every failure a producer lists was named by one classifier at
+    # one version, and every row carries it. Required for a list that names anything.
+    classifier = ("", "")
+    if raw:
+        said = doc.get("page_failure_classifier")
+        if not isinstance(said, dict):
+            raise Unreadable("page_failures names no page_failure_classifier")
+        classifier = (text_field(said, "method"), text_field(said, "method_version"))
     out = []
     for i, f in enumerate(raw):
         if not isinstance(f, dict):
@@ -348,9 +378,8 @@ def _page_failures(
             )
         if detail is not None and not isinstance(detail, str):
             raise Unreadable(f"page_failures[{i}].detail is {detail!r}")
-        # bounded, as `_note` bounds a run's reason: a producer's words after a hostile file
-        detail = (detail or "").strip()[:NOTE_MAX] or None
-        out.append(PageFailure(no, reason, detail))
+        # NEVER FREE TEXT: kept only as its reason's closed shape, else NULL (migration 0031)
+        out.append(PageFailure(no, reason, *classifier, shaped_detail(reason, detail)))
     if len({f.page_no for f in out}) != len(out):
         raise Unreadable("a page fails twice in one reading")
     return tuple(out)
@@ -696,8 +725,12 @@ def load_reading(
     # restart finds the run and so writes none of these again. The store's triggers hold the
     # count and the outcome that `header_of_reading` has already checked.
     con.executemany(
-        "INSERT INTO ocr_page_failure (run_id, page_no, reason, detail) VALUES (?, ?, ?, ?)",
-        [(run.lastrowid, f.page_no, f.reason, f.detail) for f in h.page_failures or ()],
+        "INSERT INTO ocr_page_failure (run_id, page_no, reason, detail, classifier,"
+        " classifier_version) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            (run.lastrowid, f.page_no, f.reason, f.detail, f.classifier, f.classifier_version)
+            for f in h.page_failures or ()
+        ],
     )
     records.save_blob(data_dir, payload)  # after the rows: a refused reading leaves no file
     if not pages:

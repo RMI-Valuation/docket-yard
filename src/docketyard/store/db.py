@@ -73,6 +73,9 @@ MIGRATIONS: list[tuple[int, str]] = [
     # 0031 settles ADR 0024 § Owed 2's second half (addendum 2026-09-15, Proposed): a row per
     # page a pass failed, under its `ocr_run`, with a reason from a vocabulary that says whether
     # the failure is the page's own. ADDITIVE — two tables, no rebuild — so not behind the wall.
+    # MERGE AND DEPLOY IN NUMBER ORDER: `migrate` skips every version <= the stamped one, so a
+    # store already stamped 32 by a branch merged first would never apply 0031, and nothing
+    # here would say so.
     (31, "0031_ocr_page_failure.sql"),
 ]
 

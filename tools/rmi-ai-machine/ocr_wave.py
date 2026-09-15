@@ -165,7 +165,22 @@ _FOREIGN_PREFIXES = (
     ("lease expired", "lease-expired"),  # `pagequeue.Queue._reap`
     ("operator:", "operator"),
 )
-DETAIL_MAX = 500  # `ocr_page_failure.detail`'s bound, and `ocr_run.note`'s
+# The classifier's provenance, written with every failure list (`ocr_page_failure.classifier`
+# and `classifier_version`). BUMP THE VERSION when `failure_reason`, the maps above, or
+# `DETAIL_SHAPES` below change what a string becomes.
+CLASSIFIER = {"method": "ocr_wave.page_failure", "method_version": "2026-09-15"}
+# The ONLY details that are published: a measurement in a closed shape per reason. Anything else
+# — an exception's text, an operator's words — is dropped, because it can carry a path or a
+# host into a snapshot that cannot be withdrawn. `docketyard/text/load.py` holds a copy it
+# re-checks against (it cannot import this file); `tests/test_fleet.py` holds the two equal.
+DETAIL_SHAPES = {
+    "oversize": r"oversize: [0-9]{1,4}\.[0-9] MP at [0-9]{2,4} DPI",
+    "cut-answer": r"finish_reason [a-z_]{1,32}",
+    "timeout": r"timeout: [0-9]{1,6}s with the server healthy",
+    "lease-expired": r"lease expired on attempt [0-9]{1,3}",
+    "server": r"HTTP [0-9]{3}",
+}
+_WRITER_PREFIXES = (PAGE_OWNED, "server:", "blob:", "operator:")
 
 
 def failure_reason(error: str | None) -> str:
@@ -186,12 +201,20 @@ def failure_reason(error: str | None) -> str:
 
 
 def page_failure(no: int, error: str | None, reason: str | None = None) -> dict:
-    """One entry of a reading document's `page_failures`: the reason, and the producer's own
-    words verbatim, bounded. `reason` given skips the classifier (the driver's `unclassified`)."""
-    entry = {"page_no": no, "reason": reason or failure_reason(error)}
-    detail = (error or "").strip()[:DETAIL_MAX]
-    if detail:
-        entry["detail"] = detail
+    """One entry of a reading document's `page_failures`: the reason, and a detail ONLY where
+    the error, less its writer's prefix, is exactly its reason's shape (`DETAIL_SHAPES`) —
+    never free text. `reason` given skips `failure_reason` (the driver's `unclassified`).
+    This function is `CLASSIFIER`, which `reading_document` writes beside the list."""
+    reason = reason or failure_reason(error)
+    entry = {"page_no": no, "reason": reason}
+    said = (error or "").strip()
+    for prefix in _WRITER_PREFIXES:
+        if said.startswith(prefix):
+            said = said[len(prefix) :].strip()
+            break
+    shape = DETAIL_SHAPES.get(reason)
+    if shape is not None and re.fullmatch(shape, said):
+        entry["detail"] = said
     return entry
 
 
@@ -334,6 +357,8 @@ def reading_document(
     }
     if page_failures is not None:
         doc["page_failures"] = page_failures
+        if page_failures:  # every entry came through `page_failure`, which is the classifier
+            doc["page_failure_classifier"] = CLASSIFIER
     return doc
 
 

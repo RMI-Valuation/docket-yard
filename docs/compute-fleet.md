@@ -94,15 +94,17 @@ pending  --claim-->  leased  --done-->  done
   under one `ran_at`, so a page cannot be added later. A file the queue does not know is the
   old driver's, which kept no reasons: whole only if it says `read` with no page failed.
 - **A failed page carries its reason into the store** (migration 0031, ADR 0024 § Owed 2
-  addendum 2026-09-15, Proposed). Collect writes `page_failures: [{page_no, reason, detail}]`
-  beside `pages_failed`, mapping each `job.error` to a reason through one classifier,
-  `ocr_wave.failure_reason`: `page:` is page-owned (`cut-answer`, `oversize`, `render`,
-  `timeout`, `operator-page`), and `server:`, `blob:`, a lease expiry, `operator:` and
-  anything unnamed are not. The detail is the error verbatim, bounded at 500 characters, and it
-  is PUBLISHED with `ocr_run`, so an error string should name no host or path. A `page:` error
-  with no known reason stops the collection. The loader writes a row per failed page in the
-  run's own transaction, in `ocr_page_failure`. **Owed:** the 134 page failures collected
-  before this shipped carry no list, and are loaded once, from the queue, as a sidecar.
+  addendum 2026-09-15, Proposed). Collect writes `page_failures: [{page_no, reason, detail?}]`
+  beside `pages_failed`, with the classifier that named them, mapping each `job.error` to a
+  reason through `ocr_wave.failure_reason`: `page:` is page-owned (`cut-answer`, `oversize`,
+  `render`, `timeout`, `operator-page`), and `server:`, `blob:`, a lease expiry, `operator:`
+  and anything unnamed are not. A detail is kept only when it is its reason's closed shape
+  (`ocr_wave.DETAIL_SHAPES`: `oversize: 8.4 MP at 200 DPI`, `finish_reason length`, ...), because
+  it is PUBLISHED with `ocr_run`; an exception's text or an operator's words never are. A
+  `page:` error with no known reason stops the collection. The loader writes a row per failed
+  page in the run's own transaction, in `ocr_page_failure`. **Owed:** the 134 page failures
+  collected before this shipped carry no list, and are loaded once, directly, as a sidecar
+  (`docs/deferred.md` § From the schema critic on migration 0031).
 
 The promises are tested in `tests/test_fleet.py`, through the real loader, in CI.
 

@@ -1183,11 +1183,33 @@ def _run(con, outcome="read", pages_failed=2, ran_at=STAMP):
     ).lastrowid
 
 
-def _page_failure(con, run_id, page_no=2, reason="oversize", detail=None):
+def _page_failure(
+    con,
+    run_id,
+    page_no=2,
+    reason="oversize",
+    detail=None,
+    classifier="ocr_wave.page_failure",
+    classifier_version="2026-09-15",
+):
     con.execute(
-        "INSERT INTO ocr_page_failure (run_id, page_no, reason, detail) VALUES (?, ?, ?, ?)",
-        (run_id, page_no, reason, detail),
+        "INSERT INTO ocr_page_failure (run_id, page_no, reason, detail, classifier,"
+        " classifier_version) VALUES (?, ?, ?, ?, ?, ?)",
+        (run_id, page_no, reason, detail, classifier, classifier_version),
     )
+
+
+def test_a_page_failure_names_the_classifier_that_chose_its_reason(tmp_path):
+    con = _store(tmp_path)
+    run = _run(con, pages_failed=4)
+    for page, over in (
+        (1, {"classifier": None}),
+        (2, {"classifier": ""}),
+        (3, {"classifier_version": None}),
+        (4, {"classifier_version": ""}),
+    ):
+        with pytest.raises(sqlite3.IntegrityError):
+            _page_failure(con, run, page, **over)
 
 
 def test_the_page_failure_vocabulary_says_whose_each_failure_is(tmp_path):
@@ -1266,7 +1288,7 @@ def test_page_failures_ship_in_the_snapshot_with_their_vocabulary(tmp_path):
     for `test_the_dispatch_counter_ships_in_the_snapshot`'s reason."""
     con = _store(tmp_path)
     run = _run(con)
-    _page_failure(con, run, 2, detail="page: oversize: 8.4 MP at 200 DPI")
+    _page_failure(con, run, 2, detail="oversize: 8.4 MP at 200 DPI")
     con.commit()
     con.close()
     tables = {"ocr_page_failure", "page_failure_reason_vocab"}

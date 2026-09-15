@@ -194,17 +194,18 @@ def test_a_failed_page_is_counted_and_left_out():
     cache["pages"][1]["error"] = "RuntimeError: render"
     eng, pages, failed = w.select_pages(cache, route, {"clean"})
     assert [p["page_no"] for p in pages] == [1]
-    # the cache keeps the exception and no cause, so the page says so and quotes it
-    assert failed == [{"page_no": 2, "reason": "unclassified", "detail": "RuntimeError: render"}]
+    # the cache keeps the exception and no cause: the page says so, and its words are not published
+    assert failed == [{"page_no": 2, "reason": "unclassified"}]
     doc = w.reading_document(sha, {}, "primary", "pp-ocrv6.json", eng, pages, page_failures=failed)
     assert doc["pages_failed"] == 1 and doc["page_failures"] == failed
+    assert doc["page_failure_classifier"] == w.CLASSIFIER
 
 
 def test_a_failed_page_reaches_the_store_with_its_reason(tmp_path):
     w = _module()
     path, sha = _store_with_document(tmp_path)
     cache, route = _cache_and_route(w, sha, {1: "a", 2: "b"}, {1: "clean", 2: "clean"})
-    cache["pages"][1]["error"] = "RuntimeError: " + "x" * 600  # bounded at the producer
+    cache["pages"][1]["error"] = "RuntimeError: cannot open /data/docketyard/.render/x.png"
     key = {k: cache[k] for k in ("method", "method_version", "render_profile")}
     eng, pages, failed = w.select_pages(cache, route, {"clean"})
     doc = w.reading_document(sha, key, "primary", "pp-ocrv6.json", eng, pages, page_failures=failed)
@@ -217,4 +218,4 @@ def test_a_failed_page_reaches_the_store_with_its_reason(tmp_path):
         " FROM ocr_page_failure f JOIN ocr_run r USING (run_id)"
     ).fetchall()
     con.close()
-    assert rows == [(2, "unclassified", 500, 1)]
+    assert rows == [(2, "unclassified", None, 1)]  # the exception's path is never published

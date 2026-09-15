@@ -616,16 +616,19 @@ REASONS = frozenset(
         "unclassified",
     }
 )
-OVERSIZE = "page: oversize: 8.4 MP at 200 DPI"
+OVERSIZE = "oversize: 8.4 MP at 200 DPI"
+CLASSIFIER = {"method": "ocr_wave.page_failure", "method_version": "2026-09-15"}
+FREE_TEXT = "URLError: connection refused by queue-host at /data/docketyard/blobs/ab/abc"
 
 
 def _failing(sha, **over):
-    """Page 1 read; pages 2 and 3 failed, one with the producer's words and one without."""
+    """Page 1 read; pages 2 and 3 failed, one with a shaped measurement and one with free text."""
     doc = _ocr(sha, texts=("read page",)) | {
         "pages_failed": 2,
+        "page_failure_classifier": CLASSIFIER,
         "page_failures": [
             {"page_no": 2, "reason": "oversize", "detail": OVERSIZE},
-            {"page_no": 3, "reason": "server"},
+            {"page_no": 3, "reason": "server", "detail": FREE_TEXT},
         ],
     }
     return doc | over
@@ -637,8 +640,9 @@ def _with_reasons(doc):
 
 def _failures(con):
     return con.execute(
-        "SELECT r.document_sha256, r.pages_failed, f.page_no, f.reason, f.detail"
-        " FROM ocr_page_failure f JOIN ocr_run r USING (run_id) ORDER BY r.run_id, f.page_no"
+        "SELECT r.document_sha256, r.pages_failed, f.page_no, f.reason, f.detail, f.classifier,"
+        " f.classifier_version FROM ocr_page_failure f JOIN ocr_run r USING (run_id)"
+        " ORDER BY r.run_id, f.page_no"
     ).fetchall()
 
 
@@ -650,13 +654,15 @@ def test_a_reading_that_lists_its_failed_pages_writes_a_row_for_each(tmp_path):
     failed = _ocr(SHA_B, texts=()) | {
         "outcome": "failed",
         "pages_failed": 1,
-        "page_failures": [{"page_no": 1, "reason": "cut-answer", "detail": "  "}],
+        "page_failure_classifier": CLASSIFIER,
+        "page_failures": [{"page_no": 1, "reason": "cut-answer", "detail": "finish_reason length"}],
     }
     assert load.load_reading(con, tmp_path, _with_reasons(failed)) == "run_only"
+    named = (CLASSIFIER["method"], CLASSIFIER["method_version"])
     assert _failures(con) == [
-        (SHA_A, 2, 2, "oversize", OVERSIZE),
-        (SHA_A, 2, 3, "server", None),
-        (SHA_B, 1, 1, "cut-answer", None),  # blank words are no words
+        (SHA_A, 2, 2, "oversize", OVERSIZE, *named),
+        (SHA_A, 2, 3, "server", None, *named),  # free text is never published: NULL, reason stands
+        (SHA_B, 1, 1, "cut-answer", "finish_reason length", *named),
     ]
     # a restart is the one lookup, and writes nothing again
     assert load.load_reading(con, tmp_path, r) == "restart"
@@ -692,12 +698,14 @@ def test_a_failure_list_that_does_not_fit_its_reading_is_refused_and_writes_no_r
         {"pages_failed": 1, "page_failures": ["page 2"]},
         {"outcome": "skipped", "pages": [], "pages_failed": 1, "page_failures": good},
         {"outcome": "not-paginable", "pages": [], "pages_failed": 1, "page_failures": good},
+        {"pages_failed": 1, "page_failures": good, "page_failure_classifier": None},
+        {"pages_failed": 1, "page_failures": good, "page_failure_classifier": {"method": "x"}},
     ]
     shas = [f"{i:x}" * 64 for i in range(1, len(broken) + 2)]
     con = _store(tmp_path, *shas)
     root = tmp_path / "text"
     for sha, over in zip(shas, broken, strict=False):
-        _write(root, _ocr(sha) | over)
+        _write(root, _ocr(sha) | {"page_failure_classifier": CLASSIFIER} | over)
     # a text-layer record never lists failures; after `page_text`, only its body shows it
     _write(root, _extraction(shas[-1]) | {"page_failures": []})
     totals = load.run(con, root, tmp_path, log=lambda _: None)

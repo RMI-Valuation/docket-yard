@@ -1608,4 +1608,20 @@ Measured for the tabular pass: 26,294 tabular pages at 150 DPI, median 2.1 MP, p
   and both producers were built 2026-09-15 (migration 0031; the addendum is Proposed). The 134 final
   dots pages already collected (98 documents: `finish_reason length` and `oversize`) carry a count
   only; they get a one-off sidecar load from the queue's `job.error` through
-  `ocr_wave.failure_reason`, under the runs their reading documents wrote.
+  `ocr_wave.page_failure`, under the runs their reading documents wrote (the conditions are in the
+  next section).
+
+## From the schema critic on migration 0031, 2026-09-15 (branch `ocr-page-failure`, schema 31)
+
+- **A restart ignores a different failure list.** `load_reading` returns `restart` on the run's key
+  and `ran_at` before it reads the body, so a reading document re-posted with the same `ran_at` and
+  a corrected or newly added `page_failures` writes nothing and says nothing. The 134-failure sidecar
+  therefore cannot go through `text load`: it inserts directly, all of a run's rows or none, matched
+  on the queue's `collected.ran_at == ocr_run.ran_at` for the document and key, and only where the
+  run's `pages_failed` equals the number of failed jobs it would write.
+- **Earlier runs of re-read documents cannot be recovered.** `seed` deletes a re-read document's jobs,
+  errors included, so a run collected before the re-read has no reasons left to load.
+- **Nothing forbids changing a run under its failure rows.** The triggers check `ocr_run.outcome`
+  and `pages_failed` at INSERT of a failure row only; a later UPDATE of either leaves rows that no
+  longer fit. Nothing updates `ocr_run` today. A BEFORE UPDATE trigger on `ocr_run` refusing the
+  change while failure rows exist is the stronger form.
