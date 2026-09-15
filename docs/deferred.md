@@ -1588,7 +1588,16 @@ a sidecar load, the size refusal counted not written; an ADR 0024 addendum), rou
 `page_route`, `text route` verb, the marker on blank tabular text-layer pages only, not counted read;
 an ADR 0021 addendum). The decided-date defaults were NOT accepted: its questions go back to him.
 Measured for the tabular pass: 26,294 tabular pages at 150 DPI, median 2.1 MP, p99 2.4, 29 over 6 MP.
-Then: (8) the Claude key goes in `~/.anthropic-key` on the workstation, short-lived; (9) he adds the
+**The tabular pass's parity probe PASSED** (2026-09-15, on rmi-ai-machine with the dots server
+stopped and the card otherwise empty): HunyuanOCR-1.5 through `ocr_run.run_hunyuan_ocr`, the
+benchmark's own path, on the benchmark's five `tabular` pages — **all five byte-identical to the
+saved run**, 3.3–10.3 s a page, peak 2.4 GB VRAM. So the worker's in-process transformers path is
+the measured one, and its 4 GiB load floor holds. The dots sessions are left stopped: their queue is
+drained (46,838 done, 134 final failures) and the tabular worker needs the card.
+
+Then: (8) the Claude key goes in a short-lived `.anthropic-key` on the workstation — he put it at the
+REPOSITORY ROOT, where `*.key` did not cover it, so `.gitignore` names it (48a90d9); the first key was
+not scoped to a workspace and every request was refused 400 until he swapped it; (9) he adds the
 fleet permission rule to `.claude/settings.local.json` himself (writing it was refused as
 self-modification); (10) decided dates: **measure first** on a production copy, numbers to him before
 any addendum or code.
