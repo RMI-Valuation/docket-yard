@@ -354,14 +354,24 @@ rule now says what the prose says. People and ordinary crawlers are unaffected.
 as a table"). Migration 0032.
 
 1. **The router's verdict is a page-grain assertion of its own**, `page_route`: one live row
-   per page, naming the router and its version, with ADR 0007's confidence block, `asserted_at`
-   the time the router ran, and supersession rather than update. A different class, router or
-   version is a new row; the verdict's own columns never change in place.
+   per page, naming the router, its version and the render it saw, with ADR 0007's confidence
+   block and supersession rather than update. **Two clocks**: `asserted_at` and
+   `superseded_at` are the store's, when the row entered and left the record; `routed_at` is
+   the router's own, and only orders verdicts. A different class, router, version or render
+   is a new row; no column the row asserts changes in place. A page the router failed on has
+   no verdict and no row.
 2. **Decision 4's `route_class` on a reading is unchanged**: it is the class the page was read
    under, never back-filled from `page_route`, and a later verdict does not alter it.
-3. **The marker rule.** A page whose shown reading is a blank text layer, or which has no shown
-   reading, and whose live route is `tabular`, reads *Scanned; contains a table we have not
-   read*, naming the router and linking the scan, and is not counted as read. Every other empty
-   reading (an engine's, a person's, a text layer on a page routed otherwise) reads "Read as
-   blank." One emptiness test decides both: the text with whitespace stripped.
+3. **The marker rule.** A page whose live route is `tabular`, and whose shown reading is a text
+   layer that is blank or belongs to a document paginated as having no text layer, or which has
+   no shown reading, reads *Scanned; contains a table we have not read*, naming the router and
+   linking the scan, and is not counted as read. Every other empty reading (an engine's, a
+   person's, a text layer on a page routed otherwise) reads "Read as blank." One emptiness test
+   decides both: the text with whitespace stripped.
 4. **Held** from the snapshot, with `route_class_vocab`.
+
+**Validation** (`docs/validation-queries.md`). Query 3, point-in-time state, is the one this
+touches: what a page showed on date D is the display row live on D together with the
+`page_route` row whose `asserted_at` ≤ D and whose `superseded_at` is null or after D, on the
+store's clock throughout; `routed_at` is never read for it. Queries 1, 2, 4 and 5 read no page
+text and no route, and are unchanged.

@@ -2060,15 +2060,19 @@ def create_app(
         finally:
             con.close()
         by_page = {p.page_no: p for p in pages}
-        last = max(
-            max(by_page, default=0),
-            max(routes, default=0),
-            (count.page_count or 0) if count else 0,
-        )
+        # the range is the readings and the page count, NEVER the routes: a verdict does not
+        # make a page exist that the count does not (schema-critic, 2026-09-15)
+        last = max(max(by_page, default=0), (count.page_count or 0) if count else 0)
+        layer = count.had_text_layer if count else None
         # (n, the display row, the live route, what the page is shown as): `store_pages.state`
         # is the rule, and a page shown as the unread-table marker is not counted as read
         rows = [
-            (n, by_page.get(n), routes.get(n), store_pages.state(by_page.get(n), routes.get(n)))
+            (
+                n,
+                by_page.get(n),
+                routes.get(n),
+                store_pages.state(by_page.get(n), routes.get(n), layer),
+            )
             for n in range(1, last + 1)
         ]
         response = render(

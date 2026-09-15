@@ -13,6 +13,17 @@
 -- `confidence_state_vocab`, the supersession pair, the bound "human" encodings and the trigger
 -- that keeps a model pass off a human row.
 --
+-- TWO CLOCKS, NEVER ONE (schema-critic, 2026-09-15). `asserted_at` is the STORE's: when this row
+-- entered the record, as `document_text.asserted_at` is, so that it and `superseded_at` replay
+-- what a page showed on a date (validation query 3). `routed_at` is the ROUTER's own clock, from
+-- the file; it orders two verdicts for staleness and is never read as a record date.
+--
+-- `render_profile` is the render the router saw (the file's `dpi`, e.g. '150'): a verdict at
+-- another render is another verdict, as a reading at another render is (ADR 0021 D2).
+--
+-- A PAGE THE ROUTER FAILED ON HAS NO ROW. The wave writes such a page as `unrouted` with an
+-- `error`, which is a record of a failure, not a verdict; the pass counts it and writes nothing.
+--
 -- `document_text.route_class` IS NOT BACK-FILLED FROM HERE, and never is: on a reading it is the
 -- class the page was READ under, which a later router verdict does not change.
 --
@@ -31,12 +42,14 @@ CREATE TABLE page_route (
     route_class      TEXT NOT NULL REFERENCES route_class_vocab (route_class),
     method           TEXT NOT NULL CHECK (method <> ''),
     method_version   TEXT NOT NULL CHECK (method_version <> ''),
+    render_profile   TEXT NOT NULL CHECK (render_profile <> ''),
     region_count     INTEGER CHECK (region_count IS NULL OR region_count >= 0),
     note             TEXT,
     confidence       REAL NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
     confidence_state TEXT NOT NULL REFERENCES confidence_state_vocab (confidence_state),
     measured_target  TEXT CHECK (measured_target IS NULL OR measured_target = 'page_route'),
     score_row_id     INTEGER,
+    routed_at        TEXT NOT NULL CHECK (routed_at <> ''),
     asserted_at      TEXT NOT NULL CHECK (asserted_at <> ''),
     superseded_by    INTEGER REFERENCES page_route (route_id),
     superseded_at    TEXT,
@@ -61,16 +74,21 @@ BEGIN
     SELECT RAISE(ABORT, 'ADR 0007: a human page route may only be superseded by a human');
 END;
 
--- What the verdict IS never changes in place: a different class, router or version is a new row.
--- The page it names is held with it, so a row cannot be moved to another page either.
+-- Nothing the row asserts changes in place: a different class, router, version or render is a new
+-- row, and the page, both clocks, the region count and the note are held with it.
 CREATE TRIGGER page_route_assertion_is_immutable
-BEFORE UPDATE OF document_sha256, page_no, route_class, method, method_version, asserted_at
+BEFORE UPDATE OF document_sha256, page_no, route_class, method, method_version, render_profile,
+                 region_count, note, routed_at, asserted_at
 ON page_route
 WHEN NEW.document_sha256 IS NOT OLD.document_sha256
   OR NEW.page_no IS NOT OLD.page_no
   OR NEW.route_class IS NOT OLD.route_class
   OR NEW.method IS NOT OLD.method
   OR NEW.method_version IS NOT OLD.method_version
+  OR NEW.render_profile IS NOT OLD.render_profile
+  OR NEW.region_count IS NOT OLD.region_count
+  OR NEW.note IS NOT OLD.note
+  OR NEW.routed_at IS NOT OLD.routed_at
   OR NEW.asserted_at IS NOT OLD.asserted_at
 BEGIN
     SELECT RAISE(ABORT, 'ADR 0021 addendum: a page route is superseded, never edited');

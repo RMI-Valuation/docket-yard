@@ -4,20 +4,24 @@ addendum 2026-09-15).
 THE INPUT IS WHAT THE WAVE WROTE (`tools/rmi-ai-machine/ocr_wave.py`, `run-paddle`):
 `<root>/<xx>/<sha>.json`, one file per document —
 `{document_sha256, method, method_version, layout_model, region_cut, dpi, routed_at,
-pages: {"<n>": {class, regions, labels[, error]}}}`. `routed_at` is the row's `asserted_at`:
-when the router said it, not when the store heard it.
+pages: {"<n>": {class, regions, labels[, error]}}}`.
+
+TWO CLOCKS. A row's `asserted_at` is the store's — when the pass wrote it, as `document_text`'s
+is — and `superseded_at` is the same clock, so the pair replays what a page showed on a date.
+The file's `routed_at` is kept beside them as the router's own clock, and is what staleness
+compares. `dpi` becomes `render_profile` (e.g. '150').
 
 WHAT EACH PAGE BECOMES, against the page's live row:
 
 - none: inserted (`loaded`);
-- the same class, router and version: nothing written (`unchanged`) — a note or region count
-  that differs is not a new verdict;
+- the same verdict — class, router, version and render: nothing written (`unchanged`); a note or
+  region count that differs is not a new verdict;
 - a person's row: left alone (`human_held`), as `paginate` leaves a corrected count;
-- a different class, router or version: retire at itself, insert, repoint, with
-  `superseded_at` set in the retiring statement (`superseded`);
-- UNLESS the file is OLDER than the live row and names a different router or version: a stale
-  file is refused and the document writes nothing (`stale`), so re-running an old root cannot
-  undo a newer router's verdicts.
+- a different verdict: retire at itself, insert, repoint, with `superseded_at` set in the
+  retiring statement (`superseded`);
+- UNLESS the file was routed BEFORE the live row was: a differing verdict from an older file is
+  refused and the document writes nothing (`stale`), whatever its version, so re-running an old
+  root cannot undo a newer verdict.
 
 WHOLE DOCUMENT OR NOTHING. Every page is judged before any is written, and a document the store
 cannot take is raised out of `route_document`, which `store.batches` rolls back to the document's
@@ -25,8 +29,9 @@ savepoint and counts as `failed`: a page number above the document's live `page_
 for bytes that are not the bytes paginated), or a document with no paginated count at all — the
 check the first refusal needs is not there to make.
 
-A PAGE THE ROUTER ERRORED ON loads as the class the wave recorded for it (`unrouted`, whose
-vocabulary note already says the page went to the default reader), with the error in `note`.
+A PAGE THE ROUTER FAILED ON (its entry carries `error`) IS NOT A VERDICT: the wave recorded it
+as `unrouted` so its reader could run, but nothing classified it. No row is written; the pass
+counts such pages under `route_error_pages`.
 """
 
 from collections import Counter
@@ -46,23 +51,31 @@ class PageVerdict:
     page_no: int
     route_class: str
     region_count: int | None
-    note: str | None
 
 
 @dataclass(frozen=True)
 class Route:
-    """One route file, validated."""
+    """One route file, validated. `errored` is the pages the router failed on: no verdict."""
 
     document_sha256: str
     method: str
     method_version: str
+    render_profile: str
     routed_at: str
     pages: tuple[PageVerdict, ...]
+    errored: tuple[int, ...] = ()
 
 
 def classes(con) -> frozenset[str]:
     """`route_class_vocab`, read from the store: a class is widened by an INSERT (0018)."""
     return frozenset(r[0] for r in con.execute("SELECT route_class FROM route_class_vocab"))
+
+
+def _render(record: dict) -> str:
+    dpi = record.get("dpi")
+    if isinstance(dpi, bool) or not isinstance(dpi, int) or dpi <= 0:
+        raise Unreadable(f"dpi is {dpi!r}, not a positive whole number")
+    return str(dpi)
 
 
 def from_record(record: dict, allowed: frozenset[str] | set[str]) -> Route:
@@ -72,15 +85,19 @@ def from_record(record: dict, allowed: frozenset[str] | set[str]) -> Route:
     sha = sha_field(record)
     method, version = text_field(record, "method"), text_field(record, "method_version")
     routed_at = text_field(record, "routed_at")
+    render = _render(record)
     pages = record.get("pages")
     if not isinstance(pages, dict):
         raise Unreadable(f"pages is {type(pages).__name__}, not an object")
-    out = []
+    out, errored = [], []
     for key, page in pages.items():
         if not (isinstance(key, str) and key.isdigit() and int(key) >= 1):
             raise Unreadable(f"page key {key!r} is not a page number")
         if not isinstance(page, dict):
             raise Unreadable(f"page {key} is not an object")
+        if page.get("error") is not None:
+            errored.append(int(key))
+            continue
         cls = page.get("class")
         if cls not in allowed:
             raise Unreadable(f"page {key} class {cls!r} is not one of {sorted(allowed)}")
@@ -89,11 +106,16 @@ def from_record(record: dict, allowed: frozenset[str] | set[str]) -> Route:
             isinstance(regions, bool) or not isinstance(regions, int) or regions < 0
         ):
             raise Unreadable(f"page {key} regions is {regions!r}, not a whole number")
-        error = page.get("error")
-        if error is not None and not isinstance(error, str):
-            raise Unreadable(f"page {key} error is {error!r}, not a string")
-        out.append(PageVerdict(int(key), cls, regions, error or None))
-    return Route(sha, method, version, routed_at, tuple(sorted(out, key=lambda p: p.page_no)))
+        out.append(PageVerdict(int(key), cls, regions))
+    return Route(
+        sha,
+        method,
+        version,
+        render,
+        routed_at,
+        tuple(sorted(out, key=lambda p: p.page_no)),
+        tuple(sorted(errored)),
+    )
 
 
 def read_file(path: Path, allowed: frozenset[str]) -> Route:
@@ -128,26 +150,26 @@ def route_document(con, route: Route, now: str | None = None) -> str:
     live = {
         r[0]: r[1:]
         for r in con.execute(
-            "SELECT page_no, route_id, route_class, method, method_version, asserted_at,"
-            " confidence_state FROM page_route WHERE document_sha256 = ? AND superseded_by IS NULL",
+            "SELECT page_no, route_id, route_class, method, method_version, render_profile,"
+            " routed_at, confidence_state FROM page_route"
+            " WHERE document_sha256 = ? AND superseded_by IS NULL",
             (sha,),
         )
     }
+    verdict = (route.method, route.method_version, route.render_profile)
     plan: list[tuple[PageVerdict, str, int | None]] = []
     for page in route.pages:
         row = live.get(page.page_no)
         if row is None:
             plan.append((page, "loaded", None))
             continue
-        route_id, cls, method, version, asserted_at, state = row
+        route_id, cls, method, version, render, routed_at, state = row
         if state == "human":
             plan.append((page, "human_held", None))
-        elif (cls, method, version) == (page.route_class, route.method, route.method_version):
+        elif (cls, method, version, render) == (page.route_class, *verdict):
             plan.append((page, "unchanged", None))
-        elif (method, version) != (route.method, route.method_version) and (
-            route.routed_at < asserted_at
-        ):
-            return "stale"  # nothing of this document is written
+        elif route.routed_at < routed_at:
+            return "stale"  # an older file's differing verdict: nothing of it is written
         else:
             plan.append((page, "superseded", route_id))
     for page, outcome, old_id in plan:
@@ -157,17 +179,16 @@ def route_document(con, route: Route, now: str | None = None) -> str:
             supersede.retire(con, "page_route", "route_id", old_id, at=now)
         cur = con.execute(
             "INSERT INTO page_route (document_sha256, page_no, route_class, method,"
-            " method_version, region_count, note, confidence, confidence_state, asserted_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'unmeasured', ?)",
+            " method_version, render_profile, region_count, confidence, confidence_state,"
+            " routed_at, asserted_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'unmeasured', ?, ?)",
             (
                 sha,
                 page.page_no,
                 page.route_class,
-                route.method,
-                route.method_version,
+                *verdict,
                 page.region_count,
-                page.note,
                 route.routed_at,
+                now,
             ),
         )
         if old_id is not None:
@@ -179,12 +200,24 @@ def route_document(con, route: Route, now: str | None = None) -> str:
 
 def run(con, root: Path, *, log=print, commit_every: int = batches.COMMIT_EVERY) -> Counter:
     """The pass over a route root, through `store.batches`: one key per `route_document`
-    outcome, plus `unreadable`, `failed` and `aborted`."""
+    outcome, plus `unreadable`, `failed` and `aborted`, and `route_error_pages` — pages the
+    router failed on, in the files read. Counted at READ, which happens once per file: a batch
+    replayed after a lock re-applies the items it holds and does not re-read them."""
     allowed = classes(con)
-    return batches.run(
+    errors = Counter()
+
+    def read(path: Path) -> Route:
+        got = read_file(path, allowed)
+        errors["route_error_pages"] += len(got.errored)
+        return got
+
+    totals = batches.run(
         con,
-        batches.walk(root, lambda path: read_file(path, allowed)),
+        batches.walk(root, read),
         lambda route: route_document(con, route),
         log=log,
         commit_every=commit_every,
     )
+    if errors["route_error_pages"]:
+        totals["route_error_pages"] = errors["route_error_pages"]
+    return totals

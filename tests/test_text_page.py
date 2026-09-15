@@ -53,13 +53,13 @@ def _loaded(path, data_dir, doc):
     return out
 
 
-def _paginated(path, sha, count):
+def _paginated(path, sha, count, had_text_layer=1):
     con = db.connect(path)
     con.execute(
         "INSERT INTO document_pagination (document_sha256, outcome, page_count, had_text_layer,"
         " method, method_version, asserted_at, confidence, confidence_state)"
-        " VALUES (?, 'paginated', ?, 1, 'pymupdf', '1.24.10', ?, 0, 'unmeasured')",
-        (sha, count, STAMP),
+        " VALUES (?, 'paginated', ?, ?, 'pymupdf', '1.24.10', ?, 0, 'unmeasured')",
+        (sha, count, had_text_layer, STAMP),
     )
     con.commit()
     con.close()
@@ -333,6 +333,7 @@ def _routed(path, sha, pages, *, version="provisional-1", routed_at="2026-09-05T
         "method": "pp-doclayoutv3+regions",
         "method_version": version,
         "routed_at": routed_at,
+        "dpi": 150,
         "pages": {str(n): {"class": c, "regions": 2, "labels": []} for n, c in pages.items()},
     }
     out = route.route_document(con, route.from_record(record, route.classes(con)))
@@ -371,6 +372,37 @@ def test_a_blank_text_layer_on_a_tabular_page_is_marked_and_not_counted_as_read(
     assert MARKER in five and "Not yet read." not in five
     assert "Not yet read." not in html
     assert "3 of 5 pages read" in html  # 1, 3 and 4; the two marked pages are not read
+
+
+def test_a_junk_text_layer_on_an_image_only_tabular_page_is_marked(tmp_path):
+    """The extractor calls a document image-only when every page has under 20 stripped
+    characters, so a scanned table can carry a stray page number in its text layer. On a
+    document paginated as having no text layer, that is not a reading of the table."""
+    path, sha = _store_with_document(tmp_path)
+    _loaded(path, tmp_path, _extraction(sha, ("- 3 -", "- 4 -")))
+    _paginated(path, sha, 2, had_text_layer=0)
+    _routed(path, sha, {1: "tabular", 2: "clean"})
+    html = TestClient(create_app(path)).get("/filing/311981/text").text
+    assert MARKER in _page_html(html, 1) and "- 3 -" not in _page_html(html, 1)
+    assert "- 4 -" in _page_html(html, 2) and MARKER not in _page_html(html, 2)
+    assert "1 of 2 pages read" in html
+
+
+def test_routes_never_extend_the_pages_beyond_the_count(tmp_path):
+    path, sha = _store_with_document(tmp_path)
+    _loaded(path, tmp_path, _extraction(sha, ("",)))
+    _paginated(path, sha, 3)
+    _routed(path, sha, {1: "tabular", 3: "tabular"})
+    con = db.connect(path)  # the count shrinks after the routes landed
+    con.execute(
+        "UPDATE document_pagination SET superseded_by = pagination_id, superseded_at = ?",
+        (STAMP,),
+    )
+    con.commit()
+    con.close()
+    _paginated(path, sha, 1)
+    html = TestClient(create_app(path)).get("/filing/311981/text").text
+    assert 'id="p1"' in html and 'id="p3"' not in html and 'id="p2"' not in html
 
 
 def test_an_engine_or_a_person_reading_blank_is_blank_whatever_the_route(tmp_path):
@@ -432,6 +464,11 @@ def test_the_display_rule_is_one_pure_function():
     assert state(page(""), table) == store_pages.TABLE
     assert state(page(" \n\t"), table) == store_pages.TABLE  # stripped, one test
     assert state(page(""), clean) == store_pages.BLANK
+    # a junk text layer on a document paginated as having none: the marker, on tabular only
+    assert state(page("- 3 -"), table, 0) == store_pages.TABLE
+    assert state(page("- 3 -"), table, 1) == store_pages.TEXT
+    assert state(page("- 3 -"), clean, 0) == store_pages.TEXT
+    assert state(page("- 3 -", channel="ocr"), table, 0) == store_pages.TEXT
     assert state(page(""), None) == store_pages.BLANK
     assert state(page("", channel="ocr"), table) == store_pages.BLANK
     assert state(page("", channel="human", role="human"), table) == store_pages.BLANK

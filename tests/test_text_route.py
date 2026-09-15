@@ -15,9 +15,10 @@ from docketyard.text import route
 from docketyard.text.fields import Unreadable
 from tests.test_text_load import SHA_A, SHA_B, STAMP, _store
 
-ROUTED = "2026-09-05T12:00:00+00:00"
-LATER = "2026-09-20T12:00:00+00:00"
-NOW = "2026-09-15T00:00:00+00:00"
+ROUTED = "2026-09-05T12:00:00+00:00"  # the router's clock
+LATER = "2026-09-20T12:00:00+00:00"  # a later router run
+NOW = "2026-09-15T00:00:00+00:00"  # the store's clock at a load
+AFTER = "2026-09-25T00:00:00+00:00"  # the store's clock at a later load
 ROUTER = "pp-doclayoutv3+regions"
 
 
@@ -31,7 +32,7 @@ def _paginate(con, sha, count):
     con.commit()
 
 
-def _record(sha, pages, *, version="provisional-1", routed_at=ROUTED):
+def _record(sha, pages, *, version="provisional-1", routed_at=ROUTED, dpi=150):
     """A route file as `ocr_wave.py run-paddle` writes it."""
     return {
         "document_sha256": sha,
@@ -39,7 +40,7 @@ def _record(sha, pages, *, version="provisional-1", routed_at=ROUTED):
         "method_version": version,
         "layout_model": "PP-DocLayoutV3",
         "region_cut": 13,
-        "dpi": 150,
+        "dpi": dpi,
         "routed_at": routed_at,
         "pages": {
             str(n): page if isinstance(page, dict) else {"class": page, "regions": 3, "labels": []}
@@ -60,8 +61,9 @@ def _write(root, record, name=None):
 
 def _live(con, sha=SHA_A):
     return con.execute(
-        "SELECT page_no, route_class, method_version, region_count, note, asserted_at"
-        " FROM page_route WHERE document_sha256 = ? AND superseded_by IS NULL ORDER BY page_no",
+        "SELECT page_no, route_class, method_version, render_profile, region_count, routed_at,"
+        " asserted_at FROM page_route WHERE document_sha256 = ? AND superseded_by IS NULL"
+        " ORDER BY page_no",
         (sha,),
     ).fetchall()
 
@@ -73,9 +75,11 @@ def _insert(con, **over):
         "route_class": "tabular",
         "method": ROUTER,
         "method_version": "provisional-1",
+        "render_profile": "150",
         "confidence": 0,
         "confidence_state": "unmeasured",
-        "asserted_at": ROUTED,
+        "routed_at": ROUTED,
+        "asserted_at": NOW,
     }
     row.update(over)
     cur = con.execute(
@@ -96,7 +100,7 @@ def test_one_live_route_per_page(tmp_path):
     _insert(con, page_no=2)  # another page is another verdict
     con.execute(
         "UPDATE page_route SET superseded_by = ?, superseded_at = ? WHERE route_id = ?",
-        (first, NOW, first),
+        (first, AFTER, first),
     )
     second = _insert(con, route_class="clean", method_version="provisional-2")
     con.execute("UPDATE page_route SET superseded_by = ? WHERE route_id = ?", (second, first))
@@ -109,7 +113,16 @@ def test_the_supersession_pair_travels_together(tmp_path):
     with pytest.raises(sqlite3.IntegrityError):
         con.execute("UPDATE page_route SET superseded_by = ? WHERE route_id = ?", (rid, rid))
     with pytest.raises(sqlite3.IntegrityError):
-        con.execute("UPDATE page_route SET superseded_at = ? WHERE route_id = ?", (NOW, rid))
+        con.execute("UPDATE page_route SET superseded_at = ? WHERE route_id = ?", (AFTER, rid))
+
+
+def test_both_clocks_and_the_render_are_required(tmp_path):
+    con = _store(tmp_path)
+    for column in ("routed_at", "asserted_at", "render_profile"):
+        with pytest.raises(sqlite3.IntegrityError):
+            _insert(con, **{column: None})
+        with pytest.raises(sqlite3.IntegrityError):
+            _insert(con, **{column: ""})
 
 
 @pytest.mark.parametrize(
@@ -118,7 +131,11 @@ def test_the_supersession_pair_travels_together(tmp_path):
         ("route_class", "clean"),
         ("method", "another-router"),
         ("method_version", "provisional-2"),
-        ("asserted_at", LATER),
+        ("render_profile", "200"),
+        ("region_count", 9),
+        ("note", "x"),
+        ("routed_at", LATER),
+        ("asserted_at", AFTER),
         ("page_no", 2),
     ],
 )
@@ -127,8 +144,6 @@ def test_a_verdict_is_superseded_never_edited(tmp_path, column, value):
     rid = _insert(con)
     with pytest.raises(sqlite3.IntegrityError, match="superseded, never edited"):
         con.execute(f"UPDATE page_route SET {column} = ? WHERE route_id = ?", (value, rid))
-    # what is not the verdict may still be written: the note is not part of the assertion
-    con.execute("UPDATE page_route SET note = 'x' WHERE route_id = ?", (rid,))
 
 
 def test_a_route_class_must_be_in_the_vocabulary_and_measured_is_unreachable(tmp_path):
@@ -146,7 +161,7 @@ def test_a_model_pass_may_not_supersede_a_human_route(tmp_path):
     human = _insert(con, method="human", confidence_state="human", confidence=1)
     con.execute(
         "UPDATE page_route SET superseded_by = ?, superseded_at = ? WHERE route_id = ?",
-        (human, NOW, human),
+        (human, AFTER, human),
     )
     model = _insert(con, route_class="clean")
     with pytest.raises(sqlite3.IntegrityError, match="human page route"):
@@ -174,14 +189,15 @@ def test_the_route_is_held_from_the_snapshot_and_leaves_no_dangling_key(tmp_path
 # --- the pass --------------------------------------------------------------------------------
 
 
-def test_a_route_file_loads_one_row_per_page_dated_when_the_router_ran(tmp_path):
+def test_a_route_file_loads_one_row_per_page_on_two_clocks(tmp_path):
     con = _store(tmp_path)
     _paginate(con, SHA_A, 3)
     assert _route(con, _record(SHA_A, {1: "clean", 2: "tabular", 3: "graphic"})) == "loaded"
+    # asserted_at is the store's clock at the load; routed_at the router's, from the file
     assert _live(con) == [
-        (1, "clean", "provisional-1", 3, None, ROUTED),
-        (2, "tabular", "provisional-1", 3, None, ROUTED),
-        (3, "graphic", "provisional-1", 3, None, ROUTED),
+        (1, "clean", "provisional-1", "150", 3, ROUTED, NOW),
+        (2, "tabular", "provisional-1", "150", 3, ROUTED, NOW),
+        (3, "graphic", "provisional-1", "150", 3, ROUTED, NOW),
     ]
     state = con.execute("SELECT DISTINCT confidence, confidence_state FROM page_route").fetchall()
     assert state == [(0, "unmeasured")]
@@ -189,51 +205,64 @@ def test_a_route_file_loads_one_row_per_page_dated_when_the_router_ran(tmp_path)
     assert con.execute("SELECT COUNT(*) FROM document_text").fetchone() == (0,)
 
 
-def test_the_same_verdict_again_writes_nothing(tmp_path):
+def test_the_same_verdict_again_writes_nothing_and_another_render_is_another_verdict(tmp_path):
     con = _store(tmp_path)
     _paginate(con, SHA_A, 2)
-    record = _record(SHA_A, {1: "tabular", 2: "clean"})
-    assert _route(con, record) == "loaded"
+    assert _route(con, _record(SHA_A, {1: "tabular", 2: "clean"})) == "loaded"
     again = _record(SHA_A, {1: "tabular", 2: "clean"}, routed_at=LATER)
     again["pages"]["1"]["regions"] = 9  # a region count is not the verdict
-    assert _route(con, again) == "unchanged"
+    assert _route(con, again, now=AFTER) == "unchanged"
     assert con.execute("SELECT COUNT(*) FROM page_route").fetchone() == (2,)
+    rendered = _record(SHA_A, {1: "tabular", 2: "clean"}, routed_at=LATER, dpi=200)
+    assert _route(con, rendered, now=AFTER) == "superseded"
+    assert [r[3] for r in _live(con)] == ["200", "200"]
 
 
-def test_a_new_router_version_supersedes_and_dates_the_retirement(tmp_path):
+def test_a_new_router_version_supersedes_on_the_stores_clock(tmp_path):
+    """The store's clock and the router's are different values here on purpose: a pass that
+    wrote `routed_at` into `asserted_at` or `superseded_at` fails this test."""
     con = _store(tmp_path)
     _paginate(con, SHA_A, 2)
-    _route(con, _record(SHA_A, {1: "tabular", 2: "clean"}))
+    _route(con, _record(SHA_A, {1: "tabular", 2: "clean"}), now=NOW)
     old = dict(con.execute("SELECT page_no, route_id FROM page_route").fetchall())
     newer = _record(SHA_A, {1: "tabular", 2: "degraded"}, version="confirmed-1", routed_at=LATER)
-    assert _route(con, newer, now=LATER) == "superseded"
+    assert _route(con, newer, now=AFTER) == "superseded"
     assert _live(con) == [
-        (1, "tabular", "confirmed-1", 3, None, LATER),
-        (2, "degraded", "confirmed-1", 3, None, LATER),
+        (1, "tabular", "confirmed-1", "150", 3, LATER, AFTER),
+        (2, "degraded", "confirmed-1", "150", 3, LATER, AFTER),
     ]
     for page_no, rid in old.items():
-        by, at = con.execute(
-            "SELECT superseded_by, superseded_at FROM page_route WHERE route_id = ?", (rid,)
+        by, at, asserted = con.execute(
+            "SELECT superseded_by, superseded_at, asserted_at FROM page_route WHERE route_id = ?",
+            (rid,),
         ).fetchone()
         successor = con.execute(
             "SELECT page_no FROM page_route WHERE route_id = ? AND superseded_by IS NULL", (by,)
         ).fetchone()
-        assert by != rid and successor == (page_no,) and at == LATER
+        assert by != rid and successor == (page_no,)
+        assert at == AFTER and asserted == NOW  # left the record when the next one entered it
     # and a different class at the SAME version supersedes too
     same = _record(SHA_A, {1: "graphic", 2: "degraded"}, version="confirmed-1", routed_at=LATER)
-    assert _route(con, same) == "superseded"
+    assert _route(con, same, now=AFTER) == "superseded"
     assert [r[1] for r in _live(con)] == ["graphic", "degraded"]
 
 
-def test_an_older_file_at_another_version_is_refused_as_stale(tmp_path):
+def test_an_older_file_with_a_differing_verdict_is_refused_whatever_its_version(tmp_path):
     con = _store(tmp_path)
     _paginate(con, SHA_A, 2)
     _route(con, _record(SHA_A, {1: "clean", 2: "clean"}, version="confirmed-1", routed_at=LATER))
     before = _live(con)
-    old = _record(SHA_A, {1: "tabular", 2: "clean"}, version="provisional-1", routed_at=ROUTED)
-    assert _route(con, old) == "stale"
+    older_other_version = _record(SHA_A, {1: "tabular", 2: "clean"}, routed_at=ROUTED)
+    assert _route(con, older_other_version, now=AFTER) == "stale"
+    older_same_version = _record(
+        SHA_A, {1: "tabular", 2: "clean"}, version="confirmed-1", routed_at=ROUTED
+    )
+    assert _route(con, older_same_version, now=AFTER) == "stale"
     assert _live(con) == before
     assert con.execute("SELECT COUNT(*) FROM page_route").fetchone() == (2,)
+    # an older file that AGREES is simply unchanged
+    agreeing = _record(SHA_A, {1: "clean", 2: "clean"}, version="confirmed-1", routed_at=ROUTED)
+    assert _route(con, agreeing, now=AFTER) == "unchanged"
 
 
 def test_a_page_above_the_live_count_refuses_the_whole_document(tmp_path):
@@ -254,12 +283,16 @@ def test_a_page_above_the_live_count_refuses_the_whole_document(tmp_path):
         _route(con, _record(SHA_B, {1: "clean"}, version="confirmed-1", routed_at=LATER))
 
 
-def test_an_errored_page_loads_as_its_recorded_class_with_the_error_in_the_note(tmp_path):
+def test_a_page_the_router_failed_on_writes_no_verdict_and_is_counted(tmp_path):
     con = _store(tmp_path)
-    _paginate(con, SHA_A, 2)
+    _paginate(con, SHA_A, 3)
     error = {"class": "unrouted", "regions": 0, "labels": [], "error": "RuntimeError: render"}
-    assert _route(con, _record(SHA_A, {1: "tabular", 2: error})) == "loaded"
-    assert _live(con)[1] == (2, "unrouted", "provisional-1", 0, "RuntimeError: render", ROUTED)
+    root = tmp_path / "route"
+    _write(root, _record(SHA_A, {1: "tabular", 2: error, 3: dict(error)}))
+    totals = route.run(con, root, log=lambda _: None)
+    assert totals["loaded"] == 1 and totals["route_error_pages"] == 2
+    assert [r[0] for r in _live(con)] == [1]
+    assert con.execute("SELECT COUNT(*) FROM page_route WHERE note IS NOT NULL").fetchone() == (0,)
 
 
 def test_a_person_verdict_is_held_against_the_pass(tmp_path):
@@ -276,7 +309,7 @@ def test_an_unknown_document_is_counted_and_skipped_and_the_exit_status_says_so(
     root = tmp_path / "route"
     stranger = "c" * 64
     _write(root, _record(stranger, {1: "tabular"}))
-    _write(root, {**_record(SHA_A, {1: "spreadsheet"})})  # not in the vocabulary
+    _write(root, _record(SHA_A, {1: "spreadsheet"}))  # not in the vocabulary
     totals = route.run(con, root, log=lambda _: None)
     assert totals["unknown_document"] == 1 and totals["unreadable"] == 1
     assert con.execute("SELECT COUNT(*) FROM page_route").fetchone() == (0,)
@@ -289,6 +322,13 @@ def test_an_unknown_document_is_counted_and_skipped_and_the_exit_status_says_so(
     assert cli._text(ns) == 1
     ns.root = str(tmp_path / "nowhere")
     assert cli._text(ns) == 1
+
+
+def test_a_route_file_without_a_render_is_unreadable(tmp_path):
+    con = _store(tmp_path)
+    for dpi in (None, 0, "150", True):
+        with pytest.raises(Unreadable, match="dpi"):
+            route.from_record(_record(SHA_A, {1: "tabular"}, dpi=dpi), route.classes(con))
 
 
 def test_route_is_wired_under_text(tmp_path, capsys):

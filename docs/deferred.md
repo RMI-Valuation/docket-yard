@@ -1610,3 +1610,13 @@ Measured for the tabular pass: 26,294 tabular pages at 150 DPI, median 2.1 MP, p
   `ocr_run` keyed by page, a reason vocabulary, a loader cross-check against `pages_failed`, both
   producers emitting it, and a dump decision — a finer grain, so schema-critic, and likely an addendum
   (the shape is not decided; nor is whether the oversize refusal rides on it).
+
+**From the schema critic on migration 0032 (`page_route`), 2026-09-15** — found against branch
+`page-route`, not fixed there:
+
+- **A re-route that omits pages reports `unchanged`**, and so does a route file for a document the
+  router failed to open (no pages): `text route` compares only the pages a file names, so a verdict
+  the new file no longer gives stays live, and nothing counts the omission.
+- **`superseded_by` and `superseded_at` can be rewritten in place** on a retired row — inherited from
+  `document_pagination`, which has the same gap. `citation_reading`'s forward-only triggers (migration
+  0028) are the model to copy.
