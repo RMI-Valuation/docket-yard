@@ -86,7 +86,9 @@ def test_the_three_derived_readings_load_in_order_and_the_second_carries_its_ban
     def loaded(doc):
         con = db.connect(path)
         out = load.load_reading(
-            con, tmp_path, load.from_reading(doc, b"{}", load.run_outcomes(con))
+            con,
+            tmp_path,
+            load.from_reading(doc, b"{}", load.run_outcomes(con), load.failure_reasons(con)),
         )
         con.commit()
         con.close()
@@ -101,7 +103,7 @@ def test_the_three_derived_readings_load_in_order_and_the_second_carries_its_ban
         "pp-ocrv6.json",
         eng,
         pages,
-        pages_failed=failed,
+        page_failures=failed,
         ran_at="2026-09-05T00:00:01+00:00",
     )
     assert [p["page_no"] for p in primary["pages"]] == [1]
@@ -135,7 +137,7 @@ def test_the_three_derived_readings_load_in_order_and_the_second_carries_its_ban
         "pp-ocrv6.json",
         eng,
         pages,
-        pages_failed=failed,
+        page_failures=failed,
         ran_at="2026-09-05T00:00:02+00:00",
     )
     assert [p["page_no"] for p in second["pages"]] == [2]
@@ -155,7 +157,7 @@ def test_the_three_derived_readings_load_in_order_and_the_second_carries_its_ban
         "pp-ocrv6.json",
         eng,
         pages,
-        pages_failed=failed,
+        page_failures=failed,
         ran_at="2026-09-05T00:00:03+00:00",
     )
     assert [p["page_no"] for p in graphic["pages"]] == [3]
@@ -191,4 +193,28 @@ def test_a_failed_page_is_counted_and_left_out():
     cache, route = _cache_and_route(w, sha, {1: "a", 2: "b"}, {1: "clean", 2: "clean"})
     cache["pages"][1]["error"] = "RuntimeError: render"
     eng, pages, failed = w.select_pages(cache, route, {"clean"})
-    assert [p["page_no"] for p in pages] == [1] and failed == 1
+    assert [p["page_no"] for p in pages] == [1]
+    # the cache keeps the exception and no cause, so the page says so and quotes it
+    assert failed == [{"page_no": 2, "reason": "unclassified", "detail": "RuntimeError: render"}]
+    doc = w.reading_document(sha, {}, "primary", "pp-ocrv6.json", eng, pages, page_failures=failed)
+    assert doc["pages_failed"] == 1 and doc["page_failures"] == failed
+
+
+def test_a_failed_page_reaches_the_store_with_its_reason(tmp_path):
+    w = _module()
+    path, sha = _store_with_document(tmp_path)
+    cache, route = _cache_and_route(w, sha, {1: "a", 2: "b"}, {1: "clean", 2: "clean"})
+    cache["pages"][1]["error"] = "RuntimeError: " + "x" * 600  # bounded at the producer
+    key = {k: cache[k] for k in ("method", "method_version", "render_profile")}
+    eng, pages, failed = w.select_pages(cache, route, {"clean"})
+    doc = w.reading_document(sha, key, "primary", "pp-ocrv6.json", eng, pages, page_failures=failed)
+    con = db.connect(path)
+    reading = load.from_reading(doc, b"{}", load.run_outcomes(con), load.failure_reasons(con))
+    assert load.load_reading(con, tmp_path, reading) == "loaded"
+    con.commit()
+    rows = con.execute(
+        "SELECT f.page_no, f.reason, length(f.detail), r.pages_failed"
+        " FROM ocr_page_failure f JOIN ocr_run r USING (run_id)"
+    ).fetchall()
+    con.close()
+    assert rows == [(2, "unclassified", 500, 1)]

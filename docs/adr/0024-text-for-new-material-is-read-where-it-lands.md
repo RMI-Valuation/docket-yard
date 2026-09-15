@@ -412,3 +412,30 @@ foreign key by `ALTER` holds for existing columns only; 0026 adds one to a new c
 **Owed 6 does not ship in v2026.09.13** (2026-09-11): the operator held the `/methodology`
 section it built (`848e366`) for rewording, so the addendum's "built, unreleased" above
 means built and held. The census's `exhausted`/`resting` split ships; the page does not.
+
+## Addendum (2026-09-15): Owed 2, a page the pass failed says why
+
+**Status: Proposed.** The operator's defaults of 2026-09-15; migration 0031.
+
+- **A row per failed page, under its run.** `ocr_page_failure (run_id → ocr_run, page_no ≥ 1,
+  reason → page_failure_reason_vocab, detail ≤ 500 characters or NULL)`, keyed
+  `(run_id, page_no)`. Append-only. A record of an action, so no confidence block; its
+  provenance is its run's.
+- **The vocabulary says whose the failure is.** `page_owned = 1` — `cut-answer`, `oversize`,
+  `render`, `timeout`, `operator-page` — is final at the run's key (method, version, render),
+  and a new key resets it. `page_owned = 0` — `server`, `document-bytes`, `lease-expired`,
+  `operator`, `unclassified` — is transient.
+- **Public**, with `ocr_run`, the detail included.
+- **The loader's contract.** A reading document may carry `page_failures: [{page_no, reason,
+  detail?}]`. When present the reading is refused unless its length is `pages_failed`, every
+  page number is an integer ≥ 1, unique and not among the pages read, every reason is in the
+  store's vocabulary, and the outcome is `read` or `failed`. The rows land in the transaction
+  that writes the run. Absent, the reading loads as before, a count only. An extraction record
+  carrying the field is refused. The store refuses a row on a run of any other outcome, and
+  more rows than the run counted.
+- **One classifier.** The fleet's `job.error` maps to a reason in one function
+  (`ocr_wave.failure_reason`), page-owned exactly when the error is the queue's `page:`; a
+  `page:` error with no known reason stops the collection. The single-box driver's failed
+  pages are `unclassified`, with the exception's text.
+- **Not written:** a whole-document size refusal, which stays counted. The 134 failures
+  already in the fleet queue are loaded once, separately.

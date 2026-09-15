@@ -1169,3 +1169,119 @@ def test_a_pin_that_could_never_match_a_reading_is_refused(tmp_path):
                 " VALUES ('text-layer', ?, 'primary', ?, '1', ?)",
                 (render, method, STAMP),
             )
+
+
+# --- migration 0031: a page the pass failed says why (ADR 0024 § Owed 2, addendum 2026-09-15) ---
+
+
+def _run(con, outcome="read", pages_failed=2, ran_at=STAMP):
+    return con.execute(
+        "INSERT INTO ocr_run (document_sha256, method, method_version, reading_channel,"
+        " render_profile, outcome, pages_read, pages_failed, ran_at)"
+        " VALUES (?, 'dots.mocr', '1.5', 'ocr', '200', ?, 1, ?, ?)",
+        (SHA, outcome, pages_failed, ran_at),
+    ).lastrowid
+
+
+def _page_failure(con, run_id, page_no=2, reason="oversize", detail=None):
+    con.execute(
+        "INSERT INTO ocr_page_failure (run_id, page_no, reason, detail) VALUES (?, ?, ?, ?)",
+        (run_id, page_no, reason, detail),
+    )
+
+
+def test_the_page_failure_vocabulary_says_whose_each_failure_is(tmp_path):
+    con = _store(tmp_path)
+    assert dict(con.execute("SELECT reason, page_owned FROM page_failure_reason_vocab")) == {
+        "cut-answer": 1,
+        "oversize": 1,
+        "render": 1,
+        "timeout": 1,
+        "operator-page": 1,
+        "server": 0,
+        "document-bytes": 0,
+        "lease-expired": 0,
+        "operator": 0,
+        "unclassified": 0,
+    }
+
+
+def test_a_page_failure_names_a_run_a_page_and_a_known_reason(tmp_path):
+    con = _store(tmp_path)
+    run = _run(con)
+    _page_failure(con, run, 2)
+    for bad in (
+        {"run_id": run + 1},  # no such run
+        {"page_no": 0},
+        {"reason": "flaky"},  # not in the vocabulary
+        {"page_no": 2},  # the key: a page fails once in a run
+    ):
+        with pytest.raises(sqlite3.IntegrityError):
+            _page_failure(con, **({"run_id": run, "page_no": 3} | bad))
+
+
+def test_a_page_failure_is_append_only(tmp_path):
+    con = _store(tmp_path)
+    _page_failure(con, _run(con))
+    with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+        con.execute("UPDATE ocr_page_failure SET reason = 'server'")
+    with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+        con.execute("DELETE FROM ocr_page_failure")
+
+
+def test_a_run_carries_no_more_page_failures_than_it_counted(tmp_path):
+    con = _store(tmp_path)
+    run = _run(con, pages_failed=2)
+    _page_failure(con, run, 2)
+    _page_failure(con, run, 3)
+    with pytest.raises(sqlite3.IntegrityError, match="no more page failures"):
+        _page_failure(con, run, 4)
+    # a run counting none — every text-layer run — can carry none
+    none = _run(con, pages_failed=0, ran_at="2026-09-03T00:00:00+00:00")
+    with pytest.raises(sqlite3.IntegrityError, match="no more page failures"):
+        _page_failure(con, none, 2)
+
+
+def test_only_a_pass_that_attempted_pages_can_fail_one(tmp_path):
+    con = _store(tmp_path)
+    _page_failure(con, _run(con, outcome="failed", pages_failed=1), 1)
+    for day, outcome in ((3, "skipped"), (4, "not-paginable")):
+        run = _run(con, outcome=outcome, pages_failed=1, ran_at=f"2026-09-0{day}T00:00:00+00:00")
+        with pytest.raises(sqlite3.IntegrityError, match="read or failed"):
+            _page_failure(con, run, 1)
+
+
+def test_a_page_failures_detail_is_bounded_and_never_empty(tmp_path):
+    con = _store(tmp_path)
+    run = _run(con, pages_failed=4)
+    _page_failure(con, run, 1, detail=None)  # a producer that gave no words says none
+    _page_failure(con, run, 2, detail="x" * 500)
+    for page, detail in ((3, ""), (4, "x" * 501)):
+        with pytest.raises(sqlite3.IntegrityError):
+            _page_failure(con, run, page, detail=detail)
+
+
+def test_page_failures_ship_in_the_snapshot_with_their_vocabulary(tmp_path):
+    """PUBLIC with `ocr_run`, the detail included (the operator, 2026-09-15). The dump is RUN,
+    for `test_the_dispatch_counter_ships_in_the_snapshot`'s reason."""
+    con = _store(tmp_path)
+    run = _run(con)
+    _page_failure(con, run, 2, detail="page: oversize: 8.4 MP at 200 DPI")
+    con.commit()
+    con.close()
+    tables = {"ocr_page_failure", "page_failure_reason_vocab"}
+    assert tables <= dump.PUBLIC_TABLES
+    out = tmp_path / "public"
+    manifest = dump.dump(tmp_path / "s.sqlite", out)
+    assert not tables & set(manifest.held_tables)
+    schema = (out / "schema.sql").read_text(encoding="utf-8")
+    assert all(f"CREATE TABLE {t}" in schema for t in tables)
+    snap = tmp_path / "snap.sqlite"
+    snap.write_bytes(gzip.decompress((out / manifest.latest.name).read_bytes()))
+    published = sqlite3.connect(snap)
+    assert published.execute(
+        "SELECT f.run_id, f.page_no, f.reason, v.page_owned, f.detail"
+        " FROM ocr_page_failure f JOIN page_failure_reason_vocab v USING (reason)"
+    ).fetchall() == [(run, 2, "oversize", 1, "page: oversize: 8.4 MP at 200 DPI")]
+    assert published.execute("PRAGMA foreign_key_check").fetchall() == []  # nothing dangles
+    published.close()

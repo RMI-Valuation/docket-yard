@@ -1604,9 +1604,8 @@ Measured for the tabular pass: 26,294 tabular pages at 150 DPI, median 2.1 MP, p
   first: a decided-date extraction pass, then the pick, a disagreement queue, and ADR 0018 D4 (which says
   `decided` stays at docket level) revisited. Schema-critic and a decision; 259 of 200,000 pages print
   the phrase (§ 2026-09-05 above).
-- **ADR 0024 Owed 2, the per-page failure record**: the `note` half shipped 2026-09-10. Today a failure
-  is a count (`ocr_run.pages_failed`); the reasons exist only in the coordinator's `job.error`
-  (134 final dots pages, 98 documents: `finish_reason length` and `oversize`). Needs a table under
-  `ocr_run` keyed by page, a reason vocabulary, a loader cross-check against `pages_failed`, both
-  producers emitting it, and a dump decision — a finer grain, so schema-critic, and likely an addendum
-  (the shape is not decided; nor is whether the oversize refusal rides on it).
+- **ADR 0024 Owed 2, the per-page failure record's backlog**: the table, vocabulary, loader contract
+  and both producers were built 2026-09-15 (migration 0031; the addendum is Proposed). The 134 final
+  dots pages already collected (98 documents: `finish_reason length` and `oversize`) carry a count
+  only; they get a one-off sidecar load from the queue's `job.error` through
+  `ocr_wave.failure_reason`, under the runs their reading documents wrote.

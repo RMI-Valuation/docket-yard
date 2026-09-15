@@ -70,6 +70,10 @@ MIGRATIONS: list[tuple[int, str]] = [
     # MIGRATING, so it goes behind the wall; a key a person decided aborts it whole, and the
     # runbook's pre-check (`infra/deploy/0029-precheck.sql`) names that key first.
     (29, "0029_retire_retracted_readings.sql"),
+    # 0031 settles ADR 0024 § Owed 2's second half (addendum 2026-09-15, Proposed): a row per
+    # page a pass failed, under its `ocr_run`, with a reason from a vocabulary that says whether
+    # the failure is the page's own. ADDITIVE — two tables, no rebuild — so not behind the wall.
+    (31, "0031_ocr_page_failure.sql"),
 ]
 
 

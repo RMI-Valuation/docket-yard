@@ -48,7 +48,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "rmi-ai-machine"))
 
-from ocr_wave import DOTS, ROOTS, now  # noqa: E402 — the driver's key, roots and clock
+from ocr_wave import DOTS, PAGE_OWNED, ROOTS, now  # noqa: E402 — the driver's key, roots, clock
 
 STATES = ("pending", "leased", "done", "failed")
 
@@ -73,8 +73,9 @@ PASSES = {
 # the document is whole with it failed. Anything else (`server:`, `blob:`, `lease`,
 # `operator:`) is not the page's, and a document holding one is re-read at the next seed.
 # It is a prefix, agreed by convention among the writers in this directory; a column with a
-# CHECK would be the stronger form and is recorded as owed in docs/deferred.md.
-PAGE_OWNED = "page:"
+# CHECK would be the stronger form and is recorded as owed in docs/deferred.md. `PAGE_OWNED`
+# is `ocr_wave.PAGE_OWNED`, imported above, because `ocr_wave.failure_reason` is the one
+# classifier that turns these strings into the store's reason codes (migration 0031).
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS job (
@@ -567,16 +568,27 @@ def seed_pass(q: Queue, pass_: str, out: Path, *, dry_run: bool = False) -> dict
 
 
 def collect_pass(q: Queue, pass_: str, out: Path) -> int:
-    from ocr_wave import _write, dots_page, reading_document, route_of, shard  # noqa: PLC0415
+    """Writes each collectable document's reading, with a `page_failures` entry per failed
+    page whose reason is `ocr_wave.failure_reason`'s. A `page:` error that classifier does not
+    know raises here, before that document is written: a page-owned failure is final, so a
+    new kind of one is named in the classifier before it reaches the store."""
+    from ocr_wave import (  # noqa: PLC0415
+        _write,
+        dots_page,
+        page_failure,
+        reading_document,
+        route_of,
+        shard,
+    )
 
     spec = PASSES[pass_]
     out_root = out / spec["root"]
     written = 0
     for sha in q.collectable(pass_):
-        engine_pages, pages, failed = [], [], 0
+        engine_pages, pages, failures = [], [], []
         for r in q.pages_of(pass_, sha):
             if r["state"] != "done":
-                failed += 1
+                failures.append(page_failure(r["page_no"], r["error"]))
                 continue
             engine_page, text = dots_page(r["page_no"], r["raw"])
             engine_pages.append(engine_page)
@@ -595,7 +607,7 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
             spec["payload_kind"],
             engine_pages,
             pages,
-            pages_failed=failed,
+            page_failures=failures,
             outcome="read" if pages else "failed",
         )
         _write(shard(out_root, sha), doc)
@@ -653,7 +665,7 @@ def cmd_fail(args) -> int:
     n = q.con.execute(
         "UPDATE job SET state = 'failed', finished_at = ?, error = ?, lease_owner = NULL,"
         " lease_until = NULL WHERE job_id = ? AND state IN ('pending', 'leased')",
-        (now(), prefix + args.error, args.job),
+        (now(), (prefix + args.error)[:500], args.job),  # `fail`'s bound, and the store's
     ).rowcount
     print(f"job {args.job}: {'failed' if n else 'not pending or leased; unchanged'}")
     return 0
