@@ -1578,6 +1578,17 @@ route in the store: scope it, schema-critic first**; (4) **start all three build
 failure record, the veto trigger, and the decided-date consumer (each design and critic before code;
 any ADR addendum is his to accept).
 
+**Decided by him later the same day:** (5) he allows me to stop and start the fleet's tmux sessions on
+rmi-ai-machine (the dots server held 9.2 GB of the 4070 with its queue drained); (6) **the pages dots
+refused get a Claude Sonnet 5 batch** (~$2.30 for 134 pages, measured 10.5% CER on the degraded tier),
+its own pass with its own key, loading on his go; (7) the recommended defaults for three designs —
+veto trigger (any-version rule; the row's own measurement carries a rate; the rate on the veto's own
+channel; a D7 addendum), failure record (`ocr_page_failure`, public with detail, the 134 back-filled by
+a sidecar load, the size refusal counted not written; an ADR 0024 addendum), route in the store (held
+`page_route`, `text route` verb, the marker on blank tabular text-layer pages only, not counted read;
+an ADR 0021 addendum). The decided-date defaults were NOT accepted: its questions go back to him.
+Measured for the tabular pass: 26,294 tabular pages at 150 DPI, median 2.1 MP, p99 2.4, 29 over 6 MP.
+
 **Three owed items, scoped against the ADRs** (each claim below checked in the code):
 
 - **"Not in the record" joining live `citation`** (0014_citations.sql § the projection; ADR 0017 D2,
