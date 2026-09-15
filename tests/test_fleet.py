@@ -346,7 +346,23 @@ def test_hunyuan_page_flattens_tables_and_keeps_the_answer_whole():
         {"page_no": 1, "raw": prose},
         "Decided: September 1, 2026\n\nBy the Board.",
     )
-    assert ocr_wave.hunyuan_page(3, "") == ({"page_no": 3, "raw": ""}, "")  # a blank page reads ''
+    # collect writes what was posted; the worker never posts '' (the next test)
+    assert ocr_wave.hunyuan_page(3, "") == ({"page_no": 3, "raw": ""}, "")
+
+
+def test_an_empty_answer_is_refused_and_never_posted_as_done(q):
+    """A tabular page has a table on it: '' is the model failing, not a blank page. Posted as
+    done, collect would write `read` with no text and the next seed would call it whole."""
+    a, b = q.claim("w1", "dots", 2, 60)
+    assert hw.post_answer(q, "w1", a["job_id"], " \n") == "empty"
+    row = q.con.execute(
+        "SELECT state, attempts, error FROM job WHERE job_id = ?", (a["job_id"],)
+    ).fetchone()
+    assert (row["state"], row["attempts"], row["error"]) == ("pending", 1, hw.EMPTY_ANSWER)
+    assert not row["error"].startswith(pq.PAGE_OWNED)
+    assert q.con.execute("SELECT COUNT(*) FROM result").fetchone()[0] == 0
+    assert hw.post_answer(q, "w1", b["job_id"], TABLE_RAW) == "done"
+    assert hw.post_answer(q, "w1", b["job_id"], TABLE_RAW) == "lost"  # no longer leased
 
 
 def test_a_generation_that_spends_every_token_without_eos_is_cut():

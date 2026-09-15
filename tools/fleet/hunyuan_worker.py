@@ -46,6 +46,13 @@ WHOSE FAULT A FAILURE IS:
                         bring it back first after every restart for ever — the pages after it
                         unspent; exit 4. After max_attempts it fails, not finally, and the
                         document is re-read at a later seed rather than counted whole
+    no answer           the model answered '' (whitespace only). A tabular page is one the
+                        layout model found a table on, and the PP-OCRv6 cache has text on all
+                        but 6 of them, so '' is the model failing — a template or processor
+                        drift, an immediate EOS — never a blank page. `engine: empty answer`,
+                        attempt spent, not final, never posted as done; consecutive ones count
+                        toward the breaker. Final, a systemic fault would mark every document
+                        whole with no text and no alarm: the 2026-09-06 shape
     nobody's we named   the queue, an import, anything outside a page's read. Every leased
                         page goes back unspent; exit 4
     too little memory   free GPU memory under the floor before loading or before a claim:
@@ -179,6 +186,19 @@ def card_at_fault(last_oom: tuple[str, int] | None, here: tuple[str, int]) -> bo
     return last_oom is not None and last_oom != here
 
 
+EMPTY_ANSWER = "engine: empty answer"
+
+
+def post_answer(q, name: str, job_id: int, raw: str) -> str:
+    """Posts a page's answer: `done`, `lost` (the lease expired; the answer is dropped) or
+    `empty` — an answer with no text is the model failing on a page that has a table, so it
+    goes back not finally with its attempt spent and is never posted as done."""
+    if not raw.strip():
+        q.fail(name, job_id, EMPTY_ANSWER, final=False)
+        return "empty"
+    return "done" if q.done(name, job_id, raw) else "lost"
+
+
 def hf_hub_cache() -> Path:
     if os.environ.get("HF_HUB_CACHE"):
         return Path(os.environ["HF_HUB_CACHE"])
@@ -237,8 +257,8 @@ def read_page(cfg: dict, pdf, no: int, png: Path, mp: float) -> str:
     (`ocr_wave.hunyuan_page`), so the answer is posted whole."""
     import torch  # noqa: PLC0415
 
-    render_page(pdf, no, png, mp)
     try:
+        render_page(pdf, no, png, mp)  # inside: the finally removes a half-written PNG too
 
         def once() -> dict:
             cfg.pop("_hunyuan_last", None)
@@ -288,6 +308,9 @@ def main() -> int:
     args = ap.parse_args()
 
     spec = PASSES[PASS]
+    if args.model != MODEL:  # the key names HunyuanOCR-1.5; another model is another pass
+        log(f"--model {args.model!r} is not {MODEL!r}, which the {PASS} key names; exit 4")
+        return EXIT_ENVIRONMENT
     if args.blobs and not args.blobs.is_dir():
         log(f"--blobs {args.blobs} is not a directory; exit {EXIT_ENVIRONMENT}")
         return EXIT_ENVIRONMENT
@@ -304,9 +327,15 @@ def main() -> int:
     name = args.name or f"{socket.gethostname()}/{PASS}"
 
     try:
-        if not q.claimable(PASS):
-            log("queue empty; the model is not loaded")
-            return 0
+        claimable = q.claimable(PASS)
+    except Exception:  # noqa: BLE001 — the queue, not the model
+        log(f"the queue did not answer; nothing loaded or claimed; exit {EXIT_ENVIRONMENT}")
+        log(traceback.format_exc())
+        return EXIT_ENVIRONMENT
+    if not claimable:
+        log("queue empty; the model is not loaded")
+        return 0
+    try:
         import fitz  # noqa: F401, PLC0415 — here, so a venv without pymupdf fails before a claim
         import torch  # noqa: PLC0415
         import transformers  # noqa: PLC0415
@@ -415,10 +444,19 @@ def main() -> int:
                     last_oom = (sha, no)
                     break  # claim again: the page comes back first while it has attempts
                 else:
-                    if q.done(name, job["job_id"], raw):
+                    posted = post_answer(q, name, job["job_id"], raw)
+                    if posted == "done":
                         read += 1
                         streak = 0
                         last_oom = None
+                    elif posted == "empty":
+                        failed += 1
+                        streak += 1
+                        log(f"  EMPTY ANSWER on {sha[:12]} p{no}; back with its attempt spent")
+                        if streak >= args.max_consecutive_failures:
+                            q.release(name, ids[i + 1 :])
+                            log(f"{streak} failures in a row, no page read; exit {EXIT_BREAKER}")
+                            return EXIT_BREAKER
                     else:
                         log(f"  lease lost on {sha[:12]} p{no}; answer dropped")
                 if ids[i + 1 :]:

@@ -217,6 +217,11 @@ claimed. An OOM that survives one retry with the cache emptied puts the page bac
 engine raising anything else on a page puts that page back as `engine: <Exception>`, attempt
 spent — it is first in claim order, so a refund would loop it for ever — and exits 4. Neither
 is `page:`, so after three attempts the document is re-read at a later seed, never whole.
+**An empty answer is not a blank page**: a tabular page has a table on it, so `''` is the model
+failing (a template or processor drift, an immediate EOS). It goes back as
+`engine: empty answer`, attempt spent, never posted as done, and consecutive ones trip the
+breaker (exit 5). `--model` must be `tencent/HunyuanOCR`, the model the key names; anything
+else exits 4 before claiming.
 **The card must be the worker's**: with the dots server holding 90% of the 4070 the floor
 refuses every start. So:
 
