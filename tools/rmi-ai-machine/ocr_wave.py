@@ -551,7 +551,9 @@ def run_paddle(args) -> int:
         _write(shard(cache_root, sha), cache)
         # the primary reading document for the pages PP-OCRv6 owns in this wave
         engine_pages, pages, failed = select_pages(cache, route, {"clean", "unrouted"})
-        if pages or cache["error"]:
+        # FAILURES ALONE ARE STILL A READING (migration 0031): a document that opened and whose
+        # every selected page raised has no pages and must land anyway, or its failures are lost
+        if pages or failed or cache["error"]:
             doc = reading_document(
                 sha,
                 key,
@@ -560,7 +562,7 @@ def run_paddle(args) -> int:
                 engine_pages,
                 pages,
                 page_failures=failed,
-                outcome="failed" if cache["error"] else "read",
+                outcome="read" if pages else "failed",
                 ran_at=cache["ran_at"],
             )
             _write(shard(primary_root, sha), doc)
@@ -722,10 +724,17 @@ def run_second(args) -> int:
         agreement = agreement_against(primary, dots)
 
         engine_pages, pages, failed = select_pages(cache, route, {"degraded"}, agreement)
-        if not pages:
+        if not pages and not failed:  # failures alone are still a reading (migration 0031)
             continue
         doc = reading_document(
-            sha, key, "second", "pp-ocrv6.json", engine_pages, pages, page_failures=failed
+            sha,
+            key,
+            "second",
+            "pp-ocrv6.json",
+            engine_pages,
+            pages,
+            page_failures=failed,
+            outcome="read" if pages else "failed",
         )  # its own ran_at: `ocr_run` is keyed on the reading key and ran_at, not the role
         _write(shard(out_root, sha), doc)
         stats["documents"] += 1
@@ -749,10 +758,17 @@ def run_graphic(args) -> int:
         route = json.loads(shard(route_root, sha).read_text(encoding="utf-8"))
         key = {k: cache[k] for k in ("method", "method_version", "render_profile")}
         engine_pages, pages, failed = select_pages(cache, route, {"graphic"})
-        if not pages:
+        if not pages and not failed:  # failures alone are still a reading (migration 0031)
             continue
         doc = reading_document(
-            sha, key, "primary", "pp-ocrv6.json", engine_pages, pages, page_failures=failed
+            sha,
+            key,
+            "primary",
+            "pp-ocrv6.json",
+            engine_pages,
+            pages,
+            page_failures=failed,
+            outcome="read" if pages else "failed",
         )  # its own ran_at, for the same reason as the second reading's
         _write(shard(out_root, sha), doc)
         stats["documents"] += 1

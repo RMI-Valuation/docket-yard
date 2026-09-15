@@ -569,9 +569,12 @@ def seed_pass(q: Queue, pass_: str, out: Path, *, dry_run: bool = False) -> dict
 
 def collect_pass(q: Queue, pass_: str, out: Path) -> int:
     """Writes each collectable document's reading, with a `page_failures` entry per failed
-    page whose reason is `ocr_wave.failure_reason`'s. A `page:` error that classifier does not
-    know raises here, before that document is written: a page-owned failure is final, so a
-    new kind of one is named in the classifier before it reaches the store."""
+    page whose reason is `ocr_wave.failure_reason`'s.
+
+    A document holding a `page:` error that classifier does not know is SKIPPED: logged, left
+    uncollected, and written by a later run once the word is named. Every other document in the
+    batch is still collected — one unnamed word must not stall a wave. A page-owned failure is
+    final in the queue, so naming a new kind is a code change rather than a retry."""
     from ocr_wave import (  # noqa: PLC0415
         _write,
         dots_page,
@@ -583,23 +586,28 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
 
     spec = PASSES[pass_]
     out_root = out / spec["root"]
-    written = 0
+    written = skipped = 0
     for sha in q.collectable(pass_):
         engine_pages, pages, failures = [], [], []
-        for r in q.pages_of(pass_, sha):
-            if r["state"] != "done":
-                failures.append(page_failure(r["page_no"], r["error"]))
-                continue
-            engine_page, text = dots_page(r["page_no"], r["raw"])
-            engine_pages.append(engine_page)
-            pages.append(
-                {
-                    "page_no": r["page_no"],
-                    "text": text,
-                    "member": f"engine/pages/{len(engine_pages) - 1}",
-                    "route": route_of(spec["class"]),
-                }
-            )
+        try:
+            for r in q.pages_of(pass_, sha):
+                if r["state"] != "done":
+                    failures.append(page_failure(r["page_no"], r["error"]))
+                    continue
+                engine_page, text = dots_page(r["page_no"], r["raw"])
+                engine_pages.append(engine_page)
+                pages.append(
+                    {
+                        "page_no": r["page_no"],
+                        "text": text,
+                        "member": f"engine/pages/{len(engine_pages) - 1}",
+                        "route": route_of(spec["class"]),
+                    }
+                )
+        except ValueError as e:  # `failure_reason` on a `page:` word nobody has named
+            print(f"  SKIPPED {sha[:12]}: {e}", flush=True)
+            skipped += 1
+            continue  # left uncollected: a later run writes it once the word is named
         doc = reading_document(
             sha,
             spec["key"],
@@ -613,6 +621,12 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
         _write(shard(out_root, sha), doc)
         q.mark_collected(pass_, sha, doc)
         written += 1
+    if skipped:
+        print(
+            f"  {skipped} documents left uncollected: a `page:` reason the classifier does not"
+            f" know. Name it in ocr_wave.failure_reason and collect again.",
+            flush=True,
+        )
     if written:
         s = q.status()
         _write(

@@ -101,8 +101,10 @@ pending  --claim-->  leased  --done-->  done
   and anything unnamed are not. A detail is kept only when it is its reason's closed shape
   (`ocr_wave.DETAIL_SHAPES`: `oversize: 8.4 MP at 200 DPI`, `finish_reason length`, ...), because
   it is PUBLISHED with `ocr_run`; an exception's text or an operator's words never are. A
-  `page:` error with no known reason stops the collection. The loader writes a row per failed
-  page in the run's own transaction, in `ocr_page_failure`. **Owed:** the 134 page failures
+  document holding a `page:` error with no known reason is skipped and left uncollected — every
+  other document in the batch is still written, and a later run collects it once the classifier
+  names the word. The loader writes a row per failed page in the run's own transaction, in
+  `ocr_page_failure`. **Owed:** the 134 page failures
   collected before this shipped carry no list, and are loaded once, directly, as a sidecar
   (`docs/deferred.md` § From the schema critic on migration 0031).
 

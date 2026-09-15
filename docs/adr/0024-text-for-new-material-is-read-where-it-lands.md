@@ -442,7 +442,8 @@ means built and held. The census's `exhausted`/`resting` split ships; the page d
   refuses a row on a run of any other outcome, and more rows than the run counted.
 - **One classifier.** `ocr_wave.page_failure` names every failure: the fleet's `job.error` maps
   through `ocr_wave.failure_reason`, page-owned exactly when the error is the queue's `page:`,
-  and a `page:` error with no known reason stops the collection; the single-box driver's failed
-  pages are `unclassified`, with no detail.
+  and a document holding a `page:` error with no known reason is left uncollected until the
+  classifier names the word; the single-box driver's failed pages are `unclassified`, with no
+  detail.
 - **Not written:** a whole-document size refusal, which stays counted. The 134 failures
   already in the fleet queue are loaded once, separately.

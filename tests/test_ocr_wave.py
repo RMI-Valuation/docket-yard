@@ -5,7 +5,9 @@ writes is one `docketyard text load` takes — primary, second with its agreemen
 """
 
 import importlib.util
+import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from docketyard.store import db
 from docketyard.text import load
@@ -219,3 +221,28 @@ def test_a_failed_page_reaches_the_store_with_its_reason(tmp_path):
     ).fetchall()
     con.close()
     assert rows == [(2, "unclassified", None, 1)]  # the exception's path is never published
+
+
+def test_a_document_whose_every_selected_page_failed_is_still_a_reading(tmp_path):
+    """The gap migration 0031 exists to close: a pass that read nothing must still write its
+    run, or the failures it measured are lost. `run_graphic` is the branch testable without the
+    engines; `run_second` and `run_paddle` carry the same one."""
+    w = _module()
+    path, sha = _store_with_document(tmp_path)
+    out = tmp_path / "ocr"
+    cache, route = _cache_and_route(w, sha, {1: "a"}, {1: "graphic"})
+    cache["pages"][0]["error"] = "RuntimeError: render"
+    w._write(w.shard(out / w.ROOTS["cache"], sha), cache)
+    w._write(w.shard(out / w.ROOTS["route"], sha), route)
+    assert w.run_graphic(SimpleNamespace(out=out)) == 0
+    doc = json.loads(w.shard(out / w.ROOTS["graphic"], sha).read_text(encoding="utf-8"))
+    assert (doc["outcome"], doc["pages"], doc["pages_failed"]) == ("failed", [], 1)
+    assert doc["page_failures"] == [{"page_no": 1, "reason": "unclassified"}]
+    con = db.connect(path)
+    reading = load.from_reading(doc, b"{}", load.run_outcomes(con), load.failure_reasons(con))
+    assert load.load_reading(con, tmp_path, reading) == "run_only"
+    con.commit()
+    assert con.execute("SELECT page_no, reason FROM ocr_page_failure").fetchall() == [
+        (1, "unclassified")
+    ]
+    con.close()

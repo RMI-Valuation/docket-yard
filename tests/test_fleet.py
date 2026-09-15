@@ -333,17 +333,21 @@ def test_every_error_the_queue_writes_maps_to_a_reason_page_owned_iff_page(tmp_p
     assert load.shaped_detail("server", "HTTP 500 from queue-host") is None
 
 
-def test_a_page_owned_failure_nobody_named_stops_the_collection(tmp_path):
+def test_a_page_owned_failure_nobody_named_skips_only_that_document(tmp_path):
+    """One unnamed `page:` word must not stall the batch: its document is left uncollected for
+    a later run, and every other document is still written."""
     out = tmp_path / "ocr"
     _route_root(out, A, {1: "degraded"})
+    _route_root(out, B, {1: "degraded"})
     q = pq.Queue(tmp_path / "q.sqlite")
     q.register("w1", "dots", {**KEY, "host": "x"})
     pq.seed_pass(q, "dots", out)
-    (j,) = q.claim("w1", "dots", 1, 60)
-    q.fail("w1", j["job_id"], "page: a cause nobody has named", final=True)
-    with pytest.raises(ValueError, match="no known reason"):
-        pq.collect_pass(q, "dots", out)
+    jobs = {j["document_sha256"]: j["job_id"] for j in q.claim("w1", "dots", 2, 60)}
+    q.fail("w1", jobs[A], "page: a cause nobody has named", final=True)
+    q.done("w1", jobs[B], "[]")
+    assert pq.collect_pass(q, "dots", out) == 1
     assert not ocr_wave.shard(out / "dots", A).exists()
+    assert ocr_wave.shard(out / "dots", B).exists()
     assert q.collectable("dots") == [A]  # still owed: named in the classifier, then collected
 
 
