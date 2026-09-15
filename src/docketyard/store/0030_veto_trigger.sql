@@ -14,8 +14,10 @@
 --      declaration's OWN `reading_channel`;
 --   4. a measurement is never changed or removed; a re-score is a new row (ADR 0018 D8, which
 --      nothing held until now). Every UPDATE and DELETE of `class_measurement` is refused, and so
---      is an INSERT reusing a `measurement_id` — `INSERT OR REPLACE` deletes without firing a
---      DELETE trigger, so the INSERT is where it is caught;
+--      is an INSERT that would collide with a row on either unique key — `measurement_id` or
+--      `class_measurement_identity` (0014) — because `INSERT OR REPLACE` deletes the row it
+--      collides with WITHOUT firing a DELETE trigger, so the INSERT is where it is caught. A
+--      plain duplicate card therefore fails with this trigger's message, not "UNIQUE constraint";
 --   5. declaring a triple `suppress`, by INSERT or UPDATE, is refused while any row of it, live
 --      or superseded, fails 2.
 --
@@ -49,6 +51,10 @@
 --   class_measurement    drop first: the four `assertion_method_veto_*` and the two
 --                        `citation_resolution_veto_row_*` triggers; recreate those, and the three
 --                        `class_measurement_*` append-only triggers AFTER the copy.
+--
+-- A FUTURE COLUMN BACKFILL on `class_measurement` (an ALTER ADD then an UPDATE) must drop the
+-- three `class_measurement_*` triggers and recreate them inside its own transaction, or use the
+-- rebuild procedure above: the UPDATE is otherwise refused.
 --
 -- All three tables are in `dump.HELD_TABLES`, so the snapshot drops these triggers with them.
 
@@ -204,9 +210,21 @@ BEGIN
     SELECT RAISE(ABORT, 'ADR 0018 D8: a measurement is append-only; a re-score is a new row');
 END;
 
-CREATE TRIGGER class_measurement_id_is_never_replaced
+CREATE TRIGGER class_measurement_is_never_replaced
 BEFORE INSERT ON class_measurement
 WHEN EXISTS (SELECT 1 FROM class_measurement m WHERE m.measurement_id = NEW.measurement_id)
+  OR EXISTS (SELECT 1 FROM class_measurement m
+              WHERE m.measured_target = NEW.measured_target
+                AND m.class = NEW.class
+                AND m.extraction_method = NEW.extraction_method
+                AND m.extraction_method_version = NEW.extraction_method_version
+                AND COALESCE(m.resolution_method, '') = COALESCE(NEW.resolution_method, '')
+                AND COALESCE(m.resolution_method_version, '')
+                    = COALESCE(NEW.resolution_method_version, '')
+                AND m.reading_channel = NEW.reading_channel
+                AND COALESCE(m.projection_rule_version, '')
+                    = COALESCE(NEW.projection_rule_version, '')
+                AND m.benchmark_date = NEW.benchmark_date)
 BEGIN
     SELECT RAISE(ABORT, 'ADR 0018 D8: a measurement is append-only; a re-score is a new row');
 END;

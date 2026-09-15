@@ -178,7 +178,23 @@ def test_a_measurement_is_never_changed_removed_or_replaced(tmp_path):
             " WHERE measurement_id = ?",
             (rate,),
         )
+    # and through the identity key, with no id: REPLACE would delete the card firing no trigger
+    with pytest.raises(sqlite3.IntegrityError, match=APPEND):
+        con.execute(
+            "INSERT OR REPLACE INTO class_measurement (measured_target, class,"
+            " extraction_method, extraction_method_version, resolution_method,"
+            " resolution_method_version, reading_channel, projection_rule_version,"
+            " benchmark_date, score_file, recall, precision, false_veto_rate, measured_at)"
+            " SELECT measured_target, class, extraction_method, extraction_method_version,"
+            " resolution_method, resolution_method_version, reading_channel,"
+            " projection_rule_version, benchmark_date, 'other', recall, precision,"
+            " false_veto_rate, measured_at FROM class_measurement WHERE measurement_id = ?",
+            (spare,),
+        )
     assert con.execute("SELECT COUNT(*) FROM class_measurement").fetchone() == (2,)
+    assert con.execute(
+        "SELECT score_file FROM class_measurement WHERE measurement_id = ?", (spare,)
+    ).fetchone() == ("t",)
 
 
 # --- the rows (rules 1 and 2) -------------------------------------------------------------
@@ -309,6 +325,15 @@ def test_the_guard_names_both_kinds_of_violation_and_refuses_the_migration_whole
     )
     assert len(guards) == 2
     assert sorted(r for sql in guards for r in con.execute(sql).fetchall()) == expected
+    # and the TEXT agrees, so a clause changed in one copy fails here even on a store it misses
+
+    def norm(sql):
+        return " ".join(sql.split())
+
+    precheck = norm(PRECHECK.read_text(encoding="utf-8")).replace(" AS what", "")
+    precheck = precheck.replace(" AS id", "")
+    for sql in guards:
+        assert norm(sql) in precheck, sql
     con.close()
 
     with pytest.raises(sqlite3.IntegrityError, match="migration 0030"):
