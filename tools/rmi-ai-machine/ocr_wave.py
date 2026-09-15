@@ -369,7 +369,9 @@ def reading_document(
 
 def select_pages(cache: dict, route: dict, classes: set[str], agreement=None):
     """From a document's PP-OCRv6 cache, the reading document's pages of the given classes,
-    and the pages of those classes that failed, each `unclassified` with the exception's text
+    and the pages of those classes that failed, each `unclassified` and carrying no detail:
+    the cache keeps only an exception, `unclassified` has no shape in `DETAIL_SHAPES`, and an
+    exception's text is deliberately not published (the reason is the whole record)
     (the cache keeps no reason code); `agreement(page_no, text)` supplies the second reading's
     distance, or None."""
     engine_pages, pages, failures = [], [], []
@@ -618,7 +620,8 @@ def run_dots(args) -> int:
                 raw, _ = _dots_call(png, args.dots_server, args.dots_model)
             except Exception as e:  # noqa: BLE001
                 print(f"  FAILED {sha[:12]} p{no} ({type(e).__name__}: {e})", flush=True)
-                # the driver tells no cause from another, so it names none
+                # the driver tells no cause from another, so it names none — and `unclassified`
+                # has no shape, so the exception is printed above and deliberately not published
                 failed.append(page_failure(no, f"{type(e).__name__}: {e}", "unclassified"))
                 continue
             finally:
