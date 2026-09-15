@@ -43,6 +43,18 @@ def test_migrations_apply_once(con):
     assert db.migrate(con) == head  # re-running changes nothing
 
 
+def test_migrations_are_numbered_one_to_n_and_a_gap_refuses_before_anything_applies(monkeypatch):
+    """`migrate` skips every version at or below the stamp, so a migration registered past a gap
+    (a branch's 0032 merged before 0030 and 0031) would leave the gap unapplied for ever."""
+    assert [v for v, _ in db.MIGRATIONS] == list(range(1, len(db.MIGRATIONS) + 1))
+    monkeypatch.setattr(db, "MIGRATIONS", [m for m in db.MIGRATIONS if m[0] != 2])
+    raw = sqlite3.connect(":memory:")
+    with pytest.raises(RuntimeError, match="contiguously"):
+        db.migrate(raw)
+    assert raw.execute("PRAGMA user_version").fetchone()[0] == 0
+    assert raw.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()[0] == 0
+
+
 def test_versionless_tables_are_refused():
     raw = sqlite3.connect(":memory:")
     raw.execute("CREATE TABLE capture (x)")  # tables exist, no version stamp

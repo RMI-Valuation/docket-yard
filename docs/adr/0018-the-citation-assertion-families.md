@@ -408,3 +408,34 @@ production restore, applying the rule below to finder 2026-09-13b's output:
   answerable, dated by the successor's `asserted_at`; the reading, not `key_version`, says the rule
   shaped a key (items 4 and 5).
 - **Queries 1, 4 and 5** read no citation table.
+
+## Addendum (2026-09-15): the veto's trigger
+
+**Status: Proposed (2026-09-15).** Pays migration 0014's owed item 7 and narrows decision 7's
+"a `suppress` row exists only once its false-veto rate is measured". The defaults are the
+operator's (2026-09-15); acceptance is his.
+
+1. **A triple binds in every ranking.** `(method, method_version, reading_channel)` declared
+   `role = 'suppress'` in any `rank_version` binds every `citation_resolution` row of that triple,
+   because a resolution carries no `rank_version`.
+2. **A bound row is measured on a rate.** It carries `confidence_state = 'measured'`, and the
+   measurement its own `score_row_id` names carries a non-NULL `false_veto_rate`. An unmeasured or
+   `human` row of the triple is refused.
+3. **A declaration is measured on its own channel.** A `suppress` declaration's measurement
+   carries `false_veto_rate` and was measured on the declaration's `reading_channel`. A recall
+   alone, or another channel's rate, is refused.
+4. **A measurement is never changed or removed; a re-score is a new row** (decision 8:
+   `class_measurement` is append-only). Every update or delete of a measurement is refused, and so
+   is an insert reusing a `measurement_id`, which would replace one. So a veto's rate cannot be
+   withdrawn or re-pointed after it was checked.
+5. **No declaration over rows that do not conform.** Declaring a triple `suppress`, by insert or
+   update, is refused while any of its rows, live or superseded, fails item 2.
+
+A triple once declared `suppress`, in any `rank_version`, or one that ever wrote a non-conforming
+row, is escaped only by a new `method_version`.
+
+Held by triggers (migration 0030). A store already holding a violation refuses the migration
+whole.
+
+**Validation queries.** No `suppress` row is declared today and the projection is untouched, so
+query 2's answer set is unchanged. Queries 1, 3, 4 and 5 read no row these triggers constrain.

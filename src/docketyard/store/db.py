@@ -14,6 +14,9 @@ from sqlite3 import connect as _connect
 
 from docketyard.store import display
 
+# CONTIGUOUS 1..N, IN ORDER, and `migrate` refuses anything else before applying a script. It
+# skips every version at or below the stamp, so a branch that registers 0032 ahead of 0030 and
+# 0031 would stamp a store at 32 and leave those two unapplied for ever.
 MIGRATIONS: list[tuple[int, str]] = [
     (1, "schema.sql"),
     (2, "0002_filings_decisions.sql"),
@@ -70,6 +73,10 @@ MIGRATIONS: list[tuple[int, str]] = [
     # MIGRATING, so it goes behind the wall; a key a person decided aborts it whole, and the
     # runbook's pre-check (`infra/deploy/0029-precheck.sql`) names that key first.
     (29, "0029_retire_retracted_readings.sql"),
+    # 0030 pays migration 0014's owed item 7: the veto's trigger (ADR 0018 D7). DRAFTED AGAINST
+    # A PROPOSED ADDENDUM (2026-09-15), and the gate is the deploy, as it was for 0023. Triggers
+    # only, on held tables; a store already holding a violation refuses it whole.
+    (30, "0030_veto_trigger.sql"),
 ]
 
 
@@ -102,6 +109,13 @@ def migrate(con: Connection, upto: int | None = None) -> int:
     build an older store). Foreign-key enforcement is OFF while a script runs — SQLite's
     documented rebuild procedure: with it on, `DROP TABLE` of a parent cascades into its
     children and silently empties them — and `foreign_key_check` must be clean after."""
+    versions = [version for version, _ in MIGRATIONS]
+    if versions != list(range(1, len(versions) + 1)):
+        raise RuntimeError(
+            f"MIGRATIONS must be numbered contiguously 1..N in order, and is {versions}: a"
+            " version registered past a gap stamps the store beyond it, and the gap is then"
+            " skipped for ever. Nothing was applied."
+        )
     applied = con.execute("PRAGMA user_version").fetchone()[0]
     if applied == 0:
         tables = con.execute("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'")
