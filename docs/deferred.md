@@ -1634,9 +1634,28 @@ later 14,548, other 40. Script: session scratchpad `measure_decided.py`.
   first: a decided-date extraction pass, then the pick, a disagreement queue, and ADR 0018 D4 (which says
   `decided` stays at docket level) revisited. Schema-critic and a decision; 259 of 200,000 pages print
   the phrase (§ 2026-09-05 above).
-- **ADR 0024 Owed 2, the per-page failure record**: the `note` half shipped 2026-09-10. Today a failure
-  is a count (`ocr_run.pages_failed`); the reasons exist only in the coordinator's `job.error`
-  (134 final dots pages, 98 documents: `finish_reason length` and `oversize`). Needs a table under
-  `ocr_run` keyed by page, a reason vocabulary, a loader cross-check against `pages_failed`, both
-  producers emitting it, and a dump decision — a finer grain, so schema-critic, and likely an addendum
-  (the shape is not decided; nor is whether the oversize refusal rides on it).
+- **ADR 0024 Owed 2, the per-page failure record's backlog**: the table, vocabulary, loader contract
+  and both producers were built 2026-09-15 (migration 0031; the addendum is Proposed). The 134 final
+  dots pages already collected (98 documents: `finish_reason length` and `oversize`) carry a count
+  only; they get a one-off sidecar load from the queue's `job.error` through
+  `ocr_wave.page_failure`, under the runs their reading documents wrote (the conditions are in the
+  next section).
+
+## From the schema critic on migration 0031, 2026-09-15 (branch `ocr-page-failure`, schema 31)
+
+- **A restart ignores a different failure list.** `load_reading` returns `restart` on the run's key
+  and `ran_at` before it reads the body, so a reading document re-posted with the same `ran_at` and
+  a corrected or newly added `page_failures` writes nothing and says nothing. The 134-failure sidecar
+  therefore cannot go through `text load`: it inserts directly, all of a run's rows or none, matched
+  on the queue's `collected.ran_at == ocr_run.ran_at` for the document and key, and only where the
+  run's `pages_failed` equals the number of failed jobs it would write.
+- **Earlier runs of re-read documents cannot be recovered.** `seed` deletes a re-read document's jobs,
+  errors included, so a run collected before the re-read has no reasons left to load.
+- **Nothing forbids changing a run under its failure rows.** The triggers check `ocr_run.outcome`
+  and `pages_failed` at INSERT of a failure row only; a later UPDATE of either leaves rows that no
+  longer fit. Nothing updates `ocr_run` today. A BEFORE UPDATE trigger on `ocr_run` refusing the
+  change while failure rows exist is the stronger form.
+- **`ocr_run.note` already publishes exception text into the CC0 snapshot.** `load._note` keeps a
+  producer's reason verbatim up to 500 characters — "the exception", in ADR 0024's own words — and
+  `ocr_run` is PUBLIC. That is the leak `ocr_page_failure.detail`'s closed shapes were built to
+  close: a path or a host in an exception reaches a snapshot that cannot be withdrawn.
