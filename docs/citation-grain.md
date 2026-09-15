@@ -404,3 +404,24 @@ not adopted and not refused. It would make the operator's `FD 00001` example rep
 stop a caption and a citation on one page contradicting each other, without touching a key. It
 recovers none of the 0.69%. If it is ever wanted, ADR 0026's § Foreclosed prices the rebuild it
 would want to share.
+
+## The forty judged items, re-measured 2026-09-15 under finder 2026-09-14b
+
+The operator's forty (`docs/research/citator/caption-check-labels.tsv`: 39 caption, 1 unclear) were
+measured with the shipped code on a mirror of production after the v2026.09.24 re-load, the question
+and predictions written first. Under finder 2026-09-11 the finder called 16 of the 39 `citation`.
+
+- **38 of the 39 read `caption`**: stored unmeasured, span test false, in no review queue, and no edge
+  from the decision to that key. The family closure (finder 2026-09-12) and the span-test kind
+  (2026-09-13b) moved them.
+- **1 reads `citation`**: decision 40658, `AB 1036`, page 1, span test true, in `citation_exposed`.
+  Its page prints the running caption `Docket No. AB 1036` AND an in-family citation of an earlier
+  decision, `AB 1036 (STB served July 10, 2009)`. The operator's verdict judged the caption
+  occurrence; the page-level span test is true on the other. **It is the same shape as the unclear
+  one**: decision 51260, `AB 1242`, page 1, prints `Docket No. AB 1242` and `Docket No. AB 1242,
+  (STB served Jan. 31, 2018)`, reads `citation` and is queued too.
+- **None of the forty projects an edge** from its decision to its key.
+
+So the rules now answer every item of the sample the operator could answer at one occurrence, and
+the two left in the queue are the two-uses-on-one-page case this brief describes. Answering them
+without a person is `citation_occurrence`'s question, still open above.

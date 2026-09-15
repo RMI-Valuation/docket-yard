@@ -20,8 +20,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **His 39 judged captions**: finder 2026-09-11 called 16 of them `citation`, so they stayed
-  queued; not yet re-measured under the family closure (live since v2026.09.18)
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
