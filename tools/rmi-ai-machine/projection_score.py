@@ -105,9 +105,11 @@ def spans(run: Path) -> dict[tuple[str, str], str]:
         for page in doc.get("pages", []):
             for fi in page.get("findings", []):
                 if fi.get("kind") == "citation" and fi.get("target_kind") == "stb":
-                    out.setdefault((doc["decision_id"], N(fi["target"])), []).append(
-                        fi.get("quoted", "")
-                    )
+                    # the finder's key in a finder run (own-fused rule, 2026-09-14b); a review run's
+                    # `target` is the model's answer, so it keeps being read (`benchmark_score`)
+                    finder = doc.get("model") == "regex-docket-cite"
+                    key = (finder and fi.get("key")) or N(fi["target"])
+                    out.setdefault((doc["decision_id"], key), []).append(fi.get("quoted", ""))
     return {k: " | ".join(v) for k, v in out.items()}
 
 

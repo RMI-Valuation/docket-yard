@@ -18,7 +18,12 @@ from docketyard.web.app import create_app
 
 STAMP = "2026-09-01T00:00:00+00:00"
 SHA = "d" * 64
-EXPOSED = {"page": 4, "target": "AB 1242", "quoted": "See AB 1242, slip op. at 3."}
+EXPOSED = {
+    "page": 4,
+    "key": "AB 1242",
+    "target": "AB 1242",
+    "quoted": "See AB 1242, slip op. at 3.",
+}
 
 
 class _Sender:

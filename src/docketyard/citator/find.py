@@ -33,7 +33,7 @@ total nobody can check.
 import re
 
 from docketyard.citator import judge
-from docketyard.citator.keys import SUBNO, docket_matches, docket_search, normalise
+from docketyard.citator.keys import SUBNO, docket_matches, docket_search, normalise, own_key
 
 # 2026-09-13b: the Board's long names are found (`keys.LONG_DOCKET`) — `STB Finance Docket No.
 # 34002` and `Ex Parte No. 711 (Sub-No. 1)` emitted nothing before — AND the kind of an
@@ -46,8 +46,14 @@ from docketyard.citator.keys import SUBNO, docket_matches, docket_search, normal
 # own occurrences anchor first and its family's only when those print no date — and the rules
 # carry that version (`resolve.RULE_1`/`RULE_2`). This version moves with them by the operator's
 # decision, dating the re-load. Measured 2026-09-14: one answer of 104,765 live readings changes.
-# The six-digit own-docket rule is NOT in this version.
-FINDER_VERSION = "2026-09-14"
+# The six-digit own-docket rule was not in that version.
+#
+# 2026-09-14b: THE OWN-FUSED RULE (ADR 0018 addendum of 2026-09-14, Accepted). A six-digit number
+# whose last digit stripped is the document's own docket keys as that docket (`keys.own_key`), and
+# the finding carries the key it was given (`key`), which `verify_spans` and `load` check against
+# the same rule. 346 text-layer findings in 331 documents on 2026-09-14. The rules move with it
+# (`resolve.RULE_1`), since the served-date window now anchors on either printed form.
+FINDER_VERSION = "2026-09-14b"
 
 # THE SPANS' OWN VERSION, and the reason it is not `FINDER_VERSION` (ADR 0026 D7). A character
 # offset IS a derived assertion — a claim about where in a text a string sits — and CLAUDE.md
@@ -205,6 +211,10 @@ def find(page_text: str, own: set[str]) -> list[dict]:
     One finding per (page, key), carrying EVERY occurrence's line joined with " | " — the
     separator `load` uses when it joins across findings, so the two agree.
 
+    `key` is that key, written on the finding (ADR 0018 addendum of 2026-09-14, item 2).
+    `target` is the first occurrence as printed, and under the own-fused rule the two differ —
+    `FD 340071` printed, `FD 34007` keyed — so no reader rebuilds the key from `target` alone.
+
     `spans` carries every occurrence as `[start, end, raw]` in the coordinates of the TEXT
     THIS CALL WAS HANDED (ADR 0026 D4). It is provenance and nothing else: `resolve._anchored`
     works in `quoted_passage` coordinates and does not read these. Three things about it are
@@ -229,7 +239,11 @@ def find(page_text: str, own: set[str]) -> list[dict]:
         # made `find` judge `own` and de-duplicate under one key while `load` stored another
         # — `load` normalises `target`, which is this raw — so the `kind` written against a
         # key could be the call made for a different target.
-        key = normalise(raw)
+        #
+        # AND THEN THE OWN-FUSED RULE (2026-09-14b), the one place a key departs from its printed
+        # number: `FD 340071` on a page of FD 34007 keys as FD 34007, so both printed forms fold
+        # into one finding (item 8) and the span test, not "not own", decides its kind
+        key = own_key(normalise(raw), own)
         if key is None:
             continue
         line = quoted(page_text, m.start(), end)
@@ -237,6 +251,7 @@ def find(page_text: str, own: set[str]) -> list[dict]:
 
         if key not in found:
             found[key] = {
+                "key": key,
                 "kind": "citation" if names_document else "caption",
                 "target": raw,
                 "quoted": line,
@@ -302,7 +317,16 @@ class Unanchored(ValueError):
     """
 
 
-def verify_spans(pages: list[tuple[int, str]], doc: dict) -> None:
+class Departed(Unanchored):
+    """A finding whose key is not what the own-fused rule makes of its printed numbers (ADR 0018
+    addendum of 2026-09-14, item 7): the finding's `key` against its target, or a span's printed
+    number against the finding's key. REFUSED, AND COUNTED APART FROM A FAULT (`citator load`): a
+    damaged or forged file could otherwise re-key another proceeding's number into a measured,
+    unexposed edge, while an honest file refused because `own` changed since `find` loads on the
+    next walk at the same version."""
+
+
+def verify_spans(pages: list[tuple[int, str]], doc: dict, own: set[str]) -> None:
     """Every span in `doc` slices to the `raw` it carries, against the pages it was read from.
 
     ADR 0026 D4's predicate, executed: `" ".join(text[start:end].split()) == raw`, never plain
@@ -314,6 +338,9 @@ def verify_spans(pages: list[tuple[int, str]], doc: dict) -> None:
     `EP 445` finding carrying a correct span over `FD 36873` would store another proceeding's
     printing as EP 445's location. `find` keys each finding by `normalise(raw)` and `load` by
     `normalise(target)`, so an honest span always agrees and a disagreeing one was not `find`'s.
+    SINCE 2026-09-14b "its own target" is the own-fused rule's for `own` (`keys.own_key`), so a page
+    printing both `FD 34007` and `FD 340071` verifies (item 8), and a finding or span the rule does
+    not put on the finding's key raises `Departed`.
 
     The page is coerced to int the way `load` coerces it: JSON may carry it as a string, and a
     string key would look up no text and report a misleading empty slice (Copilot, PR #26).
@@ -327,7 +354,13 @@ def verify_spans(pages: list[tuple[int, str]], doc: dict) -> None:
     for finding in doc.get("findings", []):
         page = int(finding["page"])
         text = body.get(page, "")
-        key = normalise(finding.get("target", ""))
+        key = own_key(normalise(finding.get("target", "")), own)
+        if finding.get("key") != key:
+            raise Departed(
+                f"{doc['document_sha256'][:12]} page {page}: the finding carries key"
+                f" {finding.get('key')!r}, but its target {finding.get('target')!r} keys as"
+                f" {key!r} for this document's own dockets"
+            )
         for start, end, raw in finding.get("spans") or []:
             # IN RANGE FIRST (Codex review on PR #26, 2026-09-12): Python clamps a slice, so
             # `[-6, 999]` over a page ending in "EP 445" slices to "EP 445" and would pass the
@@ -343,8 +376,8 @@ def verify_spans(pages: list[tuple[int, str]], doc: dict) -> None:
                     f"{doc['document_sha256'][:12]} page {page}:"
                     f" [{start}:{end}] slices to {text[start:end]!r}, not {raw!r}"
                 )
-            if normalise(raw) != key:
-                raise Unanchored(
+            if own_key(normalise(raw), own) != key:
+                raise Departed(
                     f"{doc['document_sha256'][:12]} page {page}: [{start}:{end}] is {raw!r},"
                     f" not the finding's target {key!r}"
                 )
@@ -429,9 +462,13 @@ def findings_document(
     # channel to this one. `source_location` keeps the page, which is true of both. A CHECK
     # cannot express this, `source_location` being unconstrained TEXT, so it is enforced at the
     # producer where it CAN be.
+    #
+    # IT KEEPS EACH OCCURRENCE'S PRINTED FORM, without the offsets (schema-critic, 2026-09-14): the
+    # own-fused rule folds `FD 34007` and `FD 340071` into one finding whose `target` is the first,
+    # and `load`'s record of the rule and its registry check must see the second as well.
     if text_ref != "store":
         for f in found:
-            f.pop("spans", None)
+            f["printed"] = [raw for _, _, raw in f.pop("spans", None) or []]
     return {
         "document_sha256": document_sha256,
         "method": "regex-docket-cite",

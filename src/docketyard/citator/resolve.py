@@ -39,8 +39,12 @@ RESOLVER = "registry-match"
 # change would be indistinguishable. `load` retires every older-version row onto the new one, and
 # the release waits for none to be left on a live key. No separator in the value, as the store's
 # other versioned tables refuse one. Until 2026-09-14 these were `rule-1` and `rule-2-repair`.
-RULE_1 = "rule-1-2026-09-14"
-RULE_2 = "rule-2-repair-2026-09-14"
+#
+# 2026-09-14b (ADR 0018 addendum of 2026-09-14, item 9): the window anchors on the finding's KEY
+# under the own-fused rule, so `FD 340071` printed on a page of FD 34007 anchors FD 34007's window
+# as `FD 34007` does. That changes what the window hands a row, so the rules take a new version.
+RULE_1 = "rule-1-2026-09-14b"
+RULE_2 = "rule-2-repair-2026-09-14b"
 
 # The exposure test is a DISTINCT RULE with its own definition and its own history — ADR 0017
 # reconsidered its membership between 3, 5 and 14 before settling on 3 — so it carries its own
@@ -166,7 +170,14 @@ def _stripped(key: str) -> str | None:
     return key[:-1]
 
 
-def _anchored(passage: str, printed: str, *, family: bool = True) -> str:
+def _anchored(
+    passage: str,
+    printed: str,
+    *,
+    key: str | None = None,
+    own: frozenset[str] | set[str] = frozenset(),
+    family: bool = True,
+) -> str:
     """The parts of the passage that belong to THIS target: from the end of each of its
     printed occurrences to the next docket-shaped number, or the end of that line.
 
@@ -212,14 +223,20 @@ def _anchored(passage: str, printed: str, *, family: bool = True) -> str:
     finder and the rank versioned it; neither is written on a resolution row, so a changed answer
     and an unchanged one read alike (Codex on PR #32, 2026-09-14). Any change to what the window
     hands a row is a rule version, a re-scored card and a re-load that leaves no older row live.
+
+    AND THE KEY IS THE FINDING'S, under the own-fused rule (ADR 0018 addendum of 2026-09-14, item
+    9). `key` is what `load` stored and `own` the document's family; each docket number on the line
+    is keyed through `keys.own_key`, so `FD 340071` anchors FD 34007 on a page of FD 34007, where
+    it is that docket with a footnote marker. With no `key`, the printed form's own key is used,
+    which is the rule's answer whenever `own` is empty.
     """
     out = []
     if not printed:
         return ""
-    key = keys.normalise(printed)
+    key = keys.normalise(printed) if key is None else key
     for raw in passage.split(" | "):
         line = " ".join(raw.split())
-        for end in _occurrence_ends(line, printed, key, family):
+        for end in _occurrence_ends(line, printed, key, family, own):
             stops = [len(line)]
             if following := keys.docket_search(line, end):
                 stops.append(following.start())
@@ -229,17 +246,23 @@ def _anchored(passage: str, printed: str, *, family: bool = True) -> str:
     return " | ".join(out)
 
 
-def _occurrence_ends(line: str, printed: str, key: str | None, family: bool) -> list[int]:
+def _occurrence_ends(
+    line: str,
+    printed: str,
+    key: str | None,
+    family: bool,
+    own: frozenset[str] | set[str] = frozenset(),
+) -> list[int]:
     """Where each occurrence of the target ends on the line: every docket number keying as
-    `key`, and with `family` also as one of its own sub-docket or suffixed forms (above), to the
-    end the finder gives it, or, when `printed` keys as nothing, every place the spelling
-    itself stands alone."""
+    `key` under the own-fused rule for `own`, and with `family` also as one of its own sub-docket
+    or suffixed forms (above), to the end the finder gives it, or, when `printed` keys as nothing,
+    every place the spelling itself stands alone."""
     if key is None:
         target = re.compile(r"(?<![A-Za-z0-9])" + re.escape(printed) + r"(?!\d)")
         return [m.end() for m in target.finditer(line)]
     ends = []
     for m in keys.docket_matches(line):
-        found = keys.normalise(find.printed(line, m)) or ""
+        found = keys.own_key(keys.normalise(find.printed(line, m)), own) or ""
         if found == key or (family and found.startswith(key + " (")):
             ends.append(find._target_end(line, m))
     return ends
@@ -264,6 +287,7 @@ def resolve(
     works: dict[tuple[int, str], str],
     passage: str,
     printed: str,
+    own: frozenset[str] | set[str],
 ) -> Resolution:
     """Rule 1, then rule 2, the exposure flag on what rule 1 resolved, and the work.
 
@@ -277,11 +301,15 @@ def resolve(
     served date is anchored to. Both are REQUIRED rather than defaulted: a default would
     silently resolve every target to the docket, and `cited_decision_id` being NULL on every
     row is the state these arguments exist to end.
+
+    `own` is the citing document's family, which the anchor's own-fused rule reads (`_anchored`);
+    `load` passes the set it checked the findings against. REQUIRED for the same reason (ingest
+    specialist, 2026-09-14): a caller that forgot it would lose the fused anchor silently.
     """
     # the target's own occurrences first; its family's only when they print no service date
-    segment = _anchored(passage, printed, family=False)
+    segment = _anchored(passage, printed, key=key, own=own, family=False)
     if served_date(segment) is None:
-        segment = _anchored(passage, printed)
+        segment = _anchored(passage, printed, key=key, own=own)
     bare = keys.BARE_KEY.match(key)
     digits = len(bare.group(1)) if bare else 0
     docket_id = held.get(key)

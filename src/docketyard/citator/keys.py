@@ -181,6 +181,30 @@ def normalise(raw: str) -> str | None:
     return key + _sub_key(None, m.group(3))
 
 
+# THE OWN-FUSED RULE (ADR 0018 addendum of 2026-09-14, Accepted). The Board prints a footnote
+# marker straight after a docket number and the text layer fuses the two: `STB Finance Docket No.
+# 340071` in a decision filed in FD 34007. Measured that day: 346 text-layer findings in 331
+# documents, each a six-digit number no held docket carries, stored `unresolved` although it
+# names the document's own proceeding. ONE FUNCTION HOLDS THE RULE (item 6), and `find`, the span
+# check, `load` and the resolver's anchor all call it, so the key a finding carries and the key
+# every checker expects cannot drift apart. It reads `own`, which is record data, and never the
+# registry (ADR 0017 D2): whether the six-digit number is itself a held docket is `load`'s check
+# (item 3). `KEY_VERSION` does not move (item 5) — `normalise` is unchanged, and the reading
+# records that the rule shaped its key (`load`, `key_rule`).
+OWN_FUSED = "own-fused"
+
+
+def own_key(key: str | None, own: frozenset[str] | set[str]) -> str | None:
+    """`key` as the document's own docket when it is a bare six-digit number, not itself own,
+    whose last digit stripped is own; otherwise `key` unchanged, and None stays None."""
+    if key is None or key in own:
+        return key
+    bare = BARE_KEY.match(key)
+    if bare is None or len(bare.group(1)) != 6:
+        return key
+    return key[:-1] if key[:-1] in own else key
+
+
 def _sub_key(sub_sequence: int | None, suffix: str | None) -> str:
     """The parenthetical, from the two things a sub-docket is: a number and a suffix.
 

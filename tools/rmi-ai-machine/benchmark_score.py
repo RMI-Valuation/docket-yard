@@ -264,7 +264,14 @@ def run_findings(run_dir: Path, texts: dict | None = None) -> tuple:
                 if kind == "deadline" and tk in ("period", "indefinite"):
                     sentences[did][tk].add(norm_target(fi.get("quoted", "")))
                     continue
-                out[did][kind][tk].update(norm_targets(fi.get("target", "")))
+                # THE FINDER'S OWN KEY, in a finder run only: under the own-fused rule (2026-09-14b)
+                # `FD 340071` printed is keyed FD 34007, which the printed target cannot say. In a
+                # `benchmark_review` run `target` is the MODEL'S answer and `key` the finder's, so
+                # reading `key` there would score the finder as the model (code review, 2026-09-14)
+                finder_key = doc.get("model") == "regex-docket-cite" and fi.get("key")
+                out[did][kind][tk].update(
+                    {finder_key} if finder_key else norm_targets(fi.get("target", ""))
+                )
     return out, sentences, report
 
 

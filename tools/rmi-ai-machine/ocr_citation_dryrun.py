@@ -221,7 +221,8 @@ def python_chain(docs: list[dict], T: dict, registry: Path) -> dict:
     quoted: dict[tuple[str, str], list[str]] = defaultdict(list)
     for doc in docs:
         for f in doc["findings"]:
-            key = bs.norm_target(f["target"])
+            # the finding's key, which the own-fused rule can set apart from its printed target
+            key = f.get("key") or bs.norm_target(f["target"])
             if f["kind"] == "citation" and bs.DOCKET_KEY.match(key):
                 R[doc["document_sha256"]].add(key)
                 quoted[(doc["document_sha256"], key)].append(f["quoted"])

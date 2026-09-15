@@ -87,7 +87,8 @@ def _load(con, stamps, *findings):
             "reading_channel": methods.CHANNEL_TEXT,
             "text_ref": "benchmark",
             "pages_read": 9,
-            "findings": list(findings),
+            # every finding carries its key, as `find` writes it (ADR 0018 addendum of 2026-09-14)
+            "findings": [{"key": keys.normalise(f.get("target", "")), **f} for f in findings],
         },
         keys.registry(con),
         keys.works(con),
@@ -95,8 +96,13 @@ def _load(con, stamps, *findings):
     )
 
 
-EXPOSED = {"page": 4, "target": "AB 1242", "quoted": "See AB 1242, slip op. at 3."}
-CLEAN = {"page": 5, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}
+EXPOSED = {
+    "page": 4,
+    "key": "AB 1242",
+    "target": "AB 1242",
+    "quoted": "See AB 1242, slip op. at 3.",
+}
+CLEAN = {"page": 5, "key": "EP 445", "target": "EP 445", "quoted": "See EP 445, slip op. at 3."}
 
 
 def test_an_exposed_edge_does_not_reach_a_page_until_a_human_has_answered(tmp_path):

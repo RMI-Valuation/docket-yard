@@ -797,6 +797,92 @@ Every figure matches the rehearsal:
 **The gate reads 0**, and the one edge identity that changed is the decided one: decision 41393's
 `FD 34554` names 35093.
 
+### The own-fused re-load (finder 2026-09-14b, rank v7)
+
+A bare six-digit number whose last digit stripped is the document's own docket keys as that docket
+(ADR 0018 addendum of 2026-09-14): `STB Finance Docket No. 340071` in a decision filed in FD 34007 is
+FD 34007, with `cited_raw` as printed. The finding carries its key, `load` checks it against the
+family it rebuilds from the record, and the reading records `key_rule` (the rule, the six-digit keys
+it re-keyed, the family it was checked against). The rules move to `rule-1-2026-09-14b` and
+`rule-2-repair-2026-09-14b`, ranked under v7, since the served-date window now anchors on either
+printed form. No migration, no wall.
+
+**The cards are declared before the load (item 10).** A work card measured on an older rule is not
+read, so a load before the declaration would publish work-level answers at docket level. The order,
+between two forward passes, with the UTC time before the first `declare` noted as the restore point:
+
+    docker compose run --rm --no-deps ingest citator declare \
+        --scores /data/citator-card-2026-09-14b.json </dev/null
+    docker compose run --rm --no-deps ingest citator declare \
+        --scores /data/citator-card-ocr-2026-09-14b.json </dev/null
+    docker compose run --rm --no-deps ingest citator find /data/citation-findings-2026-09-14b </dev/null
+    docker compose run --rm --no-deps ingest citator load \
+        /data/citation-findings-2026-09-14b/text-layer </dev/null
+    docker compose run --rm --no-deps ingest citator load \
+        /data/citation-findings-2026-09-14b/ocr </dev/null
+    docker compose run --rm --no-deps ingest citator restamp --apply </dev/null
+    docker compose run --rm --no-deps ingest citator restamp --channel ocr --apply </dev/null
+
+**What `load` refuses, and what each count means.** Neither refusal writes anything, and both exit 3:
+
+- `refused_fused_held` names every document whose re-keyed six-digit number is a held docket (item
+  3). It **never clears on a later walk**, since the finder cannot see the registry: the names go to
+  the operator.
+- `refused_departed` counts a finding whose key the rule does not give for the family `load` reads:
+  a damaged file, or a family that changed between `find` and `load`. Waves 2-3 still add dockets,
+  so a gap between the two verbs can raise it; `find` and `load` again clears the second kind.
+
+**The gates:** no live `registry-match` resolution at an older rule on a key with a live citation;
+no resolution that named a document before names none after; and both drift queries read 0 (item 4):
+
+- a reading whose `key_rule.own` is not its document's current family (`walk.own_by_document`);
+- a key with a live citation and a live `unresolved` resolution that `keys.own_key` would now
+  re-key for its document's current family.
+
+**The cards, built with the branch's finder:**
+
+- Text layer (`citation_dryrun.py` on `data/prod-copy.sqlite`, the 2026-09-14 work block): truth 226,
+  citation 223/227 (230 under v6: three fused numbers now fold into their own docket's finding),
+  resolution 217/221, projection 217/221, work 140/140. The two chains agree.
+- OCR (`ocr_citation_dryrun.py` on `data/rehearse-long-forms.sqlite`, `--findings <out>/ocr` from
+  `citator find` on the restore): truth 57, 36/59, 36/43, 36/43, unchanged; 98 of 98 documents
+  identical to the finder's output on the restore.
+
+`citator find` on a restore taken 23:51 UTC after the v6 re-load: 19,944 text-layer and 1,022 OCR
+readings, **104,588 findings** (104,765 under v6: the 177 pages printing both forms fold into one).
+
+**Rehearsed 2026-09-14** inside v2026.09.23's image, on that restore in a Docker volume, the before
+figures from an untouched copy at v6 (the questions and predictions written before the run):
+
+- `find` 11 s: 104,588 findings;
+- text-layer `load` 72 s (47 s under v6; the difference is `walk.own_of` per document): 0 failed,
+  0 `refused_departed`, 0 `refused_fused_held`, **retracted 346, readings retired 346**, `work_gained`
+  0, `work_lost` 0;
+- OCR `load` 3 s: 0 failed, 0 refused of any kind;
+- `restamp`: 0 rows on either channel.
+
+| | Before (v6) | After (v7) |
+|---|---|---|
+| Rows from `project.projected` | 26,205 | 26,205 |
+| Edges, text layer / OCR | 22,547 / 332 | 22,547 / 332 |
+| Exposed / repaired / unresolved queues | 438 / 2 / 900 | 438 / 2 / 900 |
+| Edge identities removed / added | — | 0 / 0 |
+| Readings the rule shaped (`key_rule`); of them `kind` citation | 0 | 346; 61 |
+| Retracted six-digit keys pointing at the own key | — | 346 |
+| Live keys whose cited document changed; named before and none after | — | 0; 0 |
+| **Older-rule rows on live keys (the gate)** | 104,765 | **0** |
+| **Drift 1 / drift 2** | 0 / 336 | **0 / 0** |
+| Human resolutions; pages read on two machine channels | 0; 0 | 0; 0 |
+
+Live resolutions after: `rule-1-2026-09-14b` 104,586, `rule-2-repair-2026-09-14b` 2, and on retracted
+keys `rule-1-2026-09-14` 346 and `rule-1` 897. **Six of the 903 `rule-1` rows moved**: `FD 35087` on
+page 1 of six documents that print `FD 350871`, a key v2026.09.15 retracted; the rule re-keys it, the
+key is live again, and its old resolution retires onto the new row. Drift 2 counts (document, key)
+pairs, so the 346 findings read 336 before. `declare` reports 93 live rows naming a document at the
+docket figure both before and after: the state production already holds, which this load leaves.
+
+**Query 2's owed counts are 0:** no own-key citation's document changed, and none was lost.
+
 ### Verifying, and going back
 
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null

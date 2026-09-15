@@ -43,7 +43,11 @@ CHANNEL_OCR = "ocr"
 # before its family's, so both rules take a new version (`resolve.RULE_1`/`RULE_2`) and are ranked
 # here under them; `find.FINDER_VERSION` moved to 2026-09-14 with it (the operator's decision),
 # though the finder emits exactly what it did. v5 stays on record with every edge it stamped.
-RANK_VERSION = "v6"
+#
+# v7 (2026-09-14b): the own-fused rule (ADR 0018 addendum of 2026-09-14) — `find.FINDER_VERSION`
+# moved to 2026-09-14b and the rules to `rule-*-2026-09-14b`, since the window anchors on either
+# printed form of an own key. v6 stays on record with every edge it stamped.
+RANK_VERSION = "v7"
 # A human is a method, a channel and a version like any other — `reading_vocab` carries
 # 'human' for exactly this reason (ADR 0018 D3: the channel is in every key, so a human row
 # must carry something legal).
