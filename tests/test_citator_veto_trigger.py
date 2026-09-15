@@ -367,6 +367,19 @@ def test_the_guard_names_both_kinds_of_violation_and_refuses_the_migration_whole
     raw.close()
 
 
+def test_the_guard_skips_what_the_trigger_skips_and_neither_shape_is_writable(tmp_path):
+    """The guard gates on `score_row_id` and the stage exactly as
+    `assertion_method_veto_is_measured_on_its_own_channel` does (code review, 2026-09-15), or it
+    would abort the migration over a declaration the migration then permits. Neither shape can be
+    in a store anyway: 0014's CHECKs refuse a `suppress` row without a resolution measurement."""
+    con = _seed(db.connect(tmp_path / "s.sqlite", upto=29))
+    with pytest.raises(sqlite3.IntegrityError, match="constraint failed"):
+        _declare(con, None)  # a suppress row naming no measurement
+    with pytest.raises(sqlite3.IntegrityError, match="constraint failed"):
+        _declare(con, _recall(con), measured_target="citation")  # or another stage's
+    assert con.execute(PRECHECK.read_text(encoding="utf-8")).fetchall() == []
+
+
 def test_the_precheck_is_empty_on_a_store_that_breaks_nothing(tmp_path):
     con = _store(tmp_path)
     rate = _measurement(con)

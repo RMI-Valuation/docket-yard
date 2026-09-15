@@ -11,6 +11,7 @@ SELECT what, id
 SELECT 'declaration' AS what, a.method_row_id AS id
   FROM assertion_method a
  WHERE a.target_table = 'citation_resolution' AND a.role = 'suppress'
+   AND a.score_row_id IS NOT NULL AND a.measured_target = 'citation_resolution'
    AND NOT EXISTS (SELECT 1 FROM class_measurement m
                     WHERE m.measurement_id = a.score_row_id
                       AND m.measured_target = 'citation_resolution'

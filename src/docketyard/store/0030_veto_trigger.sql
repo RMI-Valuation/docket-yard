@@ -28,7 +28,10 @@
 --
 -- A NULL `score_row_id` or another stage's measurement on a declaration is left to 0014's CHECKs,
 -- which hold whatever `PRAGMA foreign_keys` says; the triggers below gate on the stage so those
--- CHECKs stay the refusal a test can name.
+-- CHECKs stay the refusal a test can name. THE GUARD GATES THE SAME WAY, or it would abort the
+-- migration over a row this migration does not go on to enforce (code review, 2026-09-15). Neither
+-- shape can be in a store to begin with: 0014's CHECKs make a `suppress` row without a
+-- `citation_resolution` measurement unwritable, at every schema from 14 on.
 --
 -- NOTHING DECLARES A VETO TODAY, and nothing updates, deletes or replaces a measurement (the
 -- repository searched 2026-09-15). The guard below proves the first rather than assuming it: a
@@ -75,6 +78,7 @@ INSERT INTO m0030_violation
 SELECT 'declaration', a.method_row_id
   FROM assertion_method a
  WHERE a.target_table = 'citation_resolution' AND a.role = 'suppress'
+   AND a.score_row_id IS NOT NULL AND a.measured_target = 'citation_resolution'
    AND NOT EXISTS (SELECT 1 FROM class_measurement m
                     WHERE m.measurement_id = a.score_row_id
                       AND m.measured_target = 'citation_resolution'
