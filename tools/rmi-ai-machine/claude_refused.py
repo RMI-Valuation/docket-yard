@@ -14,11 +14,14 @@ it ran (docs/research/ocr-benchmark/README.md), with the ground-truth caveat rec
     uv run --no-project --with anthropic python claude_refused.py collect --renders R \\
         --state state.json --out OCR_ROOT
 
-THE RENDER IS THE KEY (ADR 0023), and one profile names one rule: every page at 200 DPI, the
-degraded tier's render, EXCEPT that a page whose long edge would pass the model's 2,576-pixel
-limit is rendered at the DPI that makes it exactly that — the API would otherwise downscale it
-out of sight. `200-max2576` says so; the DPI and pixels each page actually got are kept whole in
-the engine payload, so a reader can tell a letter page from a shrunk plan sheet.
+THE RENDER IS THE KEY (ADR 0023), and one profile names one rule: every page in GREYSCALE at 200
+DPI, the degraded tier's render, EXCEPT that a page whose long edge would pass the model's
+2,576-pixel limit is rendered at the DPI that makes it exactly that — the API would otherwise
+downscale it out of sight. `200-max2576-grey` says so; the DPI and pixels each page actually got
+are kept whole in the engine payload, so a reader can tell a letter page from a shrunk plan sheet.
+Greyscale because the benchmark's 10.5% degraded-tier figure is its greyscale run, and because
+the colour renders broke two API limits (268.9 MB of base64 against a batch's 256 MB; 12 pages
+past 10 MB). Grey: 118.1 MB, largest page 4.03 MB — sent as batches under BATCH_BUDGET each.
 
 A PAGE THAT DID NOT READ IS A FAILURE, NEVER A BLANK. A result that errored, expired or was
 cancelled, or a message that stopped for any reason but `end_turn` (a cut answer, a refusal), is
@@ -45,7 +48,16 @@ from ocr_wave import _write, now, reading_document, route_of, shard  # noqa: E40
 MODEL = "claude-sonnet-5"
 BASE_DPI = 200
 MAX_EDGE = 2576
-RENDER_PROFILE = f"{BASE_DPI}-max{MAX_EDGE}"
+# GREYSCALE, and it is in the key: the benchmark's 10.5% degraded-tier figure the operator approved
+# this run on is the greyscale variant (colour was 11.9%), and a colour render of these 134 pages
+# came to 268.9 MB of base64 — over the Batches API's 256 MB, with 12 pages over 5 MB each.
+RENDER_PROFILE = f"{BASE_DPI}-max{MAX_EDGE}-grey"
+# The API's per-image bound on the Claude API directly: 10 MB of base64 (the vision docs, "Request
+# limits"; 5 MB is Bedrock's and Google Cloud's). A page over it is never sent and is counted failed
+# by `reading_documents` (no result), with its size recorded in the state file.
+MAX_IMAGE_B64 = 10_000_000
+# One batch request's budget in base64 bytes, well under the Batches API's 256 MB per batch.
+BATCH_BUDGET = 100_000_000
 MAX_TOKENS = 16000
 ROOT = "claude-refused"
 PAYLOAD_KIND = "claude.json"
@@ -72,6 +84,36 @@ def render_dpi(width_pt: float, height_pt: float) -> float:
     """200, or the lower DPI at which the page's long edge is exactly MAX_EDGE pixels."""
     long_pt = max(width_pt, height_pt)
     return min(float(BASE_DPI), MAX_EDGE * 72.0 / long_pt)
+
+
+def b64_len(n_bytes: int) -> int:
+    return -(-n_bytes // 3) * 4
+
+
+def plan_batches(sizes: dict[str, int], budget: int = BATCH_BUDGET, cap: int = MAX_IMAGE_B64):
+    """(batches, too_large): request ids grouped in order so each group's base64 stays within
+    `budget`, and the ids whose own base64 exceeds `cap`, which are never sent."""
+    batches: list[list[str]] = []
+    too_large = sorted(cid for cid, n in sizes.items() if n > cap)
+    current: list[str] = []
+    used = 0
+    for cid in sorted(sizes):
+        if sizes[cid] > cap:
+            continue
+        if current and used + sizes[cid] > budget:
+            batches.append(current)
+            current, used = [], 0
+        current.append(cid)
+        used += sizes[cid]
+    if current:
+        batches.append(current)
+    return batches, too_large
+
+
+def unsent(state: dict) -> list[list[str]]:
+    """The planned groups that hold no batch id yet: batches are created in plan order, so the
+    first `len(batch_ids)` groups are the submitted ones."""
+    return state["groups"][len(state["batch_ids"]) :]
 
 
 def custom_id(i: int) -> str:
@@ -180,10 +222,10 @@ def cmd_render(args) -> int:
             dpi = render_dpi(page.rect.width, page.rect.height)
             # a matrix, not `dpi=`: the capped DPI is fractional, and pymupdf's `dpi` is an int
             zoom = dpi / 72.0
-            pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+            pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=fitz.csGRAY)
             if max(pix.width, pix.height) > MAX_EDGE:  # rounding up by a pixel: shrink once more
                 zoom *= MAX_EDGE / max(pix.width, pix.height)
-                pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+                pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=fitz.csGRAY)
                 dpi = zoom * 72.0
             pix.save(args.out / f"{sha}_p{no}.png")
             manifest[f"{sha}:{no}"] = {
@@ -212,31 +254,58 @@ def _client():
 
 def cmd_submit(args) -> int:
     manifest = json.loads((args.renders / "manifest.json").read_text(encoding="utf-8"))
-    if args.state.exists():
-        raise SystemExit(f"{args.state} exists: this pass was already submitted")
     pages = sorted(manifest)
     ids = {
         custom_id(i): {"sha": k.split(":")[0], "page_no": int(k.split(":")[1])}
         for i, k in enumerate(pages)
     }
-    print(f"{len(ids)} requests to {MODEL}, render {RENDER_PROFILE}, max_tokens {MAX_TOKENS}")
+
+    def png(cid: str) -> Path:
+        return args.renders / f"{ids[cid]['sha']}_p{ids[cid]['page_no']}.png"
+
+    sizes = {cid: b64_len(png(cid).stat().st_size) for cid in ids}
+    batches, too_large = plan_batches(sizes)
+    print(
+        f"{len(ids)} pages to {MODEL}, render {RENDER_PROFILE}, max_tokens {MAX_TOKENS}:"
+        f" {len(batches)} batches, {len(too_large)} over {MAX_IMAGE_B64} bytes of base64 (not sent)"
+    )
     if not args.confirm_spend:
         print("not submitted: pass --confirm-spend (a paid run)")
         return 0
+    plan = {
+        "ids": ids,
+        "groups": batches,
+        "model": MODEL,
+        "render_profile": RENDER_PROFILE,
+        "too_large": {cid: sizes[cid] for cid in too_large},
+    }
+    if args.state.exists():
+        # A RESUME, never a re-send: the groups already holding a batch id are not sent again,
+        # and a state file planned from other renders is refused rather than mixed with them
+        state = json.loads(args.state.read_text(encoding="utf-8"))
+        if {k: state.get(k) for k in plan} != plan:
+            raise SystemExit(f"{args.state} was planned from other renders; not resuming")
+    else:
+        # written BEFORE any batch, so the plan and the pages never sent are on record even if
+        # nothing is sent (every page over the cap) or the first create fails
+        state = {**plan, "batch_ids": [], "submitted_at": now()}
+        args.state.write_text(json.dumps(state, indent=1), encoding="utf-8")
+    todo = unsent(state)
+    if not todo:
+        print(f"all {len(state['batch_ids'])} batches already submitted; state in {args.state}")
+        return 0
     client = _client()
-    requests = [
-        {
-            "custom_id": cid,
-            "params": request_params(
-                (args.renders / f"{p['sha']}_p{p['page_no']}.png").read_bytes()
-            ),
-        }
-        for cid, p in ids.items()
-    ]
-    batch = client.messages.batches.create(requests=requests)
-    state = {"batch_id": batch.id, "submitted_at": now(), "ids": ids, "model": MODEL}
-    args.state.write_text(json.dumps(state, indent=1), encoding="utf-8")
-    print(f"batch {batch.id} submitted; state in {args.state}")
+    for group in todo:
+        requests = [
+            {"custom_id": cid, "params": request_params(png(cid).read_bytes())} for cid in group
+        ]
+        batch = client.messages.batches.create(requests=requests)
+        state["batch_ids"].append(batch.id)
+        # written after EVERY batch: a failure between two batches leaves the ones that exist on
+        # record, and a rerun sends only the groups after them
+        args.state.write_text(json.dumps(state, indent=1), encoding="utf-8")
+        print(f"batch {batch.id}: {len(group)} pages", flush=True)
+    print(f"{len(state['batch_ids'])} batches submitted; state in {args.state}")
     return 0
 
 
@@ -245,17 +314,24 @@ def cmd_collect(args) -> int:
     manifest = json.loads((args.renders / "manifest.json").read_text(encoding="utf-8"))
     client = _client()
     while True:
-        batch = client.messages.batches.retrieve(state["batch_id"])
-        if batch.processing_status == "ended":
+        open_ = [
+            b
+            for b in (client.messages.batches.retrieve(i) for i in state["batch_ids"])
+            if b.processing_status != "ended"
+        ]
+        if not open_:
             break
-        print(f"{batch.processing_status}: {batch.request_counts}", flush=True)
+        print(f"{len(open_)} batches not ended: {[b.request_counts for b in open_]}", flush=True)
         time.sleep(args.poll)
-    results = [r.model_dump(mode="json") for r in client.messages.batches.results(batch.id)]
+    results = []
+    for batch_id in state["batch_ids"]:
+        got = [r.model_dump(mode="json") for r in client.messages.batches.results(batch_id)]
+        (args.state.parent / f"{batch_id}.results.json").write_text(
+            json.dumps(got), encoding="utf-8"
+        )
+        results += got
     state["ended_at"] = state.get("ended_at") or now()
     args.state.write_text(json.dumps(state, indent=1), encoding="utf-8")
-    (args.state.parent / f"{batch.id}.results.json").write_text(
-        json.dumps(results), encoding="utf-8"
-    )
     docs = reading_documents(manifest, state, results)
     usage = {"input_tokens": 0, "output_tokens": 0}
     for r in results:
@@ -267,7 +343,8 @@ def cmd_collect(args) -> int:
     _write(
         args.out / ROOT / "_manifest.json",
         {
-            "batch_id": batch.id,
+            "batch_ids": state["batch_ids"],
+            "too_large": state.get("too_large", {}),
             "model": MODEL,
             "render_profile": RENDER_PROFILE,
             "documents": len(docs),
