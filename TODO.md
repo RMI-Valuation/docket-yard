@@ -22,11 +22,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 - **His 39 judged captions**: finder 2026-09-11 called 16 of them `citation`, so they stayed
   queued; not yet re-measured under the family closure (live since v2026.09.18)
-- **The own-fused rule** (346 findings; ADR 0018 addendum of 2026-09-14, Accepted): BUILT on branch
-  `six-digit-own-docket` (finder 2026-09-14b, rules -2026-09-14b, rank v7; three reviews folded in,
-  867 tests). Cards: text 223/227, 217/221, 217/221, work 140/140; OCR 36/59, 36/43, 36/43. REHEARSED
-  in production's image: edges unchanged, 346 re-keyed, 0 refused, 0 documents lost, gate and drift 0.
-  Next: PR, bot reviews, his go, release, re-load per runbook § The own-fused re-load
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion

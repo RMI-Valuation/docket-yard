@@ -883,6 +883,37 @@ docket figure both before and after: the state production already holds, which t
 
 **Query 2's owed counts are 0:** no own-key citation's document changed, and none was lost.
 
+**RUN 2026-09-15 with v2026.09.24**, deployed 11:58:59–11:59:15 UTC with no wall (`.env.bak-v2026.09.23`
+on the box), right after a forward pass; the cards copied to `/data` and their hashes checked first. The
+chain ran as one detached script:
+
+- the before snapshot, read-only from `web` under v6, at 11:59:52;
+- **restore point 12:01:07**, the first `declare`; the OCR card at 12:01:09;
+- `find` at 12:01:10: 19,944 text-layer and 1,022 OCR readings, 104,588 findings;
+- text-layer `load` at 12:01:48, 4 m 52 s on the box: 0 failed, 0 refused of any kind, retracted 346,
+  readings retired 346, `work_gained` 0, `work_lost` 0;
+- OCR `load` at 12:06:40: 0 failed, 0 refused;
+- `restamp --apply` on both channels at 12:06:51 and 12:06:53: 0 rows;
+- the after snapshot at 12:06:55, done 12:08:12.
+
+Every figure matches the rehearsal:
+
+| | Before (v6) | After (v7) |
+|---|---|---|
+| Rows from `project.projected` | 26,205 | 26,205 |
+| Edges, text layer / OCR | 22,547 / 332 | 22,547 / 332 |
+| Exposed / repaired / unresolved queues | 438 / 2 / 900 | 438 / 2 / 900 |
+| Edge identities removed / added | — | 0 / 0 |
+| Readings the rule shaped (`key_rule`) | — | 346 |
+| Live keys whose cited document changed; lost | — | 0; 0 |
+| **Older-rule rows on live keys (the gate)** | — | **0** |
+| **Drift 1 / drift 2** | — / 336 | **0 / 0** |
+| Retirement rows | 903 | 1,249 |
+| Human resolutions; pages read on two machine channels | 0 | 0; 0 |
+
+Live resolutions after: `rule-1-2026-09-14b` 104,586 and `rule-2-repair-2026-09-14b` 2; on retracted
+keys `rule-1-2026-09-14` 346 and `rule-1` 897, as rehearsed.
+
 ### Verifying, and going back
 
     docker compose run --rm --no-deps ingest citator cited-by --docket <id> </dev/null
