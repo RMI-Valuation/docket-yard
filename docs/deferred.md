@@ -1521,3 +1521,74 @@ is the model's answer. **How the build reads the addendum**, for the operator to
 - **`tools/rmi-ai-machine/panel_check_sheet.py`** (untracked, the operator's) calls `_anchored` without
   `key`/`own`. No re-keyed key can reach the exposed or repaired queue it reads (a re-keyed key is a
   five-digit own docket, rule 1, never exposed).
+
+## The OCR wave's unloaded pages, and three owed items scoped, 2026-09-15 (v2026.09.24, schema 29)
+
+**The question**, written before measuring: the citator walk skips 37 decision-carried documents
+(43 pages) for want of text (`walk.py`'s blank test) — why did `ocr_wave.image_only_documents` miss
+them, and is it a rule gap or a data gap? Measured with the shipped walk on a Litestream restore of
+production taken 2026-09-15 ~21:05 UTC, joined to the OCR roots on rmi-lan and the fleet coordinator.
+
+**It did not miss them.** All 37 have a text-layer record flagged `image_only`, a route file and a
+PP-OCRv6 cache. The TODO's "36 never OCR'd" was wrong: PP-OCRv6 read every one. What kept the text out
+of the store is routing:
+
+- **35 documents / 41 pages: every page routed `tabular`.** ocr-plan decision 3 keeps tables out of
+  this wave; decision 6 gives them to HunyuanOCR-1.5 in their own pass, last. That pass is not built.
+  The cache holds 196–2,022 characters on each page.
+- **1 document (FD 34064, 2013): a `degraded` page dots refused** (`page: oversize: 8.4 MP`). No
+  primary means no second reading either (`run_second` needs one), so nothing loaded; the cache holds
+  1,623 characters. compute-fleet.md § The oversize guard says such pages "wait for a pass under another
+  profile" — a recorded design, not an oversight.
+- **1 document (NOM 41491, 1996): `unrouted`, PP-OCRv6 read it as 0 characters**, loaded as such.
+
+**Record-wide** (every routed page no loaded root holds, then the store's live readings):
+
+| page | no live text: decision-carried | no live text: other | cache has text |
+| --- | --- | --- | --- |
+| `tabular` | 1,394 pages, 100 docs (35 wholly blank) | 24,851 pages, 3,259 docs (171 wholly blank) | all but 6 |
+| `degraded`, dots refused | 7 pages, 6 docs (1 wholly blank) | 114 pages, 79 docs (25 wholly blank) | all |
+| `clean`/`unrouted`, no primary | 0 | 160 pages, 75 docs (1 wholly blank) | none (engine read blank) |
+
+(29,200 `clean` pages the coordinator's root lacks DO have live text: the comment pass's primaries live
+on rmi-lan's `comment-pass/`, not in the coordinator's root. The store was the check.)
+
+**A reader-facing gap, the operator's:** decision 3 promised a tabular page reads *scanned; contains a
+table we have not read*. No template says it. The store holds no route class for these pages (routes
+were loaded only with OCR readings; the live row is the blank text-layer primary), so
+`text.html` shows **"Read as blank."** — the kind of absence the decision called dishonest. Showing
+the marker needs the router's verdict in the store, which is a provenance question (ADR 0021 D4).
+
+**Proposed, each with the count it changes — none started, all the operator's:**
+
+1. **Build decision 6's tabular pass** (a fleet pass like `dots`; HunyuanOCR's licence is answered by
+   ADR 0022 D3). Changes 26,245 pages; 1,394 decision-carried in 100 documents; the 35 wholly blank
+   decision documents. Box time only. OR, as an interim, load the PP-OCRv6 cache as their primary
+   (benchmark: PP-OCRv6 tabular CER 38.2%; HunyuanOCR is the only free engine that detected all
+   five grids) — which reverses decision 6's reader.
+2. **A fallback for pages dots refuses** (PP-OCRv6's cached reading as primary, route `degraded`):
+   121 pages in 85 documents, 7 decision-carried, 1 wholly blank. Reverses the oversize guard's "wait".
+3. **The route in the store** so a tabular page can say it is unread: a schema/provenance change,
+   schema-critic first.
+
+**Three owed items, scoped against the ADRs** (each claim below checked in the code):
+
+- **"Not in the record" joining live `citation`** (0014_citations.sql § the projection; ADR 0017 D2,
+  ADR 0018 D2). No page renders the display today, and every consumer that exists (`review._base`,
+  `project`) already joins live `citation`. Owed only when the display is built; no schema. Building it
+  publishes a coverage statement — the operator's.
+- **The veto's trigger** (0014 item 7, ADR 0018 D7): two cross-row conditions — a suppress method's
+  measurement carries `false_veto_rate`, and its resolutions are `measured`. No suppress row is written
+  (`methods.py`), and 0014 judged a trigger for an inert mechanism not worth its weight. A new migration
+  with triggers, so schema-critic; the rule is already decided. Build with the veto, not before.
+- **A consumer for ADR 0023's pick rule**: `web/cite.py` sends a `decided` phrase to the sheet, and
+  nothing writes or reads `decision_decided_date` (only `dump.py` and `supersede.py` name it). Owed
+  first: a decided-date extraction pass, then the pick, a disagreement queue, and ADR 0018 D4 (which says
+  `decided` stays at docket level) revisited. Schema-critic and a decision; 259 of 200,000 pages print
+  the phrase (§ 2026-09-05 above).
+- **ADR 0024 Owed 2, the per-page failure record**: the `note` half shipped 2026-09-10. Today a failure
+  is a count (`ocr_run.pages_failed`); the reasons exist only in the coordinator's `job.error`
+  (134 final dots pages, 98 documents: `finish_reason length` and `oversize`). Needs a table under
+  `ocr_run` keyed by page, a reason vocabulary, a loader cross-check against `pages_failed`, both
+  producers emitting it, and a dump decision — a finer grain, so schema-critic, and likely an addendum
+  (the shape is not decided; nor is whether the oversize refusal rides on it).

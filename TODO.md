@@ -12,11 +12,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **Owed with the citator's pipeline**: the "not in the record" display joining live
-  `citation`; the veto's trigger; a consumer for ADR 0023's pick rule (`cite.py` sends `decided`)
-- **37 decision-carried documents hold no readable text** (43 pages): all PDFs, correctly read
-  blank by pymupdf, **36 never OCR'd** — mostly AB 290 (12) and AB 33 (6), 1996-2019; one where
-  `dots.mocr` failed and PP-OCRv6 read it blank. Why `image_only_documents` missed them: unknown
+- **Owed with the citator's pipeline, scoped 2026-09-15** (`deferred.md` § that date): none has
+  code to fix yet — the display, the veto and the decided-date consumer are all unbuilt; the
+  trigger and the consumer need schema-critic, and the consumer is a decision (ADR 0018 D4)
+- **The OCR wave's unloaded pages** (measured 2026-09-15, `deferred.md` § that date): NOT a
+  selection miss. 26,245 `tabular` pages (1,394 decision-carried, in 100 documents) wait for
+  decision 6's HunyuanOCR pass, and read "Read as blank." where decision 3 promised a marker;
+  121 dots-refused degraded pages have no fallback. Both WITH THE OPERATOR
 
 ## Next
 
@@ -25,7 +27,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
   migration (schema-critic first) and the browse on `/parties`
 - With the operator: a sheet's JSON-LD block in Google's Rich Results test, from a browser
-- ADR 0024's stage: a per-page failure record is still owed (Owed 2)
+- ADR 0024 Owed 2, the per-page failure record: scoped 2026-09-15 (`deferred.md`) — a table
+  under `ocr_run`, schema-critic, and a shape the ADR has not decided
 - **Held by the operator for rewording (2026-09-11)**: `/methodology`'s text-stage section
   (`848e366`) and the one-day-rest sentence (`3b538bc`); § Documents has his narrowed one
 - The workstation gate's ONLOGON task is still unregistered (`deferred.md`)
