@@ -794,6 +794,11 @@ def _text(args: argparse.Namespace) -> int:
                 f"refused: none of {totals['unknown_document']} {pass_.NOUN}(s) names a"
                 " document this store holds — is --db the right store?"
             )
+        elif totals["no_verdicts"]:
+            print(
+                f"refused: {totals['no_verdicts']} {pass_.NOUN}(s) carried no verdict at all —"
+                " every page errored, or none was classified; nothing was written"
+            )
         elif totals["unreadable"]:
             print(f"refused: {totals['unreadable']} {pass_.NOUN}(s) found and none readable")
         else:

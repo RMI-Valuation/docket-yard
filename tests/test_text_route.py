@@ -147,6 +147,30 @@ def test_a_verdict_is_superseded_never_edited(tmp_path, column, value):
         con.execute(f"UPDATE page_route SET {column} = ? WHERE route_id = ?", (value, rid))
 
 
+def test_a_retirement_is_forward_only(tmp_path):
+    con = _store(tmp_path)
+    old = _insert(con)
+    con.execute(  # step one of the idiom: retire at itself, both columns in one statement
+        "UPDATE page_route SET superseded_by = ?, superseded_at = ? WHERE route_id = ?",
+        (old, AFTER, old),
+    )
+    new = _insert(con, route_class="clean", method_version="provisional-2")
+    con.execute("UPDATE page_route SET superseded_by = ? WHERE route_id = ?", (new, old))
+    later = _insert(con, page_no=2)
+    for sql, args in (
+        ("UPDATE page_route SET superseded_by = ? WHERE route_id = ?", (later, old)),  # re-point
+        ("UPDATE page_route SET superseded_by = NULL WHERE route_id = ?", (old,)),  # un-retire
+    ):
+        with pytest.raises(sqlite3.IntegrityError, match="un-retired or re-pointed"):
+            con.execute(sql, args)
+    for at in (ROUTED, None):
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            con.execute("UPDATE page_route SET superseded_at = ? WHERE route_id = ?", (at, old))
+    assert con.execute(
+        "SELECT superseded_by, superseded_at FROM page_route WHERE route_id = ?", (old,)
+    ).fetchone() == (new, AFTER)
+
+
 def test_a_route_class_must_be_in_the_vocabulary_and_measured_is_unreachable(tmp_path):
     con = _store(tmp_path)
     with pytest.raises(sqlite3.IntegrityError):
@@ -344,6 +368,35 @@ def test_a_page_the_router_failed_on_writes_no_verdict_and_is_counted(tmp_path):
     assert totals["loaded"] == 1 and totals["route_error_pages"] == 2
     assert [r[0] for r in _live(con)] == [1]
     assert con.execute("SELECT COUNT(*) FROM page_route WHERE note IS NOT NULL").fetchone() == (0,)
+
+
+def test_a_file_that_classified_nothing_is_not_a_success(tmp_path):
+    """Every page errored, or none was named: nothing attached, and the exit status says so
+    rather than reading the empty plan as `unchanged` (Copilot, PR #36)."""
+    con = _store(tmp_path)
+    _paginate(con, SHA_A, 2)
+    error = {"class": "unrouted", "regions": 0, "labels": [], "error": "RuntimeError: render"}
+    assert _route(con, _record(SHA_A, {})) == "no_verdicts"
+    root = tmp_path / "route"
+    _write(root, _record(SHA_A, {1: error, 2: dict(error)}))
+    totals = route.run(con, root, log=lambda _: None)
+    assert totals["no_verdicts"] == 1 and totals["route_error_pages"] == 2
+    assert con.execute("SELECT COUNT(*) FROM page_route").fetchone() == (0,)
+    assert "no_verdicts" not in route.ATTACHED
+    con.close()
+    ns = argparse.Namespace(db=str(tmp_path / "s.sqlite"), what="route", root=str(root))
+    assert cli._text(ns) == 1
+
+
+def test_a_file_that_omits_a_live_page_loads_the_rest_and_says_so(tmp_path):
+    con = _store(tmp_path)
+    _paginate(con, SHA_A, 3)
+    assert _route(con, _record(SHA_A, {1: "clean", 2: "clean", 3: "clean"})) == "loaded"
+    partial = _record(SHA_A, {1: "tabular"}, version="confirmed-1", routed_at=LATER)
+    assert _route(con, partial, now=AFTER) == "omits_live_pages"
+    # what it named is loaded; what it did not name stays live, retired by nothing
+    assert [(r[0], r[1]) for r in _live(con)] == [(1, "tabular"), (2, "clean"), (3, "clean")]
+    assert "omits_live_pages" in route.ATTACHED  # rows landed: it met its document
 
 
 def test_a_person_verdict_is_held_against_the_pass(tmp_path):

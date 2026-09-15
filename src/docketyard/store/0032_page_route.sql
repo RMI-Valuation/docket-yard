@@ -104,6 +104,33 @@ BEGIN
     SELECT RAISE(ABORT, 'ADR 0021 addendum: a page route is superseded, never edited');
 END;
 
+-- A RETIREMENT IS FORWARD ONLY, migration 0028's rule (0028:222-274) in this table's idiom, added
+-- while it is empty (Copilot and schema-critic on PR #36). The pair is already welded by the CHECK
+-- above, on insert and update alike, so what is left is the history: a retired row may not be
+-- un-retired, re-pointed a second time, or re-dated.
+--
+-- CHECKED AGAINST `supersede.retire`'S THREE STEPS, which is the only writer here: step one sets
+-- both columns in ONE statement on a live row (OLD.superseded_by IS NULL, so neither trigger
+-- fires); step two inserts; step three re-points the retired row from ITSELF to the new id with a
+-- bare `SET superseded_by = ?`, which the first trigger allows exactly once and the second never
+-- sees. A second re-point finds OLD.superseded_by pointing elsewhere and is refused.
+CREATE TRIGGER page_route_retirement_is_forward_only
+BEFORE UPDATE OF superseded_by ON page_route
+WHEN OLD.superseded_by IS NOT NULL
+ AND NEW.superseded_by IS NOT OLD.superseded_by
+ AND (NEW.superseded_by IS NULL OR OLD.superseded_by IS NOT OLD.route_id)
+BEGIN
+    SELECT RAISE(ABORT,
+        'ADR 0021 addendum: a retired page route is never un-retired or re-pointed');
+END;
+
+CREATE TRIGGER page_route_superseded_at_is_append_only
+BEFORE UPDATE OF superseded_at ON page_route
+WHEN OLD.superseded_at IS NOT NULL AND NEW.superseded_at IS NOT OLD.superseded_at
+BEGIN
+    SELECT RAISE(ABORT, 'ADR 0021 addendum: a retirement date is append-only once set');
+END;
+
 PRAGMA user_version = 32;
 
 COMMIT;

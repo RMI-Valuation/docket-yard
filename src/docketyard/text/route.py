@@ -36,6 +36,13 @@ check the first refusal needs is not there to make.
 A PAGE THE ROUTER FAILED ON (its entry carries `error`) IS NOT A VERDICT: the wave recorded it
 as `unrouted` so its reader could run, but nothing classified it. No row is written; the pass
 counts such pages under `route_error_pages`.
+
+WHAT A FILE DOES NOT SAY IS REPORTED, NOT ASSUMED (Copilot and code review, PR #36). A file
+carrying no verdict at all — no pages, or every page errored — is `no_verdicts`, which is not
+attached, so the exit status refuses a root of them instead of calling a pass that wrote nothing
+a success. A file that names only SOME of a document's live pages still loads what it names, and
+returns `omits_live_pages`: the rows it did not mention stay live, and this pass will not retire
+a verdict on the strength of a file's silence — but the count says a file did it.
 """
 
 from collections import Counter
@@ -47,7 +54,9 @@ from docketyard.store import batches, supersede
 from docketyard.store.db import load_json, utcnow
 from docketyard.text.fields import Unreadable, sha_field, text_field
 
-ATTACHED = ("loaded", "superseded", "unchanged", "human_held", "stale")  # met its document
+# met its document. `no_verdicts` is NOT here: a file that classified nothing attached nothing,
+# and a cron told it succeeded would never learn that a root of such files landed no row.
+ATTACHED = ("loaded", "superseded", "unchanged", "human_held", "stale", "omits_live_pages")
 NOUN = "route file"
 
 
@@ -154,12 +163,16 @@ _PRECEDENCE = ("superseded", "loaded", "human_held", "unchanged")
 
 def route_document(con, route: Route, now: str | None = None) -> str:
     """One document's verdicts into `page_route`; the CALLER holds the transaction. Returns
-    the word `store.batches.run` counts: loaded, superseded, unchanged, human_held, stale, or
-    unknown_document. Raises `Unreadable` for a document the store must refuse whole."""
+    the word `store.batches.run` counts: loaded, superseded, unchanged, human_held, stale,
+    omits_live_pages, no_verdicts, or unknown_document. Raises `Unreadable` for a document the
+    store must refuse whole."""
     now = now or utcnow()
     sha = route.document_sha256
     if con.execute("SELECT 1 FROM document WHERE document_sha256 = ?", (sha,)).fetchone() is None:
         return "unknown_document"
+    if not route.pages:
+        # nothing to write and nothing to check a page count against: said, not passed over
+        return "no_verdicts"
     count = con.execute(
         "SELECT page_count FROM document_pagination"
         " WHERE document_sha256 = ? AND superseded_by IS NULL",
@@ -217,6 +230,10 @@ def route_document(con, route: Route, now: str | None = None) -> str:
         if old_id is not None:
             repoint = "UPDATE page_route SET superseded_by = ? WHERE route_id = ?"
             con.execute(repoint, (cur.lastrowid, old_id))
+    # A file's SILENCE about a live page retires nothing — the verdict stands until another
+    # names it — but it is counted, so a partial root is visible in the pass's own totals.
+    if set(live) - {p.page_no for p in route.pages}:
+        return "omits_live_pages"
     seen = {outcome for _, outcome, _ in plan}
     return next((word for word in _PRECEDENCE if word in seen), "unchanged")
 
