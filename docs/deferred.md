@@ -1588,6 +1588,20 @@ a sidecar load, the size refusal counted not written; an ADR 0024 addendum), rou
 `page_route`, `text route` verb, the marker on blank tabular text-layer pages only, not counted read;
 an ADR 0021 addendum). The decided-date defaults were NOT accepted: its questions go back to him.
 Measured for the tabular pass: 26,294 tabular pages at 150 DPI, median 2.1 MP, p99 2.4, 29 over 6 MP.
+Then: (8) the Claude key goes in `~/.anthropic-key` on the workstation, short-lived; (9) he adds the
+fleet permission rule to `.claude/settings.local.json` himself (writing it was refused as
+self-modification); (10) decided dates: **measure first** on a production copy, numbers to him before
+any addendum or code.
+
+**Decided dates, measured the same evening** (a NEW line-anchored `Decided:` regex — no shipped
+extractor exists — over the shipped walk's documents and row rule, on the 2026-09-15 restore): of
+21,003 decision-carried documents, **16,029 print the line on the text layer** (15,771 once, 258 twice
+or more), 30 on OCR only; lines sit on page 1 11,177 / page 2 1,427 / page 3+ 3,853 — a sample of ten
+page-3+ lines were all genuine end-of-decision `Decided:` headers, so page 1 alone would lose ~30%;
+**99.7% parse** (16,355 of 16,403 text-layer lines; 52 of 54 OCR); 11 documents carry two distinct
+dates; text-layer and OCR never both read the line on one document; OCR primary vs second on one page
+agree 16, differ 1. Against the carrying decision's service date: same day 4,511, served 1–30 days
+later 14,548, other 40. Script: session scratchpad `measure_decided.py`.
 
 **Three owed items, scoped against the ADRs** (each claim below checked in the code):
 
