@@ -167,7 +167,8 @@ _FOREIGN_PREFIXES = (
 )
 # The classifier's provenance, written with every failure list (`ocr_page_failure.classifier`
 # and `classifier_version`). BUMP THE VERSION when `failure_reason`, the maps above, or
-# `DETAIL_SHAPES` below change what a string becomes.
+# `DETAIL_SHAPES` below change what a string becomes. The stored detail is scrubbed by the
+# loader's copy of the shapes at load time, so a change to EITHER copy bumps the version.
 CLASSIFIER = {"method": "ocr_wave.page_failure", "method_version": "2026-09-15"}
 # The ONLY details that are published: a measurement in a closed shape per reason. Anything else
 # — an exception's text, an operator's words — is dropped, because it can carry a path or a
@@ -175,7 +176,9 @@ CLASSIFIER = {"method": "ocr_wave.page_failure", "method_version": "2026-09-15"}
 # re-checks against (it cannot import this file); `tests/test_fleet.py` holds the two equal.
 DETAIL_SHAPES = {
     "oversize": r"oversize: [0-9]{1,4}\.[0-9] MP at [0-9]{2,4} DPI",
-    "cut-answer": r"finish_reason [a-z_]{1,32}",
+    # `_dots_call` quotes whatever the OpenAI-compatible server returns other than `stop`; these
+    # are the values vLLM emits. Another word keeps the reason and loses the detail.
+    "cut-answer": r"finish_reason (length|content_filter|abort|tool_calls|function_call)",
     "timeout": r"timeout: [0-9]{1,6}s with the server healthy",
     "lease-expired": r"lease expired on attempt [0-9]{1,3}",
     "server": r"HTTP [0-9]{3}",

@@ -188,8 +188,9 @@ PUBLIC_TABLES = frozenset(
         "ocr_run",
         "run_outcome_vocab",
         # Migration 0031, ADR 0024 § Owed 2 (addendum 2026-09-15). Why a page of a published
-        # run was not read, the producer's words included: `ocr_run` already publishes the
-        # count and a free-text note, so the reasons are the same coverage one grain down.
+        # run was not read — a reason and a closed-shape measurement, never the producer's
+        # words: `ocr_run` already publishes the count, so the reasons are the same coverage
+        # one grain down.
         # The vocabulary comes with it or the DDL does not load.
         "ocr_page_failure",
         "page_failure_reason_vocab",

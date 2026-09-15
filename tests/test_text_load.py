@@ -700,8 +700,18 @@ def test_a_failure_list_that_does_not_fit_its_reading_is_refused_and_writes_no_r
         {"outcome": "not-paginable", "pages": [], "pages_failed": 1, "page_failures": good},
         {"pages_failed": 1, "page_failures": good, "page_failure_classifier": None},
         {"pages_failed": 1, "page_failures": good, "page_failure_classifier": {"method": "x"}},
+        {
+            "pages_failed": 1,
+            "page_failures": good,
+            "page_failure_classifier": {"method": "a/b", "method_version": "1"},
+        },
+        {
+            "pages_failed": 1,
+            "page_failures": good,
+            "page_failure_classifier": {"method": "x" * 65, "method_version": "1"},
+        },
     ]
-    shas = [f"{i:x}" * 64 for i in range(1, len(broken) + 2)]
+    shas = [f"{i:064x}" for i in range(1, len(broken) + 2)]
     con = _store(tmp_path, *shas)
     root = tmp_path / "text"
     for sha, over in zip(shas, broken, strict=False):

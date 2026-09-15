@@ -321,13 +321,16 @@ def failure_reasons(con) -> frozenset[str]:
 
 # The outcomes a pass that attempted pages can have; the store's trigger holds the same pair.
 FAILING_OUTCOMES = ("read", "failed")
+# A classifier's name and version, at most this long; migration 0031's CHECKs hold the same
+# bound and refuse a '/' in either, as `text_field(allow_slash=False)` does here.
+CLASSIFIER_MAX = 64
 # The only details published (migration 0031): a measurement in a closed shape per reason. A
 # COPY of `tools/rmi-ai-machine/ocr_wave.DETAIL_SHAPES`, which this package cannot import;
 # `tests/test_fleet.py` holds the two equal. Re-checked here so a hand-built file cannot
 # publish free text: a detail that does not match is written NULL and the reason stands.
 DETAIL_SHAPES = {
     "oversize": r"oversize: [0-9]{1,4}\.[0-9] MP at [0-9]{2,4} DPI",
-    "cut-answer": r"finish_reason [a-z_]{1,32}",
+    "cut-answer": r"finish_reason (length|content_filter|abort|tool_calls|function_call)",
     "timeout": r"timeout: [0-9]{1,6}s with the server healthy",
     "lease-expired": r"lease expired on attempt [0-9]{1,3}",
     "server": r"HTTP [0-9]{3}",
@@ -364,7 +367,12 @@ def _page_failures(
         said = doc.get("page_failure_classifier")
         if not isinstance(said, dict):
             raise Unreadable("page_failures names no page_failure_classifier")
-        classifier = (text_field(said, "method"), text_field(said, "method_version"))
+        classifier = (
+            text_field(said, "method", allow_slash=False),
+            text_field(said, "method_version", allow_slash=False),
+        )
+        if any(len(c) > CLASSIFIER_MAX for c in classifier):
+            raise Unreadable(f"page_failure_classifier is longer than {CLASSIFIER_MAX} characters")
     out = []
     for i, f in enumerate(raw):
         if not isinstance(f, dict):

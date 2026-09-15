@@ -422,12 +422,12 @@ means built and held. The census's `exhausted`/`resting` split ships; the page d
   `(run_id, page_no)`. Append-only. A record of an action, so no confidence block; its
   provenance is its run's and its classifier's.
 - **The vocabulary says whose the failure is.** `page_owned = 1` — `cut-answer`, `oversize`,
-  `render`, `timeout`, `operator-page` — is the page's own and not retried by the producer at
-  this key. `page_owned = 0` — `server`, `document-bytes`, `lease-expired`, `operator`,
-  `unclassified` — is transient. Neither is permanent: a page-owned failure at key K stands
-  only while no live `document_text` row at K exists on that page (`ocr_page_failure` →
+  `render`, `timeout`, `operator-page` — is the page's own; a document re-read for another
+  reason reads it again. `page_owned = 0` — `server`, `document-bytes`, `lease-expired`,
+  `operator`, `unclassified` — is transient. Neither is permanent: a page-owned failure at key K
+  stands only while no live `document_text` row at K exists on that page (`ocr_page_failure` →
   `ocr_run` → `document_text` on sha, page, method, version, render and channel,
-  `superseded_by IS NULL`).
+  `superseded_by IS NULL`), matched by key and not by reading role.
 - **The detail is a closed, reason-shaped measurement or NULL; free text is never published.**
   The shapes (`8.4 MP at 200 DPI`, `finish_reason length`, a timeout, an attempt, an HTTP status)
   are defined once beside the classifier and re-checked by the loader, which writes any other

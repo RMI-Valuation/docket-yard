@@ -1201,12 +1201,16 @@ def _page_failure(
 
 def test_a_page_failure_names_the_classifier_that_chose_its_reason(tmp_path):
     con = _store(tmp_path)
-    run = _run(con, pages_failed=4)
+    run = _run(con, pages_failed=8)
     for page, over in (
         (1, {"classifier": None}),
         (2, {"classifier": ""}),
         (3, {"classifier_version": None}),
         (4, {"classifier_version": ""}),
+        (5, {"classifier": "a/b"}),
+        (6, {"classifier_version": "2026/09/15"}),
+        (7, {"classifier": "c" * 65}),
+        (8, {"classifier_version": "v" * 65}),
     ):
         with pytest.raises(sqlite3.IntegrityError):
             _page_failure(con, run, page, **over)
@@ -1304,6 +1308,6 @@ def test_page_failures_ship_in_the_snapshot_with_their_vocabulary(tmp_path):
     assert published.execute(
         "SELECT f.run_id, f.page_no, f.reason, v.page_owned, f.detail"
         " FROM ocr_page_failure f JOIN page_failure_reason_vocab v USING (reason)"
-    ).fetchall() == [(run, 2, "oversize", 1, "page: oversize: 8.4 MP at 200 DPI")]
+    ).fetchall() == [(run, 2, "oversize", 1, "oversize: 8.4 MP at 200 DPI")]
     assert published.execute("PRAGMA foreign_key_check").fetchall() == []  # nothing dangles
     published.close()

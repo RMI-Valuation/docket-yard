@@ -1625,3 +1625,7 @@ Measured for the tabular pass: 26,294 tabular pages at 150 DPI, median 2.1 MP, p
   and `pages_failed` at INSERT of a failure row only; a later UPDATE of either leaves rows that no
   longer fit. Nothing updates `ocr_run` today. A BEFORE UPDATE trigger on `ocr_run` refusing the
   change while failure rows exist is the stronger form.
+- **`ocr_run.note` already publishes exception text into the CC0 snapshot.** `load._note` keeps a
+  producer's reason verbatim up to 500 characters — "the exception", in ADR 0024's own words — and
+  `ocr_run` is PUBLIC. That is the leak `ocr_page_failure.detail`'s closed shapes were built to
+  close: a path or a host in an exception reaches a snapshot that cannot be withdrawn.

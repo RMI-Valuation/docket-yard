@@ -324,6 +324,9 @@ def test_every_error_the_queue_writes_maps_to_a_reason_page_owned_iff_page(tmp_p
         entry = ocr_wave.page_failure(1, error)
         assert entry.get("detail") == shaped.get(error), error
         assert load.shaped_detail(entry["reason"], entry.get("detail")) == entry.get("detail")
+    # a finish reason outside the enumeration keeps its reason and loses its words
+    unlisted = ocr_wave.page_failure(1, "page: finish_reason something_new")
+    assert unlisted == {"page_no": 1, "reason": "cut-answer"}
     # free text inside a shape-bearing reason is still free text
     assert "detail" not in ocr_wave.page_failure(1, "page: oversize: 8.4 MP at 200 DPI /data/x")
     assert load.shaped_detail("server", "HTTP 500 from queue-host") is None

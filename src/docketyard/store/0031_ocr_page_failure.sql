@@ -1,5 +1,5 @@
 -- Migration 0031 — a page the pass failed says why (ADR 0024 § Owed 2, addendum 2026-09-15,
--- Proposed; the operator's defaults of 2026-09-15, reworked on the schema critic's findings).
+-- Proposed; the operator's defaults of 2026-09-15, reworked on two schema-critic passes).
 --
 -- `ocr_run.pages_failed` has counted the pages a pass attempted and did not read since 0018;
 -- the reasons lived only in the fleet queue's `job.error`. This is the row per failed page,
@@ -12,14 +12,13 @@
 -- classifier's (`classifier`, `classifier_version`), because the reason is derived from a
 -- producer's words by code that can change.
 --
--- `page_owned` IS THE VOCABULARY'S, NOT THE ROW'S. A page-owned failure is the page's own and
--- is not retried by the producer at this key; a failure that is not the page's is transient.
--- NEITHER IS PERMANENT: a later pass at the same key may read the page (the fleet re-reads a
--- whole document when any of its failures was not the page's own). A page-owned failure at key
--- K stands only while no live `document_text` row at K exists on that page — the join is
+-- `page_owned` IS THE VOCABULARY'S, NOT THE ROW'S, AND IT STATES OWNERSHIP ONLY. A page-owned
+-- failure is the page's own; a failure that is not the page's is transient. NEITHER IS
+-- PERMANENT: a document re-read for another reason reads every page again. A page-owned failure
+-- at key K stands only while no live `document_text` row at K exists on that page — the join is
 -- ocr_page_failure → ocr_run → document_text on sha, page_no, method, method_version,
--- render_profile, reading_channel, `superseded_by IS NULL`. `document_text` is held, so the
--- reconciliation is the store's, not the snapshot's.
+-- render_profile, reading_channel, `superseded_by IS NULL`, matching by KEY and not by reading
+-- role. `document_text` is held, so the reconciliation is the store's, not the snapshot's.
 --
 -- `detail` IS NEVER FREE TEXT. It is kept only when it matches the closed shape its reason
 -- defines (`ocr_wave.DETAIL_SHAPES`, re-checked by `text/load.py`), and is NULL otherwise: an
@@ -46,20 +45,20 @@ CREATE TABLE page_failure_reason_vocab (
 );
 INSERT INTO page_failure_reason_vocab (reason, page_owned, note) VALUES
     ('cut-answer', 1,
-     'the engine stopped before its answer was complete; the page''s own; not retried by the'
-     || ' producer at this key'),
+     'the engine stopped before its answer was complete; the page''s own; a document re-read'
+     || ' for another reason reads it again'),
     ('oversize', 1,
-     'the page is larger than the pass''s bound at its render; the page''s own; not retried by'
-     || ' the producer at this key'),
+     'the page is larger than the pass''s bound at its render; the page''s own; a document'
+     || ' re-read for another reason reads it again'),
     ('render', 1,
-     'the document opened and this page would not rasterise; the page''s own; not retried by'
-     || ' the producer at this key'),
+     'the document opened and this page would not rasterise; the page''s own; a document'
+     || ' re-read for another reason reads it again'),
     ('timeout', 1,
-     'the engine did not answer in time while it was otherwise healthy; the page''s own; not'
-     || ' retried by the producer at this key'),
+     'the engine did not answer in time while it was otherwise healthy; the page''s own; a'
+     || ' document re-read for another reason reads it again'),
     ('operator-page', 1,
-     'an operator judged the fault to be the page''s own; not retried by the producer at this'
-     || ' key'),
+     'an operator judged the fault to be the page''s own; a document re-read for another reason'
+     || ' reads it again'),
     ('server', 0,
      'the engine''s server failed while reading the page; transient'),
     ('document-bytes', 0,
@@ -76,8 +75,11 @@ CREATE TABLE ocr_page_failure (
     page_no            INTEGER NOT NULL CHECK (page_no >= 1),
     reason             TEXT NOT NULL REFERENCES page_failure_reason_vocab (reason),
     detail             TEXT CHECK (detail IS NULL OR (detail <> '' AND length(detail) <= 500)),
-    classifier         TEXT NOT NULL CHECK (classifier <> ''),
-    classifier_version TEXT NOT NULL CHECK (classifier_version <> ''),
+    classifier         TEXT NOT NULL CHECK (classifier <> '' AND length(classifier) <= 64
+                                            AND classifier NOT GLOB '*/*'),
+    classifier_version TEXT NOT NULL CHECK (classifier_version <> ''
+                                            AND length(classifier_version) <= 64
+                                            AND classifier_version NOT GLOB '*/*'),
     PRIMARY KEY (run_id, page_no)
 );
 
