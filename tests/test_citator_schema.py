@@ -279,11 +279,12 @@ def test_a_veto_may_not_exist_before_its_false_veto_rate_does(tmp_path):
         "target_kind": None,
         "target_form": None,
     }
-    with pytest.raises(sqlite3.IntegrityError):
+    # the CHECKs refuse these, not migration 0030's triggers, which defer to them
+    with pytest.raises(sqlite3.IntegrityError, match="CHECK constraint failed"):
         _method(con, **veto)
     # and it may not point at some other stage's number to satisfy the rule
     extraction = _extraction_measurement(con)
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(sqlite3.IntegrityError, match="CHECK constraint failed"):
         _method(con, measured_target="citation", score_row_id=extraction, **veto)
     rate = _measurement(
         con, "citation_resolution", "on-page-veto", recall=None, false_veto_rate=0.015
