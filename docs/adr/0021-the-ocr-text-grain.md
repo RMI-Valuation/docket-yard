@@ -347,3 +347,21 @@ The same day: **`/search` joins the named AI agents' disallow list** (`docs/mach
 § The AI policy). A result page prints snippets of the held text and the party names, so
 an agent that may not fetch `/text` or `/p/` could read both through the side door; the
 rule now says what the prose says. People and ordinary crawlers are unaffected.
+
+## Addendum (2026-09-15): the router's verdict is its own assertion
+
+**Status: Proposed.** Narrows decision 4 and § What this record does not decide ("`page_route`
+as a table"). Migration 0032.
+
+1. **The router's verdict is a page-grain assertion of its own**, `page_route`: one live row
+   per page, naming the router and its version, with ADR 0007's confidence block, `asserted_at`
+   the time the router ran, and supersession rather than update. A different class, router or
+   version is a new row; the verdict's own columns never change in place.
+2. **Decision 4's `route_class` on a reading is unchanged**: it is the class the page was read
+   under, never back-filled from `page_route`, and a later verdict does not alter it.
+3. **The marker rule.** A page whose shown reading is a blank text layer, or which has no shown
+   reading, and whose live route is `tabular`, reads *Scanned; contains a table we have not
+   read*, naming the router and linking the scan, and is not counted as read. Every other empty
+   reading (an engine's, a person's, a text layer on a page routed otherwise) reads "Read as
+   blank." One emptiness test decides both: the text with whitespace stripped.
+4. **Held** from the snapshot, with `route_class_vocab`.

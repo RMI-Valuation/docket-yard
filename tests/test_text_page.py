@@ -10,7 +10,8 @@ from fastapi.testclient import TestClient
 
 from docketyard.capture import documents as fetcher
 from docketyard.store import db
-from docketyard.text import load
+from docketyard.store import pages as store_pages
+from docketyard.text import load, route
 from docketyard.web.app import _self_validated, create_app
 from tests.test_documents import (  # noqa: F401 — the fixture registers itself here too
     _store_with_document,
@@ -318,3 +319,123 @@ def test_pages_beyond_the_count_are_said_plainly(tmp_path):
     html = TestClient(create_app(path)).get("/filing/311981/text").text
     assert "3 pages read; the file was counted at 2" in html
     assert 'id="p3"' in html
+
+
+# --- the router's verdict on the page (ADR 0021 addendum, 2026-09-15; migration 0032) --------
+
+MARKER = "Scanned; contains a table we have not read."
+
+
+def _routed(path, sha, pages, *, version="provisional-1", routed_at="2026-09-05T12:00:00+00:00"):
+    con = db.connect(path)
+    record = {
+        "document_sha256": sha,
+        "method": "pp-doclayoutv3+regions",
+        "method_version": version,
+        "routed_at": routed_at,
+        "pages": {str(n): {"class": c, "regions": 2, "labels": []} for n, c in pages.items()},
+    }
+    out = route.route_document(con, route.from_record(record, route.classes(con)))
+    con.commit()
+    con.close()
+    return out
+
+
+def _page_html(html, n):
+    start = html.index(f'id="p{n}"')
+    end = html.find('<article class="page"', start)
+    return html[start : end if end > 0 else len(html)]
+
+
+def test_a_blank_text_layer_on_a_tabular_page_is_marked_and_not_counted_as_read(tmp_path):
+    path, sha = _store_with_document(tmp_path)
+    _loaded(path, tmp_path, _extraction(sha, ("abandonment in Perry County", "", "   ", "")))
+    _paginated(path, sha, 5)
+    routes = {1: "tabular", 2: "tabular", 3: "clean", 5: "tabular"}
+    assert _routed(path, sha, routes) == "loaded"
+    html = TestClient(create_app(path)).get("/filing/311981/text").text
+    # page 1: a text layer WITH text is its text, whatever the router said
+    assert "abandonment in Perry County" in _page_html(html, 1)
+    assert MARKER not in _page_html(html, 1)
+    # page 2: blank text layer + tabular -> the marker, the router named, the scan linked
+    two = _page_html(html, 2)
+    assert MARKER in two and "pp-doclayoutv3+regions provisional-1" in two
+    assert 'href="/filing/311981#file">Scan</a>' in two and "Read as blank." not in two
+    # page 3: whitespace is blank (one emptiness test, stripped), and a clean route is no table
+    three = _page_html(html, 3)
+    assert "Read as blank." in three and MARKER not in three
+    # page 4: blank text layer and no route at all
+    assert "Read as blank." in _page_html(html, 4)
+    # page 5: no reading, routed tabular -> the marker, not "Not yet read."
+    five = _page_html(html, 5)
+    assert MARKER in five and "Not yet read." not in five
+    assert "Not yet read." not in html
+    assert "3 of 5 pages read" in html  # 1, 3 and 4; the two marked pages are not read
+
+
+def test_an_engine_or_a_person_reading_blank_is_blank_whatever_the_route(tmp_path):
+    """The marker is for a text layer the router says hides a table; an engine that read the
+    page as blank, or a person who did, has read it (ADR 0021 D5)."""
+    path, sha = _store_with_document(tmp_path)
+    _loaded(path, tmp_path, _ocr(sha, texts=("",)))
+    _paginated(path, sha, 1)
+    _routed(path, sha, {1: "tabular"})
+    client = TestClient(create_app(path))
+    html = client.get("/filing/311981/text").text
+    assert "Read as blank." in html and MARKER not in html and "1 of 1 page read" in html
+    con = db.connect(path)
+    con.execute(
+        "INSERT INTO document_text (document_sha256, page_no, method, method_version,"
+        " render_profile, reading_channel, reading_role, text, text_sha256, confidence,"
+        " confidence_state, asserted_at) VALUES (?, 1, 'human', 'unversioned', 'human',"
+        " 'human', 'human', '', 'x', 1, 'human', ?)",
+        (sha, STAMP),
+    )
+    con.commit()
+    con.close()
+    html = client.get("/filing/311981/text").text
+    assert "Corrected by a person" in html and "Read as blank." in html and MARKER not in html
+
+
+def test_a_route_load_moves_the_text_pages_validator(tmp_path):
+    path, sha = _store_with_document(tmp_path)
+    _loaded(path, tmp_path, _extraction(sha, ("",)))
+    _paginated(path, sha, 1)
+    client = TestClient(create_app(path))
+    before = client.get("/filing/311981/text")
+    assert "Read as blank." in before.text
+    site = client.get("/filing/311981").headers["etag"]
+    assert _routed(path, sha, {1: "tabular"}) == "loaded"
+    after = client.get("/filing/311981/text", headers={"if-none-match": before.headers["etag"]})
+    assert after.status_code == 200 and MARKER in after.text
+    assert after.headers["etag"] != before.headers["etag"]
+    assert client.get("/filing/311981").headers["etag"] == site  # no other page's validator
+    # the same verdict again writes nothing and keeps the validator; a new one moves it
+    assert _routed(path, sha, {1: "tabular"}) == "unchanged"
+    assert client.get("/filing/311981/text").headers["etag"] == after.headers["etag"]
+    newer = _routed(
+        path, sha, {1: "clean"}, version="confirmed-1", routed_at="2026-09-20T00:00:00+00:00"
+    )
+    assert newer == "superseded"
+    last = client.get("/filing/311981/text")
+    assert last.headers["etag"] != after.headers["etag"] and "Read as blank." in last.text
+
+
+def test_the_display_rule_is_one_pure_function():
+    def page(text, channel="text-layer", role="primary"):
+        return store_pages.PageText(1, text, role, channel, "m", "v", "native", None, STAMP, None)
+
+    table = store_pages.Route(1, "tabular", "pp-doclayoutv3+regions", "provisional-1")
+    clean = store_pages.Route(1, "clean", "pp-doclayoutv3+regions", "provisional-1")
+    state = store_pages.state
+    assert state(page("words"), table) == store_pages.TEXT
+    assert state(page(""), table) == store_pages.TABLE
+    assert state(page(" \n\t"), table) == store_pages.TABLE  # stripped, one test
+    assert state(page(""), clean) == store_pages.BLANK
+    assert state(page(""), None) == store_pages.BLANK
+    assert state(page("", channel="ocr"), table) == store_pages.BLANK
+    assert state(page("", channel="human", role="human"), table) == store_pages.BLANK
+    assert state(page("fixed", channel="human", role="human"), table) == store_pages.TEXT
+    assert state(None, table) == store_pages.TABLE
+    assert state(None, clean) == store_pages.UNREAD and state(None, None) == store_pages.UNREAD
+    assert "pp-doclayoutv3+regions provisional-1" in store_pages.marker(table)

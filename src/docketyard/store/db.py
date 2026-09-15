@@ -70,6 +70,12 @@ MIGRATIONS: list[tuple[int, str]] = [
     # MIGRATING, so it goes behind the wall; a key a person decided aborts it whole, and the
     # runbook's pre-check (`infra/deploy/0029-precheck.sql`) names that key first.
     (29, "0029_retire_retracted_readings.sql"),
+    # 0032 applies ADR 0021's addendum (2026-09-15): the router's verdict as its own page-grain
+    # assertion, so a tabular page no engine read can say so. A new held table and no rebuild.
+    # NUMBERED 32 BECAUSE 30 AND 31 ARE TAKEN ON OTHER BRANCHES, and `migrate` skips any number
+    # at or below the stamped version: 0032 must not reach a store before 0030 and 0031 do, or
+    # those two are skipped there for ever.
+    (32, "0032_page_route.sql"),
 ]
 
 
