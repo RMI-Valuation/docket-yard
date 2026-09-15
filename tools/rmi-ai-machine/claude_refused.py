@@ -249,7 +249,10 @@ def _client():
         key = f.read_text(encoding="utf-8").strip() if f.is_file() else ""
     if not key:
         raise SystemExit("no Anthropic key: set ANTHROPIC_API_KEY or write ~/.anthropic-key")
-    return anthropic.Anthropic(api_key=key)
+    # a key not scoped to a workspace is refused (400) unless the request names one
+    workspace = os.environ.get("ANTHROPIC_WORKSPACE_ID", "").strip()
+    headers = {"anthropic-workspace-id": workspace} if workspace else None
+    return anthropic.Anthropic(api_key=key, default_headers=headers)
 
 
 def cmd_submit(args) -> int:
