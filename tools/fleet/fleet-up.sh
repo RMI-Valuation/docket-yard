@@ -5,14 +5,23 @@
 #   bash ~/docket-yard/tools/fleet/fleet-up.sh coordinator   # the box that holds the queue
 #   bash ~/docket-yard/tools/fleet/fleet-up.sh worker        # a GPU box reading for it
 #   bash ~/docket-yard/tools/fleet/fleet-up.sh all           # both on one box (how it began)
+#   DY_FLEET_HUNYUAN_PY=<venv>/bin/python \
+#       bash ~/docket-yard/tools/fleet/fleet-up.sh tabular   # the tabular pass's worker, opt-in
 #   tmux ls                                                  # the sessions
 #   tmux attach -t dots-worker                               # watch one; detach with C-b d
 #
 #   coordinator:  fleet-queue    the lease calls and the blobs on :8131   (queue_server.py)
 #                 fleet-monitor  the status page and the scrape on :8130  (monitor.py)
 #                 dots-collect   reading documents every ten minutes      (pagequeue.py collect)
+#                 tabular-collect  the same for the tabular pass; writes nothing until seeded
 #   worker:       dots-vllm      the server, restarted when it dies       (dots-serve.sh)
 #                 dots-worker    the worker, restarted when it exits      (below)
+#   tabular:      tabular-worker HunyuanOCR in-process, restarted when it exits (hunyuan_worker.py)
+#
+# `tabular` is its own role, never part of `worker` or `all`: the model runs in the worker's
+# own process on the same card the dots server holds at 90%, so the operator stops
+# `dots-vllm` first on a shared card. It needs DY_FLEET_HUNYUAN_PY, a venv with transformers
+# 5.x, torch with CUDA and pymupdf (not the paddle venv). Its stop file is `<root>/ocr/.stop-tabular`.
 #
 # DY_FLEET_DATA is the data root (default /data/docketyard): `<root>/blobs`, `<root>/ocr`,
 # the queue at `<root>/ocr/queue.sqlite`, the token at `<root>/fleet.token`. A worker
@@ -52,6 +61,22 @@ if [ "$ROLE" = coordinator ] || [ "$ROLE" = all ]; then
         --token-file $DATA/fleet.token --port 8131 >> $LOG/queue-server.log 2>&1"
     up fleet-monitor "$PY $FLEET/monitor.py --db $DB --port 8130 >> $LOG/monitor.log 2>&1"
     up dots-collect "while true; do $COLLECT >> $LOG/dots-collect.log 2>&1; sleep 600; done"
+    up tabular-collect "while true; do $COLLECT --pass tabular >> $LOG/tabular-collect.log 2>&1; \
+        sleep 600; done"
+fi
+
+if [ "$ROLE" = tabular ]; then
+    HPY=${DY_FLEET_HUNYUAN_PY:?set DY_FLEET_HUNYUAN_PY to the HunyuanOCR venv python}
+    if [ -f "$DATA/fleet-node" ]; then
+        QUEUE="--queue $(cat "$DATA/fleet-node") --token-file $DATA/fleet.token"
+        [ -d "$DATA/blobs" ] && QUEUE="$QUEUE --blobs $DATA/blobs"
+    else
+        QUEUE="--db $DB --blobs $DATA/blobs"
+    fi
+    TWORKER="$HPY $FLEET/hunyuan_worker.py $QUEUE --scratch $OCR/.render \
+        --stop-file $OCR/.stop-tabular"
+    up tabular-worker "while true; do $TWORKER >> $LOG/tabular-worker.log 2>&1; \
+        echo \"\$(date -Is) worker exited \$?\" >> $LOG/tabular-worker.log; sleep 60; done"
 fi
 
 if [ "$ROLE" = worker ] || [ "$ROLE" = all ]; then

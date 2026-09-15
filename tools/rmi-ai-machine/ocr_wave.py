@@ -42,7 +42,8 @@ WHAT A PAGE CLASS MEANS FOR THE READERS:
     degraded   dots.mocr primary at 200 DPI, PP-OCRv6 second at 150 with the distance
     graphic    PP-OCRv6 primary, in the last pass; VL models invent on maps
     unrouted   PP-OCRv6 primary — "no regions" is routed to a reader, never to a skip
-    tabular    not read in this wave (ocr-plan.md decision 3); the page shows "not yet read"
+    tabular    not read in this wave (ocr-plan.md decision 3); decision 6's HunyuanOCR-1.5 pass
+               at 150 DPI runs on the fleet (`tools/fleet/hunyuan_worker.py`) -> ocr/hunyuan-tabular
 
 EACH PASS'S FILE IS ITS OWN RUN: `ocr_run` is keyed on the reading key and `ran_at`, not the
 role, so the three PP-OCRv6 documents a page set can yield (primary, second, graphic) carry
@@ -97,6 +98,7 @@ PPOCR_WEIGHTS = ("PP-OCRv6_medium_det", "PP-OCRv6_medium_rec")
 DOTS = {"method": "dots.mocr", "method_version": "1.5", "render_profile": "200"}
 DOTS_MODEL = "dots-mocr"
 DOTS_SERVER = "http://127.0.0.1:8120/v1"
+HUNYUAN = {"method": "hunyuan-ocr", "method_version": "1.5", "render_profile": "150"}
 AGREEMENT = {"method": "normalised-edit-distance", "method_version": "1"}
 ROOTS = {
     "route": "route",
@@ -105,6 +107,7 @@ ROOTS = {
     "dots": "dots",
     "second": "ppocr-second",
     "graphic": "ppocr-graphic",
+    "tabular": "hunyuan-tabular",  # the fleet's pass (tools/fleet/hunyuan_worker.py); no verb here
 }
 
 # The model's shipped document-parsing prompt, as `ocr_run.py` sends it.
@@ -212,6 +215,16 @@ def dots_page(no: int, raw: str) -> tuple[dict, str]:
     blocks = json_array(raw)
     text = dots_text(blocks) if blocks is not None else raw.strip()
     return {"page_no": no, "raw": raw, "blocks": blocks}, text
+
+
+def hunyuan_page(no: int, raw: str) -> tuple[dict, str]:
+    """One HunyuanOCR answer — Markdown with tables as HTML — as the engine page kept whole,
+    and its text: the benchmark's own flattening of each `<table>` into `[table]` blocks, the
+    rest untouched. The worker posts the raw answer and this is the one place it becomes text,
+    as `dots_page` is for dots."""
+    from ocr_run import _markdown_tables  # noqa: PLC0415 — the benchmark's own flattening
+
+    return {"page_no": no, "raw": raw}, _markdown_tables(raw)
 
 
 def json_array(raw: str):

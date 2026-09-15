@@ -265,6 +265,138 @@ def test_the_old_drivers_file_is_whole_only_if_it_says_so(tmp_path):
     assert not ocr_wave.shard(out / "ppocr-second", B).exists()  # measured against old text
 
 
+# --- the tabular pass: HunyuanOCR-1.5 at 150 DPI (ocr-plan.md decision 6) ------------------------
+
+TAB = pq.PASSES["tabular"]["key"]
+hw = _module("hunyuan_worker", ROOT / "tools" / "fleet" / "hunyuan_worker.py")
+TABLE_RAW = (
+    "# Rate schedule\n\n"
+    "<table><tr><th>Commodity</th><th>Rate</th></tr><tr><td>Coal</td><td>1.25</td></tr></table>"
+    "\n\nIssued 2026"
+)
+TABLE_TEXT = "# Rate schedule\n[table]\nCommodity\tRate\nCoal\t1.25\n[end table]\nIssued 2026"
+
+
+def test_seeding_tabular_queues_only_the_tabular_pages(tmp_path):
+    out = tmp_path / "ocr"
+    _route_root(out, A, {1: "tabular", 2: "degraded", 3: "tabular", 4: "clean"})
+    _route_root(out, B, {1: "degraded", 2: "graphic"})
+    q = pq.Queue(tmp_path / "q.sqlite")
+    n = pq.seed_pass(q, "tabular", out)
+    assert (n["documents"], n["pages"], n["new"]) == (1, 2, 2)
+    rows = q.con.execute("SELECT pass, document_sha256, page_no FROM job ORDER BY page_no")
+    assert [tuple(r) for r in rows] == [("tabular", A, 1), ("tabular", A, 3)]
+    assert set(q.status()["passes"]) == {"tabular"}  # nothing queued for dots
+
+
+def test_the_tabular_pass_refuses_any_other_key(tmp_path):
+    q = pq.Queue(tmp_path / "q.sqlite")
+    with pytest.raises(pq.KeyMismatch):
+        q.register("w", "tabular", {**KEY, "host": "x"})  # a dots worker
+    with pytest.raises(pq.KeyMismatch):
+        q.register("w", "tabular", {**TAB, "render_profile": "200", "host": "x"})
+    with pytest.raises(pq.KeyMismatch):
+        q.register("w", "dots", {**TAB, "host": "x"})
+    q.register("w", "tabular", {**TAB, "host": "x", "engine": "transformers"})
+
+
+def test_collect_tabular_writes_a_reading_the_loader_takes(tmp_path):
+    path, sha = _store_with_document(tmp_path)
+    out = tmp_path / "ocr"
+    _route_root(out, sha, {1: "clean", 2: "tabular", 3: "tabular"})
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", "tabular", {**TAB, "host": "x"})
+    assert pq.seed_pass(q, "tabular", out)["new"] == 2
+    a, b = q.claim("w1", "tabular", 2, 60)
+    q.done("w1", a["job_id"], TABLE_RAW)
+    q.fail("w1", b["job_id"], "page: finish_reason length", final=True)
+    assert pq.collect_pass(q, "dots", out) == 0  # another pass's collect does not take it
+    assert pq.collect_pass(q, "tabular", out) == 1
+    doc = json.loads(ocr_wave.shard(out / "hunyuan-tabular", sha).read_text(encoding="utf-8"))
+    assert (doc["method"], doc["method_version"], doc["render_profile"]) == (
+        "hunyuan-ocr",
+        "1.5",
+        "150",
+    )
+    assert (doc["reading_role"], doc["payload_kind"]) == ("primary", "hunyuan-ocr.json")
+    assert doc["outcome"] == "read" and doc["pages_failed"] == 1
+    assert doc["pages"] == [
+        {
+            "page_no": 2,
+            "text": TABLE_TEXT,
+            "member": "engine/pages/0",
+            "route": ocr_wave.route_of("tabular"),
+        }
+    ]
+    assert doc["engine"]["pages"] == [{"page_no": 2, "raw": TABLE_RAW}]  # the answer, whole
+    manifest = json.loads((out / "hunyuan-tabular" / "_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["pass"] == "tabular" and manifest["key"] == TAB
+
+    con = db.connect(path)
+    assert load.load_reading(con, tmp_path, load.from_reading(doc, b"{}", load.run_outcomes(con)))
+    con.commit()
+    con.close()
+    assert pq.seed_pass(q, "tabular", out)["whole"] == 1  # the failure was the page's
+
+
+def test_hunyuan_page_flattens_tables_and_keeps_the_answer_whole():
+    assert ocr_wave.hunyuan_page(2, TABLE_RAW) == ({"page_no": 2, "raw": TABLE_RAW}, TABLE_TEXT)
+    prose = "Decided: September 1, 2026\n\nBy the Board.\n"
+    assert ocr_wave.hunyuan_page(1, prose) == (
+        {"page_no": 1, "raw": prose},
+        "Decided: September 1, 2026\n\nBy the Board.",
+    )
+    assert ocr_wave.hunyuan_page(3, "") == ({"page_no": 3, "raw": ""}, "")  # a blank page reads ''
+
+
+def test_a_generation_that_spends_every_token_without_eos_is_cut():
+    assert hw.generation_failure(4096, 4096, False) == "finish_reason length"
+    assert hw.generation_failure(4096, 4096, True) is None  # ended exactly at the budget
+    assert hw.generation_failure(812, 4096, True) is None
+
+
+class _OOM(Exception):
+    pass
+
+
+def test_out_of_memory_retries_once_with_the_cache_emptied_then_is_the_pages():
+    def is_oom(e):
+        return isinstance(e, _OOM)
+
+    calls, emptied = [], []
+
+    def once_then_ok():
+        calls.append(1)
+        if len(calls) == 1:
+            raise _OOM
+        return "answer"
+
+    assert hw.read_with_oom_retry(once_then_ok, is_oom, lambda: emptied.append(1)) == "answer"
+    assert (len(calls), len(emptied)) == (2, 1)
+
+    def always():
+        raise _OOM
+
+    with pytest.raises(hw.PageFailed, match="^oom$"):
+        hw.read_with_oom_retry(always, is_oom, lambda: None)
+
+    def broken():
+        raise ValueError("not memory")
+
+    with pytest.raises(ValueError):  # not an OOM: not the page's, the worker exits 4
+        hw.read_with_oom_retry(broken, is_oom, lambda: None)
+
+
+def test_the_weights_revision_is_the_loaded_hash_else_the_caches_ref(tmp_path):
+    assert hw.weights_revision("tencent/HunyuanOCR", "abc", tmp_path) == "abc"
+    assert hw.weights_revision("tencent/HunyuanOCR", None, tmp_path) is None
+    ref = tmp_path / "models--tencent--HunyuanOCR" / "refs" / "main"
+    ref.parent.mkdir(parents=True)
+    ref.write_text("47644ecc4fc854efa4f505155158831f36773ee4\n", encoding="utf-8")
+    rev = hw.weights_revision("tencent/HunyuanOCR", None, tmp_path)
+    assert rev == "47644ecc4fc854efa4f505155158831f36773ee4"
+
+
 # --- the transport: the same promises through queue_server.py and RemoteQueue -----------------
 
 import socket  # noqa: E402
