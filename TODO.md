@@ -17,8 +17,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   order; each addendum is Proposed, his to accept; rehearse in production's image before release
 - **HunyuanOCR tabular pass, PR #34** (26,245 pages unread, 1,394 decision-carried); the GPU
   parity probe waits on his fleet rule (`settings.local.json`); loading waits for his go
-- **Claude batch for the 134 pages dots refused**: tool `claude_refused.py` on main, renders in
-  the session scratchpad; submit waits on his `~/.anthropic-key`; loading waits for his go
+- **Claude batch for the 134 pages dots refused: SUBMITTED 2026-09-15** (two batches, render
+  `200-max2576-grey`); collect writes reading documents; loading into production waits for his go
 - **Decided dates: measured** (`deferred.md` § 2026-09-15) — his call what to build
 
 ## Next
