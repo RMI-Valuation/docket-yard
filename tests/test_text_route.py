@@ -17,6 +17,7 @@ from tests.test_text_load import SHA_A, SHA_B, STAMP, _store
 
 ROUTED = "2026-09-05T12:00:00+00:00"  # the router's clock
 LATER = "2026-09-20T12:00:00+00:00"  # a later router run
+LATEST = "2026-09-22T12:00:00+00:00"  # a later one still
 NOW = "2026-09-15T00:00:00+00:00"  # the store's clock at a load
 AFTER = "2026-09-25T00:00:00+00:00"  # the store's clock at a later load
 ROUTER = "pp-doclayoutv3+regions"
@@ -241,8 +242,9 @@ def test_a_new_router_version_supersedes_on_the_stores_clock(tmp_path):
         ).fetchone()
         assert by != rid and successor == (page_no,)
         assert at == AFTER and asserted == NOW  # left the record when the next one entered it
-    # and a different class at the SAME version supersedes too
-    same = _record(SHA_A, {1: "graphic", 2: "degraded"}, version="confirmed-1", routed_at=LATER)
+    # and a different class at the SAME version supersedes too — from a file routed LATER still:
+    # at LATER itself it would be stale, an equal instant being refused (the first loaded wins)
+    same = _record(SHA_A, {1: "graphic", 2: "degraded"}, version="confirmed-1", routed_at=LATEST)
     assert _route(con, same, now=AFTER) == "superseded"
     assert [r[1] for r in _live(con)] == ["graphic", "degraded"]
 
@@ -279,6 +281,7 @@ def test_an_equal_time_file_with_a_differing_verdict_is_stale_and_the_first_wins
     [
         ("2026-09-05T12:00:00Z", "2026-09-05T12:00:00+00:00"),
         ("2026-09-05T17:00:00+05:00", "2026-09-05T12:00:00+00:00"),
+        ("2026-09-05T07:00:00-05:00", "2026-09-05T12:00:00+00:00"),
         ("2026-09-05T12:00:00.734512+00:00", "2026-09-05T12:00:00+00:00"),
     ],
 )
@@ -289,7 +292,17 @@ def test_routed_at_is_stored_in_one_utc_shape(tmp_path, given, stored):
     assert _live(con)[0][5] == stored
 
 
-@pytest.mark.parametrize("given", ["2026-09-05T12:00:00", "yesterday", "", 20260905])
+@pytest.mark.parametrize(
+    "given",
+    [
+        "2026-09-05T12:00:00",
+        "2026-09-05",  # a date alone is not an instant
+        "0001-01-01T00:00:00+01:00",  # parses, then overflows in UTC: refused, not raised out
+        "yesterday",
+        "",
+        20260905,
+    ],
+)
 def test_routed_at_without_a_zone_or_a_shape_is_unreadable(tmp_path, given):
     con = _store(tmp_path)
     with pytest.raises(Unreadable, match="routed_at"):
@@ -334,11 +347,21 @@ def test_a_page_the_router_failed_on_writes_no_verdict_and_is_counted(tmp_path):
 
 
 def test_a_person_verdict_is_held_against_the_pass(tmp_path):
+    """A person's row names no router run, so its `routed_at` may be NULL; the pass holds it
+    before any comparison, so staleness never reads the NULL."""
     con = _store(tmp_path)
     _paginate(con, SHA_A, 1)
-    _insert(con, route_class="clean", method="human", confidence_state="human", confidence=1)
+    human = dict(method="human", confidence_state="human", confidence=1, routed_at=None)
+    rid = _insert(con, route_class="clean", **human)
     assert _route(con, _record(SHA_A, {1: "tabular"})) == "human_held"
     assert [r[1] for r in _live(con)] == ["clean"]
+    # the trigger's IS NOT tolerates the NULL: an unrelated write passes, an edit of it does not
+    con.execute("UPDATE page_route SET confidence = 1 WHERE route_id = ?", (rid,))
+    with pytest.raises(sqlite3.IntegrityError, match="superseded, never edited"):
+        con.execute("UPDATE page_route SET routed_at = ? WHERE route_id = ?", (ROUTED, rid))
+    # and only a person's row may leave it out
+    with pytest.raises(sqlite3.IntegrityError):
+        _insert(con, page_no=2, routed_at=None)
 
 
 def test_an_unknown_document_is_counted_and_skipped_and_the_exit_status_says_so(tmp_path):

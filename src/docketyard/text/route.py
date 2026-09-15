@@ -86,7 +86,10 @@ def _routed_at(record: dict) -> str:
         raise Unreadable(f"routed_at {raw!r} is not an ISO 8601 time") from None
     if at.tzinfo is None or at.utcoffset() is None:
         raise Unreadable(f"routed_at {raw!r} carries no timezone")
-    return at.astimezone(UTC).isoformat(timespec="seconds")
+    try:  # a time at the edge of the calendar parses, then leaves it in UTC
+        return at.astimezone(UTC).isoformat(timespec="seconds")
+    except OverflowError:
+        raise Unreadable(f"routed_at {raw!r} is out of range in UTC") from None
 
 
 def _render(record: dict) -> str:

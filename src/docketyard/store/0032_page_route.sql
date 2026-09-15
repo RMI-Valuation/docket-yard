@@ -17,7 +17,9 @@
 -- entered the record, as `document_text.asserted_at` is, so that it and `superseded_at` replay
 -- what a page showed on a date (validation query 3). `routed_at` is the ROUTER's own clock, from
 -- the file; it orders two verdicts for staleness and is never read as a record date. One shape,
--- UTC to the second, so that ordering the strings orders the instants.
+-- UTC to the second, so that ordering the strings orders the instants. A PERSON'S row may leave it
+-- NULL — a correction names no router run — and is decided before any comparison reads it; the
+-- pass always writes it. Relaxed now, while the table is empty, because later it is a rebuild.
 --
 -- `render_profile` is the render the router saw (the file's `dpi`, e.g. '150'): a verdict at
 -- another render is another verdict, as a reading at another render is (ADR 0021 D2).
@@ -50,15 +52,16 @@ CREATE TABLE page_route (
     confidence_state TEXT NOT NULL REFERENCES confidence_state_vocab (confidence_state),
     measured_target  TEXT CHECK (measured_target IS NULL OR measured_target = 'page_route'),
     score_row_id     INTEGER,
-    routed_at        TEXT NOT NULL CHECK (routed_at GLOB
-        '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]+00:00'),
+    routed_at        TEXT,
     asserted_at      TEXT NOT NULL CHECK (asserted_at <> ''),
     superseded_by    INTEGER REFERENCES page_route (route_id),
     superseded_at    TEXT,
     CHECK ((superseded_by IS NULL) = (superseded_at IS NULL)),
     CHECK ((confidence_state = 'measured') = (score_row_id IS NOT NULL)),
     CHECK ((score_row_id IS NULL) = (measured_target IS NULL)),
-    CHECK ((method = 'human') = (confidence_state = 'human'))
+    CHECK ((method = 'human') = (confidence_state = 'human')),
+    CHECK ((method = 'human') OR (routed_at IS NOT NULL AND routed_at GLOB
+        '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]+00:00'))
 );
 
 -- One live verdict per page, whatever router gave it: a second router is a supersession, not a
