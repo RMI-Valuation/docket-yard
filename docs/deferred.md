@@ -1571,6 +1571,13 @@ the marker needs the router's verdict in the store, which is a provenance questi
 3. **The route in the store** so a tabular page can say it is unread: a schema/provenance change,
    schema-critic first.
 
+**Decided by the operator the same day:** (1) **build decision 6's HunyuanOCR tabular pass** on the
+fleet (branch + PR; loading waits for his go); (2) for the pages dots refused he asked whether an
+LLM reading on the 3090 or, if needed, Claude should read them — **open, facts owed to him**; (3) **the
+route in the store: scope it, schema-critic first**; (4) **start all three builds**: the per-page
+failure record, the veto trigger, and the decided-date consumer (each design and critic before code;
+any ADR addendum is his to accept).
+
 **Three owed items, scoped against the ADRs** (each claim below checked in the code):
 
 - **"Not in the record" joining live `citation`** (0014_citations.sql § the projection; ADR 0017 D2,

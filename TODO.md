@@ -12,13 +12,12 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **Owed with the citator's pipeline, scoped 2026-09-15** (`deferred.md` § that date): none has
-  code to fix yet — the display, the veto and the decided-date consumer are all unbuilt; the
-  trigger and the consumer need schema-critic, and the consumer is a decision (ADR 0018 D4)
-- **The OCR wave's unloaded pages** (measured 2026-09-15, `deferred.md` § that date): NOT a
-  selection miss. 26,245 `tabular` pages (1,394 decision-carried, in 100 documents) wait for
-  decision 6's HunyuanOCR pass, and read "Read as blank." where decision 3 promised a marker;
-  121 dots-refused degraded pages have no fallback. Both WITH THE OPERATOR
+- **His choices 2026-09-15** (`deferred.md` § that date), each design + critic before code:
+  the veto trigger; the decided-date consumer (ADR 0018 D4 addendum first); the route in the store
+- **Build decision 6's HunyuanOCR tabular pass**: 26,245 pages unread, 1,394 decision-carried
+  in 100 documents, showing "Read as blank."; loading waits for his go
+- **121 dots-refused degraded pages have no reading**: he asked about an LLM reading (3090, or
+  Claude) — facts owed to him
 
 ## Next
 
@@ -27,8 +26,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
   migration (schema-critic first) and the browse on `/parties`
 - With the operator: a sheet's JSON-LD block in Google's Rich Results test, from a browser
-- ADR 0024 Owed 2, the per-page failure record: scoped 2026-09-15 (`deferred.md`) — a table
-  under `ocr_run`, schema-critic, and a shape the ADR has not decided
+- ADR 0024 Owed 2, the per-page failure record — HIS CHOICE to build (2026-09-15): addendum
+  draft for the shape, schema-critic, his acceptance, then a branch
 - **Held by the operator for rewording (2026-09-11)**: `/methodology`'s text-stage section
   (`848e366`) and the one-day-rest sentence (`3b538bc`); § Documents has his narrowed one
 - The workstation gate's ONLOGON task is still unregistered (`deferred.md`)
