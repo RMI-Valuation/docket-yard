@@ -1624,3 +1624,11 @@ later 14,548, other 40. Script: session scratchpad `measure_decided.py`.
   `ocr_run` keyed by page, a reason vocabulary, a loader cross-check against `pages_failed`, both
   producers emitting it, and a dump decision — a finer grain, so schema-critic, and likely an addendum
   (the shape is not decided; nor is whether the oversize refusal rides on it).
+
+## From reviewing the tabular pass's build, 2026-09-15 (branch `hunyuan-tabular`, not yet run)
+
+- **OCR producer pins cannot tell two engines apart at one profile and role.** Producer pins are
+  keyed `(channel, render_profile, role)`, so `hunyuan-ocr` 1.5 at `ocr`/`150`/`primary` shares a pin
+  key with `pp-ocrv6-medium`: the first OCR pin would refuse one of the two roots. No OCR pin exists
+  yet, so nothing refuses today. Found by the stb-ingest-specialist on this branch; schema-critic
+  decides the key when OCR pins arrive.

@@ -280,21 +280,9 @@ def run_hunyuan_ocr(image: Path, cfg: dict) -> str:
     improve any other AI model — which is in tension with publishing them in a CC0 dump.
     Measured to see whether that conversation is worth having; nothing is deployed on it.
     """
-    import torch  # noqa: PLC0415
     from PIL import Image  # noqa: PLC0415
-    from transformers import AutoModelForImageTextToText, AutoProcessor  # noqa: PLC0415
 
-    model = cfg.get("_hunyuan")
-    if model is None:
-        name = cfg.get("hunyuan_model", "tencent/HunyuanOCR")
-        cfg["_hunyuan_proc"] = AutoProcessor.from_pretrained(name, trust_remote_code=True)
-        cfg["_hunyuan"] = model = (
-            AutoModelForImageTextToText.from_pretrained(
-                name, trust_remote_code=True, dtype=torch.bfloat16
-            )
-            .to("cuda")
-            .eval()
-        )
+    model = load_hunyuan(cfg)
     proc = cfg["_hunyuan_proc"]
     messages = [
         {
@@ -312,9 +300,43 @@ def run_hunyuan_ocr(image: Path, cfg: dict) -> str:
         return_dict=True,
         return_tensors="pt",
     ).to("cuda")
-    out = model.generate(**inputs, max_new_tokens=4096, do_sample=False)
-    text = proc.decode(out[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True)
+    out = model.generate(**inputs, max_new_tokens=HUNYUAN_MAX_NEW_TOKENS, do_sample=False)
+    generated = out[0][inputs["input_ids"].shape[1] :]
+    text = proc.decode(generated, skip_special_tokens=True)
+    # What the fleet's worker needs besides the flattened text, recorded rather than returned
+    # so the benchmark's call is unchanged: the model's answer whole, and whether it was cut —
+    # generate() stops at EOS or at max_new_tokens and says neither, so the count and the last
+    # token are the only evidence (`tools/fleet/hunyuan_worker.py`)
+    eos = model.generation_config.eos_token_id
+    eos_ids = set(eos if isinstance(eos, list) else [eos] if eos is not None else [])
+    cfg["_hunyuan_last"] = {
+        "raw": text,
+        "new_tokens": int(generated.shape[0]),
+        "ended_with_eos": bool(generated.shape[0]) and int(generated[-1]) in eos_ids,
+    }
     return _markdown_tables(text)
+
+
+HUNYUAN_MAX_NEW_TOKENS = 4096
+
+
+def load_hunyuan(cfg: dict):
+    """The model and processor, loaded once into `cfg`; a later call returns the loaded one."""
+    import torch  # noqa: PLC0415
+    from transformers import AutoModelForImageTextToText, AutoProcessor  # noqa: PLC0415
+
+    model = cfg.get("_hunyuan")
+    if model is None:
+        name = cfg.get("hunyuan_model", "tencent/HunyuanOCR")
+        cfg["_hunyuan_proc"] = AutoProcessor.from_pretrained(name, trust_remote_code=True)
+        cfg["_hunyuan"] = model = (
+            AutoModelForImageTextToText.from_pretrained(
+                name, trust_remote_code=True, dtype=torch.bfloat16
+            )
+            .to("cuda")
+            .eval()
+        )
+    return model
 
 
 def _markdown_tables(text: str) -> str:

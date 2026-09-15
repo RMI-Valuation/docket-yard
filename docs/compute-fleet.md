@@ -47,6 +47,12 @@ The passes today, all in `tools/fleet/pagequeue.py § PASSES`:
 | Pass | Key | Reads | Output root |
 | --- | --- | --- | --- |
 | `dots` | dots.mocr 1.5, 200 DPI | pages routed `degraded` | `ocr/dots` |
+| `tabular` | hunyuan-ocr 1.5, 150 DPI — HunyuanOCR-1.5 in-process through transformers (`hunyuan_worker.py`); built 2026-09-15, not yet run | pages routed `tabular` (26,294) | `ocr/hunyuan-tabular` |
+
+Each pass names its own page builder (`PASSES[...]["page"]`): the worker posts the engine's
+raw answer and `collect` turns it into the engine page and its text — `ocr_wave.dots_page`
+for `dots`, `ocr_wave.hunyuan_page` for `tabular` (the answer kept whole; each `<table>`
+flattened to `[table]` blocks by the benchmark's own `_markdown_tables`).
 
 ## The lease
 
@@ -158,6 +164,8 @@ Two roles, tmux sessions for each, started idempotently by `tools/fleet/fleet-up
 | coordinator | `dots-collect` | `pagequeue.py collect` every ten minutes | `ocr/logs/dots-collect.log` |
 | worker | `dots-vllm` | `dots-serve.sh`: vLLM, restarted a minute after it dies | `ocr/logs/vllm.log` |
 | worker | `dots-worker` | `dots_worker.py`, restarted a minute after it exits (0: queue empty; 2: server gone 30 min; 3: server dies on consecutive pages; 4: not the page's fault; 5: too many page failures in a row) | `ocr/logs/dots-worker.log` |
+| coordinator | `tabular-collect` | `pagequeue.py collect --pass tabular` every ten minutes; writes nothing until the pass is seeded | `ocr/logs/tabular-collect.log` |
+| tabular | `tabular-worker` | `hunyuan_worker.py` under `DY_FLEET_HUNYUAN_PY`, restarted a minute after it exits (0: queue empty, model not loaded; 3: out of GPU memory on two different pages in a row; 4: the model did not load, the card is short of free memory, the engine raised on a page, or not the page's fault; 5: too many page failures in a row). Its own role, never part of `worker` or `all` | `ocr/logs/tabular-worker.log` |
 
 The coordinator is rmi-nuc (data under the operator's home; `DY_FLEET_PY=python3`, since it
 needs no engine). A worker names the coordinator in `<data>/fleet-node` and, if it holds a
@@ -182,6 +190,57 @@ seed) and the worker moves on at its next start.
 
 When the queue empties: `collect` has written every document; `second` and `graphic` follow
 as `ocr_wave.py` documents; rsync and `text load` each root in that order on the instance.
+
+### The tabular pass
+
+ocr-plan.md decision 6, built on the operator's decision of 2026-09-15 (`docs/deferred.md`
+§ that date). **Running it waits for a parity probe on the GPU** — the worker's reading of a
+handful of benchmark pages against `ocr_run.py --engine hunyuan-ocr`'s — **and loading
+`ocr/hunyuan-tabular` into production waits for the operator's go.** Neither is implied by
+the pass existing.
+
+The worker is `tools/fleet/hunyuan_worker.py`: `dots_worker.py`'s lease loop, stop file,
+breaker and taxonomy, minus the server. HunyuanOCR-1.5 runs in its own process through
+`ocr_run.run_hunyuan_ocr` — the benchmark's call, transformers, bfloat16, greedy, 4,096 new
+tokens — because vLLM 0.28's HunYuanVL fails on start and the benchmark's numbers are the
+transformers path's. The producer names `transformers` and its version, `tencent/HunyuanOCR`
+and the snapshot revision it loaded (the config's commit hash, else the cache's `refs/main`;
+a worker that cannot name it does not claim). What is the page's own, finally: `oversize`
+over 6 MP at 150 DPI (29 of the 26,294 pages, measured 2026-09-15), a render that fails, and
+`finish_reason length` (every new token spent and no EOS). **Out of GPU memory is not the
+page's**: the likeliest cause is another process on the card, and a final failure would count
+the document whole with no text. The worker refuses to load with under 4 GiB free
+(`MIN_FREE_TO_LOAD`: the 2 GB model plus 2 GiB headroom, a bound the parity probe owes a
+measurement for) and to claim with under 2 GiB usable (`MIN_HEADROOM`), exiting 4 with nothing
+claimed. An OOM that survives one retry with the cache emptied puts the page back as
+`gpu: oom`, attempt spent, and claims again; OOM on two different pages in a row exits 3. The
+engine raising anything else on a page puts that page back as `engine: <Exception>`, attempt
+spent — it is first in claim order, so a refund would loop it for ever — and exits 4. Neither
+is `page:`, so after three attempts the document is re-read at a later seed, never whole.
+**An empty answer is not a blank page**: a tabular page has a table on it, so `''` is the model
+failing (a template or processor drift, an immediate EOS). It goes back as
+`engine: empty answer`, attempt spent, never posted as done, and consecutive ones trip the
+breaker (exit 5). `--model` must be `tencent/HunyuanOCR`, the model the key names; anything
+else exits 4 before claiming.
+**The card must be the worker's**: with the dots server holding 90% of the 4070 the floor
+refuses every start. So:
+
+```bash
+tmux kill-session -t dots-vllm; tmux kill-session -t dots-worker          # on a shared card
+python3 tools/fleet/pagequeue.py --db Q seed --pass tabular --out /data/docketyard/ocr --dry-run
+python3 tools/fleet/pagequeue.py --db Q seed --pass tabular --out /data/docketyard/ocr
+DY_FLEET_HUNYUAN_PY=<venv>/bin/python bash ~/docket-yard/tools/fleet/fleet-up.sh tabular
+touch /data/docketyard/ocr/.stop-tabular                                   # stop it
+python3 tools/fleet/pagequeue.py --db Q collect --pass tabular --out /data/docketyard/ocr
+```
+
+**Seed only when a worker is about to read.** The monitor's alarms are per pass: a seeded
+pass that owes pages and has never read one is STALLED from the first scrape, which is
+correct and will page the operator. `tabular-collect` on the coordinator writes
+`ocr/hunyuan-tabular/<xx>/<sha>.json` as documents finish; nothing rsyncs or loads it.
+
+The workstation's gate (`workstation-gate.ps1`) is still the `dots` pass's: its container,
+worker script and names are dots-specific, and `-Pass` only changes what it asks `/pending`.
 
 ## Joining a node
 
