@@ -197,6 +197,16 @@ def test_a_measurement_is_never_changed_removed_or_replaced(tmp_path):
     ).fetchone() == ("t",)
 
 
+def test_a_card_differing_only_in_its_projection_rule_is_a_new_card(tmp_path):
+    con = _store(tmp_path)
+    assert _measurement(con) != _measurement(con, projection_rule_version="rule-p2")
+
+
+def test_a_card_differing_only_in_its_resolution_version_is_a_new_card(tmp_path):
+    con = _store(tmp_path)
+    assert _measurement(con) != _measurement(con, resolution_method_version="rule-2")
+
+
 # --- the rows (rules 1 and 2) -------------------------------------------------------------
 
 
@@ -330,10 +340,17 @@ def test_the_guard_names_both_kinds_of_violation_and_refuses_the_migration_whole
     def norm(sql):
         return " ".join(sql.split())
 
-    precheck = norm(PRECHECK.read_text(encoding="utf-8")).replace(" AS what", "")
-    precheck = precheck.replace(" AS id", "")
-    for sql in guards:
-        assert norm(sql) in precheck, sql
+    body = "\n".join(
+        line
+        for line in PRECHECK.read_text(encoding="utf-8").splitlines()
+        if not line.startswith("--")
+    )
+    declared = guards[0].replace(
+        "SELECT 'declaration', a.method_row_id",
+        "SELECT 'declaration' AS what, a.method_row_id AS id",
+    )
+    composed = f"SELECT what, id FROM ( {declared} UNION ALL {guards[1]} ) ORDER BY what, id"
+    assert norm(body) == norm(composed)
     con.close()
 
     with pytest.raises(sqlite3.IntegrityError, match="migration 0030"):

@@ -17,7 +17,9 @@
 --      is an INSERT that would collide with a row on either unique key — `measurement_id` or
 --      `class_measurement_identity` (0014) — because `INSERT OR REPLACE` deletes the row it
 --      collides with WITHOUT firing a DELETE trigger, so the INSERT is where it is caught. A
---      plain duplicate card therefore fails with this trigger's message, not "UNIQUE constraint";
+--      plain duplicate card therefore fails with this trigger's message, not "UNIQUE constraint",
+--      and `INSERT OR IGNORE` of one ABORTS rather than being skipped, because RAISE(ABORT) fires
+--      before the conflict clause applies;
 --   5. declaring a triple `suppress`, by INSERT or UPDATE, is refused while any row of it, live
 --      or superseded, fails 2.
 --
