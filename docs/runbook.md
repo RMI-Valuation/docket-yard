@@ -53,6 +53,14 @@ operator the day a Claude-backed run is chosen, never before** (decided 2026-09-
 party-types model tier, a generated summary and an extraction benchmark each ask for one
 when they are chosen, and a key waiting unused is what this section exists to prevent.
 
+**The instance's `.env` is never sourced into a shell.** Docker Compose and systemd's
+`EnvironmentFile` read it; its values are unquoted (`DY_MAIL_FROM=Docket Yard <alerts@…>`, and
+the Grafana credentials), so `. ./.env` fails partway and would put secrets in a shell's
+environment besides. A script needing one value reads that key alone:
+`grep '^DY_S3_BUCKET=' .env | cut -d= -f2-`. Quoting the file to make it sourceable was
+considered and declined (the operator, 2026-09-15): the three readers treat quotes differently,
+and the change would rewrite credentials for no change in behaviour.
+
 ## Production instance
 
 Bootstrap, deploy, rollback, restore and health checks: [`../infra/deploy/README.md`](../infra/deploy/README.md).
