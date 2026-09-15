@@ -12,12 +12,14 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **His choices 2026-09-15** (`deferred.md` § that date), each design + critic before code:
-  the veto trigger; the decided-date consumer (ADR 0018 D4 addendum first); the route in the store
-- **Build decision 6's HunyuanOCR tabular pass**: 26,245 pages unread, 1,394 decision-carried
-  in 100 documents, showing "Read as blank."; loading waits for his go
-- **121 dots-refused degraded pages have no reading**: he asked about an LLM reading (3090, or
-  Claude) — facts owed to him
+- **Three schema branches (2026-09-15), each reworked after schema-critic**: `veto-trigger`
+  (0030), `ocr-page-failure` (0031), `page-route` (0032). Merge in number order (`migrate` skips
+  a lower number); each addendum is Proposed, his to accept
+- **HunyuanOCR tabular pass** on branch `hunyuan-tabular` (26,245 pages unread, 1,394
+  decision-carried); the GPU parity probe waits on his fleet rule (`settings.local.json`)
+- **Claude batch for the 134 pages dots refused**: tool `claude_refused.py` on main, renders in
+  the session scratchpad; submit waits on his `~/.anthropic-key`; loading waits for his go
+- **Decided dates: measured** (`deferred.md` § 2026-09-15) — his call what to build
 
 ## Next
 
