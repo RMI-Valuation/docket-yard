@@ -1610,3 +1610,16 @@ Measured for the tabular pass: 26,294 tabular pages at 150 DPI, median 2.1 MP, p
   `ocr_run` keyed by page, a reason vocabulary, a loader cross-check against `pages_failed`, both
   producers emitting it, and a dump decision — a finer grain, so schema-critic, and likely an addendum
   (the shape is not decided; nor is whether the oversize refusal rides on it).
+
+## From the schema critic on migration 0030, 2026-09-15 (branch `veto-trigger`, against v2026.09.24)
+
+- **A veto's measurement is not pinned to a rate-bearing class.** The triggers ask only that the
+  measurement carry a non-NULL `false_veto_rate`, so a declaration or a bound row may name a `docket`
+  or `work` measurement that also carries one (`test_restamp_leaves_a_class_it_does_not_own_alone`
+  writes such a card). A flag on `class_vocab` marking the rate-bearing classes, read by the triggers,
+  would pin it. Not built: nothing declares a veto.
+- **`restamp` and a bound row, conjectured and not reproduced.** `restamp.stale` selects by the row's
+  class (`_OURS` = docket, work), not by its method's role. A row of a suppress triple stamped from a
+  docket-class measurement would be picked up, re-inserted from the docket card, which carries no
+  rate, and refused by `citation_resolution_veto_row_is_measured_on_a_rate` — an IntegrityError in
+  the middle of a pass. Owed with the first veto: reproduce it, then filter `stale` on role.

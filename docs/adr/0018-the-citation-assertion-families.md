@@ -424,11 +424,15 @@ operator's (2026-09-15); acceptance is his.
 3. **A declaration is measured on its own channel.** A `suppress` declaration's measurement
    carries `false_veto_rate` and was measured on the declaration's `reading_channel`. A recall
    alone, or another channel's rate, is refused.
-4. **A veto's rate is not withdrawn or re-pointed.** An update of `class_measurement` may not set
-   `false_veto_rate` NULL, or change `measurement_id` or `measured_target`, while a declaration or
-   a bound row names it, nor a declaration's measurement's `reading_channel`.
+4. **A measurement is never changed or removed; a re-score is a new row** (decision 8:
+   `class_measurement` is append-only). Every update or delete of a measurement is refused, and so
+   is an insert reusing a `measurement_id`, which would replace one. So a veto's rate cannot be
+   withdrawn or re-pointed after it was checked.
 5. **No declaration over rows that do not conform.** Declaring a triple `suppress`, by insert or
    update, is refused while any of its rows, live or superseded, fails item 2.
+
+A triple once declared `suppress`, in any `rank_version`, or one that ever wrote a non-conforming
+row, is escaped only by a new `method_version`.
 
 Held by triggers (migration 0030). A store already holding a violation refuses the migration
 whole.

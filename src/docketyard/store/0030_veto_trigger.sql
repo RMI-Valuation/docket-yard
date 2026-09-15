@@ -4,7 +4,7 @@
 -- 0014 made a `suppress` declaration point at a `citation_resolution` measurement and left two
 -- cross-row conditions as prose, "owed with the veto": that the measurement carries a false-veto
 -- rate rather than a recall, and that the rows a suppress method writes are `measured`. Both are
--- triggers here, with three the operator added (2026-09-15):
+-- triggers here, with the rules the operator added (2026-09-15) and the schema critic's:
 --
 --   1. a triple (method, method_version, reading_channel) declared `suppress` in ANY
 --      `rank_version` binds its `citation_resolution` rows, which carry no `rank_version`;
@@ -12,18 +12,25 @@
 --      non-NULL `false_veto_rate`;
 --   3. a declaration's measurement carries `false_veto_rate` and was measured on the
 --      declaration's OWN `reading_channel`;
---   4. an UPDATE of `class_measurement` may not withdraw that rate (set it NULL) or re-point the
---      measurement (`measurement_id`, `measured_target`, and a declaration's `reading_channel`)
---      while a declaration or a bound row names it. A changed non-NULL rate is not refused;
+--   4. a measurement is never changed or removed; a re-score is a new row (ADR 0018 D8, which
+--      nothing held until now). Every UPDATE and DELETE of `class_measurement` is refused, and so
+--      is an INSERT reusing a `measurement_id` — `INSERT OR REPLACE` deletes without firing a
+--      DELETE trigger, so the INSERT is where it is caught;
 --   5. declaring a triple `suppress`, by INSERT or UPDATE, is refused while any row of it, live
 --      or superseded, fails 2.
+--
+-- So a triple once declared `suppress`, or one that ever wrote a non-conforming row, is escaped
+-- only by a new `method_version`.
 --
 -- A NULL `score_row_id` or another stage's measurement on a declaration is left to 0014's CHECKs,
 -- which hold whatever `PRAGMA foreign_keys` says; the triggers below gate on the stage so those
 -- CHECKs stay the refusal a test can name.
 --
--- NOTHING DECLARES A VETO TODAY, so the triggers constrain no existing row. The guard below
--- proves it rather than assuming it: a store holding a violation refuses this migration whole.
+-- NOTHING DECLARES A VETO TODAY, and nothing updates, deletes or replaces a measurement (the
+-- repository searched 2026-09-15). The guard below proves the first rather than assuming it: a
+-- store holding a violation refuses this migration whole. Its two SELECTs, run bare, name the
+-- rows; `infra/deploy/0030-precheck.sql` is a copy for production before the wall, and
+-- tests/test_citator_veto_trigger.py requires the two to agree.
 --
 -- ONE LITERAL PER RAISE. Production's SQLite (Debian 13's 3.46.1) refuses a message built with
 -- `||` as a syntax error (migration 0029, 2026-09-13).
@@ -34,16 +41,14 @@
 -- triggers with it. So, besides each table's indexes:
 --
 --   citation_resolution  drop first: the view `citation_reading_residue` (0029, whose `decided`
---                        column reads it), the two `..._not_declared_over_unmeasured_rows`
---                        triggers ON assertion_method and `class_measurement_vetoing_rows_rate_
---                        is_kept`; recreate those and the two triggers ON citation_resolution.
---   assertion_method     drop first: the two triggers ON citation_resolution and the two ON
---                        class_measurement; recreate those and the four ON assertion_method.
---   class_measurement    drop first: the four triggers ON assertion_method and the two ON
---                        citation_resolution; recreate those and the two ON class_measurement.
---
--- THE PRE-CHECK is the guard's two SELECTs below, run bare: on a store where both return no row,
--- this migration applies.
+--                        column reads it) and the two `assertion_method_veto_is_not_declared_
+--                        over_unmeasured_rows*` triggers; recreate those and the two
+--                        `citation_resolution_veto_row_is_measured_on_a_rate*` triggers.
+--   assertion_method     drop first: the two `citation_resolution_veto_row_*` triggers; recreate
+--                        those and the four `assertion_method_veto_*` triggers.
+--   class_measurement    drop first: the four `assertion_method_veto_*` and the two
+--                        `citation_resolution_veto_row_*` triggers; recreate those, and the three
+--                        `class_measurement_*` append-only triggers AFTER the copy.
 --
 -- All three tables are in `dump.HELD_TABLES`, so the snapshot drops these triggers with them.
 
@@ -52,14 +57,14 @@ BEGIN TRANSACTION;
 -- ---------------------------------------------------------------------------
 -- The guard: no existing row may already break what the triggers will hold
 -- ---------------------------------------------------------------------------
-CREATE TEMP TABLE m0030_violation (what TEXT);
+CREATE TEMP TABLE m0030_violation (what TEXT, id INTEGER);
 CREATE TEMP TRIGGER m0030_violation_aborts BEFORE INSERT ON m0030_violation
 BEGIN
-    SELECT RAISE(ROLLBACK, 'migration 0030: a suppress declaration or a row it binds already breaks the veto trigger; nothing was applied. The guard SELECTs in 0030_veto_trigger.sql name the rows.');
+    SELECT RAISE(ROLLBACK, 'migration 0030: a suppress declaration or a row it binds already breaks the veto trigger; nothing was applied. infra/deploy/0030-precheck.sql names the rows.');
 END;
 
 INSERT INTO m0030_violation
-SELECT 'declaration'
+SELECT 'declaration', a.method_row_id
   FROM assertion_method a
  WHERE a.target_table = 'citation_resolution' AND a.role = 'suppress'
    AND NOT EXISTS (SELECT 1 FROM class_measurement m
@@ -69,7 +74,7 @@ SELECT 'declaration'
                       AND m.false_veto_rate IS NOT NULL);
 
 INSERT INTO m0030_violation
-SELECT 'row'
+SELECT 'row', r.resolution_id
   FROM citation_resolution r
  WHERE EXISTS (SELECT 1 FROM assertion_method a
                 WHERE a.target_table = 'citation_resolution' AND a.role = 'suppress'
@@ -185,38 +190,25 @@ BEGIN
 END;
 
 -- ---------------------------------------------------------------------------
--- class_measurement: a veto's rate is not withdrawn or re-pointed (rule 4)
+-- class_measurement: append-only (rule 4; ADR 0018 D8)
 -- ---------------------------------------------------------------------------
-CREATE TRIGGER class_measurement_declared_veto_rate_is_kept
-BEFORE UPDATE OF measurement_id, measured_target, reading_channel, false_veto_rate
-ON class_measurement
-WHEN (NEW.false_veto_rate IS NULL
-      OR NEW.measurement_id IS NOT OLD.measurement_id
-      OR NEW.measured_target IS NOT OLD.measured_target
-      OR NEW.reading_channel IS NOT OLD.reading_channel)
- AND EXISTS (SELECT 1 FROM assertion_method a
-              WHERE a.target_table = 'citation_resolution' AND a.role = 'suppress'
-                AND a.score_row_id = OLD.measurement_id)
+CREATE TRIGGER class_measurement_is_never_updated
+BEFORE UPDATE ON class_measurement
 BEGIN
-    SELECT RAISE(ABORT,
-        'ADR 0018 D7: a false-veto rate a suppress declaration names is not withdrawn or re-pointed');
+    SELECT RAISE(ABORT, 'ADR 0018 D8: a measurement is append-only; a re-score is a new row');
 END;
 
-CREATE TRIGGER class_measurement_vetoing_rows_rate_is_kept
-BEFORE UPDATE OF measurement_id, measured_target, false_veto_rate
-ON class_measurement
-WHEN (NEW.false_veto_rate IS NULL
-      OR NEW.measurement_id IS NOT OLD.measurement_id
-      OR NEW.measured_target IS NOT OLD.measured_target)
- AND EXISTS (SELECT 1 FROM citation_resolution r
-              WHERE r.score_row_id = OLD.measurement_id
-                AND EXISTS (SELECT 1 FROM assertion_method a
-                             WHERE a.target_table = 'citation_resolution' AND a.role = 'suppress'
-                               AND a.method = r.method AND a.method_version = r.method_version
-                               AND a.reading_channel = r.reading_channel))
+CREATE TRIGGER class_measurement_is_never_deleted
+BEFORE DELETE ON class_measurement
 BEGIN
-    SELECT RAISE(ABORT,
-        'ADR 0018 D7: a false-veto rate a row of a suppress method names is not withdrawn or re-pointed');
+    SELECT RAISE(ABORT, 'ADR 0018 D8: a measurement is append-only; a re-score is a new row');
+END;
+
+CREATE TRIGGER class_measurement_id_is_never_replaced
+BEFORE INSERT ON class_measurement
+WHEN EXISTS (SELECT 1 FROM class_measurement m WHERE m.measurement_id = NEW.measurement_id)
+BEGIN
+    SELECT RAISE(ABORT, 'ADR 0018 D8: a measurement is append-only; a re-score is a new row');
 END;
 
 PRAGMA user_version = 30;
