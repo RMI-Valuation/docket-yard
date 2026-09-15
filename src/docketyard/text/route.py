@@ -105,6 +105,8 @@ def from_record(record: dict, allowed: frozenset[str] | set[str]) -> Route:
         raise Unreadable("not a JSON object")
     sha = sha_field(record)
     method, version = text_field(record, "method"), text_field(record, "method_version")
+    if method == "human":  # a file is a machine's; the store's CHECK would refuse it as `failed`
+        raise Unreadable("method 'human' is a person's correction, never a route file")
     routed_at = _routed_at(record)
     render = _render(record)
     pages = record.get("pages")

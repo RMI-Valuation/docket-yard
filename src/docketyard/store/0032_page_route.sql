@@ -17,9 +17,12 @@
 -- entered the record, as `document_text.asserted_at` is, so that it and `superseded_at` replay
 -- what a page showed on a date (validation query 3). `routed_at` is the ROUTER's own clock, from
 -- the file; it orders two verdicts for staleness and is never read as a record date. One shape,
--- UTC to the second, so that ordering the strings orders the instants. A PERSON'S row may leave it
--- NULL — a correction names no router run — and is decided before any comparison reads it; the
--- pass always writes it. Relaxed now, while the table is empty, because later it is a rebuild.
+-- UTC to the second, so that ordering the strings orders the instants. The CHECK is
+-- `(routed_at IS NULL AND method = 'human') OR routed_at GLOB '<that shape>'`: a person's row may
+-- be NULL (a correction names no router run) or carry the shape, and nothing else; every other
+-- row must carry the shape, since GLOB on NULL is NULL and fails. The pass always writes it, and
+-- decides a human row before any comparison reads the date. Settled while the table is empty,
+-- because later it is a rebuild.
 --
 -- `render_profile` is the render the router saw (the file's `dpi`, e.g. '150'): a verdict at
 -- another render is another verdict, as a reading at another render is (ADR 0021 D2).
@@ -60,8 +63,8 @@ CREATE TABLE page_route (
     CHECK ((confidence_state = 'measured') = (score_row_id IS NOT NULL)),
     CHECK ((score_row_id IS NULL) = (measured_target IS NULL)),
     CHECK ((method = 'human') = (confidence_state = 'human')),
-    CHECK ((method = 'human') OR (routed_at IS NOT NULL AND routed_at GLOB
-        '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]+00:00'))
+    CHECK ((routed_at IS NULL AND method = 'human') OR routed_at GLOB
+        '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]+00:00')
 );
 
 -- One live verdict per page, whatever router gave it: a second router is a supersession, not a

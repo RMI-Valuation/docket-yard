@@ -359,9 +359,21 @@ def test_a_person_verdict_is_held_against_the_pass(tmp_path):
     con.execute("UPDATE page_route SET confidence = 1 WHERE route_id = ?", (rid,))
     with pytest.raises(sqlite3.IntegrityError, match="superseded, never edited"):
         con.execute("UPDATE page_route SET routed_at = ? WHERE route_id = ?", (ROUTED, rid))
-    # and only a person's row may leave it out
+    # and only a person's row may leave it out; a person's row may not hold a malformed one
     with pytest.raises(sqlite3.IntegrityError):
         _insert(con, page_no=2, routed_at=None)
+    for bad in ("yesterday", "2026-09-05T12:00:00Z", ""):
+        with pytest.raises(sqlite3.IntegrityError):
+            _insert(con, page_no=2, route_class="clean", **{**human, "routed_at": bad})
+    _insert(con, page_no=2, route_class="clean", **human)  # NULL is still a person's to leave
+
+
+@pytest.mark.parametrize("method", ["human", ""])
+def test_a_route_file_must_name_a_machine_router(tmp_path, method):
+    con = _store(tmp_path)
+    record = {**_record(SHA_A, {1: "tabular"}), "method": method}
+    with pytest.raises(Unreadable, match="method"):
+        route.from_record(record, route.classes(con))
 
 
 def test_an_unknown_document_is_counted_and_skipped_and_the_exit_status_says_so(tmp_path):
