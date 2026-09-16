@@ -214,7 +214,11 @@ def declare(
                 " rank_version, declared_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (*row, rank_version, now),
             )
-        except sqlite3.IntegrityError:
+        except sqlite3.IntegrityError as exc:
+            # A VETO REFUSAL IS NOT A COLLISION (migration 0030): its triggers name ADR 0018 D7,
+            # and read as "collides" it would send the operator after the wrong fault.
+            if str(exc).startswith("ADR 0018 D7"):
+                raise
             # NOT `INSERT OR IGNORE`, which would swallow exactly the collisions this
             # registry exists to raise. Two of its indexes are meant to refuse:
             # `assertion_method_one_owner` (one method per class per rank_version) and

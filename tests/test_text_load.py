@@ -597,3 +597,147 @@ def test_a_pin_change_does_not_turn_an_already_loaded_root_into_failures(tmp_pat
     assert load.load_reading(con, tmp_path, _reading(doc)) == "loaded"
     load.repoint_producer(con, "text-layer", "native", "primary", doc["tool"], "9.9.9")
     assert load.load_reading(con, tmp_path, _reading(doc)) == "restart"  # a fact, not a proposal
+
+
+# --- which pages failed, and why (migration 0031, ADR 0024 § Owed 2 addendum 2026-09-15) -------
+
+# the shipped vocabulary, a literal for `RUNS`'s reason
+REASONS = frozenset(
+    {
+        "cut-answer",
+        "oversize",
+        "render",
+        "timeout",
+        "operator-page",
+        "server",
+        "document-bytes",
+        "lease-expired",
+        "operator",
+        "unclassified",
+    }
+)
+OVERSIZE = "oversize: 8.4 MP at 200 DPI"
+CLASSIFIER = {"method": "ocr_wave.page_failure", "method_version": "2026-09-15"}
+FREE_TEXT = "URLError: connection refused by queue-host at /data/docketyard/blobs/ab/abc"
+
+
+def _failing(sha, **over):
+    """Page 1 read; pages 2 and 3 failed, one with a shaped measurement and one with free text."""
+    doc = _ocr(sha, texts=("read page",)) | {
+        "pages_failed": 2,
+        "page_failure_classifier": CLASSIFIER,
+        "page_failures": [
+            {"page_no": 2, "reason": "oversize", "detail": OVERSIZE},
+            {"page_no": 3, "reason": "server", "detail": FREE_TEXT},
+        ],
+    }
+    return doc | over
+
+
+def _with_reasons(doc):
+    return load.from_reading(doc, json.dumps(doc).encode(), RUNS, REASONS)
+
+
+def _failures(con):
+    return con.execute(
+        "SELECT r.document_sha256, r.pages_failed, f.page_no, f.reason, f.detail, f.classifier,"
+        " f.classifier_version FROM ocr_page_failure f JOIN ocr_run r USING (run_id)"
+        " ORDER BY r.run_id, f.page_no"
+    ).fetchall()
+
+
+def test_a_reading_that_lists_its_failed_pages_writes_a_row_for_each(tmp_path):
+    con = _store(tmp_path)
+    assert load.failure_reasons(con) == REASONS  # the literal notices a lost word
+    r = _with_reasons(_failing(SHA_A))
+    assert load.load_reading(con, tmp_path, r) == "loaded"
+    failed = _ocr(SHA_B, texts=()) | {
+        "outcome": "failed",
+        "pages_failed": 1,
+        "page_failure_classifier": CLASSIFIER,
+        "page_failures": [{"page_no": 1, "reason": "cut-answer", "detail": "finish_reason length"}],
+    }
+    assert load.load_reading(con, tmp_path, _with_reasons(failed)) == "run_only"
+    named = (CLASSIFIER["method"], CLASSIFIER["method_version"])
+    assert _failures(con) == [
+        (SHA_A, 2, 2, "oversize", OVERSIZE, *named),
+        (SHA_A, 2, 3, "server", None, *named),  # free text is never published: NULL, reason stands
+        (SHA_B, 1, 1, "cut-answer", "finish_reason length", *named),
+    ]
+    # a restart is the one lookup, and writes nothing again
+    assert load.load_reading(con, tmp_path, r) == "restart"
+    assert len(_failures(con)) == 3
+    assert con.execute("SELECT COUNT(*) FROM ocr_run").fetchone()[0] == 2
+
+
+def test_a_reading_with_no_failure_list_loads_as_before(tmp_path):
+    """A count and no list — every producer before migration 0031 — is a run and no rows."""
+    con = _store(tmp_path)
+    doc = _ocr(SHA_A) | {"pages_failed": 2}
+    assert load.load_reading(con, tmp_path, _reading(doc)) == "loaded"
+    assert con.execute("SELECT pages_failed FROM ocr_run").fetchall() == [(2,)]
+    assert _failures(con) == []
+    # an EMPTY list needs no vocabulary to check against
+    empty = _ocr(SHA_B) | {"page_failures": []}
+    assert load.load_reading(con, tmp_path, _reading(empty)) == "loaded"
+    assert _failures(con) == []
+
+
+def test_a_failure_list_that_does_not_fit_its_reading_is_refused_and_writes_no_run(tmp_path):
+    good = [{"page_no": 2, "reason": "oversize"}]
+    broken = [
+        {"pages_failed": 2, "page_failures": good},  # the list and the count disagree
+        {"pages_failed": 1, "page_failures": [{"page_no": 0, "reason": "oversize"}]},
+        {"pages_failed": 1, "page_failures": [{"page_no": "2", "reason": "oversize"}]},
+        {"pages_failed": 1, "page_failures": [{"page_no": True, "reason": "oversize"}]},
+        {"pages_failed": 2, "page_failures": good * 2},  # one page failed twice
+        {"pages_failed": 1, "page_failures": [{"page_no": 1, "reason": "oversize"}]},  # read
+        {"pages_failed": 1, "page_failures": [{"page_no": 2, "reason": "flaky"}]},
+        {"pages_failed": 1, "page_failures": [{"page_no": 2, "reason": "oversize", "detail": 5}]},
+        {"pages_failed": 1, "page_failures": "page 2"},
+        {"pages_failed": 1, "page_failures": ["page 2"]},
+        {"outcome": "skipped", "pages": [], "pages_failed": 1, "page_failures": good},
+        {"outcome": "not-paginable", "pages": [], "pages_failed": 1, "page_failures": good},
+        {"pages_failed": 1, "page_failures": good, "page_failure_classifier": None},
+        {"pages_failed": 1, "page_failures": good, "page_failure_classifier": {"method": "x"}},
+        {
+            "pages_failed": 1,
+            "page_failures": good,
+            "page_failure_classifier": {"method": "a/b", "method_version": "1"},
+        },
+        {
+            "pages_failed": 1,
+            "page_failures": good,
+            "page_failure_classifier": {"method": "x" * 65, "method_version": "1"},
+        },
+    ]
+    shas = [f"{i:064x}" for i in range(1, len(broken) + 2)]
+    con = _store(tmp_path, *shas)
+    root = tmp_path / "text"
+    for sha, over in zip(shas, broken, strict=False):
+        _write(root, _ocr(sha) | {"page_failure_classifier": CLASSIFIER} | over)
+    # a text-layer record never lists failures; after `page_text`, only its body shows it
+    _write(root, _extraction(shas[-1]) | {"page_failures": []})
+    totals = load.run(con, root, tmp_path, log=lambda _: None)
+    assert totals == {"unreadable": len(broken), "failed": 1}
+    for table in ("ocr_run", "ocr_page_failure", "text_payload", "document_text"):
+        assert con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+    # and without the store's vocabulary in hand, a listed failure is refused, never guessed
+    with pytest.raises(load.Unreadable):
+        _reading(_failing(SHA_A))
+    for record in (
+        _extraction(SHA_A) | {"page_failures": []},
+        {"page_failures": [], **_extraction(SHA_A)},
+    ):
+        with pytest.raises(load.Unreadable, match="extraction record"):
+            _reading(record)
+
+
+def test_the_store_refuses_a_failure_list_a_header_was_built_around(tmp_path):
+    """The loader's contract is checked at parse; the store's triggers hold the count and the
+    outcome anyway, for a `Header` built by hand."""
+    con = _store(tmp_path)
+    r = _with_reasons(_failing(SHA_A))
+    short = load.Reading(load.Header(**{**r.header.__dict__, "pages_failed": 1}), body=r.body())
+    with pytest.raises(Exception, match="no more page failures"):
+        load.load_reading(con, tmp_path, short)

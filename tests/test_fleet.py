@@ -178,6 +178,10 @@ def test_seed_read_collect_and_reseed(tmp_path):
     written = ocr_wave.shard(out / "dots", sha)
     doc = json.loads(written.read_text(encoding="utf-8"))
     assert doc["outcome"] == "read" and doc["pages_failed"] == 1
+    assert doc["page_failures"] == [
+        {"page_no": 3, "reason": "oversize", "detail": "oversize: 12.0 MP at 200 DPI"}
+    ]
+    assert doc["page_failure_classifier"] == ocr_wave.CLASSIFIER
     assert doc["pages"] == [
         {
             "page_no": 2,
@@ -191,8 +195,15 @@ def test_seed_read_collect_and_reseed(tmp_path):
     assert manifest["producers"][0]["host"] == "x"
 
     con = db.connect(path)
-    assert load.load_reading(con, tmp_path, load.from_reading(doc, b"{}", load.run_outcomes(con)))
+    reading = load.from_reading(doc, b"{}", load.run_outcomes(con), load.failure_reasons(con))
+    assert load.load_reading(con, tmp_path, reading)
     con.commit()
+    # the failed page lands as a row under the run, page-owned by the store's own vocabulary
+    assert con.execute(
+        "SELECT r.pages_failed, f.page_no, f.reason, v.page_owned, f.detail"
+        " FROM ocr_page_failure f JOIN ocr_run r USING (run_id)"
+        " JOIN page_failure_reason_vocab v USING (reason)"
+    ).fetchall() == [(1, 3, "oversize", 1, "oversize: 12.0 MP at 200 DPI")]
     con.close()
 
     # a second seed leaves a whole document alone — the failure was the page's
@@ -246,6 +257,98 @@ def test_an_operators_page_owned_failure_keeps_the_document_whole(tmp_path):
     Args.page_owned = False  # without the flag it would have been the operator's, and re-read
     row = q.con.execute("SELECT error FROM job WHERE job_id = ?", (b["job_id"],)).fetchone()
     assert row["error"].startswith("page: operator:")
+
+
+def test_every_error_the_queue_writes_maps_to_a_reason_page_owned_iff_page(tmp_path):
+    """ONE classifier (`ocr_wave.failure_reason`) for the store's `page_failure_reason_vocab`,
+    and it must agree with the queue's `page:` rule: a page-owned reason is final in the queue
+    (not retried in that pass), so a disagreement either re-reads a page for ever or files a
+    transient failure as final in the queue."""
+    con = db.connect(tmp_path / "s.sqlite")
+    vocab = dict(con.execute("SELECT reason, page_owned FROM page_failure_reason_vocab"))
+    con.close()
+    assert ocr_wave.FAILURE_REASONS == vocab
+    assert pq.PAGE_OWNED == ocr_wave.PAGE_OWNED == "page:"
+
+    # `_reap`'s and `cmd_fail`'s words, produced by the code that writes them
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", "dots", {**KEY, "host": "x"})
+    q.seed("dots", PAGES, reread=set())
+    j = q.claim("w1", "dots", 1, 0)[0]["job_id"]
+    for _ in range(2):
+        time.sleep(0.01)
+        q.claim("w1", "dots", 1, 0)
+    time.sleep(0.01)
+    q.reap()
+    others = [r["job_id"] for r in q.con.execute("SELECT job_id FROM job WHERE job_id <> ?", (j,))]
+
+    class Args:
+        db, job, error, page_owned = tmp_path / "q.sqlite", others[0], "kills the engine", True
+
+    pq.cmd_fail(Args)
+    Args.job, Args.error, Args.page_owned = others[1], "held for the Mac " + "x" * 600, False
+    pq.cmd_fail(Args)
+    written = dict(q.con.execute("SELECT job_id, error FROM job WHERE state = 'failed'"))
+    assert len(written[others[1]]) == 500  # `cmd_fail` bounds what it writes
+    expected = {
+        written[j]: "lease-expired",
+        written[others[0]]: "operator-page",
+        written[others[1]]: "operator",
+        # `dots_worker.py`'s words, as its three `q.fail` calls format its exceptions
+        "page: finish_reason length": "cut-answer",
+        "page: oversize: 8.4 MP at 200 DPI": "oversize",
+        "page: render: RuntimeError: cannot rasterise": "render",
+        "page: timeout: 600s with the server healthy": "timeout",
+        "server: HTTP 500": "server",
+        "server: URLError: <urlopen error [Errno 111] Connection refused>": "server",
+        "server: timeout 600s and the server unhealthy": "server",
+        "blob: not on the node": "document-bytes",
+        "blob: will not open: FileDataError: cannot open broken document": "document-bytes",
+        "blob: has 3 pages, the route says 4": "document-bytes",
+        "flaky": "unclassified",
+        None: "unclassified",
+    }
+    for error, reason in expected.items():
+        assert ocr_wave.failure_reason(error) == reason, error
+        assert vocab[reason] == int((error or "").startswith(pq.PAGE_OWNED)), error
+
+    # the detail: a closed shape per reason or nothing, and the loader re-checks the same shapes
+    assert ocr_wave.DETAIL_SHAPES == load.DETAIL_SHAPES
+    shaped = {
+        "page: finish_reason length": "finish_reason length",
+        "page: oversize: 8.4 MP at 200 DPI": "oversize: 8.4 MP at 200 DPI",
+        "page: timeout: 600s with the server healthy": "timeout: 600s with the server healthy",
+        "server: HTTP 500": "HTTP 500",
+        written[j]: "lease expired on attempt 3",
+    }
+    for error in expected:
+        entry = ocr_wave.page_failure(1, error)
+        assert entry.get("detail") == shaped.get(error), error
+        assert load.shaped_detail(entry["reason"], entry.get("detail")) == entry.get("detail")
+    # a finish reason outside the enumeration keeps its reason and loses its words
+    unlisted = ocr_wave.page_failure(1, "page: finish_reason something_new")
+    assert unlisted == {"page_no": 1, "reason": "cut-answer"}
+    # free text inside a shape-bearing reason is still free text
+    assert "detail" not in ocr_wave.page_failure(1, "page: oversize: 8.4 MP at 200 DPI /data/x")
+    assert load.shaped_detail("server", "HTTP 500 from queue-host") is None
+
+
+def test_a_page_owned_failure_nobody_named_skips_only_that_document(tmp_path):
+    """One unnamed `page:` word must not stall the batch: its document is left uncollected for
+    a later run, and every other document is still written."""
+    out = tmp_path / "ocr"
+    _route_root(out, A, {1: "degraded"})
+    _route_root(out, B, {1: "degraded"})
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", "dots", {**KEY, "host": "x"})
+    pq.seed_pass(q, "dots", out)
+    jobs = {j["document_sha256"]: j["job_id"] for j in q.claim("w1", "dots", 2, 60)}
+    q.fail("w1", jobs[A], "page: a cause nobody has named", final=True)
+    q.done("w1", jobs[B], "[]")
+    assert pq.collect_pass(q, "dots", out) == 1
+    assert not ocr_wave.shard(out / "dots", A).exists()
+    assert ocr_wave.shard(out / "dots", B).exists()
+    assert q.collectable("dots") == [A]  # still owed: named in the classifier, then collected
 
 
 def test_the_old_drivers_file_is_whole_only_if_it_says_so(tmp_path):

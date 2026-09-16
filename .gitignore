@@ -11,6 +11,8 @@
 .env.*
 *.pem
 *.key
+.anthropic-key
+.anthropic_key
 
 # python
 __pycache__/

@@ -132,6 +132,98 @@ layout element's bbox, its category, and the corresponding text content within t
 """
 
 
+# --- why a page failed: the one classifier (migration 0031, ADR 0024 § Owed 2) ----------------
+
+# The fleet queue's prefix for a failure that is the page's own, and final in the queue — not
+# retried in that pass, and not permanent (migration 0031) (`pagequeue.py`
+# takes it from here, so the two cannot drift).
+PAGE_OWNED = "page:"
+# The store's `page_failure_reason_vocab`: reason -> page_owned. `tests/test_fleet.py` holds
+# the two equal.
+FAILURE_REASONS = {
+    "cut-answer": 1,
+    "oversize": 1,
+    "render": 1,
+    "timeout": 1,
+    "operator-page": 1,
+    "server": 0,
+    "document-bytes": 0,
+    "lease-expired": 0,
+    "operator": 0,
+    "unclassified": 0,
+}
+# The first word after `page:`, as `dots_worker.py` and `pagequeue.cmd_fail` write it.
+_PAGE_WORDS = {
+    "finish_reason": "cut-answer",  # `_dots_call`'s own refusal
+    "oversize": "oversize",
+    "render": "render",
+    "timeout": "timeout",
+    "operator": "operator-page",
+}
+# Every other writer's prefix, in the order tried.
+_FOREIGN_PREFIXES = (
+    ("server:", "server"),
+    ("blob:", "document-bytes"),
+    ("lease expired", "lease-expired"),  # `pagequeue.Queue._reap`
+    ("operator:", "operator"),
+)
+# The classifier's provenance, written with every failure list (`ocr_page_failure.classifier`
+# and `classifier_version`). BUMP THE VERSION when `failure_reason`, the maps above, or
+# `DETAIL_SHAPES` below change what a string becomes. The stored detail is scrubbed by the
+# loader's copy of the shapes at load time, so a change to EITHER copy bumps the version.
+CLASSIFIER = {"method": "ocr_wave.page_failure", "method_version": "2026-09-15"}
+# The ONLY details that are published: a measurement in a closed shape per reason. Anything else
+# — an exception's text, an operator's words — is dropped, because it can carry a path or a
+# host into a snapshot that cannot be withdrawn. `docketyard/text/load.py` holds a copy it
+# re-checks against (it cannot import this file); `tests/test_fleet.py` holds the two equal.
+DETAIL_SHAPES = {
+    "oversize": r"oversize: [0-9]{1,4}\.[0-9] MP at [0-9]{2,4} DPI",
+    # `_dots_call` quotes whatever the OpenAI-compatible server returns other than `stop`; these
+    # are the values vLLM emits. Another word keeps the reason and loses the detail.
+    "cut-answer": r"finish_reason (length|content_filter|abort|tool_calls|function_call)",
+    "timeout": r"timeout: [0-9]{1,6}s with the server healthy",
+    "lease-expired": r"lease expired on attempt [0-9]{1,3}",
+    "server": r"HTTP [0-9]{3}",
+}
+_WRITER_PREFIXES = (PAGE_OWNED, "server:", "blob:", "operator:")
+
+
+def failure_reason(error: str | None) -> str:
+    """The reason code for a queue's `job.error`. Page-owned exactly when the error is
+    `page:`; a `page:` error whose reason is not known RAISES rather than being filed as a
+    transient one, because a page-owned failure is final in the queue (not retried in that
+    pass) and a wrong code would re-read it for ever or, worse, file a transient failure as
+    final in the queue."""
+    said = (error or "").strip()
+    if said.startswith(PAGE_OWNED):
+        word = re.split(r"[\s:]", said[len(PAGE_OWNED) :].strip(), maxsplit=1)[0]
+        if word not in _PAGE_WORDS:
+            raise ValueError(f"a page-owned failure with no known reason: {error!r}")
+        return _PAGE_WORDS[word]
+    for prefix, reason in _FOREIGN_PREFIXES:
+        if said.startswith(prefix):
+            return reason
+    return "unclassified"
+
+
+def page_failure(no: int, error: str | None, reason: str | None = None) -> dict:
+    """One entry of a reading document's `page_failures`: the reason, and a detail ONLY where
+    the error, less its writer's prefix, is exactly its reason's shape (`DETAIL_SHAPES`) —
+    never free text. `reason` given skips `failure_reason` (the driver's `unclassified`).
+    This function is `CLASSIFIER`, which `reading_document` writes beside the list."""
+    reason = reason or failure_reason(error)
+    entry = {"page_no": no, "reason": reason}
+    said = (error or "").strip()
+    for prefix in _WRITER_PREFIXES:
+        if said.startswith(prefix):
+            said = said[len(prefix) :].strip()
+            break
+    shape = DETAIL_SHAPES.get(reason)
+    if shape is not None and re.fullmatch(shape, said):
+        entry["detail"] = said
+    return entry
+
+
 def now(epoch: float | None = None) -> str:
     """The wave's one clock and one format; `epoch` renders a moment other than this one."""
     return time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(epoch))
@@ -243,12 +335,21 @@ def reading_document(
     engine_pages: list[dict],
     pages: list[dict],
     *,
-    pages_failed: int,
+    pages_failed: int | None = None,
+    page_failures: list[dict] | None = None,
     outcome: str = "read",
     ran_at: str | None = None,
 ) -> dict:
-    """The loader's shape. `engine_pages[i]` is what `pages[i].member` points into."""
-    return {
+    """The loader's shape. `engine_pages[i]` is what `pages[i].member` points into.
+    `page_failures` (entries from `page_failure`) says which pages failed and why, and
+    `pages_failed` is then derived from it; a count given beside a list must agree."""
+    if page_failures is not None:
+        if pages_failed is not None and pages_failed != len(page_failures):
+            raise ValueError(f"pages_failed {pages_failed} beside {len(page_failures)} failures")
+        pages_failed = len(page_failures)
+    if pages_failed is None:
+        raise ValueError("a reading document counts its failed pages or lists them")
+    doc = {
         "document_sha256": sha,
         **key,
         "reading_channel": "ocr",
@@ -260,19 +361,28 @@ def reading_document(
         "engine": {"pages": engine_pages},
         "pages": pages,
     }
+    if page_failures is not None:
+        doc["page_failures"] = page_failures
+        if page_failures:  # every entry came through `page_failure`, which is the classifier
+            doc["page_failure_classifier"] = CLASSIFIER
+    return doc
 
 
 def select_pages(cache: dict, route: dict, classes: set[str], agreement=None):
-    """From a document's PP-OCRv6 cache, the reading document's pages of the given classes;
-    `agreement(page_no, text)` supplies the second reading's distance, or None."""
-    engine_pages, pages, failed = [], [], 0
+    """From a document's PP-OCRv6 cache, the reading document's pages of the given classes,
+    and the pages of those classes that failed, each `unclassified` and carrying no detail:
+    the cache keeps only an exception, `unclassified` has no shape in `DETAIL_SHAPES`, and an
+    exception's text is deliberately not published (the reason is the whole record)
+    (the cache keeps no reason code); `agreement(page_no, text)` supplies the second reading's
+    distance, or None."""
+    engine_pages, pages, failures = [], [], []
     for entry in cache["pages"]:
         no = entry["page_no"]
         cls = route["pages"].get(str(no), {}).get("class")
         if cls not in classes:
             continue
         if entry.get("error"):
-            failed += 1
+            failures.append(page_failure(no, entry["error"], "unclassified"))
             continue
         text = ppocr_text(entry["lines"])
         scores = [ln["score"] for ln in entry["lines"] if ln.get("score") is not None]
@@ -290,7 +400,7 @@ def select_pages(cache: dict, route: dict, classes: set[str], agreement=None):
             page["agreement"] = a
         engine_pages.append(entry)
         pages.append(page)
-    return engine_pages, pages, failed
+    return engine_pages, pages, failures
 
 
 def agreement_against(primary: dict[int, str], primary_doc: dict):
@@ -442,7 +552,9 @@ def run_paddle(args) -> int:
         _write(shard(cache_root, sha), cache)
         # the primary reading document for the pages PP-OCRv6 owns in this wave
         engine_pages, pages, failed = select_pages(cache, route, {"clean", "unrouted"})
-        if pages or cache["error"]:
+        # FAILURES ALONE ARE STILL A READING (migration 0031): a document that opened and whose
+        # every selected page raised has no pages and must land anyway, or its failures are lost
+        if pages or failed or cache["error"]:
             doc = reading_document(
                 sha,
                 key,
@@ -450,8 +562,8 @@ def run_paddle(args) -> int:
                 "pp-ocrv6.json",
                 engine_pages,
                 pages,
-                pages_failed=failed,
-                outcome="failed" if cache["error"] else "read",
+                page_failures=failed,
+                outcome="read" if pages else "failed",
                 ran_at=cache["ran_at"],
             )
             _write(shard(primary_root, sha), doc)
@@ -503,7 +615,7 @@ def run_dots(args) -> int:
             stats["no_degraded"] += 1
             continue
         pdf = args.blobs / sha[:2] / sha
-        engine_pages, pages, failed = [], [], 0
+        engine_pages, pages, failed = [], [], []
         for no in wanted:
             png = tmp / f"{sha[:12]}_p{no}.png"
             try:
@@ -511,7 +623,9 @@ def run_dots(args) -> int:
                 raw, _ = _dots_call(png, args.dots_server, args.dots_model)
             except Exception as e:  # noqa: BLE001
                 print(f"  FAILED {sha[:12]} p{no} ({type(e).__name__}: {e})", flush=True)
-                failed += 1
+                # the driver tells no cause from another, so it names none — and `unclassified`
+                # has no shape, so the exception is printed above and deliberately not published
+                failed.append(page_failure(no, f"{type(e).__name__}: {e}", "unclassified"))
                 continue
             finally:
                 png.unlink(missing_ok=True)
@@ -526,7 +640,7 @@ def run_dots(args) -> int:
                 }
             )
             stats["pages"] += 1
-        stats["failed_pages"] += failed
+        stats["failed_pages"] += len(failed)
         doc = reading_document(
             sha,
             DOTS,
@@ -534,7 +648,7 @@ def run_dots(args) -> int:
             "dots.mocr.json",
             engine_pages,
             pages,
-            pages_failed=failed,
+            page_failures=failed,
             outcome="read" if pages else "failed",
         )
         _write(shard(out_root, sha), doc)
@@ -611,10 +725,17 @@ def run_second(args) -> int:
         agreement = agreement_against(primary, dots)
 
         engine_pages, pages, failed = select_pages(cache, route, {"degraded"}, agreement)
-        if not pages:
+        if not pages and not failed:  # failures alone are still a reading (migration 0031)
             continue
         doc = reading_document(
-            sha, key, "second", "pp-ocrv6.json", engine_pages, pages, pages_failed=failed
+            sha,
+            key,
+            "second",
+            "pp-ocrv6.json",
+            engine_pages,
+            pages,
+            page_failures=failed,
+            outcome="read" if pages else "failed",
         )  # its own ran_at: `ocr_run` is keyed on the reading key and ran_at, not the role
         _write(shard(out_root, sha), doc)
         stats["documents"] += 1
@@ -638,10 +759,17 @@ def run_graphic(args) -> int:
         route = json.loads(shard(route_root, sha).read_text(encoding="utf-8"))
         key = {k: cache[k] for k in ("method", "method_version", "render_profile")}
         engine_pages, pages, failed = select_pages(cache, route, {"graphic"})
-        if not pages:
+        if not pages and not failed:  # failures alone are still a reading (migration 0031)
             continue
         doc = reading_document(
-            sha, key, "primary", "pp-ocrv6.json", engine_pages, pages, pages_failed=failed
+            sha,
+            key,
+            "primary",
+            "pp-ocrv6.json",
+            engine_pages,
+            pages,
+            page_failures=failed,
+            outcome="read" if pages else "failed",
         )  # its own ran_at, for the same reason as the second reading's
         _write(shard(out_root, sha), doc)
         stats["documents"] += 1

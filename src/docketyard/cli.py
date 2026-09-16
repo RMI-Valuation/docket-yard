@@ -405,7 +405,10 @@ def _citator(args: argparse.Namespace) -> int:
             # traceback while the verb promised a refusal (code review, 2026-09-04).
             con.rollback()
             print(f"refused: {type(e).__name__} {e}")
-            print("A measurement already recorded is not re-recorded; nothing was changed.")
+            # Since migration 0030 a duplicate card fails with ADR 0018 D8's append-only message,
+            # which this line explains; a D7 veto refusal is another fault and says its own.
+            if not str(e).startswith("ADR 0018 D7"):
+                print("A measurement already recorded is not re-recorded; nothing was changed.")
             return 1
         print(
             f"declared {card['extractor']}@{card['extractor_version']}"
