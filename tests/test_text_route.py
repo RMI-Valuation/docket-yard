@@ -368,6 +368,9 @@ def test_an_errored_page_above_the_live_count_refuses_the_document_too(tmp_path)
     with pytest.raises(Unreadable, match="page 7 is above the document's live page count 2"):
         _route(con, _record(SHA_A, {1: "tabular", 7: error}))
     assert con.execute("SELECT COUNT(*) FROM page_route").fetchone() == (0,)
+    # and when EVERY page errored, the count is still checked before `no_verdicts` is said
+    with pytest.raises(Unreadable, match="page 7 is above the document's live page count 2"):
+        _route(con, _record(SHA_A, {1: error, 7: dict(error)}))
 
 
 def test_a_page_the_router_failed_on_writes_no_verdict_and_is_counted(tmp_path):

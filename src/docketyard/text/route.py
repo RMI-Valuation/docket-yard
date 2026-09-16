@@ -170,8 +170,8 @@ def route_document(con, route: Route, now: str | None = None) -> str:
     sha = route.document_sha256
     if con.execute("SELECT 1 FROM document WHERE document_sha256 = ?", (sha,)).fetchone() is None:
         return "unknown_document"
-    if not route.pages:
-        # nothing to write and nothing to check a page count against: said, not passed over
+    if not route.pages and not route.errored:
+        # nothing to write and no page to check against a count: said, not passed over
         return "no_verdicts"
     count = con.execute(
         "SELECT page_count FROM document_pagination"
@@ -187,6 +187,8 @@ def route_document(con, route: Route, now: str | None = None) -> str:
     above = sorted(no for no in named if no > count[0])
     if above:
         raise Unreadable(f"page {above[0]} is above the document's live page count {count[0]}")
+    if not route.pages:
+        return "no_verdicts"  # every page errored: checked against the count, and nothing to write
     live = {
         r[0]: r[1:]
         for r in con.execute(
