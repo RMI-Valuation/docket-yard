@@ -350,7 +350,7 @@ rule now says what the prose says. People and ordinary crawlers are unaffected.
 
 ## Addendum (2026-09-15): the router's verdict is its own assertion
 
-**Status: Proposed.** Narrows decision 4 and § What this record does not decide ("`page_route`
+**Status: Accepted (2026-09-16), by the operator.** Narrows decision 4 and § What this record does not decide ("`page_route`
 as a table"). Migration 0032.
 
 1. **The router's verdict is a page-grain assertion of its own**, `page_route`: one live row
