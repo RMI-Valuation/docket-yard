@@ -411,9 +411,9 @@ production restore, applying the rule below to finder 2026-09-13b's output:
 
 ## Addendum (2026-09-15): the veto's trigger
 
-**Status: Proposed (2026-09-15).** Pays migration 0014's owed item 7 and narrows decision 7's
+**Status: Accepted (2026-09-16), by the operator; proposed 2026-09-15.** Pays migration 0014's owed item 7 and narrows decision 7's
 "a `suppress` row exists only once its false-veto rate is measured". The defaults are the
-operator's (2026-09-15); acceptance is his.
+operator's (2026-09-15).
 
 1. **A triple binds in every ranking.** `(method, method_version, reading_channel)` declared
    `role = 'suppress'` in any `rank_version` binds every `citation_resolution` row of that triple,

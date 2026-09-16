@@ -1,5 +1,5 @@
 -- Migration 0030 — the veto's trigger (migration 0014's owed item 7; ADR 0018 D7 and its
--- addendum of 2026-09-15, PROPOSED).
+-- addendum of 2026-09-15, ACCEPTED 2026-09-16).
 --
 -- 0014 made a `suppress` declaration point at a `citation_resolution` measurement and left two
 -- cross-row conditions as prose, "owed with the veto": that the measurement carries a false-veto

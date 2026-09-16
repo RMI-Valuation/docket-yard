@@ -73,9 +73,9 @@ MIGRATIONS: list[tuple[int, str]] = [
     # MIGRATING, so it goes behind the wall; a key a person decided aborts it whole, and the
     # runbook's pre-check (`infra/deploy/0029-precheck.sql`) names that key first.
     (29, "0029_retire_retracted_readings.sql"),
-    # 0030 pays migration 0014's owed item 7: the veto's trigger (ADR 0018 D7). DRAFTED AGAINST
-    # A PROPOSED ADDENDUM (2026-09-15), and the gate is the deploy, as it was for 0023. Triggers
-    # only, on held tables; a store already holding a violation refuses it whole.
+    # 0030 pays migration 0014's owed item 7: the veto's trigger (ADR 0018 D7; addendum of
+    # 2026-09-15, accepted 2026-09-16). Triggers only, on held tables; a store already holding a
+    # violation refuses it whole.
     (30, "0030_veto_trigger.sql"),
 ]
 
