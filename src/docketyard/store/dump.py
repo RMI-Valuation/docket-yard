@@ -131,8 +131,12 @@ HELD_TABLES: tuple[str, ...] = (
     # that for the one new edge. Latent, `scrub` dropping with foreign keys OFF, which is
     # exactly the condition the header says the order is kept against.
     "document_text",
-    # its only referrer is `document_text`, so publishing it would ship an orphan taxonomy of
-    # the held layer's own method. The tiers are public on /methodology; the table is not.
+    # Migration 0032 (ADR 0021 addendum, 2026-09-15): the router's per-page verdict. A child of
+    # `route_class_vocab`, so above it; provenance of the held text layer, held with it.
+    "page_route",
+    # its referrers are `document_text` and `page_route` (0032), both held, so publishing it would
+    # ship an orphan taxonomy of the held layer's own method. The tiers are public on
+    # /methodology; the table is not.
     "route_class_vocab",
     "text_payload",
     "citation",

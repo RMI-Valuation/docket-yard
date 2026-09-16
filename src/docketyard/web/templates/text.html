@@ -13,14 +13,17 @@
   <div class="viewer-doc pages">
     {% if current and (rows or pagination) %}
     <p class="small muted">{% if pagination and pagination.page_count is not none %}{% if read <= pagination.page_count %}{{ read }} of {{ pagination.page_count }} page{{ 's' if pagination.page_count != 1 }} read{% else %}{{ read }} pages read; the file was counted at {{ pagination.page_count }}{% endif %}{% elif pagination %}The file did not paginate ({{ pagination.outcome }}){% if read %}; {{ read }} page{{ 's' if read != 1 }} read{% endif %}{% else %}{{ read }} page{{ 's' if read != 1 }} read; the page count is not yet recorded{% endif %}. Nothing here is the Board's text: it is what a machine read from the Board's file, shown so it can be found and checked, and <a href="{{ scan }}">the scan</a> is the record.{% if entry.kind == 'comment' %} The Board publishes this file in its environmental-comment table for this proceeding; what it says is its author's, not this record's.{% endif %} <a href="/corrections">Report a misreading</a> with the page's address; it is read, though outside the corrections promise. Email addresses and telephone numbers are omitted from the text shown and searched here where a pattern finds them, marked where they stood; the scan carries them. Search engines are asked not to index this page.</p>
-    {% for n, page in rows %}
+    {% for n, page, route, shown in rows %}
     <article class="page" id="p{{ n }}">
       <h2 class="page-heading">Page {{ n }} <a class="anchor" href="{{ here }}#p{{ n }}" title="This page's address">¶</a></h2>
-      {% if page %}
+      {#- `shown` is `store.pages.state`: the one display rule, and its one emptiness test -#}
+      {% if shown == 'table' %}
+      <p class="small muted page-label">{{ page_marker(route) }} <a href="{{ scan }}">Scan</a></p>
+      {% elif page %}
       {#- who read the page and the band's operand: `store.pages.label`/`band`, the same
           sentences a search hit carries, so the two surfaces cannot drift (ADR 0021 D7, D8) -#}
       <p class="small muted page-label">{{ page_label(page) }}{% if page_band(page) %} {{ page_band(page) }}{% endif %} <a href="{{ scan }}">Scan</a></p>
-      {% if page.text %}<pre class="page-text as-printed">{{ page.text }}</pre>{% else %}<p class="small muted">Read as blank.</p>{% endif %}
+      {% if shown == 'text' %}<pre class="page-text as-printed">{{ page.text }}</pre>{% else %}<p class="small muted">Read as blank.</p>{% endif %}
       {% else %}
       <p class="small muted page-label">Not yet read.</p>
       {% endif %}
