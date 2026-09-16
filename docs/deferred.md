@@ -1619,6 +1619,23 @@ dates; text-layer and OCR never both read the line on one document; OCR primary 
 agree 16, differ 1. Against the carrying decision's service date: same day 4,511, served 1–30 days
 later 14,548, other 40. Script: session scratchpad `measure_decided.py`.
 
+**Decided by the operator 2026-09-16, on the night's rehearsals:** (11) **the three addenda
+accepted** (0018 the veto's trigger, 0024 per-page failures, 0021 the router's verdict) and the PRs
+merged in number order — #35 `ecbe527`, #37 `c66ff2c`, then #36 once Copilot has read its last fix;
+each rehearsed in v2026.09.24's image (SQLite 3.46.1) on the 2026-09-15 restore, figures on each PR;
+releasing and deploying stay his. (12) **The Claude batch LOADED into production** 2026-09-16,
+restore point **11:29:23Z** (Litestream generation `073494ca664fa87f`): `{'loaded': 98}` in 4 s; 134
+live `claude-sonnet-5` primaries (unmeasured), 98 `ocr_run`, 98 payloads on the box; the 134
+`pymupdf` primaries they supersede were 121 empty pages and 13 holding only the Board's 9-character
+e-filing stamp, which each new reading repeats. Rehearsed first on a second copy with the same
+figures. (13) **The tabular pass STARTED** 2026-09-16 11:46Z: coordinator on `hunyuan-tabular`
+`67b1762` (detached; queue server and monitor restarted on it), the workstation's fleet code the
+same commit (its previous copy in `~/fleet-code-backup-2026-09-16.tgz`), pymupdf 1.28.2 — the
+router's — added to `~/ocr-bench/.venv`; seeded 26,294 pages in 3,385 documents. Stop:
+`touch /data/docketyard/ocr/.stop-tabular` on the workstation. (14) **Decided dates: build the
+extraction pass only** — no pick, no display, ADR 0018 D4 untouched; the grain (the positional
+`ordinal`) goes to an addendum and schema-critic first.
+
 **Three owed items, scoped against the ADRs** (each claim below checked in the code):
 
 - **"Not in the record" joining live `citation`** (0014_citations.sql § the projection; ADR 0017 D2,
