@@ -12,9 +12,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **Schema PRs: #35 (0030) MERGED `ecbe527`, #37 (0031) MERGED `c66ff2c`**, addenda accepted
-  2026-09-16. **#36 (0032) green at ec5cc38, NOT merged**: Copilot never re-reviewed its 71a4278 fix
-  (re-requests do not register). Releasing and deploying 0030-0032 are his
+- **Migrations 0030-0032 all MERGED** (#35 `ecbe527`, #37 `c66ff2c`, #36 `6c5d5e0`), addenda
+  accepted 2026-09-16, each rehearsed in v2026.09.24's image. **Releasing and deploying are his**
 - **Tabular pass RUNNING** since 2026-09-16 11:46Z (coordinator and workstation on `67b1762`, PR #34
   unmerged). First 16 min: 67 read, 9 page-owned `finish_reason length` (~12%, final), 4 blob misses;
   **~12.6 s/page, so ~88 h, not the 36-48 h scoped**. 434 of 3,385 documents (1,051 pages, 0.24 GB)
