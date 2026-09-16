@@ -12,23 +12,19 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **Three schema PRs (2026-09-15), all findings fixed, ALL THREE REHEARSED** in production's image
-  (v2026.09.24, SQLite 3.46.1) on a restore, in number order: #35 `veto-trigger` (0030, ee7e2ac,
-  precheck 0 rows, 4.4 s), #37 `ocr-page-failure` (0031, ebf7cc5, 3.7 s), #36 `page-route` (0032,
-  71a4278, 3.6 s). Additive throughout: no row moved, fk clean, no temp left; figures on each PR.
-  Merge in number order; each addendum is Proposed, his to accept
-- **HunyuanOCR tabular pass, PR #34** (67b1762): parity probe PASSED, 4070 empty (9 MiB), dots
-  sessions stopped. Seed measured from the coordinator's route root: **26,294 pages in 3,385
-  documents** (1,616 one-page, 104 over fifty, largest 536). At the probe's 3.3-10.3 s/page that
-  is **roughly 36-48 h** on one 4070. **Starting it is his** (a seed with no worker reading pages
-  the monitor as STALLED from the first scrape)
-- **Claude batch for the 134 pages dots refused: COLLECTED and the load REHEARSED** on a restore —
-  98 documents, `loaded: 98`, +134 `document_text` (ocr/claude-sonnet-5/200-max2576-grey primary,
-  unmeasured), +98 `ocr_run`, 98 blobs (1.35 MB); it supersedes 134 `text-layer`/pymupdf primaries,
-  121 of them empty and the other 13 holding only the STB's 9-char e-filing stamp, which the new
-  reading keeps. 554,016 characters where 121 pages showed nothing. No pin needed (the OCR channel
-  is unpinned by design), no human row touched, no migration. **Loading waits for his go**
-- **Decided dates: measured** (`deferred.md` § 2026-09-15) — his call what to build
+- **Schema PRs: #35 (0030) MERGED `ecbe527`, #37 (0031) MERGED `c66ff2c`**, addenda accepted
+  2026-09-16. **#36 (0032) green at ec5cc38, NOT merged**: Copilot never re-reviewed its 71a4278 fix
+  (re-requests do not register). Releasing and deploying 0030-0032 are his
+- **Tabular pass RUNNING** since 2026-09-16 11:46Z (coordinator and workstation on `67b1762`, PR #34
+  unmerged). First 16 min: 67 read, 9 page-owned `finish_reason length` (~12%, final), 4 blob misses;
+  **~12.6 s/page, so ~88 h, not the 36-48 h scoped**. 434 of 3,385 documents (1,051 pages, 0.24 GB)
+  are in NEITHER blob mirror, so no node reads them this seed. Stop: `touch
+  /data/docketyard/ocr/.stop-tabular` on rmi-ai-machine. Nothing collected is loaded
+- **Claude batch LOADED** in production 2026-09-16 (restore point 11:29:23Z); his `.anthropic-key`
+  is no longer needed
+- **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
+  `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
+  quotation per displayed reading, migration 0033. **His to accept; then migration + pass**
 
 ## Next
 
@@ -37,8 +33,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
   migration (schema-critic first) and the browse on `/parties`
 - With the operator: a sheet's JSON-LD block in Google's Rich Results test, from a browser
-- ADR 0024 Owed 2, the per-page failure record — HIS CHOICE to build (2026-09-15): addendum
-  draft for the shape, schema-critic, his acceptance, then a branch
 - **Held by the operator for rewording (2026-09-11)**: `/methodology`'s text-stage section
   (`848e366`) and the one-day-rest sentence (`3b538bc`); § Documents has his narrowed one
 - The workstation gate's ONLOGON task is still unregistered (`deferred.md`)
