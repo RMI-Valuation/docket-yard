@@ -358,6 +358,18 @@ def test_a_page_above_the_live_count_refuses_the_whole_document(tmp_path):
         _route(con, _record(SHA_B, {1: "clean"}, version="confirmed-1", routed_at=LATER))
 
 
+def test_an_errored_page_above_the_live_count_refuses_the_document_too(tmp_path):
+    """A page the router failed on still NAMES a page: above the live count it is the same
+    mismatch — a route for bytes that are not the bytes paginated — and it writes no row to be
+    caught by later (Copilot, PR #36)."""
+    con = _store(tmp_path)
+    _paginate(con, SHA_A, 2)
+    error = {"class": "unrouted", "regions": 0, "labels": [], "error": "RuntimeError: render"}
+    with pytest.raises(Unreadable, match="page 7 is above the document's live page count 2"):
+        _route(con, _record(SHA_A, {1: "tabular", 7: error}))
+    assert con.execute("SELECT COUNT(*) FROM page_route").fetchone() == (0,)
+
+
 def test_a_page_the_router_failed_on_writes_no_verdict_and_is_counted(tmp_path):
     con = _store(tmp_path)
     _paginate(con, SHA_A, 3)

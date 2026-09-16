@@ -180,7 +180,11 @@ def route_document(con, route: Route, now: str | None = None) -> str:
     ).fetchone()
     if count is None or count[0] is None:
         raise Unreadable("the document has no live paginated page count to check pages against")
-    above = [p.page_no for p in route.pages if p.page_no > count[0]]
+    # EVERY page the file names, errored ones included (Copilot, PR #36): a page above the live
+    # count is a route for bytes that are not the bytes paginated whether the router read it or
+    # not, and an errored page writes no row to catch it later.
+    named = [p.page_no for p in route.pages] + list(route.errored)
+    above = sorted(no for no in named if no > count[0])
     if above:
         raise Unreadable(f"page {above[0]} is above the document's live page count {count[0]}")
     live = {
