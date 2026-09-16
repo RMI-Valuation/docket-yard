@@ -448,7 +448,7 @@ the same number of lines on all 17 pages, and the same date on 16.
 
 4. **A machine quotation names the text it read.** `text_id` references `document_text`. It is
    `NOT NULL` exactly when `reading_channel <> 'human'`, and it stays out of the live key under
-   decision 6: a newer reading must match the key and supersede the older one. A trigger
+   decision 6: a newer reading replaces the older one rather than sitting beside it. A trigger
    refuses an insert unless `document_sha256`, `page_no`, `reading_channel` and
    `render_profile` equal the `text_id` row's, and, on the `ocr` channel only, `reading_method`
    and `reading_method_version` equal its `method` and `method_version`. A text-layer row keeps
@@ -462,8 +462,10 @@ the same number of lines on all 17 pages, and the same date on 16.
    `method_version` or `text_id`, dated in the same transaction. It then writes what it found,
    so a line that a newer version no longer finds does not stay live.
 
-6. **A quotation is stale when its `text_id` has left `document_text_display`.** The pass
-   retires stale rows on every run, dated, and a consumer counts only rows that are not stale.
+6. **A quotation is stale when its `text_id` has left `document_text_display`.** Every run
+   retires every stale row in the table, dated, whichever documents it reads, and a consumer
+   counts only rows that are not stale. A retired row points at its replacement when one lands
+   at the same `(page_no, ordinal)`, and at itself otherwise.
 
 7. **What a row holds.** `date_kind` is `decided`. `printed_text` is the line as printed. When
    nothing follows the colon, it is the line and the next non-empty line joined by one space,
@@ -473,9 +475,10 @@ the same number of lines on all 17 pages, and the same date on 16.
    Any change to these rules is a new extractor `method_version`.
 
 8. **Read and not yet read.** `extraction_run` stays per document, method, version and channel,
-   and a run reads every displayed page of its document, so its `ran_at` covers all of them. A
-   page whose displayed `text_id` was asserted after that `ran_at` counts as not yet read, never
-   as read and found empty (ADR 0018 D10). A document with no such page and a run at this
+   and a run reads every displayed page of its document on that channel, so its `ran_at` covers
+   all of them. A page is not yet read when its channel has no run row, or when its displayed
+   `text_id` was asserted at or after that row's `ran_at`. Such a page is never counted as read
+   and found empty (ADR 0018 D10). A document with no such page and a run at this
    `method_version` is not read again, so an unchanged page is not rewritten. `ran_at` takes
    `db.utcnow()`'s form, which `asserted_at` takes, and the pass runs where the store is.
 
