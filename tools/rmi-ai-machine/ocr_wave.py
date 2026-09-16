@@ -42,7 +42,8 @@ WHAT A PAGE CLASS MEANS FOR THE READERS:
     degraded   dots.mocr primary at 200 DPI, PP-OCRv6 second at 150 with the distance
     graphic    PP-OCRv6 primary, in the last pass; VL models invent on maps
     unrouted   PP-OCRv6 primary — "no regions" is routed to a reader, never to a skip
-    tabular    not read in this wave (ocr-plan.md decision 3); the page shows "not yet read"
+    tabular    not read in this wave (ocr-plan.md decision 3); once `docketyard text route`
+               loads this root, the page is marked "scanned; contains a table we have not read"
 
 EACH PASS'S FILE IS ITS OWN RUN: `ocr_run` is keyed on the reading key and `ran_at`, not the
 role, so the three PP-OCRv6 documents a page set can yield (primary, second, graphic) carry

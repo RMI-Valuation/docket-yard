@@ -85,6 +85,11 @@ MIGRATIONS: list[tuple[int, str]] = [
     # store already stamped 32 by a branch merged first would never apply 0031, and nothing
     # here would say so.
     (31, "0031_ocr_page_failure.sql"),
+    # 0032 applies ADR 0021's addendum (2026-09-15, accepted 2026-09-16): the router's verdict as
+    # its own page-grain assertion, so a tabular page no engine read can say so. A new held table
+    # and no rebuild. Deploy after 0030 and 0031, never before: `migrate` skips any number at or
+    # below the stamped version.
+    (32, "0032_page_route.sql"),
 ]
 
 

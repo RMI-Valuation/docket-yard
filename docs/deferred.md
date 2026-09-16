@@ -1658,6 +1658,24 @@ extraction pass only** — no pick, no display, ADR 0018 D4 untouched; the grain
   `ocr_wave.page_failure`, under the runs their reading documents wrote (the conditions are in the
   next section).
 
+**From the schema critic and PR #36 on migration 0032 (`page_route`), 2026-09-15** — what was NOT
+fixed on that branch (the omitted-page counts and the forward-only retirement triggers were):
+
+- **A file's silence still leaves a verdict live.** `text route` compares only the pages a file
+  names, so a page a later file no longer classifies keeps its old verdict; the pass now counts
+  the document under `omits_live_pages` rather than passing it over, but nothing retires the
+  orphan. The converse too: an OLDER root still fills a page that has no live row because the
+  newer run failed there, staleness being judged only against a live row. Whether a re-route
+  should retire what it omits is a decision, not a bug.
+- **Page search does not consult `page_route`** (`store/search.py`, the page hits): a hit is built from
+  the indexed text, so a page the text page hides behind the table marker — a blank or junk text layer
+  on a tabular page — can still be found and shown with that text. Whether search should mask it too
+  is the operator's call (found on PR #36, 2026-09-15).
+- **`document_pagination`'s retirement history is still rewritable**: `superseded_by` and
+  `superseded_at` can be re-pointed, back-dated or cleared in place there. `page_route` closed
+  this at 0032 and `citation_reading` at 0028; the published table is the one left, and it is a
+  rebuild, not an ALTER.
+
 ## From the schema critic on migration 0030, 2026-09-15 (branch `veto-trigger`, against v2026.09.24)
 
 - **A veto's measurement is not pinned to a rate-bearing class.** The triggers ask only that the
