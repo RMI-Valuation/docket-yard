@@ -12,12 +12,23 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **His choices 2026-09-15** (`deferred.md` § that date), each design + critic before code:
-  the veto trigger; the decided-date consumer (ADR 0018 D4 addendum first); the route in the store
-- **Build decision 6's HunyuanOCR tabular pass**: 26,245 pages unread, 1,394 decision-carried
-  in 100 documents, showing "Read as blank."; loading waits for his go
-- **121 dots-refused degraded pages have no reading**: he asked about an LLM reading (3090, or
-  Claude) — facts owed to him
+- **Three schema PRs (2026-09-15), all findings fixed, ALL THREE REHEARSED** in production's image
+  (v2026.09.24, SQLite 3.46.1) on a restore, in number order: #35 `veto-trigger` (0030, ee7e2ac,
+  precheck 0 rows, 4.4 s), #37 `ocr-page-failure` (0031, ebf7cc5, 3.7 s), #36 `page-route` (0032,
+  71a4278, 3.6 s). Additive throughout: no row moved, fk clean, no temp left; figures on each PR.
+  Merge in number order; each addendum is Proposed, his to accept
+- **HunyuanOCR tabular pass, PR #34** (67b1762): parity probe PASSED, 4070 empty (9 MiB), dots
+  sessions stopped. Seed measured from the coordinator's route root: **26,294 pages in 3,385
+  documents** (1,616 one-page, 104 over fifty, largest 536). At the probe's 3.3-10.3 s/page that
+  is **roughly 36-48 h** on one 4070. **Starting it is his** (a seed with no worker reading pages
+  the monitor as STALLED from the first scrape)
+- **Claude batch for the 134 pages dots refused: COLLECTED and the load REHEARSED** on a restore —
+  98 documents, `loaded: 98`, +134 `document_text` (ocr/claude-sonnet-5/200-max2576-grey primary,
+  unmeasured), +98 `ocr_run`, 98 blobs (1.35 MB); it supersedes 134 `text-layer`/pymupdf primaries,
+  121 of them empty and the other 13 holding only the STB's 9-char e-filing stamp, which the new
+  reading keeps. 554,016 characters where 121 pages showed nothing. No pin needed (the OCR channel
+  is unpinned by design), no human row touched, no migration. **Loading waits for his go**
+- **Decided dates: measured** (`deferred.md` § 2026-09-15) — his call what to build
 
 ## Next
 

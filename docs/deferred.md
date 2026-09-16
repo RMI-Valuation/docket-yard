@@ -1588,6 +1588,36 @@ a sidecar load, the size refusal counted not written; an ADR 0024 addendum), rou
 `page_route`, `text route` verb, the marker on blank tabular text-layer pages only, not counted read;
 an ADR 0021 addendum). The decided-date defaults were NOT accepted: its questions go back to him.
 Measured for the tabular pass: 26,294 tabular pages at 150 DPI, median 2.1 MP, p99 2.4, 29 over 6 MP.
+**The Claude batch RAN** (2026-09-15, his scoped key): 134 of 134 refused pages read, **0 failed**,
+none over the per-image limit, in two batches of 110 and 24; 649,320 input and 225,373 output tokens,
+**about $1.78** at batch pricing (the estimate was ~$1.30). 98 reading documents at render
+`200-max2576-grey`, written to the session scratchpad, NOT loaded — loading is his go. The first
+attempt was refused twice: colour renders broke the 256 MB batch and 10 MB image limits, then an
+unscoped key returned 400. Nothing was charged for either.
+
+**The tabular pass's parity probe PASSED** (2026-09-15, on rmi-ai-machine with the dots server
+stopped and the card otherwise empty): HunyuanOCR-1.5 through `ocr_run.run_hunyuan_ocr`, the
+benchmark's own path, on the benchmark's five `tabular` pages — **all five byte-identical to the
+saved run**, 3.3–10.3 s a page, peak 2.4 GB VRAM. So the worker's in-process transformers path is
+the measured one, and its 4 GiB load floor holds. The dots sessions are left stopped: their queue is
+drained (46,838 done, 134 final failures) and the tabular worker needs the card.
+
+Then: (8) the Claude key goes in a short-lived `.anthropic-key` on the workstation — he put it at the
+REPOSITORY ROOT, where `*.key` did not cover it, so `.gitignore` names it (48a90d9); the first key was
+not scoped to a workspace and every request was refused 400 until he swapped it; (9) he adds the
+fleet permission rule to `.claude/settings.local.json` himself (writing it was refused as
+self-modification); (10) decided dates: **measure first** on a production copy, numbers to him before
+any addendum or code.
+
+**Decided dates, measured the same evening** (a NEW line-anchored `Decided:` regex — no shipped
+extractor exists — over the shipped walk's documents and row rule, on the 2026-09-15 restore): of
+21,003 decision-carried documents, **16,029 print the line on the text layer** (15,771 once, 258 twice
+or more), 30 on OCR only; lines sit on page 1 11,177 / page 2 1,427 / page 3+ 3,853 — a sample of ten
+page-3+ lines were all genuine end-of-decision `Decided:` headers, so page 1 alone would lose ~30%;
+**99.7% parse** (16,355 of 16,403 text-layer lines; 52 of 54 OCR); 11 documents carry two distinct
+dates; text-layer and OCR never both read the line on one document; OCR primary vs second on one page
+agree 16, differ 1. Against the carrying decision's service date: same day 4,511, served 1–30 days
+later 14,548, other 40. Script: session scratchpad `measure_decided.py`.
 
 **Three owed items, scoped against the ADRs** (each claim below checked in the code):
 
@@ -1605,11 +1635,25 @@ Measured for the tabular pass: 26,294 tabular pages at 150 DPI, median 2.1 MP, p
   `decided` stays at docket level) revisited. Schema-critic and a decision; 259 of 200,000 pages print
   the phrase (§ 2026-09-05 above).
 - **ADR 0024 Owed 2, the per-page failure record's backlog**: the table, vocabulary, loader contract
-  and both producers were built 2026-09-15 (migration 0031; the addendum is Proposed). The 134 final
+  and both producers were built 2026-09-15 (migration 0031; the addendum accepted 2026-09-16). The 134 final
   dots pages already collected (98 documents: `finish_reason length` and `oversize`) carry a count
   only; they get a one-off sidecar load from the queue's `job.error` through
   `ocr_wave.page_failure`, under the runs their reading documents wrote (the conditions are in the
   next section).
+
+
+## From the schema critic on migration 0030, 2026-09-15 (branch `veto-trigger`, against v2026.09.24)
+
+- **A veto's measurement is not pinned to a rate-bearing class.** The triggers ask only that the
+  measurement carry a non-NULL `false_veto_rate`, so a declaration or a bound row may name a `docket`
+  or `work` measurement that also carries one (`test_restamp_leaves_a_class_it_does_not_own_alone`
+  writes such a card). A flag on `class_vocab` marking the rate-bearing classes, read by the triggers,
+  would pin it. Not built: nothing declares a veto.
+- **`restamp` and a bound row, conjectured and not reproduced.** `restamp.stale` selects by the row's
+  class (`_OURS` = docket, work), not by its method's role. A row of a suppress triple stamped from a
+  docket-class measurement would be picked up, re-inserted from the docket card, which carries no
+  rate, and refused by `citation_resolution_veto_row_is_measured_on_a_rate` — an IntegrityError in
+  the middle of a pass. Owed with the first veto: reproduce it, then filter `stale` on role.
 
 ## From the schema critic on migration 0031, 2026-09-15 (branch `ocr-page-failure`, schema 31)
 
