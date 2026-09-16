@@ -415,7 +415,7 @@ means built and held. The census's `exhausted`/`resting` split ships; the page d
 
 ## Addendum (2026-09-15): Owed 2, a page the pass failed says why
 
-**Status: Proposed.** The operator's defaults of 2026-09-15; migration 0031.
+**Status: Accepted (2026-09-16), by the operator.** The operator's defaults of 2026-09-15; migration 0031.
 
 - **A row per failed page, under its run.** `ocr_page_failure (run_id → ocr_run, page_no ≥ 1,
   reason → page_failure_reason_vocab, detail, classifier, classifier_version)`, keyed

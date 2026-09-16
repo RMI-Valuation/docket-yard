@@ -1,5 +1,5 @@
 -- Migration 0031 — a page the pass failed says why (ADR 0024 § Owed 2, addendum 2026-09-15,
--- Proposed; the operator's defaults of 2026-09-15, reworked on two schema-critic passes).
+-- Accepted 2026-09-16; the operator's defaults of 2026-09-15, reworked on two schema-critic passes).
 --
 -- `ocr_run.pages_failed` has counted the pages a pass attempted and did not read since 0018;
 -- the reasons lived only in the fleet queue's `job.error`. This is the row per failed page,
