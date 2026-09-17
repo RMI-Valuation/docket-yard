@@ -203,8 +203,8 @@ def test_migration_0013_alters_a_populated_index_without_disturbing_it(tmp_path)
     con.commit()
     con.close()
 
-    con = db.connect(path)  # the migration production will run
-    assert con.execute("PRAGMA user_version").fetchone()[0] == db.MIGRATIONS[-1][0]
+    con = db.connect(path, upto=13)  # the migration production ran
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 13
     # every row survives, un-rebuilt, with the column's default
     assert con.execute("SELECT COUNT(*) FROM search_doc").fetchone()[0] == 2
     assert {c for (c,) in con.execute("SELECT caption FROM search_doc")} == {""}
@@ -213,12 +213,40 @@ def test_migration_0013_alters_a_populated_index_without_disturbing_it(tmp_path)
     assert [h.title for h in hits] == ["AB 55 (Sub-No. 794X)"]
     assert search.MARK_OPEN in hits[0].snippet and "CARBON" in hits[0].snippet
     assert hits[0].caption == ""  # nothing has filled it in
-    # the ETag's build counter is not restarted, and the format bump is what rebuilds
+    # the ETag's build counter is not restarted
     signature, build = search.built(con)
     assert build == 7 and signature.startswith("2.")
-    assert search.signature(con).startswith(f"{search.INDEX_FORMAT}.")
-    assert search.rebuild(con).get("unchanged") is not True
-    assert search.built(con)[1] == 8
+    con.close()
+
+
+def test_migration_0033_empties_the_index_clears_its_signature_and_keeps_its_build(tmp_path):
+    """0033 rebuilds `search_doc` to admit filings and adds placements (docs/search-v2.md). The
+    index it drops is derived: the build counter (the ETag's) must survive, and the signature
+    must not, or an empty index would believe itself current and answer nothing."""
+    path = tmp_path / "s.sqlite"
+    con = db.connect(path, upto=32)
+    con.execute(
+        "INSERT INTO search_doc (kind, ref, path, title, body, fact)"
+        " VALUES ('docket', 1, '/d/FD-36873', 'FD 36873', 'UP/NS CONTROL', 'x')"
+    )
+    con.execute("INSERT INTO search_fts (search_fts) VALUES ('rebuild')")
+    con.execute(
+        "INSERT INTO search_meta (key, signature, build, built_at)"
+        " VALUES ('built', '3.1.1', 7, '2026-09-16T00:00:00+00:00')"
+    )
+    con.commit()
+    con.close()
+    con = db.connect(path)  # the migration production will run
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 33
+    assert con.execute("SELECT COUNT(*) FROM search_doc").fetchone()[0] == 0
+    assert (
+        con.execute("SELECT COUNT(*) FROM search_fts WHERE search_fts MATCH 'control'").fetchone()[
+            0
+        ]
+        == 0
+    )
+    assert search.built(con) == ("", 7)
+    assert search.rebuild(con)["build"] == 8  # an empty store still rebuilds, counter carried
     con.close()
 
 

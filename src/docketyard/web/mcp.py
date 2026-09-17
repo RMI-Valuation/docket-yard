@@ -134,8 +134,11 @@ def _marked(snippet: str, identifiers: str = "") -> str:
 
     def own(field: str) -> bool:
         plain = field.replace(search_store.MARK_OPEN, " ").replace(search_store.MARK_CLOSE, " ")
+        # the other dockets a record was entered in are this record's spellings too (search-v2
+        # puts every one in the body): printed numbers, never the Board's words
+        plain = _PRINTED_DOCKET.sub(" ", plain)
         words = {t.lower() for t in _TOKENS.findall(plain)}
-        return bool(words) and words <= known
+        return not words or words <= known
 
     fields = snippet.split(search_store.FIELD)
     kept = [f for f in fields if search_store.MARK_OPEN in f and not own(f)]
@@ -144,6 +147,8 @@ def _marked(snippet: str, identifiers: str = "") -> str:
 
 
 _TOKENS = re.compile(r"[^\W_]+")
+# a docket number as `urls.printed_docket` prints it: `FD 36873`, `AB 55 (Sub-No. 794X)`
+_PRINTED_DOCKET = re.compile(r"\b[A-Z][A-Z0-9]*\s+\d+(?:\s+\(Sub-No\.\s+[0-9A-Z]+\))?")
 
 
 def _site(host: str, path: str) -> str:

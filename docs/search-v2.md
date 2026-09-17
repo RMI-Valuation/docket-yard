@@ -62,11 +62,11 @@ every proceeding it was entered in**: one FTS row per record id, and one placeme
 docket entry carrying that entry's own cells. Grouping, filters, totals and "N more" read
 placements, and pages reach proceedings through the same placements.
 
-## The index (migration 0034)
+## The index (migration 0033)
 
-Numbered 0034: 0033 is claimed by the decided-dates addendum on `decided-date-grain`;
-whichever lands second renumbers. All three tables are derived and disposable, rebuilt by
-ingest; the migration clears `search_meta`'s signature, not its row (0012's reasoning).
+Numbered 0033 on this branch, because `MIGRATIONS` must be contiguous; the decided-dates
+addendum on `decided-date-grain` claims 0033 too, and whichever lands second renumbers.
+All three tables are derived and disposable, rebuilt by ingest; the migration clears `search_meta`'s signature, not its row (0012's reasoning).
 `INDEX_FORMAT` goes to 4.
 
 ### `search_doc`, rebuilt
@@ -89,7 +89,7 @@ One row per (index row, proceeding), deduplicated per proceeding:
 | `doc_id` | the `search_doc` row |
 | `group_docket_id` | the proceeding by the sheet rule. **An id, not a path**: an unparseable docket has no path and must not become one shared empty group. The display path is computed at read; the address parameter for "N more in this proceeding" is the path (ADR 0013) |
 | `prefix` | the docket's prefix |
-| `date_kind`, `date` | `filed`, `served` or `dated` (the Board's "received or sent" column, which declines to say which), and that entry's printed date, ISO. `served` is `service_date`, never the derived decided date of the 0033 branch. NULL for a docket |
+| `date_kind`, `date` | `filed`, `served` or `dated` (the Board's "received or sent" column, which declines to say which), and that entry's printed date, ISO. `served` is `service_date`, never the derived decided date of `decided-date-grain`. NULL for a docket |
 | `type_kind`, `type` | `filing` or `decision`, and the type as that entry prints it |
 
 Indexed `(doc_id)`, `(group_docket_id)`, `(prefix, date)`, `(type_kind, type)`, created
@@ -220,7 +220,7 @@ query string from its log (`search.md`); the new parameters inherit that.
 ## Build order
 
 1. This note, critic-reviewed and decided; commit.
-2. Migration 0034, the rebuild, the signature, `DERIVED_TABLES`; tests; measured on the
+2. Migration 0033, the rebuild, the signature, `DERIVED_TABLES`; tests; measured on the
    restore in production's image (rebuild, lock window, the loader waiting). Schema-critic on
    the migration.
 3. The query layer: placements, filters, the window and budget, two-phase records, grouping,
