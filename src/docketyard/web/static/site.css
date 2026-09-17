@@ -111,6 +111,11 @@ h2.week-title { font-family: "Newsreader", Georgia, serif; font-size: 26px; font
 .stat .l { font-size: 13px; color: var(--muted); }
 .two-col { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 56px; padding-top: 32px; }
 .two-col.wide-rail { grid-template-columns: minmax(0, 1fr) 420px; }
+.week-grid { display: grid; grid-template-columns: minmax(0, 1fr) 420px; column-gap: 56px; padding-top: 32px; grid-template-areas: "decisions rail" "moved moved"; }
+.week-decisions { grid-area: decisions; }
+.week-rail { grid-area: rail; }
+.week-grid > .moved-section { grid-area: moved; }
+.rail-uses { display: grid; gap: 14px; font-size: 14px; line-height: 1.5; }
 .rail { display: flex; flex-direction: column; gap: 32px; }
 .rail p { margin: 0; font-size: 14px; line-height: 1.5; }
 .rail .mono { color: var(--ink); }
@@ -194,6 +199,7 @@ table.moved { width: 100%; border-collapse: collapse; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
   .weeks-list { columns: 2 140px; column-gap: 20px; }
   .two-col, .two-col.wide-rail { grid-template-columns: 1fr; gap: 32px; }
+  .week-grid { grid-template-columns: 1fr; grid-template-areas: "decisions" "moved" "rail"; row-gap: 8px; }
   .row { grid-template-columns: 1fr; gap: 4px; }
   .moved thead { display: none; }
   .moved tr { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 0; border-top: 1px solid var(--hair); }
@@ -238,7 +244,7 @@ table.moved { width: 100%; border-collapse: collapse; }
   main { padding: 0; }
   .no-print, .prefs, .toolbar, .skip { display: none !important; }
   .print-only { display: block; }
-  .two-col, .two-col.wide-rail { display: block; }
+  .two-col, .two-col.wide-rail, .week-grid { display: block; }
   .rail { margin-top: 24px; }
   h1 { break-after: avoid; }
   .entry, .row, .moved tr { break-inside: avoid; }
