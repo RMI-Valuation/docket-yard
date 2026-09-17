@@ -496,8 +496,18 @@ what it broke is in § What the first draft got wrong.
 
 **Validation** (`docs/validation-queries.md`). Query 3 is the one this touches: what a page
 showed on date D is the display row live on D, the `text_quality` row live on D, **and the
-`quality_rule` row in force on D** — three live-row reads on the store's clock, which is why
-decision 4 exists. Queries 1, 2, 4 and 5 read no quality row; nothing derived is published from
+`quality_rule` row in force on D** — three reads on the store's clock, which is why decision 4
+exists.
+
+**And the first of the three cannot be read today, which this record states rather than
+assumes.** `document_text_display` is a CURRENT-state view: it filters `superseded_by IS NULL`
+and exposes `asserted_at` but no `superseded_at`, so there is no as-of form of it, and
+migration 0028 forbids re-deriving its human-over-primary rule against `document_text` (a
+second copy of the display rule in the store is the `web/cite.py` failure). The gap predates
+this addendum and belongs to the text pages as they ship today; what is new is that decisions
+4 and 8 make a *published sentence* depend on it. **Owed with the migration**: an as-of
+projection of the display rule — one view or one function, in the store, not a second copy in
+the web tier — or decision 13's sentence is replayable only to the day it was read. Queries 1, 2, 4 and 5 read no quality row; nothing derived is published from
 a score, and the citator's families do not join it. The operational join
 (`citation_reading.text_id = text_quality.text_id`, a re-walk queue of edges read off flagged
 pages) is left unbuilt here and is not foreclosed.
