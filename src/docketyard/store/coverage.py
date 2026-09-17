@@ -166,7 +166,7 @@ def walked_back_to(con: Connection, today: date | None = None) -> str | None:
         year, month = int(min(ledger)[:4]), int(min(ledger)[5:7])
         while (year, month) <= (start.year, start.month):
             name = f"{year:04d}-{month:02d}"
-            # the watch's own month is its from its first day on; before that, a slice or nothing
+            # the watch covers its own month from its first day on; before that, only a slice does
             if name not in ledger and ((year, month) < (start.year, start.month) or start.day > 1):
                 return None
             year, month = (year + 1, 1) if month == 12 else (year, month + 1)
