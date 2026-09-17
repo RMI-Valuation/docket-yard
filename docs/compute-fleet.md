@@ -99,6 +99,20 @@ pending  --claim-->  leased  --done-->  done
   longer this key's), and every page of it is queued anew. The loader takes a document whole
   under one `ran_at`, so a page cannot be added later. A file the queue does not know is the
   old driver's, which kept no reasons: whole only if it says `read` with no page failed.
+- **A failed page carries its reason into the store** (migration 0031, ADR 0024 § Owed 2
+  addendum 2026-09-15, Proposed). Collect writes `page_failures: [{page_no, reason, detail?}]`
+  beside `pages_failed`, with the classifier that named them, mapping each `job.error` to a
+  reason through `ocr_wave.failure_reason`: `page:` is page-owned (`cut-answer`, `oversize`,
+  `render`, `timeout`, `operator-page`), and `server:`, `blob:`, a lease expiry, `operator:`
+  and anything unnamed are not. A detail is kept only when it is its reason's closed shape
+  (`ocr_wave.DETAIL_SHAPES`: `oversize: 8.4 MP at 200 DPI`, `finish_reason length`, ...), because
+  it is PUBLISHED with `ocr_run`; an exception's text or an operator's words never are. A
+  document holding a `page:` error with no known reason is skipped and left uncollected — every
+  other document in the batch is still written, and a later run collects it once the classifier
+  names the word. The loader writes a row per failed page in the run's own transaction, in
+  `ocr_page_failure`. **Owed:** the 134 page failures
+  collected before this shipped carry no list, and are loaded once, directly, as a sidecar
+  (`docs/deferred.md` § From the schema critic on migration 0031).
 
 The promises are tested in `tests/test_fleet.py`, through the real loader, in CI.
 

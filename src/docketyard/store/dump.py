@@ -131,8 +131,12 @@ HELD_TABLES: tuple[str, ...] = (
     # that for the one new edge. Latent, `scrub` dropping with foreign keys OFF, which is
     # exactly the condition the header says the order is kept against.
     "document_text",
-    # its only referrer is `document_text`, so publishing it would ship an orphan taxonomy of
-    # the held layer's own method. The tiers are public on /methodology; the table is not.
+    # Migration 0032 (ADR 0021 addendum, 2026-09-15): the router's per-page verdict. A child of
+    # `route_class_vocab`, so above it; provenance of the held text layer, held with it.
+    "page_route",
+    # its referrers are `document_text` and `page_route` (0032), both held, so publishing it would
+    # ship an orphan taxonomy of the held layer's own method. The tiers are public on
+    # /methodology; the table is not.
     "route_class_vocab",
     "text_payload",
     "citation",
@@ -187,10 +191,17 @@ PUBLIC_TABLES = frozenset(
         "confidence_state_vocab",
         "ocr_run",
         "run_outcome_vocab",
+        # Migration 0031, ADR 0024 § Owed 2 (addendum 2026-09-15). Why a page of a published
+        # run was not read — a reason and a closed-shape measurement, never the producer's
+        # words: `ocr_run` already publishes the count, so the reasons are the same coverage
+        # one grain down.
+        # The vocabulary comes with it or the DDL does not load.
+        "ocr_page_failure",
+        "page_failure_reason_vocab",
         # Migration 0023, ADR 0024 D4 — PUBLIC on `ocr_run`'s own precedent (the operator's
         # decision, 2026-09-05). It carries a document hash, the parser and version it was
         # handed off on, and a timestamp — the attempt's number is computed, never stored.
-        # `ocr_run`, three lines up, already publishes the method,
+        # The `ocr_run` entry above already publishes the method,
         # version, channel, render, outcome, page counts and a free-text note for the same
         # documents, so withholding the lesser while publishing the greater was not a line
         # anyone could defend. It is also the only row that separates "handed to a parser and

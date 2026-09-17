@@ -405,7 +405,10 @@ def _citator(args: argparse.Namespace) -> int:
             # traceback while the verb promised a refusal (code review, 2026-09-04).
             con.rollback()
             print(f"refused: {type(e).__name__} {e}")
-            print("A measurement already recorded is not re-recorded; nothing was changed.")
+            # Since migration 0030 a duplicate card fails with ADR 0018 D8's append-only message,
+            # which this line explains; a D7 veto refusal is another fault and says its own.
+            if not str(e).startswith("ADR 0018 D7"):
+                print("A measurement already recorded is not re-recorded; nothing was changed.")
             return 1
         print(
             f"declared {card['extractor']}@{card['extractor_version']}"
@@ -757,18 +760,20 @@ def _vault_new_key(args: argparse.Namespace) -> int:
 def _text(args: argparse.Namespace) -> int:
     """The record's own text (ADR 0021, 0022; migration 0018): the passes that fill it.
 
-    `paginate` and `load` both run HERE and not inside `migrate` (ocr-migration.md items
-    12-13), through `store.batches`: one document at a time, committed per batch, so the
-    write lock is held for tens of milliseconds at a time and a kill loses one batch.
+    `paginate`, `load` and `route` (migration 0032) all run HERE and not inside `migrate`
+    (ocr-migration.md items 12-13), through `store.batches`: one document at a time, committed
+    per batch, so the write lock is held for tens of milliseconds at a time and a kill loses
+    one batch. A `route` file refused as stale counts as attached: it met its document, and a
+    newer verdict already stands.
 
     THE EXIT STATUS IS FOR A CRON. 0 means every record met its document and the store
     took it; 1 names why not — the store refused a document, the store could not be
     written, or nothing was attached (a wrong `--db`, an empty root), which is not a
     success just because the loop ran.
     """
-    from docketyard.text import load, paginate
+    from docketyard.text import load, paginate, route
 
-    pass_ = load if args.what == "load" else paginate
+    pass_ = {"load": load, "route": route}.get(args.what, paginate)
     root = Path(args.root)
     if not root.is_dir():
         print(f"refused: {root} is not a directory of {pass_.NOUN}s")
@@ -777,7 +782,7 @@ def _text(args: argparse.Namespace) -> int:
     if pass_ is load:
         totals = load.run(con, root, args.data_dir)
     else:
-        totals = paginate.run(con, root)
+        totals = pass_.run(con, root)
     print(dict(totals))
     attached = sum(totals[k] for k in pass_.ATTACHED)
     if totals["aborted"]:
@@ -791,6 +796,11 @@ def _text(args: argparse.Namespace) -> int:
             print(
                 f"refused: none of {totals['unknown_document']} {pass_.NOUN}(s) names a"
                 " document this store holds — is --db the right store?"
+            )
+        elif totals["no_verdicts"]:
+            print(
+                f"refused: {totals['no_verdicts']} {pass_.NOUN}(s) carried no verdict at all —"
+                " every page errored, or none was classified; nothing was written"
             )
         elif totals["unreadable"]:
             print(f"refused: {totals['unreadable']} {pass_.NOUN}(s) found and none readable")
@@ -1027,6 +1037,11 @@ def main(argv: list[str] | None = None) -> int:
     ld = tx_sub.add_parser("load", help="one reading per file into document_text, page by page")
     ld.add_argument("root", help="the readings directory: <root>/<xx>/<sha>.json")
     ld.set_defaults(func=_text)
+    rt = tx_sub.add_parser(
+        "route", help="the OCR wave's router verdicts into page_route, one row per page (0032)"
+    )
+    rt.add_argument("root", help="the wave's route directory: <root>/<xx>/<sha>.json")
+    rt.set_defaults(func=_text)
     pn = tx_sub.add_parser(
         "pin",
         help="declare which producer owns a reading key (ADR 0024 D6); with no --method,"

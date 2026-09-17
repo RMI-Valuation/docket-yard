@@ -16,6 +16,10 @@ ADR 0021 D1 fixes — and it arrives as one JSON file. Two shapes are read:
         "route": {"class": "degraded", "method": "pp-doclayoutv3", "method_version": "3.0"},
         "ran_at": "...", "outcome": "read" | "failed" | "skipped" | "not-paginable",
         "pages_failed": 0,                 pages attempted and not read (ADR 0021 D5)
+        "page_failures": [{"page_no": 2, "reason": "oversize", "detail": "..."}],
+                                           optional: which, and why (migration 0031); when
+                                           present, exactly `pages_failed` long, and a row
+                                           per entry lands under the run
         "payload_kind": "dots.mocr.json",  what the engine output under `engine` IS; required,
                                            because block identity is a function of the
                                            payload's SHAPE (0018) and a default is a guess
@@ -70,6 +74,7 @@ as text that was already there.
 
 import hashlib
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -126,6 +131,18 @@ class Page:
 
 
 @dataclass(frozen=True)
+class PageFailure:
+    """A page the pass attempted and did not read, and why (migration 0031, ADR 0024 § Owed 2
+    addendum 2026-09-15). A record of what the pass did, not an assertion about the page."""
+
+    page_no: int
+    reason: str
+    classifier: str  # what chose the reason, and at which version: once per reading document
+    classifier_version: str
+    detail: str | None = None  # only its reason's closed shape (`DETAIL_SHAPES`), never free text
+
+
+@dataclass(frozen=True)
 class Header:
     """Everything about a reading but its pages: enough to know whether to read them."""
 
@@ -150,6 +167,10 @@ class Header:
     # has just read a hostile file, compared against the store and never trusted: the loader
     # stamps a dispatch only through the stage's resolver, and never from this field alone.
     dispatched_at: str | None = None
+    # WHICH pages failed and why (migration 0031, ADR 0024 § Owed 2 addendum 2026-09-15), or
+    # None where the producer gave no list — every reading before that, and the text layer's
+    # always. When given it is exactly `pages_failed` long, which `header_of_reading` holds.
+    page_failures: tuple[PageFailure, ...] | None = None
 
 
 class Reading:
@@ -292,13 +313,100 @@ def repoint_producer(
         )
 
 
-def header_of_reading(doc: dict, allowed: frozenset[str]) -> Header:
+def failure_reasons(con) -> frozenset[str]:
+    """`page_failure_reason_vocab` (migration 0031), read from the store for `run_outcomes`'s
+    reason, and once per pass the same way."""
+    return frozenset(r[0] for r in con.execute("SELECT reason FROM page_failure_reason_vocab"))
+
+
+# The outcomes a pass that attempted pages can have; the store's trigger holds the same pair.
+FAILING_OUTCOMES = ("read", "failed")
+# A classifier's name and version, at most this long; migration 0031's CHECKs hold the same
+# bound and refuse a '/' in either, as `text_field(allow_slash=False)` does here.
+CLASSIFIER_MAX = 64
+# The only details published (migration 0031): a measurement in a closed shape per reason. A
+# COPY of `tools/rmi-ai-machine/ocr_wave.DETAIL_SHAPES`, which this package cannot import;
+# `tests/test_fleet.py` holds the two equal. Re-checked here so a hand-built file cannot
+# publish free text: a detail that does not match is written NULL and the reason stands. The
+# stored classifier and version are the producer's, so a shape narrowed here later shows as a
+# NULL detail under an older classifier version.
+DETAIL_SHAPES = {
+    "oversize": r"oversize: [0-9]{1,4}\.[0-9] MP at [0-9]{2,4} DPI",
+    "cut-answer": r"finish_reason (length|content_filter|abort|tool_calls|function_call)",
+    "timeout": r"timeout: [0-9]{1,6}s with the server healthy",
+    "lease-expired": r"lease expired on attempt [0-9]{1,3}",
+    "server": r"HTTP [0-9]{3}",
+}
+
+
+def shaped_detail(reason: str, detail) -> str | None:
+    """`detail` if it is exactly its reason's shape, else None."""
+    shape = DETAIL_SHAPES.get(reason)
+    if shape is None or not isinstance(detail, str):
+        return None
+    return detail if re.fullmatch(shape, detail) else None
+
+
+def _page_failures(
+    doc: dict, outcome: str, failed: int, reasons: frozenset[str] | None
+) -> tuple[PageFailure, ...] | None:
+    """The reading's `page_failures`, or None where it carries none. Validated whole, never
+    trimmed to fit: a list that disagrees with the count is two producers' words for one pass,
+    and the loader cannot tell which is right."""
+    if "page_failures" not in doc:
+        return None
+    raw = doc["page_failures"]
+    if not isinstance(raw, list):
+        raise Unreadable("page_failures is not a list")
+    if len(raw) != failed:
+        raise Unreadable(f"page_failures lists {len(raw)} pages and pages_failed is {failed}")
+    if raw and outcome not in FAILING_OUTCOMES:
+        raise Unreadable(f"a {outcome!r} pass attempted no pages to fail")
+    # ONCE PER READING DOCUMENT: every failure a producer lists was named by one classifier at
+    # one version, and every row carries it. Required for a list that names anything.
+    classifier = ("", "")
+    if raw:
+        said = doc.get("page_failure_classifier")
+        if not isinstance(said, dict):
+            raise Unreadable("page_failures names no page_failure_classifier")
+        classifier = (
+            text_field(said, "method", allow_slash=False),
+            text_field(said, "method_version", allow_slash=False),
+        )
+        if any(len(c) > CLASSIFIER_MAX for c in classifier):
+            raise Unreadable(f"page_failure_classifier is longer than {CLASSIFIER_MAX} characters")
+    out = []
+    for i, f in enumerate(raw):
+        if not isinstance(f, dict):
+            raise Unreadable(f"page_failures[{i}] is not an object")
+        no, reason, detail = f.get("page_no"), f.get("reason"), f.get("detail")
+        if isinstance(no, bool) or not isinstance(no, int) or no < 1:
+            raise Unreadable(f"page_failures[{i}].page_no is {no!r}, not a page number")
+        if reasons is None or reason not in reasons:
+            raise Unreadable(
+                f"page_failures[{i}].reason {reason!r} is not one of {sorted(reasons or ())}"
+            )
+        if detail is not None and not isinstance(detail, str):
+            raise Unreadable(f"page_failures[{i}].detail is {detail!r}")
+        # NEVER FREE TEXT: kept only as its reason's closed shape, else NULL (migration 0031)
+        out.append(PageFailure(no, reason, *classifier, shaped_detail(reason, detail)))
+    if len({f.page_no for f in out}) != len(out):
+        raise Unreadable("a page fails twice in one reading")
+    return tuple(out)
+
+
+def header_of_reading(
+    doc: dict, allowed: frozenset[str], reasons: frozenset[str] | None = None
+) -> Header:
     """`allowed` is the store's outcome vocabulary (`run_outcomes`), PASSED IN rather than
     read from a Python tuple — `run_outcome_vocab` is a table precisely so it can be widened
     by an INSERT, and migration 0022 proved the point by needing a Python edit to add a word
     the store already had. `paginate.from_record` takes its sibling the same way, and the
     validation stays here at parse rather than moving to the store, because a reading is
-    validated and never guessed (schema-critic, 2026-09-05)."""
+    validated and never guessed (schema-critic, 2026-09-05).
+
+    `reasons` is `failure_reasons`, passed in for the same reason. Without it a reading may
+    still carry an EMPTY `page_failures`, and any failure it lists is refused."""
     if not isinstance(doc, dict):
         raise Unreadable("not a JSON object")
     channel = text_field(doc, "reading_channel")
@@ -325,6 +433,7 @@ def header_of_reading(doc: dict, allowed: frozenset[str]) -> Header:
         text_field(doc, "payload_kind"),
         _route(doc.get("route"), "the reading"),
         _note(doc),
+        page_failures=_page_failures(doc, outcome, failed, reasons),
     )
 
 
@@ -367,6 +476,9 @@ def pages_of_reading(doc: dict, header: Header) -> tuple[Page, ...]:
     pages = tuple(_page(p, i, header) for i, p in enumerate(raw))
     if len({p.page_no for p in pages}) != len(pages):
         raise Unreadable("a page is read twice in one reading")
+    both = {p.page_no for p in pages} & {f.page_no for f in header.page_failures or ()}
+    if both:
+        raise Unreadable(f"page {min(both)} is both read and failed in one reading")
     return pages
 
 
@@ -404,6 +516,10 @@ def header_of_extraction(record: dict) -> Header:
     extraction's name for itself (`text-layer`), which is the channel."""
     if not isinstance(record, dict):
         raise Unreadable("not a JSON object")
+    # the text layer counts no failed page (its `pages_failed` is 0 below), so a list of them
+    # is a record some other producer wrote in this shape: refused, never dropped
+    if "page_failures" in record:
+        raise Unreadable("an extraction record carries no page_failures")
     # extract_text.py v2 writes a stub with `outcome` for a file it read nothing from: a
     # non-PDF (`not-paginable`) or a PDF that would not open (`failed`). Its run is recorded
     # under the SAME WORD the extractor used; it has no pages.
@@ -436,6 +552,9 @@ def header_of_extraction(record: dict) -> Header:
 
 
 def pages_of_extraction(record: dict, header: Header) -> tuple[Page, ...]:
+    if isinstance(record, dict) and "page_failures" in record:
+        # `read_head` stops at `page_text`, so a list written after it is only seen here
+        raise Unreadable("an extraction record carries no page_failures")
     texts = record.get("page_text") if isinstance(record, dict) else None
     if texts is None and header.outcome != "read":
         return ()  # a stub: the extractor saw the file and read nothing (extract_text.py v2)
@@ -446,8 +565,10 @@ def pages_of_extraction(record: dict, header: Header) -> tuple[Page, ...]:
     )
 
 
-def from_reading(doc: dict, payload: bytes, allowed: frozenset[str]) -> Reading:
-    header = header_of_reading(doc, allowed)
+def from_reading(
+    doc: dict, payload: bytes, allowed: frozenset[str], reasons: frozenset[str] | None = None
+) -> Reading:
+    header = header_of_reading(doc, allowed, reasons)
     return Reading(header, body=(payload, pages_of_reading(doc, header)))
 
 
@@ -466,10 +587,12 @@ def _is_extraction(path: Path) -> bool:
     return '"tool"' in head and '"reading_role"' not in head  # a stub has `"tool"` too
 
 
-def read_file(path: Path, allowed: frozenset[str]) -> Reading:
+def read_file(
+    path: Path, allowed: frozenset[str], reasons: frozenset[str] | None = None
+) -> Reading:
     """One file. An extraction record yields its header from the first 4 KB and its body
     on demand; a reading document is parsed whole, once. Either must be filed under its
-    sha."""
+    sha. `reasons` is `failure_reasons`, for a reading document's `page_failures`."""
     if _is_extraction(path):
         reading = Reading(header_of_extraction(read_head(path)), path=path)
     else:
@@ -478,7 +601,7 @@ def read_file(path: Path, allowed: frozenset[str]) -> Reading:
         if isinstance(doc, dict) and "page_text" in doc:  # a stub, or a record read whole
             reading = from_extraction(doc, payload)
         else:
-            reading = from_reading(doc, payload, allowed)
+            reading = from_reading(doc, payload, allowed, reasons)
     if reading.header.document_sha256 != path.stem:
         raise Unreadable(f"names {reading.header.document_sha256[:12]}, filed as {path.stem[:12]}")
     return reading
@@ -590,7 +713,7 @@ def load_reading(
     )  # OR IGNORE is right here: the digest IS the identity, and the same bytes are one row
     by_role, by_key = _live(con, sha)
     written = sum(_load_page(con, h, page, digest, now, by_role, by_key) for page in pages)
-    con.execute(
+    run = con.execute(
         "INSERT INTO ocr_run (document_sha256, method, method_version, reading_channel,"
         " render_profile, outcome, pages_read, pages_failed, note, ran_at, dispatch_id)"
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -607,6 +730,17 @@ def load_reading(
             h.ran_at,
             dispatch_id,
         ),
+    )
+    # WHICH pages failed (migration 0031), in the run's own transaction and under its id: a
+    # restart finds the run and so writes none of these again. The store's triggers hold the
+    # count and the outcome that `header_of_reading` has already checked.
+    con.executemany(
+        "INSERT INTO ocr_page_failure (run_id, page_no, reason, detail, classifier,"
+        " classifier_version) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            (run.lastrowid, f.page_no, f.reason, f.detail, f.classifier, f.classifier_version)
+            for f in h.page_failures or ()
+        ],
     )
     records.save_blob(data_dir, payload)  # after the rows: a refused reading leaves no file
     if not pages:
@@ -716,14 +850,15 @@ def run(
             "`search rebuild-pages` owns the page index (search_meta.page_built ="
             " 'rebuilding'). Let it finish, or re-run it if it died, then load."
         )
-    # both vocabularies read ONCE for the pass, not per file — `paginate.run` hoists the
+    # the vocabularies read ONCE for the pass, not per file — `paginate.run` hoists the
     # identical lookup the same way, and a wave walks tens of thousands of spool files
     machine = methods.machine_channels(con)
     allowed = run_outcomes(con)
+    reasons = failure_reasons(con)
     pinned_keys = pins(con)
     return batches.run(
         con,
-        batches.walk(root, lambda path: read_file(path, allowed)),
+        batches.walk(root, lambda path: read_file(path, allowed, reasons)),
         lambda r: load_reading(
             con, data_dir, r, machine=machine, pinned_keys=pinned_keys, stamp=stamp
         ),

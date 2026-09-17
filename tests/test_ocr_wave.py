@@ -5,7 +5,9 @@ writes is one `docketyard text load` takes — primary, second with its agreemen
 """
 
 import importlib.util
+import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from docketyard.store import db
 from docketyard.text import load
@@ -86,7 +88,9 @@ def test_the_three_derived_readings_load_in_order_and_the_second_carries_its_ban
     def loaded(doc):
         con = db.connect(path)
         out = load.load_reading(
-            con, tmp_path, load.from_reading(doc, b"{}", load.run_outcomes(con))
+            con,
+            tmp_path,
+            load.from_reading(doc, b"{}", load.run_outcomes(con), load.failure_reasons(con)),
         )
         con.commit()
         con.close()
@@ -101,7 +105,7 @@ def test_the_three_derived_readings_load_in_order_and_the_second_carries_its_ban
         "pp-ocrv6.json",
         eng,
         pages,
-        pages_failed=failed,
+        page_failures=failed,
         ran_at="2026-09-05T00:00:01+00:00",
     )
     assert [p["page_no"] for p in primary["pages"]] == [1]
@@ -135,7 +139,7 @@ def test_the_three_derived_readings_load_in_order_and_the_second_carries_its_ban
         "pp-ocrv6.json",
         eng,
         pages,
-        pages_failed=failed,
+        page_failures=failed,
         ran_at="2026-09-05T00:00:02+00:00",
     )
     assert [p["page_no"] for p in second["pages"]] == [2]
@@ -155,7 +159,7 @@ def test_the_three_derived_readings_load_in_order_and_the_second_carries_its_ban
         "pp-ocrv6.json",
         eng,
         pages,
-        pages_failed=failed,
+        page_failures=failed,
         ran_at="2026-09-05T00:00:03+00:00",
     )
     assert [p["page_no"] for p in graphic["pages"]] == [3]
@@ -191,4 +195,54 @@ def test_a_failed_page_is_counted_and_left_out():
     cache, route = _cache_and_route(w, sha, {1: "a", 2: "b"}, {1: "clean", 2: "clean"})
     cache["pages"][1]["error"] = "RuntimeError: render"
     eng, pages, failed = w.select_pages(cache, route, {"clean"})
-    assert [p["page_no"] for p in pages] == [1] and failed == 1
+    assert [p["page_no"] for p in pages] == [1]
+    # the cache keeps the exception and no cause: the page says so, and its words are not published
+    assert failed == [{"page_no": 2, "reason": "unclassified"}]
+    doc = w.reading_document(sha, {}, "primary", "pp-ocrv6.json", eng, pages, page_failures=failed)
+    assert doc["pages_failed"] == 1 and doc["page_failures"] == failed
+    assert doc["page_failure_classifier"] == w.CLASSIFIER
+
+
+def test_a_failed_page_reaches_the_store_with_its_reason(tmp_path):
+    w = _module()
+    path, sha = _store_with_document(tmp_path)
+    cache, route = _cache_and_route(w, sha, {1: "a", 2: "b"}, {1: "clean", 2: "clean"})
+    cache["pages"][1]["error"] = "RuntimeError: cannot open /data/docketyard/.render/x.png"
+    key = {k: cache[k] for k in ("method", "method_version", "render_profile")}
+    eng, pages, failed = w.select_pages(cache, route, {"clean"})
+    doc = w.reading_document(sha, key, "primary", "pp-ocrv6.json", eng, pages, page_failures=failed)
+    con = db.connect(path)
+    reading = load.from_reading(doc, b"{}", load.run_outcomes(con), load.failure_reasons(con))
+    assert load.load_reading(con, tmp_path, reading) == "loaded"
+    con.commit()
+    rows = con.execute(
+        "SELECT f.page_no, f.reason, length(f.detail), r.pages_failed"
+        " FROM ocr_page_failure f JOIN ocr_run r USING (run_id)"
+    ).fetchall()
+    con.close()
+    assert rows == [(2, "unclassified", None, 1)]  # the exception's path is never published
+
+
+def test_a_document_whose_every_selected_page_failed_is_still_a_reading(tmp_path):
+    """The gap migration 0031 exists to close: a pass that read nothing must still write its
+    run, or the failures it measured are lost. `run_graphic` is the branch testable without the
+    engines; `run_second` and `run_paddle` carry the same one."""
+    w = _module()
+    path, sha = _store_with_document(tmp_path)
+    out = tmp_path / "ocr"
+    cache, route = _cache_and_route(w, sha, {1: "a"}, {1: "graphic"})
+    cache["pages"][0]["error"] = "RuntimeError: render"
+    w._write(w.shard(out / w.ROOTS["cache"], sha), cache)
+    w._write(w.shard(out / w.ROOTS["route"], sha), route)
+    assert w.run_graphic(SimpleNamespace(out=out)) == 0
+    doc = json.loads(w.shard(out / w.ROOTS["graphic"], sha).read_text(encoding="utf-8"))
+    assert (doc["outcome"], doc["pages"], doc["pages_failed"]) == ("failed", [], 1)
+    assert doc["page_failures"] == [{"page_no": 1, "reason": "unclassified"}]
+    con = db.connect(path)
+    reading = load.from_reading(doc, b"{}", load.run_outcomes(con), load.failure_reasons(con))
+    assert load.load_reading(con, tmp_path, reading) == "run_only"
+    con.commit()
+    assert con.execute("SELECT page_no, reason FROM ocr_page_failure").fetchall() == [
+        (1, "unclassified")
+    ]
+    con.close()

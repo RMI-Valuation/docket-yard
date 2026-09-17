@@ -12,12 +12,18 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **His choices 2026-09-15** (`deferred.md` § that date), each design + critic before code:
-  the veto trigger; the decided-date consumer (ADR 0018 D4 addendum first); the route in the store
-- **Build decision 6's HunyuanOCR tabular pass**: 26,245 pages unread, 1,394 decision-carried
-  in 100 documents, showing "Read as blank."; loading waits for his go
-- **121 dots-refused degraded pages have no reading**: he asked about an LLM reading (3090, or
-  Claude) — facts owed to him
+- **Migrations 0030-0032 all MERGED** (#35 `ecbe527`, #37 `c66ff2c`, #36 `6c5d5e0`), addenda
+  accepted 2026-09-16, each rehearsed in v2026.09.24's image. **Releasing and deploying are his**
+- **Tabular pass RUNNING** since 2026-09-16 11:46Z (coordinator and workstation on `67b1762`, PR #34
+  unmerged). First 16 min: 67 read, 9 page-owned `finish_reason length` (~12%, final), 4 blob misses;
+  **~12.6 s/page, so ~88 h, not the 36-48 h scoped**. 434 of 3,385 documents (1,051 pages, 0.24 GB)
+  are in NEITHER blob mirror, so no node reads them this seed. Stop: `touch
+  /data/docketyard/ocr/.stop-tabular` on rmi-ai-machine. Nothing collected is loaded
+- **Claude batch LOADED** in production 2026-09-16 (restore point 11:29:23Z); his `.anthropic-key`
+  is no longer needed
+- **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
+  `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
+  quotation per displayed reading, migration 0033. **His to accept; then migration + pass**
 
 ## Next
 
@@ -26,8 +32,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
   migration (schema-critic first) and the browse on `/parties`
 - With the operator: a sheet's JSON-LD block in Google's Rich Results test, from a browser
-- ADR 0024 Owed 2, the per-page failure record — HIS CHOICE to build (2026-09-15): addendum
-  draft for the shape, schema-critic, his acceptance, then a branch
 - **Held by the operator for rewording (2026-09-11)**: `/methodology`'s text-stage section
   (`848e366`) and the one-day-rest sentence (`3b538bc`); § Documents has his narrowed one
 - The workstation gate's ONLOGON task is still unregistered (`deferred.md`)

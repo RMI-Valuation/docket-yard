@@ -324,6 +324,7 @@ def create_app(
         entry_text_path=urls.entry_text_path,  # a comment's text sits under its docket
         page_label=store_pages.label,  # who read a page, and its band: one wording for the
         page_band=store_pages.band,  # text page and the search hit (ADR 0021 D7, D8)
+        page_marker=store_pages.marker,  # a tabular page no engine read (ADR 0021 addendum)
         entry_path=urls.entry_path,  # a sheet entry's address, whatever kind it is
         entry_viewer_path=urls.entry_viewer_path,
         document_path=urls.document_path,
@@ -398,13 +399,19 @@ def create_app(
             "   WHERE document_sha256 = ? AND superseded_by IS NULL),"
             " (SELECT MAX(pagination_id) FROM document_pagination"
             "   WHERE document_sha256 = ? AND superseded_by IS NULL),"
+            # the router's verdicts (migration 0032): a route load turns "Read as blank." into
+            # the unread-table marker, so it must move the validator
+            " (SELECT MAX(route_id) FROM page_route"
+            "   WHERE document_sha256 = ? AND superseded_by IS NULL),"
+            " (SELECT COUNT(*) FROM page_route"
+            "   WHERE document_sha256 = ? AND superseded_by IS NULL),"
             " (SELECT MAX(correction_id) FROM correction"
             "   WHERE (target_table = 'document_text' AND target_key GLOB ?)"
             "      OR (target_table = 'document_pagination' AND target_key IN"
             "          (SELECT CAST(pagination_id AS TEXT) FROM document_pagination"
             "            WHERE document_sha256 = ?))),"
             " (SELECT build FROM search_meta WHERE key = 'page_built')",
-            (*search.PAGE_TABLES, sha, sha, sha, f"{sha}/*", sha),
+            (*search.PAGE_TABLES, sha, sha, sha, sha, sha, f"{sha}/*", sha),
         ).fetchone()
         return ".".join(str(v or 0) for v in row)
 
@@ -2049,10 +2056,25 @@ def create_app(
                 return Response(status_code=304, headers={"ETag": etag})
             pages = store_pages.readings(con, sha) if current else []
             count = store_pages.pagination(con, sha) if current else None
+            routes = store_pages.routes(con, sha) if current else {}
         finally:
             con.close()
         by_page = {p.page_no: p for p in pages}
+        # the range is the readings and the page count, NEVER the routes: a verdict does not
+        # make a page exist that the count does not (schema-critic, 2026-09-15)
         last = max(max(by_page, default=0), (count.page_count or 0) if count else 0)
+        layer = count.had_text_layer if count else None
+        # (n, the display row, the live route, what the page is shown as): `store_pages.state`
+        # is the rule, and a page shown as the unread-table marker is not counted as read
+        rows = [
+            (
+                n,
+                by_page.get(n),
+                routes.get(n),
+                store_pages.state(by_page.get(n), routes.get(n), layer),
+            )
+            for n in range(1, last + 1)
+        ]
         response = render(
             request,
             "text.html",
@@ -2060,8 +2082,8 @@ def create_app(
             entry=entry,
             current=current,
             index=index or 0,
-            rows=[(n, by_page.get(n)) for n in range(1, last + 1)],
-            read=len(pages),
+            rows=rows,
+            read=sum(1 for _, page, _, shown in rows if page and shown != store_pages.TABLE),
             pagination=count,
             canonical=urls.entry_text_path(kind, record_id, entry.docket_raw, index or 0),
         )
