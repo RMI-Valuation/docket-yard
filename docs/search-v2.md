@@ -1,6 +1,7 @@
 # Search, built out — design note
 
-> **Status: proposed 2026-09-17**, on branch `search-v2`. Revises `search.md`, which stays
+> **Status: built 2026-09-17 on branch `search-v2`** (migration 0033, `store/finder.py`,
+> `/search`), reviews and the rehearsal owed before release. Revises `search.md`, which stays
 > the account of what shipped until this lands. The operator chose the shape as four
 > answers, and three more after the schema-critic's pass (§ Decided by the operator). Costs
 > were measured the same day on a restore of production taken that morning
@@ -157,9 +158,20 @@ not taken); the rehearsal in production's image measures it before release.
 
 Two phases, because grouping needs every match and weighted `bm25` defeats FTS5's internal
 ordering, evaluating the whole select list — snippet included — for every matching row
-(`search.md`). First `(doc_id, rank)` for all matches, joined to placements, filtered,
-grouped; then snippets only for the items displayed. Measured on the rebuilt index before
-the query layer is fixed, with the broadest words over comment bodies.
+(`search.md`). First `(doc_id, bm25)` for all matches, materialised, then joined to placements,
+filtered, grouped; snippets only for the items displayed, one FTS lookup each.
+
+**Every placement column in a filter is written `+p.col`.** Without it SQLite probed
+placements through the `(prefix, date)` index once per matched record: `railroad` over AB
+since 2020 took 2,640 ms; reached by `doc_id`, 7 ms. Measured on the rebuilt restore:
+
+| Query | Records matching | All, grouped | AB and 2020 on, grouped |
+| --- | --- | --- | --- |
+| `abandonment` | 5,379 | 7 ms | 1 ms |
+| `railroad` | 26,206 | 22 ms | 7 ms |
+| `the` | 28,252 | 27 ms | 7 ms |
+
+The record side needs no bound.
 
 ### Pages
 
@@ -182,13 +194,18 @@ seconds. The page side is bounded, and says when it was:
   order is labelled as among the pages examined (decision 7).
 - **Filtered**: the filter must see every matching page, so rank cannot come first — FTS5
   ranks every match before returning a row, and an interrupted ranking returns nothing. The
-  matching rowids are read unranked, joined to placements and filtered under a **time budget**
-  (a SQLite progress handler); the pages that survive are then ranked, or sorted by date. A
-  query that exhausts the budget is answered from records only, with the page side marked
-  "too broad to filter: add words or narrow the filter" — never a partial sample presented
-  as the answer. By the figures above scaled 3x, filtered `abandonment` and `railroad` would
-  exceed a 1.5 s budget on production, so the budget is set from a measurement on the
-  instance, not from this table.
+  matching rowids are read unranked (`the`: 1,047,892 in 283 ms). Up to `DIRECT_MATCHES`
+  (20,000) they are joined to their owners' placements and filtered; above it, the pages the
+  filter admits are gathered from placements first and the matches intersected with them,
+  which is what makes a broad word affordable (`the` over AB since 2020: 2,117 ms joined,
+  about 310 ms intersected; over every FD docket, 413 ms to gather 846,113 admitted pages).
+  Pages that survive a filter are not ranked: within the page tier a proceeding is ordered by
+  how many of its pages matched.
+- **Both paths run under a time budget** (`PAGE_BUDGET`, 1.5 s; a SQLite progress handler).
+  A query that exhausts it is answered from records only, and the page says the text was left
+  out because the words match too many pages — never a partial sample presented as the
+  answer. Locally only `the` exhausts it; production's instance is about 3x slower on the page
+  index, so the budget is measured there during the rehearsal before it is fixed.
 
 `PAGE_WINDOW` and the budget are published on `/search`'s help and here, as `PAGE_LIMIT` is
 today.
@@ -217,22 +234,38 @@ from the store. A filter that names something parties do not have (a prefix, dat
 drops the party strip.
 
 **An empty query with a filter is a browse**: records only, never pages (there is nothing to
-rank a page by, and nothing to bound the walk), sorted newest.
+rank a page by, and nothing to bound the walk), newest first whatever the order asked, since
+nothing was matched to rank.
 
 The address carries every parameter, so a filtered search is a link. Caddy drops the whole
 query string from its log (`search.md`); the new parameters inherit that.
 
 ## Surfaces
 
-- **`/search`**: the box; a filter bar, one "Filters" line on a phone; the party strip;
-  proceedings, each with up to three matched items (caption or number, then decisions,
-  filings, comments, pages) and "N more matches in this proceeding"; sort; paging;
-  `?view=documents` for the flat list. Works without script.
-- **`/suggest`**, **MCP**: unchanged (§ What else reads the index).
+- **`/search`**: the box; a filter bar in `<details>`, one line on a phone; the party strip;
+  proceedings, each with up to three matched items (decisions, filings, comments, pages) and
+  "N more matches in this proceeding", which is the same search with `docket=` and shows every
+  match there; sort; paging (`page`, at most 500); `view=documents` for the flat list, each
+  match once. Every parameter is checked against what the store holds (prefixes and types
+  from the placements, ISO dates, at most 20 values a filter), and a value it does not hold is
+  dropped and said. A filtered search is never the docket-number redirect. Works without
+  script.
+- **`/suggest`** and **MCP** keep `search.search()` and today's kinds. Two changes reach them
+  anyway: a family's row carries its own caption alone (below), and MCP's snippet treats every
+  printed docket number as the record's own spelling, since a decision's body now names every
+  docket it was entered in.
+- **A family's row carries its own caption and number, not its sub-dockets' captions.** With
+  results grouped, the old body made every word of a line abandonment find its whole series a
+  second time: `Tazewell County` returned AB 290 (Sub-No. 222X) and then AB 6 and AB 167
+  through captions already indexed as rows of their own. A sub-docket that is not a row
+  repeats its parent's caption, so the family loses no word. `/suggest` and MCP now return the
+  sub-docket for such a word, not the sub-docket and its family.
 - **Wording**: "proceeding" is defined once, on `/search`'s help: the sheet rule. MCP's
   `count_filings` answer names its own unit, docket numbers.
 
 ## Build order
+
+Steps 1-5 done 2026-09-17 on `search-v2`; tests 1,021.
 
 1. This note, critic-reviewed and decided; commit.
 2. Migration 0033, the rebuild, the signature, `DERIVED_TABLES`; tests; measured on the

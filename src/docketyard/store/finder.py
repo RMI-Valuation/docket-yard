@@ -368,7 +368,7 @@ def _order(con: Connection, q: Query, groups: dict[int, list[_Item]]) -> list[in
         # a record matched through two placements in one proceeding is one item
         seen: set[tuple[str, int]] = set()
         items[:] = [i for i in items if not ((i.kind, i.key) in seen or seen.add((i.kind, i.key)))]
-    if q.sort == "newest":
+    if q.sort == "newest" or not q.text.strip():  # a browse matched nothing to rank
         latest = {
             gid: max((i.date for i in items if i.date), default=None)
             for gid, items in groups.items()
@@ -415,7 +415,7 @@ def _documents(con, q: Query, match: str | None, groups: dict[int, list[_Item]],
         for item in items:
             if item.kind != "docket":
                 seen.setdefault((item.kind, item.key), item)
-    if q.sort == "newest":
+    if q.sort == "newest" or not q.text.strip():
         order = sorted(seen.values(), key=lambda i: (i.date or "", -i.score), reverse=True)
     else:
         order = sorted(seen.values(), key=lambda i: (_TIER[i.kind], i.score, i.key))
@@ -439,7 +439,7 @@ def _proceeding(con: Connection, q: Query, match: str | None, gid: int, items: l
         (raw,) = con.execute("SELECT raw_docket FROM docket WHERE docket_id = ?", (gid,)).fetchone()
         path, number, caption, fact = "", raw, "", ""
     ranked = sorted(items, key=lambda i: (_SHOWN_ORDER[i.kind], i.score, -(len(i.date or ""))))
-    if q.sort == "newest":
+    if q.sort == "newest" or not q.text.strip():
         ranked = sorted(items, key=lambda i: i.date or "", reverse=True)
     limit = WITHIN_EVIDENCE if q.within is not None else EVIDENCE
     chosen = [i for i in ranked if i.kind != "docket"][:limit]

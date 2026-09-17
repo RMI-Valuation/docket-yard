@@ -28,8 +28,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **Search built out, IN BUILD on `search-v2`** (`docs/search-v2.md`; his seven decisions
-  2026-09-17, schema-critic folded in): next migration 0034 (placements, filings, the map)
+- **Search built out, BUILT on `search-v2`** (`docs/search-v2.md`; his seven decisions
+  2026-09-17): migration 0033, `store/finder.py`, `/search`. Owed: reviews, PR, rehearsal in
+  production's image (budget measured on the instance), release behind the wall
 - **MCP: list the proceedings behind a count** (`deferred.md` § From using the live MCP server):
   asked for the 20 most recent, an assistant had to guess one. His to choose; small
 - **The graders' three open fix-now items** (`deferred.md` § The independent graders): the
