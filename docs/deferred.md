@@ -1770,11 +1770,11 @@ verifier's; "partly" means true but overstated, and the narrowed form is what is
   held text, his wording.
 - **Snapshots have no DOI or third-party deposit; a cite has no "as of"** (researcher I8).
 
-**Decided by the operator, 2026-09-16** (multiple-choice, in session; branch `graders-decisions`):
+**Decided by the operator, 2026-09-16** (multiple-choice, in session; branch `graders-decisions`). Still open from the fix-now list, chosen as the live demo for the ARDA call on 2026-09-17: the `coverage` tool matching `/coverage` (assistant I2).
 
 1. **Early years — all three surfaces.** `/coverage` and `/stats` say every month from 1996-01 is
    walked and the Board's own filings table is sparse before 2002, with the measured counts; a
-   sheet whose record may predate 25 Jan 1996 says so in one line. Wording to him before it ships.
+   sheet whose record may predate 25 Jan 1996 says so in one line. Wording to him before it ships. **Wording approved by him 2026-09-16** (PR #40).
 2. **Last checked — show both, bump the shape.** Pages and MCP show the latest forward poll (less
    recorded outages) as "last checked" and the last entry as "last new entry"; JSON gains
    `last_new_entry`, `last_checked` takes its true meaning, `shape_version` 3, announced on `/data`.
@@ -1786,7 +1786,7 @@ verifier's; "partly" means true but overstated, and the narrowed form is what is
 5. **CC0 — correct the label, not the content.** Comments and filings are public record and stay
    published as filed (his point); the label says CC0 covers the compilation and the Board's own
    fields, and that filings and comments are reproduced as filed. The held-text omission and the
-   capture-ledger error in `LICENSE-DATA.txt` are fixed. Wording to him before it ships.
+   capture-ledger error in `LICENSE-DATA.txt` are fixed. **Wording approved by him 2026-09-16** (PR #40).
 6. **Served dates — label everywhere, leave room for decided dates.** Pages and MCP say "served";
    JSON gains `date_kind` (additive); the cite line takes the Board's "(STB served Sept. 3, 2026)".
    A quoted decided date (the decided-date pass) arrives beside it later without renaming anything.
@@ -1794,7 +1794,7 @@ verifier's; "partly" means true but overstated, and the narrowed form is what is
    timestamp header and a signature over `timestamp.body` are added, with `shape_version` in the
    payload; methodology documents both.
 8. **Repeated filer — reword to match the rule.** "A cell that is only one name repeated is shown
-   once." Held methodology text: wording to him.
+   once." Held methodology text: **wording approved by him 2026-09-16** (PR #40).
 9. **Citability — "as of" in the cite now; a DOI deposit later.** The cite block carries the access
    date and the latest snapshot id; a monthly Zenodo deposit is a menu item for him to choose.
 
