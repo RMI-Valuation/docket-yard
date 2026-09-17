@@ -72,7 +72,8 @@ def test_search_page_and_suggest(tmp_path):
     r = client.get("/search", params={"q": "FD 36873 (Sub-No. 9)"}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/d/FD-36873"  # the family holds it
     r = client.get("/search", params={"q": "peoria"})
-    assert r.status_code == 200 and 'href="/d/FD-36873/sub/1"' in r.text and "1 record" in r.text
+    assert r.status_code == 200 and 'href="/d/FD-36873/sub/1"' in r.text
+    assert "1 proceeding." in r.text
     assert r.headers["cache-control"] == "no-store" and 'content="noindex"' in r.text
     assert "ETag" not in r.headers and 'rel="canonical"' not in r.text
     # a stale validator never short-circuits a result page
@@ -128,8 +129,9 @@ def test_a_result_row_says_what_the_proceeding_is_and_why_it_matched(tmp_path):
     con.close()
     r = TestClient(create_app(path)).get("/search", params={"q": "peoria"})
     assert r.status_code == 200
-    assert ">PEORIA SUB</a>" in r.text  # the caption is the link, the number sits beside it
-    assert "FD 36873 (Sub-No. 1)</span>" in r.text
+    # a result is the proceeding: its number is the link and its caption sits beside it
+    assert '<a class="dk" href="/d/FD-36873/sub/1">FD 36873 (Sub-No. 1)</a>' in r.text
+    assert '<span class="as-printed">PEORIA SUB</span>' in r.text
 
 
 def test_the_snippet_says_why_a_row_matched_and_never_repeats_the_caption(tmp_path):
@@ -156,7 +158,7 @@ def test_a_snippet_cannot_carry_markup_out_of_the_record(tmp_path):
     path, _ = _indexed(tmp_path)
     con = db.connect(path)
     con.execute(
-        "UPDATE search_doc SET body = ? WHERE kind = 'docket' AND title = 'FD 36873'",
+        "UPDATE search_doc SET body = ? WHERE kind = 'decision'",
         ("<script>alert(1)</script> tainted \"'&<> caption words",),
     )
     con.execute("INSERT INTO search_fts (search_fts) VALUES ('rebuild')")

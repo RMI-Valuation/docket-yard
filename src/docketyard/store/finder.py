@@ -20,7 +20,9 @@ from docketyard.store import pages, search
 from docketyard.store.search import MARK_CLOSE, MARK_OPEN, SNIPPET_TOKENS, Hit
 
 PAGE_SIZE = 20  # proceedings a results page shows
+DOCUMENT_PAGE_SIZE = 50  # items the flat list of documents shows
 EVIDENCE = 3  # matched items shown under a proceeding
+WITHIN_EVIDENCE = 200  # shown when the search is within one proceeding
 PAGE_WINDOW = 5000  # ranked pages examined when nothing is filtered (docs/search-v2.md)
 PAGE_BUDGET = 1.5  # seconds the page side may take when a filter must see every page
 # Below this many matching pages the filter is applied to the matches; above it, the pages
@@ -31,6 +33,15 @@ PARTY_STRIP = 5
 PROGRESS_STEPS = 10_000  # SQLite VM steps between looks at the clock
 
 KINDS = ("captions", "decisions", "filings", "comments", "text", "parties")
+# what each kind is called on the page, in the order the filter offers them
+KIND_LABELS = {
+    "captions": "Docket captions and numbers",
+    "decisions": "Decisions",
+    "filings": "Filings",
+    "comments": "Environmental comments",
+    "text": "Text of documents",
+    "parties": "Parties",
+}
 _KIND = {
     "docket": "captions",
     "decision": "decisions",
@@ -45,6 +56,29 @@ _SHOWN_ORDER = {"docket": 0, "decision": 1, "filing": 2, "comment": 3, "page": 4
 
 
 @dataclass(frozen=True)
+class Vocabulary:
+    """What a filter may name: the values the index holds, never typed freehand."""
+
+    prefixes: tuple[str, ...]
+    filing_types: tuple[str, ...]
+    decision_types: tuple[str, ...]
+
+
+def vocabulary(con: Connection) -> Vocabulary:
+    """Read from the placements' indexes, so it costs a walk of an index, not of a table."""
+    rows = con.execute("SELECT DISTINCT prefix FROM search_place ORDER BY 1")
+    prefixes = tuple(r[0] for r in rows)
+    types = con.execute(
+        "SELECT DISTINCT type_kind, type FROM search_place WHERE type IS NOT NULL ORDER BY 1, 2"
+    ).fetchall()
+    return Vocabulary(
+        prefixes,
+        tuple(t for k, t in types if k == "filing"),
+        tuple(t for k, t in types if k == "decision"),
+    )
+
+
+@dataclass(frozen=True)
 class Query:
     text: str = ""
     prefixes: tuple[str, ...] = ()
@@ -56,6 +90,7 @@ class Query:
     sort: str = "best"  # or "newest"
     page: int = 1
     within: int | None = None  # one proceeding: "N more matches in this proceeding"
+    view: str = "proceedings"  # or "documents": the flat list (the operator's decision 1)
 
     @property
     def dated(self) -> bool:
@@ -87,6 +122,12 @@ class Proceeding:
     hits: list[Hit]
     matched: int  # items matched in this proceeding
     pages: int  # of which pages of text
+    by_caption: bool = False  # its own caption or number matched
+
+    @property
+    def more(self) -> int:
+        """Matches not shown under it: the caption is shown as the heading."""
+        return self.matched - len(self.hits) - (1 if self.by_caption else 0)
 
 
 @dataclass
@@ -99,6 +140,7 @@ class Results:
     # side ran out of time and was left out | "rebuilding": the page index is being rebuilt
     pages_cut: str = ""
     pages_matched: int | None = None  # pages the words matched, when counted
+    documents: list[Hit] = field(default_factory=list)  # the flat view's page of items
 
     @property
     def exact(self) -> bool:
@@ -106,7 +148,8 @@ class Results:
 
     @property
     def page_count(self) -> int:
-        return max(1, -(-self.total // PAGE_SIZE))
+        size = DOCUMENT_PAGE_SIZE if self.query.view == "documents" else PAGE_SIZE
+        return max(1, -(-self.total // size))
 
 
 def find(con: Connection, q: Query) -> Results:
@@ -134,6 +177,8 @@ def find(con: Connection, q: Query) -> Results:
         and q.page == 1
     ):
         out.parties = search.search(con, q.text, limit=PARTY_STRIP, kinds=("party",))
+    if q.view == "documents":
+        return _documents(con, q, match, groups, out)
     order = _order(con, q, groups)
     out.total = len(order)
     start = (max(1, q.page) - 1) * PAGE_SIZE
@@ -361,6 +406,28 @@ def _last_activity(con: Connection, gids: list[int]) -> dict[int, str]:
 # --- what a result shows --------------------------------------------------------------------
 
 
+def _documents(con, q: Query, match: str | None, groups: dict[int, list[_Item]], out: Results):
+    """The flat list: every matched filing, decision, comment and page once, however many
+    proceedings it was placed in, ordered as proceedings are — by strength of match, or
+    newest first."""
+    seen: dict[tuple[str, int], _Item] = {}
+    for items in groups.values():
+        for item in items:
+            if item.kind != "docket":
+                seen.setdefault((item.kind, item.key), item)
+    if q.sort == "newest":
+        order = sorted(seen.values(), key=lambda i: (i.date or "", -i.score), reverse=True)
+    else:
+        order = sorted(seen.values(), key=lambda i: (_TIER[i.kind], i.score, i.key))
+    out.total = len(order)
+    start = (max(1, q.page) - 1) * DOCUMENT_PAGE_SIZE
+    shown = order[start : start + DOCUMENT_PAGE_SIZE]
+    hits = _record_hits(con, match, [i for i in shown if i.kind != "page"])
+    hits.update(_page_hits(con, match, [i for i in shown if i.kind == "page"]))
+    out.documents = [hits[(i.kind, i.key)] for i in shown if (i.kind, i.key) in hits]
+    return out
+
+
 def _proceeding(con: Connection, q: Query, match: str | None, gid: int, items: list[_Item]):
     head = con.execute(
         "SELECT path, title, caption, fact FROM search_doc WHERE kind = 'docket' AND ref = ?",
@@ -374,7 +441,8 @@ def _proceeding(con: Connection, q: Query, match: str | None, gid: int, items: l
     ranked = sorted(items, key=lambda i: (_SHOWN_ORDER[i.kind], i.score, -(len(i.date or ""))))
     if q.sort == "newest":
         ranked = sorted(items, key=lambda i: i.date or "", reverse=True)
-    chosen = [i for i in ranked if i.kind != "docket"][:EVIDENCE]
+    limit = WITHIN_EVIDENCE if q.within is not None else EVIDENCE
+    chosen = [i for i in ranked if i.kind != "docket"][:limit]
     hits = _record_hits(con, match, [i for i in chosen if i.kind != "page"])
     hits.update(_page_hits(con, match, [i for i in chosen if i.kind == "page"]))
     return Proceeding(
@@ -386,6 +454,7 @@ def _proceeding(con: Connection, q: Query, match: str | None, gid: int, items: l
         [hits[(i.kind, i.key)] for i in chosen if (i.kind, i.key) in hits],
         matched=len(items),
         pages=sum(1 for i in items if i.kind == "page"),
+        by_caption=any(i.kind == "docket" for i in items),
     )
 
 
@@ -432,8 +501,8 @@ def _page_hits(con: Connection, match: str | None, items: list[_Item]) -> dict:
         if item.key not in found:
             continue  # the view no longer shows it: a stale index row, never a 500
         sha, page = found[item.key]
-        kind, ref, path, title = con.execute(
-            "SELECT kind, ref, path, title FROM search_doc WHERE doc_id = ?", (item.doc_id,)
+        kind, ref, path, title, fact = con.execute(
+            "SELECT kind, ref, path, title, fact FROM search_doc WHERE doc_id = ?", (item.doc_id,)
         ).fetchone()
         record_id = path.rsplit("/", 1)[1]
         index = _attachment_index(con, kind, ref, sha)
@@ -450,7 +519,7 @@ def _page_hits(con: Connection, match: str | None, items: list[_Item]) -> dict:
             "page",
             f"{base}#p{page.page_no}",
             f"{title}, page {page.page_no}",
-            "",
+            fact,  # the record's docket and date: the flat list's only context
             "",
             search._shown_snippet(excerpt, ""),
             label=pages.label(page),
