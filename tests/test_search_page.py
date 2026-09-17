@@ -87,6 +87,8 @@ def test_the_bare_page_is_a_page_and_offers_the_store_vocabulary(tmp_path):
     assert "Filters and order" in r.text and '<details class="filters">' in r.text
     assert '<option value="FD">FD — ' in r.text and "<option>Decision</option>" in r.text
     assert 'class="results"' not in r.text
+    # and every page's masthead links to it
+    assert '<a href="/search">Search</a>' in client.get("/coverage").text
 
 
 def test_the_flat_list_shows_each_match_once_and_keeps_the_search(tmp_path):
