@@ -85,6 +85,10 @@ main { padding: 0 56px; }
 .register-entries { margin-top: 10px; }
 .register-entries li { padding: 3px 0; }
 @media (max-width: 900px) { .viewer { grid-template-columns: 1fr; } .viewer-frame { height: 70vh; } }
+/* the rail stays beside a long text: a search can open a document at page 100, and the docket
+   it belongs to should not be 100 pages up. Screen only, so print is not clipped; a rail taller
+   than the window scrolls on its own. */
+@media screen and (min-width: 901px) { .viewer-rail { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow-y: auto; } }
 .lookup { position: relative; }
 .suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin: 4px 0 0; padding: 4px 0; list-style: none; background: var(--paper); border: 1px solid var(--hair); border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
 .suggest li a { display: block; padding: 6px 12px; color: var(--ink); text-decoration: none; }
