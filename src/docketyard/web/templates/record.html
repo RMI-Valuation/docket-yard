@@ -13,7 +13,7 @@
 <section class="caption">
   <div class="caption-meta muted small"><a href="{{ docket_path(identity) }}">{{ printed }}</a>{% if sheet.title %} · <span class="as-printed">{{ sheet.title }}</span>{% endif %}</div>
   <h1 class="serif docket-number">{{ noun }} {{ entry.record_id }}</h1>
-  <p class="muted"><time datetime="{{ entry.date or '' }}">{{ entry.date | fmt_date }}</time>{% if entry.date_printed %} <span class="small">(printed as {{ entry.date_printed }})</span>{% endif %}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}</p>
+  <p class="muted">{{ date_kind(entry.kind) | capitalize }} <time datetime="{{ entry.date or '' }}">{{ entry.date | fmt_date }}</time>{% if entry.date_printed %} <span class="small">(printed as {{ entry.date_printed }})</span>{% endif %}{% if entry.type %} · {{ entry.type }}{% endif %}{% if entry.deciding_body %} · {{ entry.deciding_body }}{% endif %}</p>
   {% if entry.summary %}<p class="serif summary as-printed">{{ entry.summary }}</p>{% endif %}
   {% if entry.filed_for_raw %}<p>Filed for: <span class="as-printed">{{ display_filed_for(entry.filed_for_raw) }}</span></p>{% endif %}
   {% if entry.kind == 'comment' %}
@@ -79,8 +79,9 @@
     {% endif %}
     <div>
       <h2 id="cite">Cite</h2>
-      <p class="cite serif" id="cite-line">{{ noun }} {{ entry.record_id }}, {{ cite_docket(identity) }}{% if entry.date %} ({{ entry.date | fmt_date }}){% endif %}</p>
+      <p class="cite serif" id="cite-line">{{ noun }} {{ entry.record_id }}, {{ cite_docket(identity) }}{% if cite_date(entry.kind, entry.date) %} {{ cite_date(entry.kind, entry.date) }}{% endif %}</p>
       <p class="small muted">Record <span class="mono">docketyard.org{{ record_path(entry.kind, entry.record_id) }}</span>{% if current %}<br>File <span class="mono">docketyard.org{{ document_path(current.document_sha256, current.media_type) }}</span>{% endif %}</p>
+      <p class="small muted">{{ cite_as_of() }}.</p>
       <button class="btn no-print" type="button" data-copy="cite-line" hidden>Copy citation</button>
     </div>
     <div class="no-print">

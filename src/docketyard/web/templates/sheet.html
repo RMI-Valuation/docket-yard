@@ -27,7 +27,9 @@
     {% for m in sheet.sub_dockets %}<a href="{{ docket_path(parse_docket_id(m.raw_docket)) }}">{{ printed_docket(parse_docket_id(m.raw_docket)) }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
   </p>
   {% elif sheet.title %}<p class="caption-note muted">Caption from the Board’s record.</p>{% endif %}
-  <p class="serif record-summary muted">{{ sheet.filings | plural('filing') }}, {{ sheet.decisions | plural('decision') }} and {{ sheet.comments | plural('environmental comment') }} observed here{% if sheet.last_checked %}; last checked {{ sheet.last_checked | fmt_when }}{% endif %}.</p>
+  <p class="serif record-summary muted">{{ sheet.filings | plural('filing') }}, {{ sheet.decisions | plural('decision') }} and {{ sheet.comments | plural('environmental comment') }} observed here{% if sheet.last_checked %}; last checked {{ sheet.last_checked | fmt_when }}{% endif %}{% if sheet.last_new_entry %}; last new entry {{ sheet.last_new_entry | fmt_when }}{% endif %}.</p>
+  {% set oldest = sheet.entries | map(attribute='date') | select | min if sheet.entries else none %}
+  {% if oldest and oldest < early_until %}<p class="small muted early-record">The record begins with the Board’s own search, on {{ record_begins | fmt_date }}. If this proceeding began before then, its earlier filings and decisions are not held here, and a summary below may cite a decision this sheet does not list.</p>{% endif %}
   <div class="actions no-print">
     <a class="btn" href="#cite">Cite</a>
     <button class="btn" type="button" data-print>Print</button>
@@ -114,7 +116,7 @@
     <ol class="plain" id="entries">
     {% for e in sheet.entries %}
     <li class="entry{% if e.kind == 'decision' %} entry-decision{% endif %}" data-kind="{{ e.kind }}" data-type="{{ filter_key(e.kind, e.type) }}" data-parties="{{ e.parties | join(' ') }}">
-      <div class="entry-date muted"><time datetime="{{ e.date or '' }}">{{ e.date | fmt_date }}</time>{% if e.date_printed %}<span class="vh"> (printed as {{ e.date_printed }})</span>{% endif %}</div>
+      <div class="entry-date muted">{% if e.kind == 'decision' %}<span class="small">served </span>{% endif %}<time datetime="{{ e.date or '' }}">{{ e.date | fmt_date }}</time>{% if e.date_printed %}<span class="vh"> (printed as {{ e.date_printed }})</span>{% endif %}</div>
       <div class="kind{% if e.kind == 'decision' %} kind-decision{% endif %}">{{ kind_label(e.kind, e.type) }}</div>
       <div class="entry-body">
         <div class="entry-title"><span class="id">{{ e.record_id }}</span>{% if e.kind == 'comment' %}<a href="{{ entry_path(e.kind, e.record_id, e.docket_raw) }}" aria-label="Comment {{ e.record_id }}: permanent address">{{ e.organisation or e.submitter or 'Comment' }}</a>{% else %}<a href="{{ entry_path(e.kind, e.record_id, e.docket_raw) }}" aria-label="{{ 'Decision' if e.kind == 'decision' else 'Filing' }} {{ e.record_id }}: permanent address">{% if e.kind == 'decision' %}{{ e.deciding_body or 'Decision' }}{% else %}{{ e.type or 'Filing' }}{% endif %}</a>{% endif %}
@@ -200,6 +202,7 @@
     <div>
       <h2 id="cite">Cite this docket</h2>
       <p class="cite serif">{{ cite_docket(identity) }}</p>
+      <p class="small muted">{{ cite_as_of() }}.</p>
       <p class="small muted">Permanent address<br><span class="mono">docketyard.org{{ docket_path(identity) }}</span><br>As data: <a href="{{ docket_path(identity) }}.json">JSON</a> · <a href="/data">bulk</a></p>
     </div>
     <div>

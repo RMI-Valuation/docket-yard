@@ -22,7 +22,7 @@ def test_api_page_and_llms_txt_say_what_the_surface_is(tmp_path):
         "/openapi.json",
         "/llms.txt",
         "CC0 1.0",
-        '"shape_version": 2',
+        '"shape_version": 3',
         "ADR 0013",
         "User-Agent",
         "/document/&lt;sha256&gt;.pdf",
@@ -184,12 +184,13 @@ def test_json_twins_at_the_permanent_addresses(tmp_path):
     assert sub["series"]["printed"] == "FD 36873"
     assert sub["series"]["url"].endswith("/d/FD-36873")
     assert "requested" not in sub
-    assert d["shape_version"] == 2
+    assert d["shape_version"] == 3
     assert "series" not in d  # a family sits under nothing
     # the key set is the public contract: a rename must be a deliberate shape bump
     assert set(e) == {
         "kind",
         "date",
+        "date_kind",  # added 2026-09-16 without a bump, as the promise allows
         "date_printed",
         "docket_raw",
         "record_id",
