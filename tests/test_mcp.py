@@ -156,6 +156,11 @@ def test_every_answer_carries_what_the_record_does_not_hold(client):
         call(client, "get_environmental_comment", {"number": "EI-34280"})["content"][0]["text"],
         call(client, "get_environmental_comment", {"number": "EI-00000"})["content"][0]["text"],
     ]
+    answers += [
+        call(client, "count_filings", {"filing_type": "motion"})["content"][0]["text"],
+        call(client, "count_filings", {"filing_type": "nitu"})["content"][0]["text"],
+        call(client, "count_filings", {"prefix": "ZZ"})["content"][0]["text"],
+    ]
     for text in answers:
         assert "does not say what any party argued" in text, text[:80]
         assert "Coverage is not uniform" in text, text[:80]
@@ -524,6 +529,185 @@ def test_the_machine_surface_answers_a_series_with_its_index(tmp_path):
     assert "Entries, newest first:" not in out
     assert "/d/AB-167/sub/1X" in out
     assert out.rstrip().endswith(mcp._NOT_HELD)  # the caveats still travel with the answer
+
+
+# --- counting (asked for 2026-09-16, when an assistant could not say how many) ------------
+
+
+def _abandonments(tmp_path):
+    """Two AB proceedings and a parent: one holds a consummation notice and a trail-use
+    agreement, one only a trail-use request, and one consummation notice is entered in both
+    the parent and its sub-docket — the cross-posting that counts rows twice."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    (event,) = con.execute("SELECT MIN(observed_in_event) FROM filing").fetchone()
+    parent = con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence) VALUES ('AB_55', 'AB', 55)"
+    ).lastrowid
+    subs = {}
+    for sub in (794, 800):
+        subs[sub] = con.execute(
+            "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, suffix,"
+            " parent_docket_id) VALUES (?, 'AB', 55, ?, 'X', ?)",
+            (f"AB_55_{sub}_X", sub, parent),
+        ).lastrowid
+    for docket_id, fid, ftype, filed in (
+        (subs[794], "9001", "Trail Use Agreement Reached", "2019-03-02"),
+        (subs[794], "9002", "Consummation Notice", "2021-06-01"),
+        (parent, "9002", "Consummation Notice", "2021-06-01"),  # the same filing, cross-posted
+        (subs[800], "9003", "Trail Use Request", "2024-01-15"),
+    ):
+        con.execute(
+            "INSERT INTO filing (docket_id, stb_filing_id, filing_type, filed_date,"
+            " observed_in_event) VALUES (?, ?, ?, ?, ?)",
+            (docket_id, fid, ftype, filed, event),
+        )
+    con.commit()
+    return con
+
+
+def count(con, **arguments):
+    return mcp._count(con, arguments, "docketyard.org")
+
+
+def test_a_count_is_of_filings_and_proceedings_not_rows(tmp_path):
+    con = _abandonments(tmp_path)
+    text = count(con, filing_type="consummation notice", prefix="ab")
+    # two rows, one filing, entered in two proceedings — and the answer says how it counted
+    assert "'Consummation Notice' in AB proceedings: 1 filing entered in 2 proceedings" in text
+    assert "counts once among filings and once in each proceeding" in text
+    assert "does not say what was consummated" in text
+    con.close()
+
+
+def test_words_in_a_type_count_every_type_they_match_and_name_each(tmp_path):
+    con = _abandonments(tmp_path)
+    text = count(con, filing_type="trail use", prefix="AB")
+    assert "'Trail Use Agreement Reached', 'Trail Use Request'" in text
+    assert "2 filings entered in 2 proceedings" in text
+    assert "- Trail Use Request: 1 filing in 1 proceeding" in text
+    # no consummation was counted, so the note about one is not handed over
+    assert "consummated" not in text
+    con.close()
+
+
+def test_proceedings_holding_both_types_are_counted_without_implying_order(tmp_path):
+    con = _abandonments(tmp_path)
+    text = count(con, filing_type="Consummation Notice", also_has="trail use")
+    assert ": 1 (of 2 holding the first and 2 holding the second)" in text
+    assert "says nothing about which came first" in text
+    # a date range applies to both halves of the pair, and the answer says so
+    text = count(
+        con, filing_type="Consummation Notice", also_has="trail use", filed_from="2020-01-01"
+    )
+    assert (
+        ": 0 (of 2 holding the first and 1 holding the second; both filed inside the range)" in text
+    )
+    con.close()
+
+
+def test_one_filing_matching_both_phrases_is_not_a_pair(tmp_path):
+    """`trail use` contains `Trail Use Request`, so AB 55 (Sub-No. 800X)'s one request matched
+    both halves and was counted as holding both (code review)."""
+    con = _abandonments(tmp_path)
+    text = count(con, filing_type="trail use", also_has="Trail Use Request")
+    # 794X holds an agreement and no request; 800X holds one request, which is one filing
+    assert ": 0 (of 2 holding the first and 1 holding the second)" in text
+    con.close()
+
+
+def test_a_decisions_act_is_not_a_filing_type_and_the_miss_says_so(tmp_path):
+    """The question that asked for this tool was about NITUs, which a decision issues."""
+    con = _abandonments(tmp_path)
+    text = count(con, filing_type="NITU")
+    assert "No filing type the Board uses matches 'NITU'" in text
+    assert "is not a filing type" in text
+    con.close()
+
+
+def test_without_a_type_the_boards_vocabulary_is_listed(tmp_path):
+    con = _abandonments(tmp_path)
+    text = count(con, prefix="AB")
+    assert "The Board's filing types in AB proceedings" in text
+    assert "- Consummation Notice: 1" in text and "Motion" not in text  # FD's, not AB's
+    con.close()
+
+
+def test_a_bad_argument_is_answered_not_raised(tmp_path):
+    con = _abandonments(tmp_path)
+    assert "must be a date written YYYY-MM-DD" in count(con, filed_from="June 2021")
+    assert "must be a real day" in count(con, filed_to="2026-02-30")
+    assert "nothing can fall between" in count(con, filed_from="2024-01-01", filed_to="2023-01-01")
+    assert "holds no docket prefix 'ZZ'" in count(con, prefix="zz")
+    assert "holds no filings the Board typed" in count(con, filing_type="motion", prefix="AB")
+    con.close()
+
+
+def test_unfinished_months_inside_the_range_are_named_in_the_count(tmp_path, monkeypatch):
+    """A count is only as complete as the months under it; the ones outside the range say
+    nothing about it and are left out."""
+    from docketyard.store import coverage
+
+    monkeypatch.setattr(
+        coverage, "filings_incomplete", lambda con: ("2019-03", "2019-04", "2025-07")
+    )
+    con = _abandonments(tmp_path)
+    text = count(con, filing_type="Consummation Notice", filed_to="2021-12-31")
+    assert "has not finished for filings, inside the range counted" in text
+    assert "2019-03 to 2019-04" in text and "2025-07" not in text
+    con.close()
+
+
+def test_a_month_no_wave_has_begun_is_unfinished_not_silently_complete(tmp_path):
+    """`_incomplete` reads the ledger, so a month no slice names was not in its list at all,
+    and a count over it read as complete (code review, 2026-09-16)."""
+    from docketyard.capture.stb import FILINGS
+    from docketyard.store import coverage
+
+    con = db.connect(build_store(tmp_path))
+    for month in ("2019-01", "2019-03"):
+        con.execute(
+            "INSERT INTO walk_slice (slice_key, table_action, criteria, status, rows, captures,"
+            " completed_at) VALUES (?, ?, '[]', 'done', 0, 1, '2026-09-01T00:00:00+00:00')",
+            (f"{FILINGS}:{month}", FILINGS),
+        )
+    con.commit()
+    months = coverage.filings_incomplete(con)
+    assert "2019-02" in months and "2019-04" in months  # between walked months, and after
+    assert "2019-01" not in months and "2019-03" not in months and "2018-12" not in months
+    text = count(con, filing_type="motion", filed_from="2019-01-01", filed_to="2019-12-31")
+    assert "2019-02, 2019-04 to 2019-12" in text
+    text = count(con, filing_type="motion")
+    assert "walk of filings begins at 2019-01" in text
+    assert "begins at" not in count(con, filing_type="motion", filed_from="2020-01-01")
+    con.close()
+
+
+def test_a_month_the_watch_left_unasked_after_an_outage_is_unfinished(tmp_path):
+    """A month after the watch began has no slice — waves walk backward from where it began —
+    so an outage longer than the re-ask window left days no one asked for, and the count
+    over them read as complete (the high review pass, 2026-09-16)."""
+    from datetime import timedelta
+
+    from docketyard.capture.stb import FILINGS
+    from docketyard.store import coverage
+
+    con = db.connect(build_store(tmp_path))
+    start = coverage._watch_starts(con.execute, (FILINGS,))[FILINGS]
+    month = lambda d: d.strftime("%Y-%m")  # noqa: E731
+    later = start + timedelta(days=150)
+    assert coverage.filings_incomplete(con, today=later) == (
+        (month(start),) if start.day > 1 else ()
+    )  # watched every day since, no slice: finished; its first month only from `start`
+    lo, hi = start + timedelta(days=45), start + timedelta(days=75)
+    con.execute(
+        "INSERT INTO coverage_gap (started_at, ended_at, failure) VALUES (?, ?, 'captures')",
+        (f"{lo.isoformat()}T00:00", f"{hi.isoformat()}T00:00"),
+    )
+    con.commit()
+    months = coverage.filings_incomplete(con, today=later)
+    assert month(lo) in months and month(start + timedelta(days=120)) not in months
+    con.close()
 
 
 def test_a_decision_is_handed_over_with_its_body_and_summary_as_printed(client):

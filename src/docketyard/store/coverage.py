@@ -134,6 +134,64 @@ def _incomplete(con: Connection, *actions: str, today: date | None = None) -> tu
     )
 
 
+def filings_incomplete(con: Connection, today: date | None = None) -> tuple[str, ...]:
+    """Months not finished for filings alone — what a count over filings must name. The
+    coverage page's list unions filings with decisions, which would name a month a
+    decisions-only gap left open as a hole in a filing count.
+
+    AND THE MONTHS NO SLICE NAMES. `_incomplete` reads the ledger, so a month no slice names
+    is not in it at all — and a count over it read as complete: a month no wave has begun
+    (code review, 2026-09-16), and a month after the watch began that an outage longer than
+    its re-ask window left unasked (the high pass, the same day). One rule for both: from the
+    ledger's first month (or the watch's, with no ledger) through today, a month no slice
+    names is finished only if the watch asked for every day of it up to today, less the
+    recorded outages (`home.gap_shadows`, the rule `_incomplete` applies). Nothing before
+    that first month is claimed either way; the answer names where the walk begins."""
+    q = con.execute
+    today = today or date.today()
+    months = set(_incomplete(con, FILINGS, today=today))
+    ledger = {
+        m
+        for (key,) in q("SELECT slice_key FROM walk_slice WHERE table_action = ?", (FILINGS,))
+        if (m := walk.slice_month(key)) is not None
+    }
+    start = _watch_starts(q, (FILINGS,)).get(FILINGS)
+    if ledger:
+        year, month = int(min(ledger)[:4]), int(min(ledger)[5:7])
+    elif start is not None:
+        year, month = start.year, start.month
+    else:
+        return tuple(sorted(months))
+    shadows = home.gap_shadows(con, today)
+    while (year, month) <= (today.year, today.month):
+        name = f"{year:04d}-{month:02d}"
+        if name not in ledger:
+            owed = {d for d in walk.month_days(name) if d <= today}
+            watched = {
+                d
+                for d in owed
+                if start is not None and start <= d and not any(lo <= d <= hi for lo, hi in shadows)
+            }
+            if watched < owed:
+                months.add(name)
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return tuple(sorted(months))
+
+
+def filings_walked_from(con: Connection) -> str | None:
+    """The first month the filings walk names — where a count's coverage claim begins."""
+    # parsed, then the least — the rule `filings_incomplete` uses, so the two cannot disagree
+    # over a key that sorts first and names no month
+    months = [
+        m
+        for (key,) in con.execute(
+            "SELECT slice_key FROM walk_slice WHERE table_action = ?", (FILINGS,)
+        )
+        if (m := walk.slice_month(key)) is not None
+    ]
+    return min(months, default=None)
+
+
 DENSE_YEAR = 1000  # filings in a year: the threshold the page names, not a judgement of it
 
 

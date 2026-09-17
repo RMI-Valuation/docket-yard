@@ -60,13 +60,17 @@ Streamable HTTP (MCP 2025-11-25), checked against the specification rather than 
 
 ## The tools
 
-Four, deliberately: each is a read a person could do, and none composes into a write.
+Six, deliberately: each is a read a person could do, and none composes into a write.
+`count_filings` was added 2026-09-16, when an assistant asked how many NITUs had been
+consummated could only say that search results are capped and are not counts.
 
 | Tool | Answers |
 | --- | --- |
 | `search_the_record` | proceedings, parties, decisions and comments by their own words, and pages of the Board's documents by their machine-read text (each `[page]` line labelled with who read it, the band's operand or its absence, and the scan); a docket number resolves directly. `limit` bounds the record lines; page lines are at most 20 |
 | `get_docket_sheet` | one proceeding's chronological sheet, newest first, each entry with the Board's own file and the sub-docket it was entered in |
 | `get_environmental_comment` | one comment by its Board number, with the commenter's own words as printed — quotation, never characterisation |
+| `read_page` | one page, or up to five, of a filing's, decision's or comment's file, by the address a search gave or `decision N`: the display view's text (contact details omitted) between begin and end markers, each page labelled with who read it and its band, the Board's own file and the scan; a blank, unread or unread-table page is said as the text page says it; an engine-read page adds that it carries OCR errors and is unreviewed; every answer ends with the text caveat and the licence line |
+| `count_filings` | how many filings the Board typed a given way (`Consummation Notice`), in how many proceedings, within a prefix and a filed-date range, and how many of those proceedings also hold a second type. It counts distinct filings (a filing entered in a docket and its sub-docket is two rows and one filing) and proceedings as entered; names every Board type a phrase matched; names the unfinished filing months inside the range; and says it counts the Board's labels, not what the documents did. A decision's act (a NITU issued) is not a filing type, and the miss says so |
 | `coverage` | what the record holds and what it does not, measured; the tool an assistant is told to call before calling the record complete |
 
 A comment is folded by its **row ref**, not its number: one comment entered in a docket and
@@ -100,6 +104,20 @@ the rule in a second place: `/llms.txt`, the file written *for* assistants, link
 `/search`. It now names both in prose, says why they are for people, and points an
 assistant at `/d?q=` and the MCP server instead; a test holds every link in `/llms.txt`
 against the named agents' rules, so the two files cannot drift apart again.
+
+**Added 2026-09-16 (the operator): an assistant may read the text.** Testing the server
+for a talk, the operator judged reading the page text the step that takes it "to a whole
+other level", and decided four things: the MCP server serves page text on a user's request
+(`read_page`), while bulk collection and training stay closed and the dedication is not
+extended (which crawlers may fetch what is decided in the paragraph below); both tiers are
+served, each labelled, an engine-read page saying it carries OCR errors and is unreviewed;
+a `[page]` search hit carries its matched passage; and every answer that hands over text
+carries his caveat — *Docket Yard serves the text as read from the Board's documents. An
+AI's reading or summary of it may be wrong, and what an assistant does with this text is
+outside Docket Yard's control. Before relying on it, review the document itself: the
+Board's own file is linked.* — with the licence line, and both are handed over at
+`initialize`. The prose in robots.txt, `/llms.txt`, `/api` and `/data` says so, so the rule
+and the prose still agree. ADR 0022 carries the addendum.
 
 **Decided 2026-09-16 (the operator), on the independent graders' findings: reading is not
 training.** The rule refused the party pages and the page text to all thirteen named agents,
