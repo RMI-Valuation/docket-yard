@@ -54,6 +54,10 @@ class Coverage:
     # list under that sentence told readers that 1996-01 through 2000-08 were incomplete
     # for filings and decisions, which they are not.
     records_incomplete: tuple[str, ...]  # filings and decisions
+    records_walked_from: str | None  # walked_back_to: None while anything is outstanding
+    # filings the record holds by the Board's year, from the first year to the first
+    # holding more than DENSE_YEAR — the thin early years, measured, not characterised
+    early_filing_years: list[tuple[str, int]]
     comments_incomplete: tuple[str, ...]  # environmental comments
     comments_from: str | None  # earliest comment the record holds, by the Board's own date
     empty_prefixes: tuple[str, ...]
@@ -188,6 +192,69 @@ def filings_walked_from(con: Connection) -> str | None:
     return min(months, default=None)
 
 
+DENSE_YEAR = 1000  # filings in a year: the threshold the page names, not a judgement of it
+
+
+def walked_back_to(con: Connection, today: date | None = None) -> str | None:
+    """The month from which BOTH filings and decisions are walked through to the watch, with no
+    month outstanding — else None. What `/stats` and `/coverage` need before saying the early
+    numbers are the Board's own table.
+
+    Three ways a month is outstanding, all refused (code review, 2026-09-16): a month a wave
+    began and did not finish (`_incomplete`); a month between a table's first slice and the
+    watch that no slice names, which `_incomplete` cannot see because it reads the ledger;
+    and a table walked less far back than the other — the answer is the LATER of the two
+    first months, since before it only one table is walked."""
+    today = today or date.today()
+    if _incomplete(con, FILINGS, DECISIONS, today=today):
+        return None
+    starts = _watch_starts(con.execute, (FILINGS, DECISIONS))
+    firsts = []
+    for action in (FILINGS, DECISIONS):
+        ledger = {
+            m
+            for (key,) in con.execute(
+                "SELECT slice_key FROM walk_slice WHERE table_action = ?", (action,)
+            )
+            if (m := walk.slice_month(key)) is not None
+        }
+        if not ledger:
+            return None
+        start = starts.get(action) or today
+        year, month = int(min(ledger)[:4]), int(min(ledger)[5:7])
+        while (year, month) <= (start.year, start.month):
+            name = f"{year:04d}-{month:02d}"
+            # the watch covers its own month from its first day on; before that, only a slice does
+            if name not in ledger and ((year, month) < (start.year, start.month) or start.day > 1):
+                return None
+            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+        firsts.append(min(ledger))
+    return max(firsts)
+
+
+def early_filing_years(con: Connection, this_year: str | None = None) -> list[tuple[str, int]]:
+    """(year, filings) from the record's first filing year through the first year after which
+    every full year holds more than DENSE_YEAR. The Board's own filings table is thin in its
+    early years — walked, and empty at the Board (`stb-data-source.md` § Measured 2026-08-27)
+    — and a reader was left to read that as months still to come (the independent graders,
+    2026-09-16). Not "the first year above": 2000 holds 1,180 and 2001 falls back to 456
+    (measured on the Sept 16 snapshot), so the thin run ends at 2002. The current year is
+    partial and never decides it."""
+    this_year = this_year or str(date.today().year)
+    years = [
+        (year, n)
+        for year, n in con.execute(
+            "SELECT substr(filed_date, 1, 4), COUNT(DISTINCT stb_filing_id) FROM filing"
+            " WHERE filed_date GLOB '[0-9][0-9][0-9][0-9]-*' GROUP BY 1 ORDER BY 1"
+        )
+    ]
+    full = [(y, n) for y, n in years if y < this_year]
+    for i in range(len(full)):
+        if all(n > DENSE_YEAR for _, n in full[i:]):
+            return full[: i + 1]
+    return full
+
+
 def month_runs(months: tuple[str, ...]) -> tuple[str, ...]:
     """Consecutive months collapsed into ranges: 56 unfinished comment months print as
     `1996-01 to 2000-08`, not as 56 comma-separated strings. Presentation only — the
@@ -289,6 +356,8 @@ def coverage(con: Connection) -> Coverage:
         # say so — but it is not a filings month, and the sentence that names them is about
         # filings and decisions.
         records_incomplete=_incomplete(con, FILINGS, DECISIONS),
+        records_walked_from=walked_back_to(con),
+        early_filing_years=early_filing_years(con),
         comments_incomplete=_incomplete(con, ENVIRO_COMMENTS),
         comments_from=one("SELECT MIN(NULLIF(date_received_or_sent, '')) FROM enviro_comment"),
         empty_prefixes=tuple(sorted(EXPECTED_EMPTY_PREFIXES)),

@@ -108,8 +108,8 @@ against the named agents' rules, so the two files cannot drift apart again.
 **Added 2026-09-16 (the operator): an assistant may read the text.** Testing the server
 for a talk, the operator judged reading the page text the step that takes it "to a whole
 other level", and decided four things: the MCP server serves page text on a user's request
-(`read_page`), while crawling, bulk collection and training stay closed — robots.txt for
-`/text` and `/search` is unchanged, and the dedication is not extended; both tiers are
+(`read_page`), while bulk collection and training stay closed and the dedication is not
+extended (which crawlers may fetch what is decided in the paragraph below); both tiers are
 served, each labelled, an engine-read page saying it carries OCR errors and is unreviewed;
 a `[page]` search hit carries its matched passage; and every answer that hands over text
 carries his caveat — *Docket Yard serves the text as read from the Board's documents. An
@@ -118,6 +118,17 @@ outside Docket Yard's control. Before relying on it, review the document itself:
 Board's own file is linked.* — with the licence line, and both are handed over at
 `initialize`. The prose in robots.txt, `/llms.txt`, `/api` and `/data` says so, so the rule
 and the prose still agree. ADR 0022 carries the addendum.
+
+**Decided 2026-09-16 (the operator), on the independent graders' findings: reading is not
+training.** The rule refused the party pages and the page text to all thirteen named agents,
+while docket sheets those agents may fetch showed party chips, and the MCP server linked text
+pages robots.txt told assistants not to open. What the licence review protects is the party
+module and the page text as datasets, from the dedication, collection and training — not from a
+person reading them. So the three agents that fetch a page because a person asked
+(`ChatGPT-User`, `Claude-User`, `Perplexity-User`, `USER_DIRECTED_AGENTS`) may read `/p/`,
+`/parties` and the `/text` pages; the agents that index or train stay refused; `/search`, which
+prints the held layer in bulk, stays refused to every named agent. The prose in robots.txt and
+`/llms.txt` says so, and a test holds each named block to its class.
 
 What is asked rather than required, in `robots.txt` and on `/data`: if you answer from this
 record, carry what a reader would have seen — coverage is not uniform, dates and captions

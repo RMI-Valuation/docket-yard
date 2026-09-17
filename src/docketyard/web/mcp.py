@@ -34,7 +34,7 @@ from docketyard.store import pages as pages_store
 from docketyard.store import search as search_store
 from docketyard.store import sheet as sheet_store
 from docketyard.store.sheet import present
-from docketyard.web import documents, urls
+from docketyard.web import documents, labels, urls
 
 PROTOCOL_VERSION = "2025-11-25"
 # what a client that sent no MCP-Protocol-Version header is assumed to speak (the spec's
@@ -120,6 +120,32 @@ def _plural(n: int, noun: str) -> str:
     return f"{n:,} {noun}" + ("" if n == 1 else "s")
 
 
+def _marked(snippet: str, identifiers: str = "") -> str:
+    """A search snippet as plain text: the index's control-character marks become « », and
+    only the fields holding a match are kept — a record's index body joins the Board's words
+    to this record's own spellings of its number (`search.FIELD`), which are not the Board's
+    and are not what an assistant should quote. A field made of nothing but the record's own
+    identifiers (`identifiers`: its title and fact line) is dropped too, so a search by
+    number says nothing matched in the Board's words rather than quoting our spellings (code
+    review, 2026-09-16). Empty when nothing else is left."""
+    tokens = [t.lower() for t in _TOKENS.findall(identifiers)]
+    # and each adjacent pair run together, the index's `FD36873` spelling of `FD 36873`
+    known = set(tokens) | {a + b for a, b in zip(tokens, tokens[1:], strict=False)}
+
+    def own(field: str) -> bool:
+        plain = field.replace(search_store.MARK_OPEN, " ").replace(search_store.MARK_CLOSE, " ")
+        words = {t.lower() for t in _TOKENS.findall(plain)}
+        return bool(words) and words <= known
+
+    fields = snippet.split(search_store.FIELD)
+    kept = [f for f in fields if search_store.MARK_OPEN in f and not own(f)]
+    joined = " … ".join(f.strip() for f in kept if f.strip())
+    return joined.replace(search_store.MARK_OPEN, "«").replace(search_store.MARK_CLOSE, "»")
+
+
+_TOKENS = re.compile(r"[^\W_]+")
+
+
 def _site(host: str, path: str) -> str:
     return f"https://{host}{path}"
 
@@ -165,7 +191,14 @@ def _search(con: Connection, args: dict, host: str) -> str:
         # proceeding, which is navigation-review.md § B on the third surface — fixed on
         # the page and in /suggest, and left here until the schema-critic caught it.
         named = f"{h.caption} ({h.title})" if h.caption else h.title
-        lines.append(f"[{h.kind}] {named} — {h.fact} — {_site(host, h.path)}")
+        # why it matched, which for a decision is its summary as the Board printed it: a row
+        # reading "[decision] Decision 52200 — FD 29830" told an assistant nothing to judge
+        # relevance by (the independent graders, 2026-09-16). « » mark the matched words.
+        matched = _marked(h.snippet, f"{h.title} {h.fact}")
+        lines.append(
+            f"[{h.kind}] {named} — {h.fact} — {_site(host, h.path)}"
+            + (f' — matched: "{matched}"' if matched else "")
+        )
     for h in pages:
         # a page of machine-read text is handed over WITH who read it, the band's operand
         # or its absence, and the scan (ADR 0021 D7): the text is a finding aid, the scan
@@ -226,6 +259,9 @@ def _docket(con: Connection, args: dict, host: str) -> str:
     ]
     if s.last_checked:
         head.append(f"Last checked against the Board: {s.last_checked}.")
+    if s.last_new_entry:
+        # not "checked": the last capture that brought this proceeding an entry
+        head.append(f"Last new entry observed: {s.last_new_entry}.")
     if s.is_index:
         # a series carries no entries of its own; the assistant is handed the index the page
         # and the JSON both carry, not an empty "Entries, newest first:" (code review)
@@ -264,9 +300,17 @@ def _docket(con: Connection, args: dict, host: str) -> str:
             urls.printed_docket(i) for i in map(parse_docket_id, e.also_in) if i is not None
         ]
         also = f" — also entered in {', '.join(printed_also)}" if printed_also else ""
+        # a decision's deciding body and its summary as the Board printed it: the JSON twin
+        # and the page carry both, and without them an assistant could say only that "a
+        # decision" was served and had to open the PDF or guess (the independent graders,
+        # 2026-09-16). Quoted, never paraphrased; `present` drops the Board's `--`.
+        body, summary = present(e.deciding_body), present(e.summary)
         rows.append(
-            f"- {e.date or 'undated'} [{e.kind}] {e.record_id}"
+            # which date it is, so a served date is never quoted as a decided one
+            f"- {labels.date_kind(e.kind)} {e.date or 'undated'} [{e.kind}] {e.record_id}"
             + (f" — {e.type}" if e.type else "")
+            + (f" — {body}" if body else "")
+            + (f' — the Board\'s summary, as printed: "{summary}"' if summary else "")
             + where
             + also
             + (f" — as printed: {who}" if who else "")
@@ -276,7 +320,15 @@ def _docket(con: Connection, args: dict, host: str) -> str:
     if len(s.entries) > limit:
         more = (
             f"\n({len(s.entries) - limit} older entries not shown — these are the"
-            f" {limit} most recent, not the whole sheet. Raise `limit` or read the sheet.)"
+            f" {limit} most recent, not the whole sheet. "
+            # at the cap, "raise `limit`" sent an assistant round a loop it could not leave
+            # (the independent graders, 2026-09-16)
+            + (
+                "Raise `limit` (at most 100) or read the sheet.)"
+                if limit < 100
+                else "This tool shows at most 100; the rest are on the sheet:"
+                f" {_site(host, urls.docket_path(identity))})"
+            )
         )
     return "\n".join(head) + "\n\n" + "\n".join(rows) + more
 
@@ -313,7 +365,12 @@ def _comment(con: Connection, args: dict, host: str) -> str:
         (number,),
     ).fetchall()
     if not rows:
-        return f"The record holds no environmental comment numbered {number}."
+        # the hedge a docket miss carries: the comment walk has unfinished months, so a miss
+        # here is not a miss at the Board (the independent graders, 2026-09-16)
+        return (
+            f"The record holds no environmental comment numbered {number}. It may exist at the"
+            " Board and not here: call `coverage` for the months the record has not finished."
+        )
     # Folded by ROW REF, not by number. One comment entered in a docket and its sub-docket
     # shares a ref and is ONE comment (108 of the 110 repeated numbers measured); two
     # comments the Board gave the same number have different refs and are two. Folding by
@@ -760,7 +817,7 @@ TOOLS: tuple[Tool, ...] = (
                 "limit": {
                     "type": "integer",
                     "description": "Results, 1-50. Default 10: up to that many record"
-                    " lines, and up to 20 [page] lines whatever is asked.",
+                    " lines, and up to that many [page] lines, never more than 20.",
                 },
             },
             ["query"],

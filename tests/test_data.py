@@ -22,7 +22,7 @@ def test_api_page_and_llms_txt_say_what_the_surface_is(tmp_path):
         "/openapi.json",
         "/llms.txt",
         "CC0 1.0",
-        '"shape_version": 2',
+        '"shape_version": 3',
         "ADR 0013",
         "User-Agent",
         "/document/&lt;sha256&gt;.pdf",
@@ -169,8 +169,12 @@ def test_json_twins_at_the_permanent_addresses(tmp_path):
     fid = next(x["record_id"] for x in doc["entries"] if x["kind"] == "filing")
     one = client.get(f"/filing/{fid}.json").json()["filing"]
     assert one["record_id"] == fid and one["docket"]["printed"].startswith("FD 36873")
-    assert client.get("/filing/nope.json").status_code == 404
-    assert client.get("/d/FD-99999.json").status_code == 404
+    # a miss at a JSON address is JSON, not the HTML page (the independent graders, 2026-09-16)
+    for miss in ("/filing/nope.json", "/d/FD-99999.json", "/d/NOT%20A%20DOCKET.json"):
+        r = client.get(miss)
+        assert r.status_code == 404 and r.headers["content-type"] == "application/json", miss
+        assert r.json()["error"] == "not_found" and "shape_version" in r.json()
+    assert client.get("/d/FD-99999").headers["content-type"].startswith("text/html")
     r = client.get("/d/fd-36873.json", follow_redirects=False)
     assert r.status_code == 301 and r.headers["location"] == "/d/FD-36873.json"
     # shape 2: a JSON address covers what the PAGE at that address covers. It used to
@@ -180,12 +184,13 @@ def test_json_twins_at_the_permanent_addresses(tmp_path):
     assert sub["series"]["printed"] == "FD 36873"
     assert sub["series"]["url"].endswith("/d/FD-36873")
     assert "requested" not in sub
-    assert d["shape_version"] == 2
+    assert d["shape_version"] == 3
     assert "series" not in d  # a family sits under nothing
     # the key set is the public contract: a rename must be a deliberate shape bump
     assert set(e) == {
         "kind",
         "date",
+        "date_kind",  # added 2026-09-16 without a bump, as the promise allows
         "date_printed",
         "docket_raw",
         "record_id",
@@ -300,3 +305,28 @@ def test_metrics_is_never_cached_and_is_not_advertised(tmp_path, monkeypatch):
             monkeypatch.delenv("DY_METRICS_TOKEN", raising=False)
         client = TestClient(create_app(build_store(tmp_path)))
         assert "/metrics" not in client.get("/robots.txt").text
+
+
+def test_the_api_pages_example_has_the_live_shape(tmp_path):
+    """The one documented example had drifted — `docket_raw` "FD 36873" against the served
+    "FD_36873" — which is the detail an integrator matches on (the independent graders,
+    2026-09-16). Parsed from the rendered page and held against a real response."""
+    import html
+    import json
+    import re
+
+    client = TestClient(create_app(build_store(tmp_path)))
+    page = client.get("/api").text
+    block = re.search(r'<pre class="mono small">(\{.*?\})</pre>', page, re.S).group(1)
+    example = json.loads(html.unescape(block))
+    real = client.get("/filing/311981.json").json()
+    assert set(example) <= set(real), set(example) - set(real)
+    # illustrative, so a subset — but every key it shows is one the response carries
+    assert set(example["filing"]) <= set(real["filing"]), set(example["filing"]) - set(
+        real["filing"]
+    )
+    assert set(example["filing"]["docket"]) <= set(real["filing"]["docket"])
+    assert set(example["filing"]["attachments"][0]) <= set(real["filing"]["attachments"][0])
+    for field in ("docket_raw", "record_id", "date", "date_printed", "type"):
+        assert example["filing"][field] == real["filing"][field], field
+    assert example["filing"]["docket"]["raw_docket"] == real["filing"]["docket"]["raw_docket"]

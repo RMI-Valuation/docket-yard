@@ -1707,3 +1707,113 @@ fixed on that branch (the omitted-page counts and the forward-only retirement tr
   producer's reason verbatim up to 500 characters — "the exception", in ADR 0024's own words — and
   `ocr_run` is PUBLIC. That is the leak `ocr_page_failure.detail`'s closed shapes were built to
   close: a path or a host in an exception reaches a snapshot that cannot be withdrawn.
+
+## The independent graders, 2026-09-16 (against v2026.09.24, live MCP of four tools)
+
+Five cold-start AI graders — an STB practitioner, a researcher, an API developer, an assistant
+using the MCP server, a skeptical auditor — each graded the live site and the public repo
+without this repository's planning files, and a separate verifier re-checked every finding.
+Grades: B, B, B, B+, B; every verifier held its grade. **The data itself held up** (about twenty
+records checked field by field against stb.gov, all identical); what follows is where it falls
+short. The operator's reading: not a failure, a list to work through. Verdicts are the
+verifier's; "partly" means true but overstated, and the narrowed form is what is recorded.
+
+### Fix now — engineering, no decision (branch `graders-first-fixes`)
+
+- **The MCP server drops the Board's decision summaries** (assistant I1, practitioner I3,
+  researcher I5; confirmed). `get_docket_sheet` prints `[decision] 53225 — Decision` while the
+  JSON twin carries the summary; search's decision rows carry no caption. An assistant cannot
+  say what a decision did without the PDF. Quote the summary as printed, and the caption.
+- **A `.json` address answers a miss with the HTML 404 page** (developer I1, confirmed;
+  `/filing/abc.json` → 8.6 KB `text/html`). A JSON body for a `.json` path.
+- **MCP wording an assistant repeats** (assistant I4, I6; confirmed): the truncation note says
+  "Raise `limit`" at the cap of 100; search lines say `1 filings`; `last` means last filing; a
+  missing comment has no "may exist at the Board" hedge; `limit`'s description promises what the
+  page lines do not do.
+- **The `coverage` tool is thinner than `/coverage`** (assistant I2, confirmed): it omits what
+  the page names under "What is not here" (recordations, pre-1996 history, text coverage, the
+  Board's display cap, outages) while the instructions tell an assistant to repeat it.
+- **"Last checked" is the last capture that produced an entry, not the last poll** (practitioner
+  I2, auditor I1; confirmed): `sheet._last_checked` joins capture to event, so a quiet docket
+  polled every 30 minutes reads weeks stale. The label on the page and in MCP; the JSON key's
+  name is a shape change and waits (below).
+- **README and CONTRIBUTING describe a project with no code** (developer I8, confirmed).
+- **`/api`'s example has drifted** (`docket_raw` "FD 36873" against the live "FD_36873";
+  developer I3, confirmed) — test the example against a real response.
+- **The docket-level JSON keys are not locked by a test** (developer I4, confirmed): `asdict()`
+  on the sheet dataclass reaches the public shape; only entry keys are tested.
+- **`/openapi.json` lists `/review` routes and duplicate HEAD operation ids** (developer I2, the
+  mechanical half, confirmed). Response schemas are the larger half and wait with F5's next step.
+
+### The operator's decision — public wording, promises, licence, policy
+
+- **Early years are sparse and nothing says so** (researcher I1 partly, I2; auditor I5 partly):
+  filings 1996: 4, 1997: 6, 1998: 102, 1999: 14, 2002: 2,382 — the Board's own table, walked and
+  empty (`stb-data-source.md` § Measured 2026-08-27), while `/coverage` and `/stats` read as a
+  backfill still in progress and a pre-1996 proceeding's sheet carries no caveat. A coverage
+  claim, so his wording.
+- **robots.txt's prose says named agents may not have the party layer; docket and filing pages
+  they may fetch print it** (auditor I2, confirmed). Narrow the prose, or keep parties off those
+  pages for those agents.
+- **User-directed assistants are refused `/text` while the MCP server links it** (auditor I3,
+  confirmed). PR #38 makes serving text through MCP the policy; whether `Claude-User`-class
+  fetchers may follow the link is the remaining half.
+- **The CC0 dedication rests on "works of the United States Government" and covers comment text
+  written by private people** (auditor I4, confirmed); `LICENSE-DATA.txt` also omits the held
+  page text and names a capture ledger the JSON does not carry. For the licence review.
+- **Decision dates are service dates, unlabelled** (auditor I6, confirmed), including the cite
+  line.
+- **Renaming the JSON `last_checked` key** (see above): a `shape_version` bump.
+- **Webhook signatures carry no timestamp; the payload no version** (developer I7, confirmed): a
+  replay window, and a contract change for existing receivers.
+- **Methodology's "repeated filer shown once" is broader than the rule** (auditor I7, confirmed):
+  held text, his wording.
+- **Snapshots have no DOI or third-party deposit; a cite has no "as of"** (researcher I8).
+
+**Decided by the operator, 2026-09-16** (multiple-choice, in session; branch `graders-decisions`). Still open from the fix-now list, chosen as the live demo for the ARDA call on 2026-09-17: the `coverage` tool matching `/coverage` (assistant I2).
+
+1. **Early years — all three surfaces.** `/coverage` and `/stats` say every month from 1996-01 is
+   walked and the Board's own filings table is sparse before 2002, with the measured counts; a
+   sheet whose record may predate 25 Jan 1996 says so in one line. Wording to him before it ships. **Wording approved by him 2026-09-16** (PR #40).
+2. **Last checked — show both, bump the shape.** Pages and MCP show the latest forward poll (less
+   recorded outages) as "last checked" and the last entry as "last new entry"; JSON gains
+   `last_new_entry`, `last_checked` takes its true meaning, `shape_version` 3, announced on `/data`.
+3. **Parties — user-directed fetchers may read them.** `ChatGPT-User`, `Claude-User` and
+   `Perplexity-User` may fetch `/p/` and `/parties`; AI search indexers and training crawlers stay
+   refused; `/search` stays refused to all named agents. The prose says exactly what is held.
+4. **Text — user-directed fetchers may read it.** The same three may fetch the `/text` pages the MCP
+   server links; the rest stay refused (with PR #38's reading-on-request rule).
+5. **CC0 — correct the label, not the content.** Comments and filings are public record and stay
+   published as filed (his point); the label says CC0 covers the compilation and the Board's own
+   fields, and that filings and comments are reproduced as filed. The held-text omission and the
+   capture-ledger error in `LICENSE-DATA.txt` are fixed. **Wording approved by him 2026-09-16** (PR #40).
+6. **Served dates — label everywhere, leave room for decided dates.** Pages and MCP say "served";
+   JSON gains `date_kind` (additive); the cite line takes the Board's "(STB served Sept. 3, 2026)".
+   A quoted decided date (the decided-date pass) arrives beside it later without renaming anything.
+7. **Webhooks — timestamped signature alongside, non-breaking.** The current header stays; a
+   timestamp header and a signature over `timestamp.body` are added, with `shape_version` in the
+   payload; methodology documents both.
+8. **Repeated filer — reword to match the rule.** "A cell that is only one name repeated is shown
+   once." Held methodology text: **wording approved by him 2026-09-16** (PR #40).
+9. **Citability — "as of" in the cite now; a DOI deposit later.** The cite block carries the access
+   date and the latest snapshot id; a monthly Zenodo deposit is a menu item for him to choose.
+
+### Capability-scale — chosen from the menu, not fixed in passing
+
+- **No filings by filer and date** (practitioner I1, partly — MCP search does return parties):
+  `/p/<id>` folds sub-dockets into a family row with no date filter and has no JSON. F3.
+- **Search has no filters, operators, recency, paging or totals** (practitioner I4, researcher
+  I4, assistant I5; confirmed). F4, Ripe #2.
+- **Aggregates by prefix and year** (researcher I3, confirmed) — PR #38's `count_filings` is the
+  MCP half; `/stats` has none.
+- **Paging**: a large sheet is one 870 KB document with a store-wide ETag (developer I5), MCP
+  sheets stop at 100 entries (assistant I4), feeds at 100 events with no archive (practitioner
+  I5 partly — about seven days on `/feed`; developer I6).
+- **The snapshot has no caption or summary columns and no codebook** (researcher I6, confirmed);
+  counting units (`DISTINCT stb_filing_id`) are undocumented. A view is a schema question.
+- **586 of 723 AB rows are captionless series parents** (researcher I7, partly — 92.4% of all
+  docket rows carry a caption).
+- **No decision numbers or schedule pointer on a sheet** (practitioner I6) — extraction.
+- **`create_app` is one ~1,900-line closure** (developer I9); **error formats differ by route**
+  (developer I10: 422 JSON on some, HTML 404 elsewhere; `.JSON` case-sensitive).
+- **Capture provenance is in the snapshot but not the JSON twin** (auditor I8, partly).

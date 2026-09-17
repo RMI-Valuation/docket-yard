@@ -4,9 +4,9 @@ Thanks for your interest. A few things to know before you start.
 
 ## Project status
 
-**Pre-launch.** The design is settled (see [`docs/adr/`](docs/adr/)) and the pipeline is
-being built. Until version one ships, the surface area for contribution is small and the
-design is not open for re-litigation — decisions live in accepted ADRs, which are
+**Live and under active development** at <https://docketyard.org> since 2026-08-26 (see
+the [README](README.md) for what is there). The surface area for contribution is still small
+and the design is not open for re-litigation — decisions live in accepted ADRs, which are
 append-only. If you think a decision is wrong, open an issue that makes the case; a change
 means a new superseding record, never an edit to an old one.
 
@@ -27,11 +27,9 @@ AGPL-3.0-only; see [`LICENSE`](LICENSE) and [`docs/licensing.md`](docs/licensing
 ## Development setup
 
 ```sh
-python -m venv .venv
-. .venv/bin/activate            # Windows: .venv\Scripts\activate
-pip install -e .[dev]
-pre-commit install
-pytest
+uv sync --extra dev             # or: python -m venv .venv, then pip install -e .[dev]
+uv run pre-commit install
+uv run pytest
 ```
 
 Python 3.11+, standard library preferred — a dependency must earn its place. `ruff` for
