@@ -8,16 +8,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **Merged 2026-09-17, not released (his)**: #38 `count_filings` and `read_page` (ADR 0022 addendum:
-  text for reading on request, his caveat); #39 the graders' first fixes; #40 his nine decisions,
-  **JSON shape 3** (announced on `/data`); #34 the tabular pass and its worker fixes (fleet still on
-  `67b1762` until redeployed; load its root only with a release carrying 0030-0032)
+- **v2026.09.25 LIVE** 2026-09-17 09:44 UTC (schema 32, JSON shape 3; restore point 09:41:23Z):
+  `count_filings`, `read_page`, the graders' fixes, his nine decisions, migrations 0030-0032. The fleet
+  still runs `67b1762` until redeployed; the tabular root loads only with his go
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown; exposed
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **Migrations 0030-0032 all MERGED** (#35 `ecbe527`, #37 `c66ff2c`, #36 `6c5d5e0`), addenda
-  accepted 2026-09-16, each rehearsed in v2026.09.24's image. **Releasing and deploying are his**
 - **Tabular pass RUNNING** since 2026-09-16 11:46Z (coordinator and workstation on `67b1762`; PR #34
   merged 2026-09-17). First 16 min: 67 read, 9 page-owned `finish_reason length` (~12%, final), 4 blob misses;
   **~12.6 s/page, so ~88 h, not the 36-48 h scoped**. 434 of 3,385 documents (1,051 pages, 0.24 GB)
