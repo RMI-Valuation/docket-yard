@@ -142,21 +142,24 @@ def test_a_stale_index_row_is_dropped_and_does_not_take_the_search_down(tmp_path
     con.close()
 
 
-def test_the_search_page_shows_pages_in_their_own_section_and_suggest_does_not(tmp_path):
+def test_the_search_page_shows_pages_under_their_proceedings_and_suggest_does_not(tmp_path):
     path, _ = _with_text(tmp_path)
+    con = db.connect(path)
+    search.rebuild(con, force=True)  # the document's owners (search-v2)
+    con.close()
     client = TestClient(create_app(path))
     html = client.get("/search?q=tazewell").text
-    assert "In the text of documents" in html
-    assert 'href="/filing/311900/text#p3"' in html and "Filing 311900, page 3" in html
+    assert "2 proceedings." in html
+    # under each proceeding, the page — linked to the record that places it there
+    assert 'href="/filing/311981/text#p3"' in html and "Filing 311981, page 3" in html
     assert "<mark>Tazewell</mark>" in html
     assert "publisher&#39;s own text layer" in html or "publisher's own text layer" in html
-    assert "so no band" in html and 'href="/filing/311900#file">Scan</a>' in html
-    assert '<a href="/filing/311900">Filing 311900</a>' in html
-    assert '<a href="/d/FD-36873/sub/1">FD 36873 (Sub-No. 1)</a>' in html
+    assert "so no band" in html and 'href="/filing/311981#file">Scan</a>' in html
+    assert '<a class="dk" href="/d/FD-36873/sub/1">FD 36873 (Sub-No. 1)</a>' in html
     assert "Nothing on record matches" not in html  # a page hit is a result
-    assert "narrow the words" not in html  # two pages matched, none were cut
-    # a query that matches only a record shows no page section
-    assert "In the text of documents" not in client.get("/search?q=control").text
+    assert "At least" not in html  # two pages matched, none were cut
+    # a query that matches only a caption shows no page
+    assert 'class="small muted kind">Page' not in client.get("/search?q=control").text
     # and one matching nothing still says so
     assert "Nothing on record matches" in client.get("/search?q=zzzz").text
     assert client.get("/suggest?q=tazewell").json() == {"hits": []}
@@ -414,15 +417,8 @@ def test_one_document_cannot_take_the_whole_page_section(tmp_path):
     assert len(per_document) > 1, "the long document still took the section"
     con.close()
 
-    html = TestClient(create_app(path)).get("/search?q=quarterly").text
-    assert f"at most {search.PAGE_PER_DOCUMENT} from any one document" in html
-    assert "the record holds more" in html
-    # the clauses in an order that reads: what was counted, then where it came from, then
-    # what is missing. The first spelling put "the record holds more" between "20 pages" and
-    # "as read by machine", which left the sentence attaching to the wrong thing
-    sentence = html.split("In the text of documents")[1].split("</p>")[0]
-    assert sentence.index("from any one document") < sentence.index("as read by machine")
-    assert sentence.index("as read by machine") < sentence.index("the record holds more")
+    # `/search` groups by proceeding since search-v2, so one document cannot take its page;
+    # the fold still governs MCP's page lines
     answer = mcp._search(db.connect(path), {"query": "quarterly"}, "docketyard.org")
     assert f"At most {search.PAGE_PER_DOCUMENT} pages of any one document" in answer
 

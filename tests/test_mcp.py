@@ -734,7 +734,7 @@ def test_the_wording_an_assistant_repeats_says_what_is_true(client, tmp_path):
     filing; "raise `limit`" at the cap; a comment miss with no hedge."""
     text = call(client, "search_the_record", {"query": "FD 36873"})["content"][0]["text"]
     assert "1 filings" not in text
-    text = call(client, "search_the_record", {"query": "peoria"})["content"][0]["text"]
+    text = call(client, "search_the_record", {"query": "control"})["content"][0]["text"]
     assert "2 filings, last filed 2026-08-25" in text  # the last FILING's date, said so
     text = call(client, "get_environmental_comment", {"number": "EI-00000"})["content"][0]["text"]
     assert "may exist at the Board and not here" in text

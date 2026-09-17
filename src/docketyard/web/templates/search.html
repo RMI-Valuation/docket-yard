@@ -1,83 +1,142 @@
 {% extends "base.html" %}
-{% block title %}{% if query %}{{ query }} — search — {{ site_name }}{% else %}Search — {{ site_name }}{% endif %}{% endblock %}
-{% block description %}Search the record: a docket number, a party's name, or words from a caption or a decision.{% endblock %}
-{% block head %}{% if query %}<meta name="robots" content="noindex">{% endif %}{{ super() }}{% endblock %}
+{% block title %}{% if searched %}{{ query or 'Filtered' }} — search — {{ site_name }}{% else %}Search — {{ site_name }}{% endif %}{% endblock %}
+{% block description %}Search the record: proceedings, filings, decisions, environmental comments and the text of documents, grouped by proceeding and filtered by docket type, date and the Board's type.{% endblock %}
+{% block head %}{% if searched %}<meta name="robots" content="noindex">{% endif %}{{ super() }}{% endblock %}
 {% block main %}
+{#- docs/search-v2.md. Everything below works without script: the filters are a form, and
+    every link is an address. -#}
 <section class="caption">
   <h1 class="serif">Search the record</h1>
-  <p class="muted">A docket number opens its sheet. Anything else is matched against captions as the Board prints them, every name a party is on record under, the Board's printed decision summaries, and the text of documents as read by machine — labelled with who read it, the scan one click away. Nothing you search for is kept.</p>
-  <form class="search" action="/search" method="get" role="search">
-    <input name="q" type="search" value="{{ query }}" placeholder="FD 36873, Union Pacific, or words from a caption" aria-label="Search">
+  <p class="muted">A docket number opens its sheet. Anything else is matched against captions as the Board prints them, filings by their type and who they were filed for, decisions, environmental comments, the names parties are on record under, and the text of documents as read by machine. Results are grouped by proceeding. Nothing you search for is kept.</p>
+  <form class="search-form" action="/search" method="get" role="search">
+    <div class="search">
+      <input name="q" type="search" value="{{ query }}" placeholder="Tehachapi, Consummation Notice, Union Pacific, or FD 36873" aria-label="Search">
+    </div>
+    <details class="filters"{% if q.filtered or q.kinds|length != kind_labels|length or q.sort != 'best' %} open{% endif %}>
+      <summary>Filters and order</summary>
+      <div class="filter-grid">
+        <fieldset>
+          <legend>Order</legend>
+          <label><input type="radio" name="sort" value="best"{% if q.sort == 'best' %} checked{% endif %}> Best match</label>
+          <label><input type="radio" name="sort" value="newest"{% if q.sort == 'newest' %} checked{% endif %}> Newest first</label>
+        </fieldset>
+        <fieldset>
+          <legend>Dates</legend>
+          <label>From <input type="date" name="from" value="{{ q.date_from }}"></label>
+          <label>To <input type="date" name="to" value="{{ q.date_to }}"></label>
+          <p class="small muted">The date the Board printed: filed, served, or dated for a comment. Dates filter filings, decisions, comments and pages; a caption has no date.</p>
+        </fieldset>
+        <fieldset>
+          <legend>What to search</legend>
+          {% for key, label in kind_labels.items() %}
+          <label><input type="checkbox" name="in" value="{{ key }}"{% if key in q.kinds %} checked{% endif %}> {{ label }}</label>
+          {% endfor %}
+        </fieldset>
+        <fieldset>
+          <legend>Docket type</legend>
+          <select name="prefix" multiple size="6" aria-label="Docket type">
+            {% for p in vocab.prefixes %}<option value="{{ p }}"{% if p in q.prefixes %} selected{% endif %}>{{ p }} — {{ prefix_name(p) }}</option>{% endfor %}
+          </select>
+        </fieldset>
+        <fieldset>
+          <legend>Filing type</legend>
+          <select name="ftype" multiple size="6" aria-label="Filing type">
+            {% for t in vocab.filing_types %}<option{% if t in q.ftypes %} selected{% endif %}>{{ t }}</option>{% endfor %}
+          </select>
+        </fieldset>
+        <fieldset>
+          <legend>Decision type</legend>
+          <select name="dtype" multiple size="6" aria-label="Decision type">
+            {% for t in vocab.decision_types %}<option{% if t in q.dtypes %} selected{% endif %}>{{ t }}</option>{% endfor %}
+          </select>
+        </fieldset>
+      </div>
+      <p class="small muted filter-actions">Hold Ctrl (⌘ on a Mac) to choose more than one type. <button class="btn" type="submit">Search</button> <a href="/search{% if query %}?q={{ query | urlencode }}{% endif %}">Clear filters</a></p>
+    </details>
   </form>
 </section>
-{% if query %}
-{% if hits or not pages %}
-<section>
-  {% if hits %}
-  <p class="small muted">{{ hits | length }} record{% if hits | length != 1 %}s{% endif %}{% if hits | length == 50 %} (the first fifty; narrow the words){% endif %}.</p>
-  <table class="moved">
-    <thead><tr><th scope="col">Kind</th><th scope="col">Result</th><th scope="col">On record</th></tr></thead>
-    <tbody>
-    {#- What the row is CALLED comes first and the identifier sits beside it. 89.4% of index
-        rows have an identifier-only title, and 92.4% of docket rows carry the Board's own
-        caption one field away — which this template never printed, so `FD 30101` published
-        as "FD 30101 — 0 filings" while its caption sat unread (navigation-review.md § B).
-        The snippet below says WHY the row matched, and is dropped when it would only
-        repeat the caption. Both are the Board's words and a commenter's, as printed. -#}
-    {% for h in hits %}
-    <tr>
-      <td class="dk">{{ h.kind }}</td>
-      <td>
-        <a href="{{ h.path }}"{% if h.kind != 'party' %} class="as-printed"{% endif %}>{{ h.caption or h.title }}</a>{% if h.caption %} <span class="dk small muted">{{ h.title }}</span>{% endif %}
-        {% if h.snippet %}<div class="small muted as-printed">{{ h.snippet | highlight }}</div>{% endif %}
-      </td>
-      <td class="small muted">{{ h.fact }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p class="muted">Nothing on record matches “{{ query }}”. Names and captions are matched as the Board prints them; a docket number in any spelling opens its sheet directly.</p>
+
+{% if searched %}
+<section class="results">
+  {% if results.records_rebuilding %}<p>The search index is being rebuilt after an update, so search cannot answer for a few minutes. Nothing is lost; every docket sheet is unaffected. Please try again shortly.</p>{% endif %}
+  {% if dropped %}<p class="small muted">Ignored, because the record holds no such value: {{ dropped | join(', ') }}.</p>{% endif %}
+  {% if too_many %}<p class="small muted">Only the first {{ max_filter_values }} values of a filter are used: {{ too_many | join(', ') }}.</p>{% endif %}
+  {% if within_label %}<p class="small">Within {{ within_label }} · <a href="{{ search_url(q, docket=None, page=None) }}">every proceeding</a></p>{% endif %}
+
+  {% set n = results.total %}
+  {% set noun = 'match' if q.view == 'documents' else 'proceeding' %}
+  <p class="small view-toggle">{% if q.view == 'documents' %}<a href="{{ search_url(q, view=None, page=None, docket=within_label) }}">Group by proceeding</a> · <strong>List every match</strong>{% else %}<strong>Grouped by proceeding</strong> · <a href="{{ search_url(q, view='documents', page=None, docket=within_label) }}">List every match</a>{% endif %}</p>
+  <p class="small muted results-count">{% if results.pages_cut == 'window' %}At least {% endif %}{{ '{:,}'.format(n) }} {{ noun }}{{ ('es' if noun == 'match' else 's') if n != 1 }}{% if results.page_count > 1 %}, page {{ q.page }} of {{ results.page_count }}{% endif %}.{% if q.sort == 'newest' %} Newest first{% if results.pages_cut == 'window' %}, among the {{ '{:,}'.format(page_window) }} best-matching pages of text examined; add words or a filter for a complete order{% endif %}.{% endif %}</p>
+  {% if results.pages_cut == 'window' and q.sort != 'newest' %}<p class="small muted">The words matched more pages of text than are examined, so the best-matching {{ '{:,}'.format(page_window) }} were. Captions, filings, decisions and comments are always searched in full.</p>{% endif %}
+  {% if results.pages_cut == 'budget' %}<p class="small">The text of documents is left out of these results: the words match too many pages to search them all in {{ page_budget }} seconds. Add words or narrow the filters to include it. Captions, filings, decisions and comments are searched in full.</p>{% endif %}
+  {% if results.pages_cut == 'rebuilding' %}<p class="small">The text index is being rebuilt, so the words of documents cannot be searched for a few minutes. Nothing is lost; the rest of the record is searched as usual.</p>{% endif %}
+
+  {% if results.parties %}
+  <div class="party-strip">
+    <h2>Parties</h2>
+    <ul class="plain">
+      {% for h in results.parties %}<li><a href="{{ h.path }}">{{ h.title }}</a> <span class="small muted">{{ h.fact }}</span></li>{% endfor %}
+    </ul>
+  </div>
   {% endif %}
-</section>
-{% endif %}
-{% if pages_rebuilding %}
-{#- The page index is being rebuilt, so it holds a fraction of the record. Saying "no pages
-    matched" here would be a coverage claim the store cannot support (code review,
-    2026-09-04): the search of the record above is unaffected and is shown as usual. -#}
-<section>
-  <h2>In the text of documents</h2>
-  <p class="muted">The text index is being rebuilt, so the words of documents cannot be searched for a few minutes. Nothing is lost — the record above, and every document's own text page, are unaffected. Please try this search again shortly.</p>
-</section>
-{% elif pages %}
-<section>
-  <h2>In the text of documents</h2>
-  {#- Machine-read text reaches search only WITH who read it, the band's operand or its
-      absence, and the scan one click away (ADR 0021 D7): the text is a finding aid, the scan
-      is the record. Its own query path (ADR 0022 D4); at most twenty pages. -#}
-  {#- `pages_folded` is why the count can be twenty while the index matched far more: at
-      most three pages of any one document are shown, or a phrase printed on every page of
-      one long assessment would take the whole section (deferred.md, 2026-09-04). Saying so
-      is the difference between "twenty is what there is" and "twenty is what is shown". -#}
-  <p class="small muted">{{ pages | length }} page{% if pages | length != 1 %}s{% endif %}{% if pages_folded %}, at most {{ page_per_document }} from any one document{% endif %}, as read by machine from the Board's files{% if pages_truncated %} — the record holds more, so narrow the words{% endif %}. Nothing here is the Board's text; the scan is the record.</p>
-  <table class="moved">
-    <thead><tr><th scope="col">Kind</th><th scope="col">Result</th><th scope="col">Read by</th></tr></thead>
-    <tbody>
-    {% for h in pages %}
-    <tr>
-      <td class="dk">page</td>
-      <td>
-        <a href="{{ h.path }}" class="as-printed">{{ h.caption or h.title }}</a>{% if h.caption %} <span class="dk small muted">{{ h.title }}</span>{% endif %} <span class="small muted">{{ h.fact }}</span>
-        {% if h.snippet %}<div class="small muted as-printed">{{ h.snippet | highlight }}</div>{% endif %}
-        {#- the page is where the words are; the record and the docket are what it belongs to -#}
-        <div class="small">Open <a href="{{ h.path }}">the page</a> · <a href="{{ h.record }}">{{ h.record_name }}</a>{% if h.docket %} · <a href="{{ h.docket }}">{{ h.docket_name }}</a>{% endif %}</div>
-      </td>
-      <td class="small muted">{{ h.label }}{% if h.band %} {{ h.band }}{% endif %} <a href="{{ h.scan }}">Scan</a></td>
-    </tr>
+
+  {% if q.view == 'documents' and results.documents %}
+  <ol class="plain proceedings">
+    {% for h in results.documents %}
+    <li class="proceeding">
+      <div><span class="small muted kind">{{ {'decision': 'Decision', 'filing': 'Filing', 'comment': 'Comment', 'page': 'Page'}.get(h.kind, h.kind) }}</span> <a href="{{ h.path }}">{{ h.title }}</a> <span class="small muted">{{ h.fact }}</span></div>
+      {% if h.snippet %}<div class="small muted as-printed">{{ h.snippet | highlight }}</div>{% endif %}
+      {% if h.kind == 'page' %}<div class="small muted">{{ h.label }}{% if h.band %} {{ h.band }}{% endif %} <a href="{{ h.scan }}">Scan</a> · <a href="{{ h.record }}">{{ h.record_name }}</a></div>{% endif %}
+    </li>
     {% endfor %}
-    </tbody>
-  </table>
+  </ol>
+  {% elif q.view != 'documents' and results.proceedings %}
+  <ol class="plain proceedings">
+    {% for p in results.proceedings %}
+    <li class="proceeding">
+      <div class="proceeding-head">
+        {% if p.path %}<a class="dk" href="{{ p.path }}">{{ p.number }}</a>{% else %}<span class="dk">{{ p.number }}</span>{% endif %}
+        {% if p.caption %}<span class="as-printed">{{ p.caption }}</span>{% endif %}
+        {% if p.fact %}<span class="small muted">{{ p.fact }}</span>{% endif %}
+      </div>
+      {% if p.hits %}
+      <ul class="plain evidence">
+        {% for h in p.hits %}
+        <li>
+          <span class="small muted kind">{{ {'decision': 'Decision', 'filing': 'Filing', 'comment': 'Comment', 'page': 'Page'}.get(h.kind, h.kind) }}</span>
+          <a href="{{ h.path }}">{{ h.title }}</a>{% if h.fact and h.kind != 'page' %} <span class="small muted">{{ h.fact }}</span>{% endif %}
+          {% if h.snippet %}<div class="small muted as-printed">{{ h.snippet | highlight }}</div>{% endif %}
+          {% if h.kind == 'page' %}<div class="small muted">{{ h.label }}{% if h.band %} {{ h.band }}{% endif %} <a href="{{ h.scan }}">Scan</a> · <a href="{{ h.record }}">{{ h.record_name }}</a></div>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if within_label and p.more > 0 %}
+      <p class="small muted">The first {{ within_evidence }} matches are shown; {{ p.more }} more are not. Add words or a filter to narrow them.</p>
+      {% endif %}
+      {% if p.more > 0 and not within_label %}
+      <p class="small"><a href="{{ search_url(q, docket=p.number, page=None) }}">{{ p.more }} more match{{ 'es' if p.more != 1 }} in this proceeding</a>{% if p.pages %} · {{ p.pages }} page{{ 's' if p.pages != 1 }} of text in all{% endif %}</p>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+  {% if results.page_count > 1 and (results.proceedings or results.documents) %}
+  <nav class="small pager" aria-label="Results pages">
+    {% if q.page > 1 %}<a href="{{ search_url(q, page=q.page - 1, docket=within_label) }}" rel="prev">← Previous</a>{% endif %}
+    <span>Page {{ q.page }} of {{ results.page_count }}</span>
+    {% if q.page < results.page_count %}<a href="{{ search_url(q, page=q.page + 1, docket=within_label) }}" rel="next">Next →</a>{% endif %}
+  </nav>
+  {% endif %}
+  {% if q.page > results.page_count and results.total %}
+  <p>Page {{ q.page }} is past the last page of these results. <a href="{{ search_url(q, page=None, docket=within_label) }}">Go to the first page</a>.</p>
+  {% elif q.view == 'documents' and not results.documents and results.proceeding_total %}
+  <p>Only captions or docket numbers matched, so there is no filing, decision, comment or page to list. <a href="{{ search_url(q, view=None, page=None, docket=within_label) }}">See the proceedings</a>.</p>
+  {% elif not results.proceedings and not results.documents and not results.parties and not results.records_rebuilding %}
+  <p class="muted">Nothing on record matches{% if query %} “{{ query }}”{% endif %}{% if q.filtered %} with these filters{% endif %}. Captions and names are matched as the Board prints them; a docket number in any spelling opens its sheet directly.</p>
+  {% endif %}
+
+  <p class="small muted">A proceeding is a docket sheet: a sub-docket with a caption of its own is its own proceeding, as each line abandonment is; one that repeats its parent's caption is part of its parent. A record entered in several proceedings shows under each, and a document filed in several counts in each. Text of documents is what a machine read from the Board's files, labelled with who read it; the scan is the record.</p>
 </section>
-{% endif %}
 {% endif %}
 {% endblock %}

@@ -24,6 +24,10 @@ from docketyard.store.db import utcnow
 from docketyard.web import urls
 
 LIMIT = 50  # results on /search
+# The kinds `search()` answers unless asked for others: those it answered before filings were
+# indexed (search-v2). `/suggest` fires a prefix query per keystroke and MCP's answers are
+# relied on; fifty thousand Filed For bodies must not enter either by accident.
+RECORD_KINDS = ("docket", "party", "decision", "comment")
 SUGGEST = 8  # rows /suggest answers
 MAX_QUERY = 200  # characters a query is cut to before anything looks at it
 MIN_PREFIX = 2  # characters before a prefix query is asked (mirrors the page's script)
@@ -92,17 +96,23 @@ def _family_counts(con: Connection) -> dict[int, tuple[int, str | None]]:
 
 def _docket_docs(con: Connection):
     """A family (ADR 0005) is one row: the printed number in the spellings a person types,
-    the caption as printed, and every sub-docket's caption. A sub-docket whose caption
-    differs from its parent's is a row of its own at its own address (ADR 0013) — the
-    thousand line abandonments under AB 55 are each findable — which resolves to the
-    family sheet with the sub-docket named (F4)."""
+    and the caption as printed. A sub-docket whose caption differs from its parent's is a
+    row of its own at its own address (ADR 0013) — the thousand line abandonments under
+    AB 55 are each findable — which resolves to the family sheet with the sub-docket named
+    (F4).
+
+    The family's row carried its sub-dockets' captions too until search-v2, which made every
+    word of a line abandonment find the whole series a second time: "Tazewell County" found
+    AB 290 (Sub-No. 222X) and then AB 6 and AB 167 through captions that were already rows
+    of their own. A sub-docket that is not a row repeats its parent's caption, so the family
+    loses no word by carrying its own alone."""
     counts = _family_counts(con)
+    group = proceedings(con)  # ONE rule for what is a proceeding, read by both (schema-critic)
     rows = con.execute(
         "SELECT docket_id, raw_docket, parent_docket_id, json_extract(latest_payload, '$.title')"
         " FROM docket_current ORDER BY parent_docket_id IS NOT NULL, docket_id"
     ).fetchall()
     parents: dict[int, tuple] = {}
-    subs: dict[int, list[str]] = {}
     for docket_id, raw, parent, caption in rows:
         ident = parse_docket_id(raw)
         if ident is None:
@@ -112,10 +122,8 @@ def _docket_docs(con: Connection):
         if parent is None:
             parents[docket_id] = (ident, caption)
             continue
-        if caption:
-            subs.setdefault(parent, []).append(caption)
         p = parents.get(parent)
-        if caption and (p is None or caption != p[1]):
+        if group[docket_id][0] == docket_id:
             printed = urls.printed_docket(ident)
             head = urls.printed_docket(p[0]) if p else printed
             # the caption travels as its own field as well as in the body: the body is
@@ -136,7 +144,7 @@ def _docket_docs(con: Connection):
         # the spellings go LAST: they are how a number is FOUND, and a snippet centred on
         # a caption match should open on the caption, not on four renderings of the number
         spellings = f"{printed} {ident.prefix}{ident.sequence}"
-        body = FIELD.join([p for p in [caption, *subs.get(docket_id, []), spellings] if p])
+        body = FIELD.join([p for p in [caption, spellings] if p])
         # "1 filings" and a bare "last" were quoted back by assistants as written: the date is
         # the last FILING's, not the proceeding's last activity (the independent graders,
         # 2026-09-16)
@@ -189,13 +197,42 @@ def _party_docs(con: Connection):
         )
 
 
+def _printed(raw: str) -> str:
+    ident = parse_docket_id(raw)
+    return urls.printed_docket(ident) if ident else raw
+
+
+def _numbers(con: Connection, sql: str) -> dict[str, str]:
+    """record id -> every docket it was entered in, printed, nearest the parent first: the
+    body carries them all, so a search for any of its numbers finds the record."""
+    out: dict[str, list[str]] = {}
+    for sid, raw in con.execute(sql):
+        out.setdefault(sid, []).append(_printed(raw))
+    return {sid: " ".join(dict.fromkeys(printed)) for sid, printed in out.items()}
+
+
+_NEAREST = "COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, '')"
+
+
 def _decision_docs(con: Connection):
-    """Decisions with a printed summary: one row per decision id (a decision entered in a
-    docket and its sub-docket is one page), headlined by the docket nearest the parent."""
-    for pk, sid, raw, date, summary in con.execute(
+    """Every decision, one row per decision id (a decision entered in a docket and its
+    sub-docket is one page), headlined by the docket nearest the parent. Found by the Board's
+    summary, its type and every docket it was entered in. Every decision on the 2026-09-17
+    restore prints a summary (19,846 of 19,846 ids), so dropping the old "summary only" filter
+    adds no rows today; it keeps a decision that ever prints none findable. The type is new
+    in the body, so "Notice of Exemption" finds decisions by word as the type filter does.
+    Where it BELONGS is `search_place`'s."""
+    numbers = _numbers(
+        con,
+        "SELECT r.stb_decision_id, d.raw_docket FROM decision_record r"
+        " JOIN docket d ON d.docket_id = r.docket_id"
+        f" ORDER BY r.stb_decision_id, {_NEAREST}, r.decision_pk",
+    )
+    for pk, sid, raw, date, dtype, summary in con.execute(
         """
-        SELECT decision_pk, stb_decision_id, raw_docket, service_date, summary
+        SELECT decision_pk, stb_decision_id, raw_docket, service_date, decision_type, summary
           FROM (SELECT r.decision_pk, r.stb_decision_id, d.raw_docket, r.service_date,
+                       r.decision_type,
                        json_extract(e.payload, '$.summary') AS summary,
                        ROW_NUMBER() OVER (PARTITION BY r.stb_decision_id
                                           ORDER BY COALESCE(d.sub_sequence, -1),
@@ -203,16 +240,48 @@ def _decision_docs(con: Connection):
                                                    r.decision_pk) AS nearest
                   FROM decision_record r
                   JOIN docket d ON d.docket_id = r.docket_id
-                  JOIN event e ON e.event_id = r.observed_in_event
-                 WHERE TRIM(COALESCE(json_extract(e.payload, '$.summary'), '')) <> '')
+                  JOIN event e ON e.event_id = r.observed_in_event)
          WHERE nearest = 1
         """
     ):
-        ident = parse_docket_id(raw)
-        printed = urls.printed_docket(ident) if ident else raw
+        printed = _printed(raw)
         fact = printed + (f", served {date}" if date else "")
-        body = FIELD.join([summary, f"{sid} {printed}"])
+        words = [(summary or "").strip(), (dtype or "").strip(), f"{sid} {numbers[sid]}"]
+        body = FIELD.join(w for w in words if w)
         yield "decision", pk, urls.decision_path(sid), f"Decision {sid}", body, fact, ""
+
+
+def _filing_docs(con: Connection):
+    """Filings, one row per filing id, headlined by the docket nearest the parent as a
+    decision is (search-v2). Found by the Board's type and the Filed For cell as printed —
+    words nothing else in the index carried, so "Consummation Notice" or a filer's name found
+    no filing before. The cell is the Board's, quoted; the party module's reading of it is
+    the party row's, not this one's."""
+    numbers = _numbers(
+        con,
+        "SELECT f.stb_filing_id, d.raw_docket FROM filing f"
+        " JOIN docket d ON d.docket_id = f.docket_id"
+        f" ORDER BY f.stb_filing_id, {_NEAREST}, f.filing_pk",
+    )
+    for pk, sid, raw, date, ftype, filed_for in con.execute(
+        """
+        SELECT filing_pk, stb_filing_id, raw_docket, filed_date, filing_type, filed_for_raw
+          FROM (SELECT f.filing_pk, f.stb_filing_id, d.raw_docket, f.filed_date,
+                       f.filing_type, f.filed_for_raw,
+                       ROW_NUMBER() OVER (PARTITION BY f.stb_filing_id
+                                          ORDER BY COALESCE(d.sub_sequence, -1),
+                                                   COALESCE(d.suffix, ''),
+                                                   f.filing_pk) AS nearest
+                  FROM filing f
+                  JOIN docket d ON d.docket_id = f.docket_id)
+         WHERE nearest = 1
+        """
+    ):
+        printed = _printed(raw)
+        fact = printed + (f", filed {date}" if date else "")
+        cells = [c.strip() for c in (ftype, filed_for) if (c or "").strip() not in _PLACEHOLDERS]
+        body = FIELD.join([*cells, f"{sid} {numbers[sid]}"])
+        yield "filing", pk, urls.filing_path(sid), f"Filing {sid}", body, fact, ""
 
 
 # what the Board prints for a cell it has nothing for: never a search term
@@ -277,7 +346,9 @@ def _comment_docs(con: Connection):
 # comments addressed under their docket, folded by (number, row ref). 3: rows carry their
 # own caption (migration 0013), which is what fills the new column on the first pass after
 # the deploy — a bump here is the only thing that makes that happen.
-INDEX_FORMAT = 3
+# 4: filings and every decision are rows, and each is placed in every proceeding it was
+# entered in (migration 0033, docs/search-v2.md).
+INDEX_FORMAT = 4
 
 
 _CONTROLS = {c: None for c in range(0x20) if c not in (0x09, 0x0A, 0x0D)}
@@ -328,7 +399,16 @@ def signature(con: Connection) -> str:
             " (SELECT COUNT(*) FROM party_name WHERE superseded_by IS NOT NULL),"
             " (SELECT COUNT(*) FROM filing_party_link WHERE superseded_by IS NOT NULL),"
             " (SELECT COUNT(*) FROM filing_party_span WHERE superseded_by IS NOT NULL),"
-            " (SELECT COUNT(*) FROM party_relationship WHERE superseded_by IS NOT NULL)",
+            " (SELECT COUNT(*) FROM party_relationship WHERE superseded_by IS NOT NULL),"
+            # A FIRST FETCH appends no event: it sets an attachment's hash and writes a
+            # `document_source` row. `search_document` maps documents to index rows, so
+            # without these a new document's pages would match with no owner until an
+            # unrelated event moved the signature (schema-critic, 2026-09-17).
+            " (SELECT MAX(rowid) FROM document_source),"
+            " (SELECT COUNT(*) FROM filing_attachment WHERE document_sha256 IS NOT NULL),"
+            " (SELECT COUNT(*) FROM decision_attachment WHERE document_sha256 IS NOT NULL),"
+            " (SELECT COUNT(*) FROM enviro_comment_attachment"
+            "   WHERE document_sha256 IS NOT NULL)",
             PAGE_TABLES,
         ).fetchone()
     )
@@ -481,6 +561,102 @@ def _under_lock(con: Connection, sql: str, log, what: str, rows: list | None = N
     batches.under_lock(con, do, what=f"the page index's {what}", log=log)
 
 
+def proceedings(con: Connection) -> dict[int, tuple[int, str]]:
+    """docket_id -> (the proceeding it belongs to, its prefix), by the sheet rule (F4; the
+    operator's decision 5 in docs/search-v2.md): a sub-docket with a caption of its own is
+    its own proceeding, one without one or repeating its parent's belongs to its parent —
+    the rule `_docket_docs` applies to decide which sub-dockets are rows, so a proceeding is
+    exactly a docket hit's address. An unparseable docket is still a proceeding, by id."""
+    rows = con.execute(
+        "SELECT docket_id, parent_docket_id, prefix,"
+        " COALESCE(json_extract(latest_payload, '$.title'), '') FROM docket_current"
+    ).fetchall()
+    caption = {docket_id: title for docket_id, _, _, title in rows}
+    out: dict[int, tuple[int, str]] = {}
+    for docket_id, parent, prefix, title in rows:
+        own = parent is None or bool(title and title != caption.get(parent))
+        out[docket_id] = (docket_id if own else parent, prefix)
+    return out
+
+
+# (kind, record table, its id column, the date it prints and what that date is, its type)
+_COPIES = (
+    ("filing", "filing", "filing_pk", "r.stb_filing_id", "filed_date", "filed", "filing_type"),
+    (
+        "decision",
+        "decision_record",
+        "decision_pk",
+        "r.stb_decision_id",
+        "service_date",
+        "served",
+        "decision_type",
+    ),
+    # a comment's copies share (number, row ref): the fold `_comment_docs` uses
+    (
+        "comment",
+        "enviro_comment",
+        "comment_pk",
+        "r.comment_number || '|' || COALESCE(r.stb_row_ref, '')",
+        "date_received_or_sent",
+        "dated",
+        None,
+    ),
+)
+_ATTACHMENTS = {
+    "filing": ("filing_attachment", "filing_pk"),
+    "decision": ("decision_attachment", "decision_pk"),
+    "comment": ("enviro_comment_attachment", "comment_pk"),
+}
+
+
+def _placements(
+    con: Connection, doc_ids: dict[tuple[str, int], int]
+) -> tuple[list[tuple], list[tuple]]:
+    """Where every index row belongs, and which rows carry each document.
+
+    A record is ONE index row (found once) and one placement per proceeding it was entered
+    in (search-v2 § Placement): 573 filings and 1,432 decisions sit in more than one family,
+    and folding them to one would hide them from a filter naming the other. A placement
+    carries that docket entry's own printed date and type. Within one proceeding the first
+    copy in nearest-parent order wins, so a docket and its folded sub-docket make one
+    placement, not two."""
+    group = proceedings(con)
+    places: dict[tuple[int, int], tuple] = {}
+    for (kind, ref), doc_id in doc_ids.items():
+        if kind == "docket":
+            g, prefix = group[ref]
+            places[(doc_id, g)] = (doc_id, g, prefix, None, None, None, None)
+    documents: set[tuple[str, int]] = set()
+    for kind, table, pk_col, key_sql, date_col, date_kind, type_col in _COPIES:
+        copies = con.execute(
+            f"SELECT r.{pk_col}, {key_sql}, r.docket_id, r.{date_col},"
+            f" {f'r.{type_col}' if type_col else 'NULL'}"
+            f" FROM {table} r JOIN docket d ON d.docket_id = r.docket_id"
+            f" ORDER BY {_NEAREST}, r.{pk_col}"
+        ).fetchall()
+        # every copy reaches the index row of its headline copy through the key they share
+        head = {key: doc_ids[(kind, pk)] for pk, key, *_ in copies if (kind, pk) in doc_ids}
+        owner: dict[int, int] = {}
+        type_kind = kind if type_col else None
+        for pk, key, docket_id, date, type_ in copies:
+            doc_id = head.get(key)
+            if doc_id is None:
+                continue  # its headline was not indexed
+            owner[pk] = doc_id
+            g, prefix = group[docket_id]
+            type_ = (type_ or "").strip()
+            type_ = None if type_ in _PLACEHOLDERS else type_
+            date = (date or "").strip() or None
+            places.setdefault((doc_id, g), (doc_id, g, prefix, date_kind, date, type_kind, type_))
+        attachment, fk = _ATTACHMENTS[kind]
+        for pk, sha in con.execute(
+            f"SELECT {fk}, document_sha256 FROM {attachment} WHERE document_sha256 IS NOT NULL"
+        ):
+            if pk in owner:
+                documents.add((sha, owner[pk]))
+    return list(places.values()), sorted(documents)
+
+
 def built(con: Connection) -> tuple[str | None, int]:
     """(signature the index was built from, its build number) — the number is part of the
     web tier's version stamp, so a rebuild is never hidden by a 304."""
@@ -493,38 +669,81 @@ def rebuild(con: Connection, *, force: bool = False) -> dict:
     Every row is derived on reads first; the write is one short transaction, so a reader
     sees the old set or the new one, never half, and other writers wait seconds, not
     minutes."""
+    # ONE READ SNAPSHOT for the signature and everything derived from it. The derivation is
+    # several queries, and the store is written beside it (a records wave runs next to the
+    # poller): read at different moments, a decision committed between `_numbers` and its
+    # main query was a KeyError, and a rebuild stamped with a signature older than its rows
+    # (the ingest specialist, 2026-09-17). Held for the derivation's seconds, not the lock's.
+    if not con.in_transaction:
+        con.execute("BEGIN")
+    try:
+        return _rebuild_from_snapshot(con, force=force)
+    finally:
+        if con.in_transaction:
+            con.rollback()
+
+
+def _rebuild_from_snapshot(con: Connection, *, force: bool) -> dict:
     sig = signature(con)
     last, build = built(con)
     if sig == last and not force:
         return {"unchanged": True, "build": build}
     rows: list[tuple] = []
-    counts = {"docket": 0, "party": 0, "decision": 0, "comment": 0, "skipped": 0}
-    for source in (_docket_docs, _party_docs, _decision_docs, _comment_docs):
+    counts = dict.fromkeys(("docket", "party", "decision", "comment", "filing", "skipped"), 0)
+    doc_ids: dict[tuple[str, int], int] = {}
+    for source in (_docket_docs, _party_docs, _decision_docs, _comment_docs, _filing_docs):
         for kind, ref, path, title, body, fact, caption in source(con):
             counts[kind] += 1
             if kind != "skipped":
-                rows.append(
-                    # every text column, not only the two the snippet reads today:
-                    # "no marker can come from the record" should be true of the row
-                    (kind, ref, path, _plain(title), _plain(body), _plain(fact), _plain(caption))
-                )
-    con.execute("BEGIN IMMEDIATE")
-    con.execute("DELETE FROM search_doc")
-    con.executemany(
-        "INSERT INTO search_doc (kind, ref, path, title, body, fact, caption)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?)",
-        rows,
-    )
-    con.execute("INSERT INTO search_fts (search_fts) VALUES ('rebuild')")
-    con.execute(
-        "INSERT INTO search_meta (key, signature, build, built_at) VALUES ('built', ?, ?, ?)"
-        " ON CONFLICT (key) DO UPDATE SET signature = excluded.signature,"
-        " build = excluded.build, built_at = excluded.built_at",
-        (sig, build + 1, utcnow()),
-    )
-    con.commit()
+                doc_id = len(rows) + 1  # assigned here, so a placement can name its row
+                doc_ids[(kind, ref)] = doc_id
+                # every text column, not only the two the snippet reads today: "no marker
+                # can come from the record" should be true of the row
+                text = (_plain(title), _plain(body), _plain(fact), _plain(caption))
+                rows.append((doc_id, kind, ref, path, *text))
+    places, documents = _placements(con, doc_ids)
+    counts["placements"], counts["documents"] = len(places), len(documents)
+    con.rollback()  # the read snapshot ends here; the write takes the lock on its own
+
+    def write() -> None:
+        # Under the house retry (`batches.under_lock`): Litestream's TRUNCATE checkpoint wants
+        # the same lock, and this transaction now rewrites three tables. Replayable, because
+        # everything it writes is held in memory.
+        con.execute("BEGIN IMMEDIATE")
+        for table in ("search_doc", "search_place", "search_document"):
+            con.execute(f"DELETE FROM {table}")
+        con.executemany(
+            "INSERT INTO search_doc (doc_id, kind, ref, path, title, body, fact, caption)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+        con.executemany(
+            "INSERT INTO search_place (doc_id, group_docket_id, prefix, date_kind, date,"
+            " type_kind, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            places,
+        )
+        con.executemany(
+            "INSERT INTO search_document (document_sha256, doc_id) VALUES (?, ?)", documents
+        )
+        con.execute("INSERT INTO search_fts (search_fts) VALUES ('rebuild')")
+        con.execute(
+            "INSERT INTO search_meta (key, signature, build, built_at) VALUES ('built', ?, ?, ?)"
+            " ON CONFLICT (key) DO UPDATE SET signature = excluded.signature,"
+            " build = excluded.build, built_at = excluded.built_at",
+            (sig, build + 1, utcnow()),
+        )
+        con.commit()
+
+    batches.under_lock(con, write, what="the search index", log=lambda _: None)
     counts["build"] = build + 1
     return counts
+
+
+def ready(con: Connection) -> bool:
+    """Whether the record index was built by this code. Between migration 0033 and the first
+    rebuild it is EMPTY, and an empty index answers every search "nothing" with a 200 — a
+    coverage claim the store cannot support (the ingest specialist, 2026-09-17)."""
+    return (built(con)[0] or "").startswith(f"{INDEX_FORMAT}.")
 
 
 def rebuild_or_report(con: Connection, problems: list[str]) -> dict | None:
@@ -577,6 +796,7 @@ def search(
     limit: int = LIMIT,
     prefix: bool = False,
     with_snippet: bool = True,
+    kinds: tuple[str, ...] = RECORD_KINDS,
 ) -> list[Hit]:
     """Ranked hits: bm25 with the title weighted above the body; ties by kind then title,
     the kinds ordering as they sort (comment, decision, docket, party). A docket number is
@@ -605,10 +825,10 @@ def search(
                {excerpt_sql} AS excerpt,
                bm25(search_fts, 8.0, 1.0) AS rank
           FROM search_fts JOIN search_doc d ON d.doc_id = search_fts.rowid
-         WHERE search_fts MATCH ?
+         WHERE search_fts MATCH ? AND d.kind IN ({",".join("?" for _ in kinds)})
          ORDER BY rank, d.kind, d.title LIMIT ?
         """,
-        (*params, match, limit),
+        (*params, match, *kinds, limit),
     ).fetchall()
     return [
         Hit(kind, path, title, fact, caption, _shown_snippet(excerpt or "", caption or ""))

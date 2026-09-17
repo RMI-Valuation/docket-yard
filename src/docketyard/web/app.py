@@ -20,6 +20,7 @@ address (ADR 0011); those three handlers open a writable connection and nothing 
 
 import hashlib
 import os
+import re
 import secrets
 import sqlite3
 import time
@@ -30,7 +31,7 @@ from importlib import resources
 from pathlib import Path
 from urllib.parse import urlencode
 
-from fastapi import Body, FastAPI, Form, HTTPException, Request
+from fastapi import Body, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import (
     FileResponse,
     JSONResponse,
@@ -56,6 +57,7 @@ from docketyard.store import (
     display,
     dump,
     explainers,
+    finder,
     home,
     projections,
     registers,
@@ -196,6 +198,38 @@ def fmt_day_month(value: str | None) -> str:
     except ValueError:
         return value
     return f"{d.day} {d.strftime('%b')}"
+
+
+MAX_FILTER_VALUES = 20  # values of one filter a search address may carry
+MAX_RESULT_PAGE = 500  # the deepest results page asked for; beyond it, narrow the search
+ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _search_url(q, **changes) -> str:
+    """The address of this search with some parameters changed: paging, "N more in this
+    proceeding", and removing one filter. Repeated parameters stay repeated."""
+    params: list[tuple[str, str]] = []
+    values = {
+        "q": [q.text] if q.text else [],
+        "prefix": list(q.prefixes),
+        "from": [q.date_from] if q.date_from else [],
+        "to": [q.date_to] if q.date_to else [],
+        "in": [] if set(q.kinds) == set(finder.KINDS) else list(q.kinds),
+        "ftype": list(q.ftypes),
+        "dtype": list(q.dtypes),
+        "sort": [q.sort] if q.sort != "best" else [],
+        "view": [q.view] if q.view != "proceedings" else [],
+        "docket": [],
+    }
+    for key, value in changes.items():
+        values[key.rstrip("_")] = (
+            []
+            if value in (None, "", ())
+            else (list(value) if isinstance(value, (list, tuple)) else [str(value)])
+        )
+    for key, vals in values.items():
+        params += [(key, v) for v in vals]
+    return "/search?" + urlencode(params)
 
 
 def highlight(snippet: str) -> Markup:
@@ -1609,37 +1643,100 @@ def create_app(
     # (docs/search.md). Nothing about the query is stored; Caddy drops it from the log.
 
     @app.get("/search")
-    def search_page(request: Request, q: str = ""):
-        """A docket number the record holds is a 303 to its sheet; anything else is a result
-        page — never cached or indexed, because its address carries what was typed."""
+    def search_page(
+        request: Request,
+        q: str = "",
+        prefix: list[str] = Query(default=[]),  # noqa: B008 — FastAPI's own idiom
+        date_from: str = Query(default="", alias="from"),
+        date_to: str = Query(default="", alias="to"),
+        kind: list[str] = Query(default=[], alias="in"),  # noqa: B008
+        ftype: list[str] = Query(default=[]),  # noqa: B008
+        dtype: list[str] = Query(default=[]),  # noqa: B008
+        sort: str = "best",
+        page: str = "1",
+        docket: str = "",
+        view: str = "proceedings",
+    ):
+        """Search built out (docs/search-v2.md): results grouped by proceeding, filtered,
+        sorted and paged. A docket number or a citation the record holds, typed with no
+        filter, is still a 303 to its sheet. Never cached or indexed: the address carries
+        what was typed. Every parameter is checked against what the store holds before it
+        reaches a query, and one that is not is dropped and said so."""
         q = q.strip()[: search.MAX_QUERY]
-        if not q:
-            return render(request, "search.html", query="", hits=[], pages=[])
         con = _connect(db_path)
         try:
-            docket = search.held_docket(con, q)
-            if docket is not None:
-                return RedirectResponse(docket.path, status_code=303)
-            found = cite.resolve(con, q)  # a citation form: the resolver, not the index
-            if found is not None:
-                return RedirectResponse(found.path, status_code=303)
-            hits = search.search(con, q)
-            # the pages of documents, by their own query path (ADR 0022 D4); each hit
-            # carries the label, the band and the scan link (ADR 0021 D7)
-            found = search.search_pages(con, q)
+            vocab = finder.vocabulary(con)
+            dropped: list[str] = []
+
+            def known(values: list[str], allowed, label: str) -> tuple[str, ...]:
+                if len(set(values)) > MAX_FILTER_VALUES:
+                    too_many.append(label)
+                kept = tuple(dict.fromkeys(v for v in values if v in allowed))
+                if len(kept) < len(set(values)):
+                    dropped.append(label)
+                return kept[:MAX_FILTER_VALUES]
+
+            too_many: list[str] = []
+
+            prefixes = known([v.strip().upper() for v in prefix], vocab.prefixes, "docket type")
+            kinds = known(kind, finder.KINDS, "what to search") or finder.KINDS
+            ftypes = known(ftype, vocab.filing_types, "filing type")
+            dtypes = known(dtype, vocab.decision_types, "decision type")
+            dates = []
+            for value, label in ((date_from, "from"), (date_to, "to")):
+                value = value.strip()
+                if value and not ISO_DATE.fullmatch(value):
+                    dropped.append(f"date {label}")
+                    value = ""
+                dates.append(value)
+            within = None
+            if docket.strip():
+                identity = urls.lookup(docket[: search.MAX_QUERY])
+                within = find_docket(con, identity) if identity else None
+                if within is None:
+                    dropped.append("proceeding")
+            query = finder.Query(
+                q,
+                prefixes=prefixes,
+                date_from=dates[0],
+                date_to=dates[1],
+                kinds=kinds,
+                ftypes=ftypes,
+                dtypes=dtypes,
+                sort=sort if sort in ("best", "newest") else "best",
+                page=min(max(1, int(page)), MAX_RESULT_PAGE)
+                if page.strip().isascii() and page.strip().isdigit()
+                else 1,
+                within=within,
+                view=view if view in ("proceedings", "documents") else "proceedings",
+            )
+            if q and not query.filtered and within is None and query.page == 1:
+                held = search.held_docket(con, q)
+                if held is not None:
+                    return RedirectResponse(held.path, status_code=303)
+                cited = cite.resolve(con, q)  # a citation form: the resolver, not the index
+                if cited is not None:
+                    return RedirectResponse(cited.path, status_code=303)
+            results = finder.find(con, query)
         finally:
             con.close()
         return render(
             request,
             "search.html",
             query=q,
-            hits=hits,
-            pages=found.hits,
-            pages_truncated=found.truncated,
-            pages_rebuilding=found.rebuilding,
-            pages_folded=found.folded,
-            page_per_document=search.PAGE_PER_DOCUMENT,
-            page_limit=search.PAGE_LIMIT,
+            q=query,
+            results=results,
+            vocab=vocab,
+            dropped=dropped,
+            too_many=too_many,
+            max_filter_values=MAX_FILTER_VALUES,
+            within_evidence=finder.WITHIN_EVIDENCE,
+            within_label=docket.strip() if within is not None else "",
+            searched=bool(q or query.filtered),
+            kind_labels=finder.KIND_LABELS,
+            page_window=finder.PAGE_WINDOW,
+            page_budget=finder.PAGE_BUDGET,
+            search_url=_search_url,
             canonical=None,
         )
 
@@ -2222,7 +2319,9 @@ def _record_docket(con, kind: str, stb_id: str) -> int:
     row = con.execute(
         f"SELECT r.docket_id FROM {table} r JOIN docket d ON d.docket_id = r.docket_id"
         f" WHERE r.{column} = ?"
-        " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, '') LIMIT 1",
+        # the record's own id last, so a record entered in two families always picks the
+        # same copy, the one search's placements headline (schema-critic, 2026-09-17)
+        " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, ''), r.rowid LIMIT 1",
         (stb_id,),
     ).fetchone()
     if row is None:

@@ -90,6 +90,11 @@ MIGRATIONS: list[tuple[int, str]] = [
     # and no rebuild. Deploy after 0030 and 0031, never before: `migrate` skips any number at or
     # below the stamped version.
     (32, "0032_page_route.sql"),
+    # 0033 rebuilds the search index to place a record in every proceeding it was entered in,
+    # with filings and every decision indexed (docs/search-v2.md). Derived and disposable; the
+    # next pass rebuilds it. `decided-date-grain` also claims 0033: whichever lands second
+    # renumbers.
+    (33, "0033_search_placements.sql"),
 ]
 
 

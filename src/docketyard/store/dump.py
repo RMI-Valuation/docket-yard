@@ -72,7 +72,7 @@ PUBLIC_VIEWS = frozenset({"docket_current"})
 # changes, and it carries party names — the held layer — so the snapshot ships it EMPTY: the
 # tables stay (a restored copy is at the release's schema and `docketyard search rebuild`
 # remakes it), the rows go.
-DERIVED_TABLES = ("search_doc", "search_meta")
+DERIVED_TABLES = ("search_doc", "search_meta", "search_place", "search_document")
 # The FTS index's tables are not listed by hand: SQLite names an FTS5 virtual table's
 # shadows `<name>_<suffix>` and may change the set between versions, so `scrub` derives
 # them from `PRAGMA table_list` instead — a renamed shadow would otherwise fail the
