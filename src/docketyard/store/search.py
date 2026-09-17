@@ -96,17 +96,22 @@ def _family_counts(con: Connection) -> dict[int, tuple[int, str | None]]:
 
 def _docket_docs(con: Connection):
     """A family (ADR 0005) is one row: the printed number in the spellings a person types,
-    the caption as printed, and every sub-docket's caption. A sub-docket whose caption
-    differs from its parent's is a row of its own at its own address (ADR 0013) — the
-    thousand line abandonments under AB 55 are each findable — which resolves to the
-    family sheet with the sub-docket named (F4)."""
+    and the caption as printed. A sub-docket whose caption differs from its parent's is a
+    row of its own at its own address (ADR 0013) — the thousand line abandonments under
+    AB 55 are each findable — which resolves to the family sheet with the sub-docket named
+    (F4).
+
+    The family's row carried its sub-dockets' captions too until search-v2, which made every
+    word of a line abandonment find the whole series a second time: "Tazewell County" found
+    AB 290 (Sub-No. 222X) and then AB 6 and AB 167 through captions that were already rows
+    of their own. A sub-docket that is not a row repeats its parent's caption, so the family
+    loses no word by carrying its own alone."""
     counts = _family_counts(con)
     rows = con.execute(
         "SELECT docket_id, raw_docket, parent_docket_id, json_extract(latest_payload, '$.title')"
         " FROM docket_current ORDER BY parent_docket_id IS NOT NULL, docket_id"
     ).fetchall()
     parents: dict[int, tuple] = {}
-    subs: dict[int, list[str]] = {}
     for docket_id, raw, parent, caption in rows:
         ident = parse_docket_id(raw)
         if ident is None:
@@ -116,8 +121,6 @@ def _docket_docs(con: Connection):
         if parent is None:
             parents[docket_id] = (ident, caption)
             continue
-        if caption:
-            subs.setdefault(parent, []).append(caption)
         p = parents.get(parent)
         if caption and (p is None or caption != p[1]):
             printed = urls.printed_docket(ident)
@@ -140,7 +143,7 @@ def _docket_docs(con: Connection):
         # the spellings go LAST: they are how a number is FOUND, and a snippet centred on
         # a caption match should open on the caption, not on four renderings of the number
         spellings = f"{printed} {ident.prefix}{ident.sequence}"
-        body = FIELD.join([p for p in [caption, *subs.get(docket_id, []), spellings] if p])
+        body = FIELD.join([p for p in [caption, spellings] if p])
         # "1 filings" and a bare "last" were quoted back by assistants as written: the date is
         # the last FILING's, not the proceeding's last activity (the independent graders,
         # 2026-09-16)

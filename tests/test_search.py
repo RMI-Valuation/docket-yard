@@ -23,9 +23,11 @@ def test_rebuild_indexes_families_parties_and_summaries(tmp_path):
     # the family, and the sub-docket as its own hit because its caption differs
     assert counts["docket"] == 2 and counts["party"] >= 2 and counts["build"] == 1
     con = db.connect(path)
+    # the sub-docket's words find the sub-docket, not the family a second time (search-v2)
     hits = search.search(con, "peoria")
-    assert [h.path for h in hits] == ["/d/FD-36873/sub/1", "/d/FD-36873"]
-    assert hits[0].fact == "in FD 36873" and hits[1].title == "FD 36873"
+    assert [h.path for h in hits] == ["/d/FD-36873/sub/1"]
+    assert hits[0].fact == "in FD 36873"
+    assert search.search(con, "36873")[0].title in ("FD 36873", "FD 36873 (Sub-No. 1)")
     assert search.search(con, "nrdc")[0].kind == "party"
     assert search.search(con, "control")[0].path == "/d/FD-36873"
     assert "2 filings" in search.search(con, "control")[0].fact  # the sheet's count: 311981 once
@@ -70,7 +72,7 @@ def test_search_page_and_suggest(tmp_path):
     r = client.get("/search", params={"q": "FD 36873 (Sub-No. 9)"}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/d/FD-36873"  # the family holds it
     r = client.get("/search", params={"q": "peoria"})
-    assert r.status_code == 200 and 'href="/d/FD-36873"' in r.text and "2 records" in r.text
+    assert r.status_code == 200 and 'href="/d/FD-36873/sub/1"' in r.text and "1 record" in r.text
     assert r.headers["cache-control"] == "no-store" and 'content="noindex"' in r.text
     assert "ETag" not in r.headers and 'rel="canonical"' not in r.text
     # a stale validator never short-circuits a result page
@@ -133,17 +135,16 @@ def test_a_result_row_says_what_the_proceeding_is_and_why_it_matched(tmp_path):
 def test_the_snippet_says_why_a_row_matched_and_never_repeats_the_caption(tmp_path):
     path, _ = _indexed(tmp_path)
     con = db.connect(path)
-    # the family row matched on a SUB-docket's caption: the snippet is the only thing on
-    # the row that can say which one
-    family = [h for h in search.search(con, "peoria") if h.path == "/d/FD-36873"][0]
-    assert search.MARK_OPEN in family.snippet and "PEORIA" in family.snippet
+    # a decision matched on its summary: the snippet is what says so
+    decision = [h for h in search.search(con, "replies") if h.kind == "decision"][0]
+    assert search.MARK_OPEN in decision.snippet and "REPLIES" in decision.snippet
     # the sub-docket's own row matched its own caption, which is already printed as its
     # title: a second marked copy of the same string is not a reason, it is noise
     sub = [h for h in search.search(con, "peoria") if h.path == "/d/FD-36873/sub/1"][0]
     assert sub.snippet == ""
     con.close()
-    r = TestClient(create_app(path)).get("/search", params={"q": "peoria"})
-    assert "<mark>PEORIA</mark>" in r.text
+    r = TestClient(create_app(path)).get("/search", params={"q": "replies"})
+    assert "<mark>REPLIES</mark>" in r.text
     assert search.MARK_OPEN not in r.text  # the markers never reach the page as themselves
 
 
@@ -260,10 +261,9 @@ def test_a_snippet_shows_the_seam_between_two_fields(tmp_path):
     body = con.execute(
         "SELECT body FROM search_doc WHERE kind = 'docket' AND title = 'FD 36873'"
     ).fetchone()[0]
-    # the caption leads, the sub-caption follows, the number spellings come last, and every
-    # seam between them is visible
-    assert body == "UP/NS CONTROL · PEORIA SUB · FD 36873 FD36873"
-    family = [h for h in search.search(con, "peoria") if h.path == "/d/FD-36873"][0]
+    # the caption leads, the number spellings come last, and the seam between them is visible
+    assert body == "UP/NS CONTROL · FD 36873 FD36873"
+    family = [h for h in search.search(con, "control fd36873") if h.path == "/d/FD-36873"][0]
     assert "·" in family.snippet  # the reader can see where one quotation ends
     con.close()
 

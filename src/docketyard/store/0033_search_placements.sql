@@ -76,6 +76,9 @@ CREATE TABLE search_document (
                                                   -- or comment carrying the document
     PRIMARY KEY (document_sha256, doc_id)
 ) WITHOUT ROWID;
+-- a filter reaches pages from the records it admits: without this, each record's documents
+-- are a scan of the whole map (measured on the 2026-09-17 restore: a timeout, then 43 ms)
+CREATE INDEX search_document_doc ON search_document (doc_id);
 
 UPDATE search_meta SET signature = '' WHERE key = 'built';
 
