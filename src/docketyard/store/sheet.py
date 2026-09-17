@@ -220,6 +220,13 @@ def _family_totals(con: Connection, ids: list[int]) -> dict:
     return counts
 
 
+# The first day the Board's own search returns anything for (measured, stb-data-source.md
+# § Measured 2026-08-27): a sheet whose earliest entry falls within a year of it may be the
+# later part of an older proceeding, and says so (the operator, 2026-09-16).
+RECORD_BEGINS = "1996-01-25"
+EARLY_UNTIL = "1997-01-25"
+
+
 def last_polled(con: Connection) -> str | None:
     """When the watch last asked the Board about every record table: the OLDEST of the
     tables' latest asserted forward captures, among the tables the watch asks, since a docket

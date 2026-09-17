@@ -54,6 +54,9 @@ class Coverage:
     # list under that sentence told readers that 1996-01 through 2000-08 were incomplete
     # for filings and decisions, which they are not.
     records_incomplete: tuple[str, ...]  # filings and decisions
+    # filings the record holds by the Board's year, from the first year to the first
+    # holding more than DENSE_YEAR — the thin early years, measured, not characterised
+    early_filing_years: list[tuple[str, int]]
     comments_incomplete: tuple[str, ...]  # environmental comments
     comments_from: str | None  # earliest comment the record holds, by the Board's own date
     empty_prefixes: tuple[str, ...]
@@ -128,6 +131,48 @@ def _incomplete(con: Connection, *actions: str, today: date | None = None) -> tu
     return tuple(
         sorted({month for (_, month), days in finished.items() if days < walk.month_days(month)})
     )
+
+
+DENSE_YEAR = 1000  # filings in a year: the threshold the page names, not a judgement of it
+
+
+def walked_back_to(con: Connection) -> str | None:
+    """The first month the filings and decisions walk begins at, when no month of either is
+    outstanding — else None. What `/stats` needs to say its early numbers are the Board's
+    table, without building the whole coverage page (the ledger is a few hundred rows)."""
+    if _incomplete(con, FILINGS, DECISIONS):
+        return None
+    months = [
+        m
+        for (key,) in con.execute(
+            "SELECT slice_key FROM walk_slice WHERE table_action IN (?, ?)", (FILINGS, DECISIONS)
+        )
+        if (m := walk.slice_month(key)) is not None
+    ]
+    return min(months, default=None)
+
+
+def early_filing_years(con: Connection, this_year: str | None = None) -> list[tuple[str, int]]:
+    """(year, filings) from the record's first filing year through the first year after which
+    every full year holds more than DENSE_YEAR. The Board's own filings table is thin in its
+    early years — walked, and empty at the Board (`stb-data-source.md` § Measured 2026-08-27)
+    — and a reader was left to read that as months still to come (the independent graders,
+    2026-09-16). Not "the first year above": 2000 holds 1,180 and 2001 falls back to 456
+    (measured on the Sept 16 snapshot), so the thin run ends at 2002. The current year is
+    partial and never decides it."""
+    this_year = this_year or str(date.today().year)
+    years = [
+        (year, n)
+        for year, n in con.execute(
+            "SELECT substr(filed_date, 1, 4), COUNT(DISTINCT stb_filing_id) FROM filing"
+            " WHERE filed_date GLOB '[0-9][0-9][0-9][0-9]-*' GROUP BY 1 ORDER BY 1"
+        )
+    ]
+    full = [(y, n) for y, n in years if y < this_year]
+    for i in range(len(full)):
+        if all(n > DENSE_YEAR for _, n in full[i:]):
+            return full[: i + 1]
+    return full
 
 
 def month_runs(months: tuple[str, ...]) -> tuple[str, ...]:
@@ -231,6 +276,7 @@ def coverage(con: Connection) -> Coverage:
         # say so — but it is not a filings month, and the sentence that names them is about
         # filings and decisions.
         records_incomplete=_incomplete(con, FILINGS, DECISIONS),
+        early_filing_years=early_filing_years(con),
         comments_incomplete=_incomplete(con, ENVIRO_COMMENTS),
         comments_from=one("SELECT MIN(NULLIF(date_received_or_sent, '')) FROM enviro_comment"),
         empty_prefixes=tuple(sorted(EXPECTED_EMPTY_PREFIXES)),

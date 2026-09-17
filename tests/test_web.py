@@ -575,3 +575,44 @@ def test_a_cite_block_carries_the_day_it_was_read_and_the_snapshot(tmp_path):
     dump.dump(path, tmp_path / "public")  # a snapshot exists: the cite names it
     page = TestClient(create_app(path)).get("/decision/53210").text
     assert "; bulk snapshot of " in page and "docketyard-" in page
+
+
+def test_the_thin_early_years_are_said_to_be_the_boards_and_an_early_sheet_warns(
+    tmp_path, monkeypatch
+):
+    """The operator's decision 1 on the independent graders' findings: the early years' small
+    numbers read as months still to come, and a sheet that may be the later part of an older
+    proceeding gave no hint. Measured years on /coverage; one line on such a sheet."""
+    from docketyard.store import coverage
+
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    (event,) = con.execute("SELECT MIN(observed_in_event) FROM filing").fetchone()
+    for i, filed in enumerate(["1996-03-01", "1997-05-01", "1999-01-01", "1999-02-01"]):
+        con.execute(
+            "INSERT INTO filing (docket_id, stb_filing_id, filing_type, filed_date,"
+            " observed_in_event) VALUES (1, ?, 'Letter', ?, ?)",
+            (str(800000 + i), filed, event),
+        )
+    con.commit()
+    monkeypatch.setattr(coverage, "DENSE_YEAR", 1)
+    years = coverage.early_filing_years(con, this_year="2026")
+    # 1999 holds two (> 1) and so does no later full year: the thin run ends at 1999
+    assert years == [("1996", 1), ("1997", 1), ("1999", 2)]
+    con.close()
+    client = TestClient(create_app(path))
+    page = client.get("/d/FD-36873").text
+    assert "The record begins with the Board’s own search, on 25 Jan 1996." in page
+    # a sheet whose record starts later carries no such line
+    assert "The record begins with" not in client.get("/d/FD-36873/sub/1").text
+
+
+def test_the_licence_dedicates_what_is_ours_and_reproduces_what_was_filed():
+    """The operator's decision 5: comments and filings are public record and stay published as
+    filed; the label says CC0 covers the compilation and the Board's own fields."""
+    from importlib import resources
+
+    text = resources.files("docketyard").joinpath("LICENSE-DATA.txt").read_text(encoding="utf-8")
+    assert "WHAT IS DEDICATED" in text and "WHAT IS REPRODUCED AS FILED" in text
+    assert "does not purport" in text and "machine-read text of documents" in text
+    assert "as works of the United States Government they are in the public domain" not in text

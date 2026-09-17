@@ -28,6 +28,8 @@
   </p>
   {% elif sheet.title %}<p class="caption-note muted">Caption from the Board’s record.</p>{% endif %}
   <p class="serif record-summary muted">{{ sheet.filings | plural('filing') }}, {{ sheet.decisions | plural('decision') }} and {{ sheet.comments | plural('environmental comment') }} observed here{% if sheet.last_checked %}; last checked {{ sheet.last_checked | fmt_when }}{% endif %}{% if sheet.last_new_entry %}; last new entry {{ sheet.last_new_entry | fmt_when }}{% endif %}.</p>
+  {% set oldest = sheet.entries | map(attribute='date') | select | min if sheet.entries else none %}
+  {% if oldest and oldest < early_until %}<p class="small muted early-record">The record begins with the Board’s own search, on {{ record_begins | fmt_date }}. If this proceeding began before then, its earlier filings and decisions are not held here, and a summary below may cite a decision this sheet does not list.</p>{% endif %}
   <div class="actions no-print">
     <a class="btn" href="#cite">Cite</a>
     <button class="btn" type="button" data-print>Print</button>

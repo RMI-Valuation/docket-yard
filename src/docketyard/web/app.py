@@ -321,6 +321,8 @@ def create_app(
         )
 
     templates.env.globals["cite_as_of"] = cite_as_of
+    templates.env.globals["record_begins"] = sheet.RECORD_BEGINS
+    templates.env.globals["early_until"] = sheet.EARLY_UNTIL
     # The stylesheet is cached a week; its URL carries its content hash so a deploy is seen.
     css_hash = hashlib.sha256((_PKG / "static" / "site.css").read_bytes()).hexdigest()[:12]
     templates.env.globals.update(
@@ -1106,9 +1108,11 @@ def create_app(
         con = _connect(db_path)
         try:
             s = stats.stats(con)
+            # walked back to the first month: the early years' numbers are the Board's table
+            walked_from = coverage.walked_back_to(con)
         finally:
             con.close()
-        response = render(request, "stats.html", s=s)
+        response = render(request, "stats.html", s=s, walked_from=walked_from)
         response.headers.update(PUBLIC_CACHE)
         return response
 
