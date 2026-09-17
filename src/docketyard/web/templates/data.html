@@ -43,6 +43,6 @@
       <tr><td class="mono">/health</td><td class="title">The store’s freshness, as the heartbeat reads it.</td></tr>
     </tbody>
   </table>
-  <p class="small muted">Every response carries <span class="mono">source</span>, <span class="mono">licence</span> and <span class="mono">generated_at</span>. Field names follow the snapshot’s schema; a field the Board left blank is <span class="mono">null</span>, never guessed. Every response carries <span class="mono">shape_version</span>; it is raised, and announced here, when a field changes name or meaning.</p>
+  <p class="small muted">Every response carries <span class="mono">source</span>, <span class="mono">licence</span> and <span class="mono">generated_at</span>. Field names follow the snapshot’s schema; a field the Board left blank is <span class="mono">null</span>, never guessed. Every response carries <span class="mono">shape_version</span>; it is raised, and announced here, when a field changes name or meaning. <strong>Shape 3</strong> (2026-09-16): a sheet's <span class="mono">last_checked</span> is now when the watch last asked the Board about every record table, and the new <span class="mono">last_new_entry</span> is the latest capture that brought the docket an entry — what <span class="mono">last_checked</span> meant until shape 3.</p>
 </section>
 {% endblock %}

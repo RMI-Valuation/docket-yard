@@ -80,7 +80,7 @@ from docketyard.web import (
 )
 
 _PKG = resources.files("docketyard.web")
-JSON_SHAPE = 2  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
+JSON_SHAPE = 3  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
 POLL_MINUTES = 30  # the watch's cadence, as /coverage states it (compose: --interval 30)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
 # The named AI agents that fetch a page because a person asked, now — not to index or train.

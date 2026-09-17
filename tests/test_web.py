@@ -517,3 +517,45 @@ def test_a_decisions_date_says_it_is_the_served_date_everywhere(tmp_path):
     assert labels.cite_date("decision", "2026-09-03") == "(STB served Sept. 3, 2026)"
     assert labels.cite_date("filing", "2026-06-01") == "(filed June 1, 2026)"
     assert labels.cite_date("decision", None) == ""
+
+
+def test_last_checked_is_the_last_poll_and_the_last_entry_is_said_apart(tmp_path):
+    """Two independent graders, 2026-09-16: `last checked` was the latest capture that brought
+    the docket an entry, so a quiet docket polled every thirty minutes read weeks stale. Shape 3
+    (the operator's decision): the poll and the entry are two fields, and the page shows both."""
+    from docketyard.web import mcp
+
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    (entry_time,) = con.execute("SELECT MAX(captured_at) FROM capture").fetchone()
+    # a later pass that found nothing new for any docket: every table asked, no events
+    for action in (FILINGS, DECISIONS):
+        cid = records.save_capture(
+            con,
+            tmp_path,
+            source_system="stb-ajax",
+            endpoint="test",
+            table_action=action,
+            request_params=[],
+            body=b'{"success": true, "data": {"rows": "", "total": 0}}',
+            http_status=200,
+            ingest_mode="forward",
+        )
+        records.set_verdict(con, cid, filter_asserted=True, row_count=0, reported_total=0)
+        con.execute(
+            "UPDATE capture SET captured_at = '2099-01-01T00:00:00+00:00' WHERE capture_id = ?",
+            (cid,),
+        )
+    con.commit()
+    s = sheet.docket_sheet(con, 1)
+    assert s.last_checked == "2099-01-01T00:00:00+00:00"
+    assert s.last_new_entry == entry_time
+    out = mcp._docket(con, {"docket": "FD 36873"}, "docketyard.org")
+    con.close()
+    assert "Last checked against the Board: 2099-01-01" in out
+    assert f"Last new entry observed: {entry_time}" in out
+    client = TestClient(create_app(path))
+    d = client.get("/d/FD-36873.json").json()
+    assert d["shape_version"] == 3
+    assert d["docket"]["last_checked"].startswith("2099") and d["docket"]["last_new_entry"]
+    assert "last new entry" in client.get("/d/FD-36873").text

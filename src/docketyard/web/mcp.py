@@ -216,6 +216,9 @@ def _docket(con: Connection, args: dict, host: str) -> str:
     ]
     if s.last_checked:
         head.append(f"Last checked against the Board: {s.last_checked}.")
+    if s.last_new_entry:
+        # not "checked": the last capture that brought this proceeding an entry
+        head.append(f"Last new entry observed: {s.last_new_entry}.")
     if s.is_index:
         # a series carries no entries of its own; the assistant is handed the index the page
         # and the JSON both carry, not an empty "Entries, newest first:" (code review)
