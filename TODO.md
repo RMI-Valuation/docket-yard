@@ -8,18 +8,18 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **MCP: `count_filings` and `read_page`**, branch `mcp-count-filings` (2026-09-16): counts by
-  Board filing type; page text on a user's request with his caveat (ADR 0022 addendum, his four
-  answers, wording unread by him). Code review medium + low, security review clean; PR and bot
-  reviews next. Release and deploy are his
+- **Merged 2026-09-17, not released (his)**: #38 `count_filings` and `read_page` (ADR 0022 addendum:
+  text for reading on request, his caveat); #39 the graders' first fixes; #40 his nine decisions,
+  **JSON shape 3** (announced on `/data`); #34 the tabular pass and its worker fixes (fleet still on
+  `67b1762` until redeployed; load its root only with a release carrying 0030-0032)
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown; exposed
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
 - **Migrations 0030-0032 all MERGED** (#35 `ecbe527`, #37 `c66ff2c`, #36 `6c5d5e0`), addenda
   accepted 2026-09-16, each rehearsed in v2026.09.24's image. **Releasing and deploying are his**
-- **Tabular pass RUNNING** since 2026-09-16 11:46Z (coordinator and workstation on `67b1762`, PR #34
-  unmerged). First 16 min: 67 read, 9 page-owned `finish_reason length` (~12%, final), 4 blob misses;
+- **Tabular pass RUNNING** since 2026-09-16 11:46Z (coordinator and workstation on `67b1762`; PR #34
+  merged 2026-09-17). First 16 min: 67 read, 9 page-owned `finish_reason length` (~12%, final), 4 blob misses;
   **~12.6 s/page, so ~88 h, not the 36-48 h scoped**. 434 of 3,385 documents (1,051 pages, 0.24 GB)
   are in NEITHER blob mirror, so no node reads them this seed. Stop: `touch
   /data/docketyard/ocr/.stop-tabular` on rmi-ai-machine. Nothing collected is loaded
@@ -31,9 +31,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **The independent graders' findings** (2026-09-16, B across five personas, `deferred.md` §
-  The independent graders): fix-now items on `graders-first-fixes`; nine decisions for him; the
-  capability-scale ones wait on the menu
+- **The graders' three open fix-now items** (`deferred.md` § The independent graders): the
+  `coverage` tool matching `/coverage` is the ARDA demo item; the docket JSON key test; openapi
+  hygiene
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion

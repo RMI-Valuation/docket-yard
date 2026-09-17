@@ -1726,85 +1726,36 @@ records checked field by field against stb.gov, all identical); what follows is 
 short. The operator's reading: not a failure, a list to work through. Verdicts are the
 verifier's; "partly" means true but overstated, and the narrowed form is what is recorded.
 
-### Fix now — engineering, no decision (branch `graders-first-fixes`)
+Merged 2026-09-17 and not yet released: the first fixes (#39: decision summaries through MCP,
+JSON misses, wording an assistant repeats, README and CONTRIBUTING, the `/api` example) and the
+operator's nine decisions (#40: early years, last checked and JSON shape 3, parties and text for
+user-directed fetchers, the CC0 label, served dates, timestamped webhook signatures, the
+repeated-filer prose, an as-of cite). Those items have left this file; the commits are the record.
 
-- **The MCP server drops the Board's decision summaries** (assistant I1, practitioner I3,
-  researcher I5; confirmed). `get_docket_sheet` prints `[decision] 53225 — Decision` while the
-  JSON twin carries the summary; search's decision rows carry no caption. An assistant cannot
-  say what a decision did without the PDF. Quote the summary as printed, and the caption.
-- **A `.json` address answers a miss with the HTML 404 page** (developer I1, confirmed;
-  `/filing/abc.json` → 8.6 KB `text/html`). A JSON body for a `.json` path.
-- **MCP wording an assistant repeats** (assistant I4, I6; confirmed): the truncation note says
-  "Raise `limit`" at the cap of 100; search lines say `1 filings`; `last` means last filing; a
-  missing comment has no "may exist at the Board" hedge; `limit`'s description promises what the
-  page lines do not do.
+### Fix now — still open
+
 - **The `coverage` tool is thinner than `/coverage`** (assistant I2, confirmed): it omits what
   the page names under "What is not here" (recordations, pre-1996 history, text coverage, the
-  Board's display cap, outages) while the instructions tell an assistant to repeat it.
-- **"Last checked" is the last capture that produced an entry, not the last poll** (practitioner
-  I2, auditor I1; confirmed): `sheet._last_checked` joins capture to event, so a quiet docket
-  polled every 30 minutes reads weeks stale. The label on the page and in MCP; the JSON key's
-  name is a shape change and waits (below).
-- **README and CONTRIBUTING describe a project with no code** (developer I8, confirmed).
-- **`/api`'s example has drifted** (`docket_raw` "FD 36873" against the live "FD_36873";
-  developer I3, confirmed) — test the example against a real response.
+  Board's display cap, outages) while the instructions tell an assistant to repeat it. Chosen as
+  the live demo for the ARDA Technology Section call, 2026-09-17.
 - **The docket-level JSON keys are not locked by a test** (developer I4, confirmed): `asdict()`
   on the sheet dataclass reaches the public shape; only entry keys are tested.
 - **`/openapi.json` lists `/review` routes and duplicate HEAD operation ids** (developer I2, the
   mechanical half, confirmed). Response schemas are the larger half and wait with F5's next step.
 
-### The operator's decision — public wording, promises, licence, policy
+### The operator's to choose later
 
-- **Early years are sparse and nothing says so** (researcher I1 partly, I2; auditor I5 partly):
-  filings 1996: 4, 1997: 6, 1998: 102, 1999: 14, 2002: 2,382 — the Board's own table, walked and
-  empty (`stb-data-source.md` § Measured 2026-08-27), while `/coverage` and `/stats` read as a
-  backfill still in progress and a pre-1996 proceeding's sheet carries no caveat. A coverage
-  claim, so his wording.
-- **robots.txt's prose says named agents may not have the party layer; docket and filing pages
-  they may fetch print it** (auditor I2, confirmed). Narrow the prose, or keep parties off those
-  pages for those agents.
-- **User-directed assistants are refused `/text` while the MCP server links it** (auditor I3,
-  confirmed). PR #38 makes serving text through MCP the policy; whether `Claude-User`-class
-  fetchers may follow the link is the remaining half.
-- **The CC0 dedication rests on "works of the United States Government" and covers comment text
-  written by private people** (auditor I4, confirmed); `LICENSE-DATA.txt` also omits the held
-  page text and names a capture ledger the JSON does not carry. For the licence review.
-- **Decision dates are service dates, unlabelled** (auditor I6, confirmed), including the cite
-  line.
-- **Renaming the JSON `last_checked` key** (see above): a `shape_version` bump.
-- **Webhook signatures carry no timestamp; the payload no version** (developer I7, confirmed): a
-  replay window, and a contract change for existing receivers.
-- **Methodology's "repeated filer shown once" is broader than the rule** (auditor I7, confirmed):
-  held text, his wording.
-- **Snapshots have no DOI or third-party deposit; a cite has no "as of"** (researcher I8).
+- **A monthly snapshot deposit with a DOI** (researcher I8; his decision 9, 2026-09-16): the cite
+  now carries an access date and the newest kept archive; a third-party deposit (Zenodo) publishes
+  permanently, so it waits for him to choose it.
 
-**Decided by the operator, 2026-09-16** (multiple-choice, in session; branch `graders-decisions`). Still open from the fix-now list, chosen as the live demo for the ARDA call on 2026-09-17: the `coverage` tool matching `/coverage` (assistant I2).
+### From review of the tabular pass's last fixes, 2026-09-17 (PR #34, merged)
 
-1. **Early years — all three surfaces.** `/coverage` and `/stats` say every month from 1996-01 is
-   walked and the Board's own filings table is sparse before 2002, with the measured counts; a
-   sheet whose record may predate 25 Jan 1996 says so in one line. Wording to him before it ships. **Wording approved by him 2026-09-16** (PR #40).
-2. **Last checked — show both, bump the shape.** Pages and MCP show the latest forward poll (less
-   recorded outages) as "last checked" and the last entry as "last new entry"; JSON gains
-   `last_new_entry`, `last_checked` takes its true meaning, `shape_version` 3, announced on `/data`.
-3. **Parties — user-directed fetchers may read them.** `ChatGPT-User`, `Claude-User` and
-   `Perplexity-User` may fetch `/p/` and `/parties`; AI search indexers and training crawlers stay
-   refused; `/search` stays refused to all named agents. The prose says exactly what is held.
-4. **Text — user-directed fetchers may read it.** The same three may fetch the `/text` pages the MCP
-   server links; the rest stay refused (with PR #38's reading-on-request rule).
-5. **CC0 — correct the label, not the content.** Comments and filings are public record and stay
-   published as filed (his point); the label says CC0 covers the compilation and the Board's own
-   fields, and that filings and comments are reproduced as filed. The held-text omission and the
-   capture-ledger error in `LICENSE-DATA.txt` are fixed. **Wording approved by him 2026-09-16** (PR #40).
-6. **Served dates — label everywhere, leave room for decided dates.** Pages and MCP say "served";
-   JSON gains `date_kind` (additive); the cite line takes the Board's "(STB served Sept. 3, 2026)".
-   A quoted decided date (the decided-date pass) arrives beside it later without renaming anything.
-7. **Webhooks — timestamped signature alongside, non-breaking.** The current header stays; a
-   timestamp header and a signature over `timestamp.body` are added, with `shape_version` in the
-   payload; methodology documents both.
-8. **Repeated filer — reword to match the rule.** "A cell that is only one name repeated is shown
-   once." Held methodology text: **wording approved by him 2026-09-16** (PR #40).
-9. **Citability — "as of" in the cite now; a DOI deposit later.** The cite block carries the access
-   date and the latest snapshot id; a monthly Zenodo deposit is a menu item for him to choose.
+- **`page_index` and `register_or_exit` exist twice, in `dots_worker.py` and `hunyuan_worker.py`**
+  (`/code-review` low): the twins are duplicated on purpose (hunyuan_worker's docstring: a rule
+  change belongs in both, and the dots loop runs), and these two pure helpers were added to both
+  in one commit. A shared fleet module would stop them drifting; worth doing when the dots worker
+  is next changed, not while a pass runs on it.
 
 ### Capability-scale — chosen from the menu, not fixed in passing
 
