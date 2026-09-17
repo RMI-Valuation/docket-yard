@@ -28,8 +28,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **v2026.09.26, his to cut**: the sticky text-page rail (cce6eb6) and a page hit's record and
-  docket links (58fc469). No migration, no index rebuild: a tag change
+- **v2026.09.26, his to cut**: sticky text-page rail; a page hit's record and docket links; the
+  release in the footer; the home rail "Use the record"; `/ai`; MCP `readOnlyHint`; README.
+  No migration, no index rebuild: a tag change
 - **A built-out search, after that release (his, 2026-09-17)**: one bar today, with no say over
   what is searched (dockets, decisions, filings, comments, page text), no filters (prefix, type,
   dates, party) and no choice of what comes back. Scope it with him as questions first

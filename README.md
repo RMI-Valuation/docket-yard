@@ -43,7 +43,8 @@ What is there today:
   index under CC0 at [`/data`](https://docketyard.org/data), and
   [`/api`](https://docketyard.org/api) describing both
 - **A read-only MCP server** for AI assistants at `/mcp`, described at
-  [`/.well-known/mcp.json`](https://docketyard.org/.well-known/mcp.json): search the record,
+  [`/.well-known/mcp.json`](https://docketyard.org/.well-known/mcp.json), with setup steps for
+  Claude, ChatGPT and code editors at [`/ai`](https://docketyard.org/ai): search the record,
   read a docket sheet, an environmental comment or a page of a document's text, count filings
   by the Board's own type, and check coverage. Every answer carries what the record does not
   hold and links the Board's own file
