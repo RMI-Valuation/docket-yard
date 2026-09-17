@@ -293,6 +293,19 @@ A second node needs three things and no redesign:
    once read a page every 3.3 s effective. The gate runs six. The node could run two, and
    has not been measured for the vision encoder's activation peak at two — the OOM lesson.
 
+   **Re-measured on vLLM 0.29.0, 2026-09-17, on the 3090 box's WSL2 Ubuntu 24.04 (bare, not a
+   container): the constraint stands, and it now has a deadline.** V2 is 0.29's default for
+   every model and it fails at engine start with `RuntimeError: UVA is not available`; V1 still
+   works when forced. **V1 is deprecated in 0.29 with removal targeted for 0.32**, so both WSL2
+   nodes — the workstation and the 3090 box — are pinned below 0.32 until either the WSL driver
+   gains unified virtual addressing or those machines run native Linux. That is a second,
+   measured argument for the 3090 moving into RMI-AI-MACHINE, where the question does not arise.
+
+   A second finding from the same run, about bare WSL rather than vLLM: forcing V1 there fails
+   with `Failed to find C compiler`, because Triton compiles kernels at start and the distro has
+   no gcc. The workstation never sees it — its vLLM runs in a container that ships one. A bare
+   WSL node needs `build-essential` (root, once) or a user-space toolchain before it can serve.
+
 **NVIDIA's Personal AI Router (PAIR)** was evaluated 2026-09-09 for this role and is not it:
 it routes single requests to Ollama or LM Studio nodes by GPU utilisation, without regard to
 memory or model fit (its README says so), with no batch, no lease, and no way to say which
