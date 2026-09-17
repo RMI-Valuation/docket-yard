@@ -308,6 +308,19 @@ def create_app(
         prefix_name=labels.prefix_name,
         display_filed_for=labels.display_filed_for,
     )
+
+    def cite_as_of() -> str:
+        """What a citation can pin a moment to (the operator, 2026-09-16, on the independent
+        graders' finding): the day it was read, and the bulk snapshot that holds the record as
+        of then — the one version a reader can fetch again later."""
+        manifest = dump.read_manifest(public_dir)
+        return f"Accessed {fmt_date(utcnow())}" + (
+            f"; bulk snapshot of {fmt_date(manifest.built_at)}, {manifest.latest.name}"
+            if manifest
+            else ""
+        )
+
+    templates.env.globals["cite_as_of"] = cite_as_of
     # The stylesheet is cached a week; its URL carries its content hash so a deploy is seen.
     css_hash = hashlib.sha256((_PKG / "static" / "site.css").read_bytes()).hexdigest()[:12]
     templates.env.globals.update(

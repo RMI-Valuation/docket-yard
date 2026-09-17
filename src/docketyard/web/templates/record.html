@@ -81,6 +81,7 @@
       <h2 id="cite">Cite</h2>
       <p class="cite serif" id="cite-line">{{ noun }} {{ entry.record_id }}, {{ cite_docket(identity) }}{% if cite_date(entry.kind, entry.date) %} {{ cite_date(entry.kind, entry.date) }}{% endif %}</p>
       <p class="small muted">Record <span class="mono">docketyard.org{{ record_path(entry.kind, entry.record_id) }}</span>{% if current %}<br>File <span class="mono">docketyard.org{{ document_path(current.document_sha256, current.media_type) }}</span>{% endif %}</p>
+      <p class="small muted">{{ cite_as_of() }}.</p>
       <button class="btn no-print" type="button" data-copy="cite-line" hidden>Copy citation</button>
     </div>
     <div class="no-print">

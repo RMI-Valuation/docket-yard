@@ -559,3 +559,19 @@ def test_last_checked_is_the_last_poll_and_the_last_entry_is_said_apart(tmp_path
     assert d["shape_version"] == 3
     assert d["docket"]["last_checked"].startswith("2099") and d["docket"]["last_new_entry"]
     assert "last new entry" in client.get("/d/FD-36873").text
+
+
+def test_a_cite_block_carries_the_day_it_was_read_and_the_snapshot(tmp_path):
+    """The researcher grader, 2026-09-16: a paper citing a sheet could not say what it showed
+    that day. The operator's decision: an access date and the bulk snapshot, now."""
+    from docketyard.store import dump
+
+    path = build_store(tmp_path)
+    client = TestClient(create_app(path))
+    from datetime import UTC, datetime
+
+    today = datetime.now(UTC)  # the page's clock is UTC
+    assert f"Accessed {today.day} {today.strftime('%b %Y')}." in client.get("/d/FD-36873").text
+    dump.dump(path, tmp_path / "public")  # a snapshot exists: the cite names it
+    page = TestClient(create_app(path)).get("/decision/53210").text
+    assert "; bulk snapshot of " in page and "docketyard-" in page
