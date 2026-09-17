@@ -303,3 +303,36 @@ The pass is scratch code, kept out of the repo except the feature module
 row per live reading; the analysis is over that file. Production is read-only throughout:
 `sqlite3.connect("file:...?mode=ro", uri=True)`, `sudo nice -n 15`, every ssh with `</dev/null`
 and a remote `timeout`.
+
+## The rotation probe (2026-09-17), and what it settles
+
+The operator marked 9 of the 64 pages "rotate before OCR" and chose to measure orientation
+before any re-read. Three things came out of it; `rotation-probe.json` holds the numbers.
+
+**The metadata is no use.** All 9 carry `/Rotate = 0` and a PORTRAIT page box: the scan itself
+is sideways and the PDF says nothing. Eight *other* pages in the 64 do declare a rotation, and
+pymupdf honours those, so the declared ones already render upright. Only content can find the
+rest.
+
+**The signal cannot pick the rotation.** Each of the 9 was rendered at 200 DPI, turned 0/90/180/
+270, read with PP-OCR and scored: the spread between the best and worst rotation is a few
+hundredths (L01 0.465–0.512, L08 0.652–0.812), the best rotation lands on all four values across
+the 9 pages, and the token counts barely move. "Render four ways and keep the best score" is not
+a detector. **Caveat that bounds this**: the signal is weakest on exactly these pages — 8 of the
+9 are maps, tables or drawings, whose labels are not lexicon words — so this rules the method
+out rather than ruling rotation harmless.
+
+**A vision model reads them without being told.** qwen3-vl:8b-instruct on L01 and L31 recovered
+the headers at 0° as well as at 90°/270° (L01: *"Sikeston Subdivision - Essex to Miner"*), and
+its 90° reading of L01 produced the column headers the 0° reading missed. It also invented at
+90° on L31 — a preservation temperature and a molarity that are not on the page — which is the
+same failure the benchmark measures on maps. **The wave's degraded-tier primary, dots.mocr, is
+itself a VL model**, so the orientation question is narrower than it looked: it bears on
+PP-OCRv6, which reads the clean and graphic tiers, and not on the reader that would take a
+rotated scan.
+
+**What it means for the re-read.** Not one of the 9 rotated pages is prose. Under the decided
+order — prose first — they sit at the back of the queue, so **rotation does not block the
+re-read starting**. What is still owed before the graphic and tabular pages are read: PP-OCRv6
+with `use_doc_orientation_classify` on against off, over rotated pages specifically, scored
+against pages somebody has checked rather than against this signal.

@@ -1840,6 +1840,13 @@ the figures in that README are now his, not the drafting pass's.
   DO declare a rotation, and pymupdf already honours those, so the declared ones render
   upright). Only a content-based orientation classifier or the layout model's own reading
   order can detect the other kind, which is the toggle the wave turns off.
+  **PROBED 2026-09-17** (`docs/research/text-quality/` § The rotation probe): rendering each of
+  the 9 at four rotations and scoring the PP-OCR reading does NOT pick the upright one — the
+  spread is hundredths and the winner lands on all four values — so that cheap detector is out.
+  A VL model read the two tried at 0° about as well as turned, and **dots.mocr is itself a VL
+  model**, so this bears on PP-OCRv6's tiers, not on the degraded-tier reader. None of the 9 is
+  prose, so it does not block the prose re-read. Still owed before the graphic and tabular
+  pages: the toggles on against off over rotated pages, scored against checked truth.
 - **No table page keeps its grid.** 20 table/mixed pages carry a structure verdict: 5 ordered,
   9 scrambled, 7 absent, 0 grid — and 7 of them have clean words. A table's text layer is
   usable for search and useless for reading a row, at any score. Nothing in the display says

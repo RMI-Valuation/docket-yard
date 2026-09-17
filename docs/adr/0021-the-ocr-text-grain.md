@@ -381,12 +381,20 @@ text and no route, and are unchanged.
 
 ## Addendum (2026-09-17): a reading's quality is its own assertion, and the rule that judges it is dated
 
-**Status: Proposed, and NOT ready for a decision.** Narrows decision 7 by adding what a page
-may say *about* a reading it shows. **Three schema-critic passes have each found real breaks,
-twice in the previous pass's own repair** (`docs/deferred.md`, 2026-09-17); the third pass's
-findings are open. Before a fourth draft, the operator's question is whether one sentence on a
-page is worth four new objects and ~1.085M rows, or whether the score stays an internal routing
-list and the re-read does the work. Migration 0034. Measured in `docs/research/text-quality/`: ~110,500 of 931,392 judged
+**Status: WITHDRAWN 2026-09-17, by the operator**, before any migration was written and before
+any row existed. It proposed what a page may say *about* a reading it shows; the operator's
+answer is that the score stays an **internal routing list** — no schema change, nothing
+published — and that the re-read fixes the pages instead of labelling them.
+
+**Why it is kept rather than deleted.** Three schema-critic passes each found real breaks, and
+twice the break was in the previous pass's own repair (`docs/deferred.md`, 2026-09-17): a new
+lexicon would blank every warning site-wide until ~1.085M readings were re-scored; the
+suppression path for a wrong warning was unbuildable in either table it could mean; the owed
+as-of projection is the second copy of the display rule migration 0028 forbids, whose
+non-duplicating form is a measured 27-minute page-index rebuild. **The accumulation was itself
+the finding**: four new objects and a row per page to print one sentence. The operator's first
+answer, before this draft argued him out of it, was "internal only"; the record below is what
+that decision was taken against, and what a later attempt would start from. Migration 0034. Measured in `docs/research/text-quality/`: ~110,500 of 931,392 judged
 text-layer pages are faulty (65,300–330,000), ~25,000 garbage. The operator's decisions of
 2026-09-17: a stored flag feeding a page warning, search untouched. **Two schema-critic passes**;
 what they broke is in § What the earlier drafts got wrong.

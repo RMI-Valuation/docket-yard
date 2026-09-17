@@ -27,14 +27,14 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **Text-layer quality, HIS DECISIONS AND 95 CHECKED LABELS, 2026-09-17**
-  (`docs/research/text-quality/`, branch `text-layer-quality`): a text layer is never
-  second-read, so 18005's 2007 garble shows unjudged. **~110,500 of 931,392 text-layer pages
-  are faulty (1 in 8), ~25k garbage**; the <0.5 cut catches 68% of garbage, 2/3 of what it
-  flags are maps, and 9 of 64 pages need ROTATING while the wave has orientation off. Owed:
-  (1) re-read the <0.5 pages, prose first — dots.mocr stands; (2) **ADR 0021 addendum Proposed,
-  HIS TO ACCEPT** (critic pass 1 broke 4, all closed; pass 2 owed); (3) the display view has no
-  as-of form, so a warning is replayable only to the day it was read (`deferred.md`)
+- **Text-layer quality, HIS 95 LABELS AND HIS TWO DECISIONS, 2026-09-17**
+  (`docs/research/text-quality/`, branch `text-layer-quality`): **~110,500 of 931,392
+  text-layer pages are faulty (1 in 8), ~25k garbage**; the <0.5 cut catches 68% of garbage,
+  2/3 of what it flags are maps. The quality ADDENDUM IS WITHDRAWN (his, after three critic
+  passes): the score stays an internal routing list, nothing published, no schema change.
+  Owed: (1) **measure orientation** before the re-read — 9 of 64 pages need rotating, all with
+  `/Rotate = 0`, and the wave runs PP-OCRv6 with the toggles off; (2) then re-read the <0.5
+  pages, prose first, on dots.mocr
 - **MCP: list the proceedings behind a count** (`deferred.md` § From using the live MCP server):
   asked for the 20 most recent, an assistant had to guess one. His to choose; small
 - **The graders' three open fix-now items** (`deferred.md` § The independent graders): the
