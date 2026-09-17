@@ -306,6 +306,16 @@ A second node needs three things and no redesign:
    no gcc. The workstation never sees it — its vLLM runs in a container that ships one. A bare
    WSL node needs `build-essential` (root, once) or a user-space toolchain before it can serve.
 
+   **A bare-WSL node, built and proven 2026-09-17 on the 3090 box** (`home-ws-crr-25`), for
+   anyone doing it again: WSL2 Ubuntu 24.04 already sees the card, and nothing needs root if the
+   venv is built on **uv's own Python** — the distro's `python3.12` ships no headers, and Triton
+   compiles `cuda_utils.c` at engine start. Three failures in order, each invisible inside a
+   container: V2's `UVA is not available`, then `Failed to find C compiler` (the operator
+   installed `build-essential`), then `Python.h: No such file` (solved by
+   `uv python install 3.12` rather than `python3.12-dev`). With vLLM pinned to **0.28.0** and the
+   flags above, dots.mocr served and read a 150 DPI page in **3.2 s**. The token streams from the
+   node and the coordinator serves the documents' bytes, so a worker holds no S3 key.
+
 **NVIDIA's Personal AI Router (PAIR)** was evaluated 2026-09-09 for this role and is not it:
 it routes single requests to Ollama or LM Studio nodes by GPU utilisation, without regard to
 memory or model fit (its README says so), with no batch, no lease, and no way to say which
