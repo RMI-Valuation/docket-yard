@@ -311,14 +311,12 @@ def create_app(
 
     def cite_as_of() -> str:
         """What a citation can pin a moment to (the operator, 2026-09-16, on the independent
-        graders' finding): the day it was read, and the bulk snapshot that holds the record as
-        of then — the one version a reader can fetch again later."""
+        graders' finding): the day it was read, and the newest KEPT archive — a dated file a
+        reader can fetch again later. Not `latest`, which the next night overwrites (code
+        review, 2026-09-16)."""
         manifest = dump.read_manifest(public_dir)
-        return f"Accessed {fmt_date(utcnow())}" + (
-            f"; bulk snapshot of {fmt_date(manifest.built_at)}, {manifest.latest.name}"
-            if manifest
-            else ""
-        )
+        kept = manifest.dated[0].name if manifest and manifest.dated else None
+        return f"Accessed {fmt_date(utcnow())}" + (f"; bulk archive {kept}" if kept else "")
 
     templates.env.globals["cite_as_of"] = cite_as_of
     templates.env.globals["record_begins"] = sheet.RECORD_BEGINS

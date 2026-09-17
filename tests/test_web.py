@@ -574,7 +574,8 @@ def test_a_cite_block_carries_the_day_it_was_read_and_the_snapshot(tmp_path):
     assert f"Accessed {today.day} {today.strftime('%b %Y')}." in client.get("/d/FD-36873").text
     dump.dump(path, tmp_path / "public")  # a snapshot exists: the cite names it
     page = TestClient(create_app(path)).get("/decision/53210").text
-    assert "; bulk snapshot of " in page and "docketyard-" in page
+    kept = dump.read_manifest(tmp_path / "public").dated[0].name
+    assert f"; bulk archive {kept}." in page and "latest" not in kept  # a file that stays
 
 
 def test_the_thin_early_years_are_said_to_be_the_boards_and_an_early_sheet_warns(
@@ -616,3 +617,37 @@ def test_the_licence_dedicates_what_is_ours_and_reproduces_what_was_filed():
     assert "WHAT IS DEDICATED" in text and "WHAT IS REPRODUCED AS FILED" in text
     assert "does not purport" in text and "machine-read text of documents" in text
     assert "as works of the United States Government they are in the public domain" not in text
+
+
+def test_walked_back_to_refuses_a_gap_no_wave_began_and_takes_the_later_table(tmp_path):
+    """Code review, 2026-09-16: `/stats` and `/coverage` said "every month back to 1996-01 has
+    been walked" while a month between waves had no slice, or one table was walked less far
+    back than the other."""
+    from docketyard.store import coverage
+
+    con = db.connect(build_store(tmp_path))
+    start = coverage._watch_starts(con.execute, (FILINGS, DECISIONS))[FILINGS]
+
+    def months(first: str):
+        y, m = int(first[:4]), int(first[5:7])
+        while (y, m) <= (start.year, start.month):
+            yield f"{y:04d}-{m:02d}"
+            y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+
+    def slice_(action, month):
+        con.execute(
+            "INSERT OR REPLACE INTO walk_slice (slice_key, table_action, criteria, status, rows,"
+            " captures, completed_at) VALUES (?, ?, '[]', 'done', 0, 1, '2026-09-01')",
+            (f"{action}:{month}", action),
+        )
+
+    for m in months("2025-11"):
+        slice_(FILINGS, m)
+    for m in months("2026-01"):
+        slice_(DECISIONS, m)
+    con.commit()
+    assert coverage.walked_back_to(con) == "2026-01"  # decisions reach back less far
+    con.execute("DELETE FROM walk_slice WHERE slice_key = ?", (f"{FILINGS}:2025-12",))
+    con.commit()
+    assert coverage.walked_back_to(con) is None  # a month no slice names is outstanding
+    con.close()
