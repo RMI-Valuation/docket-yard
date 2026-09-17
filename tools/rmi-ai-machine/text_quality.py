@@ -74,6 +74,42 @@ def shares(f: dict) -> dict:
     }
 
 
+# --- the prose screen, for ORDERING a re-read queue and nothing else ------------------------
+#
+# The re-read is prose first (ocr-plan.md decision 3, the operator 2026-09-17), and the page's
+# kind is known only for the pages somebody labelled. These three numbers come from the stored
+# text, need no scan and no model, and separate prose from maps, drawings and tables well enough
+# to order a queue: on the 166 labelled pages, recall 0.92 and precision 0.92; two-fold with the
+# thresholds chosen on one half, recall 0.86-0.94 and precision 0.87-0.94 on the held-out half.
+# NOT a published claim about a page, and not a kind assertion — a queue order.
+PROSE_TOKENS_PER_LINE = 3.0
+PROSE_MEDIAN_LINE = 12
+PROSE_MAX_NUMERIC = 0.25
+
+
+def layout(text: str) -> dict:
+    """Line shape: prose runs long lines with several words; a drawing's labels do not."""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    toks = text.split()
+    bare = (t.strip(".,;:()$%-").replace(",", "").replace(".", "") for t in toks)
+    numeric = sum(1 for t in bare if t.isdigit())
+    lens = sorted(len(ln) for ln in lines) or [0]
+    return {
+        "lines": len(lines),
+        "median_line": lens[len(lens) // 2],
+        "tokens_per_line": len(toks) / len(lines) if lines else 0.0,
+        "numeric_share": numeric / len(toks) if toks else 0.0,
+    }
+
+
+def looks_like_prose(lay: dict) -> bool:
+    return (
+        lay["tokens_per_line"] >= PROSE_TOKENS_PER_LINE
+        and lay["median_line"] >= PROSE_MEDIAN_LINE
+        and lay["numeric_share"] < PROSE_MAX_NUMERIC
+    )
+
+
 def lexicon_words(text: str):
     """Words for the lexicon: lowercase letter runs of 2+ from word-like tokens."""
     for t in text.split():
