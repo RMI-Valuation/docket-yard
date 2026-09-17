@@ -558,3 +558,118 @@ def test_the_machine_answer_never_offers_more_pages_than_the_none_it_showed(tmp_
     answer = mcp._search(db.connect(path), {"query": "pangolin"}, "docketyard.org")
     assert "0 shown" not in answer
     assert "more pages than" not in answer
+
+
+# --- reading a page (the operator, 2026-09-16: assistants may read the text on a user's
+# request, both tiers labelled, with snippets, and the caveat in every answer carrying text)
+
+
+def test_the_mcp_search_shows_why_each_page_matched_and_carries_the_text_caveat(tmp_path):
+    path, _ = _with_text(tmp_path)
+    con = db.connect(path)
+    out = mcp._search(con, {"query": "tazewell"}, "docketyard.org")
+    con.close()
+    assert 'Matched: "' in out and "«Tazewell»" in out
+    assert search.MARK_OPEN not in out and search.MARK_CLOSE not in out  # no control chars
+    assert mcp.TEXT_CAVEAT in out and mcp.TEXT_LICENCE in out
+    assert "`read_page`" in out
+
+
+def test_a_record_only_search_hands_over_no_text_and_no_text_caveat(tmp_path):
+    path, _ = _with_text(tmp_path)
+    con = db.connect(path)
+    out = mcp._search(con, {"query": "UP/NS"}, "docketyard.org")
+    con.close()
+    assert "[page]" not in out and mcp.TEXT_CAVEAT not in out
+
+
+def test_a_page_is_read_at_the_address_a_search_gave_labelled_and_caveated(tmp_path):
+    path, sha = _with_text(tmp_path)
+    con = db.connect(path)
+    out = mcp._read(
+        con, {"address": "https://docketyard.org/filing/311900/text#p3"}, "docketyard.org"
+    )
+    assert "Filing 311900 — in FD 36873 (Sub-No. 1)" in out
+    assert "[page 3 of 3] https://docketyard.org/filing/311900/text#p3" in out
+    assert "Docket No. AB 1242, Tazewell County" in out
+    assert "--- page 3 text begins ---" in out and "--- page 3 text ends ---" in out
+    assert "publisher's own text layer, read by pymupdf 1.24.10" in out
+    assert "The Board's own file: https://" in out
+    assert "The scan: https://docketyard.org/filing/311900#file" in out
+    assert "never the Board's words" in out
+    assert out.endswith(mcp.TEXT_LICENCE) and mcp.TEXT_CAVEAT in out
+    assert "abandonment in Perry County" not in out  # page 1 was not asked for
+    assert "A page machine-read by an engine" not in out  # a text layer is not OCR
+    con.close()
+
+
+def test_a_range_is_read_with_the_display_rule_and_says_where_it_stopped(tmp_path):
+    path, _ = _with_text(tmp_path)
+    con = db.connect(path)
+    out = mcp._read(con, {"address": "filing 311900", "pages": 2}, "docketyard.org")
+    # the display view's text: contact details omitted, as on the text page
+    assert "[email omitted]" in out and "jane.doe@example-law.com" not in out
+    assert "[page 2 of 3]" in out and "Read as blank." in out
+    assert "Pages 1 to 2 of 3 shown; pass `page` 3 to go on." in out
+    # asking past the end reads the last page; asking for too many is capped
+    out = mcp._read(con, {"address": "filing 311900", "page": 99, "pages": 50}, "docketyard.org")
+    assert "[page 3 of 3]" in out and "go on" not in out
+    con.close()
+
+
+def test_an_engine_read_page_says_it_carries_ocr_errors(tmp_path):
+    path, sha = _store_with_document(tmp_path)
+    assert _loaded(path, tmp_path, _ocr(sha)) == "loaded"
+    con = db.connect(path)
+    out = mcp._read(con, {"address": "/filing/311900/text"}, "docketyard.org")
+    con.close()
+    assert "Machine-read by dots.mocr 1.5 at render 150, routed as degraded" in out
+    assert "No second reading yet, so no band." in out
+    assert "carries character errors" in out and "no person has reviewed it" in out
+    assert mcp.TEXT_CAVEAT in out
+
+
+def test_a_comments_file_is_read_at_its_address_under_the_docket(tmp_path):
+    path, _ = _comment_with_text(tmp_path, ("I write about groundwater; jo@example.org",))
+    con = db.connect(path)
+    out = mcp._read(con, {"address": "/d/FD-36873/comment/ei-34280/text#p1"}, "docketyard.org")
+    con.close()
+    assert "Environmental comment EI-34280 — in FD 36873" in out
+    assert "I write about groundwater" in out and "jo@example.org" not in out
+    assert "The scan: https://docketyard.org/document/" in out  # a comment has no frame
+
+
+def test_an_address_the_tool_cannot_read_is_answered_not_guessed(tmp_path):
+    path, _ = _with_text(tmp_path)
+    con = db.connect(path)
+    assert "is not an address this tool reads" in mcp._read(con, {"address": "page 3"}, "h")
+    assert "holds no filing 999" in mcp._read(con, {"address": "filing 999"}, "h")
+    assert "holds no environmental comment" in mcp._read(
+        con, {"address": "/d/FD-36873/comment/EI-1/text"}, "h"
+    )
+    # arguments of the wrong type fall back to their defaults rather than raising
+    out = mcp._read(con, {"address": "filing 311900", "page": "x", "pages": True}, "h")
+    assert "[page 1 of 3]" in out
+    con.close()
+
+
+def test_read_page_through_the_protocol_carries_every_caveat(tmp_path):
+    path, _ = _with_text(tmp_path)
+    client = TestClient(create_app(path))
+    r = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "read_page", "arguments": {"address": "filing 311900"}},
+        },
+    )
+    text = r.json()["result"]["content"][0]["text"]
+    assert r.json()["result"]["isError"] is False
+    assert mcp.TEXT_CAVEAT in text and "Coverage is not uniform" in text
+    # and the assistant is told at connect, before it reads anything
+    init = client.post(
+        "/mcp", json={"jsonrpc": "2.0", "id": 2, "method": "initialize", "params": {}}
+    ).json()["result"]["instructions"]
+    assert "outside Docket Yard's control" in init and "not for bulk collection" in init
