@@ -368,6 +368,203 @@ def test_the_old_drivers_file_is_whole_only_if_it_says_so(tmp_path):
     assert not ocr_wave.shard(out / "ppocr-second", B).exists()  # measured against old text
 
 
+# --- the tabular pass: HunyuanOCR-1.5 at 150 DPI (ocr-plan.md decision 6) ------------------------
+
+TAB = pq.PASSES["tabular"]["key"]
+hw = _module("hunyuan_worker", ROOT / "tools" / "fleet" / "hunyuan_worker.py")
+TABLE_RAW = (
+    "# Rate schedule\n\n"
+    "<table><tr><th>Commodity</th><th>Rate</th></tr><tr><td>Coal</td><td>1.25</td></tr></table>"
+    "\n\nIssued 2026"
+)
+TABLE_TEXT = "# Rate schedule\n[table]\nCommodity\tRate\nCoal\t1.25\n[end table]\nIssued 2026"
+
+
+def test_seeding_tabular_queues_only_the_tabular_pages(tmp_path):
+    out = tmp_path / "ocr"
+    _route_root(out, A, {1: "tabular", 2: "degraded", 3: "tabular", 4: "clean"})
+    _route_root(out, B, {1: "degraded", 2: "graphic"})
+    q = pq.Queue(tmp_path / "q.sqlite")
+    n = pq.seed_pass(q, "tabular", out)
+    assert (n["documents"], n["pages"], n["new"]) == (1, 2, 2)
+    rows = q.con.execute("SELECT pass, document_sha256, page_no FROM job ORDER BY page_no")
+    assert [tuple(r) for r in rows] == [("tabular", A, 1), ("tabular", A, 3)]
+    assert set(q.status()["passes"]) == {"tabular"}  # nothing queued for dots
+
+
+def test_the_tabular_pass_refuses_any_other_key(tmp_path):
+    q = pq.Queue(tmp_path / "q.sqlite")
+    with pytest.raises(pq.KeyMismatch):
+        q.register("w", "tabular", {**KEY, "host": "x"})  # a dots worker
+    with pytest.raises(pq.KeyMismatch):
+        q.register("w", "tabular", {**TAB, "render_profile": "200", "host": "x"})
+    with pytest.raises(pq.KeyMismatch):
+        q.register("w", "dots", {**TAB, "host": "x"})
+    q.register("w", "tabular", {**TAB, "host": "x", "engine": "transformers"})
+
+
+def test_collect_tabular_writes_a_reading_the_loader_takes(tmp_path):
+    path, sha = _store_with_document(tmp_path)
+    out = tmp_path / "ocr"
+    _route_root(out, sha, {1: "clean", 2: "tabular", 3: "tabular"})
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", "tabular", {**TAB, "host": "x"})
+    assert pq.seed_pass(q, "tabular", out)["new"] == 2
+    a, b = q.claim("w1", "tabular", 2, 60)
+    q.done("w1", a["job_id"], TABLE_RAW)
+    q.fail("w1", b["job_id"], "page: finish_reason length", final=True)
+    assert pq.collect_pass(q, "dots", out) == 0  # another pass's collect does not take it
+    assert pq.collect_pass(q, "tabular", out) == 1
+    doc = json.loads(ocr_wave.shard(out / "hunyuan-tabular", sha).read_text(encoding="utf-8"))
+    assert (doc["method"], doc["method_version"], doc["render_profile"]) == (
+        "hunyuan-ocr",
+        "1.5",
+        "150",
+    )
+    assert (doc["reading_role"], doc["payload_kind"]) == ("primary", "hunyuan-ocr.json")
+    assert doc["outcome"] == "read" and doc["pages_failed"] == 1
+    assert doc["pages"] == [
+        {
+            "page_no": 2,
+            "text": TABLE_TEXT,
+            "member": "engine/pages/0",
+            "route": ocr_wave.route_of("tabular"),
+        }
+    ]
+    assert doc["engine"]["pages"] == [{"page_no": 2, "raw": TABLE_RAW}]  # the answer, whole
+    manifest = json.loads((out / "hunyuan-tabular" / "_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["pass"] == "tabular" and manifest["key"] == TAB
+
+    con = db.connect(path)
+    reading = load.from_reading(doc, b"{}", load.run_outcomes(con), load.failure_reasons(con))
+    assert load.load_reading(con, tmp_path, reading)
+    con.commit()
+    # the cut answer lands as main's per-page failure row, in the classifier's own words
+    assert con.execute(
+        "SELECT f.page_no, f.reason, v.page_owned, f.detail FROM ocr_page_failure f"
+        " JOIN page_failure_reason_vocab v USING (reason)"
+    ).fetchall() == [(3, "cut-answer", 1, "finish_reason length")]
+    con.close()
+    assert pq.seed_pass(q, "tabular", out)["whole"] == 1  # the failure was the page's
+
+
+def test_hunyuan_page_flattens_tables_and_keeps_the_answer_whole():
+    assert ocr_wave.hunyuan_page(2, TABLE_RAW) == ({"page_no": 2, "raw": TABLE_RAW}, TABLE_TEXT)
+    prose = "Decided: September 1, 2026\n\nBy the Board.\n"
+    assert ocr_wave.hunyuan_page(1, prose) == (
+        {"page_no": 1, "raw": prose},
+        "Decided: September 1, 2026\n\nBy the Board.",
+    )
+    # collect writes what was posted; the worker never posts '' (the next test)
+    assert ocr_wave.hunyuan_page(3, "") == ({"page_no": 3, "raw": ""}, "")
+
+
+def test_an_empty_answer_is_refused_and_never_posted_as_done(q):
+    """A tabular page has a table on it: '' is the model failing, not a blank page. Posted as
+    done, collect would write `read` with no text and the next seed would call it whole."""
+    a, b = q.claim("w1", "dots", 2, 60)
+    assert hw.post_answer(q, "w1", a["job_id"], " \n") == "empty"
+    row = q.con.execute(
+        "SELECT state, attempts, error FROM job WHERE job_id = ?", (a["job_id"],)
+    ).fetchone()
+    assert (row["state"], row["attempts"], row["error"]) == ("pending", 1, hw.EMPTY_ANSWER)
+    assert not row["error"].startswith(pq.PAGE_OWNED)
+    assert q.con.execute("SELECT COUNT(*) FROM result").fetchone()[0] == 0
+    assert hw.post_answer(q, "w1", b["job_id"], TABLE_RAW) == "done"
+    assert hw.post_answer(q, "w1", b["job_id"], TABLE_RAW) == "lost"  # no longer leased
+
+
+def test_a_generation_that_spends_every_token_without_eos_is_cut():
+    assert hw.generation_failure(4096, 4096, False) == "finish_reason length"
+    assert hw.generation_failure(4096, 4096, True) is None  # ended exactly at the budget
+    assert hw.generation_failure(812, 4096, True) is None
+
+
+class _OOM(Exception):
+    pass
+
+
+def test_out_of_memory_retries_once_with_the_cache_emptied_then_is_the_cards():
+    def is_oom(e):
+        return isinstance(e, _OOM)
+
+    calls, emptied = [], []
+
+    def once_then_ok():
+        calls.append(1)
+        if len(calls) == 1:
+            raise _OOM
+        return "answer"
+
+    assert hw.read_with_oom_retry(once_then_ok, is_oom, lambda: emptied.append(1)) == "answer"
+    assert (len(calls), len(emptied)) == (2, 1)
+
+    def always():
+        raise _OOM
+
+    with pytest.raises(hw.GpuOutOfMemory):  # the card's, never PageFailed
+        hw.read_with_oom_retry(always, is_oom, lambda: None)
+
+    def broken():
+        raise ValueError("not memory")
+
+    with pytest.raises(ValueError):  # not an OOM: the engine's, handled by the loop
+        hw.read_with_oom_retry(broken, is_oom, lambda: None)
+
+    # two OOMs on the same page is still that page's retry; on a different page, the card
+    assert not hw.card_at_fault(None, (A, 1))
+    assert not hw.card_at_fault((A, 1), (A, 1))
+    assert hw.card_at_fault((A, 1), (A, 2))
+
+
+@pytest.mark.parametrize("error", ["gpu: oom", "engine: RuntimeError: CUDA error"])
+def test_a_page_given_back_keeps_its_attempt_spent_and_is_not_the_pages_own(q, error):
+    """The engine raising on a page, or the card running out of memory on it: the page in
+    flight spends its attempt (claimed first again, it would otherwise loop for ever), the
+    pages after it do not, and after max_attempts the document is re-read, never whole."""
+    ids = [j["job_id"] for j in q.claim("w1", "dots", 3, 60)]  # A p1, A p2, B p1
+    hw.give_back(q, "w1", ids, 0, error)
+    attempts = dict(q.con.execute("SELECT job_id, attempts FROM job WHERE state = 'pending'"))
+    assert attempts == {ids[0]: 1, ids[1]: 0, ids[2]: 0}
+    for _ in range(2):
+        (again,) = q.claim("w1", "dots", 1, 60)
+        assert again["job_id"] == ids[0]  # first in claim order, attempt by attempt
+        hw.give_back(q, "w1", [again["job_id"]], 0, error)
+    row = q.con.execute("SELECT state, error FROM job WHERE job_id = ?", (ids[0],)).fetchone()
+    assert (row["state"], row["error"]) == ("failed", error)
+    assert not row["error"].startswith(pq.PAGE_OWNED)
+    a2 = q.claim("w1", "dots", 1, 60)[0]["job_id"]
+    q.done("w1", a2, "[]")
+    q.mark_collected(
+        "dots", A, {"ran_at": "t", "outcome": "read", "pages": [{}], "pages_failed": 1}
+    )
+    assert q.known("dots", A) == "reread"
+
+
+def test_a_card_short_of_memory_claims_nothing(q):
+    free, need = 1 * hw.GIB, hw.MIN_HEADROOM
+    assert hw.short_of_memory(free, 0, 0, need)
+    assert hw.short_of_memory(free, 2 * hw.GIB, 1 * hw.GIB, need) is None  # its own cache counts
+    assert hw.short_of_memory(8 * hw.GIB, 0, 0, hw.MIN_FREE_TO_LOAD) is None
+    jobs, why = hw.claim_if_room(q, "w1", 4, 60, lambda: (free, 0, 0))
+    assert jobs is None and "GiB" in why
+    assert q.claimable("tabular") == 0 and q.claimable("dots") == 3  # nothing leased
+    q.seed("tabular", [(A, 1)], reread=set())
+    q.register("w1", "tabular", {**TAB, "host": "x"})
+    jobs, why = hw.claim_if_room(q, "w1", 4, 60, lambda: (8 * hw.GIB, 0, 0))
+    assert why is None and [j["page_no"] for j in jobs] == [1]
+
+
+def test_the_weights_revision_is_the_loaded_hash_else_the_caches_ref(tmp_path):
+    assert hw.weights_revision("tencent/HunyuanOCR", "abc", tmp_path) == "abc"
+    assert hw.weights_revision("tencent/HunyuanOCR", None, tmp_path) is None
+    ref = tmp_path / "models--tencent--HunyuanOCR" / "refs" / "main"
+    ref.parent.mkdir(parents=True)
+    ref.write_text("47644ecc4fc854efa4f505155158831f36773ee4\n", encoding="utf-8")
+    rev = hw.weights_revision("tencent/HunyuanOCR", None, tmp_path)
+    assert rev == "47644ecc4fc854efa4f505155158831f36773ee4"
+
+
 # --- the transport: the same promises through queue_server.py and RemoteQueue -----------------
 
 import socket  # noqa: E402
@@ -462,3 +659,30 @@ def test_the_transport_refuses_a_bad_token(remote):
     with pytest.raises(urllib.error.HTTPError) as e:
         bad.blob(A)
     assert e.value.code == 401
+
+
+def test_a_page_number_outside_the_document_is_the_documents_failure_at_both_ends():
+    """Copilot on PR #34, 2026-09-17: page 0 passed the upper-bound check and `doc[0 - 1]`
+    would have read the LAST page, silently."""
+    assert hw.page_index(1, 3) == 0 and hw.page_index(3, 3) == 2
+    for no in (0, -1, 4):
+        with pytest.raises(hw.DocumentFailed, match="has 3 pages, the route says"):
+            hw.page_index(no, 3)
+
+
+def test_a_queue_that_refuses_registration_is_the_environments_exit():
+    """Copilot on PR #34, 2026-09-17: a locked queue, an HTTP error or a key mismatch at
+    register crashed the worker with an unclassified exit code."""
+
+    class Refusing:
+        def register(self, name, pass_, producer):
+            raise RuntimeError("database is locked")
+
+    class Accepting:
+        def register(self, name, pass_, producer):
+            self.got = (name, pass_, producer)
+
+    assert hw.register_or_exit(Refusing(), "w1", "tabular", {}) == hw.EXIT_ENVIRONMENT
+    q = Accepting()
+    assert hw.register_or_exit(q, "w1", "tabular", {"k": 1}) is None
+    assert q.got == ("w1", "tabular", {"k": 1})

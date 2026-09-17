@@ -18,9 +18,10 @@ readings by key, and a key that meant two engines is a false number on a page.
 THE OUTPUT IS UNCHANGED. `collect` writes the same reading documents `ocr_wave.py dots`
 wrote, one per document under `<out>/dots/<xx>/<sha>.json` in the loader's shape
 (`docketyard/text/load.py`), once every page of the document is terminal, through the same
-`dots_page` the driver uses. `ran_at` is the moment of collection, written once. The root's
-`_manifest.json` names every producer that read for it. The loader, the rsync and the roots'
-order are as before.
+`dots_page` the driver uses (each pass names its page builder: `tabular` writes under
+`<out>/hunyuan-tabular` through `hunyuan_page`). `ran_at` is the moment of collection,
+written once. The root's `_manifest.json` names every producer that read for it. The
+loader, the rsync and the roots' order are as before.
 
     python3 pagequeue.py --db Q seed --pass dots --out /data/docketyard/ocr  # from the route root
     python3 pagequeue.py --db Q status
@@ -48,7 +49,15 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "rmi-ai-machine"))
 
-from ocr_wave import DOTS, PAGE_OWNED, ROOTS, now  # noqa: E402 — the driver's key, roots, clock
+from ocr_wave import (  # noqa: E402 — the driver's keys, roots, page builders and clock
+    DOTS,
+    HUNYUAN,
+    PAGE_OWNED,
+    ROOTS,
+    dots_page,
+    hunyuan_page,
+    now,
+)
 
 STATES = ("pending", "leased", "done", "failed")
 
@@ -56,7 +65,8 @@ PASSES = {
     # pass -> the reading key a worker must declare; which routed class it reads; the roots a
     # re-read of a document invalidates besides its own (a second reading names the primary
     # it was measured against, and a re-read primary is not that text); and the page bound,
-    # which belongs to the pass so `oversize` means one thing on every node
+    # which belongs to the pass so `oversize` means one thing on every node; and `page`, the
+    # one function that turns a worker's raw answer into the engine page and its text
     "dots": {
         "key": DOTS,  # the driver's own constant: one key, never two copies
         "role": "primary",
@@ -65,6 +75,21 @@ PASSES = {
         "root": ROOTS["dots"],
         "invalidates": ("second",),
         "max_megapixels": 6.0,
+        "page": dots_page,
+    },
+    # ocr-plan.md decision 6, built 2026-09-15: HunyuanOCR-1.5 in-process through transformers,
+    # at the router's 150 DPI (the benchmark's pages were 150). No second reading is measured
+    # against it, so a re-read invalidates nothing else. 6 MP: measured 2026-09-15 over the
+    # 26,294 tabular pages at 150 DPI, median 2.1 MP, p99 2.4, 29 pages over 6
+    "tabular": {
+        "key": HUNYUAN,
+        "role": "primary",
+        "payload_kind": "hunyuan-ocr.json",
+        "class": "tabular",
+        "root": ROOTS["tabular"],
+        "invalidates": (),
+        "max_megapixels": 6.0,
+        "page": hunyuan_page,
     },
 }
 
@@ -577,7 +602,6 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
     final in the queue, so naming a new kind is a code change rather than a retry."""
     from ocr_wave import (  # noqa: PLC0415
         _write,
-        dots_page,
         page_failure,
         reading_document,
         route_of,
@@ -585,6 +609,7 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
     )
 
     spec = PASSES[pass_]
+    to_page = spec["page"]
     out_root = out / spec["root"]
     written = skipped = 0
     for sha in q.collectable(pass_):
@@ -594,7 +619,7 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
                 if r["state"] != "done":
                     failures.append(page_failure(r["page_no"], r["error"]))
                     continue
-                engine_page, text = dots_page(r["page_no"], r["raw"])
+                engine_page, text = to_page(r["page_no"], r["raw"])
                 engine_pages.append(engine_page)
                 pages.append(
                     {

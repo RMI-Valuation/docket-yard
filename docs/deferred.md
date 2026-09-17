@@ -1708,6 +1708,14 @@ fixed on that branch (the omitted-page counts and the forward-only retirement tr
   `ocr_run` is PUBLIC. That is the leak `ocr_page_failure.detail`'s closed shapes were built to
   close: a path or a host in an exception reaches a snapshot that cannot be withdrawn.
 
+## From reviewing the tabular pass's build, 2026-09-15 (branch `hunyuan-tabular`, not yet run)
+
+- **OCR producer pins cannot tell two engines apart at one profile and role.** Producer pins are
+  keyed `(channel, render_profile, role)`, so `hunyuan-ocr` 1.5 at `ocr`/`150`/`primary` shares a pin
+  key with `pp-ocrv6-medium`: the first OCR pin would refuse one of the two roots. No OCR pin exists
+  yet, so nothing refuses today. Found by the stb-ingest-specialist on this branch; schema-critic
+  decides the key when OCR pins arrive.
+
 ## The independent graders, 2026-09-16 (against v2026.09.24, live MCP of four tools)
 
 Five cold-start AI graders — an STB practitioner, a researcher, an API developer, an assistant
