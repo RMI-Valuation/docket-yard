@@ -299,21 +299,35 @@ def test_the_discovery_document_does_not_call_the_whole_surface_cc0(client):
 
 def test_the_held_layer_is_disallowed_for_the_agents_the_policy_names(client):
     """The prose says the party module is not part of the dedication; the rule must say
-    it too, or the named agents are handed exactly what the prose withholds."""
+    it too, or the named agents are handed exactly what the prose withholds. Since
+    2026-09-16 (the operator) that means the agents that index or train: the three that fetch
+    on a person's request may read what a person may."""
+    from docketyard.web.app import USER_DIRECTED_AGENTS
+
     body = client.get("/robots.txt").text
     blocks = [b for b in body.split("\n\n") if b.startswith("User-agent:")]
     wildcard = [b for b in blocks if b.startswith("User-agent: *")][0]
     named = [b for b in blocks if not b.startswith("User-agent: *")]
     assert named, "no AI agent is named"
     for block in named:
-        assert "Disallow: /p/" in block, block.splitlines()[0]
-        assert "Disallow: /parties" in block, block.splitlines()[0]
+        agent = block.splitlines()[0].removeprefix("User-agent: ")
+        held = ("/p/", "/parties", "/filing/*/text", "/decision/*/text", "/d/*/comment/*/text")
+        for path in held:
+            refused = f"Disallow: {path}" in block
+            assert refused is (agent not in USER_DIRECTED_AGENTS), (agent, path)
+        assert "Disallow: /search" in block, agent  # bulk, for every named agent
+    assert {"ChatGPT-User", "Claude-User", "Perplexity-User"} <= set(USER_DIRECTED_AGENTS)
     # people and ordinary crawlers still read it: this is the dedication, not secrecy
     assert "Disallow: /p/" not in wildcard
+    # and the prose says what the rule does
+    assert "allowed to the three that fetch a page because" in body
 
 
 def _named_rules(robots: str) -> tuple[list[str], list[str]]:
-    """(the wildcard block's Disallow paths, a named agent's) — every named block is the same."""
+    """(the wildcard block's Disallow paths, the strictest named agent's) — every agent that
+    indexes or trains has the same block; the user-directed three refuse a subset of it."""
+    from docketyard.web.app import USER_DIRECTED_AGENTS
+
     blocks = [b for b in robots.split("\n\n") if b.startswith("User-agent:")]
 
     def rules(block):
@@ -323,8 +337,12 @@ def _named_rules(robots: str) -> tuple[list[str], list[str]]:
 
     wildcard = [b for b in blocks if b.startswith("User-agent: *")][0]
     named = [b for b in blocks if not b.startswith("User-agent: *")]
-    assert all(rules(b) == rules(named[0]) for b in named)
-    return rules(wildcard), rules(named[0])
+    strict = [
+        b for b in named if b.splitlines()[0][len("User-agent: ") :] not in USER_DIRECTED_AGENTS
+    ]
+    assert all(rules(b) == rules(strict[0]) for b in strict)
+    assert all(set(rules(b)) <= set(rules(strict[0])) for b in named)
+    return rules(wildcard), rules(strict[0])
 
 
 def _refused(rules: list[str], path: str) -> bool:
