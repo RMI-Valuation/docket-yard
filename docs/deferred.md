@@ -1743,6 +1743,20 @@ repeated-filer prose, an as-of cite). Those items have left this file; the commi
 - **`/openapi.json` lists `/review` routes and duplicate HEAD operation ids** (developer I2, the
   mechanical half, confirmed). Response schemas are the larger half and wait with F5's next step.
 
+### From using the live MCP server, 2026-09-17 (v2026.09.25)
+
+- **`count_filings` gives totals but never the proceedings behind them** (the operator, testing
+  the demo). Asked "how many abandonment proceedings hold a Consummation Notice and a trail-use
+  filing?", Claude answered 201 correctly. Asked next for "the 20 most recent", it could not list
+  them. It narrowed by date (15 proceedings since Sept 2025, 2 holding both), then GUESSED one
+  ("almost certainly AB 55 (Sub-No. 794X)") from a search hit, and sent the user to stb.gov. That
+  guess is the failure this surface exists to prevent, and the tool forced it. The shape to decide:
+  an option on `count_filings` (or a sibling tool) that returns the proceedings behind a count,
+  newest first by the matched filing's date, capped (say 25, with `offset`), each with its printed
+  docket, caption, the dates and ids of the matching filings of each type, and its address. The
+  same grain rules as the count (distinct filings; proceedings as entered) and the same caveats.
+  Small, and it reads only the public index; a decision because it widens a tool's contract.
+
 ### The operator's to choose later
 
 - **A monthly snapshot deposit with a DOI** (researcher I8; his decision 9, 2026-09-16): the cite

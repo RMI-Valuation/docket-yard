@@ -28,6 +28,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
+- **MCP: list the proceedings behind a count** (`deferred.md` § From using the live MCP server):
+  asked for the 20 most recent, an assistant had to guess one. His to choose; small
 - **The graders' three open fix-now items** (`deferred.md` § The independent graders): the
   `coverage` tool matching `/coverage` is the ARDA demo item; the docket JSON key test; openapi
   hygiene
