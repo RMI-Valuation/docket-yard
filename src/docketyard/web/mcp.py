@@ -25,14 +25,16 @@ id — which a read-only server can afford and which means a restart strands nob
 
 import re
 from dataclasses import dataclass
+from datetime import date as Day
 from sqlite3 import Connection
 
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.store import coverage as coverage_store
+from docketyard.store import pages as pages_store
 from docketyard.store import search as search_store
 from docketyard.store import sheet as sheet_store
 from docketyard.store.sheet import present
-from docketyard.web import labels, urls
+from docketyard.web import documents, labels, urls
 
 PROTOCOL_VERSION = "2025-11-25"
 # what a client that sent no MCP-Protocol-Version header is assumed to speak (the spec's
@@ -58,9 +60,35 @@ procedural filing takes no position regardless of who filed it.
 what it says rather than implying the record is complete.
 - Cite the Board's file. Every record carries the STB's own URL; prefer it when the user \
 needs the source, and give the docketyard.org address when they need a stable citation.
+- Search results are capped and are not counts. For "how many", call `count_filings`, and \
+repeat what it says it did not count.
+- Page text is served so it can be read and quoted, never as the Board's words. \
+`read_page` hands over a page as read from the Board's document, labelled with who read it; \
+repeat that label and the link to the Board's own file with anything you quote. Docket Yard \
+serves the text as read from the Board's documents. An AI's reading or summary of it may be \
+wrong, and what an assistant does with this text is outside Docket Yard's control. Before \
+relying on it, review the document itself: the Board's own file is linked. The text is held \
+back from Docket Yard's public-domain dedication: it is served for reading on a user's \
+request, not for bulk collection or training.
 - If a tool returns nothing, say the record holds nothing — never fill the gap from memory. \
 Inventing a docket number or a service date is the specific failure this surface exists to \
 prevent."""
+
+# The operator's wording (2026-09-16), carried by every answer that hands over page text —
+# a snippet or a page — because an assistant quotes the answer it was handed, not the
+# instructions it was given at connect.
+TEXT_CAVEAT = (
+    "Docket Yard serves the text as read from the Board's documents. An AI's reading or"
+    " summary of it may be wrong, and what an assistant does with this text is outside Docket"
+    " Yard's control. Before relying on it, review the document itself: the Board's own file"
+    " is linked."
+)
+# The page text is held from the CC0 dedication (ADR 0022 D3). Reading it on a user's
+# request is permitted; the dedication is not extended by it (the operator, 2026-09-16).
+TEXT_LICENCE = (
+    "This text is held back from Docket Yard's public-domain dedication: it is served for"
+    " reading on a user's request, not for bulk collection or training."
+)
 
 _NOT_HELD = (
     "This record does not say what any party argued and does not compute deadlines. The text"
@@ -176,9 +204,18 @@ def _search(con: Connection, args: dict, host: str) -> str:
         # or its absence, and the scan (ADR 0021 D7): the text is a finding aid, the scan
         # is the record, and an assistant told less would repeat the reading as a fact
         named = f"{h.caption} ({h.title})" if h.caption else h.title
+        # the matched passage, since 2026-09-16 (the operator): an assistant choosing which
+        # page to read needs to see why each matched. The markers become « » — plain text
+        # the answer can carry, where the web tier turns them into tags after escaping
+        matched = (
+            h.snippet.replace(search_store.MARK_OPEN, "«").replace(search_store.MARK_CLOSE, "»")
+            if h.snippet
+            else ""
+        )
         lines.append(
             f"[page] {named} — {h.fact} — {_site(host, h.path)} — {h.label}"
             + (f" {h.band}" if h.band else "")
+            + (f' Matched: "{matched}"' if matched else "")
             + f" The scan: {_site(host, h.scan)}. Machine-read text: check it against the scan."
         )
     if found.truncated and pages:
@@ -188,6 +225,12 @@ def _search(con: Connection, args: dict, host: str) -> str:
         # address — and "more pages than the 0 shown" after listing nothing is not a
         # sentence to hand an assistant (code review, 2026-09-04).
         lines.append(f"…and more pages than the {len(pages)} shown; narrow the words.")
+    if pages:
+        lines += [
+            "Read a page with `read_page` and the address above.",
+            TEXT_CAVEAT,
+            TEXT_LICENCE,
+        ]
     return "\n".join(lines)
 
 
@@ -370,6 +413,362 @@ def _comment(con: Connection, args: dict, host: str) -> str:
     )
 
 
+# The addresses `search_the_record` and the site hand out: a filing's or a decision's text
+# (or record) page, and a comment's under its docket — with `?file=N` and `#pN` if given.
+_RECORD_ADDRESS = re.compile(
+    r"(?:https?://[^/\s]+)?/(filing|decision)/([A-Za-z0-9]+)(?:/text)?/?"
+    r"(?:\?file=(\d+))?(?:#p(\d+))?"
+)
+_COMMENT_ADDRESS = re.compile(
+    r"(?:https?://[^/\s]+)?/d/([^/?#\s]+)(?:/sub/([^/?#\s]+))?/comment/([^/?#\s]+)"
+    r"(?:/text)?/?(?:\?file=(\d+))?(?:#p(\d+))?"
+)
+_RECORD_NAME = re.compile(r"(filing|decision)\s+(\d+)", re.IGNORECASE)
+MAX_READ_PAGES = 5  # pages one call hands over
+MAX_PAGE_CHARS = 20_000  # a plan sheet's reading can run long; the rest is on the text page
+
+
+def _small(value, default: int, low: int, high: int) -> int:
+    """An integer argument clamped to its range; anything that is not one is the default."""
+    if isinstance(value, bool):
+        return default
+    try:
+        n = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+    return max(low, min(n, high))
+
+
+def _located(con: Connection, address: str):
+    """(kind, record id, docket_id, file, page) for an address or `decision 46314`, or a
+    sentence saying why not. A record entered in a docket and its sub-docket is read under
+    the one nearest the parent, as the site addresses it (ADR 0005)."""
+    text = address.strip()
+    m = _RECORD_ADDRESS.fullmatch(text)
+    named = _RECORD_NAME.fullmatch(text)
+    if m or named:
+        kind, record_id = (m or named).group(1).lower(), (m or named).group(2)
+        file, page = (m.group(3), m.group(4)) if m else (None, None)
+        table, column = (
+            ("decision_record", "stb_decision_id")
+            if kind == "decision"
+            else ("filing", "stb_filing_id")
+        )
+        row = con.execute(
+            f"SELECT r.docket_id FROM {table} r JOIN docket d ON d.docket_id = r.docket_id"
+            f" WHERE r.{column} = ?"
+            " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, '') LIMIT 1",
+            (record_id,),
+        ).fetchone()
+        if row is None:
+            return f"The record holds no {kind} {record_id}."
+        return kind, record_id, row[0], file, page
+    m = _COMMENT_ADDRESS.fullmatch(text)
+    if m:
+        ident, sub, number, file, page = m.groups()
+        identity = urls.parse_docket_path(ident, sub)
+        number = number.upper()
+        if identity is None:
+            return f"{text!r} does not name a docket this record can parse."
+        row = con.execute(
+            "SELECT c.docket_id FROM enviro_comment c JOIN docket d ON d.docket_id = c.docket_id"
+            " WHERE c.comment_number = ? AND d.prefix = ? AND d.sequence = ?"
+            " AND COALESCE(d.sub_sequence, -1) = COALESCE(?, -1)"
+            " AND COALESCE(d.suffix, '') = COALESCE(?, '')",
+            (number, identity.prefix, identity.sequence, identity.sub_sequence, identity.suffix),
+        ).fetchone()
+        if row is None:
+            return f"The record holds no environmental comment {number} in that docket."
+        return "comment", number, row[0], file, page
+    return (
+        f"{text!r} is not an address this tool reads. Pass the address a search result gave"
+        " (`https://docketyard.org/decision/46314/text#p3`) or a record (`decision 46314`)."
+    )
+
+
+def _read(con: Connection, args: dict, host: str) -> str:
+    """Every read_page answer ends with the text caveat and the licence line — a miss, an
+    unread file and a refused address included — as machine-surface.md promises. Two early
+    returns carried neither or one (Copilot on PR #38, 2026-09-17), so both are added here,
+    once, the way `handle` appends the standing caveats."""
+    text = _read_page(con, args, host)
+    ending = [line for line in (TEXT_CAVEAT, TEXT_LICENCE) if line not in text]
+    return "\n".join([text, *ending]) if ending else text
+
+
+def _read_page(con: Connection, args: dict, host: str) -> str:
+    found = _located(con, str(args.get("address") or ""))
+    if isinstance(found, str):
+        return found
+    kind, record_id, docket_id, file_in_address, page_in_address = found
+    # party_map={}: the entry's parties are not read here, and resolving them is a
+    # store-wide union-find this answer has no use for (`sheet.one_entry`)
+    got = sheet_store.one_entry(con, docket_id, kind, record_id, party_map={})
+    if got is None:
+        return f"The record holds no {kind} {record_id}."
+    context, entry = got
+    file = _small(args.get("file", file_in_address), 0, 0, 10_000)
+    index = documents.text_pick(entry, file)  # the text page's own rule for `?file=N`
+    noun = {"decision": "Decision", "comment": "Environmental comment"}.get(kind, "Filing")
+    identity = parse_docket_id(entry.docket_raw)
+    printed = urls.printed_docket(identity) if identity else entry.docket_raw
+    head = f"{noun} {record_id} — in {printed}" + (f" — {context.title}" if context.title else "")
+    if index is None:
+        board = entry.attachments[0].url if entry.attachments else "none listed"
+        return (
+            f"{head}\nThis record holds no page text for it: only a PDF this record has fetched"
+            f" is read. The Board's own file: {board}"
+        )
+    current = entry.attachments[index]
+    sha = current.document_sha256 or ""
+    readings = {p.page_no: p for p in pages_store.readings(con, sha)}
+    count = pages_store.pagination(con, sha)
+    routes = pages_store.routes(con, sha)
+    # the range is the readings and the page count, never the routes (the text page's rule)
+    last = max(max(readings, default=0), (count.page_count or 0) if count else 0)
+    text_address = urls.entry_text_path(kind, record_id, entry.docket_raw, index)
+    scan = search_store._scan(con, kind, record_id, index, sha)
+    lines = [head, f"The Board's own file: {current.url}", f"The scan: {_site(host, scan)}"]
+    if last == 0:
+        lines.append("No page of this file has been read yet.")
+        return "\n".join(lines)
+    first = _small(args.get("page", page_in_address), 1, 1, last)
+    through = min(last, first + _small(args.get("pages"), 1, 1, MAX_READ_PAGES) - 1)
+    engine = False
+    for n in range(first, through + 1):
+        page, route = readings.get(n), routes.get(n)
+        shown = pages_store.state(page, route, count.had_text_layer if count else None)
+        where = f"[page {n} of {last}] {_site(host, f'{text_address}#p{n}')} —"
+        lines.append("")
+        if shown == pages_store.TEXT and page is not None:
+            engine = engine or page.reading_channel == "ocr"
+            band = pages_store.band(page)
+            cut = len(page.text) > MAX_PAGE_CHARS
+            lines += [
+                f"{where} {pages_store.label(page)}" + (f" {band}" if band else ""),
+                f"--- page {n} text begins ---",
+                page.text[:MAX_PAGE_CHARS]
+                + ("\n[…cut here; the rest is at the page's address]" if cut else ""),
+                f"--- page {n} text ends ---",
+            ]
+        elif shown == pages_store.BLANK and page is not None:
+            lines.append(f"{where} Read as blank. {pages_store.label(page)}")
+        elif shown == pages_store.TABLE and route is not None:
+            lines.append(f"{where} {pages_store.marker(route)} Read it from the scan.")
+        else:
+            lines.append(f"{where} Not yet read. Read it from the scan.")
+    lines.append("")
+    if through < last:
+        lines.append(
+            f"Pages {first} to {through} of {last} shown; pass `page` {through + 1} to go on."
+        )
+    if engine:
+        lines.append(
+            "A page machine-read by an engine was read by OCR from a scan: it carries character"
+            " errors, more on a degraded scan, and no person has reviewed it. Check any word you"
+            " quote against the scan."
+        )
+    lines += [
+        "This is the text as read, never the Board's words: quote it with its label and the"
+        " Board's own file.",
+        TEXT_CAVEAT,
+        TEXT_LICENCE,
+    ]
+    return "\n".join(lines)
+
+
+_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+_TYPE_LINES = 40  # a type listing longer than this names the rest by count only
+
+
+def _day(value, name: str) -> str | None:
+    """A `YYYY-MM-DD` the caller sent, or None when absent. Anything else raises the
+    `ValueError` whose message is handed back — the argument is the caller's, so saying
+    what was wrong with it discloses nothing."""
+    if value is None or value == "":
+        return None
+    text = str(value).strip()
+    if not _DAY.fullmatch(text):
+        raise ValueError(f"`{name}` must be a date written YYYY-MM-DD, not {text!r}.")
+    Day.fromisoformat(text)  # 2026-02-30 is shaped right and is not a day
+    return text
+
+
+def _types(con: Connection, asked: str) -> list[str]:
+    """The Board's own filing types an asked name matches: that type alone when the name IS
+    one (case aside), else every type containing it. Matched against the types the store
+    holds, so an assistant is told which labels were counted rather than trusted to have
+    guessed the Board's spelling."""
+    held = [t for (t,) in con.execute("SELECT DISTINCT filing_type FROM filing") if t]
+    needle = asked.strip().casefold()
+    exact = [t for t in held if t.casefold() == needle]
+    return exact or sorted(t for t in held if needle in t.casefold())
+
+
+def _count(con: Connection, args: dict, host: str) -> str:
+    try:
+        since = _day(args.get("filed_from"), "filed_from")
+        until = _day(args.get("filed_to"), "filed_to")
+    except ValueError as e:
+        return str(e) if str(e).startswith("`") else "A date must be a real day, YYYY-MM-DD."
+    if since and until and since > until:
+        return f"`filed_from` ({since}) is after `filed_to` ({until}); nothing can fall between."
+    prefix = str(args.get("prefix") or "").strip().upper()
+    if (
+        prefix
+        and con.execute("SELECT 1 FROM docket WHERE prefix = ? LIMIT 1", (prefix,)).fetchone()
+        is None
+    ):
+        return (
+            f"The record holds no docket prefix {prefix!r} (prefixes look like `AB`, `FD`, `NOR`)."
+        )
+
+    where, params = ["1 = 1"], []
+    if prefix:
+        where.append("d.prefix = ?")
+        params.append(prefix)
+    if since:
+        where.append("f.filed_date >= ?")
+        params.append(since)
+    if until:
+        where.append("f.filed_date <= ?")
+        params.append(until)
+    scope = (f" in {prefix} proceedings" if prefix else "") + (
+        f", filed {since or 'from the first'} to {until or 'the latest held'}"
+        if since or until
+        else ""
+    )
+    base = " FROM filing f JOIN docket d ON d.docket_id = f.docket_id WHERE " + " AND ".join(where)
+
+    asked = str(args.get("filing_type") or "").strip()
+    lines: list[str] = []
+    if not asked:
+        # no type asked: the Board's own vocabulary, counted, so the next call can name one
+        rows = con.execute(
+            "SELECT f.filing_type, COUNT(DISTINCT f.stb_filing_id)"
+            + base
+            + " GROUP BY 1 ORDER BY 2 DESC, 1",
+            params,
+        ).fetchall()
+        if not rows:
+            lines.append(
+                f"The record holds no filings{scope}. That is an absence in this record,"
+                " not proof of absence at the Board."
+            )
+        else:
+            lines.append(
+                f"The Board's filing types{scope}, with the filings this record holds of each:"
+            )
+            lines += [f"- {t or '(untyped)'}: {n:,}" for t, n in rows[:_TYPE_LINES]]
+            if len(rows) > _TYPE_LINES:
+                lines.append(f"…and {len(rows) - _TYPE_LINES} rarer types.")
+    else:
+        types = _types(con, asked)
+        if not types:
+            return (
+                f"No filing type the Board uses matches {asked!r}. Call `count_filings` without"
+                " `filing_type` to list the types this record holds. What a decision does —"
+                " a notice of interim trail use issued, an exemption granted — is not a filing"
+                " type, and this record does not yet count decisions by what they did."
+            )
+        marks = ", ".join("?" * len(types))
+        per_type = con.execute(
+            "SELECT f.filing_type, COUNT(DISTINCT f.stb_filing_id), COUNT(DISTINCT f.docket_id)"
+            + base
+            + f" AND f.filing_type IN ({marks}) GROUP BY 1 ORDER BY 2 DESC, 1",
+            params + types,
+        ).fetchall()
+        filings, proceedings, first, last = con.execute(
+            "SELECT COUNT(DISTINCT f.stb_filing_id), COUNT(DISTINCT f.docket_id),"
+            # NULLIF: a blank date would sort first and print "filed  to …" (coverage.py's
+            # guard; none is held today, measured 2026-09-16)
+            " MIN(NULLIF(f.filed_date, '')), MAX(NULLIF(f.filed_date, ''))"
+            + base
+            + f" AND f.filing_type IN ({marks})",
+            params + types,
+        ).fetchone()
+        named = ", ".join(f"'{t}'" for t in types)
+        if not filings:
+            lines.append(
+                f"The record holds no filings the Board typed {named}{scope}."
+                " That is an absence in this record, not proof of absence at the Board."
+            )
+        else:
+            lines.append(
+                f"Filings the Board typed {named}{scope}: {_plural(filings, 'filing')} entered in"
+                f" {_plural(proceedings, 'proceeding')}, filed {first} to {last}."
+            )
+            if len(per_type) > 1:
+                lines += [
+                    f"- {t}: {_plural(n, 'filing')} in {_plural(p, 'proceeding')}"
+                    for t, n, p in per_type
+                ]
+            also = str(args.get("also_has") or "").strip()
+            if also:
+                others = _types(con, also)
+                if not others:
+                    lines.append(
+                        f"No filing type the Board uses matches {also!r}, so nothing was paired."
+                    )
+                else:
+                    other_marks = ", ".join("?" * len(others))
+                    # "both" is two DIFFERENT filings: the phrases may overlap (`trail use` and
+                    # `Trail Use Request`), and one filing matching each is not a pair. A filing
+                    # is one row per proceeding (UNIQUE (docket_id, stb_filing_id)), so a
+                    # proceeding whose matches are all one filing has n = 1 (code review).
+                    both, has_other = con.execute(
+                        "SELECT SUM(a > 0 AND b > 0 AND n > 1), SUM(b > 0) FROM ("
+                        f" SELECT SUM(f.filing_type IN ({marks})) AS a,"
+                        f" SUM(f.filing_type IN ({other_marks})) AS b, COUNT(*) AS n"
+                        + base
+                        + f" AND f.filing_type IN ({marks}, {other_marks})"
+                        " GROUP BY f.docket_id)",
+                        types + others + params + types + others,
+                    ).fetchone()
+                    other_named = ", ".join(f"'{t}'" for t in others)
+                    lines.append(
+                        f"Proceedings holding both one of those and a filing typed {other_named}:"
+                        f" {both or 0:,} (of {proceedings:,} holding the first and"
+                        f" {has_other or 0:,} holding the second"
+                        + ("; both filed inside the range" if since or until else "")
+                        + "). Held in the same proceeding says nothing about which came first or"
+                        " whether one led to the other."
+                    )
+            lines.append(
+                "A filing entered in more than one proceeding counts once among filings and once in"
+                " each proceeding. These are the Board's labels as it typed them: a type names the"
+                " kind of filing, not what the filing accomplished, and this count has not read the"
+                " documents."
+                + (
+                    " A Consummation Notice does not say what was consummated — an abandonment, a"
+                    " discontinuance or interim trail use."
+                    if any("consummat" in t.casefold() for t in types)
+                    else ""
+                )
+            )
+    # a count is only as complete as the months under it, so the unfinished ones inside the
+    # range are named in the answer rather than left to a `coverage` call nobody makes
+    open_months = [
+        m
+        for m in coverage_store.filings_incomplete(con)
+        if (not since or m >= since[:7]) and (not until or m <= until[:7])
+    ]
+    if open_months:
+        lines.append(
+            "Months this record has not finished for filings, inside the range counted"
+            " (the count is short by whatever they hold):"
+            f" {', '.join(coverage_store.month_runs(tuple(open_months)))}."
+        )
+    walked_from = coverage_store.filings_walked_from(con)
+    if walked_from and (not since or since[:7] < walked_from):
+        lines.append(
+            f"This record's walk of filings begins at {walked_from}: nothing is claimed about"
+            " filings the Board dated earlier."
+        )
+    lines.append(f"What the record holds and does not: {_site(host, '/coverage')}")
+    return "\n".join(lines)
+
+
 def _coverage(con: Connection, args: dict, host: str) -> str:
     c = coverage_store.coverage(con)
     return (
@@ -447,6 +846,68 @@ TOOLS: tuple[Tool, ...] = (
         " own words as the Board printed them. Quotation, never a characterisation.",
         _obj({"number": {"type": "string", "description": "e.g. EI-34282."}}, ["number"]),
         _comment,
+    ),
+    Tool(
+        "read_page",
+        "Read the text of a page of a Board document",
+        "The text of one page, or a few, of a filing's, decision's or environmental comment's"
+        " file, as read from the Board's document (its own text layer, or OCR of a scan),"
+        " labelled with who read it, with the Board's own file and the scan. Pass the address"
+        " a `search_the_record` [page] line gave (`https://docketyard.org/decision/46314/text#p3`)"
+        " or a record (`decision 46314`). The text is a reading, never the Board's words, and"
+        " is served for a user's question, not for collection.",
+        _obj(
+            {
+                "address": {
+                    "type": "string",
+                    "description": "A text or record address, or `filing N` / `decision N`.",
+                },
+                "page": {
+                    "type": "integer",
+                    "description": "The first page, from 1. Default: the address's #pN, else 1.",
+                },
+                "pages": {
+                    "type": "integer",
+                    "description": f"How many pages, 1-{MAX_READ_PAGES}. Default 1.",
+                },
+                "file": {
+                    "type": "integer",
+                    "description": "Which of the record's files, from 0. Default: the"
+                    " address's ?file=N, else the first with text.",
+                },
+            },
+            ["address"],
+        ),
+        _read,
+    ),
+    Tool(
+        "count_filings",
+        "Count filings by the Board's own filing type",
+        "How many filings the Board typed a given way — `Consummation Notice`, `Trail Use"
+        " Agreement Reached` — and in how many proceedings, optionally within a docket prefix"
+        " (`AB`) and a filed-date range, and how many of those proceedings also hold a filing"
+        " of a second type. Search results are capped and are never counts; this is the tool"
+        " for 'how many'. Without `filing_type` it lists the Board's types with their counts."
+        " It counts the Board's labels, not what the documents did.",
+        _obj(
+            {
+                "filing_type": {
+                    "type": "string",
+                    "description": "The Board's filing type, or words in it (`trail use`"
+                    " matches every trail-use type; each type counted is named).",
+                },
+                "prefix": {"type": "string", "description": "A docket prefix, e.g. `AB`."},
+                "filed_from": {"type": "string", "description": "YYYY-MM-DD, inclusive."},
+                "filed_to": {"type": "string", "description": "YYYY-MM-DD, inclusive."},
+                "also_has": {
+                    "type": "string",
+                    "description": "A second filing type: how many of the proceedings counted"
+                    " also hold one.",
+                },
+            },
+            [],
+        ),
+        _count,
     ),
     Tool(
         "coverage",

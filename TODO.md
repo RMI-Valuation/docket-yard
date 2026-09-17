@@ -8,6 +8,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
+- **MCP: `count_filings` and `read_page`**, branch `mcp-count-filings` (2026-09-16): counts by
+  Board filing type; page text on a user's request with his caveat (ADR 0022 addendum, his four
+  answers, wording unread by him). Code review medium + low, security review clean; PR and bot
+  reviews next. Release and deploy are his
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown; exposed
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
