@@ -314,8 +314,8 @@ def dots_page(no: int, raw: str) -> tuple[dict, str]:
 def hunyuan_page(no: int, raw: str) -> tuple[dict, str]:
     """One HunyuanOCR answer — Markdown with tables as HTML — as the engine page kept whole,
     and its text: the benchmark's own flattening of each `<table>` into `[table]` blocks, the
-    rest untouched. The worker posts the raw answer and this is the one place it becomes text,
-    as `dots_page` is for dots."""
+    text around them as written, less the blank lines at its edges. The worker posts the raw
+    answer and this is the one place it becomes text, as `dots_page` is for dots."""
     from ocr_run import _markdown_tables  # noqa: PLC0415 — the benchmark's own flattening
 
     return {"page_no": no, "raw": raw}, _markdown_tables(raw)

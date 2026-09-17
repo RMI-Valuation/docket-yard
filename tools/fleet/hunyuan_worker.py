@@ -222,6 +222,27 @@ def weights_revision(name: str, commit_hash: str | None, cache: Path) -> str | N
 # --- one page -------------------------------------------------------------------------------
 
 
+def page_index(no: int, page_count: int) -> int:
+    """The 0-based index of page `no` of a document of `page_count` pages, or DocumentFailed.
+    Both ends: page 0 would index the LAST page (`doc[-1]`) and read the wrong one silently
+    (Copilot on PR #34, 2026-09-17)."""
+    if not 1 <= no <= page_count:
+        raise DocumentFailed(f"has {page_count} pages, the route says {no}")
+    return no - 1
+
+
+def register_or_exit(q, name: str, pass_: str, producer: dict) -> int | None:
+    """Register with the queue, or the environment exit code with the reason logged. A queue
+    that is locked, unreachable or refuses the key is the environment's failure, not an
+    unclassified crash (Copilot on PR #34, 2026-09-17)."""
+    try:
+        q.register(name, pass_, producer)
+    except Exception as e:  # noqa: BLE001 — every way registration fails is the environment's
+        log(f"could not register with the queue ({type(e).__name__}: {e}); exit {EXIT_ENVIRONMENT}")
+        return EXIT_ENVIRONMENT
+    return None
+
+
 def render_page(pdf, no: int, png: Path, mp: float) -> None:
     """The page at the pass's DPI, or the exception that says whose fault it is. Twin of the
     first half of `dots_worker.read_page`."""
@@ -239,9 +260,7 @@ def render_page(pdf, no: int, png: Path, mp: float) -> None:
     except Exception as e:  # noqa: BLE001 — a file that will not open at all
         raise DocumentFailed(f"will not open: {type(e).__name__}: {e}") from e
     with opened as doc:
-        if no > doc.page_count:
-            raise DocumentFailed(f"has {doc.page_count} pages, the route says {no}")
-        page = doc[no - 1]
+        page = doc[page_index(no, doc.page_count)]
         r = page.rect
         megapixels = (r.width / 72 * DPI) * (r.height / 72 * DPI) / 1e6
         if megapixels > mp:
@@ -370,7 +389,8 @@ def main() -> int:
         "max_megapixels": spec["max_megapixels"],
         "worker": Path(__file__).name,
     }
-    q.register(name, PASS, producer)
+    if (code := register_or_exit(q, name, PASS, producer)) is not None:
+        return code
     log(f"{name} registered as {producer}")
     args.scratch.mkdir(parents=True, exist_ok=True)
 

@@ -341,7 +341,8 @@ def load_hunyuan(cfg: dict):
 
 def _markdown_tables(text: str) -> str:
     """Markdown with embedded HTML tables, rewritten into the ground truth's `[table]`
-    blocks. Text outside a table is passed through untouched."""
+    blocks. Text outside a table is kept as written, less the newlines at its edges,
+    and a run of it that is only whitespace is dropped."""
     out, last = [], 0
     for m in re.finditer(r"<table[\s>].*?</table>", text, re.S | re.I):
         before = text[last : m.start()].strip("\n")

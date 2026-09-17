@@ -659,3 +659,30 @@ def test_the_transport_refuses_a_bad_token(remote):
     with pytest.raises(urllib.error.HTTPError) as e:
         bad.blob(A)
     assert e.value.code == 401
+
+
+def test_a_page_number_outside_the_document_is_the_documents_failure_at_both_ends():
+    """Copilot on PR #34, 2026-09-17: page 0 passed the upper-bound check and `doc[0 - 1]`
+    would have read the LAST page, silently."""
+    assert hw.page_index(1, 3) == 0 and hw.page_index(3, 3) == 2
+    for no in (0, -1, 4):
+        with pytest.raises(hw.DocumentFailed, match="has 3 pages, the route says"):
+            hw.page_index(no, 3)
+
+
+def test_a_queue_that_refuses_registration_is_the_environments_exit():
+    """Copilot on PR #34, 2026-09-17: a locked queue, an HTTP error or a key mismatch at
+    register crashed the worker with an unclassified exit code."""
+
+    class Refusing:
+        def register(self, name, pass_, producer):
+            raise RuntimeError("database is locked")
+
+    class Accepting:
+        def register(self, name, pass_, producer):
+            self.got = (name, pass_, producer)
+
+    assert hw.register_or_exit(Refusing(), "w1", "tabular", {}) == hw.EXIT_ENVIRONMENT
+    q = Accepting()
+    assert hw.register_or_exit(q, "w1", "tabular", {"k": 1}) is None
+    assert q.got == ("w1", "tabular", {"k": 1})
