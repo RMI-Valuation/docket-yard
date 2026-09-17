@@ -8,9 +8,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **v2026.09.25 LIVE** 2026-09-17 09:44 UTC (schema 32, JSON shape 3; restore point 09:41:23Z):
-  `count_filings`, `read_page`, the graders' fixes, his nine decisions, migrations 0030-0032. The fleet
-  still runs `67b1762` until redeployed; the tabular root loads only with his go
+- **v2026.09.26 LIVE** 2026-09-17 ~12:25 UTC (schema 32, JSON shape 3; tag change, no wall; rollback
+  `DY_TAG=v2026.09.25`, `.env.bak-v2026.09.25` on the box). The fleet still runs `67b1762` until
+  redeployed; the tabular root loads only with his go
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown; exposed
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
@@ -28,9 +28,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **v2026.09.26, his to cut**: sticky text-page rail; a page hit's record and docket links; the
-  release in the footer; the home rail "Use the record"; `/ai`; MCP `readOnlyHint`; README.
-  No migration, no index rebuild: a tag change
 - **A built-out search, after that release (his, 2026-09-17)**: one bar today, with no say over
   what is searched (dockets, decisions, filings, comments, page text), no filters (prefix, type,
   dates, party) and no choice of what comes back. Scope it with him as questions first
