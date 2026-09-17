@@ -154,6 +154,27 @@ Migration 0033 and a forced rebuild on a copy of the restore, locally (SQLite 3.
 The instance is slower (0012's lock was 5.6 s there at 96,225 rows against a local figure
 not taken); the rehearsal in production's image measures it before release.
 
+### Rehearsed (2026-09-17)
+
+In v2026.09.26's image (SQLite 3.46.1) on this workstation, against the 2026-09-17 restore
+copied into a Docker volume (`data/rehearse-0925/rehearse_search.py`, log beside it). All
+checks passed:
+
+| | |
+| --- | --- |
+| Migration 29 -> 33 | 28.2 s; foreign keys clean, row counts unchanged, `quick_check` ok |
+| After 0033, before the rebuild | `search.ready()` false: `/search` says it is rebuilding |
+| Rebuild | 11.0 s, **write lock 2.2 s**; 53,385 filings, 144,927 placements, 104,689 owners |
+| `/search`, ordinary | 16-156 ms (Tazewell County 96, Tehachapi 79, a type browse 16) |
+| `/search`, broad | `railroad` 430 ms; `the` 836 ms; `abandonment` over AB 1,005 ms |
+| `/search`, broadest filtered | `the` over FD 1,595 ms, page text left out and said |
+| Unchanged | a docket number opens its sheet; `/suggest` 5 ms; MCP search keeps its kinds |
+
+Not yet measured on the instance itself, whose disk and CPU are slower than this workstation's
+(`search.md` puts the page index about 3x slower there). The budget holds the worst case to
+about 1.6 s whatever the machine; what the instance changes is how many broad filtered searches
+reach it and leave the page text out.
+
 ### What the reviews changed (2026-09-17)
 
 `/code-review` (high), the ingest specialist and a second schema-critic pass on the built code:
