@@ -28,6 +28,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
+- **v2026.09.26, his to cut**: the sticky text-page rail (cce6eb6) and a page hit's record and
+  docket links (58fc469). No migration, no index rebuild: a tag change
+- **A built-out search, after that release (his, 2026-09-17)**: one bar today, with no say over
+  what is searched (dockets, decisions, filings, comments, page text), no filters (prefix, type,
+  dates, party) and no choice of what comes back. Scope it with him as questions first
 - **MCP: list the proceedings behind a count** (`deferred.md` § From using the live MCP server):
   asked for the 20 most recent, an assistant had to guess one. His to choose; small
 - **The graders' three open fix-now items** (`deferred.md` § The independent graders): the
