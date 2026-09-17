@@ -130,6 +130,51 @@ def _incomplete(con: Connection, *actions: str, today: date | None = None) -> tu
     )
 
 
+def filings_incomplete(con: Connection, today: date | None = None) -> tuple[str, ...]:
+    """Months not finished for filings alone — what a count over filings must name. The
+    coverage page's list unions filings with decisions, which would name a month a
+    decisions-only gap left open as a hole in a filing count.
+
+    AND THE MONTHS NO WAVE HAS BEGUN. `_incomplete` reads the ledger, so a month no slice
+    names is not in it at all — and a count over it would read as complete (code review,
+    2026-09-16). Every month from the ledger's first to the one the watch began in that no
+    slice names is unfinished too. Nothing before the ledger's first month is claimed either
+    way; the answer names where the walk begins."""
+    q = con.execute
+    months = set(_incomplete(con, FILINGS, today=today))
+    ledger = {
+        m
+        for (key,) in q("SELECT slice_key FROM walk_slice WHERE table_action = ?", (FILINGS,))
+        if (m := walk.slice_month(key)) is not None
+    }
+    if not ledger:
+        return tuple(sorted(months))
+    start = _watch_starts(q, (FILINGS,)).get(FILINGS) or (today or date.today())
+    year, month = int(min(ledger)[:4]), int(min(ledger)[5:7])
+    while (year, month) <= (start.year, start.month):
+        name = f"{year:04d}-{month:02d}"
+        # the watch's own month is finished by the watch from its first day on, so it is
+        # unwalked only when the watch began after the 1st and no slice names it
+        if name not in ledger and ((year, month) < (start.year, start.month) or start.day > 1):
+            months.add(name)
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return tuple(sorted(months))
+
+
+def filings_walked_from(con: Connection) -> str | None:
+    """The first month the filings walk names — where a count's coverage claim begins."""
+    # parsed, then the least — the rule `filings_incomplete` uses, so the two cannot disagree
+    # over a key that sorts first and names no month
+    months = [
+        m
+        for (key,) in con.execute(
+            "SELECT slice_key FROM walk_slice WHERE table_action = ?", (FILINGS,)
+        )
+        if (m := walk.slice_month(key)) is not None
+    ]
+    return min(months, default=None)
+
+
 def month_runs(months: tuple[str, ...]) -> tuple[str, ...]:
     """Consecutive months collapsed into ranges: 56 unfinished comment months print as
     `1996-01 to 2000-08`, not as 56 comma-separated strings. Presentation only — the

@@ -23,7 +23,9 @@ answering 405 because this server never initiates a message. It is stateless —
 id — which a read-only server can afford and which means a restart strands nobody.
 """
 
+import re
 from dataclasses import dataclass
+from datetime import date as Day
 from sqlite3 import Connection
 
 from docketyard.ingest.dockets import find_docket, parse_docket_id
@@ -57,6 +59,8 @@ procedural filing takes no position regardless of who filed it.
 what it says rather than implying the record is complete.
 - Cite the Board's file. Every record carries the STB's own URL; prefer it when the user \
 needs the source, and give the docketyard.org address when they need a stable citation.
+- Search results are capped and are not counts. For "how many", call `count_filings`, and \
+repeat what it says it did not count.
 - If a tool returns nothing, say the record holds nothing — never fill the gap from memory. \
 Inventing a docket number or a service date is the specific failure this surface exists to \
 prevent."""
@@ -312,6 +316,198 @@ def _comment(con: Connection, args: dict, host: str) -> str:
     )
 
 
+_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+_TYPE_LINES = 40  # a type listing longer than this names the rest by count only
+
+
+def _day(value, name: str) -> str | None:
+    """A `YYYY-MM-DD` the caller sent, or None when absent. Anything else raises the
+    `ValueError` whose message is handed back — the argument is the caller's, so saying
+    what was wrong with it discloses nothing."""
+    if value is None or value == "":
+        return None
+    text = str(value).strip()
+    if not _DAY.fullmatch(text):
+        raise ValueError(f"`{name}` must be a date written YYYY-MM-DD, not {text!r}.")
+    Day.fromisoformat(text)  # 2026-02-30 is shaped right and is not a day
+    return text
+
+
+def _types(con: Connection, asked: str) -> list[str]:
+    """The Board's own filing types an asked name matches: that type alone when the name IS
+    one (case aside), else every type containing it. Matched against the types the store
+    holds, so an assistant is told which labels were counted rather than trusted to have
+    guessed the Board's spelling."""
+    held = [t for (t,) in con.execute("SELECT DISTINCT filing_type FROM filing") if t]
+    needle = asked.strip().casefold()
+    exact = [t for t in held if t.casefold() == needle]
+    return exact or sorted(t for t in held if needle in t.casefold())
+
+
+def _count(con: Connection, args: dict, host: str) -> str:
+    try:
+        since = _day(args.get("filed_from"), "filed_from")
+        until = _day(args.get("filed_to"), "filed_to")
+    except ValueError as e:
+        return str(e) if str(e).startswith("`") else "A date must be a real day, YYYY-MM-DD."
+    if since and until and since > until:
+        return f"`filed_from` ({since}) is after `filed_to` ({until}); nothing can fall between."
+    prefix = str(args.get("prefix") or "").strip().upper()
+    if (
+        prefix
+        and con.execute("SELECT 1 FROM docket WHERE prefix = ? LIMIT 1", (prefix,)).fetchone()
+        is None
+    ):
+        return (
+            f"The record holds no docket prefix {prefix!r} (prefixes look like `AB`, `FD`, `NOR`)."
+        )
+
+    where, params = ["1 = 1"], []
+    if prefix:
+        where.append("d.prefix = ?")
+        params.append(prefix)
+    if since:
+        where.append("f.filed_date >= ?")
+        params.append(since)
+    if until:
+        where.append("f.filed_date <= ?")
+        params.append(until)
+    scope = (f" in {prefix} proceedings" if prefix else "") + (
+        f", filed {since or 'from the first'} to {until or 'the latest held'}"
+        if since or until
+        else ""
+    )
+    base = " FROM filing f JOIN docket d ON d.docket_id = f.docket_id WHERE " + " AND ".join(where)
+
+    asked = str(args.get("filing_type") or "").strip()
+    lines: list[str] = []
+    if not asked:
+        # no type asked: the Board's own vocabulary, counted, so the next call can name one
+        rows = con.execute(
+            "SELECT f.filing_type, COUNT(DISTINCT f.stb_filing_id)"
+            + base
+            + " GROUP BY 1 ORDER BY 2 DESC, 1",
+            params,
+        ).fetchall()
+        if not rows:
+            lines.append(
+                f"The record holds no filings{scope}. That is an absence in this record,"
+                " not proof of absence at the Board."
+            )
+        else:
+            lines.append(
+                f"The Board's filing types{scope}, with the filings this record holds of each:"
+            )
+            lines += [f"- {t or '(untyped)'}: {n:,}" for t, n in rows[:_TYPE_LINES]]
+            if len(rows) > _TYPE_LINES:
+                lines.append(f"…and {len(rows) - _TYPE_LINES} rarer types.")
+    else:
+        types = _types(con, asked)
+        if not types:
+            return (
+                f"No filing type the Board uses matches {asked!r}. Call `count_filings` without"
+                " `filing_type` to list the types this record holds. What a decision does —"
+                " a notice of interim trail use issued, an exemption granted — is not a filing"
+                " type, and this record does not yet count decisions by what they did."
+            )
+        marks = ", ".join("?" * len(types))
+        per_type = con.execute(
+            "SELECT f.filing_type, COUNT(DISTINCT f.stb_filing_id), COUNT(DISTINCT f.docket_id)"
+            + base
+            + f" AND f.filing_type IN ({marks}) GROUP BY 1 ORDER BY 2 DESC, 1",
+            params + types,
+        ).fetchall()
+        filings, proceedings, first, last = con.execute(
+            "SELECT COUNT(DISTINCT f.stb_filing_id), COUNT(DISTINCT f.docket_id),"
+            # NULLIF: a blank date would sort first and print "filed  to …" (coverage.py's
+            # guard; none is held today, measured 2026-09-16)
+            " MIN(NULLIF(f.filed_date, '')), MAX(NULLIF(f.filed_date, ''))"
+            + base
+            + f" AND f.filing_type IN ({marks})",
+            params + types,
+        ).fetchone()
+        named = ", ".join(f"'{t}'" for t in types)
+        if not filings:
+            lines.append(
+                f"The record holds no filings the Board typed {named}{scope}."
+                " That is an absence in this record, not proof of absence at the Board."
+            )
+        else:
+            lines.append(
+                f"Filings the Board typed {named}{scope}: {_plural(filings, 'filing')} entered in"
+                f" {_plural(proceedings, 'proceeding')}, filed {first} to {last}."
+            )
+            if len(per_type) > 1:
+                lines += [
+                    f"- {t}: {_plural(n, 'filing')} in {_plural(p, 'proceeding')}"
+                    for t, n, p in per_type
+                ]
+            also = str(args.get("also_has") or "").strip()
+            if also:
+                others = _types(con, also)
+                if not others:
+                    lines.append(
+                        f"No filing type the Board uses matches {also!r}, so nothing was paired."
+                    )
+                else:
+                    other_marks = ", ".join("?" * len(others))
+                    # "both" is two DIFFERENT filings: the phrases may overlap (`trail use` and
+                    # `Trail Use Request`), and one filing matching each is not a pair. A filing
+                    # is one row per proceeding (UNIQUE (docket_id, stb_filing_id)), so a
+                    # proceeding whose matches are all one filing has n = 1 (code review).
+                    both, has_other = con.execute(
+                        "SELECT SUM(a > 0 AND b > 0 AND n > 1), SUM(b > 0) FROM ("
+                        f" SELECT SUM(f.filing_type IN ({marks})) AS a,"
+                        f" SUM(f.filing_type IN ({other_marks})) AS b, COUNT(*) AS n"
+                        + base
+                        + f" AND f.filing_type IN ({marks}, {other_marks})"
+                        " GROUP BY f.docket_id)",
+                        types + others + params + types + others,
+                    ).fetchone()
+                    other_named = ", ".join(f"'{t}'" for t in others)
+                    lines.append(
+                        f"Proceedings holding both one of those and a filing typed {other_named}:"
+                        f" {both or 0:,} (of {proceedings:,} holding the first and"
+                        f" {has_other or 0:,} holding the second"
+                        + ("; both filed inside the range" if since or until else "")
+                        + "). Held in the same proceeding says nothing about which came first or"
+                        " whether one led to the other."
+                    )
+            lines.append(
+                "A filing entered in more than one proceeding counts once among filings and once in"
+                " each proceeding. These are the Board's labels as it typed them: a type names the"
+                " kind of filing, not what the filing accomplished, and this count has not read the"
+                " documents."
+                + (
+                    " A Consummation Notice does not say what was consummated — an abandonment, a"
+                    " discontinuance or interim trail use."
+                    if any("consummat" in t.casefold() for t in types)
+                    else ""
+                )
+            )
+    # a count is only as complete as the months under it, so the unfinished ones inside the
+    # range are named in the answer rather than left to a `coverage` call nobody makes
+    open_months = [
+        m
+        for m in coverage_store.filings_incomplete(con)
+        if (not since or m >= since[:7]) and (not until or m <= until[:7])
+    ]
+    if open_months:
+        lines.append(
+            "Months this record has not finished for filings, inside the range counted"
+            " (the count is short by whatever they hold):"
+            f" {', '.join(coverage_store.month_runs(tuple(open_months)))}."
+        )
+    walked_from = coverage_store.filings_walked_from(con)
+    if walked_from and (not since or since[:7] < walked_from):
+        lines.append(
+            f"This record's walk of filings begins at {walked_from}: nothing is claimed about"
+            " filings the Board dated earlier."
+        )
+    lines.append(f"What the record holds and does not: {_site(host, '/coverage')}")
+    return "\n".join(lines)
+
+
 def _coverage(con: Connection, args: dict, host: str) -> str:
     c = coverage_store.coverage(con)
     return (
@@ -389,6 +585,35 @@ TOOLS: tuple[Tool, ...] = (
         " own words as the Board printed them. Quotation, never a characterisation.",
         _obj({"number": {"type": "string", "description": "e.g. EI-34282."}}, ["number"]),
         _comment,
+    ),
+    Tool(
+        "count_filings",
+        "Count filings by the Board's own filing type",
+        "How many filings the Board typed a given way — `Consummation Notice`, `Trail Use"
+        " Agreement Reached` — and in how many proceedings, optionally within a docket prefix"
+        " (`AB`) and a filed-date range, and how many of those proceedings also hold a filing"
+        " of a second type. Search results are capped and are never counts; this is the tool"
+        " for 'how many'. Without `filing_type` it lists the Board's types with their counts."
+        " It counts the Board's labels, not what the documents did.",
+        _obj(
+            {
+                "filing_type": {
+                    "type": "string",
+                    "description": "The Board's filing type, or words in it (`trail use`"
+                    " matches every trail-use type; each type counted is named).",
+                },
+                "prefix": {"type": "string", "description": "A docket prefix, e.g. `AB`."},
+                "filed_from": {"type": "string", "description": "YYYY-MM-DD, inclusive."},
+                "filed_to": {"type": "string", "description": "YYYY-MM-DD, inclusive."},
+                "also_has": {
+                    "type": "string",
+                    "description": "A second filing type: how many of the proceedings counted"
+                    " also hold one.",
+                },
+            },
+            [],
+        ),
+        _count,
     ),
     Tool(
         "coverage",
