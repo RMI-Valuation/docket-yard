@@ -627,6 +627,17 @@ def create_app(
     @app.exception_handler(404)
     def not_found(request: Request, exc: HTTPException):
         detail = exc.detail if isinstance(exc.detail, str) and exc.detail != "Not Found" else ""
+        if request.url.path.endswith(".json"):
+            # a client that asked for data gets data back: the 8.6 KB HTML page told it nothing
+            # it could read without parsing markup (the independent graders, 2026-09-16)
+            return JSONResponse(
+                {
+                    "error": "not_found",
+                    "detail": detail or "Nothing is held at this address.",
+                    "shape_version": JSON_SHAPE,
+                },
+                status_code=404,
+            )
         return templates.TemplateResponse(
             request, "404.html", {"detail": detail, "canonical": None}, status_code=404
         )
