@@ -430,6 +430,16 @@ def _located(con: Connection, address: str):
 
 
 def _read(con: Connection, args: dict, host: str) -> str:
+    """Every read_page answer ends with the text caveat and the licence line — a miss, an
+    unread file and a refused address included — as machine-surface.md promises. Two early
+    returns carried neither or one (Copilot on PR #38, 2026-09-17), so both are added here,
+    once, the way `handle` appends the standing caveats."""
+    text = _read_page(con, args, host)
+    ending = [line for line in (TEXT_CAVEAT, TEXT_LICENCE) if line not in text]
+    return "\n".join([text, *ending]) if ending else text
+
+
+def _read_page(con: Connection, args: dict, host: str) -> str:
     found = _located(con, str(args.get("address") or ""))
     if isinstance(found, str):
         return found
@@ -464,7 +474,7 @@ def _read(con: Connection, args: dict, host: str) -> str:
     lines = [head, f"The Board's own file: {current.url}", f"The scan: {_site(host, scan)}"]
     if last == 0:
         lines.append("No page of this file has been read yet.")
-        return "\n".join([*lines, TEXT_CAVEAT])
+        return "\n".join(lines)
     first = _small(args.get("page", page_in_address), 1, 1, last)
     through = min(last, first + _small(args.get("pages"), 1, 1, MAX_READ_PAGES) - 1)
     engine = False

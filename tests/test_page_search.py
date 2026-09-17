@@ -673,3 +673,30 @@ def test_read_page_through_the_protocol_carries_every_caveat(tmp_path):
         "/mcp", json={"jsonrpc": "2.0", "id": 2, "method": "initialize", "params": {}}
     ).json()["result"]["instructions"]
     assert "outside Docket Yard's control" in init and "not for bulk collection" in init
+
+
+def test_every_read_page_answer_ends_with_the_caveat_and_the_licence(tmp_path):
+    """Copilot on PR #38, 2026-09-17: a record with no page text, and a file with no page read
+    yet, returned without the licence line (the first without the caveat either)."""
+    from tests.test_web import build_store
+
+    path, _ = _with_text(tmp_path / "read")
+    con = db.connect(path)
+    answers = [
+        mcp._read(con, {"address": "filing 311900"}, "h"),  # a page that reads
+        mcp._read(con, {"address": "filing 999"}, "h"),  # not held
+        mcp._read(con, {"address": "nonsense"}, "h"),  # not an address
+    ]
+    con.close()
+    fetched, _ = _store_with_document(tmp_path / "unread")  # a PDF held, no page read yet
+    con = db.connect(fetched)
+    unread = mcp._read(con, {"address": "filing 311900"}, "h")
+    con.close()
+    assert "No page of this file has been read yet." in unread
+    con = db.connect(build_store(tmp_path / "nofile"))  # nothing fetched: no page text at all
+    no_text = mcp._read(con, {"address": "filing 311900"}, "h")
+    con.close()
+    assert "holds no page text for it" in no_text
+    for text in [*answers, unread, no_text]:
+        assert text.rstrip().endswith(mcp.TEXT_LICENCE), text[-120:]
+        assert text.count(mcp.TEXT_CAVEAT) == 1 and text.count(mcp.TEXT_LICENCE) == 1
