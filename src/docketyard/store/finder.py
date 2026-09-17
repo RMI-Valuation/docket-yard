@@ -140,6 +140,8 @@ class Results:
     # side ran out of time and was left out | "rebuilding": the page index is being rebuilt
     pages_cut: str = ""
     pages_matched: int | None = None  # pages the words matched, when counted
+    records_rebuilding: bool = False  # the record index is empty until its first rebuild
+    proceeding_total: int = 0  # proceedings matched, also counted for the flat view
     documents: list[Hit] = field(default_factory=list)  # the flat view's page of items
 
     @property
@@ -154,6 +156,9 @@ class Results:
 
 def find(con: Connection, q: Query) -> Results:
     out = Results(q)
+    if not search.ready(con):
+        out.records_rebuilding = True
+        return out
     match = search._match(q.text, prefix=False) if q.text.strip() else None
     if q.text.strip() and match is None:
         return out
@@ -177,6 +182,7 @@ def find(con: Connection, q: Query) -> Results:
         and q.page == 1
     ):
         out.parties = search.search(con, q.text, limit=PARTY_STRIP, kinds=("party",))
+    out.proceeding_total = len(groups)
     if q.view == "documents":
         return _documents(con, q, match, groups, out)
     order = _order(con, q, groups)
@@ -288,16 +294,19 @@ def _pages(con: Connection, q: Query, match: str, out: Results):
 
 _OWNERS = """
     SELECT b.ord, b.text_id, m.doc_id, p.group_docket_id, p.date
-      FROM b CROSS JOIN document_text t ON t.text_id = b.text_id
+      FROM b CROSS JOIN document_text t ON t.text_id = b.text_id AND t.superseded_by IS NULL
              CROSS JOIN search_document m ON m.document_sha256 = t.document_sha256
              CROSS JOIN search_place p ON p.doc_id = m.doc_id
      WHERE {where}
+     ORDER BY b.ord, p.date IS NULL, p.date, m.doc_id
 """
 
 
 def _pages_bounded(con: Connection, q: Query, match: str, out: Results):
     where, args = _filters(q)
-    if not q.filtered:
+    # within one proceeding is a filter here: the best pages record-wide would drop that
+    # proceeding's pages outside them, and its list would be short (schema-critic)
+    if not q.filtered and q.within is None:
         ids = [
             r[0]
             for r in con.execute(
@@ -323,6 +332,7 @@ def _pages_bounded(con: Connection, q: Query, match: str, out: Results):
           FROM d CROSS JOIN search_document m ON m.doc_id = d.doc_id
                  CROSS JOIN document_text t ON t.document_sha256 = m.document_sha256
                                            AND t.superseded_by IS NULL
+         ORDER BY d.date IS NULL, d.date, d.doc_id
         """,
         args,
     ):
@@ -343,7 +353,8 @@ def _owned(con: Connection, ids: list[int], where: str, args: list, *, ranked: b
         (json.dumps(ids), *args),
     )
     return _dedupe(
-        (group, _Item("page", text_id, float(ord_) if ranked else 0.0, date, doc_id))
+        # ranked from 1: 0.0 means "not ranked" to `_order`
+        (group, _Item("page", text_id, float(ord_ + 1) if ranked else 0.0, date, doc_id))
         for ord_, text_id, doc_id, group, date in rows
     )
 
@@ -436,12 +447,12 @@ def _proceeding(con: Connection, q: Query, match: str | None, gid: int, items: l
     if head:
         path, number, caption, fact = head
     else:  # an unparseable docket is a proceeding without an address
-        (raw,) = con.execute("SELECT raw_docket FROM docket WHERE docket_id = ?", (gid,)).fetchone()
-        path, number, caption, fact = "", raw, "", ""
+        row = con.execute("SELECT raw_docket FROM docket WHERE docket_id = ?", (gid,)).fetchone()
+        path, number, caption, fact = "", (row[0] if row else ""), "", ""
     ranked = sorted(items, key=lambda i: (_SHOWN_ORDER[i.kind], i.score, -(len(i.date or ""))))
     if q.sort == "newest" or not q.text.strip():
         ranked = sorted(items, key=lambda i: i.date or "", reverse=True)
-    limit = WITHIN_EVIDENCE if q.within is not None else EVIDENCE
+    limit = WITHIN_EVIDENCE if q.within is not None else EVIDENCE  # said on the page when cut
     chosen = [i for i in ranked if i.kind != "docket"][:limit]
     hits = _record_hits(con, match, [i for i in chosen if i.kind != "page"])
     hits.update(_page_hits(con, match, [i for i in chosen if i.kind == "page"]))
@@ -542,10 +553,23 @@ def _attachment_index(con: Connection, kind: str, ref: int, sha: str) -> int:
     """The file's position among the record's files, ordered as the sheet orders them (by
     source URL), so `?file=N` names the same file on the text page and the record page."""
     table, fk = _ATTACHMENT[kind]
+    # the index row is the headline copy, but the document may be carried by another copy
+    # of the same record (schema-critic): look in every copy, the headline's first
+    record, key = _COPIES_OF[kind]
     row = con.execute(
         f"SELECT (SELECT COUNT(*) FROM {table} b WHERE b.{fk} = a.{fk}"
         f" AND b.source_url < a.source_url) FROM {table} a"
-        f" WHERE a.{fk} = ? AND a.document_sha256 = ? ORDER BY a.source_url LIMIT 1",
-        (ref, sha),
+        f" WHERE a.document_sha256 = ? AND a.{fk} IN (SELECT c.{fk} FROM {record} c"
+        f" WHERE {key.format('c')} = (SELECT {key.format('h')} FROM {record} h"
+        f" WHERE h.{fk} = ?)) ORDER BY a.{fk} = ? DESC, a.source_url LIMIT 1",
+        (sha, ref, ref),
     ).fetchone()
     return row[0] if row else 0
+
+
+# a record's copies share this key: the fold `search._placements` uses
+_COPIES_OF = {
+    "filing": ("filing", "{0}.stb_filing_id"),
+    "decision": ("decision_record", "{0}.stb_decision_id"),
+    "comment": ("enviro_comment", "{0}.comment_number || '|' || COALESCE({0}.stb_row_ref, '')"),
+}

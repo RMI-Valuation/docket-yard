@@ -1653,7 +1653,7 @@ def create_app(
         ftype: list[str] = Query(default=[]),  # noqa: B008
         dtype: list[str] = Query(default=[]),  # noqa: B008
         sort: str = "best",
-        page: int = 1,
+        page: str = "1",
         docket: str = "",
         view: str = "proceedings",
     ):
@@ -1669,10 +1669,14 @@ def create_app(
             dropped: list[str] = []
 
             def known(values: list[str], allowed, label: str) -> tuple[str, ...]:
-                kept = tuple(dict.fromkeys(v for v in values[:MAX_FILTER_VALUES] if v in allowed))
+                if len(set(values)) > MAX_FILTER_VALUES:
+                    too_many.append(label)
+                kept = tuple(dict.fromkeys(v for v in values if v in allowed))
                 if len(kept) < len(set(values)):
                     dropped.append(label)
-                return kept
+                return kept[:MAX_FILTER_VALUES]
+
+            too_many: list[str] = []
 
             prefixes = known([v.strip().upper() for v in prefix], vocab.prefixes, "docket type")
             kinds = known(kind, finder.KINDS, "what to search") or finder.KINDS
@@ -1700,7 +1704,7 @@ def create_app(
                 ftypes=ftypes,
                 dtypes=dtypes,
                 sort=sort if sort in ("best", "newest") else "best",
-                page=min(max(1, page), MAX_RESULT_PAGE),
+                page=min(max(1, int(page)), MAX_RESULT_PAGE) if page.strip().isdigit() else 1,
                 within=within,
                 view=view if view in ("proceedings", "documents") else "proceedings",
             )
@@ -1722,6 +1726,9 @@ def create_app(
             results=results,
             vocab=vocab,
             dropped=dropped,
+            too_many=too_many,
+            max_filter_values=MAX_FILTER_VALUES,
+            within_evidence=finder.WITHIN_EVIDENCE,
             within_label=docket.strip() if within is not None else "",
             searched=bool(q or query.filtered),
             kind_labels=finder.KIND_LABELS,
@@ -2310,7 +2317,9 @@ def _record_docket(con, kind: str, stb_id: str) -> int:
     row = con.execute(
         f"SELECT r.docket_id FROM {table} r JOIN docket d ON d.docket_id = r.docket_id"
         f" WHERE r.{column} = ?"
-        " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, '') LIMIT 1",
+        # the record's own id last, so a record entered in two families always picks the
+        # same copy, the one search's placements headline (schema-critic, 2026-09-17)
+        " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, ''), r.rowid LIMIT 1",
         (stb_id,),
     ).fetchone()
     if row is None:

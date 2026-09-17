@@ -107,6 +107,7 @@ def _docket_docs(con: Connection):
     of their own. A sub-docket that is not a row repeats its parent's caption, so the family
     loses no word by carrying its own alone."""
     counts = _family_counts(con)
+    group = proceedings(con)  # ONE rule for what is a proceeding, read by both (schema-critic)
     rows = con.execute(
         "SELECT docket_id, raw_docket, parent_docket_id, json_extract(latest_payload, '$.title')"
         " FROM docket_current ORDER BY parent_docket_id IS NOT NULL, docket_id"
@@ -122,7 +123,7 @@ def _docket_docs(con: Connection):
             parents[docket_id] = (ident, caption)
             continue
         p = parents.get(parent)
-        if caption and (p is None or caption != p[1]):
+        if group[docket_id][0] == docket_id:
             printed = urls.printed_docket(ident)
             head = urls.printed_docket(p[0]) if p else printed
             # the caption travels as its own field as well as in the body: the body is
@@ -643,9 +644,10 @@ def _placements(
                 continue  # its headline was not indexed
             owner[pk] = doc_id
             g, prefix = group[docket_id]
-            places.setdefault(
-                (doc_id, g), (doc_id, g, prefix, date_kind, date or None, type_kind, type_ or None)
-            )
+            type_ = (type_ or "").strip()
+            type_ = None if type_ in _PLACEHOLDERS else type_
+            date = (date or "").strip() or None
+            places.setdefault((doc_id, g), (doc_id, g, prefix, date_kind, date, type_kind, type_))
         attachment, fk = _ATTACHMENTS[kind]
         for pk, sha in con.execute(
             f"SELECT {fk}, document_sha256 FROM {attachment} WHERE document_sha256 IS NOT NULL"
@@ -667,6 +669,21 @@ def rebuild(con: Connection, *, force: bool = False) -> dict:
     Every row is derived on reads first; the write is one short transaction, so a reader
     sees the old set or the new one, never half, and other writers wait seconds, not
     minutes."""
+    # ONE READ SNAPSHOT for the signature and everything derived from it. The derivation is
+    # several queries, and the store is written beside it (a records wave runs next to the
+    # poller): read at different moments, a decision committed between `_numbers` and its
+    # main query was a KeyError, and a rebuild stamped with a signature older than its rows
+    # (the ingest specialist, 2026-09-17). Held for the derivation's seconds, not the lock's.
+    if not con.in_transaction:
+        con.execute("BEGIN")
+    try:
+        return _rebuild_from_snapshot(con, force=force)
+    finally:
+        if con.in_transaction:
+            con.rollback()
+
+
+def _rebuild_from_snapshot(con: Connection, *, force: bool) -> dict:
     sig = signature(con)
     last, build = built(con)
     if sig == last and not force:
@@ -686,32 +703,47 @@ def rebuild(con: Connection, *, force: bool = False) -> dict:
                 rows.append((doc_id, kind, ref, path, *text))
     places, documents = _placements(con, doc_ids)
     counts["placements"], counts["documents"] = len(places), len(documents)
-    con.execute("BEGIN IMMEDIATE")
-    for table in ("search_doc", "search_place", "search_document"):
-        con.execute(f"DELETE FROM {table}")
-    con.executemany(
-        "INSERT INTO search_doc (doc_id, kind, ref, path, title, body, fact, caption)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        rows,
-    )
-    con.executemany(
-        "INSERT INTO search_place (doc_id, group_docket_id, prefix, date_kind, date, type_kind,"
-        " type) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        places,
-    )
-    con.executemany(
-        "INSERT INTO search_document (document_sha256, doc_id) VALUES (?, ?)", documents
-    )
-    con.execute("INSERT INTO search_fts (search_fts) VALUES ('rebuild')")
-    con.execute(
-        "INSERT INTO search_meta (key, signature, build, built_at) VALUES ('built', ?, ?, ?)"
-        " ON CONFLICT (key) DO UPDATE SET signature = excluded.signature,"
-        " build = excluded.build, built_at = excluded.built_at",
-        (sig, build + 1, utcnow()),
-    )
-    con.commit()
+    con.rollback()  # the read snapshot ends here; the write takes the lock on its own
+
+    def write() -> None:
+        # Under the house retry (`batches.under_lock`): Litestream's TRUNCATE checkpoint wants
+        # the same lock, and this transaction now rewrites three tables. Replayable, because
+        # everything it writes is held in memory.
+        con.execute("BEGIN IMMEDIATE")
+        for table in ("search_doc", "search_place", "search_document"):
+            con.execute(f"DELETE FROM {table}")
+        con.executemany(
+            "INSERT INTO search_doc (doc_id, kind, ref, path, title, body, fact, caption)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+        con.executemany(
+            "INSERT INTO search_place (doc_id, group_docket_id, prefix, date_kind, date,"
+            " type_kind, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            places,
+        )
+        con.executemany(
+            "INSERT INTO search_document (document_sha256, doc_id) VALUES (?, ?)", documents
+        )
+        con.execute("INSERT INTO search_fts (search_fts) VALUES ('rebuild')")
+        con.execute(
+            "INSERT INTO search_meta (key, signature, build, built_at) VALUES ('built', ?, ?, ?)"
+            " ON CONFLICT (key) DO UPDATE SET signature = excluded.signature,"
+            " build = excluded.build, built_at = excluded.built_at",
+            (sig, build + 1, utcnow()),
+        )
+        con.commit()
+
+    batches.under_lock(con, write, what="the search index", log=lambda _: None)
     counts["build"] = build + 1
     return counts
+
+
+def ready(con: Connection) -> bool:
+    """Whether the record index was built by this code. Between migration 0033 and the first
+    rebuild it is EMPTY, and an empty index answers every search "nothing" with a 200 — a
+    coverage claim the store cannot support (the ingest specialist, 2026-09-17)."""
+    return (built(con)[0] or "").startswith(f"{INDEX_FORMAT}.")
 
 
 def rebuild_or_report(con: Connection, problems: list[str]) -> dict | None:

@@ -145,3 +145,22 @@ def test_parties_are_a_strip_and_a_filter_drops_it(tmp_path):
     assert [h.kind for h in finder.find(con, Query("nrdc")).parties] == ["party"]
     assert finder.find(con, Query("nrdc", prefixes=("FD",))).parties == []
     con.close()
+
+
+def test_within_one_proceeding_every_page_is_seen(texted, monkeypatch):
+    (fd,) = texted.execute("SELECT docket_id FROM docket WHERE raw_docket = 'FD_36873'").fetchone()
+    monkeypatch.setattr(finder, "PAGE_WINDOW", 0)  # the record-wide window would drop it
+    r = finder.find(texted, Query("tazewell", within=fd))
+    assert r.pages_cut == "" and r.proceedings[0].pages == 1
+
+
+def test_a_page_links_the_file_on_the_copy_that_carries_it(texted):
+    # the headline copy of 311981 loses the attachment; the sub-docket's copy keeps it
+    texted.execute(
+        "DELETE FROM filing_attachment WHERE filing_pk = (SELECT MIN(filing_pk) FROM filing"
+        " WHERE stb_filing_id = '311981')"
+    )
+    texted.commit()
+    search.rebuild(texted, force=True)
+    hits = [h for p in finder.find(texted, Query("tazewell")).proceedings for h in p.hits]
+    assert hits and all(h.path.endswith("/text#p3") for h in hits)

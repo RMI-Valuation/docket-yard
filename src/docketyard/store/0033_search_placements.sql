@@ -62,7 +62,14 @@ CREATE TABLE search_place (
     type            TEXT,                         -- the Board's type as that entry prints it
     PRIMARY KEY (doc_id, group_docket_id),
     CHECK (date IS NULL OR date_kind IS NOT NULL),
-    CHECK (type IS NULL OR type_kind IS NOT NULL)
+    CHECK (type IS NULL OR type_kind IS NOT NULL),
+    -- a filed date is a filing's, a served date a decision's, a dated date a comment's
+    CHECK (CASE date_kind WHEN 'filed' THEN type_kind = 'filing'
+                          WHEN 'served' THEN type_kind = 'decision'
+                          ELSE type_kind IS NULL END),
+    -- the filters compare dates as ISO strings
+    CHECK (date IS NULL OR date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+    CHECK (type IS NULL OR (type = TRIM(type) AND type NOT IN ('', '--', '---')))
 ) WITHOUT ROWID;
 CREATE INDEX search_place_group ON search_place (group_docket_id);
 CREATE INDEX search_place_prefix_date ON search_place (prefix, date);

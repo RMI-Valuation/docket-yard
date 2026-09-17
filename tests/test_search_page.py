@@ -97,3 +97,25 @@ def test_the_flat_list_shows_each_match_once_and_keeps_the_search(tmp_path):
     assert r.text.count('href="/filing/311981"') == 1 and 'href="/filing/311900"' in r.text
     back = r.text.split(">Group by proceeding</a>")[0].rsplit('href="', 1)[1].split('"')[0]
     assert parse_qs(urlparse(back.replace("&amp;", "&")).query) == {"q": ["motion"]}
+
+
+def test_the_page_answers_what_it_cannot_list_rather_than_nothing(tmp_path, monkeypatch):
+    client = _client(tmp_path)
+    # a page number that is not a number is the first page, not a 422
+    assert client.get("/search", params={"q": "motion", "page": "x"}).status_code == 200
+    past = client.get("/search", params={"q": "motion", "page": "5"}).text
+    assert "is past the last page" in past and "Nothing on record matches" not in past
+    only_captions = client.get("/search", params={"q": "control", "view": "documents"}).text
+    assert "Only captions or docket numbers matched" in only_captions
+    assert "Nothing on record matches" not in only_captions
+    many = [("q", "motion")] + [("ftype", f"type {i}") for i in range(25)]
+    assert (
+        "Only the first 20 values of a filter are used" in client.get("/search", params=many).text
+    )
+
+
+def test_an_index_not_yet_built_says_so(tmp_path):
+    path = build_store(tmp_path)  # migrated, never rebuilt: the state migration 0033 leaves
+    html = TestClient(create_app(path)).get("/search", params={"q": "motion"}).text
+    assert "The search index is being rebuilt" in html
+    assert "Nothing on record matches" not in html

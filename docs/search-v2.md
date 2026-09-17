@@ -94,8 +94,10 @@ One row per (index row, proceeding), deduplicated per proceeding:
 | `date_kind`, `date` | `filed`, `served` or `dated` (the Board's "received or sent" column, which declines to say which), and that entry's printed date, ISO. `served` is `service_date`, never the derived decided date of `decided-date-grain`. NULL for a docket |
 | `type_kind`, `type` | `filing` or `decision`, and the type as that entry prints it |
 
-Indexed `(doc_id)`, `(group_docket_id)`, `(prefix, date)`, `(type_kind, type)`, created
-after the inserts inside the rebuild's transaction. A docket row places itself; a party has
+Indexed `(doc_id)`, `(group_docket_id)`, `(prefix, date)`, `(type_kind, type)`, by the
+migration; the rebuild inserts with them in place (dropping and recreating them inside the
+write is a measurement not yet taken). CHECKs tie a date's kind to the record's kind, hold
+dates to ISO form and types to trimmed, non-placeholder strings. A docket row places itself; a party has
 no placement.
 
 **The cells mirror the latest observation**, as the record tables do (0002). Nothing reads
@@ -133,8 +135,8 @@ hash; a page without a map row is counted apart from drift, as `dropped` is toda
 - **The snapshot**: `search_place` and `search_document` join `dump.DERIVED_TABLES`, or the
   nightly dump refuses the unclassified tables; `tests/test_data.py` pins the set.
 - **The rebuild** runs whenever the signature moves, most polls, and now writes ≈150,000
-  index rows, ≈160,000 placements and ≈110,000 map rows to the WAL Litestream ships. Measured
-  on the restore in production's image before build: the whole rebuild, the write lock
+  index rows, ≈160,000 placements and ≈110,000 map rows to the WAL Litestream ships. To be
+  measured in production's image on the instance at the rehearsal: the whole rebuild, the write lock
   (0012's was 5.6 s at 96,225 rows, most of it the FTS re-tokenise, which grows with tokens;
   filing bodies are short), and that the fleet's page loader waits on busy rather than fails.
 
@@ -151,6 +153,37 @@ Migration 0033 and a forced rebuild on a copy of the restore, locally (SQLite 3.
 
 The instance is slower (0012's lock was 5.6 s there at 96,225 rows against a local figure
 not taken); the rehearsal in production's image measures it before release.
+
+### What the reviews changed (2026-09-17)
+
+`/code-review` (high), the ingest specialist and a second schema-critic pass on the built code:
+
+- **The rebuild reads one snapshot.** Its derivation is several queries and a records wave
+  writes beside the poller; read at different moments, a decision committed between two of
+  them was a `KeyError` and a rebuild could be stamped older than its rows. The signature and
+  every derived row are read inside one read transaction, and the write runs under
+  `batches.under_lock`, as the text loader's does, since Litestream's checkpoint wants the
+  same lock.
+- **An index not yet built says so.** Migration 0033 empties the record index, and until the
+  first rebuild `/search` answered every query "nothing" with a 200. `search.ready()` compares
+  the built signature's format; `/search` says the index is being rebuilt. The deploy runs the
+  rebuild in the window regardless (`infra/deploy/README.md`).
+- **One rule for what is a proceeding.** `_docket_docs` reads `proceedings()` to decide which
+  sub-dockets are rows, so the two cannot disagree (they did for an unparseable parent).
+- **A page links the file on the copy that carries it**, and the text page picks a record's
+  copy with the id as last tiebreak; **within one proceeding every page is seen**, not the
+  record-wide best 5,000; **placements hold types as the body does** (trimmed, placeholders
+  dropped); **owners are ordered**, so which record a page links cannot vary between runs.
+- On the page: a flat list whose only matches are captions says so; a page past the last says
+  so; within one proceeding, the 200-match cap is said; more than 20 values of a filter are
+  said as such; a `page` that is not a number is the first page, not a 422.
+
+Checked on the restore and clean today: no document mapped only through a non-headline copy,
+no placement date differing from the printed fact, no placeholder types, no group without a
+docket row, no sub-docket with a missing parent. Recorded, not changed: a family's header
+counts the family sheet's filings (1,982 captioned sub-dockets with filings are their own
+proceedings), and an evidence row prints the headline copy's date, which differs from a
+placement's for 2 decisions entered in several dockets.
 
 ## Query plan, and what it costs
 

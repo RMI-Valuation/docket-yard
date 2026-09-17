@@ -58,7 +58,9 @@
 
 {% if searched %}
 <section class="results">
+  {% if results.records_rebuilding %}<p>The search index is being rebuilt after an update, so search cannot answer for a few minutes. Nothing is lost; every docket sheet is unaffected. Please try again shortly.</p>{% endif %}
   {% if dropped %}<p class="small muted">Ignored, because the record holds no such value: {{ dropped | join(', ') }}.</p>{% endif %}
+  {% if too_many %}<p class="small muted">Only the first {{ max_filter_values }} values of a filter are used: {{ too_many | join(', ') }}.</p>{% endif %}
   {% if within_label %}<p class="small">Within {{ within_label }} · <a href="{{ search_url(q, docket=None, page=None) }}">every proceeding</a></p>{% endif %}
 
   {% set n = results.total %}
@@ -109,6 +111,9 @@
         {% endfor %}
       </ul>
       {% endif %}
+      {% if within_label and p.more > 0 %}
+      <p class="small muted">The first {{ within_evidence }} matches are shown; {{ p.more }} more are not. Add words or a filter to narrow them.</p>
+      {% endif %}
       {% if p.more > 0 and not within_label %}
       <p class="small"><a href="{{ search_url(q, docket=p.number, page=None) }}">{{ p.more }} more match{{ 'es' if p.more != 1 }} in this proceeding</a>{% if p.pages %} · {{ p.pages }} page{{ 's' if p.pages != 1 }} of text in all{% endif %}</p>
       {% endif %}
@@ -123,7 +128,11 @@
     {% if q.page < results.page_count %}<a href="{{ search_url(q, page=q.page + 1, docket=within_label) }}" rel="next">Next →</a>{% endif %}
   </nav>
   {% endif %}
-  {% if not results.proceedings and not results.documents and not results.parties %}
+  {% if q.page > results.page_count and results.total %}
+  <p>Page {{ q.page }} is past the last page of these results. <a href="{{ search_url(q, page=None, docket=within_label) }}">Go to the first page</a>.</p>
+  {% elif q.view == 'documents' and not results.documents and results.proceeding_total %}
+  <p>Only captions or docket numbers matched, so there is no filing, decision, comment or page to list. <a href="{{ search_url(q, view=None, page=None, docket=within_label) }}">See the proceedings</a>.</p>
+  {% elif not results.proceedings and not results.documents and not results.parties and not results.records_rebuilding %}
   <p class="muted">Nothing on record matches{% if query %} “{{ query }}”{% endif %}{% if q.filtered %} with these filters{% endif %}. Captions and names are matched as the Board prints them; a docket number in any spelling opens its sheet directly.</p>
   {% endif %}
 
