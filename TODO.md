@@ -8,9 +8,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **v2026.09.26 LIVE** 2026-09-17 ~12:25 UTC (schema 32, JSON shape 3; tag change, no wall; rollback
-  `DY_TAG=v2026.09.25`, `.env.bak-v2026.09.25` on the box). The fleet still runs `67b1762` until
-  redeployed; the tabular root loads only with his go
+- **v2026.09.27 LIVE** 2026-09-17 15:25 UTC (schema 33, `INDEX_FORMAT` 4; behind the wall
+  15:20:10-15:25:34, restore point 15:20:10Z): search built out (PR #41). On the instance `the`
+  unfiltered also reaches the 1.5 s budget and leaves page text out. The fleet still runs `67b1762`
+  until redeployed; the tabular root loads only with his go
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown; exposed
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
@@ -28,10 +29,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **Search built out, BUILT on `search-v2`** (`docs/search-v2.md`; his seven decisions
-  2026-09-17): PR #41. Reviewed (critic x2, code, ingest, security) and rehearsed in production's
-  image, all checks pass. Owed: Copilot on #41 (Codex at its limit), his go, release behind the
-  wall with `search rebuild` in the window
 - **MCP: list the proceedings behind a count** (`deferred.md` § From using the live MCP server):
   asked for the 20 most recent, an assistant had to guess one. His to choose; small
 - **The graders' three open fix-now items** (`deferred.md` § The independent graders): the
