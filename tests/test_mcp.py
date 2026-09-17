@@ -506,3 +506,47 @@ def test_the_machine_surface_answers_a_series_with_its_index(tmp_path):
     assert "Entries, newest first:" not in out
     assert "/d/AB-167/sub/1X" in out
     assert out.rstrip().endswith(mcp._NOT_HELD)  # the caveats still travel with the answer
+
+
+def test_a_decision_is_handed_over_with_its_body_and_summary_as_printed(client):
+    """`[decision] 53210 — Decision` told an assistant nothing it could say; the JSON twin and
+    the page carried the summary all along (the independent graders, 2026-09-16)."""
+    text = call(client, "get_docket_sheet", {"docket": "FD 36873"})["content"][0]["text"]
+    line = next(x for x in text.splitlines() if "[decision] 53210" in x)
+    assert 'the Board\'s summary, as printed: "ORDERED REPLIES DUE"' in line
+    # and a search row says why a decision matched, in the Board's words, marked
+    text = call(client, "search_the_record", {"query": "replies"})["content"][0]["text"]
+    line = next(x for x in text.splitlines() if x.startswith("[decision]"))
+    assert 'matched: "ORDERED «REPLIES» DUE"' in line  # the Board's words, not our spellings
+    assert "\x02" not in text and "\x03" not in text
+    # a search by number matches only this record's own spellings: nothing quoted as matched
+    text = call(client, "search_the_record", {"query": "36873"})["content"][0]["text"]
+    assert "matched:" not in text, text
+
+
+def test_the_wording_an_assistant_repeats_says_what_is_true(client, tmp_path):
+    """Found by the independent graders, 2026-09-16: `1 filings`; `last` meaning the last
+    filing; "raise `limit`" at the cap; a comment miss with no hedge."""
+    text = call(client, "search_the_record", {"query": "FD 36873"})["content"][0]["text"]
+    assert "1 filings" not in text
+    text = call(client, "search_the_record", {"query": "peoria"})["content"][0]["text"]
+    assert "2 filings, last filed 2026-08-25" in text  # the last FILING's date, said so
+    text = call(client, "get_environmental_comment", {"number": "EI-00000"})["content"][0]["text"]
+    assert "may exist at the Board and not here" in text
+    out = mcp._docket(_many_entries(tmp_path), {"docket": "FD 36873", "limit": 100}, "h")
+    assert "Raise `limit`" not in out and "at most 100; the rest are on the sheet" in out
+
+
+def _many_entries(tmp_path):
+    con = db.connect(build_store(tmp_path / "many"))
+    (event,) = con.execute("SELECT MIN(observed_in_event) FROM filing").fetchone()
+    (docket_id,) = con.execute(
+        "SELECT docket_id FROM docket WHERE raw_docket = 'FD_36873'"
+    ).fetchone()
+    con.executemany(
+        "INSERT INTO filing (docket_id, stb_filing_id, filing_type, filed_date, observed_in_event)"
+        " VALUES (?, ?, 'Letter', '2026-01-01', ?)",
+        [(docket_id, str(900000 + i), event) for i in range(120)],
+    )
+    con.commit()
+    return con

@@ -41,7 +41,7 @@
     "kind": "filing",
     "date": "2026-08-25",
     "date_printed": "8/25/2026",
-    "docket_raw": "FD 36873",
+    "docket_raw": "FD_36873",
     "record_id": "311981",
     "type": "Motion",
     "filed_for_raw": "Union Pacific Railroad Company",
@@ -50,7 +50,7 @@
                      "document_sha256": "9bbce28b…",
                      "media_type": "pdf"}],
     "url": "https://{{ site_host }}/filing/311981",
-    "docket": {"raw_docket": "FD 36873", "printed": "FD 36873", "url": "https://{{ site_host }}/d/FD-36873"}
+    "docket": {"raw_docket": "FD_36873", "printed": "FD 36873", "url": "https://{{ site_host }}/d/FD-36873"}
   }
 }</pre>
   <p class="small muted">Illustrative: the dates and attachment are shaped like the real ones, not copied from them. A field the Board left blank is <span class="mono">null</span>, never guessed.</p>
@@ -70,6 +70,7 @@
     <li><strong>Addresses are permanent.</strong> A docket, filing, decision, party or document address, once served, answers forever — the same record, or a 301 to where it now lives (never a 404 for something that existed). This is a written commitment, not a habit: <a href="https://github.com/RMI-Valuation/docket-yard/blob/main/docs/adr/0013-permanent-urls.md" rel="noopener">ADR 0013</a>.</li>
     <li><strong>Shapes are versioned.</strong> Every JSON response carries <span class="mono">shape_version</span> (now {{ shape_version }}). It is raised — and announced on the <a href="/data">data page</a> — when a field changes name or meaning. New fields may appear without a bump; read by name, not by position.</li>
     <li><strong>Releases are dated.</strong> The software is released as <span class="mono">vYYYY.MM.N</span>; this response came from <span class="mono">{{ version }}</span>. Nothing about a release is a promise beyond the two lines above.</li>
+    <li><strong>A miss says so, as data.</strong> An address that holds nothing answers 404; at a <span class="mono">.json</span> address the body is JSON — <span class="mono">{"error": "not_found", "detail": …, "shape_version": {{ shape_version }}}</span> — never an HTML page.</li>
     <li><strong>Blanks are blanks.</strong> A date is the one the Board printed, in ISO form beside the printed form; nothing is computed from context. Nothing here says what any party's position is.</li>
   </ul>
 </section>
