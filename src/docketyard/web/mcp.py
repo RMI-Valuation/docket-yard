@@ -257,7 +257,15 @@ def _docket(con: Connection, args: dict, host: str) -> str:
     if len(s.entries) > limit:
         more = (
             f"\n({len(s.entries) - limit} older entries not shown — these are the"
-            f" {limit} most recent, not the whole sheet. Raise `limit` or read the sheet.)"
+            f" {limit} most recent, not the whole sheet. "
+            # at the cap, "raise `limit`" sent an assistant round a loop it could not leave
+            # (the independent graders, 2026-09-16)
+            + (
+                "Raise `limit` (at most 100) or read the sheet.)"
+                if limit < 100
+                else "This tool shows at most 100; the rest are on the sheet:"
+                f" {_site(host, urls.docket_path(identity))})"
+            )
         )
     return "\n".join(head) + "\n\n" + "\n".join(rows) + more
 
@@ -294,7 +302,12 @@ def _comment(con: Connection, args: dict, host: str) -> str:
         (number,),
     ).fetchall()
     if not rows:
-        return f"The record holds no environmental comment numbered {number}."
+        # the hedge a docket miss carries: the comment walk has unfinished months, so a miss
+        # here is not a miss at the Board (the independent graders, 2026-09-16)
+        return (
+            f"The record holds no environmental comment numbered {number}. It may exist at the"
+            " Board and not here: call `coverage` for the months the record has not finished."
+        )
     # Folded by ROW REF, not by number. One comment entered in a docket and its sub-docket
     # shares a ref and is ONE comment (108 of the 110 repeated numbers measured); two
     # comments the Board gave the same number have different refs and are two. Folding by
@@ -385,7 +398,7 @@ TOOLS: tuple[Tool, ...] = (
                 "limit": {
                     "type": "integer",
                     "description": "Results, 1-50. Default 10: up to that many record"
-                    " lines, and up to 20 [page] lines whatever is asked.",
+                    " lines, and up to that many [page] lines, never more than 20.",
                 },
             },
             ["query"],
