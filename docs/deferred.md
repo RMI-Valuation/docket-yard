@@ -1877,3 +1877,29 @@ the figures in that README are now his, not the drafting pass's.
 - **A text layer can be a SUPERSET of its page.** T086 carries three lines that appear nowhere
   on the rendered page (a statement date and two notices). Nothing checks that the layer's text
   is on the page; the display shows it as the page's text.
+
+## From the schema critic on the 0021 quality addendum, 2026-09-17 (branch `text-layer-quality`)
+
+Two of its findings were errors in the MEASUREMENT and are corrected in
+`docs/research/text-quality/README.md`: `good` was printed under two denominators
+(`hits/word-shaped` in the 18005 table, `hits/letter-bearing` everywhere else — 0.56 against
+0.22 for one reading), and garbage recall was 0.92 from a 16-page cell that held no garbage,
+against 0.68 once the top-up's 1-in-102 is carried. Both are recorded in the addendum itself
+so the correction travels with the decision. What is left open:
+
+- **`class_measurement` cannot name a lexicon.** The addendum makes the lexicon an operand of
+  the score, but the measurement registry has no column for it and its identity index has
+  none either: a row scored under lexicon B may legally point at a measurement taken under
+  lexicon A, and two measurements of one cut under two lexicons on one day collide. Widening
+  that key is ADR 0018 D8's, declined 2026-09-01 as a rare same-day collision; the lexicon
+  makes a second, likelier instance, because the vocabulary grows with the record. Re-open
+  when the quality migration is written.
+- **`document_text_display` exposes `asserted_at` but not `superseded_at`, and takes no as-of
+  parameter.** So "the display row live on date D" cannot be read from the shipped view, and
+  0028 forbids re-deriving the human-over-primary rule against `document_text`. Validation
+  query 3 leans on this for text pages TODAY, before any quality row exists; the quality
+  addendum is only the first record to rely on it as though done.
+- **The operational join is left unbuilt, deliberately**:
+  `citation_reading.text_id = text_quality.text_id` would give the citator a re-walk queue —
+  edges read off pages the signal flags — on a graph built from numbers read out of that same
+  text. Not foreclosed, not argued.

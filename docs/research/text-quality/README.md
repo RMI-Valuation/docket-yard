@@ -25,8 +25,11 @@ directory measures; it sits BEFORE the OCR pipeline, not inside it.
 
 `tools/rmi-ai-machine/text_quality.py`. Per page, over tokens that contain a letter:
 
-- **`good`** — the share of them that are word-shaped and found in the lexicon. This is the
-  signal; the rest are diagnostics.
+- **`good` = `lexicon_hits / letter-bearing tokens`** — THE signal, and the only definition
+  used anywhere here. The module also exposes `shares()["lex"]`, which divides by *word-shaped*
+  tokens instead; that is a diagnostic, it is not `good`, and mixing the two put 0.56 beside
+  0.22 for one page in an earlier draft of this document (schema-critic, 2026-09-17). The
+  denominators differ by exactly the mangled share, which is largest on the worst pages.
 - `mangled` — the share that are not word-shaped (letters fused with digits or symbols).
 - `junk` — the share of non-space characters outside letters, digits and ordinary punctuation.
 - `case` — the share of words with a lower→UPPER flip inside them (`PreseHation`).
@@ -131,10 +134,17 @@ of that band is what would.**
 
 | cut | flagged | precision | recall |
 | --- | ---: | ---: | ---: |
-| **as a garbage detector, <0.5** | ~31,800 | **0.72** (23/32) | **0.92** |
-| as a garbage detector, <0.3 | ~16,000 | 0.87 (14/16) | 0.56 |
+| **as a garbage detector, <0.5** | ~31,800 | **0.72** (23/32) | **0.68** |
+| as a garbage detector, <0.3 | ~16,000 | 0.87 (14/16) | 0.50 |
 | as an any-fault detector, <0.5 | ~31,800 | **1.00** (32/32) | 0.13 |
 | as an any-fault detector, <0.7 | ~64,900 | 0.80 (42/48) | 0.21 |
+
+**The garbage recall was 0.92 in this document until 2026-09-17 and it was wrong**
+(schema-critic). It was computed from the 64-page sample alone, whose ≥0.7 cell held 16 pages
+and 0 garbage — so the cut appeared to miss nothing above it. The 102-page top-up found
+**1 garbage page in 102** up there, which stands for roughly 8,500 pages, and recall falls to
+0.68. The lesson is the sample's, not the signal's: a rate for a band of 866,497 pages may not
+be read off 16 of them, in either direction.
 
 **This is the result that matters: below 0.5 the signal is a good detector of the 18005 failure
 and a poor detector of everything else.** Nine in ten garbage pages fall below 0.5, and every
@@ -252,11 +262,11 @@ scored with `ocr_score.py` against a **model transcription of the scan that nobo
 
 | reading | CER | `good` | key phrases (of 12) |
 | --- | ---: | ---: | ---: |
-| stored text layer (pymupdf 1.28.2 over the 2007 layer) | 0.85 | 0.56 | 0 |
-| RapidOCR (PP-OCR ONNX), best of 150/200/300 DPI | 0.36 | 0.55 | 6 |
-| deepseek-ocr, 200 DPI | 0.21 | 0.96 | 10 |
-| qwen3-vl:8b-instruct, 200 DPI (3090) | 0.08 | 0.97 | 12 |
-| qwen3-vl:32b-instruct, 200 DPI (3090) | 0.11 | 0.97 | 12 |
+| stored text layer (pymupdf 1.28.2 over the 2007 layer) | 0.85 | **0.22** | 0 |
+| RapidOCR (PP-OCR ONNX), 200 DPI | 0.36 | 0.32 | 6 |
+| deepseek-ocr, 200 DPI | 0.21 | 0.92 | 10 |
+| qwen3-vl:8b-instruct, 200 DPI (3090) | 0.08 | 0.93 | 12 |
+| qwen3-vl:32b-instruct, 200 DPI (3090) | 0.11 | 0.93 | 12 |
 
 PP-OCR's detector drops the right half of every body line where the speckle is densest;
 despeckling first made it worse. **One page chooses no engine**, which is why the two qwen3-vl
