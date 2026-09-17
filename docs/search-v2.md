@@ -34,7 +34,7 @@ hit carries who read it, the band and the scan (ADR 0021 D7).
 | --- | --- | --- |
 | Dockets (`docket_current`) | 32,631 | 31,987 rows (families, and sub-dockets with a caption of their own) |
 | Filings | 54,822 (58,388 attachments) | **none**, only their pages' text |
-| Decisions | 23,726 | 19,846: those with a printed summary |
+| Decisions | 23,726 rows, 19,846 ids | 19,846: those with a printed summary, which is every id |
 | Environmental comments | 34,414 | 34,297 |
 | Parties | — | 10,234 components |
 | Pages of text (`page_fts`) | 1,357,843 | all |
@@ -66,8 +66,8 @@ placements, and pages reach proceedings through the same placements.
 
 Numbered 0033 on this branch, because `MIGRATIONS` must be contiguous; the decided-dates
 addendum on `decided-date-grain` claims 0033 too, and whichever lands second renumbers.
-All three tables are derived and disposable, rebuilt by ingest; the migration clears `search_meta`'s signature, not its row (0012's reasoning).
-`INDEX_FORMAT` goes to 4.
+All three tables are derived and disposable, rebuilt by ingest; the migration clears
+`search_meta`'s signature, not its row (0012's reasoning). `INDEX_FORMAT` goes to 4.
 
 ### `search_doc`, rebuilt
 
@@ -75,9 +75,10 @@ Rebuilt as 0012 rebuilt it, the kind CHECK admitting `filing`:
 
 - **Filing rows**, one per filing id. Body: the Board's type, the Filed For text as printed,
   the filing id, the printed docket(s). Title `Filing <id>`.
-- **Every decision**, summary or not, with its **type in the body**, so a decision without
-  a summary is found by typing its type and not only through the filter. The prose that says
-  search covers "decision summaries" (`search.html`, `search.md`) is revised with it.
+- **Every decision**, summary or not, with its **type in the body**, so a type is found by
+  word as well as by filter. Every decision id on the restore prints a summary, so this adds
+  no rows today; it keeps one that ever prints none findable. The prose that says search
+  covers "decision summaries" (`search.html`, `search.md`) is revised with it.
 - No filter columns: those are the placements'.
 
 ### `search_place`, new
@@ -135,6 +136,20 @@ hash; a page without a map row is counted apart from drift, as `dropped` is toda
   on the restore in production's image before build: the whole rebuild, the write lock
   (0012's was 5.6 s at 96,225 rows, most of it the FTS re-tokenise, which grows with tokens;
   filing bodies are short), and that the fleet's page loader waits on busy rather than fails.
+
+### Measured (build step 2)
+
+Migration 0033 and a forced rebuild on a copy of the restore, locally (SQLite 3.50):
+
+| | |
+| --- | --- |
+| Rows | 149,749 index rows (53,385 filings), 144,927 placements, 104,689 document owners |
+| Deriving, on reads | parties 6.4 s (unchanged), filings 0.4 s, placements 0.4 s, the rest 0.5 s |
+| The write lock | **2.8 s**, of which the FTS rebuild 1.0 s and the commit 0.5 s |
+| Whole rebuild | 11.7 s; the migration itself 25 s from schema 29 (30-33) |
+
+The instance is slower (0012's lock was 5.6 s there at 96,225 rows against a local figure
+not taken); the rehearsal in production's image measures it before release.
 
 ## Query plan, and what it costs
 

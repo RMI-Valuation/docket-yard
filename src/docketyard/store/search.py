@@ -213,9 +213,11 @@ _NEAREST = "COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, '')"
 def _decision_docs(con: Connection):
     """Every decision, one row per decision id (a decision entered in a docket and its
     sub-docket is one page), headlined by the docket nearest the parent. Found by the Board's
-    summary where one is printed, and always by its type and its dockets: 3,880 decisions
-    print no summary (the 2026-09-17 restore) and could not be found by word before
-    search-v2, which also filters by type. Where it BELONGS is `search_place`'s."""
+    summary, its type and every docket it was entered in. Every decision on the 2026-09-17
+    restore prints a summary (19,846 of 19,846 ids), so dropping the old "summary only" filter
+    adds no rows today; it keeps a decision that ever prints none findable. The type is new
+    in the body, so "Notice of Exemption" finds decisions by word as the type filter does.
+    Where it BELONGS is `search_place`'s."""
     numbers = _numbers(
         con,
         "SELECT r.stb_decision_id, d.raw_docket FROM decision_record r"

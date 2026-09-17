@@ -116,7 +116,7 @@ def test_a_first_fetch_moves_the_signature_and_maps_the_document_to_its_owner(tm
 
 
 def test_a_decision_is_found_by_its_type_as_the_board_prints_it(tmp_path):
-    """3,880 decision rows print no summary; the type in the body is what finds them."""
+    """The Board's decision type is in the body, so it is found by word as well as by filter."""
     con = db.connect(build_store(tmp_path))
     con.execute("UPDATE decision_record SET decision_type = 'Notice of Exemption'")
     con.commit()
