@@ -21,14 +21,20 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   **~12.6 s/page, so ~88 h, not the 36-48 h scoped**. 434 of 3,385 documents (1,051 pages, 0.24 GB)
   are in NEITHER blob mirror, so no node reads them this seed. Stop: `touch
   /data/docketyard/ocr/.stop-tabular` on rmi-ai-machine. Nothing collected is loaded
-- **Claude batch LOADED** in production 2026-09-16 (restore point 11:29:23Z); his `.anthropic-key`
-  is no longer needed
 - **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
   `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
   quotation per displayed reading, migration 0033. **His to accept; then migration + pass**
 
 ## Next
 
+- **Text-layer quality, HIS DECISIONS AND 95 CHECKED LABELS, 2026-09-17**
+  (`docs/research/text-quality/`): a text layer is never second-read, so 18005's 2007 garble
+  shows unjudged. **~110,500 of 931,392 text-layer pages are faulty (1 in 8), ~25k garbage**;
+  below 0.5 the signal catches 92% of garbage, but 2/3 of what it flags are maps and 9 of 64
+  need ROTATING while the wave has orientation off (`deferred.md`). Owed: (1) re-read the <0.5
+  pages, prose first — dots.mocr stands, qwen3-vl loses on dockets and maps; (2) ADR 0021
+  addendum + schema-critic for a page-grain quality assertion — page warning only, **search
+  untouched**
 - **MCP: list the proceedings behind a count** (`deferred.md` § From using the live MCP server):
   asked for the 20 most recent, an assistant had to guess one. His to choose; small
 - **The graders' three open fix-now items** (`deferred.md` § The independent graders): the
@@ -38,9 +44,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
   migration (schema-critic first) and the browse on `/parties`
-- With the operator: a sheet's JSON-LD block in Google's Rich Results test, from a browser
-- **Held by the operator for rewording (2026-09-11)**: `/methodology`'s text-stage section
-  (`848e366`) and the one-day-rest sentence (`3b538bc`); § Documents has his narrowed one
+- **Held by the operator**: `/methodology`'s text-stage section (`848e366`) and the one-day-rest
+  sentence (`3b538bc`), 2026-09-11; a sheet's JSON-LD in Google's Rich Results test, from a browser
 - The workstation gate's ONLOGON task is still unregistered (`deferred.md`)
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Deadline engine (C4): no obligations in decision JSON; fixture of 8 in `docs/deferred.md`

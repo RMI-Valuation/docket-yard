@@ -1790,3 +1790,90 @@ repeated-filer prose, an as-of cite). Those items have left this file; the commi
 - **`create_app` is one ~1,900-line closure** (developer I9); **error formats differ by route**
   (developer I10: 422 JSON on some, HTML 404 elsewhere; `.JSON` case-sensitive).
 - **Capture provenance is in the snapshot but not the JSON twin** (auditor I8, partly).
+
+## Text-layer quality, 2026-09-17 (against v2026.09.28; `docs/research/text-quality/`)
+
+Found while measuring why `/filing/18005` shows garbled text. The operator's four decisions of
+the same day are in `TODO.md` § Next; what is recorded here is what was measured and NOT acted
+on.
+
+- **The image-only test is per document and has no quality dimension.** `extract_text.py` and
+  `infra/extract/extract.py` call a document image-only only when EVERY page holds under 20
+  stripped characters, so one readable page keeps a whole scanned document on the text-layer
+  path, and a garbled layer is never second-read by anything (ADR 0024 D7's queue takes empty
+  pages only). Deferred: whether the forward pass should route a new document's *pages* rather
+  than the document.
+- **`noisy` text layers are invisible to a lexicon check.** 6 of 16 sampled pages scoring ≥0.7
+  were readable-but-frequently-wrong (`infonnalion`, `Buriington`). Sixteen pages cannot size
+  the class, and no cheap signal in this family will find it — the errors are word-shaped. A
+  second reading with a distance is the only instrument that would, which is ADR 0021 D8's
+  operand over 866k pages. Deferred until the ≥0.7 sample exists.
+- **Broken font encodings are a distinct failure with a distinct repair.** Born-digital PDFs
+  whose `ToUnicode` map is wrong yield a substitution cipher (`Pd_ed KWY_\_Y` for `Union
+  Pacific`, `Qixve` for `Metra`); they are why 2020–26 leads the low-score table, and OCR of
+  the render fixes them outright. No detector for them beyond the score.
+- **~5,500 pages score <0.3 in 2020–26**, the era whose documents the forward pass reads today.
+  The re-read decision covers the backlog; whether the FORWARD pass should score a page as it
+  lands, and re-read it there, is not decided.
+- **The signal is weak on engine readings** (AUC 0.59 against the wave's measured
+  `agreement_distance` on 55,356 degraded primaries) and **blind to invention**: a local
+  `deepseek-ocr` reading of 18005 invented fluent sentences and scored 0.96. Nothing here
+  should be used to judge an OCR reading.
+- **1,104,935-page-era note:** blank text-layer pages inside otherwise-text-layer documents
+  (14,894 in 2000–04 alone) remain outside both the OCR queue and this signal's floor.
+
+## From the operator's check of the text-quality labels, 2026-09-17
+
+He checked all 64 pages against their scans (`docs/research/text-quality/labels-checked.json`);
+the figures in that README are now his, not the drafting pass's.
+
+- **The wave reads a sideways page sideways.** `ocr_wave.py` builds PP-OCRv6 with
+  `use_doc_orientation_classify=False` and `use_textline_orientation=False` (466-468), and
+  **9 of his 64 pages carry "rotate before OCR"**, 6 of them scoring under 0.3. The benchmark's
+  `ppocr-pre` run measured those toggles as worse (12.3% CER against 11.8%) — but on the 90
+  IMAGE-ONLY pages, a population where rotation is rarer than in this text-layer sample. Owed
+  before the re-read: measure orientation detection on rotated text-layer pages specifically,
+  and decide whether the render or the reader fixes it.
+  **MEASURED 2026-09-17, and it rules out the cheap fix: all 9 of those pages carry
+  `/Rotate = 0` and a PORTRAIT page box** — the scan itself is sideways and the PDF says
+  nothing. Neither the rotation flag nor the aspect ratio finds them (8 other pages of the 64
+  DO declare a rotation, and pymupdf already honours those, so the declared ones render
+  upright). Only a content-based orientation classifier or the layout model's own reading
+  order can detect the other kind, which is the toggle the wave turns off.
+- **No table page keeps its grid.** 20 table/mixed pages carry a structure verdict: 5 ordered,
+  9 scrambled, 7 absent, 0 grid — and 7 of them have clean words. A table's text layer is
+  usable for search and useless for reading a row, at any score. Nothing in the display says
+  so; whether a table page should say it is the operator's, and it is an argument for the
+  HunyuanOCR tabular pass rather than for this re-read.
+- **The drafting pass was systematically kinder than the check.** 46 of 53 quality drafts
+  agreed, and 4 of the 7 corrections moved a page from `partial`/`noisy` to `garbage`
+  (L09, L56, L62, L63). Any future model-drafted label set for this work should be treated as
+  a lower bound on the damage until checked.
+- **The sample cannot size the record.** Eight pages a cell puts garbage between 16,000 and
+  205,000 pages and "at least noisy" between 127,000 and 488,000 (Wilson, 95%). The >=0.7
+  band's 866k pages dominate both intervals. The ~100-page top-up of that band is what narrows
+  them; until it exists, no coverage figure may be published from this work.
+- **`mixed` pages are the worst class** (7 of 9 garbage) and the router has no such class:
+  a page that is half map and half prose goes to one reader whole.
+
+## From the top-up sample, 2026-09-17 (`docs/research/text-quality/`)
+
+102 pages above 0.7, labelled twice blind and 31 of them checked by the operator.
+
+- **Model labellers are miscalibrated in BOTH directions, and neither direction is safe.** The
+  64-page pass was too kind (4 of 7 corrections moved a page to `garbage`); the two top-up
+  passes are too harsh, over-calling faults ~2.5x — he overruled both of them on 8 pages, every
+  one `noisy` to them and `clean` to him. They missed nothing he called faulty (0 of 13
+  both-clean pages). Any future label set here needs a checked subsample before its rate is
+  used; a blind pass alone is a screen, never a measurement.
+- **~110,500 of 931,392 judged text-layer pages are faulty (65,300-330,000), about one in
+  eight.** Half sit in the 3.5% the signal flags below 0.5; the rest are spread across the
+  0.9+ band, whose SIZE now drives the interval's width. Narrowing it further means more
+  labelled pages there, not a better signal — and the operator's time is the binding cost.
+- **What "faulty" is up there is not what it is down here.** Above 0.7 the failures are a lost
+  signature name, one party name wrong in every occurrence, a fused address — pages that read
+  fine and defeat a search for the one term that matters. Re-reading them with OCR is not
+  obviously a repair: the text layer is right about the body and wrong about the name.
+- **A text layer can be a SUPERSET of its page.** T086 carries three lines that appear nowhere
+  on the rendered page (a statement date and two notices). Nothing checks that the layer's text
+  is on the page; the display shows it as the page's text.
