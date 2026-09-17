@@ -28,9 +28,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **A built-out search, after that release (his, 2026-09-17)**: one bar today, with no say over
-  what is searched (dockets, decisions, filings, comments, page text), no filters (prefix, type,
-  dates, party) and no choice of what comes back. Scope it with him as questions first
+- **Search built out, IN BUILD on `search-v2`** (`docs/search-v2.md`; his seven decisions
+  2026-09-17, schema-critic folded in): next migration 0034 (placements, filings, the map)
 - **MCP: list the proceedings behind a count** (`deferred.md` § From using the live MCP server):
   asked for the 20 most recent, an assistant had to guess one. His to choose; small
 - **The graders' three open fix-now items** (`deferred.md` § The independent graders): the
