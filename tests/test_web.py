@@ -380,6 +380,16 @@ def test_the_footer_names_the_release_that_served_the_page(tmp_path, monkeypatch
     )
 
 
+def test_the_ai_page_gives_the_address_and_is_linked(client):
+    html = client.get("/ai").text
+    assert "Connect an AI assistant" in html
+    assert "https://docketyard.org/mcp" in html
+    assert "claude mcp add --transport http docket-yard https://docketyard.org/mcp" in html
+    assert "open the Board's document it links" in html
+    assert '<a href="/ai">How to connect</a>' in client.get("/").text
+    assert '<a href="/ai">AI assistants</a>' in client.get("/coverage").text
+
+
 def test_record_pages_and_404s(client):
     assert client.get("/filing/311981").status_code == 200
     assert client.get("/filing/1").status_code == 404

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Connect an AI assistant — {{ site_name }}{% endblock %}
+{% block description %}How to connect Claude, ChatGPT or another AI assistant to {{ site_name }}'s read-only MCP server, so it can look up proceedings before the Surface Transportation Board while it answers.{% endblock %}
+{% block main %}
+{#- The setup steps below were checked against each vendor's own documentation on 2026-09-17.
+    Menus move: re-check them when a reader reports one that no longer matches. -#}
+<section class="caption">
+  <h1 class="serif">Connect an AI assistant</h1>
+  <p>An AI assistant such as Claude or ChatGPT can look things up in {{ site_name }} while it answers you: a proceeding's docket sheet, a decision, the text of a page in a filing, or a count of filings by type, back to 1996. It does this through a <strong>connector</strong> — a standard called MCP — that you add once.</p>
+  <p>The connector only reads. There is no account, no key and nothing to pay; it cannot file, subscribe or change anything. The address to add is:</p>
+  <p class="connect-url serif"><span class="mono">https://{{ site_host }}/mcp</span></p>
+</section>
+
+<section>
+  <h2 id="claude">Claude</h2>
+  <p>On the web at claude.ai or in the Claude desktop app, on any plan (the Free plan allows one custom connector):</p>
+  <ol>
+    <li>Open <strong>Customize</strong>, then <strong>Connectors</strong>.</li>
+    <li>Select <strong>+</strong>, then <strong>Add custom connector</strong>.</li>
+    <li>Name it “{{ site_name }}”, paste <span class="mono">https://{{ site_host }}/mcp</span>, leave the advanced settings empty, and select <strong>Add</strong>.</li>
+    <li>In a chat, select <strong>+</strong> at the lower left of the message box, open <strong>Connectors</strong>, and turn {{ site_name }} on.</li>
+  </ol>
+  <p class="small muted">On a Team or Enterprise plan, an organization Owner adds it once under <strong>Organization settings</strong> → <strong>Connectors</strong>; members then select <strong>Connect</strong> on it under Customize → Connectors. A connector added on the web or desktop is also available in Claude's phone apps. Anthropic's own guide: <a href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp" rel="noopener">custom connectors</a>.</p>
+</section>
+
+<section>
+  <h2 id="chatgpt">ChatGPT</h2>
+  <p>ChatGPT adds a server like this one through <strong>developer mode</strong>, on the web, on paid plans. Turn developer mode on in Settings, add an app with the address above and no authentication, then choose it from the <strong>+</strong> menu in a chat. On a Business, Enterprise or Edu workspace an admin has to allow it first. OpenAI renames these menus often, so follow its current guide: <a href="https://developers.openai.com/api/docs/guides/developer-mode" rel="noopener">developer mode</a>.</p>
+</section>
+
+<section>
+  <h2 id="developers">In a code editor or terminal</h2>
+  <table class="moved">
+    <thead><tr><th scope="col">Tool</th><th scope="col">How</th></tr></thead>
+    <tbody>
+      <tr><td>Claude Code</td><td class="title"><span class="mono">claude mcp add --transport http docket-yard https://{{ site_host }}/mcp</span></td></tr>
+      <tr><td>VS Code with GitHub Copilot</td><td class="title">Run <strong>MCP: Add Server</strong> from the Command Palette, or add to <span class="mono">.vscode/mcp.json</span>: <span class="mono">{"servers": {"docket-yard": {"type": "http", "url": "https://{{ site_host }}/mcp"}}}</span>. On a Copilot Business or Enterprise seat, an admin must allow MCP servers.</td></tr>
+      <tr><td>Cursor</td><td class="title">Add to <span class="mono">.cursor/mcp.json</span> (or <span class="mono">~/.cursor/mcp.json</span> for every project): <span class="mono">{"mcpServers": {"docket-yard": {"url": "https://{{ site_host }}/mcp"}}}</span></td></tr>
+      <tr><td>Gemini CLI</td><td class="title"><span class="mono">gemini mcp add --transport http docket-yard https://{{ site_host }}/mcp</span></td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">Any other assistant that supports remote MCP servers over Streamable HTTP can use the same address. The technical description is on the <a href="/api#mcp">API page</a> and at <a href="/.well-known/mcp.json">/.well-known/mcp.json</a>.</p>
+</section>
+
+<section>
+  <h2 id="ask">Things to ask</h2>
+  <ul>
+    <li>“What has happened recently in FD 36873?”</li>
+    <li>“Find filings that mention Tehachapi, and tell me which docket each is in.”</li>
+    <li>“How many abandonment proceedings hold a Consummation Notice and a trail-use filing?”</li>
+    <li>“Read page 2 of decision 46314 and tell me when the exemption became effective.”</li>
+  </ul>
+</section>
+
+<section>
+  <h2 id="check">Check what it tells you</h2>
+  <p>{{ site_name }} gives the assistant the record with its limits attached: what the record does not cover, that dates and captions are quoted as the Board printed them, and a link to the Board's own file on every answer. What the assistant then says is its own, and it can be wrong — especially about text read by machine from an old scan. <strong>Before you rely on an answer, open the Board's document it links.</strong> The document is the record; the answer is not.</p>
+</section>
+
+<section>
+  <h2 id="trouble">If something looks wrong</h2>
+  <ul>
+    <li><strong>The assistant does not use {{ site_name }}.</strong> Make sure the connector is turned on in that chat, and name it in your question: “Using {{ site_name }}, …”.</li>
+    <li><strong>It is missing a tool this page mentions.</strong> Assistants remember a connector's tools from when it was added. Remove the connector and add it again, then start a new chat.</li>
+    <li><strong>It says the record holds nothing.</strong> That is an absence in this record, not proof of absence at the Board; <a href="/coverage">coverage</a> says what the record does not yet hold.</li>
+  </ul>
+</section>
+
+<section>
+  <h2 id="privacy">Privacy</h2>
+  <p>No account or sign-in is involved, and nothing identifies you to {{ site_name }}. Your conversation is held by your assistant's provider, under its terms; {{ site_name }} sees only the lookups the assistant makes, and treats them as it treats any page request — see <a href="/privacy">privacy</a>.</p>
+</section>
+{% endblock %}

@@ -1145,6 +1145,12 @@ def create_app(
     def privacy_page(request: Request):
         return render(request, "privacy.html")
 
+    @app.get("/ai")
+    def ai_page(request: Request):
+        """How to connect an assistant to /mcp, for a reader who has never added a connector
+        (the operator, 2026-09-17). /api#mcp stays the technical account."""
+        return render(request, "ai.html")
+
     @app.get("/metrics", include_in_schema=False)
     def metrics(request: Request):
         """The freshness `/health` reports, in the Prometheus text exposition format
