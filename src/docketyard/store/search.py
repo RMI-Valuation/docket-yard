@@ -64,6 +64,13 @@ class Hit:
     label: str = ""  # who read the page, how, and at what render
     band: str = ""  # the distance from the second reading, or why there is none
     scan: str = ""  # the record's file, framed, where the page can be checked
+    # A page hit's way out of the text: the record that carries the page, and its docket's
+    # sheet (empty where the docket number does not parse), so a reader who searched for a
+    # place is not left to scroll a long document to find what it is part of.
+    record: str = ""
+    record_name: str = ""  # "Filing 311900"
+    docket: str = ""
+    docket_name: str = ""  # the docket as printed, "AB 290 (Sub-No. 222X)"
 
 
 # --- the index -----------------------------------------------------------------------------
@@ -793,6 +800,10 @@ def search_pages(con: Connection, text: str, *, limit: int = PAGE_LIMIT) -> Page
                 label=pages.label(page),
                 band=pages.band(page),
                 scan=_scan(con, kind, record_id, index, sha),
+                record=urls.entry_path(kind, record_id, raw_docket),
+                record_name=f"{noun} {record_id}",
+                docket=urls.docket_path(identity) if identity else "",
+                docket_name=printed,
             )
         )
     global _stale_page_rows

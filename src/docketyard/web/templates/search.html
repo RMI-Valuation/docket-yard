@@ -69,6 +69,8 @@
       <td>
         <a href="{{ h.path }}" class="as-printed">{{ h.caption or h.title }}</a>{% if h.caption %} <span class="dk small muted">{{ h.title }}</span>{% endif %} <span class="small muted">{{ h.fact }}</span>
         {% if h.snippet %}<div class="small muted as-printed">{{ h.snippet | highlight }}</div>{% endif %}
+        {#- the page is where the words are; the record and the docket are what it belongs to -#}
+        <div class="small">Open <a href="{{ h.path }}">the page</a> · <a href="{{ h.record }}">{{ h.record_name }}</a>{% if h.docket %} · <a href="{{ h.docket }}">{{ h.docket_name }}</a>{% endif %}</div>
       </td>
       <td class="small muted">{{ h.label }}{% if h.band %} {{ h.band }}{% endif %} <a href="{{ h.scan }}">Scan</a></td>
     </tr>

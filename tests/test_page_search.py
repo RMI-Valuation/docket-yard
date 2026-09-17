@@ -52,6 +52,9 @@ def test_a_page_hit_carries_the_label_the_band_and_the_scan(tmp_path):
     assert h.label == "The publisher's own text layer, read by pymupdf 1.24.10."
     assert h.band == "Read once; no second reading to compare it with, so no band."
     assert h.scan == "/filing/311900#file"
+    # and its way out of the text: the record, and the docket's sheet
+    assert (h.record, h.record_name) == ("/filing/311900", "Filing 311900")
+    assert (h.docket, h.docket_name) == ("/d/FD-36873/sub/1", "FD 36873 (Sub-No. 1)")
     # a record hit leaves the three empty: they are a page hit's obligation
     record = search.search(con, "control")[0]
     assert (record.label, record.band, record.scan) == ("", "", "")
@@ -148,6 +151,8 @@ def test_the_search_page_shows_pages_in_their_own_section_and_suggest_does_not(t
     assert "<mark>Tazewell</mark>" in html
     assert "publisher&#39;s own text layer" in html or "publisher's own text layer" in html
     assert "so no band" in html and 'href="/filing/311900#file">Scan</a>' in html
+    assert '<a href="/filing/311900">Filing 311900</a>' in html
+    assert '<a href="/d/FD-36873/sub/1">FD 36873 (Sub-No. 1)</a>' in html
     assert "Nothing on record matches" not in html  # a page hit is a result
     assert "narrow the words" not in html  # two pages matched, none were cut
     # a query that matches only a record shows no page section
