@@ -1903,3 +1903,48 @@ so the correction travels with the decision. What is left open:
   `citation_reading.text_id = text_quality.text_id` would give the citator a re-walk queue —
   edges read off pages the signal flags — on a graph built from numbers read out of that same
   text. Not foreclosed, not argued.
+
+## From the third schema-critic pass on the 0021 quality addendum, 2026-09-17
+
+Three passes, each finding real breaks, twice in the previous pass's own repair. Open against
+the third draft; none is acted on, because the scope question above them is the operator's.
+
+- **A new lexicon blanks every warning on the site until the re-score finishes.** The writer
+  scores under the live rule's instrument, so the moment a new rule lands no page has a score
+  under it — ~1.085M readings, hours of scoring — and decision 14 makes silence read as "no
+  fault found". The dated rule's "one INSERT" is true of the cut and the floor, false of the
+  lexicon, which is the operand that changes most.
+- **Decision 15's suppression is unbuildable as written.** A `text_quality` human row cannot win
+  the tie-break (its method is `human`, not the rule's instrument); a `document_text` human row
+  does suppress, but only by a person ASSERTING the page's text — thousands of characters they
+  did not transcribe — and it silently deletes the page's band sentence too. The record does not
+  say which table it meant. Also `review_action_live` is keyed `(queue, target_table,
+  target_key)`, so a "this text is misread" report and a "this warning is wrong" report are one
+  live row and the second supersedes the first; a new `review_queue_vocab` member separates them
+  without touching `search.PAGE_TABLES`.
+- **The population is 1,085,292 rows, not ~931k** (judged 931,392 + blank 85,224 + short
+  68,676), and no byte figure is given where ADR 0022 measured 365 B/row before accepting
+  `document_text`. `/methodology`'s "3.5% flagged" is 3.4% of judged pages and 2.9% of the rows
+  that would exist.
+- **The owed as-of projection is the thing 0028 forbids.** An as-of view beside the current one
+  IS a second copy of the display rule; the only non-duplicating construction redefines
+  `document_text_display`, which is `page_fts`'s external content — a full page-index rebuild,
+  measured at 27m26s over 1,104,935 rows, behind the wall.
+- **No validator moves when a score or a rule lands.** `page_stamp` names `document_text`,
+  `document_pagination` and `page_route`; migration 0032 added its terms for exactly this
+  reason. Without a term, a rule change alters what every text page says behind unchanged ETags
+  and a 300 s public cache.
+- **The stored precision is cut-conditional and would sit on rows the cut never touched.**
+  Precision 1.00/0.72 is measured over the flagged set; putting `score_row_id` on every score
+  row stamps a page at 0.95 with a figure that says nothing about it. Leaving machine rows
+  `unmeasured` and gating the sentence in the web tier is the alternative the draft refuses.
+- **The lexicon in the blob tier contradicts ADR 0022 D2** ("one artefact goes to the blob tier:
+  the engine payload"), and `prune_blobs.py` deletes a local blob 30 days after S3 holds it —
+  against a writer that refuses to score without it. A 23,524-word list is small enough to live
+  in the store.
+- Smaller: the instrument is three repeated TEXT columns (a 64-char digest among them) on
+  1.085M rows, where an `instrument` row would intern it; `quality_rule` has no stated
+  `rule_id`, no `superseded_by` column and a unique index over no columns; `text_quality_run`
+  has no key and no typed outcome vocabulary, which is ADR 0021 D5's own rule; no `run_id` on a
+  score; and the § Validation line "nothing derived is published from a score" contradicts
+  decision 13, which publishes one.

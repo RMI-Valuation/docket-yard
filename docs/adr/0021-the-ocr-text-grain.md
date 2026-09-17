@@ -381,8 +381,12 @@ text and no route, and are unchanged.
 
 ## Addendum (2026-09-17): a reading's quality is its own assertion, and the rule that judges it is dated
 
-**Status: Proposed.** Narrows decision 7 by adding what a page may say *about* a reading it
-shows. Migration 0034. Measured in `docs/research/text-quality/`: ~110,500 of 931,392 judged
+**Status: Proposed, and NOT ready for a decision.** Narrows decision 7 by adding what a page
+may say *about* a reading it shows. **Three schema-critic passes have each found real breaks,
+twice in the previous pass's own repair** (`docs/deferred.md`, 2026-09-17); the third pass's
+findings are open. Before a fourth draft, the operator's question is whether one sentence on a
+page is worth four new objects and ~1.085M rows, or whether the score stays an internal routing
+list and the re-read does the work. Migration 0034. Measured in `docs/research/text-quality/`: ~110,500 of 931,392 judged
 text-layer pages are faulty (65,300–330,000), ~25,000 garbage. The operator's decisions of
 2026-09-17: a stored flag feeding a page warning, search untouched. **Two schema-critic passes**;
 what they broke is in § What the earlier drafts got wrong.
