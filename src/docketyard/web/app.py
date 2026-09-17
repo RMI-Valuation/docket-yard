@@ -339,6 +339,8 @@ def create_app(
         explainer_path=urls.explainer_path,
         parse_docket_id=parse_docket_id,
         kind_label=labels.kind_label,
+        date_kind=labels.date_kind,
+        cite_date=labels.cite_date,
         filter_key=labels.filter_key,
         register_link=labels.register_link,
         # what a follow (and the page's own Atom link) actually follows, so the template
@@ -1350,6 +1352,8 @@ def create_app(
     def entry_json(e) -> dict:
         d = asdict(e)
         d.pop("parties", None)  # the enriched layer is held (dump.HELD_REASON)
+        # which date `date` is — additive, no shape bump (the operator, 2026-09-16)
+        d["date_kind"] = labels.date_kind(e.kind)
         # a comment is addressed under the docket that holds it, and the entry carries
         # which docket of the family that is — the bare number is not an address
         d["url"] = f"https://{site_host}{urls.entry_path(e.kind, e.record_id, e.docket_raw)}"

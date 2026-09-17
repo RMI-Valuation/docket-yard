@@ -190,6 +190,7 @@ def test_json_twins_at_the_permanent_addresses(tmp_path):
     assert set(e) == {
         "kind",
         "date",
+        "date_kind",  # added 2026-09-16 without a bump, as the promise allows
         "date_printed",
         "docket_raw",
         "record_id",

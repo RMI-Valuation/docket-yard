@@ -491,3 +491,29 @@ def test_a_banded_prefix_splits_by_number_and_the_bands_are_permanent(tmp_path):
     band = client.get("/dockets/FD/36000")
     assert band.status_code == 200 and 'href="/d/FD-36873"' in band.text
     assert client.get("/dockets/FD/2000").status_code == 404  # a range holding nothing
+
+
+def test_a_decisions_date_says_it_is_the_served_date_everywhere(tmp_path):
+    """The operator, 2026-09-16, on the independent graders' finding: a decision's date is the
+    day the Board served it, not the day it was decided, and nothing said so. Labelled, so a
+    quoted decided date can arrive beside it later without renaming anything."""
+    from docketyard.web import labels, mcp
+
+    path = build_store(tmp_path)
+    client = TestClient(create_app(path))
+    page = client.get("/decision/53210").text
+    assert "Served <time" in page
+    assert "(STB served Aug. 21, 2026)</p>" in page  # the Board's own citation form
+    assert "(filed Aug. 25, 2026)</p>" in client.get("/filing/311981").text
+    assert '<span class="small">served </span>' in client.get("/d/FD-36873").text
+    d = client.get("/decision/53210.json").json()["decision"]
+    assert d["date_kind"] == "served" and d["date"] == "2026-08-21"
+    assert client.get("/filing/311981.json").json()["filing"]["date_kind"] == "filed"
+    con = db.connect(path)
+    out = mcp._docket(con, {"docket": "FD 36873"}, "docketyard.org")
+    con.close()
+    assert "- served 2026-08-21 [decision] 53210" in out
+    assert "- filed 2026-08-25 [filing] 311981" in out
+    assert labels.cite_date("decision", "2026-09-03") == "(STB served Sept. 3, 2026)"
+    assert labels.cite_date("filing", "2026-06-01") == "(filed June 1, 2026)"
+    assert labels.cite_date("decision", None) == ""

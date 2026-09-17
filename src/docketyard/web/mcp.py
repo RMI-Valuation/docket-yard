@@ -32,7 +32,7 @@ from docketyard.store import coverage as coverage_store
 from docketyard.store import search as search_store
 from docketyard.store import sheet as sheet_store
 from docketyard.store.sheet import present
-from docketyard.web import urls
+from docketyard.web import labels, urls
 
 PROTOCOL_VERSION = "2025-11-25"
 # what a client that sent no MCP-Protocol-Version header is assumed to speak (the spec's
@@ -260,7 +260,8 @@ def _docket(con: Connection, args: dict, host: str) -> str:
         # 2026-09-16). Quoted, never paraphrased; `present` drops the Board's `--`.
         body, summary = present(e.deciding_body), present(e.summary)
         rows.append(
-            f"- {e.date or 'undated'} [{e.kind}] {e.record_id}"
+            # which date it is, so a served date is never quoted as a decided one
+            f"- {labels.date_kind(e.kind)} {e.date or 'undated'} [{e.kind}] {e.record_id}"
             + (f" — {e.type}" if e.type else "")
             + (f" — {body}" if body else "")
             + (f' — the Board\'s summary, as printed: "{summary}"' if summary else "")

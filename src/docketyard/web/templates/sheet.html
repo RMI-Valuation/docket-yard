@@ -114,7 +114,7 @@
     <ol class="plain" id="entries">
     {% for e in sheet.entries %}
     <li class="entry{% if e.kind == 'decision' %} entry-decision{% endif %}" data-kind="{{ e.kind }}" data-type="{{ filter_key(e.kind, e.type) }}" data-parties="{{ e.parties | join(' ') }}">
-      <div class="entry-date muted"><time datetime="{{ e.date or '' }}">{{ e.date | fmt_date }}</time>{% if e.date_printed %}<span class="vh"> (printed as {{ e.date_printed }})</span>{% endif %}</div>
+      <div class="entry-date muted">{% if e.kind == 'decision' %}<span class="small">served </span>{% endif %}<time datetime="{{ e.date or '' }}">{{ e.date | fmt_date }}</time>{% if e.date_printed %}<span class="vh"> (printed as {{ e.date_printed }})</span>{% endif %}</div>
       <div class="kind{% if e.kind == 'decision' %} kind-decision{% endif %}">{{ kind_label(e.kind, e.type) }}</div>
       <div class="entry-body">
         <div class="entry-title"><span class="id">{{ e.record_id }}</span>{% if e.kind == 'comment' %}<a href="{{ entry_path(e.kind, e.record_id, e.docket_raw) }}" aria-label="Comment {{ e.record_id }}: permanent address">{{ e.organisation or e.submitter or 'Comment' }}</a>{% else %}<a href="{{ entry_path(e.kind, e.record_id, e.docket_raw) }}" aria-label="{{ 'Decision' if e.kind == 'decision' else 'Filing' }} {{ e.record_id }}: permanent address">{% if e.kind == 'decision' %}{{ e.deciding_body or 'Decision' }}{% else %}{{ e.type or 'Filing' }}{% endif %}</a>{% endif %}
