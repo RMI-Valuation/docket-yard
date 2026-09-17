@@ -135,28 +135,41 @@ def filings_incomplete(con: Connection, today: date | None = None) -> tuple[str,
     coverage page's list unions filings with decisions, which would name a month a
     decisions-only gap left open as a hole in a filing count.
 
-    AND THE MONTHS NO WAVE HAS BEGUN. `_incomplete` reads the ledger, so a month no slice
-    names is not in it at all — and a count over it would read as complete (code review,
-    2026-09-16). Every month from the ledger's first to the one the watch began in that no
-    slice names is unfinished too. Nothing before the ledger's first month is claimed either
-    way; the answer names where the walk begins."""
+    AND THE MONTHS NO SLICE NAMES. `_incomplete` reads the ledger, so a month no slice names
+    is not in it at all — and a count over it read as complete: a month no wave has begun
+    (code review, 2026-09-16), and a month after the watch began that an outage longer than
+    its re-ask window left unasked (the high pass, the same day). One rule for both: from the
+    ledger's first month (or the watch's, with no ledger) through today, a month no slice
+    names is finished only if the watch asked for every day of it up to today, less the
+    recorded outages (`home.gap_shadows`, the rule `_incomplete` applies). Nothing before
+    that first month is claimed either way; the answer names where the walk begins."""
     q = con.execute
+    today = today or date.today()
     months = set(_incomplete(con, FILINGS, today=today))
     ledger = {
         m
         for (key,) in q("SELECT slice_key FROM walk_slice WHERE table_action = ?", (FILINGS,))
         if (m := walk.slice_month(key)) is not None
     }
-    if not ledger:
+    start = _watch_starts(q, (FILINGS,)).get(FILINGS)
+    if ledger:
+        year, month = int(min(ledger)[:4]), int(min(ledger)[5:7])
+    elif start is not None:
+        year, month = start.year, start.month
+    else:
         return tuple(sorted(months))
-    start = _watch_starts(q, (FILINGS,)).get(FILINGS) or (today or date.today())
-    year, month = int(min(ledger)[:4]), int(min(ledger)[5:7])
-    while (year, month) <= (start.year, start.month):
+    shadows = home.gap_shadows(con, today)
+    while (year, month) <= (today.year, today.month):
         name = f"{year:04d}-{month:02d}"
-        # the watch's own month is finished by the watch from its first day on, so it is
-        # unwalked only when the watch began after the 1st and no slice names it
-        if name not in ledger and ((year, month) < (start.year, start.month) or start.day > 1):
-            months.add(name)
+        if name not in ledger:
+            owed = {d for d in walk.month_days(name) if d <= today}
+            watched = {
+                d
+                for d in owed
+                if start is not None and start <= d and not any(lo <= d <= hi for lo, hi in shadows)
+            }
+            if watched < owed:
+                months.add(name)
         year, month = (year + 1, 1) if month == 12 else (year, month + 1)
     return tuple(sorted(months))
 

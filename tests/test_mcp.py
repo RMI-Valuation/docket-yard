@@ -663,3 +663,30 @@ def test_a_month_no_wave_has_begun_is_unfinished_not_silently_complete(tmp_path)
     assert "walk of filings begins at 2019-01" in text
     assert "begins at" not in count(con, filing_type="motion", filed_from="2020-01-01")
     con.close()
+
+
+def test_a_month_the_watch_left_unasked_after_an_outage_is_unfinished(tmp_path):
+    """A month after the watch began has no slice — waves walk backward from where it began —
+    so an outage longer than the re-ask window left days no one asked for, and the count
+    over them read as complete (the high review pass, 2026-09-16)."""
+    from datetime import timedelta
+
+    from docketyard.capture.stb import FILINGS
+    from docketyard.store import coverage
+
+    con = db.connect(build_store(tmp_path))
+    start = coverage._watch_starts(con.execute, (FILINGS,))[FILINGS]
+    month = lambda d: d.strftime("%Y-%m")  # noqa: E731
+    later = start + timedelta(days=150)
+    assert coverage.filings_incomplete(con, today=later) == (
+        (month(start),) if start.day > 1 else ()
+    )  # watched every day since, no slice: finished; its first month only from `start`
+    lo, hi = start + timedelta(days=45), start + timedelta(days=75)
+    con.execute(
+        "INSERT INTO coverage_gap (started_at, ended_at, failure) VALUES (?, ?, 'captures')",
+        (f"{lo.isoformat()}T00:00", f"{hi.isoformat()}T00:00"),
+    )
+    con.commit()
+    months = coverage.filings_incomplete(con, today=later)
+    assert month(lo) in months and month(start + timedelta(days=120)) not in months
+    con.close()
