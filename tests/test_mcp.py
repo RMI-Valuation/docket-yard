@@ -506,3 +506,16 @@ def test_the_machine_surface_answers_a_series_with_its_index(tmp_path):
     assert "Entries, newest first:" not in out
     assert "/d/AB-167/sub/1X" in out
     assert out.rstrip().endswith(mcp._NOT_HELD)  # the caveats still travel with the answer
+
+
+def test_a_decision_is_handed_over_with_its_body_and_summary_as_printed(client):
+    """`[decision] 53210 — Decision` told an assistant nothing it could say; the JSON twin and
+    the page carried the summary all along (the independent graders, 2026-09-16)."""
+    text = call(client, "get_docket_sheet", {"docket": "FD 36873"})["content"][0]["text"]
+    line = next(x for x in text.splitlines() if "[decision] 53210" in x)
+    assert 'the Board\'s summary, as printed: "ORDERED REPLIES DUE"' in line
+    # and a search row says why a decision matched, in the Board's words, marked
+    text = call(client, "search_the_record", {"query": "replies"})["content"][0]["text"]
+    line = next(x for x in text.splitlines() if x.startswith("[decision]"))
+    assert 'matched: "ORDERED «REPLIES» DUE"' in line  # the Board's words, not our spellings
+    assert "\x02" not in text and "\x03" not in text

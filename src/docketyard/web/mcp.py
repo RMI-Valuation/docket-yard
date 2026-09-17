@@ -91,6 +91,17 @@ def _plural(n: int, noun: str) -> str:
     return f"{n:,} {noun}" + ("" if n == 1 else "s")
 
 
+def _marked(snippet: str) -> str:
+    """A search snippet as plain text: the index's control-character marks become « », and
+    only the fields holding a match are kept — a record's index body joins the Board's words
+    to this record's own spellings of its number (`search.FIELD`), which are not the Board's
+    and are not what an assistant should quote."""
+    fields = snippet.split(search_store.FIELD)
+    kept = [f for f in fields if search_store.MARK_OPEN in f] or fields[:1]
+    joined = " … ".join(f.strip() for f in kept if f.strip())
+    return joined.replace(search_store.MARK_OPEN, "«").replace(search_store.MARK_CLOSE, "»")
+
+
 def _site(host: str, path: str) -> str:
     return f"https://{host}{path}"
 
@@ -136,7 +147,14 @@ def _search(con: Connection, args: dict, host: str) -> str:
         # proceeding, which is navigation-review.md § B on the third surface — fixed on
         # the page and in /suggest, and left here until the schema-critic caught it.
         named = f"{h.caption} ({h.title})" if h.caption else h.title
-        lines.append(f"[{h.kind}] {named} — {h.fact} — {_site(host, h.path)}")
+        # why it matched, which for a decision is its summary as the Board printed it: a row
+        # reading "[decision] Decision 52200 — FD 29830" told an assistant nothing to judge
+        # relevance by (the independent graders, 2026-09-16). « » mark the matched words.
+        matched = _marked(h.snippet)
+        lines.append(
+            f"[{h.kind}] {named} — {h.fact} — {_site(host, h.path)}"
+            + (f' — matched: "{matched}"' if matched else "")
+        )
     for h in pages:
         # a page of machine-read text is handed over WITH who read it, the band's operand
         # or its absence, and the scan (ADR 0021 D7): the text is a finding aid, the scan
@@ -220,9 +238,16 @@ def _docket(con: Connection, args: dict, host: str) -> str:
             urls.printed_docket(i) for i in map(parse_docket_id, e.also_in) if i is not None
         ]
         also = f" — also entered in {', '.join(printed_also)}" if printed_also else ""
+        # a decision's deciding body and its summary as the Board printed it: the JSON twin
+        # and the page carry both, and without them an assistant could say only that "a
+        # decision" was served and had to open the PDF or guess (the independent graders,
+        # 2026-09-16). Quoted, never paraphrased; `present` drops the Board's `--`.
+        body, summary = present(e.deciding_body), present(e.summary)
         rows.append(
             f"- {e.date or 'undated'} [{e.kind}] {e.record_id}"
             + (f" — {e.type}" if e.type else "")
+            + (f" — {body}" if body else "")
+            + (f' — the Board\'s summary, as printed: "{summary}"' if summary else "")
             + where
             + also
             + (f" — as printed: {who}" if who else "")
