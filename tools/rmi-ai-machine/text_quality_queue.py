@@ -4,10 +4,12 @@ Run it where the store is (production, `sudo nice -n 15`, `?mode=ro`), with `tex
 and the lexicon beside it. Measured 2026-09-17 over 1,085,316 live text-layer primaries in
 24 minutes: 31,798 flagged, of which 6,170 are prose-shaped, in 4,896 documents.
 
-Flagged = a live text-layer primary with >= 15 letter-bearing tokens whose lexicon share is
-under the cut. Ordered by the operator's rule of 2026-09-17 — prose first, maps and drawings
+Flagged = a live text-layer primary with >= 15 letter-bearing tokens whose score is under the
+cut, the score being `lexicon_hits / lettered_tokens` — NOT `shares()["lex"]`, which divides by
+word-shaped tokens and is a diagnostic (the two-denominator confusion the research README
+records). Ordered by the operator's rule of 2026-09-17 — prose first, maps and drawings
 last — using the screen in `text_quality.looks_like_prose`, which orders a queue and asserts
-nothing. Writes /tmp/tq/queue.csv; nothing is written to the store."""
+nothing. Writes queue.csv.gz beside itself; nothing is written to the store."""
 
 import csv
 import gzip

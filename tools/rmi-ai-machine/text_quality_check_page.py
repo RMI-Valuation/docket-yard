@@ -148,6 +148,7 @@ HTML = """<title>__TITLE__</title>
   .rail-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--rule); }
   .wordmark { font-family: Newsreader, Georgia, serif; font-size: 19px; font-weight: 600; margin: 0 0 2px; }
   .rail-head p { margin: 0; font-size: 12.5px; color: var(--faint); }
+  .rail-head p.wordmark { font-family: Newsreader, Georgia, serif; font-size: 19px; font-weight: 600; color: var(--ink); }
   .meter { height: 4px; background: var(--rule); border-radius: 2px; margin-top: 12px; overflow: hidden; }
   .meter span { display: block; height: 100%; background: var(--accent); width: 0; transition: width .25s ease; }
   .meter-note { display: flex; justify-content: space-between; font-size: 12px; color: var(--soft); margin-top: 6px; font-variant-numeric: tabular-nums; }
@@ -372,6 +373,13 @@ HTML = """<title>__TITLE__</title>
 
   function pick(axis, value) {
     const it = ITEMS[at];
+    // structure belongs to a table; the axis is dimmed for anything else and must also be inert,
+    // or a keystroke records a grid verdict on a letter (code review)
+    if (axis === "structure") {
+      const s0 = state[it.id] || {};
+      const kind = s0.kind || it.dk;
+      if (kind !== "table" && kind !== "mixed") return;
+    }
     const s = state[it.id] || (state[it.id] = { note: noteEl.value.trim() });
     s[axis] = s[axis] === value ? undefined : value;
     save();
@@ -437,7 +445,11 @@ HTML = """<title>__TITLE__</title>
   });
 
   document.addEventListener("keydown", e => {
-    if (e.target.tagName === "TEXTAREA" || e.metaKey || e.ctrlKey || e.altKey) return;
+    // A KEY MUST NOT ACT FOR A BUTTON THE READER IS ON. Enter on a focused button already
+    // clicks it; without this guard it ALSO ran agreeAll, silently recording the drafts as the
+    // reader's own verdicts — the one thing this sheet exists to prevent (code review).
+    const tag = e.target.tagName;
+    if (tag === "TEXTAREA" || tag === "BUTTON" || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === "Enter") { agreeAll(); e.preventDefault(); return; }
     for (const axis of Object.keys(AXES)) {
       const hit = AXES[axis].find(o => o.key.toLowerCase() === e.key.toLowerCase());

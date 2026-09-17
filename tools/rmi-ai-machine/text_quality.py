@@ -111,7 +111,11 @@ def looks_like_prose(lay: dict) -> bool:
 
 
 def lexicon_words(text: str):
-    """Words for the lexicon: lowercase letter runs of 2+ from word-like tokens."""
+    """Every lowercase letter run of a word-like token of 2+ characters — INCLUDING single
+    letters, which the docstring used to deny (code review, 2026-09-17). They are wanted: a
+    lookup in `features` counts a token only when EVERY run of it is known, so dropping `t`
+    would score `don't` as a miss and move every figure this project has published from this
+    lexicon. The token is what must reach 2 characters, not the run."""
     for t in text.split():
         core = t.strip(EDGE)
         if len(core) >= 2 and WORD.match(core):

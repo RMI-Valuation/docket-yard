@@ -394,10 +394,12 @@ as-of projection is the second copy of the display rule migration 0028 forbids, 
 non-duplicating form is a measured 27-minute page-index rebuild. **The accumulation was itself
 the finding**: four new objects and a row per page to print one sentence. The operator's first
 answer, before this draft argued him out of it, was "internal only"; the record below is what
-that decision was taken against, and what a later attempt would start from. Migration 0034. Measured in `docs/research/text-quality/`: ~110,500 of 931,392 judged
-text-layer pages are faulty (65,300–330,000), ~25,000 garbage. The operator's decisions of
-2026-09-17: a stored flag feeding a page warning, search untouched. **Two schema-critic passes**;
-what they broke is in § What the earlier drafts got wrong.
+that decision was taken against, and what a later attempt would start from.
+
+**What it would have been.** Migration 0034, against the measurement in
+`docs/research/text-quality/`: ~110,500 of 931,392 judged text-layer pages faulty
+(65,300–330,000), ~33,400 garbage. The decisions below are the third draft, after the second
+pass; the third pass's findings are open in `docs/deferred.md` and are not answered here.
 
 1. **The subject is a reading, not a page.** `text_quality`, keyed on `text_id` —
    `document_text`'s own key, never `(document_sha256, page_no)`. `document_text.text` is
@@ -549,7 +551,7 @@ citator's families do not join it. The operational join
 (`citation_reading.text_id = text_quality.text_id`, a re-walk queue of edges read off flagged
 pages) is left unbuilt here and is not foreclosed.
 
-## What the earlier drafts got wrong (schema-critic, two passes, 2026-09-17)
+## What the earlier drafts got wrong (schema-critic, passes one and two, 2026-09-17)
 
 Recorded because three of these are errors in the measurement or in a fix, not in the original
 design, and because the second pass broke the first pass's own repair.

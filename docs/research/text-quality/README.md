@@ -109,7 +109,7 @@ a text failure. Split:
 
 **Checked by the operator, 2026-09-17**, every page against its scan: `labels-checked.json` is
 the reference; `labels-draft.json` and `kinds-draft.json` are what the model drafted.
-The drafts held up unevenly — **quality 46 of 53** (the 13 `nontext` pages had no drafted
+The drafts held up unevenly — **quality 46 of 53** (the 11 `nontext` pages had no drafted
 quality to compare), **kind 59 of 64**, **structure 11 of 15**. Four of the seven quality
 corrections were the draft calling a page *partial* or *noisy* where it is **garbage**
 (L09, L56, L62, L63): the drafting pass was systematically kinder than the check, so the draft
@@ -135,9 +135,13 @@ of that band is what would.**
 | cut | flagged | precision | recall |
 | --- | ---: | ---: | ---: |
 | **as a garbage detector, <0.5** | ~31,800 | **0.72** (23/32) | **0.68** |
-| as a garbage detector, <0.3 | ~16,000 | 0.87 (14/16) | 0.50 |
-| as an any-fault detector, <0.5 | ~31,800 | **1.00** (32/32) | 0.13 |
-| as an any-fault detector, <0.7 | ~64,900 | 0.80 (42/48) | 0.21 |
+| as a garbage detector, <0.7 | ~64,900 | 0.38 (24/48) | 0.75 |
+| as an any-fault detector, <0.5 | ~31,800 | **1.00** (32/32) | 0.29 |
+| as an any-fault detector, <0.7 | ~64,900 | 0.80 (42/48) | 0.47 |
+
+Every recall here is against the record-wide totals this document arrives at below — **110,539
+faulty pages and 33,444 garbage pages**. An earlier draft divided by a pre-correction estimate
+of ~245,000 and understated all of them (code review, 2026-09-17).
 
 **The garbage recall was 0.92 in this document until 2026-09-17 and it was wrong**
 (schema-critic). It was computed from the 64-page sample alone, whose ≥0.7 cell held 16 pages
@@ -146,10 +150,10 @@ and 0 garbage — so the cut appeared to miss nothing above it. The 102-page top
 0.68. The lesson is the sample's, not the signal's: a rate for a band of 866,497 pages may not
 be read off 16 of them, in either direction.
 
-**This is the result that matters: below 0.5 the signal is a good detector of the 18005 failure
-and a poor detector of everything else.** Nine in ten garbage pages fall below 0.5, and every
-one of the 32 pages it flagged there has something wrong with it — but *noisy* text sits at
-every score, so most faulty pages are not flagged at all. The signal is a re-read queue, never
+**This is the result that matters: below 0.5 the signal is a fair detector of the 18005 failure
+and a poor detector of everything else.** Roughly two garbage pages in three fall below 0.5, and
+every one of the 32 pages it flagged there has something wrong with it — but *noisy* text sits
+at every score, so **71% of faulty pages are not flagged at all**. The signal is a re-read queue, never
 a coverage statement.
 
 ### What the flagged pages are
@@ -223,9 +227,10 @@ Combining the operator's own labels below 0.7 with the corrected estimate above:
 | >=0.7 | 866,497 | 0.07 | 58,055 (26,861-271,214) |
 | **all judged text-layer pages** | **931,392** | **0.12** | **110,500 (65,300-330,000)** |
 
-**About one text-layer page in eight is faulty, and roughly half of those are in the 3.5% of
-pages the signal flags below 0.5.** Garbage specifically is ~25,000 pages (15,800-37,000),
-almost all below 0.7 — the top-up found one garbage page in 102 above it. The interval is
+**About one text-layer page in eight is faulty, and 29% of those are in the 3.4% of pages the
+signal flags below 0.5.** Garbage specifically is ~33,400 pages, of which ~22,900 are below 0.5
+and ~8,500 sit above 0.7, where the top-up found one garbage page in 102 — that band is so large
+that one labelled page stands for thousands. The interval is
 still wide, and its width now comes from the 0.9+ band's size, not from the signal.
 
 ### Two findings the score could not have produced

@@ -1874,7 +1874,7 @@ the figures in that README are now his, not the drafting pass's.
   both-clean pages). Any future label set here needs a checked subsample before its rate is
   used; a blind pass alone is a screen, never a measurement.
 - **~110,500 of 931,392 judged text-layer pages are faulty (65,300-330,000), about one in
-  eight.** Half sit in the 3.5% the signal flags below 0.5; the rest are spread across the
+  eight.** 29% sit in the 3.4% the signal flags below 0.5; the rest are spread across the
   0.9+ band, whose SIZE now drives the interval's width. Narrowing it further means more
   labelled pages there, not a better signal — and the operator's time is the binding cost.
 - **What "faulty" is up there is not what it is down here.** Above 0.7 the failures are a lost
