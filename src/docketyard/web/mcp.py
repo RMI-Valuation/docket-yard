@@ -23,6 +23,7 @@ answering 405 because this server never initiates a message. It is stateless —
 id — which a read-only server can afford and which means a restart strands nobody.
 """
 
+import re
 from dataclasses import dataclass
 from sqlite3 import Connection
 
@@ -91,15 +92,30 @@ def _plural(n: int, noun: str) -> str:
     return f"{n:,} {noun}" + ("" if n == 1 else "s")
 
 
-def _marked(snippet: str) -> str:
+def _marked(snippet: str, identifiers: str = "") -> str:
     """A search snippet as plain text: the index's control-character marks become « », and
     only the fields holding a match are kept — a record's index body joins the Board's words
     to this record's own spellings of its number (`search.FIELD`), which are not the Board's
-    and are not what an assistant should quote."""
+    and are not what an assistant should quote. A field made of nothing but the record's own
+    identifiers (`identifiers`: its title and fact line) is dropped too, so a search by
+    number says nothing matched in the Board's words rather than quoting our spellings (code
+    review, 2026-09-16). Empty when nothing else is left."""
+    tokens = [t.lower() for t in _TOKENS.findall(identifiers)]
+    # and each adjacent pair run together, the index's `FD36873` spelling of `FD 36873`
+    known = set(tokens) | {a + b for a, b in zip(tokens, tokens[1:], strict=False)}
+
+    def own(field: str) -> bool:
+        plain = field.replace(search_store.MARK_OPEN, " ").replace(search_store.MARK_CLOSE, " ")
+        words = {t.lower() for t in _TOKENS.findall(plain)}
+        return bool(words) and words <= known
+
     fields = snippet.split(search_store.FIELD)
-    kept = [f for f in fields if search_store.MARK_OPEN in f] or fields[:1]
+    kept = [f for f in fields if search_store.MARK_OPEN in f and not own(f)]
     joined = " … ".join(f.strip() for f in kept if f.strip())
     return joined.replace(search_store.MARK_OPEN, "«").replace(search_store.MARK_CLOSE, "»")
+
+
+_TOKENS = re.compile(r"[^\W_]+")
 
 
 def _site(host: str, path: str) -> str:
@@ -150,7 +166,7 @@ def _search(con: Connection, args: dict, host: str) -> str:
         # why it matched, which for a decision is its summary as the Board printed it: a row
         # reading "[decision] Decision 52200 — FD 29830" told an assistant nothing to judge
         # relevance by (the independent graders, 2026-09-16). « » mark the matched words.
-        matched = _marked(h.snippet)
+        matched = _marked(h.snippet, f"{h.title} {h.fact}")
         lines.append(
             f"[{h.kind}] {named} — {h.fact} — {_site(host, h.path)}"
             + (f' — matched: "{matched}"' if matched else "")

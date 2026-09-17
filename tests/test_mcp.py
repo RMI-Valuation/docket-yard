@@ -519,6 +519,9 @@ def test_a_decision_is_handed_over_with_its_body_and_summary_as_printed(client):
     line = next(x for x in text.splitlines() if x.startswith("[decision]"))
     assert 'matched: "ORDERED «REPLIES» DUE"' in line  # the Board's words, not our spellings
     assert "\x02" not in text and "\x03" not in text
+    # a search by number matches only this record's own spellings: nothing quoted as matched
+    text = call(client, "search_the_record", {"query": "36873"})["content"][0]["text"]
+    assert "matched:" not in text, text
 
 
 def test_the_wording_an_assistant_repeats_says_what_is_true(client, tmp_path):
