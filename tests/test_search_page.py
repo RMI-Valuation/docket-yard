@@ -103,6 +103,7 @@ def test_the_page_answers_what_it_cannot_list_rather_than_nothing(tmp_path, monk
     client = _client(tmp_path)
     # a page number that is not a number is the first page, not a 422
     assert client.get("/search", params={"q": "motion", "page": "x"}).status_code == 200
+    assert client.get("/search", params={"q": "motion", "page": "²"}).status_code == 200
     past = client.get("/search", params={"q": "motion", "page": "5"}).text
     assert "is past the last page" in past and "Nothing on record matches" not in past
     only_captions = client.get("/search", params={"q": "control", "view": "documents"}).text

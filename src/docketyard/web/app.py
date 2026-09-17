@@ -1704,7 +1704,9 @@ def create_app(
                 ftypes=ftypes,
                 dtypes=dtypes,
                 sort=sort if sort in ("best", "newest") else "best",
-                page=min(max(1, int(page)), MAX_RESULT_PAGE) if page.strip().isdigit() else 1,
+                page=min(max(1, int(page)), MAX_RESULT_PAGE)
+                if page.strip().isascii() and page.strip().isdigit()
+                else 1,
                 within=within,
                 view=view if view in ("proceedings", "documents") else "proceedings",
             )
