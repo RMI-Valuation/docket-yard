@@ -114,6 +114,9 @@ def test_every_tool_declares_a_closed_schema(client):
         assert t["inputSchema"]["type"] == "object"
         # closed, so a client cannot smuggle a field past the handler
         assert t["inputSchema"]["additionalProperties"] is False
+        # and says it only reads, so a client does not ask the reader to confirm each call
+        assert t["annotations"]["readOnlyHint"] is True
+        assert t["annotations"]["destructiveHint"] is False
 
 
 # --- the constraints -------------------------------------------------------------------

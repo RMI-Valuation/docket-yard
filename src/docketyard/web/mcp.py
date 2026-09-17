@@ -923,9 +923,26 @@ TOOLS: tuple[Tool, ...] = (
 BY_NAME = {t.name: t for t in TOOLS}
 
 
+# Every tool only reads this record. Said to the client, not only enforced here: a client that
+# is not told treats an unmarked tool as one that writes, and ChatGPT asks the reader to
+# confirm every call (its developer-mode guide, read 2026-09-17).
+READ_ONLY = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    "openWorldHint": False,
+}
+
+
 def tool_definitions() -> list[dict]:
     return [
-        {"name": t.name, "title": t.title, "description": t.description, "inputSchema": t.schema}
+        {
+            "name": t.name,
+            "title": t.title,
+            "description": t.description,
+            "inputSchema": t.schema,
+            "annotations": dict(READ_ONLY),
+        }
         for t in TOOLS
     ]
 
