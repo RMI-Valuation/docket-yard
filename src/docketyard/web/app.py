@@ -326,6 +326,7 @@ def create_app(
     templates.env.globals.update(
         site_name=site_name,
         site_host=site_host,
+        site_version=__version__,  # the release tag the image was built from; 0.0.0 off a release
         asset_v=css_hash,
         docket_path=urls.docket_path,
         printed_docket=urls.printed_docket,

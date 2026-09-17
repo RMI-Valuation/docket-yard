@@ -369,6 +369,17 @@ def test_health_reports_freshness_without_judging_it(client):
     assert "Set-Cookie" not in r.headers
 
 
+def test_the_footer_names_the_release_that_served_the_page(tmp_path, monkeypatch):
+    path = build_store(tmp_path)
+    assert "Development build." in TestClient(create_app(path)).get("/").text  # off a release
+    monkeypatch.setattr("docketyard.web.app.__version__", "v2026.09.26")
+    html = TestClient(create_app(path)).get("/coverage").text
+    assert (
+        '<a href="https://github.com/RMI-Valuation/docket-yard/releases/tag/v2026.09.26"'
+        ' rel="noopener">Release v2026.09.26</a>.' in html
+    )
+
+
 def test_record_pages_and_404s(client):
     assert client.get("/filing/311981").status_code == 200
     assert client.get("/filing/1").status_code == 404
