@@ -80,9 +80,14 @@ from docketyard.web import (
 )
 
 _PKG = resources.files("docketyard.web")
-JSON_SHAPE = 2  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
+JSON_SHAPE = 3  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
 POLL_MINUTES = 30  # the watch's cadence, as /coverage states it (compose: --interval 30)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
+# The named AI agents that fetch a page because a person asked, now — not to index or train.
+# They may read what a person may read (the operator, 2026-09-16): the party pages and the page
+# text are held from the DEDICATION, and reading one on request dedicates nothing (robots.txt).
+USER_DIRECTED_AGENTS = ("ChatGPT-User", "Claude-User", "Perplexity-User")
+
 NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/metrics", "/suggest", "/review")
 # tokens, consent, and the one signed-in surface
 MOUNTS = ("/static/", "/data/files/")  # StaticFiles: streams, validates and HEADs itself
@@ -303,6 +308,19 @@ def create_app(
         prefix_name=labels.prefix_name,
         display_filed_for=labels.display_filed_for,
     )
+
+    def cite_as_of() -> str:
+        """What a citation can pin a moment to (the operator, 2026-09-16, on the independent
+        graders' finding): the day it was read, and the newest KEPT archive — a dated file a
+        reader can fetch again later. Not `latest`, which the next night overwrites (code
+        review, 2026-09-16)."""
+        manifest = dump.read_manifest(public_dir)
+        kept = manifest.dated[0].name if manifest and manifest.dated else None
+        return f"Accessed {fmt_date(utcnow())}" + (f"; bulk archive {kept}" if kept else "")
+
+    templates.env.globals["cite_as_of"] = cite_as_of
+    templates.env.globals["record_begins"] = sheet.RECORD_BEGINS
+    templates.env.globals["early_until"] = sheet.EARLY_UNTIL
     # The stylesheet is cached a week; its URL carries its content hash so a deploy is seen.
     css_hash = hashlib.sha256((_PKG / "static" / "site.css").read_bytes()).hexdigest()[:12]
     templates.env.globals.update(
@@ -334,6 +352,8 @@ def create_app(
         explainer_path=urls.explainer_path,
         parse_docket_id=parse_docket_id,
         kind_label=labels.kind_label,
+        date_kind=labels.date_kind,
+        cite_date=labels.cite_date,
         filter_key=labels.filter_key,
         register_link=labels.register_link,
         # what a follow (and the page's own Atom link) actually follows, so the template
@@ -520,16 +540,20 @@ def create_app(
         # over. Readable by people and ordinary crawlers, as the party pages are.
         # And /search (the operator, 2026-09-10): a result page prints snippets of the page
         # text and party names, so an agent refused /text and /p/ could read both from it.
+        # Since 2026-09-16 (the operator, on the independent graders' findings) the held
+        # paths are refused to the agents that index or train, and not to the three that fetch
+        # on a person's request; /search, which prints the held layer in bulk, stays refused to
+        # every named agent.
         held = [
             "Disallow: /p/",
             "Disallow: /parties",
             "Disallow: /filing/*/text",
             "Disallow: /decision/*/text",
             "Disallow: /d/*/comment/*/text",  # `*` spans a `/sub/<n>` segment too
-            "Disallow: /search",
         ]
         for agent in AI_AGENTS:
-            lines += [f"User-agent: {agent}", *disallow, *held, ""]
+            refused = [] if agent in USER_DIRECTED_AGENTS else held
+            lines += [f"User-agent: {agent}", *disallow, *refused, "Disallow: /search", ""]
         lines += [
             "# This is a public record of proceedings before the U.S. Surface",
             "# Transportation Board, operated by RMI Valuation, LLC. It is not the STB.",
@@ -539,9 +563,14 @@ def create_app(
             "# is needed. The party module (/p/, /parties) and the machine-read page",
             "# text (/filing/<id>/text, /decision/<id>/text, and a comment's under its",
             "# docket, /d/<docket>/comment/<number>/text) are held back from that",
-            "# dedication pending a licence review, so they are disallowed above for the",
-            "# agents named here — readable by people, not offered for training. Search",
-            "# results (/search) print both, so they are disallowed for those agents too.",
+            "# dedication pending a licence review: they are for reading, not for",
+            "# collection or training. So they are disallowed above for the agents named",
+            "# here that index or train, and allowed to the three that fetch a page because",
+            "# a person asked (ChatGPT-User, Claude-User, Perplexity-User). Docket sheets",
+            "# and record pages show who filed for whom as a reader sees it; what is held is",
+            "# the party module as a dataset, its pages and its tables. Search results",
+            "# (/search) print the held layer in bulk, so they are disallowed for every",
+            "# agent named here.",
             "#",
             "# If you answer questions from this record, please carry what a reader would",
             "# have seen: coverage is not uniform, every date and caption is quoted rather",
@@ -627,6 +656,17 @@ def create_app(
     @app.exception_handler(404)
     def not_found(request: Request, exc: HTTPException):
         detail = exc.detail if isinstance(exc.detail, str) and exc.detail != "Not Found" else ""
+        if request.url.path.endswith(".json"):
+            # a client that asked for data gets data back: the 8.6 KB HTML page told it nothing
+            # it could read without parsing markup (the independent graders, 2026-09-16)
+            return JSONResponse(
+                {
+                    "error": "not_found",
+                    "detail": detail or "Nothing is held at this address.",
+                    "shape_version": JSON_SHAPE,
+                },
+                status_code=404,
+            )
         return templates.TemplateResponse(
             request, "404.html", {"detail": detail, "canonical": None}, status_code=404
         )
@@ -1066,9 +1106,11 @@ def create_app(
         con = _connect(db_path)
         try:
             s = stats.stats(con)
+            # walked back to the first month: the early years' numbers are the Board's table
+            walked_from = coverage.walked_back_to(con)
         finally:
             con.close()
-        response = render(request, "stats.html", s=s)
+        response = render(request, "stats.html", s=s, walked_from=walked_from)
         response.headers.update(PUBLIC_CACHE)
         return response
 
@@ -1325,6 +1367,8 @@ def create_app(
     def entry_json(e) -> dict:
         d = asdict(e)
         d.pop("parties", None)  # the enriched layer is held (dump.HELD_REASON)
+        # which date `date` is — additive, no shape bump (the operator, 2026-09-16)
+        d["date_kind"] = labels.date_kind(e.kind)
         # a comment is addressed under the docket that holds it, and the entry carries
         # which docket of the family that is — the bare number is not an address
         d["url"] = f"https://{site_host}{urls.entry_path(e.kind, e.record_id, e.docket_raw)}"

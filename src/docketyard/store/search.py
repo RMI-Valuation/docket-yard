@@ -130,7 +130,10 @@ def _docket_docs(con: Connection):
         # a caption match should open on the caption, not on four renderings of the number
         spellings = f"{printed} {ident.prefix}{ident.sequence}"
         body = FIELD.join([p for p in [caption, *subs.get(docket_id, []), spellings] if p])
-        fact = f"{n} filings" + (f", last {last}" if last else "")
+        # "1 filings" and a bare "last" were quoted back by assistants as written: the date is
+        # the last FILING's, not the proceeding's last activity (the independent graders,
+        # 2026-09-16)
+        fact = f"{n} filing{'' if n == 1 else 's'}" + (f", last filed {last}" if last else "")
         yield "docket", docket_id, urls.docket_path(ident), printed, body, fact, caption
 
 
@@ -162,7 +165,11 @@ def _party_docs(con: Connection):
         filings.setdefault(rep, set()).add(stb_id)
     for rep, held in names.items():
         n, d = len(filings.get(rep, ())), len(dockets.get(rep, ()))
-        fact = f"{n} filings in {d} dockets" if n else "on record by name only"
+        fact = (
+            f"{n} filing{'' if n == 1 else 's'} in {d} docket{'' if d == 1 else 's'}"
+            if n
+            else "on record by name only"
+        )
         # a party's title is already a name, which is why it is the one kind that reads
         yield (
             "party",

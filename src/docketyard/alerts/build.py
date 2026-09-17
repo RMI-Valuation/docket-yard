@@ -346,6 +346,9 @@ def _docket_of(con: Connection, event_id: int) -> str:
     return urls.printed_docket(parse_docket_id(row[0])) if row else "?"
 
 
+WEBHOOK_SHAPE = 1
+
+
 def payload(con: Connection, alert_id: int, unsubscribe_url: str, site: str) -> dict:
     """The webhook body: the same events the email carries, structured."""
     rows = con.execute(
@@ -362,6 +365,9 @@ def payload(con: Connection, alert_id: int, unsubscribe_url: str, site: str) -> 
         events.append(d)
     return {
         "source": f"https://{site}/",
+        # the payload's own version, raised when a field changes name or meaning — as the JSON
+        # twins' is (added 2026-09-16, the independent graders' finding)
+        "shape_version": WEBHOOK_SHAPE,
         "alert_id": alert_id,
         "party": _party_subject(con, alert_id),
         "events": events,

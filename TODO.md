@@ -27,6 +27,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
+- **The independent graders' findings** (2026-09-16, B across five personas, `deferred.md` §
+  The independent graders): fix-now items on `graders-first-fixes`; nine decisions for him; the
+  capability-scale ones wait on the menu
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
