@@ -8,7 +8,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **v2026.09.27 LIVE** 2026-09-17 15:25 UTC (schema 33, `INDEX_FORMAT` 4; behind the wall
+- **v2026.09.28 LIVE** (tag change: a Search link in the masthead). **v2026.09.27** 2026-09-17 15:25 UTC (schema 33, `INDEX_FORMAT` 4; behind the wall
   15:20:10-15:25:34, restore point 15:20:10Z): search built out (PR #41). On the instance `the`
   unfiltered also reaches the 1.5 s budget and leaves page text out. The fleet still runs `67b1762`
   until redeployed; the tabular root loads only with his go
