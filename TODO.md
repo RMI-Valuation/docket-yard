@@ -36,8 +36,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   rule (`pages.py:band`), and the agreement distance is a publishing decision, not a computation
 - **~40 kind labels from the flagged set** (his, 2026-09-18, `deferred.md`): the prose screen is
   0.80/0.80 on 5 prose pages there, not the 0.92/0.92 that pooled blind labels off-population
-- **MCP: list the proceedings behind a count** (`deferred.md`): asked for the 20 most recent, an
-  assistant guessed one. CHOSEN 2026-09-18; the tool's shape is his
 - **The blob mirror, once the tabular pass is done** (his, 2026-09-18): all 310 documents
   it failed on are in S3, 190.4 MB — `rmi-nuc` owns the mirror and holds no credentials to
   refill it. Put `docketyard-reader` there and pull; a later seed then re-reads them

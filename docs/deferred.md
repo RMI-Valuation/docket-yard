@@ -1734,28 +1734,11 @@ repeated-filer prose, an as-of cite). Those items have left this file; the commi
 
 ### Fix now — still open
 
-- **The `coverage` tool is thinner than `/coverage`** (assistant I2, confirmed): it omits what
-  the page names under "What is not here" (recordations, pre-1996 history, text coverage, the
-  Board's display cap, outages) while the instructions tell an assistant to repeat it. Chosen as
-  the live demo for the ARDA Technology Section call, 2026-09-17.
-- **The docket-level JSON keys are not locked by a test** (developer I4, confirmed): `asdict()`
-  on the sheet dataclass reaches the public shape; only entry keys are tested.
-- **`/openapi.json` lists `/review` routes and duplicate HEAD operation ids** (developer I2, the
-  mechanical half, confirmed). Response schemas are the larger half and wait with F5's next step.
+All three fixed 2026-09-18 (`6f9b44a`), except the half below that was always the larger one.
 
-### From using the live MCP server, 2026-09-17 (v2026.09.25)
-
-- **`count_filings` gives totals but never the proceedings behind them** (the operator, testing
-  the demo). Asked "how many abandonment proceedings hold a Consummation Notice and a trail-use
-  filing?", Claude answered 201 correctly. Asked next for "the 20 most recent", it could not list
-  them. It narrowed by date (15 proceedings since Sept 2025, 2 holding both), then GUESSED one
-  ("almost certainly AB 55 (Sub-No. 794X)") from a search hit, and sent the user to stb.gov. That
-  guess is the failure this surface exists to prevent, and the tool forced it. The shape to decide:
-  an option on `count_filings` (or a sibling tool) that returns the proceedings behind a count,
-  newest first by the matched filing's date, capped (say 25, with `offset`), each with its printed
-  docket, caption, the dates and ids of the matching filings of each type, and its address. The
-  same grain rules as the count (distinct filings; proceedings as entered) and the same caveats.
-  Small, and it reads only the public index; a decision because it widens a tool's contract.
+- **`/openapi.json` publishes no response schemas** (developer I2, the half that was never the
+  mechanical one). The `/review` routes and the duplicate HEAD operation ids are gone; what a
+  route *returns* is still undescribed, and waits with F5's next step.
 
 ### The operator's to choose later
 
