@@ -1955,3 +1955,29 @@ the third draft; none is acted on, because the scope question above them is the 
   has no key and no typed outcome vocabulary, which is ADR 0021 D5's own rule; no `run_id` on a
   score; and the § Validation line "nothing derived is published from a score" contradicts
   decision 13, which publishes one.
+
+## From scoring the prose screen on its own population, 2026-09-18 (branch `text-layer-quality`)
+
+The re-read's order is the operator's (prose first), and `text_quality.looks_like_prose` is what
+obeys it. Its note claimed "on the 166 labelled pages, recall 0.92 and precision 0.92". Re-scored
+read-only over production with the labels separated by who made them, that figure does not
+reproduce and was measured mostly off-population; the note now carries the three rows below
+instead. Nothing here blocks the prose pass — a queue order that is wrong costs reading order,
+not a wrong assertion — but two things are owed if the screen is ever leaned on harder.
+
+- **The screen is effectively unmeasured on the pages it orders.** Of the 166 labelled pages only
+  32 are below the 0.5 cut, and only **5 of those are prose**: precision 0.80 (4/5), recall 0.80
+  (4/5). The pooled 166-page figure is carried by the ≥0.7 band, which is 134 of the pages and
+  where prose is most of the population and easy to spot (blind kinds there: precision 0.95,
+  recall 1.00). His 95 checked kinds give 0.89/0.91. **Owed: ~40 kind labels drawn from the
+  flagged set itself**, if the screen is to carry a stated rate. The indication it does give is
+  worth having and is why the pass is still worth seeding: prose is 5 of 32 flagged pages (16%)
+  and roughly 80% of what the screen selects, a fivefold lift in purity.
+- **71 of the 166 kind labels are unchecked model labels**, which is the thing the operator's own
+  rule forbids being turned into a rate ("model labels are a screen, never a measurement"). The
+  quality labels in this directory were kept honest about this; the kind labels behind the screen
+  were pooled without the distinction. The separation now lives in the module's note.
+- Smaller, fixed in place rather than deferred: the precision/recall table printed a raw sample
+  count inside a population-weighted precision cell, so `0.80 (42/48)` invited a division that
+  gives 0.875; and the queue builder's docstring read as though 6,170 prose pages sat in 4,896
+  documents, which is the count for all 31,798 flagged pages (the prose subset is 1,501).

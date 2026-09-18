@@ -79,8 +79,21 @@ def shares(f: dict) -> dict:
 # The re-read is prose first (ocr-plan.md decision 3, the operator 2026-09-17), and the page's
 # kind is known only for the pages somebody labelled. These three numbers come from the stored
 # text, need no scan and no model, and separate prose from maps, drawings and tables well enough
-# to order a queue: on the 166 labelled pages, recall 0.92 and precision 0.92; two-fold with the
-# thresholds chosen on one half, recall 0.86-0.94 and precision 0.87-0.94 on the held-out half.
+# to order a queue.
+#
+# Scored 2026-09-18, read-only over production, WITH THE LABELS SEPARATED — the earlier note here
+# said "on the 166 labelled pages, recall 0.92 and precision 0.92", which pooled the operator's
+# labels with 71 unchecked model ones and did not reproduce:
+#
+#   his 95 checked kinds .......... precision 0.89 (41/46), recall 0.91 (41/45)
+#   the 71 blind model kinds ...... precision 0.95 (60/63), recall 1.00 (60/60)
+#   THE FLAGGED SET, < 0.5 ........ precision 0.80  (4/5), recall 0.80  (4/5)
+#
+# The last row is the only one over the population this screen actually orders, and it rests on
+# five prose pages, so it is an indication and not a rate. What it does show is worth having:
+# prose is 5 of 32 flagged pages (16%) and about 80% of what the screen picks out of them, so the
+# screen lifts prose purity roughly fivefold. The pooled figure was flattering because the other
+# 134 pages are the >=0.7 band, where prose is most of the population and easy.
 # NOT a published claim about a page, and not a kind assertion — a queue order.
 PROSE_TOKENS_PER_LINE = 3.0
 PROSE_MEDIAN_LINE = 12

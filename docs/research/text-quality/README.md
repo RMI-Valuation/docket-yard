@@ -132,12 +132,20 @@ of that band is what would.**
 
 ### The signal, scored against the checked labels
 
-| cut | flagged | precision | recall |
-| --- | ---: | ---: | ---: |
-| **as a garbage detector, <0.5** | ~31,800 | **0.72** (23/32) | **0.68** |
-| as a garbage detector, <0.7 | ~64,900 | 0.38 (24/48) | 0.75 |
-| as an any-fault detector, <0.5 | ~31,800 | **1.00** (32/32) | 0.29 |
-| as an any-fault detector, <0.7 | ~64,900 | 0.80 (42/48) | 0.47 |
+| cut | flagged | precision | in the sample | recall |
+| --- | ---: | ---: | ---: | ---: |
+| **as a garbage detector, <0.5** | ~31,800 | **0.72** | 23/32 | **0.68** |
+| as a garbage detector, <0.7 | ~64,900 | 0.38 | 24/48 | 0.75 |
+| as an any-fault detector, <0.5 | ~31,800 | **1.00** | 32/32 | 0.29 |
+| as an any-fault detector, <0.7 | ~64,900 | 0.80 | 42/48 | 0.47 |
+
+**The precision column is population-weighted and the count beside it is not.** The sample takes
+8 pages per cell from bands that hold 15,982 / 15,816 / 33,097 / 866,497 pages, so a raw
+proportion over it is not a proportion over the record; precision here weights each band's
+sampled rate by that band's size. The two agree at <0.5 (0.720 against 23/32 = 0.719) because the
+two bands below it are nearly equal in size, and part company at <0.7, where the raw counts give
+0.50 and 0.875 against the weighted 0.38 and 0.80. The earlier table printed the counts inside
+the precision cell, which invited exactly the division that does not hold.
 
 Every recall here is against the record-wide totals this document arrives at below — **110,539
 faulty pages and 33,444 garbage pages**. An earlier draft divided by a pre-correction estimate

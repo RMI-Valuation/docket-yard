@@ -2,7 +2,9 @@
 
 Run it where the store is (production, `sudo nice -n 15`, `?mode=ro`), with `text_quality.py`
 and the lexicon beside it. Measured 2026-09-17 over 1,085,316 live text-layer primaries in
-24 minutes: 31,798 flagged, of which 6,170 are prose-shaped, in 4,896 documents.
+24 minutes: 31,798 flagged across 4,896 documents, of which 6,170 pages in 1,501 documents are
+prose-shaped. The `docs` figure this script prints is the 4,896 — every flagged document, not
+the prose subset.
 
 Flagged = a live text-layer primary with >= 15 letter-bearing tokens whose score is under the
 cut, the score being `lexicon_hits / lettered_tokens` — NOT `shares()["lex"]`, which divides by
