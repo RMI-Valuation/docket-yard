@@ -8,10 +8,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **v2026.09.28 LIVE** (tag change: a Search link in the masthead). **v2026.09.27** 2026-09-17 15:25 UTC (schema 33, `INDEX_FORMAT` 4; behind the wall
-  15:20:10-15:25:34, restore point 15:20:10Z): search built out (PR #41). On the instance `the`
-  unfiltered also reaches the 1.5 s budget and leaves page text out. The fleet still runs `67b1762`
-  until redeployed; the tabular root loads only with his go
+- **v2026.09.28 LIVE** (a Search link in the masthead; v2026.09.27 built search out, PR #41,
+  schema 33, `INDEX_FORMAT` 4). The fleet still runs `67b1762` until redeployed; the tabular
+  root loads only with his go
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown; exposed
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
@@ -27,16 +26,17 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **Text-layer quality, HIS 95 LABELS AND HIS TWO DECISIONS, 2026-09-17**
-  (`docs/research/text-quality/`, branch `text-layer-quality`): **~110,500 of 931,392
-  text-layer pages are faulty (1 in 8), ~25k garbage**; the <0.5 cut catches 68% of garbage,
-  2/3 of what it flags are maps. The quality ADDENDUM IS WITHDRAWN (his, after three critic
-  passes): the score stays an internal routing list, nothing published, no schema change.
-  Owed: (1) **measure orientation** before the re-read — 9 of 64 pages need rotating, all with
-  `/Rotate = 0`, and the wave runs PP-OCRv6 with the toggles off; (2) then re-read the <0.5
-  pages, prose first, on dots.mocr
-- **MCP: list the proceedings behind a count** (`deferred.md` § From using the live MCP server):
-  asked for the 20 most recent, an assistant had to guess one. His to choose; small
+- **The prose re-read: HIS GO, but it CANNOT BE SEEDED YET** (PR #42 merged as `b105b08`).
+  Queue built — 6,170 prose pages, 1,501 docs, ~4.6 h — but (1) `pagequeue.seed_pass` reads only
+  `ocr/route/*/*.json` and `ocr_wave.py` routes only `image_only_documents`, so none of these
+  docs is routed: a pass entry and a seed-from-page-list path are owed; (2)
+  `document_text_one_primary` is UNIQUE per live page and all 6,170 already hold a text-layer
+  primary, so the pass must declare `primary` (superseding it, ADR 0023's pick rule) or `second`
+  (undisplayed, ADR 0021 D8). **(2) IS HIS, before any seed.** Orientation still owed for the rest
+- **~40 kind labels from the flagged set** (his, 2026-09-18, `deferred.md`): the prose screen is
+  0.80/0.80 on 5 prose pages there, not the 0.92/0.92 that pooled blind labels off-population
+- **MCP: list the proceedings behind a count** (`deferred.md`): asked for the 20 most recent, an
+  assistant guessed one. CHOSEN 2026-09-18; the tool's shape is his
 - **The graders' three open fix-now items** (`deferred.md` § The independent graders): the
   `coverage` tool matching `/coverage` is the ARDA demo item; the docket JSON key test; openapi
   hygiene
@@ -45,7 +45,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
   migration (schema-critic first) and the browse on `/parties`
 - **Held by the operator**: `/methodology`'s text-stage section (`848e366`) and the one-day-rest
-  sentence (`3b538bc`), 2026-09-11; a sheet's JSON-LD in Google's Rich Results test, from a browser
+  sentence (`3b538bc`), 2026-09-11; a sheet's JSON-LD in Rich Results, from a browser
 - The workstation gate's ONLOGON task is still unregistered (`deferred.md`)
 - Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
 - Deadline engine (C4): no obligations in decision JSON; fixture of 8 in `docs/deferred.md`
