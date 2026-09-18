@@ -15,22 +15,22 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **Tabular pass RUNNING** since 2026-09-16 11:46Z (coordinator and workstation on `67b1762`; PR #34
-  merged 2026-09-17). First 16 min: 67 read, 9 page-owned `finish_reason length` (~12%, final), 4 blob misses;
-  **~12.6 s/page, so ~88 h, not the 36-48 h scoped**. 434 of 3,385 documents (1,051 pages, 0.24 GB)
-  are in NEITHER blob mirror, so no node reads them this seed. Stop: `touch
-  /data/docketyard/ocr/.stop-tabular` on rmi-ai-machine. Nothing collected is loaded
+- **Tabular pass RUNNING** since 2026-09-16 11:46Z (`67b1762`; PR #34 merged). **ETA 46.9 h at
+  2026-09-18 01:38Z**: 11,074 done, 13,727 pending, 1,489 failed (11.9%, the page-owned
+  `finish_reason length`). 434 of 3,385 documents are in NEITHER blob mirror, so no node reads
+  them this seed. Stop: `touch /data/docketyard/ocr/.stop-tabular`. Nothing collected is loaded
 - **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
   `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
   quotation per displayed reading, migration 0033. **His to accept; then migration + pass**
 
 ## Next
 
-- **The prose re-read: ROUTE THE PAGES OR DON'T RUN IT — HIS** (`reread` pass built `f96b2ef`;
-  PR #42 merged `b105b08`). The seed refuses: `text/load.py` and `document_text`'s CHECK both
-  refuse an `ocr` reading whose page names no routed class (ADR 0021 D4), and these pages were
-  never routed — so all 6,170 would be read and thrown away. He chose a page-list seed over
-  routing on 2026-09-18 when routing looked optional; it is not. Owed before ANY load, both in
+- **The prose re-read is BUILT and needs a GPU and one file copy** (`32345db`; `route-list`,
+  `seed --from`, `dots_worker --pass`, `fleet-up.sh reread`, 48 fleet tests, schema-critic and
+  two `/code-review` rounds acted on). To run: put `queue.csv.gz` (production `/tmp/tq/`, also
+  in this session's scratchpad) on a fleet node — **auto mode refuses the scp** — then
+  `route-list` and seed. rmi-ai-machine's card is the tabular pass's until ~2026-09-20; the
+  3090's WSL is stopped and has no paddle venv or blob mirror. Owed before ANY load, in
   `deferred.md`: loading changes what every re-read page publishes about itself with no dated
   rule (`pages.py:band`), and the agreement distance is a publishing decision, not a computation
 - **~40 kind labels from the flagged set** (his, 2026-09-18, `deferred.md`): the prose screen is
