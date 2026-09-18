@@ -48,6 +48,7 @@ The passes today, all in `tools/fleet/pagequeue.py § PASSES`:
 | --- | --- | --- | --- |
 | `dots` | dots.mocr 1.5, 200 DPI | pages routed `degraded` | `ocr/dots` |
 | `tabular` | hunyuan-ocr 1.5, 150 DPI — HunyuanOCR-1.5 in-process through transformers (`hunyuan_worker.py`); built 2026-09-15, not yet run | pages routed `tabular` (26,294) | `ocr/hunyuan-tabular` |
+| `reread` | dots.mocr 1.5, 200 DPI — **dots' own key**; role `second`; built 2026-09-18 and **NOT SEEDABLE**, see below | flagged text-layer pages, from a page list | `ocr/dots-reread` |
 
 Each pass names its own page builder (`PASSES[...]["page"]`): the worker posts the engine's
 raw answer and `collect` turns it into the engine page and its text — `ocr_wave.dots_page`
@@ -255,6 +256,76 @@ correct and will page the operator. `tabular-collect` on the coordinator writes
 
 The workstation's gate (`workstation-gate.ps1`) is still the `dots` pass's: its container,
 worker script and names are dots-specific, and `-Pass` only changes what it asks `/pending`.
+
+### The text-layer re-read
+
+`docs/research/text-quality/` measured ~110,500 faulty pages among the 931,392 the site shows
+as the publisher's own text layer, and the operator's order is prose first. The pass is built
+and **cannot be seeded**: `seed_from_list` raises `Unloadable` before any page is read. What
+follows is what works, what stops it, and what the decision is.
+
+**The seed is a page list, because these pages were never routed.** They are live text-layer
+primaries, and `ocr_wave.py` routes `image_only_documents` only, so `seed_pass` cannot see them
+at all — 0 of 14 sampled flagged documents have a route document. `seed_from_list` takes the
+queue builder's output instead:
+
+```bash
+python3 tools/fleet/pagequeue.py --db Q seed --pass reread --out /data/docketyard/ocr     --from queue.csv.gz --column prose --dry-run     # 6,170 pages in 1,501 documents
+```
+
+`--from` takes `tools/rmi-ai-machine/text_quality_queue.py`'s output (gzipped or plain; `sha`
+and `page` are the columns that matter) and `--column` a flag that must be `1`, which is how
+the prose-first order is expressed. Whether a pass is seeded from the route root or a list is
+`seeded_from` on its spec, separate from whether its pages are routed; each seed refuses the
+other's pass. **Only the listed pages are queued**, as the wave's `dots` reading covers a
+document's degraded pages and leaves its clean ones alone — but what this pass owes a document
+is not fixed the way a route document fixes it, because the score's lexicon grows with the
+record and the operator can move the cut. So a wider list **tops up** a document the queue
+already calls whole: its file is set aside and it is read again whole, since the loader takes a
+reading under one `ran_at`.
+
+**WHAT STOPS IT: a re-read page has no routed class, and the store refuses a reading like
+that.** `text/load.py` raises *"an OCR reading names the class it was routed as (ADR 0021 D4)"*
+for any `ocr` reading whose page carries no route, and `document_text`'s own
+`CHECK (reading_channel <> 'ocr' OR route_class IS NOT NULL)` refuses the row behind it. Giving
+the page a route was rejected in the design because the router never saw it and naming it
+`unrouted` would stamp ROUTER's method and version on a page that method never touched — but
+the consequence is that every page read would be machine time thrown away. The seed therefore
+refuses, which is what `Unloadable` is for: the loader's refusal comes hours later and per
+document.
+
+**The way through is to route the flagged pages first** — the existing `pp-doclayoutv3+regions`
+router over the page list, writing route documents as the wave does — so each page carries its
+own true class and the router's method and version. It is a layout pass, small beside the read,
+and it is owed anyway if these readings are ever to be scored (`class_measurement` is keyed on
+class) or promoted. **It is the operator's call, because it is not the shape he agreed to on
+2026-09-18**: he chose a page-list seed over routing the documents, on the understanding that
+routing was optional. It is not.
+
+**Two more things are owed before a reading from this pass should be loaded**, both in
+`docs/deferred.md` § 2026-09-18:
+
+- **The agreement distance, and what `band()` would say without it.** The wave's `second`
+  readings carry a distance because `ocr_wave.py second` measures them against the dots primary
+  on disk; here the reading to measure against is the text layer in the store. `collect` writes
+  no agreement, and `store/pages.py:band` LEFT JOINs the live `second` row whatever its channel
+  — so loading these would replace *"Read once; no second reading to compare it with, so no
+  band."* with *"A second reading exists (dots.mocr 1.5); its distance from this one has not
+  been computed, so no band."* on every re-read page, on `/text`, in search hits and through
+  MCP. That is published text moving on a load rather than a dated rule.
+- **The role, and what it spends.** `second` is the only non-`primary` role available
+  (`reading_role` is a CHECK, not a vocabulary table, so a third role is a rebuild of a 1.4M-row
+  table), and `document_text_one_second` is unique per live page — so the re-read occupies the
+  page's one `second` slot, which is where a cheap second reading to catch invention would have
+  gone. And while the role is `second` the better text is invisible: not displayed, not in
+  `page_fts`, not walked by the citator.
+
+**The key is `dots`' own**, unchanged — same engine, same version, same render, so it is the
+same reading, and one worker serves both passes (`dots_worker.py --pass`, which offers every
+pass whose key is dots.mocr's and no other). `document_text_live` does **not** carry the role,
+so it does not keep the two passes apart; it makes it impossible for one page to hold both, and
+the loader then refuses the whole document. What keeps them apart is that no document is both
+image-only and text-layer, which nothing asserts.
 
 ## Joining a node
 

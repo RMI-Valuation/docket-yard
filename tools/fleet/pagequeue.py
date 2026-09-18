@@ -36,6 +36,8 @@ machine's client, with the same six methods and nothing else.
 
 import argparse
 import calendar
+import csv
+import gzip
 import json
 import sqlite3
 import sys
@@ -59,6 +61,12 @@ from ocr_wave import (  # noqa: E402 — the driver's keys, roots, page builders
     now,
 )
 
+
+class Unloadable(Exception):
+    """A pass whose readings the store would refuse. Raised at the SEED, before any machine
+    time is spent, because the loader's refusal comes hours later and per document."""
+
+
 STATES = ("pending", "leased", "done", "failed")
 
 PASSES = {
@@ -72,6 +80,7 @@ PASSES = {
         "role": "primary",
         "payload_kind": "dots.mocr.json",
         "class": "degraded",
+        "seeded_from": "route",
         "root": ROOTS["dots"],
         "invalidates": ("second",),
         "max_megapixels": 6.0,
@@ -86,10 +95,47 @@ PASSES = {
         "role": "primary",
         "payload_kind": "hunyuan-ocr.json",
         "class": "tabular",
+        "seeded_from": "route",
         "root": ROOTS["tabular"],
         "invalidates": (),
         "max_megapixels": 6.0,
         "page": hunyuan_page,
+    },
+    # The text-layer re-read (docs/research/text-quality/, the operator 2026-09-18). The pages
+    # are flagged live text-layer primaries, which this project has never routed — the router
+    # takes `image_only_documents` only — so `class` is None and the pass is seeded from a page
+    # list instead of the route root (`seed_from_list`). Two consequences follow from that and
+    # are the reason this is its own pass rather than more pages for `dots`:
+    #
+    #   - `role` is `second`, not `primary`. `document_text_one_primary` is UNIQUE per live
+    #     page and every one of these pages already holds a text-layer primary, so a primary
+    #     here could not load without superseding the publisher's own text layer. Whether it
+    #     ever should is the operator's, deferred 2026-09-18 with the readings in hand.
+    #   - the key is DOTS, unchanged: same engine, same version, same render, so it IS the same
+    #     reading. `document_text_live` is unique on (document, page, method, method_version,
+    #     render_profile) and does NOT carry the role, so it does not keep the two passes apart
+    #     — it makes it impossible for one page to hold both, and the loader then refuses the
+    #     whole document ("a reading does not change role by being posted again"). What keeps
+    #     them apart is that no document is both image-only and text-layer, which nothing in
+    #     the store, the queue or these tests asserts (schema-critic, 2026-09-18).
+    #
+    # NOT RUNNABLE YET, and `seed_from_list` refuses it: a page here carries no `route` stanza,
+    # because the router never saw it and naming it `unrouted` would put ROUTER and its version
+    # on a page that method never touched — but `text/load.py` refuses an `ocr` reading with no
+    # route (ADR 0021 D4) and `document_text`'s own CHECK refuses the row. Every reading this
+    # pass wrote would be a machine-time write-off. Routing the flagged pages first is the way
+    # through and it is the operator's call, because it was not the shape he agreed to. See
+    # docs/deferred.md § 2026-09-18 and docs/compute-fleet.md § The text-layer re-read.
+    "reread": {
+        "key": DOTS,
+        "role": "second",
+        "payload_kind": "dots.mocr.json",
+        "class": None,
+        "seeded_from": "list",
+        "root": ROOTS["reread"],
+        "invalidates": (),
+        "max_megapixels": 6.0,
+        "page": dots_page,
     },
 }
 
@@ -341,6 +387,15 @@ class Queue:
             )
             return self.con.total_changes - before
 
+    def pages_held(self, pass_: str, sha: str) -> set[int] | None:
+        """Every page of a document this pass has ever had a job for, or None if it has none.
+        A list-seeded pass compares this with what the list now names: what the pass owes a
+        document can grow between seeds, so `whole` alone would drop the new pages."""
+        rows = self.con.execute(
+            "SELECT page_no FROM job WHERE pass = ? AND document_sha256 = ?", (pass_, sha)
+        ).fetchall()
+        return {r["page_no"] for r in rows} if rows else None
+
     def known(self, pass_: str, sha: str) -> str | None:
         """What the queue knows of a document: `None` (nothing), `open` (pages not terminal),
         `whole` (collected, every failure the page's own) or `reread` (collected, and a page
@@ -550,10 +605,11 @@ def seed_pass(q: Queue, pass_: str, out: Path, *, dry_run: bool = False) -> dict
     document's reading whole under one `ran_at`, and a `failed` on disk is what silenced
     9,915 documents on 2026-09-06. A file the queue does not know is the old driver's, which
     kept no reasons: whole only if it says `read` with no page failed."""
-    from ocr_wave import shard  # noqa: PLC0415
 
     spec = PASSES[pass_]
-    route_root, out_root = out / ROOTS["route"], out / spec["root"]
+    if spec["seeded_from"] != "route":
+        raise ValueError(f"{pass_} is seeded from a page list (--from), not the route root")
+    route_root = out / ROOTS["route"]
     pages, reread = [], set()
     n = {"documents": 0, "pages": 0, "whole": 0, "set_aside": 0, "new": 0}
     for p in sorted(route_root.glob("*/*.json")):
@@ -562,31 +618,140 @@ def seed_pass(q: Queue, pass_: str, out: Path, *, dry_run: bool = False) -> dict
         wanted = sorted(int(k) for k, v in route["pages"].items() if v["class"] == spec["class"])
         if not wanted:
             continue
-        known = q.known(pass_, sha)
-        if known == "open":
-            continue  # already queued and not yet collected
-        if known == "whole":
-            n["whole"] += 1
+        if not _decide(q, pass_, spec, out, sha, n, reread, dry_run=dry_run):
             continue
-        existing = shard(out_root, sha)
-        if known is None and existing.exists():
-            # the old driver's file: whole only if it says so, since it kept no reasons
-            doc = json.loads(existing.read_text(encoding="utf-8"))
-            if doc.get("outcome") == "read" and not doc.get("pages_failed"):
-                n["whole"] += 1
+        pages += [(sha, no) for no in wanted]
+    n["pages"] = len(pages)
+    n["new"] = 0 if dry_run else q.seed(pass_, pages, reread=reread)
+    return n
+
+
+def _decide(
+    q: Queue, pass_: str, spec: dict, out: Path, sha: str, n: dict, reread: set, *, dry_run: bool
+) -> bool:
+    """`seed_pass`'s verdict on one document, shared with `seed_from_list` so the two seeds
+    cannot drift: True to queue its pages. Counts land in `n` and re-reads in `reread`."""
+    from ocr_wave import shard  # noqa: PLC0415
+
+    known = q.known(pass_, sha)
+    if known == "open":
+        return False  # already queued and not yet collected
+    if known == "whole":
+        n["whole"] += 1
+        return False
+    existing = shard(out / spec["root"], sha)
+    if known is None and existing.exists():
+        # the old driver's file: whole only if it says so, since it kept no reasons
+        doc = json.loads(existing.read_text(encoding="utf-8"))
+        if doc.get("outcome") == "read" and not doc.get("pages_failed"):
+            n["whole"] += 1
+            return False
+    if known == "reread" or existing.exists():
+        # the queue's verdict stands whether or not the file is still there: a walk
+        # that renamed it and then aborted must not leave the document stranded
+        n["set_aside"] += 1
+        reread.add(sha)
+        if not dry_run:
+            # `root` is a directory NAME already; `invalidates` holds ROOTS KEYS. Mixing the
+            # two was a latent KeyError for every pass whose key and directory differ: it never
+            # fired for `dots` (ROOTS["dots"] == "dots") and would have crashed the first
+            # re-seed of `tabular`, whose root is "hunyuan-tabular" (found by the re-read's
+            # tests, 2026-09-18)
+            for root in (spec["root"], *(ROOTS[k] for k in spec["invalidates"])):
+                f = shard(out / root, sha)
+                if f.exists():
+                    f.rename(f.with_suffix(".json.superseded"))
+    n["documents"] += 1
+    return True
+
+
+def seed_from_list(
+    q: Queue,
+    pass_: str,
+    out: Path,
+    pages_csv: Path,
+    *,
+    column: str | None = None,
+    dry_run: bool = False,
+) -> dict:
+    """Seed a pass from a page list instead of the route root, for pages this project never
+    routed — the router reads `image_only_documents` only, and the text-layer re-read's pages
+    are by definition not in one (docs/research/text-quality/).
+
+    `pages_csv` is the queue builder's output (`tools/rmi-ai-machine/text_quality_queue.py`,
+    gzipped or plain): a header, then a row per page with `sha` and `page`. `column` names a
+    flag column that must be `1` for the row to be taken — `prose` for the operator's
+    prose-first order. The per-document verdict is `seed_pass`'s, unchanged: a document already
+    whole is left alone and a partial one is set aside and read again whole, because the loader
+    takes a document's reading whole under one `ran_at`.
+
+    ONLY THE LISTED PAGES ARE QUEUED. A reading document covers the pages its pass selected and
+    no others — the wave's own `dots` reading holds the degraded pages of a document and leaves
+    its clean ones to the text layer — so pages 3 and 9 of an eleven-page document are a
+    complete reading of what this pass owes it. "Whole" above means every page this pass owes
+    reached a terminal state, not every page of the PDF.
+    """
+    from ocr_wave import shard  # noqa: PLC0415
+
+    spec = PASSES[pass_]
+    if spec["seeded_from"] != "list":
+        raise ValueError(f"{pass_} is seeded from the {spec['seeded_from']}, not a page list")
+    if spec["class"] is None:
+        # WHERE THE PAGES COME FROM AND WHETHER THEY ARE ROUTED ARE TWO QUESTIONS, and only the
+        # second decides whether a reading can load: `text/load.py` refuses an `ocr` reading
+        # whose page names no routed class, and `document_text`'s CHECK refuses the row
+        # (ADR 0021 D4). A list-seeded pass over ROUTED pages is fine and is the shape this is
+        # expected to take. Reading thousands of pages to write files nothing can take is the
+        # failure mode this guard exists for, and it fires before any machine time is spent
+        raise Unloadable(
+            f"{pass_} writes `ocr` readings with no route, which text/load.py refuses"
+            " (ADR 0021 D4): route the pages first. docs/compute-fleet.md § The text-layer"
+            " re-read"
+        )
+    opener = gzip.open if pages_csv.suffix == ".gz" else open
+    wanted: dict[str, set[int]] = {}
+    with opener(pages_csv, "rt", encoding="utf-8", newline="") as fh:
+        for row in csv.DictReader(fh):
+            if column is not None and row.get(column) != "1":
                 continue
-        if known == "reread" or existing.exists():
-            # the queue's verdict stands whether or not the file is still there: a walk
-            # that renamed it and then aborted must not leave the document stranded
-            n["set_aside"] += 1
+            wanted.setdefault(row["sha"], set()).add(int(row["page"]))
+    if not wanted:
+        raise ValueError(f"{pages_csv} names no page" + (f" with {column} = 1" if column else ""))
+    pages, reread = [], set()
+    n = {
+        "documents": 0,
+        "pages": 0,
+        "whole": 0,
+        "set_aside": 0,
+        "new": 0,
+        "listed_pages": 0,
+        "topped_up": 0,
+    }
+    for sha in sorted(wanted):
+        n["listed_pages"] += len(wanted[sha])
+        # WHAT THIS PASS OWES A DOCUMENT IS NOT FIXED, which is where a list seed parts company
+        # with a route seed: the route document settles a page's class once, but this list comes
+        # from a score whose lexicon grows with the record and from a cut and a screen the
+        # operator can move. So a document already `whole` may now be owed pages the queue has
+        # never held, and taking `whole` at its word would drop them silently (schema-critic and
+        # /code-review, 2026-09-18). A document owed a page it has never held is read AGAIN,
+        # whole, because the loader takes a reading under one `ran_at` and a top-up would
+        # strand it.
+        held = q.pages_held(pass_, sha)
+        if held is not None and wanted[sha] - held:
+            n["topped_up"] += 1
+            n["documents"] += 1
             reread.add(sha)
             if not dry_run:
-                for root in (spec["root"], *spec["invalidates"]):
-                    f = shard(out / ROOTS[root], sha)
+                for root in (spec["root"], *(ROOTS[k] for k in spec["invalidates"])):
+                    f = shard(out / root, sha)
                     if f.exists():
                         f.rename(f.with_suffix(".json.superseded"))
-        n["documents"] += 1
-        pages += [(sha, no) for no in wanted]
+            pages += [(sha, no) for no in sorted(held | wanted[sha])]
+            continue
+        if not _decide(q, pass_, spec, out, sha, n, reread, dry_run=dry_run):
+            continue
+        pages += [(sha, no) for no in sorted(wanted[sha])]
     n["pages"] = len(pages)
     n["new"] = 0 if dry_run else q.seed(pass_, pages, reread=reread)
     return n
@@ -621,14 +786,16 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
                     continue
                 engine_page, text = to_page(r["page_no"], r["raw"])
                 engine_pages.append(engine_page)
-                pages.append(
-                    {
-                        "page_no": r["page_no"],
-                        "text": text,
-                        "member": f"engine/pages/{len(engine_pages) - 1}",
-                        "route": route_of(spec["class"]),
-                    }
-                )
+                page = {
+                    "page_no": r["page_no"],
+                    "text": text,
+                    "member": f"engine/pages/{len(engine_pages) - 1}",
+                }
+                if spec["class"] is not None:
+                    # a pass seeded from a page list has no route: the router never read it,
+                    # and the loader's `route` is optional (`text/load.py § Page`)
+                    page["route"] = route_of(spec["class"])
+                pages.append(page)
         except ValueError as e:  # `failure_reason` on a `page:` word nobody has named
             print(f"  SKIPPED {sha[:12]}: {e}", flush=True)
             skipped += 1
@@ -669,10 +836,27 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
 
 
 def cmd_seed(args) -> int:
-    n = seed_pass(Queue(args.db), args.pass_, args.out, dry_run=args.dry_run)
+    from_list = PASSES[args.pass_]["seeded_from"] == "list"
+    if not from_list and args.from_:
+        print(f"{args.pass_} is seeded from the route root: drop --from")
+        return 2
+    if from_list and not args.from_:
+        print(f"{args.pass_} is seeded from a page list: give it one with --from")
+        return 2
+    if args.column and not args.from_:
+        print("--column names a column of --from")
+        return 2
+    q = Queue(args.db)
+    if args.from_:
+        n = seed_from_list(
+            q, args.pass_, args.out, args.from_, column=args.column, dry_run=args.dry_run
+        )
+    else:
+        n = seed_pass(q, args.pass_, args.out, dry_run=args.dry_run)
     verb = "would be " if args.dry_run else ""
+    listed = f" from {n['listed_pages']} listed" if "listed_pages" in n else ""
     print(
-        f"{args.pass_}: {n['documents']} documents, {n['pages']} pages {verb}queued"
+        f"{args.pass_}: {n['documents']} documents, {n['pages']} pages{listed} {verb}queued"
         f" ({n['new']} new); {n['whole']} documents already whole; {n['set_aside']} partial or"
         f" failed reading documents {verb}set aside as .superseded"
     )
@@ -718,6 +902,18 @@ def main() -> int:
     p.add_argument("--pass", dest="pass_", choices=PASSES, required=True)
     p.add_argument("--out", required=True, type=Path)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument(
+        "--from",
+        dest="from_",
+        type=Path,
+        help="seed from a page list (csv or csv.gz with `sha` and `page`) instead of the route"
+        " root, for a pass whose pages were never routed. Required for such a pass, refused"
+        " for a routed one",
+    )
+    p.add_argument(
+        "--column",
+        help="a flag column in --from that must be `1` for a row to be taken, e.g. `prose`",
+    )
     p = sub.add_parser("collect")
     p.add_argument("--pass", dest="pass_", choices=PASSES, default="dots")
     p.add_argument("--out", required=True, type=Path)

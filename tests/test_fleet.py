@@ -686,3 +686,182 @@ def test_a_queue_that_refuses_registration_is_the_environments_exit():
     q = Accepting()
     assert hw.register_or_exit(q, "w1", "tabular", {"k": 1}) is None
     assert q.got == ("w1", "tabular", {"k": 1})
+
+
+# --- the text-layer re-read: a pass seeded from a page list, not the route root -------------
+
+
+def _page_list(path: Path, rows: list[tuple[str, int, str]]) -> Path:
+    """The queue builder's shape (tools/rmi-ai-machine/text_quality_queue.py): a header, then
+    a row per page. Only `sha`, `page` and the flag column matter to the seed."""
+    import csv as _csv
+
+    with path.open("w", encoding="utf-8", newline="") as fh:
+        w = _csv.writer(fh)
+        w.writerow(["text_id", "sha", "page", "score", "prose"])
+        for i, (sha, page, prose) in enumerate(rows):
+            w.writerow([1000 + i, sha, page, "0.21", prose])
+    return path
+
+
+def _zero() -> dict:
+    return {
+        "documents": 0,
+        "pages": 0,
+        "whole": 0,
+        "set_aside": 0,
+        "new": 0,
+        "listed_pages": 0,
+        "topped_up": 0,
+    }
+
+
+@pytest.fixture
+def listed(monkeypatch):
+    """A list-seeded pass over ROUTED pages: the shape `reread` must take before it can load
+    (see the test below it). It exercises `seed_from_list` without pretending the unrouted
+    pass works."""
+    spec = {**pq.PASSES["reread"], "class": "degraded", "root": "listed-test"}
+    monkeypatch.setitem(pq.PASSES, "listed", spec)
+    monkeypatch.setitem(ocr_wave.ROOTS, "listed-test", "listed-test")
+    return "listed"
+
+
+def test_the_reread_pass_cannot_be_seeded_because_its_readings_would_not_load(tmp_path):
+    """THE FINDING THAT STOPPED THE PASS (schema-critic and /code-review, 2026-09-18). The
+    design gave a re-read page no `route`, since the router never saw it — but an `ocr` reading
+    whose page names no routed class is refused by the loader (ADR 0021 D4) and by
+    `document_text`'s own CHECK. Every page read would have been machine time thrown away, so
+    the seed refuses before any of it is spent."""
+    q = pq.Queue(tmp_path / "q.sqlite")
+    lst = _page_list(tmp_path / "p.csv", [(A, 1, "1")])
+    with pytest.raises(pq.Unloadable, match="ADR 0021 D4"):
+        pq.seed_from_list(q, "reread", tmp_path / "ocr", lst)
+    assert pq.PASSES["reread"]["class"] is None  # the guard's condition, said once
+
+
+def test_the_loader_refuses_an_ocr_reading_whose_page_names_no_route():
+    """Why the guard above exists, proved through the loader rather than asserted. The first
+    version of this test built `load.Page(...)` by hand and so skipped the validation it looked
+    like it was making (/code-review, 2026-09-18)."""
+    doc = ocr_wave.reading_document(
+        A,
+        pq.PASSES["reread"]["key"],
+        "second",
+        "dots.mocr.json",
+        [{"blocks": [{"text": "re-read prose"}]}],
+        [{"page_no": 4, "text": "re-read prose", "member": "engine/pages/0"}],  # no route
+        page_failures=[],
+    )
+    assert doc["reading_channel"] == "ocr" and doc["reading_role"] == "second"
+    with pytest.raises(load.Unreadable, match="names the class it was routed as"):
+        load.from_reading(doc, b"{}", {"read": 1}, {})
+
+
+def test_a_page_list_seeds_only_the_pages_it_names_and_only_where_the_flag_is_set(listed, tmp_path):
+    out = tmp_path / "ocr"
+    q = pq.Queue(tmp_path / "q.sqlite")
+    rows = [(A, 2, "1"), (A, 7, "1"), (A, 9, "0"), (B, 1, "0")]
+    n = pq.seed_from_list(q, listed, out, _page_list(tmp_path / "p.csv", rows), column="prose")
+    assert (n["documents"], n["pages"], n["new"], n["listed_pages"]) == (1, 2, 2, 2)
+    assert [
+        tuple(r) for r in q.con.execute("SELECT document_sha256, page_no FROM job ORDER BY page_no")
+    ] == [(A, 2), (A, 7)]
+    # without the column every listed page is taken, both documents
+    q2 = pq.Queue(tmp_path / "q2.sqlite")
+    n2 = pq.seed_from_list(q2, listed, out, _page_list(tmp_path / "p.csv", rows))
+    assert (n2["documents"], n2["pages"]) == (2, 4)
+
+
+def test_a_wider_list_tops_up_a_document_the_queue_already_calls_whole(listed, tmp_path):
+    """What a list-seeded pass owes a document is NOT fixed — the score's lexicon grows with
+    the record and the operator can move the cut — so `whole` must not be taken at its word.
+    The first version dropped the new pages silently (/code-review and schema-critic)."""
+    out = tmp_path / "ocr"
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", listed, {**KEY, "host": "x"})
+    one = _page_list(tmp_path / "a.csv", [(A, 1, "1")])
+    assert pq.seed_from_list(q, listed, out, one)["new"] == 1
+    (job,) = q.claim("w1", listed, 5, 60)
+    q.done("w1", job["job_id"], json.dumps([{"category": "Text", "text": "one"}]))
+    assert pq.collect_pass(q, listed, out) == 1
+    written = ocr_wave.shard(out / pq.PASSES[listed]["root"], A)
+    assert written.exists()
+
+    # the same list again: nothing owed, the document stays whole
+    assert pq.seed_from_list(q, listed, out, one) == {**_zero(), "whole": 1, "listed_pages": 1}
+
+    # a wider list: the document is read AGAIN, whole, and its file set aside
+    two = _page_list(tmp_path / "b.csv", [(A, 1, "1"), (A, 2, "1")])
+    n = pq.seed_from_list(q, listed, out, two)
+    assert (n["topped_up"], n["documents"], n["pages"], n["new"]) == (1, 1, 2, 2)
+    assert not written.exists() and written.with_suffix(".json.superseded").exists()
+
+
+def test_a_page_list_seed_sets_aside_a_document_a_non_page_failure_left_partial(listed, tmp_path):
+    out = tmp_path / "ocr"
+    lst = _page_list(tmp_path / "p.csv", [(A, 1, "1"), (A, 2, "1")])
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", listed, {**KEY, "host": "x"})
+    assert pq.seed_from_list(q, listed, out, lst)["new"] == 2
+    assert pq.seed_from_list(q, listed, out, lst)["new"] == 0  # open: already queued
+
+    a, b = q.claim("w1", listed, 2, 60)
+    q.done("w1", a["job_id"], json.dumps([{"category": "Text", "text": "one"}]))
+    q.con.execute(
+        "UPDATE job SET state = 'failed', error = 'server: died' WHERE job_id = ?",
+        (b["job_id"],),
+    )
+    q.con.commit()
+    assert pq.collect_pass(q, listed, out) == 1
+    written = ocr_wave.shard(out / pq.PASSES[listed]["root"], A)
+
+    n = pq.seed_from_list(q, listed, out, lst)  # not the page's fault: read it again whole
+    assert (n["set_aside"], n["new"]) == (1, 2)
+    assert not written.exists() and written.with_suffix(".json.superseded").exists()
+
+
+def test_the_two_seeds_refuse_each_others_pass(listed, tmp_path):
+    out = tmp_path / "ocr"
+    q = pq.Queue(tmp_path / "q.sqlite")
+    with pytest.raises(ValueError, match="seeded from a page list"):
+        pq.seed_pass(q, "reread", out)
+    with pytest.raises(ValueError, match="seeded from the route"):
+        pq.seed_from_list(q, "dots", out, _page_list(tmp_path / "p.csv", [(A, 1, "1")]))
+    with pytest.raises(ValueError, match="names no page"):
+        pq.seed_from_list(
+            q, listed, out, _page_list(tmp_path / "e.csv", [(A, 1, "0")]), column="prose"
+        )
+
+
+def test_the_worker_can_run_either_dots_pass_and_no_other():
+    worker = _module("dots_worker", ROOT / "tools" / "fleet" / "dots_worker.py")
+    assert set(worker.PASSES_HERE) == {"dots", "reread"}  # every pass whose key is dots.mocr's
+    assert "tabular" not in worker.PASSES_HERE
+    assert worker.DPI == int(pq.PASSES["reread"]["key"]["render_profile"])
+
+
+def test_reseeding_a_pass_whose_root_is_not_its_key_sets_the_file_aside(tmp_path):
+    """`tabular`'s root is `hunyuan-tabular`, not `tabular`. The set-aside branch looked its
+    root up in ROOTS a second time, which is a no-op for `dots` and a KeyError for every other
+    pass — it would have crashed the tabular pass's first re-seed after a partial collection."""
+    out = tmp_path / "ocr"
+    _route_root(out, A, {1: "tabular", 2: "tabular"})
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", "tabular", {**TAB, "host": "x"})
+    assert pq.seed_pass(q, "tabular", out)["new"] == 2
+
+    a, b = q.claim("w1", "tabular", 2, 60)
+    q.done("w1", a["job_id"], json.dumps([{"category": "Text", "text": "a cell"}]))
+    q.con.execute(
+        "UPDATE job SET state = 'failed', error = 'blob: missing on the node' WHERE job_id = ?",
+        (b["job_id"],),
+    )
+    q.con.commit()
+    assert pq.collect_pass(q, "tabular", out) == 1
+    written = ocr_wave.shard(out / pq.PASSES["tabular"]["root"], A)
+    assert written.exists()
+
+    n = pq.seed_pass(q, "tabular", out)  # the blob miss was not the page's: read it again
+    assert (n["set_aside"], n["new"]) == (1, 2)
+    assert not written.exists() and written.with_suffix(".json.superseded").exists()

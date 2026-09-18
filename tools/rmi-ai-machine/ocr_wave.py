@@ -110,6 +110,12 @@ ROOTS = {
     "second": "ppocr-second",
     "graphic": "ppocr-graphic",
     "tabular": "hunyuan-tabular",  # the fleet's pass (tools/fleet/hunyuan_worker.py); no verb here
+    # The text-layer re-read (docs/research/text-quality/): dots.mocr over pages this driver
+    # never saw, because they are not in an image-only document and so were never routed. Its
+    # own root, so a `second` reading of a text-layer page is never confused with the wave's
+    # `second`, which is measured against a dots PRIMARY. No verb here either; the fleet seeds
+    # it from a page list (tools/fleet/pagequeue.py § seed_from_list)
+    "reread": "dots-reread",
 }
 
 # The model's shipped document-parsing prompt, as `ocr_run.py` sends it.

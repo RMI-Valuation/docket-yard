@@ -72,10 +72,15 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "rmi-ai-machine"))
 
-from ocr_wave import DOTS_MODEL, DOTS_SERVER, _dots_call  # noqa: E402 — the driver's own
+from ocr_wave import DOTS, DOTS_MODEL, DOTS_SERVER, _dots_call  # noqa: E402 — the driver's own
 from pagequeue import PASSES, Queue, RemoteQueue  # noqa: E402
 
-PASS = "dots"
+# The passes this worker can run: every pass whose key is dots.mocr's, since that is the engine
+# it talks to. `dots` reads the routed degraded pages; `reread` reads the flagged text-layer
+# pages from a page list and writes them as `second` (docs/research/text-quality/). One worker,
+# one engine, one key — the pass chooses which queue it claims from, never what it declares.
+PASSES_HERE = tuple(p for p, spec in PASSES.items() if spec["key"] == DOTS)
+PASS = "dots"  # the default; --pass picks another of PASSES_HERE
 DPI = int(PASSES[PASS]["key"]["render_profile"])  # the render IS the key; one source
 EXIT_SERVER_GONE, EXIT_SERVER_DIES, EXIT_ENVIRONMENT, EXIT_BREAKER = 2, 3, 4, 5
 
@@ -198,7 +203,16 @@ def main() -> int:
     ap.add_argument("--scratch", required=True, type=Path)
     ap.add_argument("--server", default=DOTS_SERVER)
     ap.add_argument("--model", default=DOTS_MODEL)
-    ap.add_argument("--name", default=None, help="worker name; default <host>/dots")
+    ap.add_argument("--name", default=None, help="worker name; default <host>/<pass>")
+    ap.add_argument(
+        "--pass",
+        dest="pass_",
+        default=PASS,
+        choices=PASSES_HERE,
+        help="which queue to claim from. Both passes here are dots.mocr at 200 DPI — the same"
+        " key, so the same producer declaration — and differ in which pages they hold and what"
+        " role their reading lands under. Default: dots",
+    )
     ap.add_argument("--batch", type=int, default=4, help="pages claimed per lease")
     ap.add_argument("--lease", type=int, default=2700, help="seconds; extended after every page")
     ap.add_argument("--timeout", type=int, default=600, help="seconds per page")
@@ -213,7 +227,7 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    spec = PASSES[PASS]
+    spec = PASSES[args.pass_]
     if args.blobs and not args.blobs.is_dir():
         log(f"--blobs {args.blobs} is not a directory; exit {EXIT_ENVIRONMENT}")
         return EXIT_ENVIRONMENT
@@ -227,7 +241,7 @@ def main() -> int:
     else:
         log(f"give --db and --blobs (the coordinator) or --queue; exit {EXIT_ENVIRONMENT}")
         return EXIT_ENVIRONMENT
-    name = args.name or f"{socket.gethostname()}/{PASS}"
+    name = args.name or f"{socket.gethostname()}/{args.pass_}"
     if not server_healthy(args.server):
         log(f"no healthy server at {args.server}; waiting up to {args.server_wait}s")
         if not wait_for_server(args.server, args.server_wait):
@@ -248,7 +262,7 @@ def main() -> int:
         "max_megapixels": spec["max_megapixels"],
         "worker": Path(__file__).name,
     }
-    if (code := register_or_exit(q, name, PASS, producer)) is not None:
+    if (code := register_or_exit(q, name, args.pass_, producer)) is not None:
         return code
     log(f"{name} registered as {producer}")
     args.scratch.mkdir(parents=True, exist_ok=True)
@@ -266,7 +280,7 @@ def main() -> int:
             if args.max_pages and read + failed >= args.max_pages:
                 log(f"--max-pages reached: {read} read, {failed} failed")
                 return 0
-            jobs = q.claim(name, PASS, args.batch, args.lease)
+            jobs = q.claim(name, args.pass_, args.batch, args.lease)
             if not jobs:
                 log(f"queue empty: {read} read, {failed} failed this session")
                 return 0

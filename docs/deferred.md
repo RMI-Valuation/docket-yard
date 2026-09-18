@@ -1981,3 +1981,71 @@ not a wrong assertion — but two things are owed if the screen is ever leaned o
   count inside a population-weighted precision cell, so `0.80 (42/48)` invited a division that
   gives 0.875; and the queue builder's docstring read as though 6,170 prose pages sat in 4,896
   documents, which is the count for all 31,798 flagged pages (the prose subset is 1,501).
+
+## From building the text-layer re-read pass, 2026-09-18 (`reread`, schema-critic + `/code-review`)
+
+The operator gave the go for the prose re-read and chose a page-list seed over routing the
+documents. Building it found that routing is not optional, and both reviewers found it
+independently. The pass is committed, guarded so it cannot be seeded, and the two things below
+the first are owed before any reading from it is loaded. Acted on in the same commit: the
+`ROOTS`/root-name mixup (a real `KeyError` waiting for `tabular`'s first partial re-seed), the
+silent drop of newly-listed pages on re-seed, `seeded_from` separated from `class`, and the
+backwards claim about `document_text_live` in the pass's own comment.
+
+### Open — the operator's, before the pass can run
+
+- **A re-read page has no routed class and the store refuses the reading.** `text/load.py`
+  raises "an OCR reading names the class it was routed as (ADR 0021 D4)" and
+  `CHECK (reading_channel <> 'ocr' OR route_class IS NOT NULL)` refuses the row. Every page read
+  would be machine time thrown away. The way through is to route the flagged pages with the
+  existing `pp-doclayoutv3+regions` router before reading them — owed anyway if these readings
+  are ever scored (`class_measurement` is keyed on class) or promoted, and it gives `page_route`
+  rows so migration 0032's marker rule works on these pages. The alternatives are worse: a new
+  `route_class_vocab` member overloads a *tier* vocabulary with a *selection reason*, and
+  relaxing the CHECK is a rebuild of a 1.4M-row table.
+
+### Open — owed before a reading from this pass is loaded
+
+- **Loading would change published text on every re-read page, with no dated rule.**
+  `store/pages.py:band` LEFT JOINs the live `second` row whatever its channel, so a re-read row
+  with no agreement turns "Read once; no second reading to compare it with, so no band." into
+  "A second reading exists (dots.mocr 1.5); its distance from this one has not been computed, so
+  no band." on `/text`, in search hits (`store/search.py`, `store/finder.py`) and through MCP
+  (`web/mcp.py`). It contradicts ADR 0021 D8's "a text-layer page has no band and says so", and
+  it is not replayable: `_SELECT` has no `superseded_at` term and `document_text_display` has no
+  as-of form — the gap the withdrawn 0021 addendum already records.
+- **The agreement distance is not a computation, it is a publishing decision.** Computing it
+  makes `band()` print a number as a band on ~31,800 public pages using a **cross-channel**
+  instrument: the measured AUC 0.93–0.97 was two *engine* readings at one tier, and the research
+  README's own 0.59 against engine readings points the other way. A text-layer-versus-engine
+  distance has been measured at nothing. Computing it later is also a supersede-and-reinsert of
+  every row, not an UPDATE (`document_text.text` is immutable by trigger), and needs the reading
+  documents re-collected, because the loader only writes an agreement the file quotes.
+- **`second` spends the page's one `second` slot.** `document_text_one_second` is unique per
+  live page, so the re-read takes the slot where the cheap second reading that catches invention
+  would have gone — and dots.mocr is itself a VL model, so a re-read that invents is
+  indistinguishable from one that repairs. Suggestion from the critic, worth weighing: run the
+  ~6,170 prose pages, take the promotion decision with them in hand, and do **not** run the
+  remaining ~25,600 until it is taken.
+- **Promotion has a citator cost nobody has priced.** Under ADR 0026 a `citation_reading` names
+  its `text_id` and staleness is detected over `document_text_display`. Promoting the re-read
+  retires every text-layer primary on those pages at once, so every edge read off them goes
+  stale in one step — a bounded but real re-walk.
+- **The reading records no reason for its own existence.** `text_quality_queue.py` writes the
+  scored `text_id` as the CSV's first column and the seed throws it away; `job` has no column
+  for it and the reading document carries no trace of the score, the cut, the lexicon or the
+  screen. Every other reading in `document_text` says why it was read that way (`route_class`
+  with its method and version). Carrying `text_id` into `agreement_against` would make the
+  binding a row rather than a note — and it is unrecoverable once a text-layer primary is
+  superseded between seed and load, which a pymupdf bump through `repoint_producer` does.
+- **Nothing asserts that no document is both image-only and text-layer**, which is the only
+  thing keeping `dots` and `reread` off the same page. When it is violated the loader refuses
+  the whole document's reading, not the one page. Cheap guard: have `seed_from_list` refuse a
+  sha that has a route document.
+- **`ocr_run` is published and has no `reading_role`** (`dump.py`, ADR 0022 D3), so the key
+  `dots.mocr/1.5/200` now means two things — a primary reading of a degraded scan and a second
+  reading of a suspect text layer — and a third party summing `pages_read` cannot tell them
+  apart. Half the pages counted are displayed to nobody.
+- **`fleet-up.sh` has no `reread` role**: no `collect --pass reread` service, and the worker
+  command it builds takes no `--pass`, so the documented line would start a `dots` worker. Left
+  unbuilt deliberately — the pass's shape changes if the pages are routed.
