@@ -941,3 +941,90 @@ def test_reseeding_a_pass_whose_root_is_not_its_key_sets_the_file_aside(tmp_path
     n = pq.seed_pass(q, "tabular", out)  # the blob miss was not the page's: read it again
     assert (n["set_aside"], n["new"]) == (1, 2)
     assert not written.exists() and written.with_suffix(".json.superseded").exists()
+
+
+def test_collect_skips_a_document_whose_route_is_missing_instead_of_raising(listed, tmp_path):
+    """`reread-collect` is a tmux service on a ten-minute loop. One document with no route
+    document used to raise out of the batch and crash-loop it, losing every other document's
+    collection with it (/code-review, 2026-09-18)."""
+    out = tmp_path / "ocr"
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", listed, {**KEY, "host": "x"})
+    _reread_route(out, A, {1: "degraded"})
+    _reread_route(out, B, {1: "degraded"})
+    pq.seed_from_list(q, listed, out, _page_list(tmp_path / "p.csv", [(A, 1, "1"), (B, 1, "1")]))
+    for job in q.claim("w1", listed, 2, 60):
+        q.done("w1", job["job_id"], json.dumps([{"category": "Text", "text": "read"}]))
+
+    ocr_wave.shard(out / ocr_wave.ROOTS["reread_route"], A).unlink()  # the route goes missing
+    assert pq.collect_pass(q, listed, out) == 1  # B is still written
+    assert ocr_wave.shard(out / "listed-test", B).exists()
+    assert not ocr_wave.shard(out / "listed-test", A).exists()
+    # and A is left in the queue, so a later run collects it once the route is back
+    _reread_route(out, A, {1: "degraded"})
+    assert pq.collect_pass(q, listed, out) == 1
+    assert ocr_wave.shard(out / "listed-test", A).exists()
+
+
+def test_a_top_up_does_not_carry_an_unrouted_page_back_in(listed, tmp_path):
+    """The top-up queues the pages held plus the pages listed; only the listed half had been
+    filtered against the routes (/code-review, 2026-09-18)."""
+    out = tmp_path / "ocr"
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", listed, {**KEY, "host": "x"})
+    _reread_route(out, A, {1: "degraded", 2: "degraded"})
+    pq.seed_from_list(q, listed, out, _page_list(tmp_path / "a.csv", [(A, 1, "1")]))
+    (job,) = q.claim("w1", listed, 5, 60)
+    q.done("w1", job["job_id"], json.dumps([{"category": "Text", "text": "one"}]))
+    assert pq.collect_pass(q, listed, out) == 1
+
+    # page 1's route is withdrawn and page 3 is listed but never routed
+    _reread_route(out, A, {2: "degraded"})
+    n = pq.seed_from_list(
+        q, listed, out, _page_list(tmp_path / "b.csv", [(A, 2, "1"), (A, 3, "1")])
+    )
+    assert n["topped_up"] == 1 and n["unrouted_pages"] == 1
+    assert [
+        tuple(r)
+        for r in q.con.execute(
+            "SELECT document_sha256, page_no FROM job WHERE state = 'pending' ORDER BY page_no"
+        )
+    ] == [(A, 2)]
+
+
+def test_routing_a_second_list_keeps_the_first_runs_routes(tmp_path, monkeypatch):
+    """Prose first, then the rest: the second list names other pages of the same documents. A
+    fresh route document would erase the first run's classes and the pages it already read
+    would lose them (/code-review, 2026-09-18)."""
+    out = tmp_path / "ocr"
+    _reread_route(out, A, {1: "degraded"})
+    path = ocr_wave.shard(out / ocr_wave.ROOTS["reread_route"], A)
+    held = json.loads(path.read_text(encoding="utf-8"))["pages"]
+
+    # what run_route_list builds for a second list, without the layout model
+    route = {"document_sha256": A, "pages": dict(held)}
+    route["pages"]["2"] = {"class": "graphic", "regions": 3, "labels": []}
+    ocr_wave._write(path, {**json.loads(path.read_text(encoding="utf-8")), **route})
+
+    assert pq._routed_pages(out / ocr_wave.ROOTS["reread_route"], A) == {1, 2}
+    assert pq._page_routes(out / ocr_wave.ROOTS["reread_route"], A)[1]["class"] == "degraded"
+
+
+def test_a_page_outside_the_document_is_recorded_with_no_class(tmp_path):
+    """So the seed skips it AND the resume check converges: without an entry the document was
+    re-rendered through the layout model on every run (/code-review, 2026-09-18)."""
+    out = tmp_path / "ocr"
+    doc = {
+        "document_sha256": A,
+        "method": ocr_wave.ROUTER,
+        "method_version": "provisional-1",
+        "pages": {
+            "1": {"class": "degraded"},
+            "9": {"class": None, "error": "page 9 outside a 3-page document"},
+        },
+    }
+    ocr_wave._write(ocr_wave.shard(out / ocr_wave.ROOTS["reread_route"], A), doc)
+    root = out / ocr_wave.ROOTS["reread_route"]
+    assert pq._routed_pages(root, A) == {1}  # 9 is not offered to the queue
+    assert 9 not in pq._page_routes(root, A)
+    assert all(str(no) in doc["pages"] for no in (1, 9))  # but the resume check is satisfied

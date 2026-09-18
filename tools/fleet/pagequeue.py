@@ -685,7 +685,10 @@ def _page_routes(route_root: Path, sha: str) -> dict[int, dict]:
     say so, which is what makes the reading scorable (ADR 0007)."""
     from ocr_wave import shard  # noqa: PLC0415
 
-    route = json.loads(shard(route_root, sha).read_text(encoding="utf-8"))
+    path = shard(route_root, sha)
+    if not path.exists():
+        return {}  # the caller skips the document; collect must not raise on a service loop
+    route = json.loads(path.read_text(encoding="utf-8"))
     return {
         int(k): {
             "class": v["class"],
@@ -790,7 +793,9 @@ def seed_from_list(
                     f = shard(out / root, sha)
                     if f.exists():
                         f.rename(f.with_suffix(".json.superseded"))
-            pages += [(sha, no) for no in sorted(held | wanted[sha])]
+            # `held` is filtered too: a page held from an earlier seed is not necessarily
+            # routed now, and an unrouted page must not ride back in on the top-up
+            pages += [(sha, no) for no in sorted((held | wanted[sha]) & routed)]
             continue
         if not _decide(q, pass_, spec, out, sha, n, reread, dry_run=dry_run):
             continue
@@ -824,8 +829,16 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
         engine_pages, pages, failures = [], [], []
         # A PASS WITH NO CLASS OF ITS OWN takes each page's class from the route document: the
         # list chose the pages, so they are of every class, and a reading that named one would
-        # be false on most of them. A routed pass names its class once, as before
+        # be false on most of them. A routed pass names its class once, as before.
+        # A MISSING OR INCOMPLETE ROUTE SKIPS THE DOCUMENT rather than raising: this runs as a
+        # tmux service every ten minutes, and one such document used to abort the whole batch
+        # and crash-loop it (/code-review, 2026-09-18). The pages stay in the queue and a later
+        # run collects them once the route is there
         routes = {} if spec["class"] else _page_routes(out / spec["route_root"], sha)
+        if not spec["class"] and not routes:
+            print(f"  SKIPPED {sha[:12]}: no route document yet", flush=True)
+            skipped += 1
+            continue
         try:
             for r in q.pages_of(pass_, sha):
                 if r["state"] != "done":
@@ -838,9 +851,14 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
                     "text": text,
                     "member": f"engine/pages/{len(engine_pages) - 1}",
                 }
-                page["route"] = route_of(spec["class"]) if spec["class"] else routes[r["page_no"]]
+                if spec["class"]:
+                    page["route"] = route_of(spec["class"])
+                elif r["page_no"] not in routes:
+                    raise ValueError(f"page {r['page_no']} has no route")
+                else:
+                    page["route"] = routes[r["page_no"]]
                 pages.append(page)
-        except ValueError as e:  # `failure_reason` on a `page:` word nobody has named
+        except ValueError as e:  # a `page:` word nobody has named, or a page with no route
             print(f"  SKIPPED {sha[:12]}: {e}", flush=True)
             skipped += 1
             continue  # left uncollected: a later run writes it once the word is named

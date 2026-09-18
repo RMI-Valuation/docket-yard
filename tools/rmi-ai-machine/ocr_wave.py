@@ -894,12 +894,17 @@ def run_route_list(args) -> int:
         shas = shas[: args.limit]
     for n, sha in enumerate(shas, 1):
         out_path = shard(route_root, sha)
+        held = {}
         if out_path.exists():
             held = json.loads(out_path.read_text(encoding="utf-8"))["pages"]
             if all(str(no) in held for no in wanted[sha]):
                 stats["skipped"] += 1
                 continue
         pdf = args.blobs / sha[:2] / sha
+        # A ROUTE DOCUMENT ACCUMULATES. The order is prose first and then the rest, so the
+        # second list names other pages of the same documents; a fresh document would erase
+        # the first run's routes and the pages it already read would lose their class
+        # (/code-review, 2026-09-18). Only the pages this run routes are rewritten.
         route = {
             "document_sha256": sha,
             "method": ROUTER,
@@ -909,7 +914,7 @@ def run_route_list(args) -> int:
             "dpi": 150,
             "routed_at": now(),
             "selected_by": "text-quality page list",
-            "pages": {},
+            "pages": dict(held),
         }
         try:
             count = page_count(pdf)
@@ -919,11 +924,20 @@ def run_route_list(args) -> int:
             continue
         for no in sorted(wanted[sha]):
             if not 1 <= no <= count:
-                # the list is older than the document's bytes; not this driver's to reconcile
+                # The list is older than the document's bytes; not this driver's to reconcile.
+                # It is recorded with NO class, so the seed skips it (`_routed_pages` wants a
+                # class) and the resume check above converges — without an entry the document
+                # was re-rendered through the layout model on every run (/code-review)
                 print(f"  {sha[:12]} p{no}: outside a {count}-page document", flush=True)
+                route["pages"][str(no)] = {
+                    "class": None,
+                    "error": f"page {no} outside a {count}-page document",
+                }
                 stats["failed_pages"] += 1
                 continue
-            png = tmp / f"{sha[:12]}_p{no}.png"
+            # prefixed: `run_paddle` renders to the same scratch directory and unlinks in a
+            # `finally`, so an unprefixed name lets two runs delete each other's in-flight PNG
+            png = tmp / f"rl_{sha[:12]}_p{no}.png"
             try:
                 render(pdf, no - 1, 150, png)
                 regions = []
@@ -955,6 +969,7 @@ def run_route_list(args) -> int:
                 png.unlink(missing_ok=True)
             by_class[route["pages"][str(no)]["class"]] += 1
             stats["pages"] += 1
+
         _write(out_path, route)
         stats["documents"] += 1
         if n % 50 == 0 or n == len(shas):
