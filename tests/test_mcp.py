@@ -163,6 +163,8 @@ def test_every_answer_carries_what_the_record_does_not_hold(client):
         call(client, "count_filings", {"filing_type": "motion"})["content"][0]["text"],
         call(client, "count_filings", {"filing_type": "nitu"})["content"][0]["text"],
         call(client, "count_filings", {"prefix": "ZZ"})["content"][0]["text"],
+        call(client, "list_proceedings", {"filing_type": "motion"})["content"][0]["text"],
+        call(client, "list_proceedings", {"filing_type": "zzznothing"})["content"][0]["text"],
     ]
     for text in answers:
         assert "does not say what any party argued" in text, text[:80]
@@ -187,6 +189,84 @@ def test_coverage_names_every_limit_the_page_names(client):
     # was down. Silence about an outage reads as "there were none".
     assert "complete history" in text, "the tool claims no limit on how far back it reaches"
     assert "outage" in text.lower(), "the tool says nothing about outages either way"
+
+
+def test_list_proceedings_answers_what_a_count_cannot(client):
+    """The failure this tool exists for: handed a correct count and asked for the members,
+    an assistant could not list them, narrowed by date, and GUESSED a docket number from a
+    search hit (the operator, testing the live server, 2026-09-17).
+
+    So the count and the list must agree on the same arguments, and the list must carry the
+    Board's own ids and a real address for every proceeding it names."""
+    count = call(client, "count_filings", {"filing_type": "motion"})["content"][0]["text"]
+    listed = call(client, "list_proceedings", {"filing_type": "motion"})["content"][0]["text"]
+    assert "2 proceedings" in count and "Proceedings holding a filing" in listed
+    # every proceeding named carries an address, so nothing has to be inferred
+    assert "https://docketyard.org/d/FD-36873/sub/1" in listed
+    assert "https://docketyard.org/d/FD-36873" in listed
+    assert "PEORIA SUB" in listed  # the Board's caption, as printed
+    assert "311981" in listed  # the Board's own filing id, not ours
+    # the same filing entered in two proceedings is listed under each, and says so
+    assert "listed under each" in listed
+
+    # the filters are the count's filters: a prefix the record does not hold is refused the
+    # same way by both, so an assistant cannot get a list the count would not have counted
+    for tool in ("count_filings", "list_proceedings"):
+        text = call(client, tool, {"filing_type": "motion", "prefix": "ZZ"})["content"][0]["text"]
+        assert "no docket prefix 'ZZ'" in text, tool
+
+
+def test_list_proceedings_pairs_two_different_filings(client):
+    """`also_has` has its own grouped query with a five-segment parameter ordering, and both
+    other tests reach it only through its refusal — so a reordering would have answered a
+    different question with the suite green (code review, 2026-09-18).
+
+    The rule under test is the count's: "both" is two DIFFERENT filings. FD 36873 (Sub-No. 1)
+    holds two Motions and qualifies; FD 36873 holds one and does not."""
+    text = call(client, "list_proceedings", {"filing_type": "motion", "also_has": "motion"})
+    text = text["content"][0]["text"]
+    assert "FD 36873 (Sub-No. 1)" in text
+    assert ": 1." in text, "only the proceeding holding two of them pairs"
+    # the paired figure and the words beside it describe the same set
+    assert "and one typed" in text
+    # and the count agrees on the same arguments
+    count = call(client, "count_filings", {"filing_type": "motion", "also_has": "motion"})
+    assert "both one of those" in count["content"][0]["text"]
+
+
+def test_list_proceedings_bounds_one_proceedings_filings(client):
+    """25 proceedings are capped; their filings were not, and one proceeding can hold
+    hundreds of a single type (code review, 2026-09-18)."""
+    from docketyard.web import mcp as mcp_module
+
+    assert mcp_module._FILINGS_SHOWN < 25  # a bound exists at all
+    text = call(client, "list_proceedings", {"filing_type": "motion"})["content"][0]["text"]
+    # the address is the proceeding's, so it sits under the caption and above the filings
+    body = text.split("- FD 36873 (Sub-No. 1)")[1]
+    url_at = body.index("https://docketyard.org/d/FD-36873/sub/1")
+    assert url_at < body.index("Motion"), "the address must not read as the last filing's"
+
+
+def test_list_proceedings_refuses_rather_than_answering_a_different_question(client):
+    """Each refusal here is a case where listing SOMETHING would read as an answer."""
+    # no type: the tool lists the members of a count of one type, and there is no count yet
+    text = call(client, "list_proceedings", {})["content"][0]["text"]
+    assert "`filing_type` is required" in text and "count_filings" in text
+    # a type the Board does not use
+    text = call(client, "list_proceedings", {"filing_type": "zzznothing"})["content"][0]["text"]
+    assert "No filing type the Board uses matches" in text
+    # an unmatched `also_has` must NOT fall back to listing everything holding the first type
+    text = call(client, "list_proceedings", {"filing_type": "motion", "also_has": "zzz"})
+    text = text["content"][0]["text"]
+    assert "no pairing could be made and nothing is listed" in text
+    assert "FD 36873" not in text, "an unpaired list would answer a question nobody asked"
+    # past the end is said plainly, not as an absence
+    text = call(client, "list_proceedings", {"filing_type": "motion", "offset": 99})
+    text = text["content"][0]["text"]
+    assert "is past the last of them" in text
+    # a negative offset is refused rather than silently treated as zero
+    text = call(client, "list_proceedings", {"filing_type": "motion", "offset": -1})
+    assert "`offset` must be a whole number" in text["content"][0]["text"]
 
 
 def test_an_absence_is_reported_as_an_absence_not_filled_in(client):

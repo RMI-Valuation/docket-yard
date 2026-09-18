@@ -60,9 +60,14 @@ Streamable HTTP (MCP 2025-11-25), checked against the specification rather than 
 
 ## The tools
 
-Six, deliberately: each is a read a person could do, and none composes into a write.
+Seven, deliberately: each is a read a person could do, and none composes into a write.
 `count_filings` was added 2026-09-16, when an assistant asked how many NITUs had been
 consummated could only say that search results are capped and are not counts.
+`list_proceedings` was added 2026-09-18, when the tool that answered "how many" left an
+assistant unable to answer "which": handed a correct count of 201 and asked for the twenty
+most recent, it narrowed by date and then GUESSED a docket number from a search hit. A
+sibling rather than a flag on `count_filings`, because what the assistant lacked was not an
+argument but the knowledge that the capability existed, and it reads the tool list.
 
 | Tool | Answers |
 | --- | --- |
@@ -71,7 +76,8 @@ consummated could only say that search results are capped and are not counts.
 | `get_environmental_comment` | one comment by its Board number, with the commenter's own words as printed — quotation, never characterisation |
 | `read_page` | one page, or up to five, of a filing's, decision's or comment's file, by the address a search gave or `decision N`: the display view's text (contact details omitted) between begin and end markers, each page labelled with who read it and its band, the Board's own file and the scan; a blank, unread or unread-table page is said as the text page says it; an engine-read page adds that it carries OCR errors and is unreviewed; every answer ends with the text caveat and the licence line |
 | `count_filings` | how many filings the Board typed a given way (`Consummation Notice`), in how many proceedings, within a prefix and a filed-date range, and how many of those proceedings also hold a second type. It counts distinct filings (a filing entered in a docket and its sub-docket is two rows and one filing) and proceedings as entered; names every Board type a phrase matched; names the unfinished filing months inside the range; and says it counts the Board's labels, not what the documents did. A decision's act (a NITU issued) is not a filing type, and the miss says so |
-| `coverage` | what the record holds and what it does not, measured; the tool an assistant is told to call before calling the record complete |
+| `list_proceedings` | the proceedings behind a `count_filings` count, newest first by the matching filing's date, at most 25 a call with `offset` for the rest, and at most 6 filings printed per proceeding with the remainder counted (one proceeding can hold hundreds of a single type): each with its docket number, the Board's caption, its address here, and the matching filings with the Board's own ids and dates. It takes the count's filters from the same definition (`_Scope`), so the same arguments give the members of the same number; an `also_has` that matches no Board type is refused rather than listed unpaired, because a list that quietly dropped the pairing would read as an answer |
+| `coverage` | what the record holds and what it does not, measured; the tool an assistant is told to call before calling the record complete. It names every limit the coverage page names, from one source (`store/coverage.py`), so the two cannot drift |
 
 A comment is folded by its **row ref**, not its number: one comment entered in a docket and
 its sub-docket is one comment, while two comments the Board gave the same number are two

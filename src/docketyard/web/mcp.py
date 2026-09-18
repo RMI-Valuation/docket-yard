@@ -33,6 +33,7 @@ from docketyard.store import coverage as coverage_store
 from docketyard.store import pages as pages_store
 from docketyard.store import search as search_store
 from docketyard.store import sheet as sheet_store
+from docketyard.store.db import load_json
 from docketyard.store.sheet import present
 from docketyard.web import documents, labels, urls
 
@@ -610,7 +611,25 @@ def _types(con: Connection, asked: str) -> list[str]:
     return exact or sorted(t for t in held if needle in t.casefold())
 
 
-def _count(con: Connection, args: dict, host: str) -> str:
+@dataclass(frozen=True)
+class _Scope:
+    """The filters `count_filings` and `list_proceedings` share.
+
+    One definition, deliberately: a count and the list of proceedings behind it that
+    disagreed about the prefix or the date range would be worse than either alone, and the
+    two tools exist precisely so an assistant can move from one to the other (deferred, the
+    live-MCP finding 2026-09-17). Everything a caller can narrow with lives here."""
+
+    base: str  # the FROM and WHERE, ready to follow a SELECT list
+    params: list
+    scope: str  # the same filters in English, for the answer
+    since: str | None
+    until: str | None
+
+
+def _scope(con: Connection, args: dict) -> _Scope | str:
+    """The shared filters, or the sentence saying why they cannot be built. A string back is
+    the refusal to hand the caller, not an exception: every tool here answers in prose."""
     try:
         since = _day(args.get("filed_from"), "filed_from")
         until = _day(args.get("filed_to"), "filed_to")
@@ -638,12 +657,59 @@ def _count(con: Connection, args: dict, host: str) -> str:
     if until:
         where.append("f.filed_date <= ?")
         params.append(until)
-    scope = (f" in {prefix} proceedings" if prefix else "") + (
-        f", filed {since or 'from the first'} to {until or 'the latest held'}"
-        if since or until
-        else ""
+    return _Scope(
+        base=" FROM filing f JOIN docket d ON d.docket_id = f.docket_id WHERE "
+        + " AND ".join(where),
+        params=params,
+        scope=(f" in {prefix} proceedings" if prefix else "")
+        + (
+            f", filed {since or 'from the first'} to {until or 'the latest held'}"
+            if since or until
+            else ""
+        ),
+        since=since,
+        until=until,
     )
-    base = " FROM filing f JOIN docket d ON d.docket_id = f.docket_id WHERE " + " AND ".join(where)
+
+
+def _open_month_caveats(
+    con: Connection, since: str | None, until: str | None, *, shortfall: str
+) -> list[str]:
+    """What a filing figure inside this range cannot account for. Shared for the same reason
+    `_Scope` is: a count that named its unfinished months and a list that did not would let
+    an assistant treat the list as the whole set. Which months, and the walk-start rule, are
+    the shared part; `shortfall` is only how each tool says what it is short OF."""
+    lines = []
+    open_months = [
+        m
+        for m in coverage_store.filings_incomplete(con)
+        if (not since or m >= since[:7]) and (not until or m <= until[:7])
+    ]
+    if open_months:
+        lines.append(
+            f"Months this record has not finished for filings, inside the range {shortfall}:"
+            f" {', '.join(coverage_store.month_runs(tuple(open_months)))}."
+        )
+    walked_from = coverage_store.filings_walked_from(con)
+    if walked_from and (not since or since[:7] < walked_from):
+        lines.append(
+            f"This record's walk of filings begins at {walked_from}: nothing is claimed about"
+            " filings the Board dated earlier."
+        )
+    return lines
+
+
+def _count(con: Connection, args: dict, host: str) -> str:
+    built = _scope(con, args)
+    if isinstance(built, str):
+        return built
+    base, params, scope, since, until = (
+        built.base,
+        built.params,
+        built.scope,
+        built.since,
+        built.until,
+    )
 
     asked = str(args.get("filing_type") or "").strip()
     lines: list[str] = []
@@ -753,24 +819,188 @@ def _count(con: Connection, args: dict, host: str) -> str:
             )
     # a count is only as complete as the months under it, so the unfinished ones inside the
     # range are named in the answer rather than left to a `coverage` call nobody makes
-    open_months = [
-        m
-        for m in coverage_store.filings_incomplete(con)
-        if (not since or m >= since[:7]) and (not until or m <= until[:7])
-    ]
-    if open_months:
-        lines.append(
-            "Months this record has not finished for filings, inside the range counted"
-            " (the count is short by whatever they hold):"
-            f" {', '.join(coverage_store.month_runs(tuple(open_months)))}."
-        )
-    walked_from = coverage_store.filings_walked_from(con)
-    if walked_from and (not since or since[:7] < walked_from):
-        lines.append(
-            f"This record's walk of filings begins at {walked_from}: nothing is claimed about"
-            " filings the Board dated earlier."
-        )
+    lines += _open_month_caveats(
+        con, since, until, shortfall="counted (the count is short by whatever they hold)"
+    )
     lines.append(f"What the record holds and does not: {_site(host, '/coverage')}")
+    return "\n".join(lines)
+
+
+_LIST_CAP = 25  # proceedings per call; `offset` reaches the rest
+_FILINGS_SHOWN = 6  # matching filings printed per proceeding; the rest are counted
+
+
+def _list_proceedings(con: Connection, args: dict, host: str) -> str:
+    """The proceedings behind a `count_filings` count.
+
+    Asked for "the 20 most recent" of a count it had just been given correctly, an assistant
+    could not list them, narrowed by date, and GUESSED a docket number from a search hit
+    (the operator, testing the live server, 2026-09-17). That guess is the exact failure this
+    surface exists to prevent, and the absence of this tool forced it. A sibling rather than
+    a flag on `count_filings` because the assistant's problem was not knowing the capability
+    existed: a named tool is in the list it already reads."""
+    built = _scope(con, args)
+    if isinstance(built, str):
+        return built
+
+    asked = str(args.get("filing_type") or "").strip()
+    if not asked:
+        return (
+            "`filing_type` is required here: this tool lists the proceedings behind a count of"
+            " one type. Call `count_filings` with no `filing_type` to see the Board's own types"
+            " with their counts, then name one."
+        )
+    types = _types(con, asked)
+    if not types:
+        return (
+            f"No filing type the Board uses matches {asked!r}. Call `count_filings` without"
+            " `filing_type` to list the types this record holds. What a decision does —"
+            " a notice of interim trail use issued, an exemption granted — is not a filing"
+            " type, and this record does not yet list proceedings by what a filing accomplished."
+        )
+    offset = args.get("offset") or 0
+    if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+        return "`offset` must be a whole number of proceedings to skip, 0 or more."
+
+    also = str(args.get("also_has") or "").strip()
+    others: list[str] = []
+    if also:
+        others = _types(con, also)
+        if not others:
+            # Refused rather than listed without the pairing: listing every proceeding holding
+            # the first type would answer a question the caller did not ask, and read as if it
+            # had. `count_filings` can say "nothing was paired" beside a number that stands on
+            # its own; a list cannot.
+            return (
+                f"No filing type the Board uses matches {also!r}, so no pairing could be made"
+                " and nothing is listed. Call `count_filings` without `filing_type` to see the"
+                " Board's types."
+            )
+
+    marks = ", ".join("?" * len(types))
+    if others:
+        other_marks = ", ".join("?" * len(others))
+        # The same rule the count uses: "both" is two DIFFERENT filings. The phrases may
+        # overlap (`trail use` matches `Trail Use Request` too), and one filing matching each
+        # is not a pair — hence `n > 1` (code review, on the count).
+        grouped = (
+            "SELECT f.docket_id AS docket_id, MAX(NULLIF(f.filed_date, '')) AS latest,"
+            f" SUM(f.filing_type IN ({marks})) AS a,"
+            f" SUM(f.filing_type IN ({other_marks})) AS b, COUNT(*) AS n"
+            + built.base
+            + f" AND f.filing_type IN ({marks}, {other_marks})"
+            " GROUP BY f.docket_id HAVING a > 0 AND b > 0 AND n > 1"
+        )
+        gparams = types + others + built.params + types + others
+        shown = types + others
+    else:
+        grouped = (
+            "SELECT f.docket_id AS docket_id, MAX(NULLIF(f.filed_date, '')) AS latest"
+            + built.base
+            + f" AND f.filing_type IN ({marks}) GROUP BY f.docket_id"
+        )
+        gparams = built.params + types
+        shown = types
+
+    (total,) = con.execute(f"SELECT COUNT(*) FROM ({grouped})", gparams).fetchone()
+    named = ", ".join(f"'{t}'" for t in types)
+    # ONE description of what was matched, used by every sentence below. The refusal used to
+    # describe the unpaired set while the number beside it was the paired one — it said
+    # "1 proceeding holds a filing typed 'Motion'" where `count_filings` said 2 (code review,
+    # 2026-09-18). A figure and its description have to be built together or they drift apart.
+    matched = f"a filing the Board typed {named}" + (
+        f", and one typed {', '.join(repr(t) for t in others)}" if others else ""
+    )
+    if not total:
+        return (
+            f"The record holds no proceeding with {matched}{built.scope}. That is an absence in"
+            " this record, not proof of absence at the Board."
+        )
+
+    # `docket_id DESC` after the date so a page boundary cannot repeat or skip a proceeding
+    # when several share the newest date — an unstable sort under LIMIT/OFFSET drops rows
+    # silently, which is worse here than showing none.
+    page = con.execute(
+        f"{grouped} ORDER BY latest DESC, docket_id DESC LIMIT ? OFFSET ?",
+        gparams + [_LIST_CAP, offset],
+    ).fetchall()
+    if not page:
+        # the verb is agreed with the same number `_plural` agrees the noun with: "1
+        # proceeding hold" is exactly what that helper's docstring exists to stop
+        return (
+            f"`offset` {offset} is past the last of them: {_plural(total, 'proceeding')}"
+            f" {'holds' if total == 1 else 'hold'} {matched}{built.scope}."
+        )
+
+    ids = [r[0] for r in page]
+    id_marks = ", ".join("?" * len(ids))
+    shown_marks = ", ".join("?" * len(shown))
+    rows = con.execute(
+        "SELECT f.docket_id, f.filing_type, f.filed_date, f.stb_filing_id"
+        + built.base
+        + f" AND f.docket_id IN ({id_marks}) AND f.filing_type IN ({shown_marks})"
+        " ORDER BY f.filed_date DESC, f.stb_filing_id",
+        built.params + ids + shown,
+    ).fetchall()
+    by_docket: dict[int, list[tuple]] = {}
+    for docket_id, filing_type, filed, stb_id in rows:
+        by_docket.setdefault(docket_id, []).append((filing_type, filed, stb_id))
+
+    captions = {
+        d: (raw, load_json(payload)["title"] if payload else None)
+        for d, raw, payload in con.execute(
+            f"SELECT docket_id, raw_docket, latest_payload FROM docket_current"
+            f" WHERE docket_id IN ({id_marks})",
+            ids,
+        ).fetchall()
+    }
+
+    first, last = offset + 1, offset + len(page)
+    lines = [
+        f"Proceedings holding {matched}{built.scope}: {total:,}."
+        + f" Showing {first}–{last}, newest first by the matching filing's date."
+    ]
+    for docket_id, *_ in page:
+        raw, title = captions.get(docket_id, (None, None))
+        identity = parse_docket_id(raw) if raw else None
+        printed = urls.printed_docket(identity) if identity else (raw or f"#{docket_id}")
+        lines.append(f"- {printed} — {title or '(caption not yet observed)'}")
+        # the address belongs to the PROCEEDING, so it goes under its caption: printed after
+        # the filings it read as the last filing's (code review, 2026-09-18)
+        if identity:
+            lines.append(f"    {_site(host, urls.docket_path(identity))}")
+        held = by_docket.get(docket_id, [])
+        for filing_type, filed, stb_id in held[:_FILINGS_SHOWN]:
+            lines.append(f"    {filing_type} — filed {filed or '(no date)'} — {stb_id}")
+        # Proceedings are capped but their filings were not, and one proceeding can hold
+        # hundreds of a single type — 'Notice Of Intent To Participate (Without Comment)' runs
+        # to the hundreds in FD 36873 alone, which is first on an unfiltered page (code review,
+        # 2026-09-18). `get_docket_sheet` bounds the same exposure; so does this now.
+        if len(held) > _FILINGS_SHOWN:
+            lines.append(
+                f"    …and {len(held) - _FILINGS_SHOWN:,} more of these types in this"
+                " proceeding; its sheet has them all."
+            )
+    if last < total:
+        lines.append(
+            f"{total - last:,} more: call again with `offset` {last} for the next"
+            f" {min(_LIST_CAP, total - last):,}."
+        )
+    lines.append(
+        "These are the Board's labels as it typed them: a type names the kind of filing, not"
+        " what the filing accomplished, and nothing here has read the documents. A filing"
+        " entered in more than one proceeding is listed under each, keeping the Board's own"
+        " id, which is why one id can appear twice."
+        + (
+            " Held in the same proceeding says nothing about which came first or whether one"
+            " led to the other."
+            if others
+            else ""
+        )
+    )
+    lines += _open_month_caveats(
+        con, built.since, built.until, shortfall="(proceedings in them are missing from this list)"
+    )
     return "\n".join(lines)
 
 
@@ -946,6 +1176,41 @@ TOOLS: tuple[Tool, ...] = (
             [],
         ),
         _count,
+    ),
+    Tool(
+        "list_proceedings",
+        "List the proceedings behind a count",
+        "The proceedings a `count_filings` count is made of, newest first by the matching"
+        " filing's date — each with its docket number, the Board's caption, the matching"
+        " filings with their dates and the Board's own ids, and its address here. Takes the"
+        " same filters as `count_filings`, so the same arguments give the members of the same"
+        f" count. At most {_LIST_CAP} a call; `offset` reaches the rest. Use this instead of"
+        " inferring which proceedings a count refers to.",
+        _obj(
+            {
+                "filing_type": {
+                    "type": "string",
+                    "description": "The Board's filing type, or words in it (`trail use`"
+                    " matches every trail-use type). Required.",
+                },
+                "prefix": {"type": "string", "description": "A docket prefix, e.g. `AB`."},
+                "filed_from": {"type": "string", "description": "YYYY-MM-DD, inclusive."},
+                "filed_to": {"type": "string", "description": "YYYY-MM-DD, inclusive."},
+                "also_has": {
+                    "type": "string",
+                    "description": "A second filing type: list only proceedings that also hold"
+                    " one, as a separate filing.",
+                },
+                "offset": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": f"Proceedings to skip, for the page after the first"
+                    f" {_LIST_CAP}.",
+                },
+            },
+            ["filing_type"],
+        ),
+        _list_proceedings,
     ),
     Tool(
         "coverage",
