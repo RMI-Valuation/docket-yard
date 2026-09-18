@@ -688,7 +688,7 @@ def test_a_queue_that_refuses_registration_is_the_environments_exit():
     assert q.got == ("w1", "tabular", {"k": 1})
 
 
-# --- the text-layer re-read: a pass seeded from a page list, not the route root -------------
+# --- the text-layer re-read: a pass seeded from a page list, over separately routed pages ----
 
 
 def _page_list(path: Path, rows: list[tuple[str, int, str]]) -> Path:
@@ -704,6 +704,17 @@ def _page_list(path: Path, rows: list[tuple[str, int, str]]) -> Path:
     return path
 
 
+def _reread_route(out: Path, sha: str, classes: dict[int, str], version: str = "provisional-1"):
+    """`ocr_wave.py route-list`'s output: the re-read's own route root, apart from the wave's."""
+    doc = {
+        "document_sha256": sha,
+        "method": ocr_wave.ROUTER,
+        "method_version": version,
+        "pages": {str(n): {"class": c} for n, c in classes.items()},
+    }
+    ocr_wave._write(ocr_wave.shard(out / ocr_wave.ROOTS["reread_route"], sha), doc)
+
+
 def _zero() -> dict:
     return {
         "documents": 0,
@@ -713,37 +724,27 @@ def _zero() -> dict:
         "new": 0,
         "listed_pages": 0,
         "topped_up": 0,
+        "unrouted_documents": 0,
+        "unrouted_pages": 0,
     }
 
 
 @pytest.fixture
 def listed(monkeypatch):
-    """A list-seeded pass over ROUTED pages: the shape `reread` must take before it can load
-    (see the test below it). It exercises `seed_from_list` without pretending the unrouted
-    pass works."""
-    spec = {**pq.PASSES["reread"], "class": "degraded", "root": "listed-test"}
+    """`reread` under another root, so a test's files never collide with a real one's."""
+    spec = {**pq.PASSES["reread"], "root": "listed-test"}
     monkeypatch.setitem(pq.PASSES, "listed", spec)
     monkeypatch.setitem(ocr_wave.ROOTS, "listed-test", "listed-test")
     return "listed"
 
 
-def test_the_reread_pass_cannot_be_seeded_because_its_readings_would_not_load(tmp_path):
-    """THE FINDING THAT STOPPED THE PASS (schema-critic and /code-review, 2026-09-18). The
-    design gave a re-read page no `route`, since the router never saw it — but an `ocr` reading
-    whose page names no routed class is refused by the loader (ADR 0021 D4) and by
-    `document_text`'s own CHECK. Every page read would have been machine time thrown away, so
-    the seed refuses before any of it is spent."""
-    q = pq.Queue(tmp_path / "q.sqlite")
-    lst = _page_list(tmp_path / "p.csv", [(A, 1, "1")])
-    with pytest.raises(pq.Unloadable, match="ADR 0021 D4"):
-        pq.seed_from_list(q, "reread", tmp_path / "ocr", lst)
-    assert pq.PASSES["reread"]["class"] is None  # the guard's condition, said once
-
-
 def test_the_loader_refuses_an_ocr_reading_whose_page_names_no_route():
-    """Why the guard above exists, proved through the loader rather than asserted. The first
-    version of this test built `load.Page(...)` by hand and so skipped the validation it looked
-    like it was making (/code-review, 2026-09-18)."""
+    """WHY THE RE-READ'S PAGES ARE ROUTED FIRST (schema-critic and /code-review, 2026-09-18).
+    The first design gave a re-read page no route, since the router never saw it — but an `ocr`
+    reading whose page names no routed class is refused by the loader (ADR 0021 D4) and by
+    `document_text`'s own CHECK, so every page read would have been thrown away. Proved through
+    the loader; the first version of this test built `load.Page(...)` by hand and so skipped the
+    validation it looked like it was making."""
     doc = ocr_wave.reading_document(
         A,
         pq.PASSES["reread"]["key"],
@@ -758,9 +759,70 @@ def test_the_loader_refuses_an_ocr_reading_whose_page_names_no_route():
         load.from_reading(doc, b"{}", {"read": 1}, {})
 
 
+def test_a_pass_whose_pages_are_not_routed_refuses_to_seed(monkeypatch, tmp_path):
+    """The guard that fires before any machine time is spent, rather than at the loader hours
+    later and per document."""
+    monkeypatch.setitem(pq.PASSES, "unrouted-test", {**pq.PASSES["reread"], "route_root": None})
+    q = pq.Queue(tmp_path / "q.sqlite")
+    lst = _page_list(tmp_path / "p.csv", [(A, 1, "1")])
+    with pytest.raises(pq.Unloadable, match="ADR 0021 D4"):
+        pq.seed_from_list(q, "unrouted-test", tmp_path / "ocr", lst)
+
+
+def test_the_seed_skips_a_page_that_has_no_route_and_reports_it(listed, tmp_path):
+    out = tmp_path / "ocr"
+    q = pq.Queue(tmp_path / "q.sqlite")
+    _reread_route(out, A, {2: "degraded"})  # page 7 listed but never routed; B not routed at all
+    rows = [(A, 2, "1"), (A, 7, "1"), (B, 1, "1")]
+    n = pq.seed_from_list(q, listed, out, _page_list(tmp_path / "p.csv", rows))
+    assert (n["documents"], n["pages"], n["new"]) == (1, 1, 1)
+    assert (n["unrouted_documents"], n["unrouted_pages"]) == (1, 1)
+    assert [tuple(r) for r in q.con.execute("SELECT document_sha256, page_no FROM job")] == [(A, 2)]
+
+
+def test_the_reread_routes_live_apart_from_the_waves(listed, tmp_path):
+    """A route document under `route/` is read by `seed_pass` for every routed pass, so writing
+    these text-layer documents there would have pulled any `degraded` page of them into `dots`
+    (schema-critic, 2026-09-18). They go under `route-reread` instead."""
+    out = tmp_path / "ocr"
+    _reread_route(out, A, {1: "degraded", 2: "degraded"})
+    q = pq.Queue(tmp_path / "q.sqlite")
+    assert pq.seed_pass(q, "dots", out)["new"] == 0  # the wave's route root is untouched
+    assert pq.PASSES["reread"]["route_root"] != pq.PASSES["dots"]["route_root"]
+    assert (
+        pq.seed_from_list(q, listed, out, _page_list(tmp_path / "p.csv", [(A, 1, "1")]))["new"] == 1
+    )
+
+
+def test_each_re_read_page_carries_its_own_class_and_the_routers_own_version(listed, tmp_path):
+    """No single class selects these pages — the list does — so a reading that named one class
+    would be false on most of them. And the stanza quotes the ROUTE DOCUMENT's method version,
+    not this module's constant, so a page routed by an earlier router says so (ADR 0007)."""
+    out = tmp_path / "ocr"
+    _reread_route(out, A, {1: "degraded", 2: "graphic"}, version="provisional-0")
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", listed, {**KEY, "host": "x"})
+    pq.seed_from_list(q, listed, out, _page_list(tmp_path / "p.csv", [(A, 1, "1"), (A, 2, "1")]))
+    for job in q.claim("w1", listed, 2, 60):
+        q.done("w1", job["job_id"], json.dumps([{"category": "Text", "text": "read"}]))
+    assert pq.collect_pass(q, listed, out) == 1
+
+    doc = json.loads(ocr_wave.shard(out / "listed-test", A).read_text(encoding="utf-8"))
+    assert doc["reading_role"] == "second" and doc["reading_channel"] == "ocr"
+    assert [p["route"] for p in doc["pages"]] == [
+        {"class": "degraded", "method": ocr_wave.ROUTER, "method_version": "provisional-0"},
+        {"class": "graphic", "method": ocr_wave.ROUTER, "method_version": "provisional-0"},
+    ]
+    # and it is a reading the loader takes, which is the whole point of routing first
+    _, loaded = load.from_reading(doc, b"{}", {"read": 1}, {}).body()
+    assert [p.route.route_class for p in loaded] == ["degraded", "graphic"]
+
+
 def test_a_page_list_seeds_only_the_pages_it_names_and_only_where_the_flag_is_set(listed, tmp_path):
     out = tmp_path / "ocr"
     q = pq.Queue(tmp_path / "q.sqlite")
+    _reread_route(out, A, {2: "degraded", 7: "clean", 9: "graphic"})
+    _reread_route(out, B, {1: "degraded"})
     rows = [(A, 2, "1"), (A, 7, "1"), (A, 9, "0"), (B, 1, "0")]
     n = pq.seed_from_list(q, listed, out, _page_list(tmp_path / "p.csv", rows), column="prose")
     assert (n["documents"], n["pages"], n["new"], n["listed_pages"]) == (1, 2, 2, 2)
@@ -780,6 +842,7 @@ def test_a_wider_list_tops_up_a_document_the_queue_already_calls_whole(listed, t
     out = tmp_path / "ocr"
     q = pq.Queue(tmp_path / "q.sqlite")
     q.register("w1", listed, {**KEY, "host": "x"})
+    _reread_route(out, A, {1: "degraded", 2: "degraded"})
     one = _page_list(tmp_path / "a.csv", [(A, 1, "1")])
     assert pq.seed_from_list(q, listed, out, one)["new"] == 1
     (job,) = q.claim("w1", listed, 5, 60)
@@ -803,6 +866,7 @@ def test_a_page_list_seed_sets_aside_a_document_a_non_page_failure_left_partial(
     lst = _page_list(tmp_path / "p.csv", [(A, 1, "1"), (A, 2, "1")])
     q = pq.Queue(tmp_path / "q.sqlite")
     q.register("w1", listed, {**KEY, "host": "x"})
+    _reread_route(out, A, {1: "degraded", 2: "degraded"})
     assert pq.seed_from_list(q, listed, out, lst)["new"] == 2
     assert pq.seed_from_list(q, listed, out, lst)["new"] == 0  # open: already queued
 
@@ -824,6 +888,7 @@ def test_a_page_list_seed_sets_aside_a_document_a_non_page_failure_left_partial(
 def test_the_two_seeds_refuse_each_others_pass(listed, tmp_path):
     out = tmp_path / "ocr"
     q = pq.Queue(tmp_path / "q.sqlite")
+    _reread_route(out, A, {1: "degraded"})
     with pytest.raises(ValueError, match="seeded from a page list"):
         pq.seed_pass(q, "reread", out)
     with pytest.raises(ValueError, match="seeded from the route"):
@@ -832,6 +897,17 @@ def test_the_two_seeds_refuse_each_others_pass(listed, tmp_path):
         pq.seed_from_list(
             q, listed, out, _page_list(tmp_path / "e.csv", [(A, 1, "0")]), column="prose"
         )
+
+
+def test_the_page_list_reader_takes_gzip_and_the_flag_column(tmp_path):
+    import gzip as _gzip
+
+    plain = _page_list(tmp_path / "p.csv", [(A, 1, "1"), (A, 2, "0")])
+    gz = tmp_path / "p.csv.gz"
+    gz.write_bytes(_gzip.compress(plain.read_bytes()))
+    assert ocr_wave.page_list(gz) == {A: {1, 2}}
+    assert ocr_wave.page_list(gz, "prose") == {A: {1}}
+    assert ocr_wave.page_list(plain, "prose") == {A: {1}}
 
 
 def test_the_worker_can_run_either_dots_pass_and_no_other():

@@ -7,6 +7,7 @@
 #   bash ~/docket-yard/tools/fleet/fleet-up.sh all           # both on one box (how it began)
 #   DY_FLEET_HUNYUAN_PY=<venv>/bin/python \
 #       bash ~/docket-yard/tools/fleet/fleet-up.sh tabular   # the tabular pass's worker, opt-in
+#   bash ~/docket-yard/tools/fleet/fleet-up.sh reread        # the text-layer re-read, opt-in
 #   tmux ls                                                  # the sessions
 #   tmux attach -t dots-worker                               # watch one; detach with C-b d
 #
@@ -14,9 +15,14 @@
 #                 fleet-monitor  the status page and the scrape on :8130  (monitor.py)
 #                 dots-collect   reading documents every ten minutes      (pagequeue.py collect)
 #                 tabular-collect  the same for the tabular pass; writes nothing until seeded
+#                 reread-collect   the same for the re-read; writes nothing until seeded
 #   worker:       dots-vllm      the server, restarted when it dies       (dots-serve.sh)
 #                 dots-worker    the worker, restarted when it exits      (below)
 #   tabular:      tabular-worker HunyuanOCR in-process, restarted when it exits (hunyuan_worker.py)
+#   reread:       reread-worker  the SAME dots worker and the SAME dots server, claiming the
+#                                `reread` queue instead (`--pass reread`); its own role because
+#                                it shares the card with `dots-worker` and only one of the two
+#                                should hold it. Its stop file is `<root>/ocr/.stop-reread`
 #
 # `tabular` is its own role, never part of `worker` or `all`: the model runs in the worker's
 # own process on the same card the dots server holds at 90%, so the operator stops
@@ -63,6 +69,8 @@ if [ "$ROLE" = coordinator ] || [ "$ROLE" = all ]; then
     up dots-collect "while true; do $COLLECT >> $LOG/dots-collect.log 2>&1; sleep 600; done"
     up tabular-collect "while true; do $COLLECT --pass tabular >> $LOG/tabular-collect.log 2>&1; \
         sleep 600; done"
+    up reread-collect "while true; do $COLLECT --pass reread >> $LOG/reread-collect.log 2>&1; \
+        sleep 600; done"
 fi
 
 if [ "$ROLE" = tabular ]; then
@@ -79,16 +87,28 @@ if [ "$ROLE" = tabular ]; then
         echo \"\$(date -Is) worker exited \$?\" >> $LOG/tabular-worker.log; sleep 60; done"
 fi
 
-if [ "$ROLE" = worker ] || [ "$ROLE" = all ]; then
-    if [ "$ROLE" = worker ]; then
+if [ "$ROLE" = worker ] || [ "$ROLE" = all ] || [ "$ROLE" = reread ]; then
+    if [ "$ROLE" = all ]; then
+        QUEUE="--db $DB --blobs $DATA/blobs"
+    else
         NODE=$(cat "$DATA/fleet-node")
         QUEUE="--queue $NODE --token-file $DATA/fleet.token"
         [ -d "$DATA/blobs" ] && QUEUE="$QUEUE --blobs $DATA/blobs"
-    else
-        QUEUE="--db $DB --blobs $DATA/blobs"
     fi
+    up dots-vllm "bash $FLEET/dots-serve.sh"   # one server serves either pass: one key
+fi
+
+if [ "$ROLE" = worker ] || [ "$ROLE" = all ]; then
     WORKER="$PY $FLEET/dots_worker.py $QUEUE --scratch $OCR/.render --stop-file $OCR/.stop"
-    up dots-vllm "bash $FLEET/dots-serve.sh"
     up dots-worker "while true; do $WORKER >> $LOG/dots-worker.log 2>&1; \
         echo \"\$(date -Is) worker exited \$?\" >> $LOG/dots-worker.log; sleep 60; done"
+fi
+
+if [ "$ROLE" = reread ]; then
+    # the same engine and the same key as `dots`, claiming the re-read's queue. Its own role
+    # and its own stop file, because the two would otherwise share one card and one stop
+    RWORKER="$PY $FLEET/dots_worker.py --pass reread $QUEUE --scratch $OCR/.render \
+        --stop-file $OCR/.stop-reread"
+    up reread-worker "while true; do $RWORKER >> $LOG/reread-worker.log 2>&1; \
+        echo \"\$(date -Is) worker exited \$?\" >> $LOG/reread-worker.log; sleep 60; done"
 fi

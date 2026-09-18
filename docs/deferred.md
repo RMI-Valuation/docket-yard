@@ -1992,17 +1992,19 @@ the first are owed before any reading from it is loaded. Acted on in the same co
 silent drop of newly-listed pages on re-seed, `seeded_from` separated from `class`, and the
 backwards claim about `document_text_live` in the pass's own comment.
 
-### Open — the operator's, before the pass can run
+### Closed the same day
 
-- **A re-read page has no routed class and the store refuses the reading.** `text/load.py`
+- **A re-read page had no routed class, and the store refuses such a reading.** `text/load.py`
   raises "an OCR reading names the class it was routed as (ADR 0021 D4)" and
-  `CHECK (reading_channel <> 'ocr' OR route_class IS NOT NULL)` refuses the row. Every page read
-  would be machine time thrown away. The way through is to route the flagged pages with the
-  existing `pp-doclayoutv3+regions` router before reading them — owed anyway if these readings
-  are ever scored (`class_measurement` is keyed on class) or promoted, and it gives `page_route`
-  rows so migration 0032's marker rule works on these pages. The alternatives are worse: a new
-  `route_class_vocab` member overloads a *tier* vocabulary with a *selection reason*, and
-  relaxing the CHECK is a rebuild of a 1.4M-row table.
+  `CHECK (reading_channel <> 'ocr' OR route_class IS NOT NULL)` refuses the row; every page read
+  would have been machine time thrown away. **The operator chose to route the pages first**
+  (2026-09-18), so `ocr_wave.py route-list` routes a page list with the layout model alone, into
+  the re-read's own route root, and the seed skips anything unrouted. The alternatives were
+  worse: a new `route_class_vocab` member would overload a *tier* vocabulary with a *selection
+  reason*, and relaxing the CHECK is a rebuild of a 1.4M-row table.
+- **The disjointness guard the critic asked for is half-built**: the two passes now read
+  different route roots, so a text-layer document cannot reach `dots` through a route document.
+  Nothing still asserts that no document is both image-only and text-layer.
 
 ### Open — owed before a reading from this pass is loaded
 
@@ -2046,6 +2048,7 @@ backwards claim about `document_text_live` in the pass's own comment.
   `dots.mocr/1.5/200` now means two things — a primary reading of a degraded scan and a second
   reading of a suspect text layer — and a third party summing `pages_read` cannot tell them
   apart. Half the pages counted are displayed to nobody.
-- **`fleet-up.sh` has no `reread` role**: no `collect --pass reread` service, and the worker
-  command it builds takes no `--pass`, so the documented line would start a `dots` worker. Left
-  unbuilt deliberately — the pass's shape changes if the pages are routed.
+- ~~`fleet-up.sh` has no `reread` role~~ — built once the shape settled: a `reread-collect`
+  service on the coordinator and a `reread` worker role sharing the `dots` server and key, with
+  its own stop file (`.stop-reread`). The two workers share one card, so the role is opt-in and
+  never part of `worker` or `all`, as `tabular` is.

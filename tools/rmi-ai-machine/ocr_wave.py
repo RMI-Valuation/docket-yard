@@ -116,6 +116,11 @@ ROOTS = {
     # `second`, which is measured against a dots PRIMARY. No verb here either; the fleet seeds
     # it from a page list (tools/fleet/pagequeue.py § seed_from_list)
     "reread": "dots-reread",
+    # The re-read's routes live APART from the wave's. A route document under `route/` is read
+    # by `seed_pass` for every routed pass, so writing text-layer documents there would silently
+    # enlarge the `dots` pass with any page that classified `degraded` — these documents are not
+    # image-only and are not the wave's to read
+    "reread_route": "route-reread",
 }
 
 # The model's shipped document-parsing prompt, as `ocr_run.py` sends it.
@@ -241,6 +246,24 @@ def now(epoch: float | None = None) -> str:
 
 def shard(root: Path, sha: str) -> Path:
     return root / sha[:2] / f"{sha}.json"
+
+
+def page_list(path: Path, column: str | None = None) -> dict[str, set[int]]:
+    """A page list as `tools/rmi-ai-machine/text_quality_queue.py` writes it (gzipped or plain):
+    a header, then a row per page. `sha` and `page` are the columns that matter; `column` names
+    a flag that must be `1` for the row to count, which is how the prose-first order is given.
+    Shared by the router and the queue's seed so the two read one file the same way."""
+    import csv  # noqa: PLC0415
+    import gzip  # noqa: PLC0415
+
+    opener = gzip.open if path.suffix == ".gz" else open
+    out: dict[str, set[int]] = {}
+    with opener(path, "rt", encoding="utf-8", newline="") as fh:
+        for row in csv.DictReader(fh):
+            if column is not None and row.get(column) != "1":
+                continue
+            out.setdefault(row["sha"], set()).add(int(row["page"]))
+    return out
 
 
 def image_only_documents(text: Path) -> dict[str, int]:
@@ -828,6 +851,124 @@ def _manifest(root: Path, stats: dict) -> None:
     )
 
 
+# --- routing a page list: the re-read's pages, which the wave never saw ----------------------
+
+
+def run_route_list(args) -> int:
+    """Route the pages a list names, and NOTHING else — no PP-OCR text, no reading document.
+
+    The text-layer re-read reads pages that are not in an image-only document, so this driver's
+    own router never saw them (`image_only_documents`). They still need a route, because
+    `text/load.py` refuses an `ocr` reading whose page names no routed class and
+    `document_text`'s CHECK refuses the row (ADR 0021 D4) — and because a class is what makes
+    the reading scorable later (`class_measurement`) and what lets the operator promote one
+    class and not another.
+
+    Only the LAYOUT model runs: `classify` reads regions, not text, so the recognition half of
+    `run-paddle` would be spent for nothing here. It would also be worse than nothing — it
+    writes a PP-OCR PRIMARY reading for the clean pages, and every page here already has a live
+    primary from the publisher's text layer.
+
+    Routes land under `ROOTS["reread_route"]`, apart from the wave's, because `seed_pass` reads
+    every route document under `route/` and would otherwise pull these pages into `dots`.
+
+    Resumable: a document whose route already covers every page the list names is skipped. A
+    page that will not render or classify is written `unrouted` with its error, which is a real
+    class and loads — the same treatment `run_paddle` gives it.
+    """
+    from paddleocr import LayoutDetection  # noqa: PLC0415
+
+    wanted = page_list(args.from_, args.column)
+    if not wanted:
+        print(f"{args.from_} names no page" + (f" with {args.column} = 1" if args.column else ""))
+        return 2
+    layout = LayoutDetection(model_name=LAYOUT_MODEL)
+    route_root = args.out / ROOTS["reread_route"]
+    tmp = args.out / ".render"
+    tmp.mkdir(parents=True, exist_ok=True)
+    stats = {"documents": 0, "skipped": 0, "pages": 0, "failed_pages": 0, "failed_docs": 0}
+    by_class: dict[str, int] = dict.fromkeys(CLASSES, 0)
+    started = time.time()
+    shas = sorted(wanted)
+    if args.limit:
+        shas = shas[: args.limit]
+    for n, sha in enumerate(shas, 1):
+        out_path = shard(route_root, sha)
+        if out_path.exists():
+            held = json.loads(out_path.read_text(encoding="utf-8"))["pages"]
+            if all(str(no) in held for no in wanted[sha]):
+                stats["skipped"] += 1
+                continue
+        pdf = args.blobs / sha[:2] / sha
+        route = {
+            "document_sha256": sha,
+            "method": ROUTER,
+            "method_version": ROUTER_VERSION,
+            "layout_model": LAYOUT_MODEL,
+            "region_cut": REGION_CUT,
+            "dpi": 150,
+            "routed_at": now(),
+            "selected_by": "text-quality page list",
+            "pages": {},
+        }
+        try:
+            count = page_count(pdf)
+        except Exception as e:  # noqa: BLE001 — a document that will not open routes no page
+            print(f"  {sha[:12]}: will not open: {type(e).__name__}: {e}", flush=True)
+            stats["failed_docs"] += 1
+            continue
+        for no in sorted(wanted[sha]):
+            if not 1 <= no <= count:
+                # the list is older than the document's bytes; not this driver's to reconcile
+                print(f"  {sha[:12]} p{no}: outside a {count}-page document", flush=True)
+                stats["failed_pages"] += 1
+                continue
+            png = tmp / f"{sha[:12]}_p{no}.png"
+            try:
+                render(pdf, no - 1, 150, png)
+                regions = []
+                for res in layout.predict(str(png)):
+                    for box in res.json["res"].get("boxes") or []:
+                        poly = box.get("polygon_points") or []
+                        regions.append(
+                            {
+                                "label": box.get("label"),
+                                "score": round(float(box.get("score", 0.0)), 4),
+                                "area": round(_area(poly), 1),
+                            }
+                        )
+                cls = classify(regions)
+                route["pages"][str(no)] = {
+                    "class": cls,
+                    "regions": len(regions),
+                    "labels": sorted({r["label"] for r in regions}),
+                }
+            except Exception as e:  # noqa: BLE001 — one page must not end the document
+                route["pages"][str(no)] = {
+                    "class": "unrouted",
+                    "regions": 0,
+                    "labels": [],
+                    "error": f"{type(e).__name__}: {e}",
+                }
+                stats["failed_pages"] += 1
+            finally:
+                png.unlink(missing_ok=True)
+            by_class[route["pages"][str(no)]["class"]] += 1
+            stats["pages"] += 1
+        _write(out_path, route)
+        stats["documents"] += 1
+        if n % 50 == 0 or n == len(shas):
+            rate = stats["pages"] / max(time.time() - started, 1e-9)
+            print(
+                f"  {n}/{len(shas)} documents, {stats['pages']} pages, {rate:.1f} pages/s,"
+                f" {by_class}",
+                flush=True,
+            )
+    _manifest(route_root, {**stats, "by_class": by_class, "layout_model": LAYOUT_MODEL})
+    print(f"{stats}; pages by class {by_class}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="pass_", required=True)
@@ -843,12 +984,19 @@ def main() -> int:
     for name in ("second", "graphic", "status"):
         p = sub.add_parser(name)
         p.add_argument("--out", required=True, type=Path)
+    p = sub.add_parser("route-list")
+    p.add_argument("--from", dest="from_", required=True, type=Path)
+    p.add_argument("--column", default=None)
+    p.add_argument("--blobs", required=True, type=Path)
+    p.add_argument("--out", required=True, type=Path)
+    p.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
     return {
         "run-paddle": run_paddle,
         "dots": run_dots,
         "second": run_second,
         "graphic": run_graphic,
+        "route-list": run_route_list,
         "status": status,
     }[args.pass_](args)
 

@@ -36,8 +36,6 @@ machine's client, with the same six methods and nothing else.
 
 import argparse
 import calendar
-import csv
-import gzip
 import json
 import sqlite3
 import sys
@@ -59,6 +57,7 @@ from ocr_wave import (  # noqa: E402 — the driver's keys, roots, page builders
     dots_page,
     hunyuan_page,
     now,
+    page_list,
 )
 
 
@@ -81,6 +80,7 @@ PASSES = {
         "payload_kind": "dots.mocr.json",
         "class": "degraded",
         "seeded_from": "route",
+        "route_root": ROOTS["route"],
         "root": ROOTS["dots"],
         "invalidates": ("second",),
         "max_megapixels": 6.0,
@@ -96,6 +96,7 @@ PASSES = {
         "payload_kind": "hunyuan-ocr.json",
         "class": "tabular",
         "seeded_from": "route",
+        "route_root": ROOTS["route"],
         "root": ROOTS["tabular"],
         "invalidates": (),
         "max_megapixels": 6.0,
@@ -119,19 +120,20 @@ PASSES = {
     #     them apart is that no document is both image-only and text-layer, which nothing in
     #     the store, the queue or these tests asserts (schema-critic, 2026-09-18).
     #
-    # NOT RUNNABLE YET, and `seed_from_list` refuses it: a page here carries no `route` stanza,
-    # because the router never saw it and naming it `unrouted` would put ROUTER and its version
-    # on a page that method never touched — but `text/load.py` refuses an `ocr` reading with no
-    # route (ADR 0021 D4) and `document_text`'s own CHECK refuses the row. Every reading this
-    # pass wrote would be a machine-time write-off. Routing the flagged pages first is the way
-    # through and it is the operator's call, because it was not the shape he agreed to. See
-    # docs/deferred.md § 2026-09-18 and docs/compute-fleet.md § The text-layer re-read.
+    # ITS PAGES ARE ROUTED FIRST, by `ocr_wave.py route-list` (the operator, 2026-09-18). They
+    # must be: `text/load.py` refuses an `ocr` reading whose page names no routed class and
+    # `document_text`'s own CHECK refuses the row (ADR 0021 D4), so an unrouted re-read would
+    # have been read, written and thrown away. `class` is None because no single class selects
+    # these pages — the list does — so each page carries its OWN class from the route document,
+    # and the routes live apart from the wave's under `reread_route` so `seed_pass` never pulls
+    # a text-layer document into `dots`.
     "reread": {
         "key": DOTS,
         "role": "second",
         "payload_kind": "dots.mocr.json",
         "class": None,
         "seeded_from": "list",
+        "route_root": ROOTS["reread_route"],
         "root": ROOTS["reread"],
         "invalidates": (),
         "max_megapixels": 6.0,
@@ -665,6 +667,36 @@ def _decide(
     return True
 
 
+def _routed_pages(route_root: Path, sha: str) -> set[int]:
+    """The pages a route document classifies, or the empty set if it has none. `unrouted` is a
+    real class that loads (the router met the page and could not place it), so it counts."""
+    from ocr_wave import shard  # noqa: PLC0415
+
+    path = shard(route_root, sha)
+    if not path.exists():
+        return set()
+    route = json.loads(path.read_text(encoding="utf-8"))
+    return {int(k) for k, v in route.get("pages", {}).items() if v.get("class")}
+
+
+def _page_routes(route_root: Path, sha: str) -> dict[int, dict]:
+    """Each routed page's own route stanza, carrying the route document's OWN method and
+    version rather than this module's constants — a document routed by an earlier version must
+    say so, which is what makes the reading scorable (ADR 0007)."""
+    from ocr_wave import shard  # noqa: PLC0415
+
+    route = json.loads(shard(route_root, sha).read_text(encoding="utf-8"))
+    return {
+        int(k): {
+            "class": v["class"],
+            "method": route["method"],
+            "method_version": route["method_version"],
+        }
+        for k, v in route.get("pages", {}).items()
+        if v.get("class")
+    }
+
+
 def seed_from_list(
     q: Queue,
     pass_: str,
@@ -696,25 +728,18 @@ def seed_from_list(
     spec = PASSES[pass_]
     if spec["seeded_from"] != "list":
         raise ValueError(f"{pass_} is seeded from the {spec['seeded_from']}, not a page list")
-    if spec["class"] is None:
+    if not spec.get("route_root"):
         # WHERE THE PAGES COME FROM AND WHETHER THEY ARE ROUTED ARE TWO QUESTIONS, and only the
         # second decides whether a reading can load: `text/load.py` refuses an `ocr` reading
         # whose page names no routed class, and `document_text`'s CHECK refuses the row
-        # (ADR 0021 D4). A list-seeded pass over ROUTED pages is fine and is the shape this is
-        # expected to take. Reading thousands of pages to write files nothing can take is the
+        # (ADR 0021 D4). Reading thousands of pages to write files nothing can take is the
         # failure mode this guard exists for, and it fires before any machine time is spent
         raise Unloadable(
             f"{pass_} writes `ocr` readings with no route, which text/load.py refuses"
             " (ADR 0021 D4): route the pages first. docs/compute-fleet.md § The text-layer"
             " re-read"
         )
-    opener = gzip.open if pages_csv.suffix == ".gz" else open
-    wanted: dict[str, set[int]] = {}
-    with opener(pages_csv, "rt", encoding="utf-8", newline="") as fh:
-        for row in csv.DictReader(fh):
-            if column is not None and row.get(column) != "1":
-                continue
-            wanted.setdefault(row["sha"], set()).add(int(row["page"]))
+    wanted = page_list(pages_csv, column)
     if not wanted:
         raise ValueError(f"{pages_csv} names no page" + (f" with {column} = 1" if column else ""))
     pages, reread = [], set()
@@ -726,9 +751,27 @@ def seed_from_list(
         "new": 0,
         "listed_pages": 0,
         "topped_up": 0,
+        "unrouted_documents": 0,
+        "unrouted_pages": 0,
     }
+    route_root = out / spec["route_root"]
     for sha in sorted(wanted):
         n["listed_pages"] += len(wanted[sha])
+        # A PAGE WITHOUT A ROUTE IS NOT QUEUED. Its reading would be refused by the loader
+        # (ADR 0021 D4), so the page waits for `ocr_wave.py route-list` rather than being read
+        # and thrown away; and a document with no route document at all is skipped whole. This
+        # is also the disjointness guard the schema-critic asked for (2026-09-18): the wave's
+        # routes are under a different root, so a document that is BOTH image-only and
+        # text-layer cannot reach this pass through the wave's route document
+        routed = _routed_pages(route_root, sha)
+        if not routed:
+            n["unrouted_documents"] += 1
+            continue
+        if missing := wanted[sha] - routed:
+            n["unrouted_pages"] += len(missing)
+            wanted[sha] &= routed
+            if not wanted[sha]:
+                continue
         # WHAT THIS PASS OWES A DOCUMENT IS NOT FIXED, which is where a list seed parts company
         # with a route seed: the route document settles a page's class once, but this list comes
         # from a score whose lexicon grows with the record and from a cut and a screen the
@@ -779,6 +822,10 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
     written = skipped = 0
     for sha in q.collectable(pass_):
         engine_pages, pages, failures = [], [], []
+        # A PASS WITH NO CLASS OF ITS OWN takes each page's class from the route document: the
+        # list chose the pages, so they are of every class, and a reading that named one would
+        # be false on most of them. A routed pass names its class once, as before
+        routes = {} if spec["class"] else _page_routes(out / spec["route_root"], sha)
         try:
             for r in q.pages_of(pass_, sha):
                 if r["state"] != "done":
@@ -791,10 +838,7 @@ def collect_pass(q: Queue, pass_: str, out: Path) -> int:
                     "text": text,
                     "member": f"engine/pages/{len(engine_pages) - 1}",
                 }
-                if spec["class"] is not None:
-                    # a pass seeded from a page list has no route: the router never read it,
-                    # and the loader's `route` is optional (`text/load.py § Page`)
-                    page["route"] = route_of(spec["class"])
+                page["route"] = route_of(spec["class"]) if spec["class"] else routes[r["page_no"]]
                 pages.append(page)
         except ValueError as e:  # `failure_reason` on a `page:` word nobody has named
             print(f"  SKIPPED {sha[:12]}: {e}", flush=True)
