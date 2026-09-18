@@ -26,13 +26,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **The prose re-read: HIS GO, but it CANNOT BE SEEDED YET** (PR #42 merged as `b105b08`).
-  Queue built — 6,170 prose pages, 1,501 docs, ~4.6 h — but (1) `pagequeue.seed_pass` reads only
-  `ocr/route/*/*.json` and `ocr_wave.py` routes only `image_only_documents`, so none of these
-  docs is routed: a pass entry and a seed-from-page-list path are owed; (2)
-  `document_text_one_primary` is UNIQUE per live page and all 6,170 already hold a text-layer
-  primary, so the pass must declare `primary` (superseding it, ADR 0023's pick rule) or `second`
-  (undisplayed, ADR 0021 D8). **(2) IS HIS, before any seed.** Orientation still owed for the rest
+- **The prose re-read: ROUTE THE PAGES OR DON'T RUN IT — HIS** (`reread` pass built `f96b2ef`;
+  PR #42 merged `b105b08`). The seed refuses: `text/load.py` and `document_text`'s CHECK both
+  refuse an `ocr` reading whose page names no routed class (ADR 0021 D4), and these pages were
+  never routed — so all 6,170 would be read and thrown away. He chose a page-list seed over
+  routing on 2026-09-18 when routing looked optional; it is not. Owed before ANY load, both in
+  `deferred.md`: loading changes what every re-read page publishes about itself with no dated
+  rule (`pages.py:band`), and the agreement distance is a publishing decision, not a computation
 - **~40 kind labels from the flagged set** (his, 2026-09-18, `deferred.md`): the prose screen is
   0.80/0.80 on 5 prose pages there, not the 0.92/0.92 that pooled blind labels off-population
 - **MCP: list the proceedings behind a count** (`deferred.md`): asked for the 20 most recent, an
