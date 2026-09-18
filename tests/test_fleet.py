@@ -10,6 +10,7 @@ import importlib.util
 import json
 import sys
 import time
+import types
 from pathlib import Path
 
 import pytest
@@ -910,7 +911,12 @@ def test_the_page_list_reader_takes_gzip_and_the_flag_column(tmp_path):
     assert ocr_wave.page_list(plain, "prose") == {A: {1}}
 
 
-def test_the_worker_can_run_either_dots_pass_and_no_other():
+def test_the_worker_can_run_either_dots_pass_and_no_other(monkeypatch):
+    # `dots_worker` imports pymupdf at the top ON PURPOSE — "so a venv without it fails here,
+    # not per page" — and CI installs no pymupdf, so importing the module for its constants
+    # needs a stand-in. It is never called: this test reads PASSES_HERE and DPI and nothing else
+    if "fitz" not in sys.modules:
+        monkeypatch.setitem(sys.modules, "fitz", types.ModuleType("fitz"))
     worker = _module("dots_worker", ROOT / "tools" / "fleet" / "dots_worker.py")
     assert set(worker.PASSES_HERE) == {"dots", "reread"}  # every pass whose key is dots.mocr's
     assert "tabular" not in worker.PASSES_HERE
