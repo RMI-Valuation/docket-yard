@@ -2086,3 +2086,26 @@ chosen: pop `series` from the docket object (a removal, so a bump), or fill it t
 body's three fields (additive, which the API page's promise allows without a bump). The
 second costs nothing and makes the two agree; the first is cleaner and cannot be done
 quietly. **The operator's call.**
+
+## A pass cannot be declared deliberately down, 2026-09-18 (the 5090 swap)
+
+The tabular pass was stopped cleanly for a card swap, and the fleet had no way to say so.
+STALLED fired thirty minutes later — correct by its own rule (pages owed, none read) and
+useless, because the condition was intended. `/health` served 503 for the whole window.
+
+- **There is no quiet way to quiet it.** `monitor.py` only reports; the rules are evaluated
+  off the box by design (ADR 0019 — "a dead box cannot report its own death"), so the silence
+  belongs in the alerting side, outside this repo. Raising `--stall` hides the next real
+  stall and needs somebody to remember to put it back. Stopping the monitor is worse than
+  either: the off-box rules include *the series absent altogether*, so it swaps one alert for
+  another and blinds the operator in between.
+- **Production already has the concept and the fleet does not.** ADR 0020 gave the instance a
+  maintenance mode; a pass has no equivalent. The shape that would fit: a `paused` marker
+  beside the stop file that the monitor reads, exposed as its own series
+  (`docket_yard_fleet_paused{pass}`) rather than by suppressing the stalled one — so the
+  reason is published, dated, and visible, instead of an alert silently not firing. The
+  stop file is nearly this already; it records the intent and nothing reads it.
+- **Why it matters beyond tidiness:** an alarm that is right, unactionable and recurring is
+  how an operator learns to ignore the alarm. The pass was down about an hour today and the
+  fleet will be stopped and started far more often once the broker arbitrates it, which makes
+  this more frequent, not less.
