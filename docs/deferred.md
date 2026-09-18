@@ -2052,3 +2052,33 @@ backwards claim about `document_text_live` in the pass's own comment.
   service on the coordinator and a `reread` worker role sharing the `dots` server and key, with
   its own stop file (`.stop-reread`). The two workers share one card, so the role is opt-in and
   never part of `worker` or `all`, as `tabular` is.
+
+## The fleet's blob mirrors are stale, not holed, 2026-09-18 (tabular pass, v2026.09.28)
+
+Measured while reporting on the running pass. **728 pages across 310 documents had failed
+`blob: missing on the node`** — after the page-owned `finish_reason length` failures (1,324),
+essentially the entire remainder of the pass's 11.4% failure rate.
+
+- **Nothing is lost.** None of the 310 are on the coordinator, but **all 310 are in S3**
+  (`docketyard-prod`, `blobs/<aa>/<sha>`), 190.4 MB in total, checked by `head_object` on every
+  one. The earlier reading of this — 434 documents "in NEITHER blob mirror, so no node reads
+  them this seed" — was right about the mirrors and wrong about the record. S3 is the store and
+  the mirrors are caches (`infra/deploy/README.md`); these caches simply lag.
+- **The coordinator cannot refill its own mirror.** `rmi-nuc` holds the blob mirror the fleet
+  reads through and has `boto3`, but no `~/.aws` credentials; `rmi-ai-machine` has the
+  `docketyard-reader` profile and `pull_blobs.py`. So the box that owns the mirror cannot fill
+  it, and the box that can fill it is the one we keep saying is stateless and replaceable. That
+  asymmetry is the defect, not the missing bytes — and it bites harder once the card moves or
+  the workstation is swapped for a 5090.
+- **These pages cannot be recovered in the running seed.** `pagequeue` has `seed`, `collect`,
+  `status`, `reap` and `fail` — there is no requeue verb, and a `blob:` failure that has spent
+  its attempts is `failed`, which the design intends: re-read at a later seed. Resetting them
+  would be hand-written SQL against a live queue. The designed path is a later seed, once the
+  mirror is filled.
+- **Cheap guard worth pricing: the seed does not check that it can read what it seeds.**
+  `seed --dry-run` reports how many pages and documents it would queue, but nothing verifies
+  the blobs are reachable from the nodes that will claim them. A presence check at seed time —
+  local mirror, then S3 — would have surfaced 310 unreadable documents in seconds instead of
+  728 spent attempts over two days. It is the same shape as the endpoint rule in `CLAUDE.md`:
+  positively assert the precondition rather than infer it from a result that also has an
+  innocent explanation.
