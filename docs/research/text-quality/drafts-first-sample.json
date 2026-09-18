@@ -1,0 +1,386 @@
+{
+ "L01": {
+  "kind": "table",
+  "note": "rotated crossing-cost table; text is unreadable OCR noise",
+  "quality": "garbage",
+  "structure": "absent"
+ },
+ "L02": {
+  "kind": "prose",
+  "note": "formula exhibit with definitions; small Y-value table below",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L03": {
+  "kind": "prose",
+  "note": "running text with footnotes",
+  "quality": "clean",
+  "structure": "n/a"
+ },
+ "L04": {
+  "kind": "mixed",
+  "note": "rotated route schematic plus dwell/train data tables",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L05": {
+  "kind": "prose",
+  "note": "typed metes-and-bounds parcel descriptions",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L06": {
+  "kind": "table",
+  "note": "PFTNW column detached to page end; rows split",
+  "quality": "nontext",
+  "structure": "scrambled"
+ },
+ "L07": {
+  "kind": "prose",
+  "note": "numbered bibliography entries",
+  "quality": "clean",
+  "structure": "n/a"
+ },
+ "L08": {
+  "kind": "table",
+  "note": "rotated remedial-work cost table; text is noise",
+  "quality": "garbage",
+  "structure": "absent"
+ },
+ "L09": {
+  "kind": "map",
+  "note": "BNSF system map, divisions and subdivisions",
+  "quality": "partial",
+  "structure": "n/a"
+ },
+ "L10": {
+  "kind": "drawing",
+  "note": "CAD val-map design sheet, legend and key map",
+  "quality": "nontext",
+  "structure": "n/a"
+ },
+ "L11": {
+  "kind": "prose",
+  "note": "forwarded email with header block",
+  "quality": "clean",
+  "structure": "n/a"
+ },
+ "L12": {
+  "kind": "map",
+  "note": "old valuation plan, district and survey labels",
+  "quality": "partial",
+  "structure": "n/a"
+ },
+ "L13": {
+  "kind": "mixed",
+  "note": "grantor/grantee deed table above valuation map",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L14": {
+  "kind": "map",
+  "note": "schematic line map, junctions and connecting roads",
+  "quality": "partial",
+  "structure": "n/a"
+ },
+ "L15": {
+  "kind": "prose",
+  "note": "verified statement text with footnotes",
+  "quality": "clean",
+  "structure": "n/a"
+ },
+ "L16": {
+  "kind": "table",
+  "note": "state/rate/comment each on own line; grid lost",
+  "quality": "nontext",
+  "structure": "ordered"
+ },
+ "L17": {
+  "kind": "table",
+  "note": "numbered contract list; text is column-major, rows broken",
+  "quality": "nontext",
+  "structure": "scrambled"
+ },
+ "L18": {
+  "kind": "prose",
+  "note": "typed brief page with footnotes",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L19": {
+  "kind": "mixed",
+  "note": "deed/instrument table above, valuation map below",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L20": {
+  "kind": "map",
+  "note": "rotated right-of-way plan, road and town labels",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L21": {
+  "kind": "form",
+  "note": "STB comment form, handwritten entries",
+  "quality": "partial",
+  "structure": "n/a"
+ },
+ "L22": {
+  "kind": "table",
+  "note": "economic impact table; grid lost, totals row misordered",
+  "quality": "noisy",
+  "structure": "ordered"
+ },
+ "L23": {
+  "kind": "form",
+  "note": "filing cover sheet, received/entered stamps",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L24": {
+  "kind": "prose",
+  "note": "report title page with addresses",
+  "quality": "clean",
+  "structure": "n/a"
+ },
+ "L25": {
+  "kind": "prose",
+  "note": "letter page with signature and footnotes",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L26": {
+  "kind": "form",
+  "note": "county tax statement, label/value blocks",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L27": {
+  "kind": "map",
+  "note": "aerial/topo map with abandonment labels",
+  "quality": "nontext",
+  "structure": "n/a"
+ },
+ "L28": {
+  "kind": "prose",
+  "note": "two-column list of agency addresses",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L29": {
+  "kind": "mixed",
+  "note": "rotated line chart plus rate table",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L30": {
+  "kind": "mixed",
+  "note": "letter above, PS Form 3811 receipt below",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L31": {
+  "kind": "table",
+  "note": "rotated methods table; text is character noise",
+  "quality": "garbage",
+  "structure": "absent"
+ },
+ "L32": {
+  "kind": "map",
+  "note": "rail line map, milepost and street labels",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L33": {
+  "kind": "prose",
+  "note": "cost-of-capital text; one small embedded table",
+  "quality": "clean",
+  "structure": "n/a"
+ },
+ "L34": {
+  "kind": "table",
+  "note": "wide delay-log grid; cells in reading order",
+  "quality": "garbage",
+  "structure": "ordered"
+ },
+ "L35": {
+  "kind": "prose",
+  "note": "environmental decision narrative",
+  "quality": "clean",
+  "structure": "n/a"
+ },
+ "L36": {
+  "kind": "table",
+  "note": "segment HM carload grid; headers first, cells sequential",
+  "quality": "nontext",
+  "structure": "ordered"
+ },
+ "L37": {
+  "kind": "prose",
+  "note": "outlined list of attendees by party",
+  "quality": "clean",
+  "structure": "n/a"
+ },
+ "L38": {
+  "kind": "table",
+  "note": "date/proceeding columns split into separate blocks",
+  "quality": "noisy",
+  "structure": "scrambled"
+ },
+ "L39": {
+  "kind": "map",
+  "note": "Illinois rail map figure with city labels",
+  "quality": "partial",
+  "structure": "n/a"
+ },
+ "L40": {
+  "kind": "table",
+  "note": "demographic rows in order; section headers moved to end",
+  "quality": "nontext",
+  "structure": "ordered"
+ },
+ "L41": {
+  "kind": "map",
+  "note": "two small Wisconsin line maps with headings",
+  "quality": "partial",
+  "structure": "n/a"
+ },
+ "L42": {
+  "kind": "map",
+  "note": "CSX topo abandonment map with title block",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L43": {
+  "kind": "prose",
+  "note": "filing cover letter; several STB stamps",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L44": {
+  "kind": "drawing",
+  "note": "rotated track chart sheet, legend and title block",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L45": {
+  "kind": "map",
+  "note": "rotated UPRR right-of-way plan, mileposts and streets",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L46": {
+  "kind": "prose",
+  "note": "numbered hearing transcript page",
+  "quality": "clean",
+  "structure": "n/a"
+ },
+ "L47": {
+  "kind": "map",
+  "note": "Bellevue zoning subarea map, rotated, large legend",
+  "quality": "nontext",
+  "structure": "n/a"
+ },
+ "L48": {
+  "kind": "table",
+  "note": "fossil locality grid; rows sequential cell by cell",
+  "quality": "nontext",
+  "structure": "ordered"
+ },
+ "L49": {
+  "kind": "table",
+  "note": "EIS crossing-delay table; values row-major, one per line",
+  "quality": "nontext",
+  "structure": "ordered"
+ },
+ "L50": {
+  "kind": "prose",
+  "note": "Chicago alderman support letter, letterhead plus body",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L51": {
+  "kind": "prose",
+  "note": "faxed NY DOT letter with cc list",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L52": {
+  "kind": "mixed",
+  "note": "rotated slide: route map plus numbered operating-plan prose",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L53": {
+  "kind": "form",
+  "note": "handwritten return address, Colorado certification stamp and seal",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L54": {
+  "kind": "prose",
+  "note": "short CREDO Action comment letter",
+  "quality": "clean",
+  "structure": "n/a"
+ },
+ "L55": {
+  "kind": "map",
+  "note": "Chicago USGS street map with bridge legend",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L56": {
+  "kind": "form",
+  "note": "FRA inspection report, repeating label/value field blocks",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L57": {
+  "kind": "map",
+  "note": "SLGW railway route map under letterhead prose",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L58": {
+  "kind": "prose",
+  "note": "numbered list of AAR workpapers",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L59": {
+  "kind": "table",
+  "note": "Refinitiv screenshot; values grouped by column, rows unrecoverable",
+  "quality": "noisy",
+  "structure": "scrambled"
+ },
+ "L60": {
+  "kind": "table",
+  "note": "crossing delay grid; values row-major, columns lost",
+  "quality": "nontext",
+  "structure": "ordered"
+ },
+ "L61": {
+  "kind": "form",
+  "note": "near-blank page, mirrored notary seal only",
+  "quality": "garbage",
+  "structure": "n/a"
+ },
+ "L62": {
+  "kind": "mixed",
+  "note": "appraisal prose with chart and employers table",
+  "quality": "noisy",
+  "structure": "n/a"
+ },
+ "L63": {
+  "kind": "map",
+  "note": "rotated CERA route map with legend",
+  "quality": "partial",
+  "structure": "n/a"
+ },
+ "L64": {
+  "kind": "map",
+  "note": "Pittsburgh track/valuation map plus track index list",
+  "quality": "noisy",
+  "structure": "n/a"
+ }
+}

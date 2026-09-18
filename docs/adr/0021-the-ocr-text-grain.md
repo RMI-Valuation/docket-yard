@@ -378,3 +378,208 @@ row live on D (its `page_count` and `had_text_layer` feed the rule) and the `pag
 live on D — each the row whose `asserted_at` ≤ D and whose `superseded_at` is null or after D,
 on the store's clock throughout; `routed_at` is never read for it. Queries 1, 2, 4 and 5 read no page
 text and no route, and are unchanged.
+
+## Addendum (2026-09-17): a reading's quality is its own assertion, and the rule that judges it is dated
+
+**Status: WITHDRAWN 2026-09-17, by the operator**, before any migration was written and before
+any row existed. It proposed what a page may say *about* a reading it shows; the operator's
+answer is that the score stays an **internal routing list** — no schema change, nothing
+published — and that the re-read fixes the pages instead of labelling them.
+
+**Why it is kept rather than deleted.** Three schema-critic passes each found real breaks, and
+twice the break was in the previous pass's own repair (`docs/deferred.md`, 2026-09-17): a new
+lexicon would blank every warning site-wide until ~1.085M readings were re-scored; the
+suppression path for a wrong warning was unbuildable in either table it could mean; the owed
+as-of projection is the second copy of the display rule migration 0028 forbids, whose
+non-duplicating form is a measured 27-minute page-index rebuild. **The accumulation was itself
+the finding**: four new objects and a row per page to print one sentence. The operator's first
+answer, before this draft argued him out of it, was "internal only"; the record below is what
+that decision was taken against, and what a later attempt would start from.
+
+**What it would have been.** Migration 0034, against the measurement in
+`docs/research/text-quality/`: ~110,500 of 931,392 judged text-layer pages faulty
+(65,300–330,000), ~33,400 garbage. The decisions below are the third draft, after the second
+pass; the third pass's findings are open in `docs/deferred.md` and are not answered here.
+
+1. **The subject is a reading, not a page.** `text_quality`, keyed on `text_id` —
+   `document_text`'s own key, never `(document_sha256, page_no)`. `document_text.text` is
+   immutable by trigger and `text_id` is a surrogate, so the pointer resolves for ever to the
+   exact bytes scored; a page key would re-point a published warning at words nobody measured
+   on the first re-read, because supersession there is cross-key (decision 9).
+
+2. **A score is superseded, never updated**, with `superseded_by`/`superseded_at` and a live
+   partial index, as `page_route` has them. Re-scoring under the same instrument is an INSERT
+   that retires its predecessor.
+
+3. **A different lexicon is a second live score, not a supersession.** The live index is
+   `UNIQUE (text_id, method, method_version, lexicon_digest) WHERE superseded_by IS NULL`, and
+   the score row carries all three. **This is decision 2's render rule, for its reason**, and
+   the second draft had it backwards: the lexicon is built from the record and the record grows
+   through waves 2–3, so making a new lexicon supersede would put ~931k rows through a
+   supersede-and-reinsert at every rebuild. It also keeps ADR 0023's finding rule — a candidate
+   lexicon can be scored beside the incumbent and the disagreement is visible, which it is only
+   if both rows survive. **The tie-break is not a race**: decision 4's rule names the instrument
+   the page reads, so exactly one of a page's live scores is ever displayed.
+
+4. **The rule that judges is a dated row on the store's clock.** `quality_rule`: the cut, the
+   floor, `method`, `method_version`, `lexicon_digest`, `asserted_at`, `superseded_at`, and
+   `UNIQUE WHERE superseded_by IS NULL` over the whole table — **one live rule, store-wide**.
+   The page reads the live rule; a replay reads the rule whose `asserted_at <= D` and whose
+   `superseded_at` is null or after D. **There is no separate in-force clock and no
+   back-dating**: a rule takes effect when it enters the record, because a rule inserted on day
+   two and in force from day one rewrites what the record says a reader saw — 0032's "two
+   clocks, never one" seen from the other side, where the second clock would be the harm.
+   Moving the cut or the floor is one INSERT and moves no stored score.
+
+5. **The counts ship with the score, all three.** `lettered_tokens`, `word_shaped_tokens`,
+   `lexicon_hits`; the score is `lexicon_hits / lettered_tokens`, pinned here because two
+   denominators for one number is a mistake this work has already made. A third counter is free
+   now and a re-score of 931k rows later.
+
+6. **The lexicon is an artefact with a row, not a digest of something nobody kept.** `lexicon`:
+   `lexicon_digest` as its key, the word count, what it was built from, the day, and the blob's
+   own digest in the blob tier. A digest with no preimage is an unverifiable key, and § Reviewed
+   already states the rule: a decision and the thing it is computed from ship together.
+
+7. **Every live text-layer reading gets a row, and the floor is a read-time rule.** A blank
+   page's row carries zeros — decision 5's rule, that an empty reading is a row. **Nothing about
+   the floor is frozen onto a row**: "too short to judge" is evaluated from the rule live on the
+   day, exactly as the cut is, or moving the floor would invalidate ~931k stored verdicts and
+   make `/methodology`'s denominator unreplayable. So **"no row" means one thing: not yet
+   scored** — which is what `text_quality_run` counts.
+
+8. **A pass is a row.** `text_quality_run`: one row per pass, corpus-scoped and therefore *not*
+   `ocr_run`'s per-document shape (which the second draft named in error), carrying the
+   `rule_id` and `lexicon_digest` it ran under, `pages_scored`, `pages_blank`, `pages_failed`
+   and the published counts the pass computed. `pages_failed` is there for ADR 0021 D5's
+   reason — absence is not a measurement — and the published counts are stored here rather than
+   recomputed, because a count joined through `document_text_display` pays `dy_display_text`
+   per row and that view's cost is measured: 27m26s to rebuild the page index at 1.1M rows.
+
+9. **A stale score is not shown, and staleness is defined against the view.** A `human` row
+   removes a primary from `document_text_display` **without superseding it**, so
+   `superseded_by IS NULL` is not the test — ADR 0026's lesson, in its shape:
+   `NOT EXISTS (SELECT 1 FROM document_text_display v WHERE v.text_id = q.text_id)` is stale.
+   **Every reader of that view calls `display.register` first** (ADR 0026 D2): the function is
+   resolved over the whole view body at prepare time, so a CLI pass that opens the store bare
+   cannot read it at all.
+
+10. **Only a text-layer reading is scored, as a writer's obligation and a filtered index** —
+    not a CHECK. The signal does not transfer (AUC 0.59 against the wave's agreement distance
+    on 55,356 engine primaries), but SQLite cannot ALTER a CHECK, and a welded channel would
+    make scoring an engine reading later a rebuild of a ~931k-row table. ADR 0026 D7's idiom
+    for a pairing SQLite cannot express.
+
+11. **The score is not ADR 0007's `confidence`**, which the row also carries: the block is
+    `confidence`/`confidence_state`/`measured_target`/`score_row_id`, and the score is its own
+    column, as `engine_confidence` is in decision 8.
+
+12. **The gate is on the scored row, and it is a measurement of the instrument.**
+    `score_row_id` and `measured_target` sit on `text_quality` under the composite FK, so
+    decision 7's gate stays a constraint rather than a web-tier convention — D1's own argument.
+    `measured_target_vocab` gains `text_quality`; `class_vocab` gains the **instrument**
+    (`text-layer-lexicon-share`), never the cut.
+
+    **One measurement row, not two.** The detector figures are the 64-page sample's — precision
+    1.00 for any fault, 0.72 for garbage — and `score_file` names that file and that n. The
+    band rates are **not** a `class_measurement` row and may not be made one: its
+    `CHECK (recall IS NOT NULL OR precision IS NOT NULL OR false_veto_rate IS NOT NULL)` has no
+    column for a rate, and a second row on one `benchmark_date` collides on
+    `class_measurement_identity`, whose key ADR 0018 D8 declined to widen on 2026-09-01. The
+    band rates live in the research directory, which is where a figure with no column belongs.
+    **Recall is therefore not stored either**: 0.68 is population-weighted over two samples and
+    an 866,497-page band, and `truth_count`/`found_count` beside it would name 32 labelled pages
+    under a denominator that is an extrapolation.
+
+    **The remaining cost, named:** `class_measurement` has no lexicon column, so a row scored
+    under one lexicon may point at a measurement taken under another. Widening that key is ADR
+    0018 D8's, and decision 3 makes a second instance likely.
+
+13. **What the page says.** Below the live rule's cut, one sentence names the method, its
+    version and the score, says what was counted — that most of this page's tokens are not words
+    the record uses — and links the scan. It is a claim about a count, while the gate is opened
+    by a measurement of that count **as a fault detector**, the stronger predicate; the record
+    takes the honest reading, that a reader will hear "this page is suspect". **The count is
+    taken over the stored reading, before the display rule omits contact details** — a
+    length-changing mask — so a reader recounting tokens on the page will not reproduce it, and
+    the sentence says so.
+
+14. **A page with no warning gets no sentence.** One text-layer page in eight is faulty and
+    3.5% are flagged, so a reassuring sentence would be false for most faulty pages. This
+    reverses `band()`'s idiom on the same page deliberately: there, silence about a *second
+    reading* is a fact about this project; here, silence about *quality* would be a claim about
+    the document. `/methodology` carries the shortfall in the same commit — including that an
+    engine reading is not scored at all, so an unflagged page is not a judged page.
+
+15. **A reader's report is a report about the reading, and `review_target_vocab` gains
+    nothing.** The correctable object is the text, which already has its row and its natural
+    key; a new review target would be keyed on a surrogate that changes at every re-score,
+    orphaning the report, and `search.PAGE_TABLES` excludes the page tables **by name**, so a
+    third page-grain target would put a page-text correction back into the record index's
+    signature and rebuild it site-wide. **A human row suppresses the warning**: it copies the
+    machine's counts unchanged and means *do not show this*, so nobody has to invent a count
+    they did not take.
+
+16. **Held, all four**, and each classified by name in `dump.HELD_TABLES` — `text_quality`,
+    `quality_rule`, `text_quality_run`, `lexicon` — with `text_quality` **above `document_text`**
+    (children before parents). `dump.scrub` raises `Unsafe` on any table it cannot classify, so
+    an unclassified one breaks the nightly snapshot the night the migration lands. Whether a
+    23,524-word vocabulary distilled from the record could ever be published is a
+    `docs/licensing.md` question, not a migration author's; held answers it for now.
+
+17. **The writer.** A CLI pass scores live text-layer readings that have no live score under the
+    live rule's instrument, reading the lexicon blob named by that rule and **refusing to score
+    rather than to load** if it is absent; the forward pass scores what it loads, under the same
+    rule. ~931k rows against ADR 0022's budget.
+
+**Validation** (`docs/validation-queries.md`). Query 3 is the one this touches: what a page
+showed on date D is the display row live on D, the `text_quality` row live on D for the
+instrument the `quality_rule` row live on D names — three reads on one clock, which is why
+decisions 4 and 3 are shaped as they are.
+
+**And the first of the three cannot be read today, which this record states rather than
+assumes.** `document_text_display` is a CURRENT-state view: it filters `superseded_by IS NULL`
+and exposes `asserted_at` but no `superseded_at`, so there is no as-of form of it, and
+migration 0028 forbids re-deriving its human-over-primary rule against `document_text`. The gap
+predates this addendum and belongs to the text pages as they ship today; what is new is that
+decisions 4 and 9 make a *published sentence* depend on it. **Owed with the migration**: an
+as-of projection of the display rule — one view or one function, in the store, not a second copy
+in the web tier — or decision 14's sentence is replayable only to the day it was read.
+
+Queries 1, 2, 4 and 5 read no quality row; nothing derived is published from a score, and the
+citator's families do not join it. The operational join
+(`citation_reading.text_id = text_quality.text_id`, a re-walk queue of edges read off flagged
+pages) is left unbuilt here and is not foreclosed.
+
+## What the earlier drafts got wrong (schema-critic, passes one and two, 2026-09-17)
+
+Recorded because three of these are errors in the measurement or in a fix, not in the original
+design, and because the second pass broke the first pass's own repair.
+
+- **The cut lived in a `class_vocab` class name** (pass 1). That made `confidence_state =
+  'measured'` a function of a threshold: moving the cut meant superseding and re-inserting every
+  scored row, and every past replay of query 3 answered today's question. Decision 4 replaces it.
+- **The lexicon superseding reinstated that same every-row cost** (pass 2) — the repair's own
+  defect, and worse than the disease, because the lexicon changes whenever the record grows
+  while the cut changes when somebody decides. Decision 3 makes it a second live score.
+- **The floor was frozen onto each row** as a stored verdict under a rule that moves (pass 2).
+  Decision 7 makes it read-time, so the § claim that a rule change moves no stored score is now
+  true of both halves of the rule.
+- **`quality_rule` had one clock and no live index** (pass 2): two rules could be in force at
+  once, and a back-dated rule could rewrite what the record says a reader saw. Decision 4 fixes
+  the clock and the index, and forbids back-dating.
+- **The measurement registry cannot hold what decision 12 promised** (pass 2): a band rate fits
+  no column and a second row on one date collides on the identity index. One row now, and the
+  band rates stay in the research directory.
+- **`text_quality_run` named `ocr_run`'s shape**, which is per document and public, for a
+  corpus-scoped held row (pass 2). Decision 8 states its own shape and restores `pages_failed`.
+- **The review target would have rebuilt the record index** (pass 2): `search.PAGE_TABLES`
+  excludes the page tables by name. Decision 15 adds no target and suppresses through a human
+  row instead.
+- **`good` had two denominators in one document** (pass 1): `hits / word-shaped` in the 18005
+  table and `hits / letter-bearing` everywhere else — 0.56 against 0.22, the same page and the
+  same reading. Decision 5 pins it; the README is corrected.
+- **Garbage recall was 0.92 and is 0.68** (pass 1). The 0.92 came from the 64-page sample, whose
+  ≥0.7 cell held 16 pages and no garbage; the 102-page top-up found 1 in 102 up there, standing
+  for ~8,500 pages the cut misses. Nothing had been published from it, and decision 12 now keeps
+  it out of the store as well.

@@ -1790,3 +1790,194 @@ repeated-filer prose, an as-of cite). Those items have left this file; the commi
 - **`create_app` is one ~1,900-line closure** (developer I9); **error formats differ by route**
   (developer I10: 422 JSON on some, HTML 404 elsewhere; `.JSON` case-sensitive).
 - **Capture provenance is in the snapshot but not the JSON twin** (auditor I8, partly).
+
+## Text-layer quality, 2026-09-17 (against v2026.09.28; `docs/research/text-quality/`)
+
+Found while measuring why `/filing/18005` shows garbled text. The operator's four decisions of
+the same day are in `TODO.md` § Next; what is recorded here is what was measured and NOT acted
+on.
+
+- **The image-only test is per document and has no quality dimension.** `extract_text.py` and
+  `infra/extract/extract.py` call a document image-only only when EVERY page holds under 20
+  stripped characters, so one readable page keeps a whole scanned document on the text-layer
+  path, and a garbled layer is never second-read by anything (ADR 0024 D7's queue takes empty
+  pages only). Deferred: whether the forward pass should route a new document's *pages* rather
+  than the document.
+- **`noisy` text layers are invisible to a lexicon check.** 6 of 16 sampled pages scoring ≥0.7
+  were readable-but-frequently-wrong (`infonnalion`, `Buriington`). Sixteen pages cannot size
+  the class, and no cheap signal in this family will find it — the errors are word-shaped. A
+  second reading with a distance is the only instrument that would, which is ADR 0021 D8's
+  operand over 866k pages. Deferred until the ≥0.7 sample exists.
+- **Broken font encodings are a distinct failure with a distinct repair.** Born-digital PDFs
+  whose `ToUnicode` map is wrong yield a substitution cipher (`Pd_ed KWY_\_Y` for `Union
+  Pacific`, `Qixve` for `Metra`); they are why 2020–26 leads the low-score table, and OCR of
+  the render fixes them outright. No detector for them beyond the score.
+- **~5,500 pages score <0.3 in 2020–26**, the era whose documents the forward pass reads today.
+  The re-read decision covers the backlog; whether the FORWARD pass should score a page as it
+  lands, and re-read it there, is not decided.
+- **The signal is weak on engine readings** (AUC 0.59 against the wave's measured
+  `agreement_distance` on 55,356 degraded primaries) and **blind to invention**: a local
+  `deepseek-ocr` reading of 18005 invented fluent sentences and scored 0.96. Nothing here
+  should be used to judge an OCR reading.
+- **1,104,935-page-era note:** blank text-layer pages inside otherwise-text-layer documents
+  (14,894 in 2000–04 alone) remain outside both the OCR queue and this signal's floor.
+
+## From the operator's check of the text-quality labels, 2026-09-17
+
+He checked all 64 pages against their scans (`docs/research/text-quality/labels-checked.json`);
+the figures in that README are now his, not the drafting pass's.
+
+- **The wave reads a sideways page sideways.** `ocr_wave.py` builds PP-OCRv6 with
+  `use_doc_orientation_classify=False` and `use_textline_orientation=False` (466-468), and
+  **9 of his 64 pages carry "rotate before OCR"**, 6 of them scoring under 0.3. The benchmark's
+  `ppocr-pre` run measured those toggles as worse (12.3% CER against 11.8%) — but on the 90
+  IMAGE-ONLY pages, a population where rotation is rarer than in this text-layer sample. Owed
+  before the re-read: measure orientation detection on rotated text-layer pages specifically,
+  and decide whether the render or the reader fixes it.
+  **MEASURED 2026-09-17, and it rules out the cheap fix: all 9 of those pages carry
+  `/Rotate = 0` and a PORTRAIT page box** — the scan itself is sideways and the PDF says
+  nothing. Neither the rotation flag nor the aspect ratio finds them (8 other pages of the 64
+  DO declare a rotation, and pymupdf already honours those, so the declared ones render
+  upright). Only a content-based orientation classifier or the layout model's own reading
+  order can detect the other kind, which is the toggle the wave turns off.
+  **PROBED 2026-09-17** (`docs/research/text-quality/` § The rotation probe): rendering each of
+  the 9 at four rotations and scoring the PP-OCR reading does NOT pick the upright one — the
+  spread is hundredths and the winner lands on all four values — so that cheap detector is out.
+  A VL model read the two tried at 0° about as well as turned, and **dots.mocr is itself a VL
+  model**, so this bears on PP-OCRv6's tiers, not on the degraded-tier reader. None of the 9 is
+  prose, so it does not block the prose re-read. Still owed before the graphic and tabular
+  pages: the toggles on against off over rotated pages, scored against checked truth.
+- **No table page keeps its grid.** 20 table/mixed pages carry a structure verdict: 5 ordered,
+  9 scrambled, 7 absent, 0 grid — and 7 of them have clean words. A table's text layer is
+  usable for search and useless for reading a row, at any score. Nothing in the display says
+  so; whether a table page should say it is the operator's, and it is an argument for the
+  HunyuanOCR tabular pass rather than for this re-read.
+- **The drafting pass was systematically kinder than the check.** 46 of 53 quality drafts
+  agreed, and 4 of the 7 corrections moved a page from `partial`/`noisy` to `garbage`
+  (L09, L56, L62, L63). Any future model-drafted label set for this work should be treated as
+  a lower bound on the damage until checked.
+- **The sample cannot size the record.** Eight pages a cell puts garbage between 16,000 and
+  205,000 pages and "at least noisy" between 127,000 and 488,000 (Wilson, 95%). The >=0.7
+  band's 866k pages dominate both intervals. The ~100-page top-up of that band is what narrows
+  them; until it exists, no coverage figure may be published from this work.
+- **`mixed` pages are the worst class** (7 of 9 garbage) and the router has no such class:
+  a page that is half map and half prose goes to one reader whole.
+
+## From the top-up sample, 2026-09-17 (`docs/research/text-quality/`)
+
+102 pages above 0.7, labelled twice blind and 31 of them checked by the operator.
+
+- **Model labellers are miscalibrated in BOTH directions, and neither direction is safe.** The
+  64-page pass was too kind (4 of 7 corrections moved a page to `garbage`); the two top-up
+  passes are too harsh, over-calling faults ~2.5x — he overruled both of them on 8 pages, every
+  one `noisy` to them and `clean` to him. They missed nothing he called faulty (0 of 13
+  both-clean pages). Any future label set here needs a checked subsample before its rate is
+  used; a blind pass alone is a screen, never a measurement.
+- **~110,500 of 931,392 judged text-layer pages are faulty (65,300-330,000), about one in
+  eight.** 29% sit in the 3.4% the signal flags below 0.5; the rest are spread across the
+  0.9+ band, whose SIZE now drives the interval's width. Narrowing it further means more
+  labelled pages there, not a better signal — and the operator's time is the binding cost.
+- **What "faulty" is up there is not what it is down here.** Above 0.7 the failures are a lost
+  signature name, one party name wrong in every occurrence, a fused address — pages that read
+  fine and defeat a search for the one term that matters. Re-reading them with OCR is not
+  obviously a repair: the text layer is right about the body and wrong about the name.
+- **A text layer can be a SUPERSET of its page.** T086 carries three lines that appear nowhere
+  on the rendered page (a statement date and two notices). Nothing checks that the layer's text
+  is on the page; the display shows it as the page's text.
+
+## From the schema critic on the 0021 quality addendum, 2026-09-17 (branch `text-layer-quality`)
+
+Two of its findings were errors in the MEASUREMENT and are corrected in
+`docs/research/text-quality/README.md`: `good` was printed under two denominators
+(`hits/word-shaped` in the 18005 table, `hits/letter-bearing` everywhere else — 0.56 against
+0.22 for one reading), and garbage recall was 0.92 from a 16-page cell that held no garbage,
+against 0.68 once the top-up's 1-in-102 is carried. Both are recorded in the addendum itself
+so the correction travels with the decision. What is left open:
+
+- **`class_measurement` cannot name a lexicon.** The addendum makes the lexicon an operand of
+  the score, but the measurement registry has no column for it and its identity index has
+  none either: a row scored under lexicon B may legally point at a measurement taken under
+  lexicon A, and two measurements of one cut under two lexicons on one day collide. Widening
+  that key is ADR 0018 D8's, declined 2026-09-01 as a rare same-day collision; the lexicon
+  makes a second, likelier instance, because the vocabulary grows with the record. Re-open
+  when the quality migration is written.
+- **`document_text_display` exposes `asserted_at` but not `superseded_at`, and takes no as-of
+  parameter.** So "the display row live on date D" cannot be read from the shipped view, and
+  0028 forbids re-deriving the human-over-primary rule against `document_text`. Validation
+  query 3 leans on this for text pages TODAY, before any quality row exists; the quality
+  addendum is only the first record to rely on it as though done.
+- **The operational join is left unbuilt, deliberately**:
+  `citation_reading.text_id = text_quality.text_id` would give the citator a re-walk queue —
+  edges read off pages the signal flags — on a graph built from numbers read out of that same
+  text. Not foreclosed, not argued.
+
+## From the third schema-critic pass on the 0021 quality addendum, 2026-09-17
+
+Three passes, each finding real breaks, twice in the previous pass's own repair. Open against
+the third draft; none is acted on, because the scope question above them is the operator's.
+
+- **A new lexicon blanks every warning on the site until the re-score finishes.** The writer
+  scores under the live rule's instrument, so the moment a new rule lands no page has a score
+  under it — ~1.085M readings, hours of scoring — and decision 14 makes silence read as "no
+  fault found". The dated rule's "one INSERT" is true of the cut and the floor, false of the
+  lexicon, which is the operand that changes most.
+- **Decision 15's suppression is unbuildable as written.** A `text_quality` human row cannot win
+  the tie-break (its method is `human`, not the rule's instrument); a `document_text` human row
+  does suppress, but only by a person ASSERTING the page's text — thousands of characters they
+  did not transcribe — and it silently deletes the page's band sentence too. The record does not
+  say which table it meant. Also `review_action_live` is keyed `(queue, target_table,
+  target_key)`, so a "this text is misread" report and a "this warning is wrong" report are one
+  live row and the second supersedes the first; a new `review_queue_vocab` member separates them
+  without touching `search.PAGE_TABLES`.
+- **The population is 1,085,292 rows, not ~931k** (judged 931,392 + blank 85,224 + short
+  68,676), and no byte figure is given where ADR 0022 measured 365 B/row before accepting
+  `document_text`. `/methodology`'s "3.5% flagged" is 3.4% of judged pages and 2.9% of the rows
+  that would exist.
+- **The owed as-of projection is the thing 0028 forbids.** An as-of view beside the current one
+  IS a second copy of the display rule; the only non-duplicating construction redefines
+  `document_text_display`, which is `page_fts`'s external content — a full page-index rebuild,
+  measured at 27m26s over 1,104,935 rows, behind the wall.
+- **No validator moves when a score or a rule lands.** `page_stamp` names `document_text`,
+  `document_pagination` and `page_route`; migration 0032 added its terms for exactly this
+  reason. Without a term, a rule change alters what every text page says behind unchanged ETags
+  and a 300 s public cache.
+- **The stored precision is cut-conditional and would sit on rows the cut never touched.**
+  Precision 1.00/0.72 is measured over the flagged set; putting `score_row_id` on every score
+  row stamps a page at 0.95 with a figure that says nothing about it. Leaving machine rows
+  `unmeasured` and gating the sentence in the web tier is the alternative the draft refuses.
+- **The lexicon in the blob tier contradicts ADR 0022 D2** ("one artefact goes to the blob tier:
+  the engine payload"), and `prune_blobs.py` deletes a local blob 30 days after S3 holds it —
+  against a writer that refuses to score without it. A 23,524-word list is small enough to live
+  in the store.
+- Smaller: the instrument is three repeated TEXT columns (a 64-char digest among them) on
+  1.085M rows, where an `instrument` row would intern it; `quality_rule` has no stated
+  `rule_id`, no `superseded_by` column and a unique index over no columns; `text_quality_run`
+  has no key and no typed outcome vocabulary, which is ADR 0021 D5's own rule; no `run_id` on a
+  score; and the § Validation line "nothing derived is published from a score" contradicts
+  decision 13, which publishes one.
+
+## From scoring the prose screen on its own population, 2026-09-18 (branch `text-layer-quality`)
+
+The re-read's order is the operator's (prose first), and `text_quality.looks_like_prose` is what
+obeys it. Its note claimed "on the 166 labelled pages, recall 0.92 and precision 0.92". Re-scored
+read-only over production with the labels separated by who made them, that figure does not
+reproduce and was measured mostly off-population; the note now carries the three rows below
+instead. Nothing here blocks the prose pass — a queue order that is wrong costs reading order,
+not a wrong assertion — but two things are owed if the screen is ever leaned on harder.
+
+- **The screen is effectively unmeasured on the pages it orders.** Of the 166 labelled pages only
+  32 are below the 0.5 cut, and only **5 of those are prose**: precision 0.80 (4/5), recall 0.80
+  (4/5). The pooled 166-page figure is carried by the ≥0.7 band, which is 134 of the pages and
+  where prose is most of the population and easy to spot (blind kinds there: precision 0.95,
+  recall 1.00). His 95 checked kinds give 0.89/0.91. **Owed: ~40 kind labels drawn from the
+  flagged set itself**, if the screen is to carry a stated rate. The indication it does give is
+  worth having and is why the pass is still worth seeding: prose is 5 of 32 flagged pages (16%)
+  and roughly 80% of what the screen selects, a fivefold lift in purity.
+- **71 of the 166 kind labels are unchecked model labels**, which is the thing the operator's own
+  rule forbids being turned into a rate ("model labels are a screen, never a measurement"). The
+  quality labels in this directory were kept honest about this; the kind labels behind the screen
+  were pooled without the distinction. The separation now lives in the module's note.
+- Smaller, fixed in place rather than deferred: the precision/recall table printed a raw sample
+  count inside a population-weighted precision cell, so `0.80 (42/48)` invited a division that
+  gives 0.875; and the queue builder's docstring read as though 6,170 prose pages sat in 4,896
+  documents, which is the count for all 31,798 flagged pages (the prose subset is 1,501).

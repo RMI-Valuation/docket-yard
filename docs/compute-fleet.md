@@ -293,6 +293,29 @@ A second node needs three things and no redesign:
    once read a page every 3.3 s effective. The gate runs six. The node could run two, and
    has not been measured for the vision encoder's activation peak at two — the OOM lesson.
 
+   **Re-measured on vLLM 0.29.0, 2026-09-17, on the 3090 box's WSL2 Ubuntu 24.04 (bare, not a
+   container): the constraint stands, and it now has a deadline.** V2 is 0.29's default for
+   every model and it fails at engine start with `RuntimeError: UVA is not available`; V1 still
+   works when forced. **V1 is deprecated in 0.29 with removal targeted for 0.32**, so both WSL2
+   nodes — the workstation and the 3090 box — are pinned below 0.32 until either the WSL driver
+   gains unified virtual addressing or those machines run native Linux. That is a second,
+   measured argument for the 3090 moving into RMI-AI-MACHINE, where the question does not arise.
+
+   A second finding from the same run, about bare WSL rather than vLLM: forcing V1 there fails
+   with `Failed to find C compiler`, because Triton compiles kernels at start and the distro has
+   no gcc. The workstation never sees it — its vLLM runs in a container that ships one. A bare
+   WSL node needs `build-essential` (root, once) or a user-space toolchain before it can serve.
+
+   **A bare-WSL node, built and proven 2026-09-17 on the 3090 box** (`home-ws-crr-25`), for
+   anyone doing it again: WSL2 Ubuntu 24.04 already sees the card, and nothing needs root if the
+   venv is built on **uv's own Python** — the distro's `python3.12` ships no headers, and Triton
+   compiles `cuda_utils.c` at engine start. Three failures in order, each invisible inside a
+   container: V2's `UVA is not available`, then `Failed to find C compiler` (the operator
+   installed `build-essential`), then `Python.h: No such file` (solved by
+   `uv python install 3.12` rather than `python3.12-dev`). With vLLM pinned to **0.28.0** and the
+   flags above, dots.mocr served and read a 150 DPI page in **3.2 s**. The token streams from the
+   node and the coordinator serves the documents' bytes, so a worker holds no S3 key.
+
 **NVIDIA's Personal AI Router (PAIR)** was evaluated 2026-09-09 for this role and is not it:
 it routes single requests to Ollama or LM Studio nodes by GPU utilisation, without regard to
 memory or model fit (its README says so), with no batch, no lease, and no way to say which

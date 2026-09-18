@@ -1,0 +1,219 @@
+{
+ "T004": {
+  "quality": "clean",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "0 errors; one paragraph duplicated as a run-on line",
+  "conflict": ""
+ },
+ "T008": {
+  "quality": "clean",
+  "kind": "table",
+  "structure": "ordered",
+  "note": "0 errors in mileposts and codes; cells row-wise, grid gone",
+  "conflict": ""
+ },
+ "T010": {
+  "quality": "clean",
+  "kind": "mixed",
+  "structure": "ordered",
+  "note": "0 errors in 3 lines; span headers hoisted above column heads",
+  "conflict": ""
+ },
+ "T012": {
+  "quality": "clean",
+  "kind": "mixed",
+  "structure": "ordered",
+  "note": "0 errors in values; table banner headers land after the data",
+  "conflict": ""
+ },
+ "T017": {
+  "quality": "noisy",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "2 errors in one 20-word line",
+  "conflict": ""
+ },
+ "T018": {
+  "quality": "clean",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "0 errors across 22 lines; verbatim",
+  "conflict": ""
+ },
+ "T020": {
+  "quality": null,
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "4 offeror misreads; that key term never correct",
+  "conflict": "one read it noisy (4 offeror misreads; that key term never correct), the other clean (3 errors, all one term rendered wrongly)"
+ },
+ "T022": {
+  "quality": "clean",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "0 errors; page is mostly redaction bars, visible text exact",
+  "conflict": ""
+ },
+ "T024": {
+  "quality": "noisy",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "6 of 11 words wrong in line 4; party names corrupted throughout",
+  "conflict": ""
+ },
+ "T028": {
+  "quality": "noisy",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "Excmption, Favctte, Gitomcr, KAIIN; 3 errors in 3 body lines",
+  "conflict": ""
+ },
+ "T031": {
+  "quality": null,
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "body exact; date line and signature captions dropped; 1 error",
+  "conflict": "one read it clean (body exact; date line and signature captions dropped; 1 error), the other noisy (notary block lines missing, RANSON I LSBA; 2 errors plus omissions)"
+ },
+ "T035": {
+  "quality": "clean",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "letterhead, ENTERED stamp, body right; 0 errors in 3 lines",
+  "conflict": ""
+ },
+ "T037": {
+  "quality": "clean",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "quoted comments and page footers exact; 0 errors in 3 lines",
+  "conflict": ""
+ },
+ "T038": {
+  "quality": "clean",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "transcript; line numbers hoisted, text exact; 0 errors",
+  "conflict": ""
+ },
+ "T039": {
+  "quality": "garbage",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "fused opening line, cipher-like misreads; ~6 errors per line",
+  "conflict": ""
+ },
+ "T049": {
+  "quality": "clean",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "headings and bullet list reproduced exactly; 0 errors in 3 lines",
+  "conflict": ""
+ },
+ "T052": {
+  "quality": "clean",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "0 errors in 4 lines; short decision closing page",
+  "conflict": ""
+ },
+ "T053": {
+  "quality": "noisy",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "3 errors in 3 lines: HAMP read RAMP x3, ofland",
+  "conflict": ""
+ },
+ "T055": {
+  "quality": "noisy",
+  "kind": "mixed",
+  "structure": null,
+  "note": "4+ errors: fused title, lntermodal x3, lsotanks",
+  "conflict": ""
+ },
+ "T056": {
+  "quality": null,
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "~half of 209 lines corrupted; 12 of first 16 unreadable",
+  "conflict": "one read it garbage (~half of 209 lines corrupted; 12 of first 16 unreadable), the other noisy (Federal Register scan; 5+ errors in 3 lines, many lines unreadable)"
+ },
+ "T059": {
+  "quality": "noisy",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "2 errors in ~45 words: bracket digit, Kem for Kern",
+  "conflict": ""
+ },
+ "T061": {
+  "quality": "noisy",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "3 errors in ~50 words; signature block dropped",
+  "conflict": ""
+ },
+ "T068": {
+  "quality": null,
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "10+ errors in 3 lines; symbol noise, dropped words, corrupt header",
+  "conflict": "one read it garbage (10+ errors in 3 lines; symbol noise, dropped words, corrupt header), the other noisy (8+ errors in 3 lines; binding noise, words dropped)"
+ },
+ "T073": {
+  "quality": "clean",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "0 errors in 3 lines; interpunct padding, words unbroken",
+  "conflict": ""
+ },
+ "T080": {
+  "quality": null,
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "2 errors: signature name garbled, 'Jeffrey 0.'; columns split cleanly",
+  "conflict": "one read it clean (2 errors: signature name garbled, 'Jeffrey 0.'; columns split cleanly), the other noisy (5 errors; lead signer name destroyed by signature overlap)"
+ },
+ "T083": {
+  "quality": "noisy",
+  "kind": "mixed",
+  "structure": "scrambled",
+  "note": "prose clean; table ~10 errors, Port/City values interleaved",
+  "conflict": ""
+ },
+ "T085": {
+  "quality": "noisy",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "3 errors in one line; MITU eirJDodying, subst^ution, fused email",
+  "conflict": ""
+ },
+ "T088": {
+  "quality": "clean",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "0 errors in 3 lines checked",
+  "conflict": ""
+ },
+ "T094": {
+  "quality": null,
+  "kind": "table",
+  "structure": "ordered",
+  "note": "4 errors (RJ., LisaMcFadden, 1 849, 3 15); column-major, header cells lost",
+  "conflict": "one read it clean (4 errors (RJ., LisaMcFadden, 1 849, 3 15); column-major, header cells lost), the other noisy (4 errors; header row lost)"
+ },
+ "T095": {
+  "quality": "noisy",
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "4 errors in ~30 lines: 91508DoIezalLn, Larkms, ISTh, MccafXree",
+  "conflict": ""
+ },
+ "T101": {
+  "quality": null,
+  "kind": "prose",
+  "structure": "n/a",
+  "note": "2 errors, both under the signature; address blocks exact",
+  "conflict": "one read it clean (2 errors, both under the signature; address blocks exact), the other noisy (4 errors; signature name lost, firm name split)"
+ }
+}
