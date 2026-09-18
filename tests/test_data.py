@@ -14,6 +14,39 @@ from docketyard.web.app import create_app
 from tests.test_web import build_store
 
 
+def test_openapi_describes_the_public_surface_only_and_once(tmp_path):
+    """`/openapi.json` is the machine half of /api, and it was published with two faults
+    (the independent graders I2, 2026-09-16): the gated reviewer routes were described in
+    it, and every page appeared twice — once as GET, once as HEAD — under a single
+    operationId, which the spec forbids.
+
+    HEAD is lifted only while the document is built, so the fix cannot be verified by
+    reading the document alone: that HEAD still answers is asserted here too."""
+    client = TestClient(create_app(build_store(tmp_path)))
+    spec = client.get("/openapi.json").json()
+
+    assert not [p for p in spec["paths"] if p.startswith("/review")], (
+        "the reviewer's surface is gated and is nobody's integration point (ADR 0016)"
+    )
+    seen: dict[str, str] = {}
+    for path, operations in spec["paths"].items():
+        assert "head" not in operations, f"{path} publishes HEAD as an operation of its own"
+        for method, op in operations.items():
+            oid = op["operationId"]
+            assert oid not in seen, f"operationId {oid} is on both {seen[oid]} and {method} {path}"
+            seen[oid] = f"{method} {path}"
+    # a route carrying more than GET still publishes each of them
+    assert set(spec["paths"]["/mcp"]) == {"get", "post"}
+
+    # ...and the lift was put back: HEAD answers as GET without a body, on a page and a file
+    for path in ("/", "/coverage", "/robots.txt"):
+        head, get = client.head(path), client.get(path)
+        assert head.status_code == get.status_code == 200, path
+        assert head.content == b"" and get.content, path
+    # the review routes are hidden from the document, not removed from the app
+    assert client.get("/review").status_code == 200
+
+
 def test_api_page_and_llms_txt_say_what_the_surface_is(tmp_path):
     client = TestClient(create_app(build_store(tmp_path)))
     r = client.get("/api")
@@ -209,6 +242,46 @@ def test_json_twins_at_the_permanent_addresses(tmp_path):
         "location",
         "comment_text",
     }
+    # The DOCKET level is the public contract too, and was not locked: it is `asdict()` on
+    # `sheet.DocketSheet`, so renaming a dataclass field silently renamed a published key
+    # (the independent graders I4, 2026-09-16). Only the entry keys above were held.
+    assert set(doc) == {
+        "docket_id",
+        "raw_docket",
+        "prefix",
+        "sequence",
+        "title",
+        "printed",
+        "url",
+        "is_index",
+        "filings",
+        "decisions",
+        "comments",
+        "last_checked",  # shape 3: the Board last asked, not the last entry it brought
+        "last_new_entry",
+        "series",
+        "sub_dockets",
+        "entries",
+        # `parties` is popped before serving — the enriched layer is held (dump.HELD_REASON)
+    }
+    assert "parties" not in doc, "the held layer must not reach the public shape"
+    # each member of the family, also from a dataclass and also unlocked until now
+    assert set(doc["sub_dockets"][0]) == {
+        "docket_id",
+        "raw_docket",
+        "title",
+        "filings",
+        "decisions",
+        "comments",
+        "last_activity",
+    }
+    # Two different `series` shapes ride in one response: the body's is the full reference,
+    # while `docket.series` comes straight off the dataclass and carries the store's raw
+    # spelling alone. Locked as served, not corrected — narrowing or widening a published
+    # key is a shape decision, not a test's to make (recorded in docs/deferred.md).
+    assert set(sub["series"]) == {"raw_docket", "printed", "url"}
+    assert set(sub["docket"]["series"]) == {"raw_docket"}
+    assert doc["series"] is None  # a family sits under nothing
 
 
 def test_every_template_is_packaged():

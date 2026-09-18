@@ -15,10 +15,11 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
   scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
   the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **Tabular pass RUNNING** since 2026-09-16 11:46Z (`67b1762`; PR #34 merged). **ETA 46.9 h at
-  2026-09-18 01:38Z**: 11,074 done, 13,727 pending, 1,489 failed (11.9%, the page-owned
-  `finish_reason length`). 434 of 3,385 documents are in NEITHER blob mirror, so no node reads
-  them this seed. Stop: `touch /data/docketyard/ocr/.stop-tabular`. Nothing collected is loaded
+- **Tabular pass RUNNING** since 2026-09-16 11:46Z (`67b1762`; PR #34 merged). Measured
+  2026-09-18 16:41Z: 15,969 done, 8,272 pending, 2,049 failed (11.4%), 389 pages/h —
+  **ETA ~2026-09-19 afternoon**. Failures are 1,324 page-owned `finish_reason length` and
+  728 `blob: missing on the node`, the latter recoverable at a later seed (`deferred.md`).
+  Stop: `touch /data/docketyard/ocr/.stop-tabular`. Nothing collected is loaded
 - **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
   `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
   quotation per displayed reading, migration 0033. **His to accept; then migration + pass**
@@ -37,9 +38,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   0.80/0.80 on 5 prose pages there, not the 0.92/0.92 that pooled blind labels off-population
 - **MCP: list the proceedings behind a count** (`deferred.md`): asked for the 20 most recent, an
   assistant guessed one. CHOSEN 2026-09-18; the tool's shape is his
-- **The graders' three open fix-now items** (`deferred.md` § The independent graders): the
-  `coverage` tool matching `/coverage` is the ARDA demo item; the docket JSON key test; openapi
-  hygiene
+- **The blob mirror, once the tabular pass is done** (his, 2026-09-18): all 310 documents
+  it failed on are in S3, 190.4 MB — `rmi-nuc` owns the mirror and holds no credentials to
+  refill it. Put `docketyard-reader` there and pull; a later seed then re-reads them
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion

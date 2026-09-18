@@ -1134,6 +1134,9 @@ def create_app(
             request,
             "coverage.html",
             cov=cov,
+            # The by-design limits come from the store, not the template, because the
+            # `coverage` tool hands an assistant the same sentences (the graders, 2026-09-16).
+            by_design_limits=coverage.BY_DESIGN_LIMITS,
             caption_lookups=poll.CAPTION_LOOKUPS,
             caption_window_days=poll.CAPTION_WINDOW_DAYS,
             caption_attempts=poll.CAPTION_ATTEMPTS,
@@ -2302,9 +2305,59 @@ def create_app(
         secure_cookie=secure_cookie,
     )
 
+    # The reviewer's surface is not part of the published API. It is gated, it is nobody's
+    # integration point, and ADR 0016 keeps its rules separate from this module's — but every
+    # one of its routes was being described in /openapi.json, six paths inviting a client to
+    # call them (the independent graders I2, 2026-09-16). Excluded by PREFIX rather than a
+    # flag on each decorator, so a review route added later is out of the document by
+    # default instead of by memory.
+    for route in app.routes:
+        if isinstance(route, APIRoute) and (
+            route.path == review_routes.PREFIX or route.path.startswith(review_routes.PREFIX + "/")
+        ):
+            route.include_in_schema = False
+
     for route in app.routes:  # HEAD answers as GET without a body, on every page
-        if isinstance(route, APIRoute) and "GET" in route.methods:
+        if isinstance(route, APIRoute) and route.methods and "GET" in route.methods:
             route.methods.add("HEAD")
+
+    # The loop above is LOAD-BEARING: Starlette's plain `Route` pairs GET with HEAD at
+    # construction, but FastAPI's `APIRoute` does not, so without it every HEAD here 405s
+    # and the outside monitor goes dark. Do not delete it as redundant (code review,
+    # 2026-09-18, which caught this comment claiming the opposite).
+    #
+    # Having added HEAD, the document has to be built without it. FastAPI emits one
+    # operation per METHOD while computing one operationId per ROUTE, so each page was
+    # published twice under a single id: forbidden by the spec, and warned about on every
+    # build (the independent graders I2, 2026-09-16). HEAD is the same operation without a
+    # body and earns no entry of its own, so it is lifted off the routes while the document
+    # is built and put straight back.
+    #
+    # Wrapping `app.openapi` rather than assigning `app.openapi_schema`: FastAPI regenerates
+    # whenever its own routes-version changes, and putting HEAD back changes it — so a
+    # pre-built schema was rebuilt, with the duplicates, on the first reader's request. The
+    # wrapper short-circuits on the cache before that check is ever reached, and delegates
+    # the build itself so every other setting still comes from FastAPI.
+    build_openapi = app.openapi
+
+    def openapi_without_head() -> dict:
+        if app.openapi_schema:
+            return app.openapi_schema
+        paired = [
+            r
+            for r in app.routes
+            if isinstance(r, APIRoute) and r.methods and {"GET", "HEAD"} <= r.methods
+        ]
+        for r in paired:
+            r.methods.discard("HEAD")
+        try:
+            return build_openapi()
+        finally:  # a route left without its HEAD would 405 every monitor
+            for r in paired:
+                r.methods.add("HEAD")
+
+    app.openapi = openapi_without_head
+    openapi_without_head()  # built here, so no reader pays for it and no request sees the lift
     return app
 
 

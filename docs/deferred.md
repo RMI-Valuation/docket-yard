@@ -2082,3 +2082,24 @@ essentially the entire remainder of the pass's 11.4% failure rate.
   728 spent attempts over two days. It is the same shape as the endpoint rule in `CLAUDE.md`:
   positively assert the precondition rather than infer it from a result that also has an
   innocent explanation.
+
+## Two `series` shapes ride in one docket JSON, 2026-09-18 (v2026.09.28, shape 3)
+
+Found while locking the docket-level JSON keys (the graders' I4). A sub-docket's response
+carries **two keys named `series` with different shapes**:
+
+- `series` at the body level is the full reference — `{raw_docket, printed, url}` — shaped
+  deliberately by `sheet_json`, with `raw_docket` in the store's own spelling because
+  `canonical()` renders a family as `FD_36873_0`, which no address resolves (code review,
+  2026-09-01).
+- `docket.series` is `{raw_docket}` alone, and nobody shaped it: it falls out of `asdict()`
+  on `sheet.DocketSheet`, whose `series` field the route never pops the way it pops
+  `parties`. A client reading the inner one gets `FD_36873` with no printed form and no
+  address, and has no way to know the outer one is richer.
+
+Locked as served rather than corrected — narrowing or dropping a published key is a shape
+decision, not a test's to make, and `shape_version` 3 is live. The options when it is
+chosen: pop `series` from the docket object (a removal, so a bump), or fill it to match the
+body's three fields (additive, which the API page's promise allows without a bump). The
+second costs nothing and makes the two agree; the first is cleaner and cannot be done
+quietly. **The operator's call.**

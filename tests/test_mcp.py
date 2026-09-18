@@ -169,6 +169,26 @@ def test_every_answer_carries_what_the_record_does_not_hold(client):
         assert "Coverage is not uniform" in text, text[:80]
 
 
+def test_coverage_names_every_limit_the_page_names(client):
+    """The `coverage` tool is what an assistant repeats when it cannot read the page, and
+    the server's instructions tell it to. A grader found it naming the counts and the
+    unfinished months but none of the limits (the independent graders, 2026-09-16), so an
+    assistant answered as if the record were uniform, complete and unbroken.
+
+    The by-design limits are asserted from the SAME constant the page renders, so this
+    passes only while the two cannot drift — adding a fourth limit to the page without the
+    tool fails here."""
+    from docketyard.store import coverage
+
+    text = call(client, "coverage")["content"][0]["text"]
+    for head, rest in coverage.BY_DESIGN_LIMITS:
+        assert f"{head}{rest}" in text, f"the tool drops the page's limit {head!r}"
+    # measured, and each is a different kind of not-covered: history, and time the watch
+    # was down. Silence about an outage reads as "there were none".
+    assert "complete history" in text, "the tool claims no limit on how far back it reaches"
+    assert "outage" in text.lower(), "the tool says nothing about outages either way"
+
+
 def test_an_absence_is_reported_as_an_absence_not_filled_in(client):
     """The specific failure this surface exists to prevent is an assistant inventing a
     docket number. A miss must read as a miss."""

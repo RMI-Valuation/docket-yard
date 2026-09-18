@@ -39,9 +39,12 @@
     {% if cov.comments_from or cov.comments_incomplete %}
     <li><strong>Environmental comments</strong> are walked separately, on their own ledger, and how far that walk has reached says nothing about the filings and decisions above. {% if cov.comments_from %}The earliest comment this record holds is dated {{ cov.comments_from | fmt_date }}.{% else %}This record holds no comment yet.{% endif %}{% if cov.comments_incomplete %} A month neither the walk nor the watch has finished is recorded as unfinished rather than empty — the Board's search answers a month it has nothing for with the same envelope it answers a failed query with, so this record declines to call a month empty it has not probed, and months the Board's own comment table does not reach will stay on this list. Months not yet complete for comments: {{ cov.comments_incomplete | month_runs | join(', ') }}.{% endif %}</li>
     {% endif %}
-    <li><strong>Rail recordations</strong>, which the Board keeps in a separate table.</li>
-    <li><strong>Document text.</strong> Files are kept and linked. Text is read from inside them as passes run — the publisher's own text layer first, machine-read scans after — and shown page by page at each record's text address, labelled with who read it. Nothing derived from it is asserted. It is searched: a page found that way is shown with who read it and the scan one click away.</li>
-    <li><strong>Anything the Board's search itself does not show.</strong> Its result tables display at most 10,000 rows per query and fail in ways that look like success; the pipeline asserts on every response that the filter it asked for was applied, and quarantines anything it cannot prove.</li>
+    {#- The three by-design limits are rendered from store/coverage.py's BY_DESIGN_LIMITS,
+        so this page and the `coverage` tool an assistant calls cannot drift apart (the
+        independent graders, 2026-09-16). Measured limits stay above, read off `cov`. -#}
+    {% for head, rest in by_design_limits %}
+    <li><strong>{{ head }}</strong>{{ rest }}</li>
+    {% endfor %}
   </ul>
 
   <h2>Outages</h2>

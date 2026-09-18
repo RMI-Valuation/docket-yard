@@ -801,6 +801,39 @@ def _coverage(con: Connection, args: dict, host: str) -> str:
             if c.comments_incomplete
             else ""
         )
+        # History, outages and the by-design limits. A grader found this tool naming none of
+        # them while the instructions above tell an assistant to repeat what the page says
+        # (deferred, the independent graders, 2026-09-16): an assistant that cannot see the
+        # page was answering as if the record were uniform and unbroken.
+        + (
+            f"- Before {c.backfill_from} a sheet is not the docket's complete history and does"
+            " not claim to be. From then on, filings and decisions were added in dated waves:"
+            f" {c.backfill_filings:,} filings and {c.backfill_decisions:,} decisions, counted"
+            " once per docket they were entered in.\n"
+            if c.backfill_from
+            else "- History before the forward watch began is being added in dated waves; until"
+            " then a sheet is not the docket's complete history and does not claim to be.\n"
+        )
+        + (
+            "- The early years are thin because the Board's own table is, not because months are"
+            " still to come. Filings the record holds, by the Board's year: "
+            + " · ".join(f"{year}: {n:,}" for year, n in c.early_filing_years)
+            + ".\n"
+            if c.records_walked_from and len(c.early_filing_years) > 1
+            else ""
+        )
+        # An outage is not a by-design limit and is never folded in with one: it is a period
+        # the watch was not keeping the record, and silence about it would read as "none".
+        + (
+            "- Outages, periods when the watch was not keeping the record and entries were"
+            " caught up late: "
+            + "; ".join(f"{g.started_at} to {g.ended_at or 'open'} ({g.failure})" for g in c.gaps)
+            + ". Any alert that carried the late entries said so.\n"
+            if c.gaps
+            else "- No outage has been recorded since the watch began.\n"
+        )
+        + "\nWhat is not here, by design:\n"
+        + "".join(f"- {head}{rest}\n" for head, rest in coverage_store.BY_DESIGN_LIMITS)
         + f"\nThe page a person would read: {_site(host, '/coverage')}"
     )
 

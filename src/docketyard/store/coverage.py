@@ -21,6 +21,38 @@ from docketyard.capture.stb import (
 from docketyard.ingest import observations
 from docketyard.store import home
 
+# The limits that are by DESIGN rather than measured: the same sentences the coverage page
+# prints and the `coverage` tool hands an assistant. One source, because two copies of a
+# published limit drift, and a limit that has drifted is a false coverage claim — the thing
+# `CLAUDE.md` forbids under "published pages are generated from the same source". A grader
+# found the tool naming none of these while the server's own instructions tell an assistant
+# to repeat what the page says (deferred, the independent graders, 2026-09-16).
+#
+# Measured limits are deliberately NOT here. A sentence with a number in it is read off
+# `Coverage` at render time, so it cannot be stale in one place and current in the other.
+# Rendered as `<strong>{head}</strong>{rest}` on the page and `- {head}{rest}` for a
+# machine, so each `rest` carries its own leading punctuation.
+BY_DESIGN_LIMITS: tuple[tuple[str, str], ...] = (
+    (
+        "Rail recordations",
+        ", which the Board keeps in a separate table.",
+    ),
+    (
+        "Document text.",
+        " Files are kept and linked. Text is read from inside them as passes run — the"
+        " publisher's own text layer first, machine-read scans after — and shown page by page"
+        " at each record's text address, labelled with who read it. Nothing derived from it is"
+        " asserted. It is searched: a page found that way is shown with who read it and the"
+        " scan one click away.",
+    ),
+    (
+        "Anything the Board's search itself does not show.",
+        " Its result tables display at most 10,000 rows per query and fail in ways that look"
+        " like success; the pipeline asserts on every response that the filter it asked for"
+        " was applied, and quarantines anything it cannot prove.",
+    ),
+)
+
 
 @dataclass(frozen=True)
 class Gap:
