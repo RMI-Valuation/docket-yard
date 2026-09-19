@@ -1,0 +1,34 @@
+[Unit]
+# The coordinator's derived work, off the coordinator (ADR 0025 addendum, proposal 3).
+#
+# A systemd USER unit, not a tmux session: `docs/compute-fleet.md` records that tmux is where
+# the operator looks and that units are owed because tmux does not survive a reboot. A backup
+# that stops silently at the next power cut is not a backup, so this is the first thing on the
+# coordinator to be a unit.
+#
+# It needs no network ordering beyond the default: a run that cannot reach S3 exits 4, says so,
+# and the timer tries again tomorrow. Nothing is lost by a missed night, because nothing is
+# deleted by a later one — the writer holds no delete action at all.
+Description=Docket Yard: back the coordinator's derived work up to S3
+Documentation=file:///home/%u/docket-yard/docs/compute-fleet.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+# built on DISK, not in /tmp: /tmp is a 16 GB tmpfs on this box, so the default would build a
+# half-gigabyte tarball in RAM on the machine that is serving the queue
+Environment=TMPDIR=%h/docketyard/.backup-work
+ExecStartPre=/usr/bin/mkdir -p %h/docketyard/.backup-work
+ExecStart=/usr/bin/python3 %h/docket-yard/tools/fleet/backup.py \
+    --data %h/docketyard \
+    --bucket rmi-fleet-backups \
+    --prefix docket-yard/ \
+    --profile fleet-backup
+# the work directory is emptied whether the run succeeded or not, so a failed night cannot
+# leave half a tarball behind to fill the disk before the next one
+ExecStopPost=/bin/sh -c 'rm -rf %h/docketyard/.backup-work/dy-backup-* || true'
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=default.target

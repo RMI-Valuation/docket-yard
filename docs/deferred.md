@@ -2278,3 +2278,30 @@ What is actually true, and what should be said instead:
 I took a reviewer's framing and propagated it without checking the code, which is the failure
 `claims-are-not-measurements` names. The figures in this file's 2026-09-19 entries stand; the
 word "irreplaceable" does not.
+
+## From the specialist on the coordinator backup, 2026-09-19 (ADR 0025 addendum proposal 3)
+
+Fourteen findings; the ones that could let a wrong backup look right were fixed in the same
+change. These are recorded instead.
+
+- **The addendum contemplates two cadences and the tool has one.** Item 3 says "The route roots
+  are copied **most often**", and `backup.py` copies everything on one rhythm because the whole
+  archive is 636 MB and splitting it would buy little. Defensible, but it quietly collapses a
+  distinction an Accepted record drew — **the operator's to settle**, either by adding a
+  selector or by amending the item.
+- **This is the second exception to decision 6's literal words, and only the first is written
+  down.** D6 says "no node holds the store or a key"; the 2026-09-19 addendum sharpens that to
+  "no node can **write to the store**" and sanctions a read-only `GetObject`+`ListBucket`
+  credential. `fleet-backup-writer` is a *write-capable* key on the coordinator — scoped to one
+  bucket that is not the store, with no delete action — which is consistent with that reading
+  but is not stated anywhere. One sentence in the addendum would close it, so the next box is
+  reasoned about rather than quietly excepted.
+- **A restore procedure is owed**, beside `docs/compute-fleet.md`'s backup entry: extract order
+  (the archive already carries it — the queue is the last member), `--no-same-owner`, and the
+  fact that `fleet.token` and `fleet-node` are deliberately **not** in the archive and must be
+  replaced by hand. A rebuilt coordinator needs that token from the password manager.
+- Smaller, fixed in place rather than deferred: the queue snapshot is genuinely atomic
+  (`Connection.backup` with the default `pages=-1` copies under one read transaction), so the
+  docstring's earlier "a hash can never prove fidelity to a database that moved" was more
+  pessimistic than the mechanism — the pessimism would have become TRUE had anyone later
+  "improved" it into a chunked loop, which is why the reason is now written beside the call.

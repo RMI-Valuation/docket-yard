@@ -931,6 +931,153 @@ def test_both_lease_loops_honour_the_signal(tmp_path):
     assert "stopping()" in page_failed, "a stop must not be recorded as a cut page"
 
 
+# --- backing the coordinator up (ADR 0025 addendum, proposal 3) -------------------------------
+
+backup = _module("backup", ROOT / "tools" / "fleet" / "backup.py")
+
+
+def test_the_queue_is_snapshotted_soundly_while_it_is_being_written(tmp_path):
+    """`queue_server.py` serves the queue while this runs, so the copy is taken through
+    SQLite's backup API rather than `cp`. A writer is kept busy throughout to prove the copy
+    is a faithful image of one instant and not a torn file."""
+    import sqlite3 as sq
+    import threading
+
+    src = tmp_path / "queue.sqlite"
+    q = pq.Queue(src)
+    q.seed("dots", PAGES, reread=set())
+    q.register("w1", "dots", {**KEY, "host": "x"})
+
+    stop = threading.Event()
+
+    def churn():
+        con = sq.connect(src, timeout=60)
+        con.execute("PRAGMA busy_timeout=60000")
+        n = 0
+        while not stop.is_set():
+            con.execute("UPDATE worker SET last_seen = ? WHERE name = 'w1'", (f"t{n}",))
+            con.commit()
+            n += 1
+        con.close()
+
+    writer = threading.Thread(target=churn, daemon=True)
+    writer.start()
+    try:
+        facts = backup.snapshot_queue(src, tmp_path / "copy.sqlite", min_jobs=1)
+    finally:
+        stop.set()
+        writer.join(timeout=5)
+
+    assert facts["integrity"] == "ok"
+    assert facts["counts"]["job"] == len(PAGES)
+    assert facts["job_states"]["pending"] == len(PAGES)
+    assert "worker" in facts["counts"], "tables are enumerated, not hardcoded"
+    q.con.close()
+
+
+def test_a_suspiciously_empty_queue_is_refused_rather_than_called_a_backup(tmp_path):
+    src = tmp_path / "queue.sqlite"
+    q = pq.Queue(src)
+    q.seed("dots", PAGES, reread=set())
+    with pytest.raises(ValueError, match="under the floor"):
+        backup.snapshot_queue(src, tmp_path / "copy.sqlite", min_jobs=len(PAGES) + 1)
+    q.con.close()
+
+
+def test_a_new_root_is_backed_up_without_anyone_editing_the_tool(tmp_path):
+    """THE REASON IT IS A DENY-LIST. An allow-list of known roots would omit the next pass
+    from every backup with no warning and a zero exit."""
+    ocr = tmp_path / "ocr"
+    (ocr / "route" / "aa").mkdir(parents=True)
+    (ocr / "route" / "aa" / "x.json").write_text("{}")
+    (ocr / "a-pass-nobody-has-written-yet" / "bb").mkdir(parents=True)
+    (ocr / "a-pass-nobody-has-written-yet" / "bb" / "y.json").write_text("{}")
+    (ocr / "blobs").mkdir()
+    (ocr / "ppocr-cache").mkdir()
+    (ocr / "loose.csv").write_text("x")
+    snap = tmp_path / "queue.sqlite"
+    snap.write_bytes(b"not really a database")
+
+    built = backup.build_tarball(tmp_path, snap, tmp_path / "out.tar.gz")
+    taken = {r["root"] for r in built["roots"]}
+    assert "a-pass-nobody-has-written-yet" in taken
+    skipped = {s["name"] for s in built["skipped"]}
+    assert {"blobs", "ppocr-cache"} <= skipped, "and every omission is NAMED"
+    # a loose file falls on the side of keeping too — the re-read's page list is one, and it
+    # decides what that pass owes
+    assert "loose.csv" in built["loose_files"]
+
+
+def test_the_queues_own_files_are_refused_because_the_snapshot_is_the_queue(tmp_path):
+    """A stale `-wal` beside the snapshot would describe a different instant from the copy the
+    backup actually took."""
+    ocr = tmp_path / "ocr"
+    ocr.mkdir(parents=True)
+    for name in ("queue.sqlite", "queue.sqlite-wal", "queue.sqlite-shm"):
+        (ocr / name).write_text("x")
+    snap = tmp_path / "queue.sqlite"
+    snap.write_bytes(b"x")
+
+    built = backup.build_tarball(tmp_path, snap, tmp_path / "out.tar.gz")
+    assert built["loose_files"] == []
+    refused = {s["name"] for s in built["skipped"] if "snapshotted instead" in s["why"]}
+    assert refused == {"queue.sqlite", "queue.sqlite-wal", "queue.sqlite-shm"}
+
+
+def test_the_manifest_counts_what_the_archive_holds(tmp_path):
+    """Counted inside the loop that adds, so the number is true by construction. A separate
+    walk could disagree with the archive and nothing would ever notice."""
+    ocr = tmp_path / "ocr"
+    (ocr / "route" / "aa").mkdir(parents=True)
+    for i in range(7):
+        (ocr / "route" / "aa" / f"{i}.json").write_text("{}")
+    snap = tmp_path / "queue.sqlite"
+    snap.write_bytes(b"x")
+    out = tmp_path / "out.tar.gz"
+    built = backup.build_tarball(tmp_path, snap, out)
+
+    import tarfile as tf
+
+    with tf.open(out) as tar:
+        members = [m.name for m in tar.getmembers() if m.isfile()]
+    assert built["files"] == len(members) == 8  # 7 readings + the queue
+
+
+def test_the_queue_is_the_last_thing_in_the_archive(tmp_path):
+    """The documented restore order is files before the queue, because a queue newer than its
+    file tree makes the seed count documents whole with no reading on disk. The archive
+    carries that order; a tidy-up that moved this would invert it silently."""
+    ocr = tmp_path / "ocr"
+    (ocr / "route" / "aa").mkdir(parents=True)
+    (ocr / "route" / "aa" / "x.json").write_text("{}")
+    snap = tmp_path / "queue.sqlite"
+    snap.write_bytes(b"x")
+    out = tmp_path / "out.tar.gz"
+    backup.build_tarball(tmp_path, snap, out)
+
+    import tarfile as tf
+
+    with tf.open(out) as tar:
+        names = [m.name for m in tar.getmembers() if m.isfile()]
+    assert names[-1] == "ocr/queue.sqlite"
+
+
+def test_a_stored_object_is_checked_by_checksum_not_only_by_size():
+    """Two files of the same length pass a size check. `ChecksumMode=ENABLED` puts the store's
+    own digest in the response, so there is no reason to accept the weaker test."""
+    import base64 as b64
+
+    digest = "ab" * 32
+    good = b64.b64encode(bytes.fromhex(digest)).decode()
+    assert backup.verify({"ContentLength": 10, "ChecksumSHA256": good}, 10, digest) is None
+    assert "wrong size" in backup.verify({"ContentLength": 9, "ChecksumSHA256": good}, 10, digest)
+    other = b64.b64encode(bytes.fromhex("cd" * 32)).decode()
+    assert "wrong checksum" in backup.verify(
+        {"ContentLength": 10, "ChecksumSHA256": other}, 10, digest
+    )
+    assert "no SHA-256" in backup.verify({"ContentLength": 10}, 10, digest)
+
+
 # --- asking for a reader when one is owed (ADR 0025 addendum, proposal 2) ---------------------
 
 resubmit = _module("resubmit", ROOT / "tools" / "fleet" / "resubmit.py")

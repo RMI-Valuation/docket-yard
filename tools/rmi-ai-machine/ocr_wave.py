@@ -845,10 +845,11 @@ def _write(path: Path, obj) -> None:
 
 
 def _manifest(root: Path, stats: dict) -> None:
-    root.mkdir(parents=True, exist_ok=True)
-    (root / "_manifest.json").write_text(
-        json.dumps({**stats, "finished_at": now()}, indent=1), encoding="utf-8"
-    )
+    # through `_write`, like every other file in a root: this one names every producer that
+    # read for the root, and an in-place `write_text` can be caught half-done by anything
+    # reading the tree — a backup's tar, an rsync — storing a truncated JSON that nothing
+    # downstream checks (found by the ingest specialist, 2026-09-19)
+    _write(root / "_manifest.json", {**stats, "finished_at": now()})
 
 
 # --- routing a page list: the re-read's pages, which the wave never saw ----------------------
