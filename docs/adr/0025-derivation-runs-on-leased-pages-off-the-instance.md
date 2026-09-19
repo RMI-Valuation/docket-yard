@@ -79,14 +79,20 @@ Measured 2026-09-19, and separate from the broker: the coordinator holds the rou
 every *reader* disposable. Nothing ever made the coordinator so, and a pass stopped part-way is
 when that matters most.
 
-**The three are not equally replaceable, and the difference decides what is copied how often.**
-The readings are reproducible at a price — re-reading costs GPU time, and only while the engine
-build and weights snapshot the producer names can still be fetched. **The route roots are
-irreplaceable in the strict sense:** seeding copies each route document's own method and method
-version into every page of every reading, expressly so that a document routed by an earlier
-router says so. Re-running the router is therefore not reproduction. It yields a different
-method version, and orphans the provenance already quoted by every reading collected under the
-old one (ADR 0007).
+**The three are not equally expensive, and the difference decides what is copied how often.**
+Everything here is reproducible; what varies is the price. The readings cost GPU time to read
+again — about 43 hours for the tabular pages already read — and only while the engine build and
+weights snapshot the producer names can still be fetched. The route roots cost a layout-model
+run over the corpus, and re-running the router yields a **different method version**: seeding
+copies each route document's own method and version into every page of every reading, expressly
+so that a document routed by an earlier router says so, so a re-run is recorded honestly rather
+than silently (ADR 0007) — but a pass then spans two router versions, and a page reclassified
+on the way changes what that pass owes its document. For a page already read and loaded the
+class and method are already in the store, so the route root is redundant for it.
+
+*(An earlier draft of this addendum called the route roots "irreplaceable in the strict sense".
+That was wrong — `_page_routes` exists precisely so an earlier router's work stays usable — and
+it is corrected here rather than quietly dropped.)*
 
 **Decided by the operator (2026-09-18):**
 

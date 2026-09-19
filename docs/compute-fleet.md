@@ -28,15 +28,15 @@ reader judge a reading.
 
 | Role | What it owes |
 | --- | --- |
-| **The coordinator** | Holds the queue, the route roots, the collected readings, the collector and the monitor. It reads nothing itself, which is what makes every reader replaceable. It is also the only role whose disk is not reproducible, so it is the only one that must be backed up |
+| **The coordinator** | Holds the queue, the route roots, the collected readings, the collector and the monitor. It reads nothing itself, which is what makes every reader replaceable. Everything it holds can be produced again, but only by spending the machine time that produced it — about 43 hours of reading for the pages already read — so it is the one role that is backed up. All of it is 464 MB |
 | **A reader** | Claims pages under a lease, declares a producer the queue can check, renders at the pass's own DPI and posts an answer or a named failure. Disposable by design: everything it holds is a lease, and a lease that expires returns the page |
 | **An opportunistic reader** | A reader whose stop rule is someone else's claim on the machine — the operator sitting down at it, or the broker preempting it for another project. The lease is what makes a hard stop cost nothing |
 | **The broker** | Since 2026-09-18 it places readers on cards and may stop them. **It never learns what a pass is:** the submit line pins the pass, and nothing on the broker side resolves a version. An addendum to ADR 0025 is owed for this and is the operator's to accept |
 
 A role is not a machine. One box may hold two roles, and the same pass may be read by
 several boxes at once — that is the point of the producer check below, not an exception to
-it. What a reader must *not* be is the coordinator, because the coordinator is the one thing
-in the fleet that is not disposable.
+it. What a reader must *not* be is the coordinator: a reader can be rebuilt from a spec in an
+afternoon, and the coordinator holds the machine time the fleet has already spent.
 
 **Production never joins the fleet.** The instance holds the store and the keys; the fleet
 holds neither. Reading documents reach the store the way they always have — `rsync` of the
@@ -457,8 +457,10 @@ project ever calls a model from a page; batch derivation is the queue.
 - `second` and `graphic` run through the queue rather than `ocr_wave.py`, so that every pass
   has the same lease and the same monitor (they read a cache and cannot die the same way, so
   this is tidiness, not safety)
-- **A backup of the coordinator, the only disk in the fleet that is not disposable** — the
-  route roots above all, then each pass's collected root, then the queue. First taken
+- **A backup of the coordinator, which holds the machine time the fleet has spent** — each
+  pass's collected root first, since re-reading is the dear part, then the route roots, then the
+  queue. Not because any of it is irreplaceable, but because all of it together is 464 MB and
+  reproducing it means spending those GPU hours again. First taken
   2026-09-19: snapshot through SQLite's backup API, `PRAGMA integrity_check` and table counts
   on the copy, and a hash matching snapshot to copy, which proves the **transfer** and not
   fidelity to a database that moved while it was read. Making it routine is owed, and so is a

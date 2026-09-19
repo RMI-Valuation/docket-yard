@@ -19,7 +19,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   pending, 2,220 failed, **nothing leased** — a resume loses and re-reads nothing. Key
   unchanged (HunyuanOCR `47644ecc`, transformers 5.16.1, render 150, mv 1.5); **do NOT raise
   the render to 200 mid-pass — two live keys**. **BACKED UP 2026-09-19** to two boxes (routes
-  first: the only strictly irreplaceable part), but both share a LAN and a power feed, so
+  readings first: re-reading is ~43 GPU hours), but both share a LAN and a power feed, so
   **a NAS target is owed — his, from 2026-09-20**. Resume = the placement decision
 - **ADR 0025 addendum: proposals 1–4 ACCEPTED 2026-09-19, 5–6 HELD** (a blob miss as a fetch;
   what D6 means). Two reviews returned that draft — rebuild on `capture/s3.py`'s signed GET,

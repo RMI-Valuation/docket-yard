@@ -2249,3 +2249,32 @@ Where each result sits, measured 2026-09-19:
 **Resuming and making the backup routine are one decision.** The 2026-09-19 snapshot is valid
 only because nothing has read since 2026-09-18 20:28Z. Once a pass runs, the coordinator
 accumulates irreplaceable results continuously and a pre-resume copy decays by the hour.
+
+## Correction: the route roots are expensive, not irreplaceable — 2026-09-19
+
+Written the same day as the claim it corrects, because it reached an ADR, this file, `TODO.md`
+and the fleet's private notes before anyone checked it against the code.
+
+**The claim was that re-running the router "is not reproduction — it orphans the provenance
+already quoted by every reading collected under the old one."** `_page_routes`
+(`tools/fleet/pagequeue.py`) says the opposite in its own docstring: it carries "the route
+document's OWN method and version rather than this module's constants — a document routed by an
+earlier version must say so, which is what makes the reading scorable (ADR 0007)". **Mixed
+router versions are a designed-for state, not a broken one.** And for a page already read and
+loaded, the class and method are copied into the reading, so the route document is redundant
+for it.
+
+What is actually true, and what should be said instead:
+
+- Re-running the router costs a layout-model pass over the corpus, and yields a **different
+  method version**. That is recorded per page rather than hidden.
+- A page reclassified on the way changes what each pass owes its document; the seed already
+  handles that by re-reading, at the cost of the reading.
+- The expensive artefact is the **readings**, not the routes: 17,275 tabular pages already read
+  is roughly 43 hours of GPU at 9 s a page.
+- **All of it together is 464 MB.** Keeping it across a rebuild is a tar file, not a
+  constraint on how the machines are built.
+
+I took a reviewer's framing and propagated it without checking the code, which is the failure
+`claims-are-not-measurements` names. The figures in this file's 2026-09-19 entries stand; the
+word "irreplaceable" does not.
