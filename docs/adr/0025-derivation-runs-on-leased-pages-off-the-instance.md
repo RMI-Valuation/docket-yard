@@ -124,12 +124,16 @@ it is corrected here rather than quietly dropped.)*
 4. **A reader does not also coordinate.** The machine that runs another project's jobs must not
    be the machine holding this project's ledger. The token is not the reason — it is on every
    joining machine by design — the ledger is.
-**HELD, still Proposed — proposals 5 and 6, the operator's to accept or refuse.** Two reviews
-returned the first draft of proposal 5 on 2026-09-19: it must be built on this project's own
+**Accepted by the operator, 2026-09-19 — proposals 5 and 6.** Held for a day and accepted the
+same evening the NUC swap was found to be waiting on them. **The decision is accepted; the
+first draft of its code is not.** Two reviews returned that draft on 2026-09-19 and its
+objections stand against whatever replaces it: it must be built on this project's own
 standard-library signed GET and stream a document rather than buffer it, classify the store's
 answers structurally rather than by matching their text, and land the worker half in the same
 change — without which a 502 or 503 spends no attempt, records nothing, and loops the fleet.
-**One part of it the operator did settle that day:** were the credential ever placed, it carries
+Accepting the decision does not bless that draft, and nothing runs against the store until a
+rebuilt change has been through the ingest reviewer and `/code-review`.
+**One part of it the operator settled before accepting:** the credential carries
 `s3:GetObject` **and `s3:ListBucket`** on the blob prefix, so that a document genuinely absent
 from the store answers 404 and is charged to the document, while a broken credential answers 403
 and is charged to the environment. Without `ListBucket` the two are the same answer, and the
