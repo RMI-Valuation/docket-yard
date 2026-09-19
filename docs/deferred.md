@@ -2120,3 +2120,82 @@ two items in that file held nowhere else.
 - **No index on `filing(filed_date)`.** Every date-ranged filing query — the coverage page,
   `count_filings`, `list_proceedings` — scans. Not felt at 54,422 filings; worth having before
   the backfill's later waves land, and worth measuring rather than assuming.
+
+## From mapping the queue end to end, 2026-09-19 (the stopped tabular pass)
+
+Found while mapping where every artefact of the pass lives, before deciding whether the
+coordinator moves. Neither is a wrong assertion in the record today.
+
+- **`dtype` is not in the producer declaration.** A worker declares the pass key, its host,
+  the engine and version, the model and its weights revision, the max new tokens, the
+  megapixel bound and the render (`hunyuan_worker.py` § producer) — but not the dtype.
+  `ocr_run.load_hunyuan` hardcodes `bfloat16`, so every reader is bf16 today and the gap is
+  latent, not live. It bites the moment a pre-Ampere card is added: Turing has no hardware
+  bf16, and "fixing" that with float16 would declare an **identical reading key while reading
+  differently** — the silent key split ADR 0023 exists to prevent, arriving from inside this
+  project rather than from the broker. Live because the coordinator's own unused card is
+  Turing. Adding dtype to the *declaration* is additive and forward-only; adding it to the
+  *key* would invalidate every reading, so the two must not be confused.
+- **The stale-mirror defect has a second remedy nobody had costed.** Measured 2026-09-19:
+  the instance already holds 112 GB of blobs and already serves any document by hash, with an
+  S3 refetch on a cache miss and the hash verified. So a reader could fetch document bytes
+  without any mirror and without any credential on any fleet box, which would retire the
+  `docketyard-reader` asymmetry recorded above rather than paper over it. **It is not free:**
+  `docs/compute-fleet.md` says "Production never joins the fleet", and having the instance
+  serve the fleet's bytes crosses that sentence, so it is an ADR amendment and not an
+  implementation detail. Recorded as an option, not a plan.
+
+## From the schema critic on the ADR 0025 addendum, 2026-09-19 (Proposed)
+
+Folded into the addendum where it was wording; these two are code and are filed.
+
+- **A restore whose queue is newer than its file tree silences documents, permanently.**
+  `_decide` returns on `known == "whole"` (`pagequeue.py:639-641`) **without checking that the
+  reading document exists** — while the `reread` branch just below it checks deliberately, with
+  a comment saying the queue's verdict stands either way. So a coordinator restored from a
+  queue snapshot taken after its file tree marks those documents whole, never re-queues them
+  and never collects them: silent, per-document, and the 2026-09-06 shape again. The operator's
+  procedure can avoid it — **restore files first, then the queue** — but a three-line fall-
+  through to the `reread` verdict when `shard()` is absent would make the order not matter.
+- **A worker's registration overwrites its own producer on every restart.**
+  `register` is `ON CONFLICT (name) DO UPDATE SET producer = excluded.producer`
+  (`pagequeue.py:240-245`) on a name defaulting to `<host>/<pass>`. The producer is published
+  only in the root's `_manifest.json`, and `result.worker` — the page→worker link — is selected
+  at collect and never used. So if the environment moves between restarts (a transformers
+  upgrade, a re-pulled snapshot, a different card behind a pinned `--name`), the manifest names
+  the **new** producer for pages read by the **old** one, which under ADR 0007 is a derived
+  assertion whose method block was rewritten after the fact. Latent today because the fleet
+  restarts rarely and by hand; **brokered placement makes restarts frequent and chosen by
+  something else**, which is what moves this from tidy to load-bearing. The critic's shape:
+  an append-only `worker_registration` row per distinct producer, `result.registration_id`, and
+  `collect` writing the producers observed on that document's own pages.
+
+## From reviewing the seed's missing-reading fix, 2026-09-19 (`/code-review` + stb-ingest-specialist)
+
+Both passes called the change correct and shippable. Two findings are choices, not defects.
+
+- **Re-reading is the expensive correct verdict, and a cheap one exists behind a guard.** When
+  a restore leaves the queue newer than the file tree, the queue is by definition the surviving
+  artefact — and it still holds every page's raw engine answer in `result`, written at `done()`
+  before anything parses it. The fix throws those rows away at the next seed and spends GPU time
+  re-reading pages already read; applied corpus-wide by a skewed restore that is up to 26,294
+  pages for `tabular` alone. It also churns the store: a re-read is not bit-identical across
+  kernels, so every page whose text differs retires a live row and inserts a replacement, with
+  an FTS delete and insert, over text that was already correct. **The cheap verdict:** delete
+  only the `collected` row, leave jobs and results, and let the next `collect` rebuild the
+  identical file from `pages_of` with no machine time. **It is only safe under a guard** — the
+  route document may have been re-run since, so the pages the queue holds may no longer be the
+  pages the pass owes, and a naive recollect would rebuild over a stale page set and then report
+  `whole` with the file present, silent again in the same class. `seed_from_list` already has
+  the comparison (`pages_held`); `seed_pass` has `wanted` in hand but does not pass it to
+  `_decide`. Recollect when the held page set equals what the pass now owes, re-read otherwise.
+  Not taken today: the current behaviour is safe, and the restore order is the mitigation.
+- **A narrowing list plus a missing reading document drops a held page.** The new branch reaches
+  `seed_from_list` untested. Its top-up path queues `(held | wanted) & routed`, but `_decide`'s
+  set-aside path leaves the caller queueing `sorted(wanted[sha])` alone — so under a *narrower*
+  list the rebuilt reading document is narrower than the one that went missing, and the dropped
+  pages' rows stay live in the store from the older run with no queue record. Confirmed in the
+  review by running it: `pages_held` goes {1,2} → {1}. The store is not corrupted — page-level
+  supersession makes it legal — and a narrowing list is the operator's own cut moving, so this
+  is recorded rather than changed. Either queue `(held | wanted[sha]) & routed` on this path
+  too, or say in `seed_from_list`'s docstring that a narrowing list is taken at its word.

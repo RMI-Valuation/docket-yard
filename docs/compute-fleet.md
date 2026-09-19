@@ -1,10 +1,15 @@
 # The compute fleet — derivation on the operator's LAN
 
-**Status: running since 2026-09-09 — the queue, monitor and one worker on RMI-AI-MACHINE,
-six workers on the operator's workstation while it is idle, Alloy writing from the node; the
-Grafana rules, the Mac and the Jetson are owed.** The decision this rests on is ADR 0025,
-Accepted 2026-09-10. This document is the mechanics: what the machines are, what a pass is,
-how a page is leased, what the monitor shows, and what a second node must do to join.
+**Status: running since 2026-09-09.** `dots` is complete and loaded. `tabular` has read
+17,275 of its 26,294 pages and is **stopped part-way by the operator's decision**, with
+nothing leased and nothing from it loaded — so the record shows no reading from that pass
+yet, and the pages it has not reached are not covered by it. `reread` is built and unrun.
+Since 2026-09-18 a broker places readers on cards; an addendum to ADR 0025 is owed for that.
+
+The decision this rests on is ADR 0025, Accepted 2026-09-10. This document is the mechanics:
+what a pass is, how a page is leased, what the monitor shows, and what a new reader must do
+to join. **It describes roles, not machines** — the fleet's inventory, addresses and
+operational posture are the operator's and live outside this repository.
 
 The mistake it prevents: **a derivation run that dies and is not noticed.** On 2026-09-06 the
 `dots` OCR server died of CUDA out-of-memory on a 20 × 15 inch plan sheet, 28 hours into a run
@@ -14,17 +19,24 @@ documents as `failed`, printed progress lines throughout, and exited 0. Nothing 
 because nothing was watching the fleet — production's alerting (ADR 0019) watches the record.
 Three days passed before an ssh login found the GPU idle.
 
-## The machines
+## The roles
 
-Named, never addressed — the repository is public. Addresses live outside it.
+**Named by role, never by machine — the repository is public.** Which box fills a role, what
+card is in it, how it is reached and what it holds are the operator's, recorded outside this
+repository. What belongs here is what each role owes the record, because that is what lets a
+reader judge a reading.
 
-| Machine | GPU memory | OS | Role |
-| --- | --- | --- | --- |
-| RMI-AI-MACHINE | RTX 4070, 12 GB | Linux | A worker. Always on. Paddle, dots.mocr through vLLM. Held the queue and the monitor until 2026-09-10 |
-| rmi-nuc, an Intel NUC | none | Ubuntu Server | **The coordinator** since 2026-09-10: the queue, the monitor, the collector, the blob mirror, Alloy, the token. No GPU; it reads nothing. What it gives is that the GPU boxes are stateless workers a reboot does not cost |
-| The operator's workstation | RTX 5080, 16 GB | Windows 11 | Opportunistic: a worker that runs only while the operator is away from it, under `workstation-gate.ps1`; vLLM in a container |
-| rmi-mac, a Mac mini | M4 Pro, 24 GB unified | macOS | Ready since 2026-09-10 as an Ollama host on Metal (`mac-up.sh`: Alloy and Ollama as user launch agents, no administrator needed), nothing assigned: the largest GPU-addressable memory on the LAN; cannot run vLLM, so any engine there is another pass |
-| rmi-jetson-orin, a Jetson Orin Nano | 8 GB shared | JetPack 7.2.1 | A container host since 2026-09-10 (CUDA 13.2 under the NVIDIA runtime): small always-on services (layout, classification, embeddings) as a pass of its own; not a vision-language model. **Headless since 2026-09-11** (the operator's decision): its desktop was measured at about 0.9 GB across 68 processes, so `multi-user.target` and a 16 GB swap file took it from ~0.4 GB free to 6.7 GB available — enough to hold an 8B model, which had failed to load beside the desktop |
+| Role | What it owes |
+| --- | --- |
+| **The coordinator** | Holds the queue, the route roots, the collected readings, the collector and the monitor. It reads nothing itself, which is what makes every reader replaceable. It is also the only role whose disk is not reproducible, so it is the only one that must be backed up |
+| **A reader** | Claims pages under a lease, declares a producer the queue can check, renders at the pass's own DPI and posts an answer or a named failure. Disposable by design: everything it holds is a lease, and a lease that expires returns the page |
+| **An opportunistic reader** | A reader whose stop rule is someone else's claim on the machine — the operator sitting down at it, or the broker preempting it for another project. The lease is what makes a hard stop cost nothing |
+| **The broker** | Since 2026-09-18 it places readers on cards and may stop them. **It never learns what a pass is:** the submit line pins the pass, and nothing on the broker side resolves a version. An addendum to ADR 0025 is owed for this and is the operator's to accept |
+
+A role is not a machine. One box may hold two roles, and the same pass may be read by
+several boxes at once — that is the point of the producer check below, not an exception to
+it. What a reader must *not* be is the coordinator, because the coordinator is the one thing
+in the fleet that is not disposable.
 
 **Production never joins the fleet.** The instance holds the store and the keys; the fleet
 holds neither. Reading documents reach the store the way they always have — `rsync` of the
@@ -47,7 +59,7 @@ The passes today, all in `tools/fleet/pagequeue.py § PASSES`:
 | Pass | Key | Reads | Output root |
 | --- | --- | --- | --- |
 | `dots` | dots.mocr 1.5, 200 DPI | pages routed `degraded` | `ocr/dots` |
-| `tabular` | hunyuan-ocr 1.5, 150 DPI — HunyuanOCR-1.5 in-process through transformers (`hunyuan_worker.py`); built 2026-09-15, not yet run | pages routed `tabular` (26,294) | `ocr/hunyuan-tabular` |
+| `tabular` | hunyuan-ocr 1.5, 150 DPI — HunyuanOCR-1.5 in-process through transformers (`hunyuan_worker.py`); built 2026-09-15, **part-read and stopped** 2026-09-18 at 17,275 of 26,294 pages, nothing loaded | pages routed `tabular` (26,294) | `ocr/hunyuan-tabular` |
 | `reread` | dots.mocr 1.5, 200 DPI — **dots' own key**; role `second`; built 2026-09-18, not yet run | flagged text-layer pages, from a page list, routed first | `ocr/dots-reread` |
 
 Each pass names its own page builder (`PASSES[...]["page"]`): the worker posts the engine's
@@ -95,9 +107,13 @@ pending  --claim-->  leased  --done-->  done
   producer that read for it. A document with every page failed is written `failed` with its
   `pages_failed`, as before — but *a `failed` on disk is no longer a reason to skip*. At the
   next `seed` the queue decides: a collected document whose every failure is the page's own
-  is **whole**; one holding a failure that was not the page's is **re-read** — its file is
-  set aside as `.superseded`, so is its second reading (measured against text that is no
-  longer this key's), and every page of it is queued anew. The loader takes a document whole
+  **and whose reading document is still on disk** is **whole**; one holding a failure that was
+  not the page's is **re-read** — its file is set aside as `.superseded`, so is its second
+  reading (measured against text that is no longer this key's), and every page of it is queued
+  anew. **A document the queue calls whole with no reading document on disk is read again, not
+  skipped**, and counted apart in the seed's report: that is a coordinator restored from a queue
+  newer than its file tree, and counting it whole would silence it for ever, since nothing else
+  queues it and nothing ever collects it. The loader takes a document whole
   under one `ran_at`, so a page cannot be added later. A file the queue does not know is the
   old driver's, which kept no reasons: whole only if it says `read` with no page failed.
 - **A failed page carries its reason into the store** (migration 0031, ADR 0024 § Owed 2
@@ -169,8 +185,9 @@ with a temporary rule the same day.
 
 ## Running it
 
-Two roles, tmux sessions for each, started idempotently by `tools/fleet/fleet-up.sh <role>`
-(`DY_FLEET_DATA` is the data root; `DY_FLEET_PY` the interpreter):
+Four roles — `coordinator`, `worker`, `tabular`, `reread` — with tmux sessions for each,
+started idempotently by `tools/fleet/fleet-up.sh <role>` (`DY_FLEET_DATA` is the data root;
+`DY_FLEET_PY` the interpreter). `all` is the coordinator and `worker` on one machine:
 
 | Role | Session | Runs | Log |
 | --- | --- | --- | --- |
@@ -182,16 +199,16 @@ Two roles, tmux sessions for each, started idempotently by `tools/fleet/fleet-up
 | coordinator | `tabular-collect` | `pagequeue.py collect --pass tabular` every ten minutes; writes nothing until the pass is seeded | `ocr/logs/tabular-collect.log` |
 | tabular | `tabular-worker` | `hunyuan_worker.py` under `DY_FLEET_HUNYUAN_PY`, restarted a minute after it exits (0: queue empty, model not loaded; 3: out of GPU memory on two different pages in a row; 4: the model did not load, the card is short of free memory, the engine raised on a page, or not the page's fault; 5: too many page failures in a row). Its own role, never part of `worker` or `all` | `ocr/logs/tabular-worker.log` |
 
-The coordinator is rmi-nuc (data under the operator's home; `DY_FLEET_PY=python3`, since it
-needs no engine). A worker names the coordinator in `<data>/fleet-node` and, if it holds a
-mirror of the blobs (RMI-AI-MACHINE does), reads them from its own disk. The workstation's
-gate is the Windows form of the worker role. Alloy runs on the coordinator with
+The coordinator needs no engine (`DY_FLEET_PY=python3`). A reader names the coordinator in
+`<data>/fleet-node` and, if it holds a mirror of the blobs, reads them from its own disk
+instead of over the transport. An opportunistic reader's gate is the Windows form of the
+same role. Alloy runs on the coordinator with
 `config.alloy` (the fleet's series and the box's vitals) and on each worker with
 `config-host.alloy` (vitals only), the box's name in `FLEET_HOST` beside the credentials.
 
 ```
-bash ~/docket-yard/tools/fleet/fleet-up.sh coordinator     # on rmi-nuc
-bash ~/docket-yard/tools/fleet/fleet-up.sh worker          # on a GPU box
+bash ~/docket-yard/tools/fleet/fleet-up.sh coordinator     # on the coordinator
+bash ~/docket-yard/tools/fleet/fleet-up.sh worker          # on a reader
 python3 tools/fleet/pagequeue.py --db Q status             # the queue, as JSON
 python3 tools/fleet/pagequeue.py --db Q seed --pass dots --out /data/docketyard/ocr --dry-run
 python3 tools/fleet/pagequeue.py --db Q fail --job N --error 'why'   # an operator's decision
@@ -237,7 +254,7 @@ failing (a template or processor drift, an immediate EOS). It goes back as
 `engine: empty answer`, attempt spent, never posted as done, and consecutive ones trip the
 breaker (exit 5). `--model` must be `tencent/HunyuanOCR`, the model the key names; anything
 else exits 4 before claiming.
-**The card must be the worker's**: with the dots server holding 90% of the 4070 the floor
+**The card must be the worker's**: with a vLLM server holding 90% of the card, the floor
 refuses every start. So:
 
 ```bash
@@ -350,55 +367,29 @@ A second node needs three things and no redesign:
    node and on each joining machine and in no repository. `pagequeue.RemoteQueue` is the
    client, with the same six methods, so `dots_worker.py --queue http://<node>:8131
    --token-file …` holds either and does not know which. A remote worker fetches a
-   document once per document (a claim is one document's pages in order); measured from the
-   workstation, 4.3 MB in 0.08 s. SQLite over a network share is not a transport.
+   document once per document (a claim is one document's pages in order); measured from a
+   second machine, 4.3 MB in 0.08 s. SQLite over a network share is not a transport.
 2. **A producer it can declare truthfully.** The same engine and version, or a new pass.
-3. **Its own stop rule.** The workstation's is *the operator is using it*, and it is built:
-   `workstation-gate.ps1` reads the time since the last keyboard or mouse input every 30 s,
-   and after ten idle minutes starts the vLLM container (the node's image and version, the
-   node's flags, the model on a named volume) and a worker against the node's queue; at the
-   first input it writes the worker's stop file, stops the container, and the worker is gone
-   within seconds with its pages released. Two switch files override the idle rule either
-   way. The lease makes a hard stop cost nothing. The Mac's and the Jetson's rules are
-   whatever they are for. **Since 2026-09-11 it starts only when the node has work**: it asks
-   `GET /pending` first and holds otherwise, re-asking every five minutes, and when every
-   worker exits "queue empty" it stops the container rather than relaunching them. With the
-   `dots` queue dry from 05:51 that morning it had kept the model resident and relaunched six
-   workers a minute — 222 launches in 37 minutes on a machine the operator came back to.
+3. **Its own stop rule.** A reader must be able to stop on someone else's terms and cost
+   nothing — the lease is what makes a hard stop free. An opportunistic reader's rule is
+   *someone else wants this machine*: idle time watched, the engine started after a set idle
+   period, the stop file written at the first input, pages released within seconds, with
+   switch files to override the rule either way. **Since 2026-09-11 such a reader also asks
+   whether there is work before it starts anything** (`GET /pending`), and stops its engine
+   when the queue reports empty instead of relaunching readers against a dry queue — without
+   that it relaunches a worker a minute for as long as the queue stays empty. Which machine
+   uses which rule, and how each is implemented, is recorded outside this repository.
 
-   **Measured 2026-09-09, the workstation's first hour.** vLLM 0.28.0 in a container under
-   WSL2 with `VLLM_USE_V2_MODEL_RUNNER=0` — the V2 runner needs unified virtual addressing,
-   which WSL2 lacks — reads the node's pages to the same text: twelve pages re-read, eleven
-   identical, one a character apart; the raw answers differ more often because bounding-box
-   coordinates wobble between cards, which the key tolerates. One request at a time it is
-   no faster than the 4070 (11.2 s a page; both cards generate ~125 tokens/s, so a 3B model
-   at batch one is bound by per-step overhead, not bandwidth). The card's advantage is room:
-   its KV cache holds ten 16k requests against the node's two or three, and six workers at
-   once read a page every 3.3 s effective. The gate runs six. The node could run two, and
-   has not been measured for the vision encoder's activation peak at two — the OOM lesson.
+   **Two machines read a page to the same text — measured 2026-09-09.** Twelve pages re-read
+   on a second machine came back eleven identical and one a character apart. The raw answers
+   differ more often, because bounding-box coordinates wobble between cards, and the key
+   tolerates that. This is the evidence behind one pass being read by several machines at
+   once: **the key names the engine and the render, not the card.** What a given machine needs
+   in order to serve that engine — and what it cost to find out — is the operator's, and is
+   recorded outside this repository.
 
-   **Re-measured on vLLM 0.29.0, 2026-09-17, on the 3090 box's WSL2 Ubuntu 24.04 (bare, not a
-   container): the constraint stands, and it now has a deadline.** V2 is 0.29's default for
-   every model and it fails at engine start with `RuntimeError: UVA is not available`; V1 still
-   works when forced. **V1 is deprecated in 0.29 with removal targeted for 0.32**, so both WSL2
-   nodes — the workstation and the 3090 box — are pinned below 0.32 until either the WSL driver
-   gains unified virtual addressing or those machines run native Linux. That is a second,
-   measured argument for the 3090 moving into RMI-AI-MACHINE, where the question does not arise.
-
-   A second finding from the same run, about bare WSL rather than vLLM: forcing V1 there fails
-   with `Failed to find C compiler`, because Triton compiles kernels at start and the distro has
-   no gcc. The workstation never sees it — its vLLM runs in a container that ships one. A bare
-   WSL node needs `build-essential` (root, once) or a user-space toolchain before it can serve.
-
-   **A bare-WSL node, built and proven 2026-09-17 on the 3090 box** (`home-ws-crr-25`), for
-   anyone doing it again: WSL2 Ubuntu 24.04 already sees the card, and nothing needs root if the
-   venv is built on **uv's own Python** — the distro's `python3.12` ships no headers, and Triton
-   compiles `cuda_utils.c` at engine start. Three failures in order, each invisible inside a
-   container: V2's `UVA is not available`, then `Failed to find C compiler` (the operator
-   installed `build-essential`), then `Python.h: No such file` (solved by
-   `uv python install 3.12` rather than `python3.12-dev`). With vLLM pinned to **0.28.0** and the
-   flags above, dots.mocr served and read a 150 DPI page in **3.2 s**. The token streams from the
-   node and the coordinator serves the documents' bytes, so a worker holds no S3 key.
+   **A reader needs no S3 key.** The token streams from the coordinator and the coordinator
+   serves the documents' bytes, so joining adds no credential to the machine that reads.
 
 **NVIDIA's Personal AI Router (PAIR)** was evaluated 2026-09-09 for this role and is not it:
 it routes single requests to Ollama or LM Studio nodes by GPU utilisation, without regard to
@@ -408,18 +399,23 @@ project ever calls a model from a page; batch derivation is the queue.
 
 ## What is owed
 
-- A pass for the Mac and one for the Jetson, when a workload is chosen; two workers on the
-  node, measured for the activation peak first; `second` and `graphic` on the coordinator
+- A pass for each runtime the fleet gains, when a workload is chosen — a different runtime is
+  a different key, so it is a new pass, never a substitution inside an existing one; more than
+  one reader per card, measured for the vision encoder's activation peak first; `second` and
+  `graphic` on the coordinator
 - `second` and `graphic` run through the queue rather than `ocr_wave.py`, so that every pass
   has the same lease and the same monitor (they read a cache and cannot die the same way, so
   this is tidiness, not safety)
-- tmux is where the operator looks; `systemd --user` units would survive a reboot, which tmux
-  does not. Owed when a reboot happens before the queue empties
-- **The workstation's gate does not survive a reboot either, and that has now cost a day.**
-  The operator restarted RMI-WS-CRR-2025 on 2026-09-11; the gate died with it, the comment
-  scans were seeded eight hours later, and the fleet ran on one worker at 310 pages an hour
-  instead of about 1,400 for eleven hours. The fix is the ONLOGON scheduled task this
-  directory's `workstation-gate.ps1` already documents in its own header and that has never
-  been registered. A dead gate and a held gate look the same from the node — no worker, no
-  alarm, `last seen` ageing — so the monitor cannot show the difference yet either
-  (`docs/deferred.md`)
+- **A backup of the coordinator, the only disk in the fleet that is not disposable** — the
+  route roots above all, then each pass's collected root, then the queue. First taken
+  2026-09-19: snapshot through SQLite's backup API, `PRAGMA integrity_check` and table counts
+  on the copy, and a hash matching snapshot to copy, which proves the **transfer** and not
+  fidelity to a database that moved while it was read. Making it routine is owed, and so is a
+  target that is not another fleet box. The restore order — **the files before the queue** — is
+  now a matter of cost, not of silence: since 2026-09-19 a queue newer than its file tree makes
+  the seed read those documents again rather than skip them, which is correct and can be a whole
+  wave of GPU time. The cheaper verdict, weighed and not taken, is in `docs/deferred.md`
+- The fleet's operational posture — how each role is supervised, what survives a reboot, what
+  the monitor cannot yet distinguish, and which gaps are open — is **deliberately not in this
+  public repository**. It is the operator's and is recorded with the fleet's inventory. What
+  belongs here is only what a reader needs to judge a reading
