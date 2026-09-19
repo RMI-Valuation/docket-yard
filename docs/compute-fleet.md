@@ -101,6 +101,23 @@ pending  --claim-->  leased  --done-->  done
   five page-owned failures in a row with no page read is a cause nobody has named yet: exit
   5. A worker whose default branch were "the page failed" would reproduce 2026-09-06 for
   every such cause, only faster — no server round-trip to slow it.
+- **A reader is told to stop in two ways, and they mean the same thing** (`tools/fleet/
+  stopping.py`): the **stop file**, which an operator or a gate writes, and a **signal**, which
+  is how a broker preempts. Either way the reader yields *before the next page*, releasing what
+  is unspent with its attempt refunded, and exits 0 — a stop is nobody's fault and must cost the
+  page nothing. **The stop file is a latch and the signal is not:** a person clears the file,
+  while a signal sets a flag inside the process that dies with it, so the next placement reads
+  normally. A preempt implemented as a stop file would hold the whole pass down until someone
+  noticed. Every branch that can be interrupted mid-page yields too, including the ones that
+  would otherwise record the interruption as the page's own fault — a server torn down under an
+  in-flight request answers `finish_reason: abort`, which read as a cut page would fail it
+  **finally** and count its document whole for ever. `JOBD_CHECKPOINT_GRACE_S` is the budget
+  before the signal becomes a kill; it is logged at startup, because a page that outruns it
+  never reaches the yield. A clean yield prints `jobd-checkpoint-complete`.
+- **A brokered placement and the restart loop must not both manage one reader.** `fleet-up.sh`
+  restarts a worker a minute after any exit, which would put it back on the card a minute after
+  a broker took it away — overriding the placement silently. A reader is run by one or the
+  other, never both.
 - **Collect** writes a reading document once every page of a document is terminal, in the
   loader's shape, through the same `dots_page` the driver uses, under the same path. `ran_at`
   is the moment of collection, written once. The root's `_manifest.json` names every

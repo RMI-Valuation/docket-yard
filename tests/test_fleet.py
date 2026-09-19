@@ -649,6 +649,288 @@ def test_the_transport_carries_the_lease(remote):
     assert e.value.code == 404
 
 
+def _serve_with_fetcher(tmp_path, fetcher):
+    """The transport with a blob fetcher standing in for S3, so the promises are tested
+    without reaching AWS. Returns the client and the mirror directory."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    db = tmp_path / "q.sqlite"
+    local = pq.Queue(db)
+    local.seed("dots", PAGES, reread=set())
+    blobs = tmp_path / "blobs"
+    blobs.mkdir(parents=True)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    t = threading.Thread(
+        target=qs.serve, args=(db, blobs, TOKEN, port, "127.0.0.1", fetcher), daemon=True
+    )
+    t.start()
+    url = f"http://127.0.0.1:{port}"
+    for _ in range(50):
+        try:
+            urllib.request.urlopen(url + "/nothing", timeout=1)
+        except urllib.error.HTTPError:
+            break
+        except urllib.error.URLError:
+            time.sleep(0.05)
+    return pq.RemoteQueue(url, TOKEN), blobs, local
+
+
+def test_a_blob_miss_is_refetched_and_fills_the_mirror(tmp_path):
+    """The 2026-09-18 failure: 728 pages failed `blob: missing on the node` for documents that
+    were in S3 the whole time. A miss is a fetch, and the mirror is a cache that heals."""
+    import hashlib
+
+    payload = b"%PDF-1.4 from the store"
+    sha256 = hashlib.sha256(payload).hexdigest()  # a real digest: the server verifies it
+    calls = []
+
+    def fetcher(sha):
+        calls.append(sha)
+        return payload
+
+    r, blobs, local = _serve_with_fetcher(tmp_path, fetcher)
+    try:
+        assert r.blob(sha256) == payload
+        assert calls == [sha256]
+        assert (blobs / sha256[:2] / sha256).read_bytes() == payload
+        r.blob(sha256)  # cached now: the store is not asked twice
+        assert calls == [sha256], "a filled mirror is not a second fetch"
+    finally:
+        local.con.close()
+
+
+def test_a_fetched_blob_whose_hash_is_wrong_is_never_served_or_cached(tmp_path):
+    """The sha IS the identity (ADR 0002). Bytes that are not the sha asked for are a corrupt
+    object in the store of record — loud, and never written into the mirror."""
+
+    def fetcher(sha):
+        return b"these bytes are not that sha"
+
+    r, blobs, local = _serve_with_fetcher(tmp_path, fetcher)
+    try:
+        with pytest.raises(urllib.error.HTTPError) as e:
+            r.blob(A)
+        assert e.value.code == 502
+        assert not (blobs / A[:2] / A).exists()
+    finally:
+        local.con.close()
+
+
+def test_a_fetch_that_could_not_be_made_is_the_environments_not_the_documents(tmp_path):
+    """No credential, a refusal, a broken connection: 503, distinct from the document simply
+    not existing (404), so a worker does not spend the page's attempt on the fleet's problem."""
+
+    def unavailable(sha):
+        raise qs.BlobUnavailable("NoCredentialsError: unable to locate credentials")
+
+    def absent(sha):
+        raise qs.BlobMissing(f"{sha} is not in the mirror or the store")
+
+    r, _, local = _serve_with_fetcher(tmp_path, unavailable)
+    try:
+        with pytest.raises(urllib.error.HTTPError) as e:
+            r.blob(A)
+        assert e.value.code == 503, "the fleet's problem, not the document's"
+    finally:
+        local.con.close()
+
+    r2, _, local2 = _serve_with_fetcher(tmp_path / "second", absent)
+    try:
+        with pytest.raises(urllib.error.HTTPError) as e:
+            r2.blob(A)
+        assert e.value.code == 404, "the document really is not in the store: its own"
+    finally:
+        local2.con.close()
+
+
+def test_without_a_bucket_the_server_is_exactly_as_it_was(tmp_path):
+    """No `--s3-bucket` means no fetcher, and a miss is the 404 it has always been — so the
+    coordinator that has no credential today is unchanged by this shipping."""
+    assert qs.s3_fetcher(None, "docketyard-reader", "blobs/") is None
+    r, blobs, local = _serve_with_fetcher(tmp_path, None)
+    try:
+        with pytest.raises(urllib.error.HTTPError) as e:
+            r.blob(A)
+        assert e.value.code == 404
+    finally:
+        local.con.close()
+
+
+# --- how a reader is told to stop (ADR 0025 addendum, proposal 1) -----------------------------
+
+stopping_mod = _module("stopping", ROOT / "tools" / "fleet" / "stopping.py")
+
+
+@pytest.fixture(autouse=True)
+def _restore_signal_handlers():
+    """`Stop.install()` replaces this process's handlers, and a test that left them installed
+    would break Ctrl-C for the rest of the run — a flag set on a discarded object, and pytest
+    never interrupted. Every test in this file gets its handlers put back."""
+    import signal as signal_mod
+
+    saved = {
+        s: signal_mod.getsignal(s)
+        for s in (signal_mod.SIGTERM, signal_mod.SIGINT)
+        if hasattr(signal_mod, s.name)
+    }
+    yield
+    for sig, handler in saved.items():
+        if handler is not None:
+            signal_mod.signal(sig, handler)
+
+
+def test_a_signal_stops_a_reader_the_way_the_stop_file_does(tmp_path):
+    """jobd preempts by signalling the scope. The reader must yield the same way it yields to
+    the stop file — before the next page, releasing what is unspent."""
+    import signal as signal_mod
+
+    s = stopping_mod.Stop(tmp_path / "nothing")
+    assert s() is False
+    s._catch(signal_mod.SIGTERM, None)
+    assert s() is True
+    assert "SIGTERM" in s.why("3 pages released unspent")
+    assert s.signal_name == "SIGTERM"
+    # a second SIGTERM changes nothing — the first named who stopped us. (A second SIGINT is
+    # different on purpose: it is the operator's escape hatch, tested below.)
+    s._catch(signal_mod.SIGTERM, None)
+    assert s.signal_name == "SIGTERM", "the first signal wins"
+
+
+def test_a_signal_does_not_latch_but_the_stop_file_does(tmp_path):
+    """THE distinction. The stop file is a latch a person clears — a reader that starts while
+    it exists reads nothing. A preempt means 'not now, on this machine', so it must leave
+    nothing behind: writing a stop file on a signal would take the pass down until a human
+    noticed. The flag lives in the process and dies with it."""
+    flag = tmp_path / ".stop-tabular"
+    s = stopping_mod.Stop(flag).install()
+    s._catch(__import__("signal").SIGTERM, None)
+    assert s() is True
+    assert not flag.exists(), "a signal must never write the operator's latch"
+    assert stopping_mod.Stop(flag)() is False, "the next placement reads normally"
+
+    flag.write_text("")
+    assert stopping_mod.Stop(flag)() is True, "the operator's latch does survive"
+
+
+def test_the_grace_budget_is_read_from_the_broker_not_assumed(monkeypatch):
+    """`JOBD_CHECKPOINT_GRACE_S` is the budget before SIGKILL. A bad value must not stop a
+    reader yielding — only stop it knowing how long it had."""
+    monkeypatch.setenv("JOBD_CHECKPOINT_GRACE_S", "25")
+    assert stopping_mod.grace_seconds() == 25.0
+    for bad in ("", "   ", "soon", "-5", "0"):
+        monkeypatch.setenv("JOBD_CHECKPOINT_GRACE_S", bad)
+        assert stopping_mod.grace_seconds() == stopping_mod.DEFAULT_GRACE_S
+    monkeypatch.delenv("JOBD_CHECKPOINT_GRACE_S")
+    assert stopping_mod.grace_seconds() == stopping_mod.DEFAULT_GRACE_S
+
+
+def test_the_clean_yield_is_announced_only_when_a_signal_caused_it(tmp_path, capsys):
+    """`jobd-checkpoint-complete` tells the broker the yield was tidy. The stop file is not a
+    broker, so it says nothing there."""
+    flag = tmp_path / ".stop"
+    flag.write_text("")
+    stopping_mod.Stop(flag).checkpoint_complete()
+    assert capsys.readouterr().out == ""
+
+    s = stopping_mod.Stop(tmp_path / "nothing")
+    s._catch(__import__("signal").SIGTERM, None)
+    s.checkpoint_complete()
+    assert stopping_mod.CHECKPOINT_COMPLETE in capsys.readouterr().out
+
+
+def test_the_yield_refunds_the_attempt_and_says_so(q, capsys):
+    """The yield against a REAL queue, since this is the one place every branch of both loops
+    releases. A stop is nobody's fault, so a page given back here costs nothing: it returns to
+    `pending` with its attempt refunded, and the broker is told the yield was tidy."""
+    import signal as signal_mod
+
+    q.register("w1", "dots", {**KEY, "host": "x"})
+    jobs = q.claim("w1", "dots", 2, 60)
+    ids = [j["job_id"] for j in jobs]
+    assert q.status()["passes"]["dots"]["leased"] == 2
+
+    s = stopping_mod.Stop(None)
+    s._catch(signal_mod.SIGTERM, None)
+    lines = []
+    assert stopping_mod.yield_now(q, "w1", ids, 0, s, lines.append) == 0
+
+    state = q.status()["passes"]["dots"]
+    assert (state["leased"], state["pending"]) == (0, len(PAGES))
+    row = q.con.execute("SELECT attempts FROM job WHERE job_id = ?", (ids[0],)).fetchone()
+    assert row["attempts"] == 0, "a stop must not spend the page's attempt"
+    assert "SIGTERM" in lines[0] and "2 pages released unspent" in lines[0]
+    assert stopping_mod.CHECKPOINT_COMPLETE in capsys.readouterr().out
+
+
+def test_the_yield_tells_the_broker_only_after_the_pages_are_back(q, capsys):
+    """Ordering matters: `jobd-checkpoint-complete` claims the yield was clean, so it must not
+    be printed when the release itself failed."""
+    import signal as signal_mod
+
+    class Refuses:
+        def release(self, *a):
+            raise RuntimeError("the coordinator is gone")
+
+    s = stopping_mod.Stop(None)
+    s._catch(signal_mod.SIGTERM, None)
+    with pytest.raises(RuntimeError):
+        stopping_mod.yield_now(Refuses(), "w1", [1, 2], 0, s, lambda _: None)
+    assert stopping_mod.CHECKPOINT_COMPLETE not in capsys.readouterr().out
+
+
+def test_a_second_ctrl_c_still_kills(tmp_path):
+    """The first Ctrl-C asks for a clean yield, which waits for the page in flight. The second
+    is the operator's escape hatch from a page that will not end, and must not be swallowed."""
+    import signal as signal_mod
+
+    s = stopping_mod.Stop(tmp_path / "nothing").install()
+    s._catch(signal_mod.SIGINT, None)
+    assert s() is True
+    # the second press must both restore the default AND be delivered — restoring alone leaves
+    # this press consumed, so the operator would need a third
+    with pytest.raises(KeyboardInterrupt):
+        s._catch(signal_mod.SIGINT, None)
+    # Python's own default, not SIG_DFL: SIG_DFL terminates the process unwinding nothing
+    assert signal_mod.getsignal(signal_mod.SIGINT) is signal_mod.default_int_handler
+
+
+def test_install_really_installs(tmp_path):
+    """Every other test drives `_catch` directly. If `install()` ever swallowed a real failure
+    the suite would stay green while no reader honoured a signal, so prove the handler is on
+    the signal — and on POSIX, prove delivery."""
+    import os
+    import signal as signal_mod
+
+    s = stopping_mod.Stop(tmp_path / "nothing").install()
+    handler = signal_mod.getsignal(signal_mod.SIGTERM)
+    # `s._catch` builds a fresh bound method on every access, so compare what it is bound to
+    assert getattr(handler, "__self__", None) is s
+    assert getattr(handler, "__func__", None) is type(s)._catch
+    if os.name == "posix":
+        os.kill(os.getpid(), signal_mod.SIGTERM)
+        assert s() is True and s.signal_name == "SIGTERM"
+
+
+def test_both_lease_loops_honour_the_signal(tmp_path):
+    """The loops are duplicated deliberately, so a rule must land in both. Neither may keep
+    its own stop-file-only predicate, and every branch that can be interrupted mid-page must
+    yield rather than blame the page — `PageFailed` in dots is the one that failed FINALLY."""
+    import re
+
+    for name in ("dots_worker.py", "hunyuan_worker.py"):
+        src = (ROOT / "tools" / "fleet" / name).read_text(encoding="utf-8")
+        assert "from stopping import Stop, yield_now" in src, name
+        assert "Stop(args.stop_file).install()" in src, name
+        assert not re.search(r"def stopping\(\)", src), f"{name} still has its own predicate"
+        # the guard before the claim, and a yield from a mid-page branch
+        assert src.count("stopping()") >= 3, f"{name} checks the stop in too few places"
+        assert "yield_now(" in src, name
+    dots = (ROOT / "tools" / "fleet" / "dots_worker.py").read_text(encoding="utf-8")
+    page_failed = dots.split("except PageFailed as e:")[1].split("except ")[0]
+    assert "stopping()" in page_failed, "a stop must not be recorded as a cut page"
+
+
 def test_claimable_counts_what_a_claim_could_lease_now(q):
     """The gate asks this before it loads a model (2026-09-11: an empty queue cost 222 worker
     launches in 37 minutes). A live lease is not claimable; an expired one is, while it has an

@@ -74,6 +74,7 @@ sys.path.insert(0, str(HERE.parent / "rmi-ai-machine"))
 
 from ocr_wave import DOTS, DOTS_MODEL, DOTS_SERVER, _dots_call  # noqa: E402 — the driver's own
 from pagequeue import PASSES, Queue, RemoteQueue  # noqa: E402
+from stopping import Stop, yield_now  # noqa: E402
 
 # The passes this worker can run: every pass whose key is dots.mocr's, since that is the engine
 # it talks to. `dots` reads the routed degraded pages; `reread` reads the flagged text-layer
@@ -226,6 +227,10 @@ def main() -> int:
         " — how a gate stops a worker without waiting for its leases to expire",
     )
     args = ap.parse_args()
+    # installed BEFORE the server wait: a reader can spend up to --server-wait here, and a
+    # broker that signals during it should get a clean exit rather than a SIGKILL. Nothing is
+    # leased yet, so the flag simply stops the first claim.
+    stopping = Stop(args.stop_file).install()
 
     spec = PASSES[args.pass_]
     if args.blobs and not args.blobs.is_dir():
@@ -265,6 +270,9 @@ def main() -> int:
     if (code := register_or_exit(q, name, args.pass_, producer)) is not None:
         return code
     log(f"{name} registered as {producer}")
+    # logged HERE, not at the yield: a page that outruns the grace is SIGKILLed and never
+    # reaches `why()`, which is exactly when the operator wants to know what the budget was
+    log(f"stop: file {args.stop_file}, signal grace {stopping.grace:.0f}s")
     args.scratch.mkdir(parents=True, exist_ok=True)
 
     read = failed = streak = 0
@@ -272,13 +280,17 @@ def main() -> int:
     held: tuple[str, bytes] | None = None  # the last document fetched, for a remote worker
     ids: list[int] = []
 
-    def stopping() -> bool:
-        return bool(args.stop_file and args.stop_file.exists())
-
     try:
         while True:
             if args.max_pages and read + failed >= args.max_pages:
                 log(f"--max-pages reached: {read} read, {failed} failed")
+                return 0
+            if stopping():
+                # before the claim, not after: a stopped reader that claimed first would spend
+                # two coordinator round trips inside the grace, and a reader started under the
+                # operator's latch would claim and release a batch every restart
+                log(stopping.why("nothing claimed"))
+                stopping.checkpoint_complete()
                 return 0
             jobs = q.claim(name, args.pass_, args.batch, args.lease)
             if not jobs:
@@ -287,9 +299,7 @@ def main() -> int:
             ids = [j["job_id"] for j in jobs]
             for i, job in enumerate(jobs):
                 if stopping():
-                    q.release(name, ids[i:])
-                    log(f"stop file present; {len(ids) - i} pages released; exit 0")
-                    return 0
+                    return yield_now(q, name, ids, i, stopping, log)
                 sha, no = job["document_sha256"], job["page_no"]
                 png = args.scratch / f"{name.replace('/', '_')}_{sha[:12]}_p{no}.png"
                 try:
@@ -308,6 +318,23 @@ def main() -> int:
                         pdf, no, png, args.server, args.model, args.timeout, spec["max_megapixels"]
                     )
                 except PageFailed as e:
+                    if stopping():
+                        # A STOP MUST NOT LOOK LIKE A CUT PAGE. A broker signals the whole
+                        # scope, so the server can be torn down under an in-flight request and
+                        # answer `finish_reason: abort` — which `read_page` calls the page's
+                        # own and this branch would fail FINALLY. The document then reads
+                        # `whole` for ever and a good page is gone from the pass. Cost when
+                        # this fires on a genuinely cut page: one re-render at the next
+                        # placement, which fails it finally then.
+                        return yield_now(
+                            q,
+                            name,
+                            ids,
+                            i,
+                            stopping,
+                            log,
+                            f"stopped mid-page on {sha[:12]} p{no} ({e}); ",
+                        )
                     q.fail(name, job["job_id"], f"page: {e}", final=True)
                     failed += 1
                     streak += 1
@@ -322,9 +349,16 @@ def main() -> int:
                     log(f"  document {sha[:12]} {e}; p{no} back for a later seed")
                 except ServerDown as e:
                     if stopping():  # a deliberate stop ended the request: nobody's fault
-                        q.release(name, ids[i:])
-                        log(f"stopped mid-page on {sha[:12]} p{no}; {len(ids) - i} released")
-                        return 0
+                        # the page in flight goes back UNSPENT: a stop did not fail it
+                        return yield_now(
+                            q,
+                            name,
+                            ids,
+                            i,
+                            stopping,
+                            log,
+                            f"stopped mid-page on {sha[:12]} p{no} ({e}); ",
+                        )
                     log(f"  SERVER DOWN on {sha[:12]} p{no} ({e}); {len(ids) - i - 1} released")
                     q.fail(name, job["job_id"], f"server: {e}", final=False)
                     q.release(name, ids[i + 1 :])
@@ -351,9 +385,13 @@ def main() -> int:
             if (read + failed) % 40 < args.batch:
                 log(f"  {read} read, {failed} failed this session")
     except Exception:  # noqa: BLE001 — nobody's we named: the queue, the venv, a 4xx
-        log("NOT THE PAGE'S FAULT; releasing what is held and exiting")
         log(traceback.format_exc())
         try:
+            if stopping.signal_name:
+                # the twin's rule: a signal while something was in flight is the broker taking
+                # the machine, so this exits 0 with its marker rather than as a fault
+                return yield_now(q, name, ids, 0, stopping, log, "stopped mid-page; ")
+            log("NOT THE PAGE'S FAULT; releasing what is held and exiting")
             q.release(name, ids)  # the whole batch: the page in flight is not to blame
         except Exception:  # noqa: BLE001 — the queue itself may be what failed
             log("could not release; the leases expire on their own")

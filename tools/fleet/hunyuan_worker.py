@@ -93,6 +93,7 @@ from ocr_run import (  # noqa: E402 — the benchmark's own call, not a copy of 
     run_hunyuan_ocr,
 )
 from pagequeue import PASSES, Queue, RemoteQueue  # noqa: E402
+from stopping import Stop, yield_now  # noqa: E402
 
 PASS = "tabular"
 DPI = int(PASSES[PASS]["key"]["render_profile"])  # the render IS the key; one source
@@ -325,6 +326,10 @@ def main() -> int:
         help="exit 0 before the next page when this file exists, releasing the rest unspent",
     )
     args = ap.parse_args()
+    # installed BEFORE the model loads: 2 GB of weights takes long enough that a broker can
+    # signal us during it, and a reader that ignored that would be SIGKILLed having read
+    # nothing. Nothing is leased yet, so the flag simply stops the first claim.
+    stopping = Stop(args.stop_file).install()
 
     spec = PASSES[PASS]
     if args.model != MODEL:  # the key names HunyuanOCR-1.5; another model is another pass
@@ -392,6 +397,9 @@ def main() -> int:
     if (code := register_or_exit(q, name, PASS, producer)) is not None:
         return code
     log(f"{name} registered as {producer}")
+    # logged HERE, not at the yield: a page that outruns the grace is SIGKILLed and never
+    # reaches `why()`, which is exactly when the operator wants to know what the budget was
+    log(f"stop: file {args.stop_file}, signal grace {stopping.grace:.0f}s")
     args.scratch.mkdir(parents=True, exist_ok=True)
 
     read = failed = streak = 0
@@ -400,15 +408,19 @@ def main() -> int:
     ids: list[int] = []
     in_flight: int | None = None  # the index in `ids` of the page the model is reading
 
-    def stopping() -> bool:
-        return bool(args.stop_file and args.stop_file.exists())
-
     try:
         while True:
             if args.max_pages and read + failed >= args.max_pages:
                 log(f"--max-pages reached: {read} read, {failed} failed")
                 return 0
             ids = []
+            if stopping():
+                # before the claim, not after: a stopped reader that claimed first would spend
+                # two coordinator round trips inside the grace, and a reader started under the
+                # operator's latch would claim and release a batch every restart
+                log(stopping.why("nothing claimed"))
+                stopping.checkpoint_complete()
+                return 0
             jobs, why = claim_if_room(q, name, args.batch, args.lease, gpu_memory)
             if jobs is None:
                 log(f"the card is short ({why}); nothing claimed; exit {EXIT_ENVIRONMENT}")
@@ -419,9 +431,7 @@ def main() -> int:
             ids = [j["job_id"] for j in jobs]
             for i, job in enumerate(jobs):
                 if stopping():
-                    q.release(name, ids[i:])
-                    log(f"stop file present; {len(ids) - i} pages released; exit 0")
-                    return 0
+                    return yield_now(q, name, ids, i, stopping, log)
                 sha, no = job["document_sha256"], job["page_no"]
                 png = args.scratch / f"{name.replace('/', '_')}_{sha[:12]}_p{no}.png"
                 try:
@@ -456,6 +466,20 @@ def main() -> int:
                     log(f"  document {sha[:12]} {e}; p{no} back for a later seed")
                 except GpuOutOfMemory:
                     in_flight = None
+                    if stopping():
+                        # THE CARD WAS TAKEN, NOT LOST. A broker starting the other workload
+                        # before we exit makes our generate OOM; charging the page an attempt
+                        # for that is the "default is not the page's" rule inverted, and two
+                        # such pages in a row would exit 3 calling a healthy card faulty.
+                        return yield_now(
+                            q,
+                            name,
+                            ids,
+                            i,
+                            stopping,
+                            log,
+                            f"stopped mid-page on {sha[:12]} p{no}; ",
+                        )
                     give_back(q, name, ids, i, "gpu: oom")
                     log(f"  OUT OF GPU MEMORY on {sha[:12]} p{no}; {len(ids) - i - 1} released")
                     if card_at_fault(last_oom, (sha, no)):
@@ -486,6 +510,13 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001 — the engine's on a page, else nobody's we named
         log(traceback.format_exc())
         try:
+            if stopping.signal_name:
+                # A SIGNAL, not the stop file. A broker taking the card makes the engine raise
+                # on the way down, so the page is innocent. The FILE says nothing of the kind:
+                # a page that breaks the engine while the operator happens to have written it
+                # would be refunded and claimed first after every restart for ever, which is
+                # what the branch below exists to prevent.
+                return yield_now(q, name, ids, 0, stopping, log, "stopped mid-page; ")
             if in_flight is not None:
                 # the model raised on this page: its attempt stays spent, or a page that
                 # breaks the engine is claimed first after every restart for ever

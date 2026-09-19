@@ -2199,3 +2199,29 @@ Both passes called the change correct and shippable. Two findings are choices, n
   supersession makes it legal — and a narrowing list is the operator's own cut moving, so this
   is recorded rather than changed. Either queue `(held | wanted[sha]) & routed` on this path
   too, or say in `seed_from_list`'s docstring that a narrowing list is taken at its word.
+
+## From the specialist on the stop signal, 2026-09-19 (ADR 0025 addendum proposal 1)
+
+The two findings that could lose or misattribute a page were fixed in the same change. These
+three are recorded rather than built.
+
+- **`wait_for_server` ignores both the stop file and the signal**, and a document claims the
+  opposite. `dots_worker.wait_for_server` loops up to `--server-wait` 1800 s with no stop
+  check, so an operator's `touch .stop` does not stop a reader waiting on a dead server, and a
+  preempted one is killed rather than exiting 0 with its marker. Nothing is lost — nothing is
+  leased at that point — but `workstation-gate.ps1` states in its own header that the stop file
+  is checked "before each page **and instead of waiting for a server**", which is behaviour the
+  code does not have. Pre-existing; the fix is to pass the predicate into the sleep loop.
+- **A brokered placement and `fleet-up.sh`'s restart loop must be mutually exclusive by
+  construction, not by care.** The loop restarts a worker a minute after ANY exit, so a reader
+  a broker just preempted goes back on the card sixty seconds later, overriding the placement
+  the broker made. Written into `docs/compute-fleet.md` as a rule; nothing enforces it. Related:
+  exit 0 now means three different things (queue drained, stop file, preempt) and only the
+  third prints a marker — **the owed resubmitter must key off the broker's `preempted` state or
+  the `jobd-checkpoint-complete` line, never the exit code.**
+- **A forward hazard to record before anyone closes the grace gap.** The obvious next step for
+  "a page that outruns the grace" is a transformers `StoppingCriteria` wired to the stop flag.
+  If that is ever added, the generation ends with `ended_with_eos=False` and
+  `new_tokens < max_new_tokens`, so `generation_failure` returns None and the **truncated**
+  answer is posted as `done` — a silently short reading with no failure row, which is the
+  2026-09-06 shape. An interrupted generation must be released unspent, never posted.
