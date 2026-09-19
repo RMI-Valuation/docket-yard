@@ -38,10 +38,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   mode refuses the scp** — then `route-list` and seed. Owed before ANY load, in `deferred.md`:
   loading changes what every re-read page publishes about itself with no dated rule
   (`pages.py:band`), and the agreement distance is a publishing decision, not a computation
-- **~40 kind labels: the sample is DRAWN and committed** (`27b28df`,
-  `docs/research/text-quality/kinds-flagged-sample.json`; 20 the screen calls prose, 20 it does
-  not, weights in the file). **Next: render the 40 pages on rmi-ai-machine and publish a BLIND
-  check sheet** — image beside stored text, no score, no verdict — then his kinds, then score
+- **~40 kind labels: the BLIND sheet is BUILT and PUBLISHED, and is HIS to fill**
+  (`kinds_check_sheet.py`, `fef1c30`; the link is outside the repo). 40 scans rendered whole at
+  150 DPI beside the text the store serves; no score, no screen verdict, nothing drafted.
+  **Next: his kinds, then precision off the prose stratum, recall on the weights (4.1 / 15.9)**
 - **The mirror is EXPENDABLE (his, 2026-09-19)**: it never travels, so the rebuild carries no
   109 GB. Derived work backs up nightly; 2,578 collected readings still await his load
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,

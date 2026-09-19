@@ -309,6 +309,28 @@ At 20.6 s a page it is also ~182 hours for the ~31,800 flagged pages, against ro
 for dots.mocr. **What 32B is a candidate for** is a later pass over the prose-and-table subset,
 with a cheap second reading beside it for the distance — not for the re-read decided here.
 
+## The flagged set's own kinds — drawn 2026-09-19, labels not yet in
+
+The order the re-read runs in is prose first (the operator's), and `text_quality.looks_like_prose`
+is what obeys it. Its precision and recall rest on **five pages**: of the 166 labelled here only
+32 sit below the 0.5 cut and only 5 of those are prose (`docs/deferred.md`, 2026-09-18). A rate
+off five pages is not a rate, so the screen is measured on the population it actually sorts.
+
+`kinds-flagged-sample.json`, drawn by `tools/rmi-ai-machine/kinds_flagged_sample.py`: 40 pages
+from the flagged set itself — a live **primary** reading of the publisher's own **text layer**
+scoring under 0.5 over the 15-token floor, 31,798 pages, 31,766 of them not already labelled
+here. **Stratified on the screen's own verdict**, 20 it calls prose and 20 it does not, which is
+what makes 40 labels enough for both figures: precision reads off the first stratum, recall needs
+the weights the file records (4.1 and 15.9), since a page in the second stratum stands for far
+more of the record than one in the first. Pool 400, seeds 20260919 / 2026091920.
+
+The check sheet is `tools/rmi-ai-machine/kinds_check_sheet.py`: each page rendered whole at 150
+DPI grey from the blob mirror, beside the text `document_text_display` serves for it, and one
+question — what is this page? **Nothing is drafted on it and the score, the screen's verdict and
+the layout features the screen reads are all absent** (`SHOWN` is the whitelist that keeps them
+out): a reader who can see the screen's answer is not measuring it, and model labels are a
+screen, never a measurement. The kinds are the operator's; scoring joins them back by `label_id`.
+
 ## Reproducing
 
 The pass is scratch code, kept out of the repo except the feature module
