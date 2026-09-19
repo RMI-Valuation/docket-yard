@@ -8,8 +8,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **v2026.09.28 LIVE** (schema 33). The fleet's checkout is pinned at `67b1762`; moving it is
-  a deploy that changes what the collect loops run
+- **v2026.09.28 LIVE** (schema 33). **The fleet's checkout moved to `440118a` on 2026-09-19**
+  after 12 commits at `67b1762` — deployed while the fleet was quiescent, backup first, counts
+  identical after (dots 46,838/134; tabular 6,799 pending/17,275/2,220). `reread-collect` runs now
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown;
   exposed 428. **The review page, for a person** — docket, sub-docket and document in one look,
   linked to scan, text, both dockets and the match; an ICC flag. GATED on the citations
@@ -18,17 +19,15 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   pending, 2,220 failed, **nothing leased** — a resume loses and re-reads nothing. Key
   unchanged (HunyuanOCR `47644ecc`, transformers 5.16.1, render 150, mv 1.5); **do NOT raise
   the render to 200 mid-pass — two live keys**
-- **ADR 0025 addendum: ALL SIX PROPOSALS ACCEPTED and built** (`86d5db2`, `e2ada52`). The blob
-  refetch is on main, reviewed three ways (ingest, `/code-review high`, `/security-review`
-  clean). **It is DORMANT until he puts a read-only `store.env` on the coordinator**
-  (`DY_S3_BUCKET` + `GetObject`/`ListBucket` keys); `fleet-up.sh` says which way it started.
-  Owed in `deferred.md`: the worker branches have no test, the corrupt-store alarm reaches
-  nobody, `pull_blobs.py` still compares size not sha
-- **THE FLEET REBUILD is his, proposed 2026-09-19**: rmi-ai-machine, both NUCs and rmi-mac as
-  fresh slates; target state per box in rmi-fleet `deploy/fleet-target-state.md`. Steps 0–2
-  are DONE (the S3 backup satisfies step 0; the NAS is an improvement again, not a
-  precondition). **Step 3 — rmi-nuc2 becomes the coordinator, rmi-nuc a CPU worker — is now
-  unblocked** and needs `store.env` there first
+- **ADR 0025 addendum: ALL SIX ACCEPTED, built, deployed and VERIFIED LIVE** 2026-09-19. A
+  mirror miss now refetches: measured on the coordinator — a mirror hit 200, a miss fetched
+  and hash-verified and the mirror filled, a sha in no store **404 not 503**, no spool left.
+  New IAM user `docketyard-blobs-reader` (GetObject on `blobs/*`, ListBucket on the bucket,
+  and it CANNOT read `litestream/`). Owed in `deferred.md`: the worker branches have no test,
+  the corrupt-store alarm reaches nobody, `pull_blobs.py` still compares size not sha
+- **THE FLEET REBUILD is his** (rmi-fleet `deploy/fleet-target-state.md`): steps 0–2 done,
+  **step 3 unblocked** — rmi-nuc2 becomes the coordinator, rmi-nuc a CPU worker; copy
+  `store.env` across with the rest
 - **`JOBD_API_TOKEN` on the coordinator is still the ONE thing between here and a brokered
   resume** on today's topology. It needs no swap and no code: place it, then delete
   `/data/docketyard/ocr/.stop-tabular` on rmi-ai-machine

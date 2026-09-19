@@ -216,6 +216,44 @@ started idempotently by `tools/fleet/fleet-up.sh <role>` (`DY_FLEET_DATA` is the
 
 | Role | Session | Runs | Log |
 | --- | --- | --- | --- |
+
+### Putting the store within the coordinator's reach (ADR 0025 addendum 5-6)
+
+`<data>/store.env`, mode 600, in no repository, read by `fleet-up.sh` and sourced into the
+environment before the queue server starts — never passed in argv, because `ps` is readable by
+every user on the box:
+
+```
+DY_S3_BUCKET=docketyard-prod
+AWS_REGION=us-east-2
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+```
+
+**Use `docketyard-blobs-reader`, not `docketyard-reader`.** The older key grants `GetObject` on
+`docketyard-prod/*`, and that bucket holds `litestream/` as well as `blobs/` — so it can read a
+2.3 GB replica of the whole production store. Measured 2026-09-19, which is why a narrower user
+exists: `s3:GetObject` on `docketyard-prod/blobs/*` and `s3:ListBucket` on the bucket, nothing
+else. **`ListBucket` is unconditioned deliberately**: S3 answers 404 rather than 403 for a
+missing key only when the caller holds it, and a GetObject request carries no `s3:prefix` for a
+condition to match — so scoping it by prefix would collapse the two answers the queue's failure
+grammar depends on. The cost is that the key can see `litestream/` key NAMES; it cannot read one.
+
+Prove it after placing it, against the running coordinator — all three, not just the happy one:
+
+```
+T=$(cat <data>/fleet.token)
+curl -s -o /tmp/b -w '%{http_code} %{size_download}
+' -H "Authorization: Bearer $T"     http://127.0.0.1:8131/blob/<a sha the mirror holds>     # 200, served from disk
+curl -s -o /tmp/b -w '%{http_code} %{size_download}
+' -H "Authorization: Bearer $T"     http://127.0.0.1:8131/blob/<a sha only the store holds> # 200, and the mirror is now filled
+curl -s -o /tmp/b -w '%{http_code}
+' -H "Authorization: Bearer $T"     http://127.0.0.1:8131/blob/$(printf '0%.0s' {1..64})    # 404 — NOT 503
+```
+
+The third is the one that matters: a 503 there means the credential lacks `ListBucket` and every
+absent document is about to be blamed on the environment. Verified on rmi-nuc 2026-09-19.
+
 | coordinator | `fleet-queue` | `queue_server.py` on port 8131: the lease calls and the blobs, refetching from the store on a mirror miss when `<data>/store.env` is present | `ocr/logs/queue-server.log` |
 | coordinator | `fleet-monitor` | `monitor.py` on port 8130 | `ocr/logs/monitor.log` |
 | coordinator | `dots-collect` | `pagequeue.py collect` every ten minutes | `ocr/logs/dots-collect.log` |
