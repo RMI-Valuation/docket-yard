@@ -21,9 +21,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   the render to 200 mid-pass — two live keys**. **BACKED UP 2026-09-19** to two boxes (routes
   first: the only strictly irreplaceable part), but both share a LAN and a power feed, so
   **a NAS target is owed — his, from 2026-09-20**. Resume = the placement decision
-- **ADR 0025 addendum Proposed 2026-09-19** — a broker places readers; the coordinator is
-  backed up. **His to accept.** Open with it: which box coordinates, whether the freed box
-  reads (its card is Turing, so bf16 is unmeasured), and where a reader gets blob bytes
+- **ADR 0025 addendum: proposals 1–4 ACCEPTED 2026-09-19, 5–6 HELD** (a blob miss as a fetch;
+  what D6 means). Two reviews returned that draft — rebuild on `capture/s3.py`'s signed GET,
+  streaming, structural error classes, worker half in both loops. Credential: +`ListBucket`
 - **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
   `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
   quotation per displayed reading, migration 0033. **His to accept; then migration + pass**

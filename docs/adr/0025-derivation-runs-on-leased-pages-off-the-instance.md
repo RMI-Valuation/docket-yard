@@ -58,7 +58,10 @@ driver restarted on any day. What is not cheap is running without it: measured, 
 
 ## Addendum (2026-09-19): a broker places the readers, and the coordinator is backed up
 
-**Status: Proposed.** Extends decision 1 — what a reader's stop costs, and who may cause one.
+**Status: proposals 1–4 Accepted 2026-09-19 by the operator, on the decisions of 2026-09-18
+they rest on. Proposals 5 and 6 are HELD, still Proposed** — they rest on a credential that has
+not been placed and on a draft two reviews returned for rebuilding. Extends decision 1 — what a
+reader's stop costs, and who may cause one.
 It moves nothing in decisions 2 to 6, and it deliberately leaves one gap open: under decision 5
 a broker's yield is indistinguishable from a stall, because STALLED is "pages owed and none
 read", so every pause longer than the threshold pages the operator correctly and uselessly.
@@ -94,7 +97,7 @@ old one (ADR 0007).
    so a broker free to resolve versions would split that key silently. The queue keeps owning
    pages, leases, the producer check and the key.
 
-**Proposed, and the operator's to accept or refuse:**
+**Accepted by the operator, 2026-09-19 — proposals 1 to 4:**
 
 1. **Preemption is the yield this record already has.** Decision 1 costs "the pages in hand and
    nothing else" when an operator sits down; a broker stopping a reader is that same case, not
@@ -115,9 +118,44 @@ old one (ADR 0007).
 4. **A reader does not also coordinate.** The machine that runs another project's jobs must not
    be the machine holding this project's ledger. The token is not the reason — it is on every
    joining machine by design — the ledger is.
+**HELD, still Proposed — proposals 5 and 6, the operator's to accept or refuse.** Two reviews
+returned the first draft of proposal 5 on 2026-09-19: it must be built on this project's own
+standard-library signed GET and stream a document rather than buffer it, classify the store's
+answers structurally rather than by matching their text, and land the worker half in the same
+change — without which a 502 or 503 spends no attempt, records nothing, and loops the fleet.
+**One part of it the operator did settle that day:** were the credential ever placed, it carries
+`s3:GetObject` **and `s3:ListBucket`** on the blob prefix, so that a document genuinely absent
+from the store answers 404 and is charged to the document, while a broken credential answers 403
+and is charged to the environment. Without `ListBucket` the two are the same answer, and the
+distinction the queue's whole failure grammar rests on cannot be made.
 
-**Consequences.** Placement stops being a matter of which script was started where. Items 3 and
-4 cost one machine's spare capacity and a scheduled copy, and item 4 retires `fleet-up.sh`'s
+5. **A blob miss is a fetch, not a failure.** The coordinator refetches a document the mirror
+   does not hold from the store itself, the way the instance's document route already does, and
+   the mirror becomes a cache that may be cold, pruned or absent. Today a miss is a 404, and
+   that 404 is what failed **728 pages across 310 documents** on 2026-09-18 — every one of them
+   in the store the whole time. What this buys is not the bytes: it is that no box must hold
+   109 GB to serve them, and that the box owning the mirror can refill it, which until now only
+   a *different* box could do. The sha is the identity (ADR 0002), so fetched bytes are hashed
+   before they are cached or served, and a mismatch is loud and never written — that would be a
+   corrupt object in the store of record. Whose fault a miss is keeps the queue's own grammar:
+   absent from the store is the document's, an unusable credential is the environment's, a
+   wrong hash is the store's.
+6. **What decision 6 means, said plainly.** "No node holds the store or a key" is **already not
+   literally true** — the reading box has held a read-only S3 profile since 2026-08-26, which is
+   how the blobs got there. What D6 means, and what item 5 keeps, is that **no node can write to
+   the store**: the loader on the instance stays the only door in. A `GetObject`-only credential
+   scoped to the blob prefix is not a door. Stating this is not a widening; it is admitting what
+   has been true since the fleet was built, so that the next box is reasoned about rather than
+   quietly excepted. It does sharpen item 4: a job placed by the broker on the coordinator could
+   read that credential, so the coordinator is the one box that must not take other work.
+
+**Consequences.** Placement stops being a matter of which script was started where. Item 5 costs
+one read-only credential on the coordinator and makes the mirror movable by not moving it: a
+coordinator can change machines without carrying 109 GB, warming instead on demand. It also
+retires the recorded asymmetry — the box that owns the mirror could not refill it — rather than
+routing around it, and it is why item 5 is worth settling **before** the coordinator moves.
+Items 3 and 4 cost one machine's spare capacity and a scheduled copy, and item 4 retires
+`fleet-up.sh`'s
 `all` role — reader and coordinator on one box — to development only. Item 1 is a change to both
 workers, whose lease loops are deliberately duplicated, so it lands in both; the signal must set
 the same flag the stop file sets and **must not latch**, since the stop files are latches a
