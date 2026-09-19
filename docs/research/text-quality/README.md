@@ -309,6 +309,77 @@ At 20.6 s a page it is also ~182 hours for the ~31,800 flagged pages, against ro
 for dots.mocr. **What 32B is a candidate for** is a later pass over the prose-and-table subset,
 with a cheap second reading beside it for the distance — not for the re-read decided here.
 
+## The flagged set's own kinds — the screen scored on the pages it sorts
+
+The order the re-read runs in is prose first (the operator's), and `text_quality.looks_like_prose`
+is what obeys it. Its precision and recall rest on **five pages**: of the 166 labelled here only
+32 sit below the 0.5 cut and only 5 of those are prose (`docs/deferred.md`, 2026-09-18). A rate
+off five pages is not a rate, so the screen is measured on the population it actually sorts.
+
+`kinds-flagged-sample.json`, drawn by `tools/rmi-ai-machine/kinds_flagged_sample.py`: 40 pages
+from the flagged set itself — a live **primary** reading of the publisher's own **text layer**
+scoring under 0.5 over the 15-token floor, 31,798 pages, 31,766 of them not already labelled
+here. **Stratified on the screen's own verdict**, 20 it calls prose and 20 it does not, which is
+what makes 40 labels enough for both figures: precision reads off the first stratum, recall needs
+the weights the file records (4.1 and 15.9), since a page in the second stratum stands for far
+more of the record than one in the first. Pool 400, seeds 20260919 / 2026091920.
+
+The check sheet is `tools/rmi-ai-machine/kinds_check_sheet.py`: each page rendered whole at 150
+DPI grey from the blob mirror, beside the text `document_text_display` serves for it, and one
+question — what is this page? **Nothing was drafted on it and the score, the screen's verdict and
+the layout features the screen reads were all absent** (`SHOWN` is the whitelist that keeps them
+out): a reader who can see the screen's answer is not measuring it, and model labels are a
+screen, never a measurement. **All 40 labelled by the operator, 2026-09-19**
+(`kinds-flagged-checked.json`); scored by `kinds_flagged_score.py`, which joins them back by
+`label_id`. Every recorded `screen_prose` reproduces from the shipped `looks_like_prose` over the
+recorded layout, so what is scored here is the screen that runs.
+
+### What the flagged set is
+
+The drawn counts are 20 and 20 by construction, so the share is the weighted one — a page the
+screen rejected stands for 15.9 pool pages against an accepted page's 4.1 — and the intervals are
+bootstrapped over the two strata, resampled as they were drawn.
+
+| kind | drawn: screen prose / not | share of the flagged set | pages |
+| --- | ---: | ---: | ---: |
+| table | 1 / 9 | 36.8% (19.9–53.7) | 11,690 |
+| prose | 15 / 2 | 23.3% (13.3–36.2) | 7,409 |
+| map | 2 / 4 | 18.0% (5.0–33.0) | 5,702 |
+| drawing | 0 / 3 | 11.9% (0.0–23.9) | 3,788 |
+| mixed | 1 / 2 | 9.0% (0.0–20.9) | 2,851 |
+| form | 1 / 0 | 1.0% (0.0–3.1) | 326 |
+
+**The flagged set is mostly tables.** The 32 flagged pages labelled in the 64-page sample said
+maps (11 of 32) — but those came from a band × era draw, never a random draw over the flagged
+set, so their composition was never a population estimate and should not have read as one.
+
+### The screen, scored
+
+`mixed` decides nothing here and is reported both ways: a page of argument with a table under it
+is partly what the re-read wants and partly not, and nothing in the record settles it.
+
+| counting | precision | recall | prose in the flagged set |
+| --- | ---: | ---: | ---: |
+| prose only | **0.75** (15/20, Wilson 0.53–0.89) | **0.66** (bootstrap 0.42–1.00) | 7,409 (4,233–11,483) |
+| prose or mixed | 0.80 (16/20, 0.58–0.92) | 0.51 (0.34–0.81) | 10,260 (6,147–15,025) |
+
+**Three pages in four that the screen orders are prose, and it leaves roughly a third of the
+flagged set's prose unordered.** Precision is measured directly — it is a ratio inside one
+stratum, where the weights cancel. Recall is not, and its interval is the honest width: only
+**two** of the twenty rejected pages turned out to be prose, and each of those stands for 15.9,
+so the estimate swings on two labels. The upper bound reaches 1.00 because a resample can hold
+no missed prose at all.
+
+**The purity lift is about 3.2×, not the fivefold the off-population figure implied**: prose is
+23.3% of the flagged set and 75% of what the screen selects. The earlier estimate divided 0.80 by
+a 16% prevalence read off 5 prose pages in 32 (`docs/deferred.md`, 2026-09-18); both halves moved.
+
+**This does not block the prose pass and does not change it.** A queue order that is wrong costs
+reading order, not a wrong assertion (ADR 0021), and a 3.2× lift is still worth having. What it
+does settle is what may be *said*: the screen finds most of the prose and not nearly all of it,
+and the ~7,400 prose pages it is sorting are under a quarter of the flagged set. Quality is NOT
+measured on these 40 — they carry kinds only, which is what the question asked for.
+
 ## Reproducing
 
 The pass is scratch code, kept out of the repo except the feature module

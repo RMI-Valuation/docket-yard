@@ -1956,6 +1956,14 @@ not a wrong assertion — but two things are owed if the screen is ever leaned o
   flagged set itself**, if the screen is to carry a stated rate. The indication it does give is
   worth having and is why the pass is still worth seeding: prose is 5 of 32 flagged pages (16%)
   and roughly 80% of what the screen selects, a fivefold lift in purity.
+  **PAID 2026-09-19** — 40 drawn from the flagged set, stratified on the screen's own verdict and
+  labelled by the operator on a blind sheet (`docs/research/text-quality/README.md` § The flagged
+  set's own kinds). On-population: **precision 0.75 (0.53–0.89), recall 0.66 (0.42–1.00)**, prose
+  23.3% of the flagged set (~7,400 pages). The screen may now carry a stated rate. Two figures
+  above are corrected by it: the **fivefold lift is 3.2×** (both halves of that division moved),
+  and the composition of the flagged set is **tables first at 37%**, not maps — the 32-page read
+  came from a band × era draw and was never a population estimate. Recall still swings on two
+  labels; a wider draw is the only thing that narrows it, and nothing needs it yet.
 - **71 of the 166 kind labels are unchecked model labels**, which is the thing the operator's own
   rule forbids being turned into a rate ("model labels are a screen, never a measurement"). The
   quality labels in this directory were kept honest about this; the kind labels behind the screen
@@ -2305,3 +2313,71 @@ change. These are recorded instead.
   docstring's earlier "a hash can never prove fidelity to a database that moved" was more
   pessimistic than the mechanism — the pessimism would have become TRUE had anyone later
   "improved" it into a chunked loop, which is why the reason is now written beside the call.
+
+## Page regions: ADR 0003's blocks are unbuilt, and dots already produces them, 2026-09-19
+
+The operator proposed a vision model that maps a page into labelled regions with bounding
+boxes — prose, table, map, stamp, header, footer, letterhead — "YOLO for documents", and asked
+whether it is worth exploring. Measured before answering, and the answer is that most of it
+already exists and none of it is reachable.
+
+**ADR 0003 (Accepted 2026-08-25) already decided this**: the IR stores, per page, "text,
+blocks with bounding boxes, font size and weight, rotation, whether the page had a text layer
+or was OCR'd, and per-block confidence. Capture more than the current feature set needs." Built
+of that list: the channel, and a page-grain `engine_confidence`. **Not built: blocks, bounding
+boxes, font size and weight, per-block confidence.** The only `bbox` in `src/` is migration
+0014's *declared* `source_location` shape `{page, block_id, bbox}`, which `load.py` never wrote
+and which 0028 (ADR 0026 D4) had to correct to `{page, spans}`, recording that `block_id` and
+`bbox` were unreachable from anything.
+
+**The wave's own engine produces regions and the payloads are on disk.** `DOTS_PROMPT` asks
+dots.mocr for "each layout element's bbox, its category, and the corresponding text content"
+over 11 DocLayNet categories in reading order, and the collected reading keeps the model's raw
+answer in `engine.pages[].raw`. Measured over 3,999 of the 15,895 payloads under
+`/data/docketyard/ocr/dots` on rmi-ai-machine — 13,977 pages, ~15 regions a page, **over
+210,000 region boxes already held**:
+
+| category | per 100 pages | | category | per 100 pages |
+| --- | ---: | --- | --- | ---: |
+| Text | 1,065 | | Page-footer | 54 |
+| List-item | 141 | | Page-header | 41 |
+| Picture | 100 | | Table | 6 |
+| Section-header | 91 | | Footnote | 3 |
+| Title | 67 | | Caption / Formula | 2 / 1 |
+
+**55.4% of those pages are text AND picture**, and 4,364 of them carry more than one picture
+region — which is exactly the operator's point: a page that is mostly prose, plus a stamp, plus
+a letterhead. The page-level `kind` this project has been labelling by hand collapses all of it
+to one word, and the prose screen it feeds scores 0.75/0.66 (§ above).
+
+**What is genuinely free, and what is not.**
+
+- Free for OCR'd pages: the regions above, already paid for. Nothing loads them, because the
+  store has no region grain and ADR 0022 D3 sends the engine payload to the blob tier.
+- Nearly free for text-layer pages: both extractors call `page.get_text()` for a flat string;
+  `get_text("dict")` returns blocks, lines and spans with bboxes and font size — ADR 0003's
+  list, same parse, no GPU. Probed on the 40 labelled pages: it carries signal the screen does
+  not read (distinct font sizes, median by kind: prose 11, table 5, map 19, mixed 55,
+  drawing 140; distinct column starts: prose 4, table 3, drawing 14). **No rule was fitted and
+  no rate is claimed — 40 pages with 3 drawings and 1 form cannot support one.** What it does
+  NOT give is a semantic category: geometry only.
+- NOT free: the operator's vocabulary. DocLayNet has no stamp, letterhead or map — all three
+  are `Picture`. Getting his labels means a classifier over the ~1 picture-region-per-page
+  crops dots already located, which is far cheaper than a second page-level VLM pass. A full
+  re-pass over ~1.4M page readings at dots' ~2.7 s/page is ~1,000 GPU-hours and is not the
+  proposal.
+
+**What is unmeasured, and blocks any claim.** Not one bbox or category has been checked by a
+person. Model labels are a screen, never a measurement, so nothing above may be published as a
+property of the record — it is what the model asserted. Region-grain truth does not exist; the
+206 operator-labelled pages are page-grain and cannot score a region classifier.
+
+**The real cost is schema, not GPU.** A region is a derived assertion and carries provenance
+(CLAUDE.md), so this is a new grain, an ADR, and schema-critic — not a tool. It also touches
+the reading key: capturing blocks alongside the same text may or may not move `method_version`,
+and that is an ask-rather-than-assume question, not an implementation detail.
+
+Also noted: **no vLLM is installed on rmi-ai-machine**, though the dots.mocr weights are cached
+(5.7 GB). Re-running dots over the 40 text-layer pages therefore means standing vLLM back up on
+a 5090, which is a job of some length with real uncertainty — not the two minutes first
+estimated.
