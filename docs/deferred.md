@@ -2109,3 +2109,14 @@ useless, because the condition was intended. `/health` served 503 for the whole 
   how an operator learns to ignore the alarm. The pass was down about an hour today and the
   fleet will be stopped and started far more often once the broker arbitrates it, which makes
   this more frequent, not less.
+
+## Stats deferrals, graduated from TODO 2026-09-18 (v2026.09.28)
+
+Parked in `TODO.md` and recorded here instead when the plan cap fired — they were the only
+two items in that file held nowhere else.
+
+- **One month walker for `home.py` and `stats.py`.** The two walk the record's months
+  separately for their own figures; one walker would serve both and be measured once.
+- **No index on `filing(filed_date)`.** Every date-ranged filing query — the coverage page,
+  `count_filings`, `list_proceedings` — scans. Not felt at 54,422 filings; worth having before
+  the backfill's later waves land, and worth measuring rather than assuming.
