@@ -1,0 +1,655 @@
+{
+ "drawn": "2026-09-19",
+ "seed_pool": 20260919,
+ "seed_pick": 2026091920,
+ "question": "Of the pages the prose screen ORDERS - the flagged set, good < 0.5 over the 15 letter-bearing-token floor - what kind is each page?",
+ "population": 31798,
+ "eligible": 31766,
+ "pool": 400,
+ "pool_screen_prose": 82,
+ "pool_screen_not": 318,
+ "weight_prose_stratum": 4.1,
+ "weight_not_stratum": 15.9,
+ "pages": [
+  {
+   "text_id": 34220,
+   "sha": "088112d2a19bc5bb91c011580b350fa286fe379d5a08c1ef0a0dbeb46e0b7e6c",
+   "page": 12,
+   "year": "2014",
+   "kinds": "filing",
+   "good": 0.3774,
+   "screen_prose": true,
+   "layout": {
+    "lines": 27,
+    "median_line": 28,
+    "tokens_per_line": 4.667,
+    "numeric_share": 0.032
+   },
+   "label_id": "K01"
+  },
+  {
+   "text_id": 119574,
+   "sha": "1c46a7aecc4073282b9532316d773172ae826325ada98cb5b7ba8ef1280e04bd",
+   "page": 28,
+   "year": "2008",
+   "kinds": "filing",
+   "good": 0.1667,
+   "screen_prose": false,
+   "layout": {
+    "lines": 83,
+    "median_line": 4,
+    "tokens_per_line": 1.795,
+    "numeric_share": 0.114
+   },
+   "label_id": "K02"
+  },
+  {
+   "text_id": 124705,
+   "sha": "1ddcb24db503ff85566801b61c1f13efc7c53a795167f0ebcb781314471d8ef6",
+   "page": 37,
+   "year": "2016",
+   "kinds": "filing",
+   "good": 0.4444,
+   "screen_prose": false,
+   "layout": {
+    "lines": 202,
+    "median_line": 1,
+    "tokens_per_line": 1.46,
+    "numeric_share": 0.156
+   },
+   "label_id": "K03"
+  },
+  {
+   "text_id": 155322,
+   "sha": "22a8330bce766fd5951292111a502d67e5b53343618a0ff7d4fdf54cdae2cba0",
+   "page": 488,
+   "year": "2020",
+   "kinds": "decision",
+   "good": 0.3651,
+   "screen_prose": false,
+   "layout": {
+    "lines": 286,
+    "median_line": 7,
+    "tokens_per_line": 1.353,
+    "numeric_share": 0.158
+   },
+   "label_id": "K04"
+  },
+  {
+   "text_id": 169746,
+   "sha": "264a959d6b5670b7255d3ef5ee30675b96f63a90809233e2523c31a36aac3ae2",
+   "page": 440,
+   "year": "2017",
+   "kinds": "filing",
+   "good": 0.0,
+   "screen_prose": false,
+   "layout": {
+    "lines": 295,
+    "median_line": 5,
+    "tokens_per_line": 1.007,
+    "numeric_share": 0.01
+   },
+   "label_id": "K05"
+  },
+  {
+   "text_id": 251700,
+   "sha": "38e7c14533bc8a7f93f228a5b21928e8d0b64fdd44a50be2d7c2fd0f1ae79255",
+   "page": 51,
+   "year": "2015",
+   "kinds": "filing",
+   "good": 0.3368,
+   "screen_prose": true,
+   "layout": {
+    "lines": 56,
+    "median_line": 20,
+    "tokens_per_line": 4.107,
+    "numeric_share": 0.035
+   },
+   "label_id": "K06"
+  },
+  {
+   "text_id": 296589,
+   "sha": "446812cec2eab037894e4991e741be3e71294017d21ae064b291c1ee1bbc12be",
+   "page": 141,
+   "year": "2016",
+   "kinds": "filing",
+   "good": 0.2627,
+   "screen_prose": true,
+   "layout": {
+    "lines": 15,
+    "median_line": 46,
+    "tokens_per_line": 9.0,
+    "numeric_share": 0.037
+   },
+   "label_id": "K07"
+  },
+  {
+   "text_id": 305966,
+   "sha": "46c80a03ba986ee7943712f1480784fe15b2b61889b4d9cbfd2b3986f3220537",
+   "page": 13,
+   "year": "2021",
+   "kinds": "filing",
+   "good": 0.4599,
+   "screen_prose": true,
+   "layout": {
+    "lines": 38,
+    "median_line": 81,
+    "tokens_per_line": 9.053,
+    "numeric_share": 0.003
+   },
+   "label_id": "K08"
+  },
+  {
+   "text_id": 322962,
+   "sha": "4aaf000b6d7aa8eb17478b403ac1fdfd68c8a9b12e371c62ddf4507593364044",
+   "page": 21,
+   "year": "2011",
+   "kinds": "filing",
+   "good": 0.3043,
+   "screen_prose": true,
+   "layout": {
+    "lines": 29,
+    "median_line": 13,
+    "tokens_per_line": 4.483,
+    "numeric_share": 0.054
+   },
+   "label_id": "K09"
+  },
+  {
+   "text_id": 359958,
+   "sha": "53ea1b9ae00cb9f42820b8795efccd71aca2ce7d30f16ed8afe89da630bc5f9a",
+   "page": 10,
+   "year": "2023",
+   "kinds": "filing",
+   "good": 0.3293,
+   "screen_prose": false,
+   "layout": {
+    "lines": 436,
+    "median_line": 5,
+    "tokens_per_line": 1.071,
+    "numeric_share": 0.769
+   },
+   "label_id": "K10"
+  },
+  {
+   "text_id": 505254,
+   "sha": "773e3bbf241dce02925c07d0b36957ff029e8bc4cb74249083603552df2885c3",
+   "page": 24,
+   "year": "2023",
+   "kinds": "filing",
+   "good": 0.2157,
+   "screen_prose": false,
+   "layout": {
+    "lines": 50,
+    "median_line": 11,
+    "tokens_per_line": 1.34,
+    "numeric_share": 0.134
+   },
+   "label_id": "K11"
+  },
+  {
+   "text_id": 516707,
+   "sha": "7a625e19d5a6903bcfe593a264b33253fa714c2d3ade4769d31ade64dc0c41f9",
+   "page": 14,
+   "year": "2006",
+   "kinds": "filing",
+   "good": 0.2116,
+   "screen_prose": false,
+   "layout": {
+    "lines": 369,
+    "median_line": 2,
+    "tokens_per_line": 1.111,
+    "numeric_share": 0.144
+   },
+   "label_id": "K12"
+  },
+  {
+   "text_id": 532534,
+   "sha": "7d89ea4f6c3ccba17fdf24e74e7607637f505cc6dc0caf0a07280fe03404b53f",
+   "page": 4566,
+   "year": "2022",
+   "kinds": "filing",
+   "good": 0.3526,
+   "screen_prose": false,
+   "layout": {
+    "lines": 104,
+    "median_line": 4,
+    "tokens_per_line": 1.913,
+    "numeric_share": 0.101
+   },
+   "label_id": "K13"
+  },
+  {
+   "text_id": 568493,
+   "sha": "85898843bd658655892c5ebb1c91e7635ef3e170998b3d190aeb0a77fdd6b580",
+   "page": 1,
+   "year": "2021",
+   "kinds": "filing",
+   "good": 0.4757,
+   "screen_prose": true,
+   "layout": {
+    "lines": 50,
+    "median_line": 20,
+    "tokens_per_line": 7.52,
+    "numeric_share": 0.162
+   },
+   "label_id": "K14"
+  },
+  {
+   "text_id": 593671,
+   "sha": "8a23b596da882aac9417849493ebb004a2e7807df62f974f3fbbdcae221e6ad7",
+   "page": 2526,
+   "year": "2026",
+   "kinds": "filing",
+   "good": 0.2,
+   "screen_prose": true,
+   "layout": {
+    "lines": 43,
+    "median_line": 32,
+    "tokens_per_line": 7.372,
+    "numeric_share": 0.022
+   },
+   "label_id": "K15"
+  },
+  {
+   "text_id": 593770,
+   "sha": "8a23b596da882aac9417849493ebb004a2e7807df62f974f3fbbdcae221e6ad7",
+   "page": 2625,
+   "year": "2026",
+   "kinds": "filing",
+   "good": 0.303,
+   "screen_prose": true,
+   "layout": {
+    "lines": 22,
+    "median_line": 20,
+    "tokens_per_line": 3.5,
+    "numeric_share": 0.117
+   },
+   "label_id": "K16"
+  },
+  {
+   "text_id": 595864,
+   "sha": "8a23b596da882aac9417849493ebb004a2e7807df62f974f3fbbdcae221e6ad7",
+   "page": 4719,
+   "year": "2026",
+   "kinds": "filing",
+   "good": 0.1573,
+   "screen_prose": true,
+   "layout": {
+    "lines": 48,
+    "median_line": 62,
+    "tokens_per_line": 8.25,
+    "numeric_share": 0.025
+   },
+   "label_id": "K17"
+  },
+  {
+   "text_id": 595908,
+   "sha": "8a23b596da882aac9417849493ebb004a2e7807df62f974f3fbbdcae221e6ad7",
+   "page": 4763,
+   "year": "2026",
+   "kinds": "filing",
+   "good": 0.2037,
+   "screen_prose": true,
+   "layout": {
+    "lines": 15,
+    "median_line": 22,
+    "tokens_per_line": 4.133,
+    "numeric_share": 0.048
+   },
+   "label_id": "K18"
+  },
+  {
+   "text_id": 596055,
+   "sha": "8a23b596da882aac9417849493ebb004a2e7807df62f974f3fbbdcae221e6ad7",
+   "page": 4910,
+   "year": "2026",
+   "kinds": "filing",
+   "good": 0.1404,
+   "screen_prose": true,
+   "layout": {
+    "lines": 46,
+    "median_line": 28,
+    "tokens_per_line": 7.913,
+    "numeric_share": 0.014
+   },
+   "label_id": "K19"
+  },
+  {
+   "text_id": 596198,
+   "sha": "8a23b596da882aac9417849493ebb004a2e7807df62f974f3fbbdcae221e6ad7",
+   "page": 5053,
+   "year": "2026",
+   "kinds": "filing",
+   "good": 0.1534,
+   "screen_prose": true,
+   "layout": {
+    "lines": 48,
+    "median_line": 60,
+    "tokens_per_line": 8.229,
+    "numeric_share": 0.018
+   },
+   "label_id": "K20"
+  },
+  {
+   "text_id": 600142,
+   "sha": "8a8a809d16e86634b0711ee6cccc258c511bd807339da9a84f63ab89dbc2c9fd",
+   "page": 41,
+   "year": "2021",
+   "kinds": "filing",
+   "good": 0.0498,
+   "screen_prose": true,
+   "layout": {
+    "lines": 72,
+    "median_line": 26,
+    "tokens_per_line": 3.806,
+    "numeric_share": 0.036
+   },
+   "label_id": "K21"
+  },
+  {
+   "text_id": 620581,
+   "sha": "8f970097134b320eb99d228bfb03d5d5d2635ca7a7810a6001d4141e749c5614",
+   "page": 45,
+   "year": "2008",
+   "kinds": "filing",
+   "good": 0.1802,
+   "screen_prose": false,
+   "layout": {
+    "lines": 112,
+    "median_line": 2,
+    "tokens_per_line": 1.607,
+    "numeric_share": 0.117
+   },
+   "label_id": "K22"
+  },
+  {
+   "text_id": 623353,
+   "sha": "908356035f1441e5fa0ec09b5826f57bd6441205fe8440f52cec6027838ad5d8",
+   "page": 161,
+   "year": "2021",
+   "kinds": "filing",
+   "good": 0.1471,
+   "screen_prose": false,
+   "layout": {
+    "lines": 48,
+    "median_line": 2,
+    "tokens_per_line": 1.271,
+    "numeric_share": 0.098
+   },
+   "label_id": "K23"
+  },
+  {
+   "text_id": 647304,
+   "sha": "958ed2eb7ef1681ebf742bd761b143328b19a57d31976b62375329380047eb91",
+   "page": 10,
+   "year": "2020",
+   "kinds": "filing",
+   "good": 0.4643,
+   "screen_prose": false,
+   "layout": {
+    "lines": 11,
+    "median_line": 9,
+    "tokens_per_line": 2.818,
+    "numeric_share": 0.097
+   },
+   "label_id": "K24"
+  },
+  {
+   "text_id": 734498,
+   "sha": "aabab9a20ddcbdde10c4173f07a26a803278fc450a9b2c8eda2cdd92270d794d",
+   "page": 37,
+   "year": "2011",
+   "kinds": "filing",
+   "good": 0.4055,
+   "screen_prose": true,
+   "layout": {
+    "lines": 44,
+    "median_line": 73,
+    "tokens_per_line": 9.477,
+    "numeric_share": 0.043
+   },
+   "label_id": "K25"
+  },
+  {
+   "text_id": 749557,
+   "sha": "af09bbbbe7fb6e904e389e58fd7351393b6affb8f8f114999eb657fb39ff19c9",
+   "page": 160,
+   "year": "2018",
+   "kinds": "filing",
+   "good": 0.3757,
+   "screen_prose": false,
+   "layout": {
+    "lines": 483,
+    "median_line": 4,
+    "tokens_per_line": 1.617,
+    "numeric_share": 0.119
+   },
+   "label_id": "K26"
+  },
+  {
+   "text_id": 769372,
+   "sha": "b4305f8d2aa1915d531c88766e62e245e0344bbdc5102052ba03ad00b28d34f7",
+   "page": 54,
+   "year": "2009",
+   "kinds": "filing",
+   "good": 0.2333,
+   "screen_prose": false,
+   "layout": {
+    "lines": 20,
+    "median_line": 6,
+    "tokens_per_line": 1.9,
+    "numeric_share": 0.053
+   },
+   "label_id": "K27"
+  },
+  {
+   "text_id": 801358,
+   "sha": "bb31d97b8ed18c30aa1afadd48bdba6c749d79a3a89d694ff9c303b2011b69a7",
+   "page": 28,
+   "year": "2014",
+   "kinds": "filing",
+   "good": 0.3878,
+   "screen_prose": true,
+   "layout": {
+    "lines": 8,
+    "median_line": 23,
+    "tokens_per_line": 6.875,
+    "numeric_share": 0.036
+   },
+   "label_id": "K28"
+  },
+  {
+   "text_id": 839584,
+   "sha": "c42182d7d2ecd64692b12edb59c6e4bc9b11449799dd2e06a7d5a6ee516284ae",
+   "page": 20,
+   "year": "2012",
+   "kinds": "filing",
+   "good": 0.2304,
+   "screen_prose": true,
+   "layout": {
+    "lines": 41,
+    "median_line": 31,
+    "tokens_per_line": 5.439,
+    "numeric_share": 0.013
+   },
+   "label_id": "K29"
+  },
+  {
+   "text_id": 847258,
+   "sha": "c52f3579437b9a2b30843fc302caa2c961227181cb13a94e5a0022ca570c848c",
+   "page": 3887,
+   "year": "2021",
+   "kinds": "filing",
+   "good": 0.0196,
+   "screen_prose": true,
+   "layout": {
+    "lines": 50,
+    "median_line": 154,
+    "tokens_per_line": 3.16,
+    "numeric_share": 0.025
+   },
+   "label_id": "K30"
+  },
+  {
+   "text_id": 854901,
+   "sha": "c6e3daef595f2ea9aa3d64c1f814484ee38e4dfb84975f863f2bd0d2e86de22e",
+   "page": 52,
+   "year": "2020",
+   "kinds": "filing",
+   "good": 0.1053,
+   "screen_prose": false,
+   "layout": {
+    "lines": 99,
+    "median_line": 3,
+    "tokens_per_line": 1.333,
+    "numeric_share": 0.136
+   },
+   "label_id": "K31"
+  },
+  {
+   "text_id": 873063,
+   "sha": "cb3604226cf408ee1f079ac0c1b8dfbff016e57887920548dfd81c91d52c5cef",
+   "page": 58,
+   "year": "2023",
+   "kinds": "filing",
+   "good": 0.25,
+   "screen_prose": false,
+   "layout": {
+    "lines": 55,
+    "median_line": 9,
+    "tokens_per_line": 4.436,
+    "numeric_share": 0.016
+   },
+   "label_id": "K32"
+  },
+  {
+   "text_id": 922627,
+   "sha": "d677826b14045aef25bf409666214479405ae30964a867eedeefa16de9731cb9",
+   "page": 234,
+   "year": "2018",
+   "kinds": "filing",
+   "good": 0.4533,
+   "screen_prose": false,
+   "layout": {
+    "lines": 249,
+    "median_line": 3,
+    "tokens_per_line": 1.562,
+    "numeric_share": 0.105
+   },
+   "label_id": "K33"
+  },
+  {
+   "text_id": 929252,
+   "sha": "d7bc18ef0f283f8c84c82cf1b17a3f0439740a4fc09688ab99c088d7296c5f97",
+   "page": 194,
+   "year": "2014",
+   "kinds": "filing",
+   "good": 0.0,
+   "screen_prose": false,
+   "layout": {
+    "lines": 364,
+    "median_line": 1,
+    "tokens_per_line": 1.003,
+    "numeric_share": 0.833
+   },
+   "label_id": "K34"
+  },
+  {
+   "text_id": 999179,
+   "sha": "e63f07e0bb42b0328d0c0805b91ae4a6b51d04dc6035273dde2b5e75cf851ea4",
+   "page": 11,
+   "year": "2010",
+   "kinds": "filing",
+   "good": 0.241,
+   "screen_prose": true,
+   "layout": {
+    "lines": 53,
+    "median_line": 26,
+    "tokens_per_line": 6.849,
+    "numeric_share": 0.014
+   },
+   "label_id": "K35"
+  },
+  {
+   "text_id": 1021724,
+   "sha": "eccbc6013022d251bf1c9cd07c50b3cb5828af53bc07e774ee54f27980e58fc3",
+   "page": 13,
+   "year": "2018",
+   "kinds": "filing",
+   "good": 0.4095,
+   "screen_prose": true,
+   "layout": {
+    "lines": 35,
+    "median_line": 19,
+    "tokens_per_line": 3.314,
+    "numeric_share": 0.026
+   },
+   "label_id": "K36"
+  },
+  {
+   "text_id": 1054284,
+   "sha": "f33333690ece3eaa764cb5d38892e50f3827b8433c8f62366de9842ab3f89e9f",
+   "page": 135,
+   "year": "2024",
+   "kinds": "decision",
+   "good": 0.0,
+   "screen_prose": true,
+   "layout": {
+    "lines": 1,
+    "median_line": 71,
+    "tokens_per_line": 36.0,
+    "numeric_share": 0.0
+   },
+   "label_id": "K37"
+  },
+  {
+   "text_id": 1072224,
+   "sha": "f8176372e0c0827be542df5d2fcdfbb7b3052d387131940e872410931b2427e0",
+   "page": 13,
+   "year": "2011",
+   "kinds": "filing",
+   "good": 0.4783,
+   "screen_prose": false,
+   "layout": {
+    "lines": 46,
+    "median_line": 7,
+    "tokens_per_line": 1.565,
+    "numeric_share": 0.083
+   },
+   "label_id": "K38"
+  },
+  {
+   "text_id": 1083016,
+   "sha": "fa99ccd1b635e9f870ccd4db013713a53f5ede572a22cccc8d5b4a07ac4e1b27",
+   "page": 105,
+   "year": "2014",
+   "kinds": "filing",
+   "good": 0.4592,
+   "screen_prose": false,
+   "layout": {
+    "lines": 80,
+    "median_line": 3,
+    "tokens_per_line": 1.512,
+    "numeric_share": 0.157
+   },
+   "label_id": "K39"
+  },
+  {
+   "text_id": 1528886,
+   "sha": "c936f8bc86c423062a443fcfe754b26cf3f19c55196048db0e46510a522dfd1c",
+   "page": 1,
+   "year": "2008",
+   "kinds": "comment",
+   "good": 0.4667,
+   "screen_prose": false,
+   "layout": {
+    "lines": 14,
+    "median_line": 4,
+    "tokens_per_line": 2.071,
+    "numeric_share": 0.207
+   },
+   "label_id": "K40"
+  }
+ ]
+}
