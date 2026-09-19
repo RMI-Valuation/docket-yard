@@ -18,9 +18,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Tabular pass STOPPED CLEANLY mid-pass 2026-09-18 20:32Z** (`67b1762`): 17,275 done, 6,799
   pending, 2,220 failed, **nothing leased** — a resume loses and re-reads nothing. Key
   unchanged (HunyuanOCR `47644ecc`, transformers 5.16.1, render 150, mv 1.5); **do NOT raise
-  the render to 200 mid-pass — two live keys**. **BACKED UP 2026-09-19** to two boxes: routes
-  (27,269, the only strictly irreplaceable part), collected-unloaded (2,578), the queue
-  (64,113 answers, 16 uncollected). Resume = the placement decision; NAS target chosen next
+  the render to 200 mid-pass — two live keys**. **BACKED UP 2026-09-19** to two boxes (routes
+  first: the only strictly irreplaceable part), but both share a LAN and a power feed, so
+  **a NAS target is owed — his, from 2026-09-20**. Resume = the placement decision
 - **ADR 0025 addendum Proposed 2026-09-19** — a broker places readers; the coordinator is
   backed up. **His to accept.** Open with it: which box coordinates, whether the freed box
   reads (its card is Turing, so bf16 is unmeasured), and where a reader gets blob bytes
