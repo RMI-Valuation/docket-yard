@@ -63,7 +63,22 @@ up() {  # up <session> <command>
 
 if [ "$ROLE" = coordinator ] || [ "$ROLE" = all ]; then
     COLLECT="$PY $FLEET/pagequeue.py --db $DB collect --out $OCR"
-    up fleet-queue "$PY $FLEET/queue_server.py --db $DB --blobs $DATA/blobs \
+    # A BLOB MISS IS A FETCH ONLY IF THIS FILE EXISTS (ADR 0025 addendum 5-6, Accepted
+    # 2026-09-19). `$DATA/store.env` holds DY_S3_BUCKET, AWS_ACCESS_KEY_ID,
+    # AWS_SECRET_ACCESS_KEY and AWS_REGION for a READ-ONLY credential; it is in no
+    # repository, the same way `fleet.token` is not. Without it the coordinator starts
+    # and says so, and a document the mirror has lost is a 404 again - which is what
+    # failed 728 pages on 2026-09-18. Sourced into the ENVIRONMENT, never passed in argv:
+    # `ps` is readable by every user on the box.
+    STORE_ENV="$DATA/store.env"
+    if [ -f "$STORE_ENV" ]; then
+        QUEUE_ENV="set -a; . $STORE_ENV; set +a;"
+        echo "fleet-queue: blob refetch enabled from $STORE_ENV"
+    else
+        QUEUE_ENV=""
+        echo "fleet-queue: no $STORE_ENV, so a blob the mirror lacks is a 404"
+    fi
+    up fleet-queue "$QUEUE_ENV $PY $FLEET/queue_server.py --db $DB --blobs $DATA/blobs \
         --token-file $DATA/fleet.token --port 8131 >> $LOG/queue-server.log 2>&1"
     up fleet-monitor "$PY $FLEET/monitor.py --db $DB --port 8130 >> $LOG/monitor.log 2>&1"
     up dots-collect "while true; do $COLLECT >> $LOG/dots-collect.log 2>&1; sleep 600; done"
