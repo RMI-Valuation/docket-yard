@@ -931,6 +931,112 @@ def test_both_lease_loops_honour_the_signal(tmp_path):
     assert "stopping()" in page_failed, "a stop must not be recorded as a cut page"
 
 
+# --- asking for a reader when one is owed (ADR 0025 addendum, proposal 2) ---------------------
+
+resubmit = _module("resubmit", ROOT / "tools" / "fleet" / "resubmit.py")
+
+
+def _status(owed: int, workers=()):
+    return {"passes": {"dots": {"claimable": owed, "leased": 0}}, "workers": list(workers)}
+
+
+def _decide(status, live=(), terminal=(), idle_for=900):
+    return resubmit.decide(status, "dots", idle_for, list(live), list(terminal), 120.0, 3)
+
+
+def test_a_reader_is_asked_for_only_when_pages_are_owed_and_nobody_is_reading():
+    go, why = _decide(_status(12))
+    assert go is True and "12 owed" in why
+
+    go, why = _decide(_status(0))
+    assert go is False and "nothing claimable" in why, "a drained queue is not relaunched"
+
+
+def test_pages_leased_to_a_dead_reader_still_count_as_owed():
+    """`claimable`, not `pending`: a reader killed after its grace leaves its batch leased for
+    up to the lease, and those pages are claimable now because a claim reaps first. Gating on
+    `pending` would idle the pass for 45 minutes at the end of a wave."""
+    leased_only = {"passes": {"dots": {"pending": 0, "claimable": 4}}, "workers": []}
+    go, _ = _decide(leased_only)
+    assert go is True
+
+
+def test_a_job_the_broker_still_holds_stops_a_second_one():
+    go, why = _decide(_status(12), live=[{"id": 77, "state": "running", "cmd": ["x"]}])
+    assert go is False and "broker holds 1 job" in why and "77" in why
+
+
+def test_a_reader_the_broker_never_started_also_stops_one():
+    """THE SECOND QUESTION. `fleet-up.sh`'s restart loop can run a reader the broker knows
+    nothing about, and asking only the broker would put a second one on the same pass."""
+    holding = {"name": "far/dots", "pass": "dots", "last_seen_age_seconds": 20, "holding": 4}
+    assert _decide(_status(12))[0] is True, "nothing reading yet"
+    go, why = _decide(_status(12, [holding]))
+    assert go is False and "far/dots" in why and "double up" in why
+
+
+def test_a_worker_that_yielded_its_pages_is_not_reading():
+    """A yield releases everything, so `holding` drops to 0 — and the next tick must submit at
+    once rather than wait out `--idle-for`. Holding is what separates working from gone."""
+    yielded = {"name": "far/dots", "pass": "dots", "last_seen_age_seconds": 5, "holding": 0}
+    go, _ = _decide(_status(12, [yielded]))
+    assert go is True
+
+    slow = {"name": "far/dots", "pass": "dots", "last_seen_age_seconds": 610, "holding": 4}
+    go, _ = _decide(_status(12, [slow]))
+    assert go is False, "a reader on a page longer than the 600s timeout is still reading"
+
+
+def test_another_passs_reader_does_not_hold_this_pass_back():
+    other = {"name": "far/tabular", "pass": "tabular", "last_seen_age_seconds": 5, "holding": 4}
+    assert _decide(_status(12, [other]))[0] is True
+    # and the same on the broker's side: a tabular job must not block a dots submission
+    tabular_job = {"id": 9, "state": "running", "cmd": ["python", "hunyuan_worker.py", "tabular"]}
+    assert resubmit.for_pass(tabular_job, "dots") is False
+    assert resubmit.for_pass(tabular_job, "tabular") is True
+
+
+def test_a_job_whose_command_cannot_be_read_counts_as_ours():
+    """Waiting behind another pass's reader is cheaper than putting a second one on this one."""
+    assert resubmit.for_pass({"id": 1, "cmd": None}, "dots") is True
+    assert resubmit.for_pass({"id": 1, "cmd": ["something", "opaque"]}, "dots") is True
+
+
+def test_a_reader_dying_on_arrival_stops_the_next_submission():
+    """A reader that exits in seconds goes terminal at once, so the next tick would see nothing
+    running and submit again — for ever, with no signal. ADR 0025 addendum: the resubmitter
+    owns every exit, not only a preempt."""
+    quick = [
+        {
+            "id": i,
+            "state": "failed",
+            "cmd": ["dots_worker.py"],
+            "started_at": "2026-09-19T10:00:00+00:00",
+            "finished_at": "2026-09-19T10:00:09+00:00",
+        }
+        for i in range(3)
+    ]
+    go, why = _decide(_status(12), terminal=quick)
+    assert go is False and "died inside" in why
+
+    healthy = [{**quick[0], "finished_at": "2026-09-19T18:00:00+00:00"}, *quick[1:]]
+    go, _ = _decide(_status(12), terminal=healthy)
+    assert go is True, "one long run breaks the streak"
+
+
+def test_a_pass_the_queue_does_not_know_is_refused_not_assumed_empty():
+    go, why = _decide({"passes": {}, "workers": []})
+    assert go is False and "no pass" in why
+
+
+def test_an_unrecognised_job_state_counts_as_live_not_finished():
+    """`assigned` was exactly this — a reader dispatched but not yet started. Asking only for
+    the states this file knows would make a new one invisible, and invisible means 'submit'."""
+    assert "assigned" not in resubmit.TERMINAL
+    assert {"completed", "failed", "cancelled", "preempted", "orphaned"} <= resubmit.TERMINAL
+    assert "something_jobd_adds_later" not in resubmit.TERMINAL
+
+
 def test_claimable_counts_what_a_claim_could_lease_now(q):
     """The gate asks this before it loads a model (2026-09-11: an empty queue cost 222 worker
     launches in 37 minutes). A live lease is not claimable; an expired one is, while it has an

@@ -240,6 +240,40 @@ seed) and the worker moves on at its next start.
 When the queue empties: `collect` has written every document; `second` and `graphic` follow
 as `ocr_wave.py` documents; rsync and `text load` each root in that order on the instance.
 
+### Running a reader through the broker
+
+Since 2026-09-18 a broker places readers on cards (ADR 0025 addendum, proposals 1–4 Accepted
+2026-09-19). A pass is submitted rather than started, and **the submit line pins the pass** —
+nothing on the broker side resolves an engine, a version or a render.
+
+```bash
+# on the coordinator, when a pass owes pages and nothing is reading them
+python3 tools/fleet/resubmit.py --db "$DB" --pass tabular \
+    --jobd-url http://<broker>:8765 --jobd-token-file ~/.config/jobd/submit.token \
+    --cwd /home/<user>/docket-yard -- \
+    <hunyuan venv>/bin/python tools/fleet/hunyuan_worker.py \
+        --queue http://<coordinator>:8131 --token-file "$DATA/fleet.token" \
+        --scratch "$OCR/.render" --stop-file "$OCR/.stop-tabular"
+```
+
+**A reader is run by the broker OR by `fleet-up.sh`, never by both.** The restart loop starts a
+worker a minute after any exit, so a reader the broker has just preempted would be back on the
+card a minute later, silently overriding the placement. `resubmit.py` refuses when the queue
+shows any worker of the pass seen recently — whoever started it — so the collision is reported
+rather than silent, but the rule is the operator's to keep.
+
+**Why a resubmitter exists at all:** a preempted job is terminal in jobd and is never requeued.
+Nothing is lost, because the reader yields its pages back before exiting, but nothing picks
+them up either. Resubmission is this project's, never the broker's, because choosing to read
+again is choosing to spend the record's money. It asks two questions and needs both: **are
+pages owed** (the coordinator's queue is the only thing that knows) and **is anything reading**
+(the broker for jobs it started, and the queue for readers it did not). It keys off the
+broker's state, never an exit code — exit 0 now means the queue drained, or the stop file, or a
+preempt, and only the last prints `jobd-checkpoint-complete`.
+
+The broker's token is **as powerful as ssh to every worker**; it is the operator's to place, it
+lives in a file mode 600 on the coordinator, and it enters no repository.
+
 ### The tabular pass
 
 ocr-plan.md decision 6, built on the operator's decision of 2026-09-15 (`docs/deferred.md`
