@@ -19,7 +19,13 @@ Type=oneshot
 # half-gigabyte tarball in RAM on the machine that is serving the queue
 Environment=TMPDIR=%h/docketyard/.backup-work
 ExecStartPre=/usr/bin/mkdir -p %h/docketyard/.backup-work
-ExecStart=/usr/bin/python3 %h/docket-yard/tools/fleet/backup.py \
+# DELIBERATELY NOT the repository checkout. The fleet's checkout is pinned to the commit the
+# running pass was started from, and moving it is a deploy that changes what the collect loops
+# execute on their next tick. A backup that cannot run until the fleet is redeployed is a
+# backup that does not happen, so this file is copied to ~/dy-tools/ on its own. It imports
+# nothing from the project — standard library plus boto3 — so nothing couples the two.
+# Updating it is `scp tools/fleet/backup.py rmi-nuc:~/dy-tools/`.
+ExecStart=/usr/bin/python3 %h/dy-tools/backup.py \
     --data %h/docketyard \
     --bucket rmi-fleet-backups \
     --prefix docket-yard/ \
