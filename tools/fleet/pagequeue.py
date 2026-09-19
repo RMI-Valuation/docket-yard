@@ -613,7 +613,7 @@ def seed_pass(q: Queue, pass_: str, out: Path, *, dry_run: bool = False) -> dict
         raise ValueError(f"{pass_} is seeded from a page list (--from), not the route root")
     route_root = out / ROOTS["route"]
     pages, reread = [], set()
-    n = {"documents": 0, "pages": 0, "whole": 0, "set_aside": 0, "new": 0}
+    n = {"documents": 0, "pages": 0, "whole": 0, "set_aside": 0, "new": 0, "missing_reading": 0}
     for p in sorted(route_root.glob("*/*.json")):
         sha = p.stem
         route = json.loads(p.read_text(encoding="utf-8"))
@@ -638,17 +638,25 @@ def _decide(
     known = q.known(pass_, sha)
     if known == "open":
         return False  # already queued and not yet collected
-    if known == "whole":
+    existing = shard(out / spec["root"], sha)
+    if known == "whole" and existing.exists():
         n["whole"] += 1
         return False
-    existing = shard(out / spec["root"], sha)
+    # `whole` with no reading document on disk is a restore whose queue is NEWER than its file
+    # tree, or a file removed by hand. Counting it whole would silence the document for ever —
+    # nothing else ever queues it again, and nothing ever collects it: the 2026-09-06 shape.
+    # So it falls through to the re-read verdict below, which already tolerates a missing file.
+    # Counted apart from `set_aside`, because nothing was partial and nothing was renamed: the
+    # number is the operator's signal that a restore was skewed and a wave is about to be re-read
+    if known == "whole":
+        n["missing_reading"] += 1
     if known is None and existing.exists():
         # the old driver's file: whole only if it says so, since it kept no reasons
         doc = json.loads(existing.read_text(encoding="utf-8"))
         if doc.get("outcome") == "read" and not doc.get("pages_failed"):
             n["whole"] += 1
             return False
-    if known == "reread" or existing.exists():
+    if known in ("reread", "whole") or existing.exists():
         # the queue's verdict stands whether or not the file is still there: a walk
         # that renamed it and then aborted must not leave the document stranded
         n["set_aside"] += 1
@@ -752,6 +760,7 @@ def seed_from_list(
         "whole": 0,
         "set_aside": 0,
         "new": 0,
+        "missing_reading": 0,  # `_decide` is shared, so both seeds must carry its counters
         "listed_pages": 0,
         "topped_up": 0,
         "unrouted_documents": 0,
@@ -921,6 +930,12 @@ def cmd_seed(args) -> int:
         f"{args.pass_}: {n['documents']} documents, {n['pages']} pages{listed} {verb}queued"
         f" ({n['new']} new); {n['whole']} documents already whole; {n['set_aside']} partial or"
         f" failed reading documents {verb}set aside as .superseded"
+        + (
+            f"; {n['missing_reading']} the queue called whole with NO reading document on disk"
+            " — the queue is newer than the file tree, and those documents are read again"
+            if n.get("missing_reading")
+            else ""
+        )
     )
     return 0
 

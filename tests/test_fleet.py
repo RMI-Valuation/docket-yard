@@ -239,6 +239,31 @@ def test_a_reread_verdict_stands_when_the_file_is_already_gone(tmp_path):
     assert q.status()["passes"]["dots"]["pending"] == 1
 
 
+def test_a_whole_document_whose_reading_is_gone_is_read_again_not_silenced(tmp_path):
+    """A restore whose queue is NEWER than its file tree. The queue says `whole`; the reading
+    document is absent. Counting it whole would silence the document for ever — nothing else
+    queues it again and nothing ever collects it, which is the 2026-09-06 shape. It is re-read.
+    Found by the schema critic on the ADR 0025 addendum, 2026-09-19."""
+    out = tmp_path / "ocr"
+    _route_root(out, A, {1: "degraded"})
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", "dots", {**KEY, "host": "x"})
+    pq.seed_pass(q, "dots", out)
+    (j,) = q.claim("w1", "dots", 1, 60)
+    q.done("w1", j["job_id"], "[]")
+    assert pq.collect_pass(q, "dots", out) == 1
+    assert q.known("dots", A) == "whole"
+
+    ocr_wave.shard(out / "dots", A).unlink()  # restored from a queue newer than the files
+    n = pq.seed_pass(q, "dots", out)
+    assert n["whole"] == 0, "a document with no reading document on disk is not whole"
+    assert (n["set_aside"], n["new"]) == (1, 1)
+    # counted apart, because nothing was partial and nothing was renamed: this number is how
+    # the operator learns a restore was skewed rather than that the fleet failed a wave
+    assert n["missing_reading"] == 1
+    assert q.status()["passes"]["dots"]["pending"] == 1
+
+
 def test_an_operators_page_owned_failure_keeps_the_document_whole(tmp_path):
     out = tmp_path / "ocr"
     _route_root(out, A, {1: "degraded", 2: "degraded"})
@@ -723,6 +748,7 @@ def _zero() -> dict:
         "whole": 0,
         "set_aside": 0,
         "new": 0,
+        "missing_reading": 0,
         "listed_pages": 0,
         "topped_up": 0,
         "unrouted_documents": 0,
