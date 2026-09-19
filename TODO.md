@@ -38,10 +38,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   mode refuses the scp** — then `route-list` and seed. Owed before ANY load, in `deferred.md`:
   loading changes what every re-read page publishes about itself with no dated rule
   (`pages.py:band`), and the agreement distance is a publishing decision, not a computation
-- **~40 kind labels: the BLIND sheet is BUILT and PUBLISHED, and is HIS to fill**
-  (`kinds_check_sheet.py`, `fef1c30`; the link is outside the repo). 40 scans rendered whole at
-  150 DPI beside the text the store serves; no score, no screen verdict, nothing drafted.
-  **Next: his kinds, then precision off the prose stratum, recall on the weights (4.1 / 15.9)**
+- **The prose screen is MEASURED on the pages it sorts** (his 40 kinds, 2026-09-19):
+  precision 0.75 (0.53–0.89), recall 0.66 (0.42–1.00), prose 23.3% of the flagged set. Lift is
+  3.2×, not fivefold; the flagged set is tables first (37%), not maps. Nothing is owed and the
+  prose pass is unchanged — **recall swings on two labels** if it is ever leaned on harder
 - **The mirror is EXPENDABLE (his, 2026-09-19)**: it never travels, so the rebuild carries no
   109 GB. Derived work backs up nightly; 2,578 collected readings still await his load
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,

@@ -1956,6 +1956,14 @@ not a wrong assertion — but two things are owed if the screen is ever leaned o
   flagged set itself**, if the screen is to carry a stated rate. The indication it does give is
   worth having and is why the pass is still worth seeding: prose is 5 of 32 flagged pages (16%)
   and roughly 80% of what the screen selects, a fivefold lift in purity.
+  **PAID 2026-09-19** — 40 drawn from the flagged set, stratified on the screen's own verdict and
+  labelled by the operator on a blind sheet (`docs/research/text-quality/README.md` § The flagged
+  set's own kinds). On-population: **precision 0.75 (0.53–0.89), recall 0.66 (0.42–1.00)**, prose
+  23.3% of the flagged set (~7,400 pages). The screen may now carry a stated rate. Two figures
+  above are corrected by it: the **fivefold lift is 3.2×** (both halves of that division moved),
+  and the composition of the flagged set is **tables first at 37%**, not maps — the 32-page read
+  came from a band × era draw and was never a population estimate. Recall still swings on two
+  labels; a wider draw is the only thing that narrows it, and nothing needs it yet.
 - **71 of the 166 kind labels are unchecked model labels**, which is the thing the operator's own
   rule forbids being turned into a rate ("model labels are a screen, never a measurement"). The
   quality labels in this directory were kept honest about this; the kind labels behind the screen
