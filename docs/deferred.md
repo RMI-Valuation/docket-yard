@@ -2225,3 +2225,27 @@ three are recorded rather than built.
   `new_tokens < max_new_tokens`, so `generation_failure` returns None and the **truncated**
   answer is posted as `done` — a silently short reading with no failure row, which is the
   2026-09-06 shape. An interrupted generation must be released unspent, never posted.
+
+## The mirror is expendable; the results are not — the operator, 2026-09-19
+
+**His decision, and it settles what a coordinator move has to carry.** The fleet's blob mirror
+is a cache of a store that is always retrievable (ADR 0022 D2: S3 is the store, a mirror is a
+cache), so the 109 GB does not travel and does not need refilling before a move — it warms, or
+it is simply not there. What must be where it belongs is the **derived** half.
+
+Where each result sits, measured 2026-09-19:
+
+- **In the store, replicated:** the `dots` and `ppocr` readings. Safe; nothing owed.
+- **On disk only, never loaded:** 2,578 collected `hunyuan-tabular` documents. Loading them is
+  the operator's go (`docs/compute-fleet.md`), not yet given.
+- **On disk only, and with no home in the store at all: the route roots** (27,269 documents).
+  Seeding copies each route document's own method and method version into every page of every
+  reading, so for a page that has been read AND loaded the classification survives in the
+  store. For a page that has not, it exists nowhere else — and the tabular pass alone holds
+  **9,019 unread pages** (6,799 pending, 2,220 failed). This is the artefact that wants an
+  off-LAN copy permanently, not the queue and not the blobs.
+- 16 raw answers in `queue.sqlite` belong to documents not yet written out.
+
+**Resuming and making the backup routine are one decision.** The 2026-09-19 snapshot is valid
+only because nothing has read since 2026-09-18 20:28Z. Once a pass runs, the coordinator
+accumulates irreplaceable results continuously and a pre-resume copy decays by the hour.

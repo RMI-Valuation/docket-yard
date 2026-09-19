@@ -39,10 +39,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   rule (`pages.py:band`), and the agreement distance is a publishing decision, not a computation
 - **~40 kind labels from the flagged set** (his, 2026-09-18, `deferred.md`): the prose screen is
   0.80/0.80 on 5 prose pages there, not the 0.92/0.92 that pooled blind labels off-population
-- **The blob mirror** (his, 2026-09-18): the 310 failed documents are all in S3 (190.4 MB);
-  the coordinator owns the mirror the fleet reads through but holds no credential to refill it.
-  Second remedy found 2026-09-19 — the instance already serves any blob by hash — but it
-  crosses "production never joins the fleet", so it is an ADR, not a fix (`deferred.md`)
+- **The mirror is EXPENDABLE (his, 2026-09-19)** — a cache of a store that is always
+  retrievable, so it never travels and the swap need not carry 109 GB. What must be where it
+  belongs is the derived half: **the route roots have no home in the store at all** for the
+  9,019 unread tabular pages, and 2,578 collected readings await his load (`deferred.md`)
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
