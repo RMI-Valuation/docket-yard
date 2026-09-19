@@ -96,7 +96,15 @@ pending  --claim-->  leased  --done-->  done
   leased page back unspent, and makes the worker *wait* for the server rather than claim, so
   the read-age grows. A server that dies on two different pages in a row is the server's
   fault: the worker exits 3 and the restart loop throttles it.
-- **A failure nobody named is nobody's we named.** A missing blob, an import that fails, a
+- **A missing blob is three different things** (ADR 0025 addendum 5-6, Accepted 2026-09-19).
+  Absent from the mirror AND from the store is the DOCUMENT's: `blob: ...`, attempt spent,
+  not final, re-read at a later seed. A store the coordinator cannot reach — no credential,
+  an expired one, a refusal, a reset — is the ENVIRONMENT's: every leased page goes back
+  unspent and the worker exits 4, because every page would fail identically. Bytes that do
+  not hash to the sha asked for are the STORE's: `BLOB CORRUPT IN THE STORE` on the
+  coordinator, 502 to the worker, and the page is not final either. None of the three
+  arrives as a traceback any more, which two of them used to.
+- **A failure nobody named is nobody's we named.** An import that fails, a
   4xx: the worker releases every leased page unspent and exits 4 with the traceback. Twenty-
   five page-owned failures in a row with no page read is a cause nobody has named yet: exit
   5. A worker whose default branch were "the page failed" would reproduce 2026-09-06 for
@@ -208,7 +216,7 @@ started idempotently by `tools/fleet/fleet-up.sh <role>` (`DY_FLEET_DATA` is the
 
 | Role | Session | Runs | Log |
 | --- | --- | --- | --- |
-| coordinator | `fleet-queue` | `queue_server.py` on port 8131: the lease calls and the blobs | `ocr/logs/queue-server.log` |
+| coordinator | `fleet-queue` | `queue_server.py` on port 8131: the lease calls and the blobs, refetching from the store on a mirror miss when `<data>/store.env` is present | `ocr/logs/queue-server.log` |
 | coordinator | `fleet-monitor` | `monitor.py` on port 8130 | `ocr/logs/monitor.log` |
 | coordinator | `dots-collect` | `pagequeue.py collect` every ten minutes | `ocr/logs/dots-collect.log` |
 | worker | `dots-vllm` | `dots-serve.sh`: vLLM, restarted a minute after it dies | `ocr/logs/vllm.log` |
@@ -231,9 +239,11 @@ python3 tools/fleet/pagequeue.py --db Q seed --pass dots --out /data/docketyard/
 python3 tools/fleet/pagequeue.py --db Q fail --job N --error 'why'   # an operator's decision
 ```
 
-A worker that exits 4 every minute is stopped by one page it names in its log — a blob that
-is missing or will not open — and claims in document order, so that page is first every
-time. The queue is STALLED until the operator decides: `fail --job N --error 'why'` records
+A worker that exits 4 every minute is now most often stopped by the COORDINATOR rather than
+by a page: a store it cannot reach is the environment's and exits 4 charging nothing, so read
+the coordinator's own log first (`no $DATA/store.env`, a 403, a timeout) before hunting a bad
+page. When it IS a page, the worker names it in its log — a blob that will not open — and
+claims in document order, so that page is first every time. The queue is STALLED until the operator decides: `fail --job N --error 'why'` records
 the decision as `operator: why` (not the page's own, so the document is re-read at a later
 seed) and the worker moves on at its next start.
 

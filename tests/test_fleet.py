@@ -593,6 +593,8 @@ def test_the_weights_revision_is_the_loaded_hash_else_the_caches_ref(tmp_path):
 
 # --- the transport: the same promises through queue_server.py and RemoteQueue -----------------
 
+import hashlib  # noqa: E402
+import io  # noqa: E402
 import socket  # noqa: E402
 import threading  # noqa: E402
 import urllib.error  # noqa: E402
@@ -609,7 +611,10 @@ def remote(tmp_path):
     local.seed("dots", PAGES, reread=set())
     blobs = tmp_path / "blobs"
     (blobs / "aa").mkdir(parents=True)
-    (blobs / "aa" / A).write_bytes(b"%PDF-1.4 fake")
+    (blobs / "aa" / A).write_bytes(b"%PDF-1.4 fake")  # bytes that are NOT this sha
+    real = "255908d53b29fcf319a38c253ffae19adb0d74f55b3e23fee884cf40711dfb3e"
+    (blobs / real[:2]).mkdir(parents=True, exist_ok=True)
+    (blobs / real[:2] / real).write_bytes(b"%PDF-1.4 real")
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
@@ -623,12 +628,12 @@ def remote(tmp_path):
             break
         except urllib.error.URLError:
             time.sleep(0.05)
-    yield pq.RemoteQueue(url, TOKEN), local
+    yield pq.RemoteQueue(url, TOKEN), local, real
     local.con.close()
 
 
 def test_the_transport_carries_the_lease(remote):
-    r, local = remote
+    r, local, real = remote
     r.register("far/dots", "dots", {**KEY, "host": "far"})
     with pytest.raises(pq.KeyMismatch):
         r.register("bad", "dots", {**KEY, "render_profile": "150"})
@@ -643,10 +648,202 @@ def test_the_transport_carries_the_lease(remote):
     s = local.status()
     assert (s["passes"]["dots"]["done"], s["passes"]["dots"]["failed"]) == (1, 1)
     assert s["workers"][0]["producer"]["host"] == "far"
-    assert r.blob(A) == b"%PDF-1.4 fake"
-    with pytest.raises(urllib.error.HTTPError) as e:
+    assert r.blob(real) == b"%PDF-1.4 real"
+    # THE MIRROR HIT IS VERIFIED TOO, and this fixture's `A` holds bytes that are not its sha.
+    # The coordinator checks what it FETCHES; only the client can check what the mirror already
+    # held, and `pull_blobs.py` fills that mirror on a size comparison alone (ingest review).
+    with pytest.raises(pq.BlobCorrupt):
+        r.blob(A)
+    # a miss with no store configured is still the document's, but it arrives as a type and
+    # not as a status code (ADR 0025 addendum 5)
+    with pytest.raises(pq.BlobMissing):
         r.blob(B)
-    assert e.value.code == 404
+
+
+# --- a blob miss is a fetch, not a failure (ADR 0025 addendum, proposals 5-6) ----------------
+
+
+class _Answer:
+    """A store's answer, read in chunks like the real one. Counts its reads, so a test can
+    prove the document was STREAMED and not pulled into memory whole."""
+
+    def __init__(self, payload: bytes):
+        self.buf, self.at, self.reads = payload, 0, 0
+
+    def read(self, n: int = -1) -> bytes:
+        self.reads += 1
+        end = len(self.buf) if n is None or n < 0 else min(len(self.buf), self.at + n)
+        out = self.buf[self.at : end]
+        self.at = end
+        return out
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+
+def _store(payload: bytes = b"", *, raises: BaseException | None = None):
+    """A stand-in for `s3.from_env()`'s signed GET: `fetch(key)` -> a response. Records the
+    keys asked for, so a test can show that a filled mirror is not asked twice."""
+    asked: list[str] = []
+    answers: list[_Answer] = []
+
+    def fetch(key: str):
+        asked.append(key)
+        if raises is not None:
+            raise raises
+        answers.append(_Answer(payload))
+        return answers[-1]
+
+    fetch.asked, fetch.answers = asked, answers
+    return fetch
+
+
+def _served(tmp_path: Path, fetch_into):
+    """The transport with a store standing in for S3, so the promises are tested without
+    reaching AWS. Returns the client, the mirror and the local queue."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    db = tmp_path / "q.sqlite"
+    local = pq.Queue(db)
+    local.seed("dots", PAGES, reread=set())
+    blobs = tmp_path / "blobs"
+    blobs.mkdir(parents=True)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    threading.Thread(
+        target=qs.serve,
+        args=(db, blobs, TOKEN, port, "127.0.0.1", fetch_into),
+        daemon=True,
+    ).start()
+    url = f"http://127.0.0.1:{port}"
+    for _ in range(50):
+        try:
+            urllib.request.urlopen(url + "/nothing", timeout=1)
+        except urllib.error.HTTPError:
+            break
+        except urllib.error.URLError:
+            time.sleep(0.05)
+    return pq.RemoteQueue(url, TOKEN), blobs, local
+
+
+def _http_error(code: int) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError("https://s3", code, "no", {}, io.BytesIO(b""))
+
+
+def test_a_blob_miss_is_refetched_verified_and_fills_the_mirror(tmp_path):
+    """The 2026-09-18 failure: 728 pages across 310 documents failed `blob:` for documents
+    that were in the store the whole time. A miss is a fetch, and the mirror heals."""
+    payload = b"%PDF-1.4 from the store"
+    sha = hashlib.sha256(payload).hexdigest()  # a real digest: the server verifies it
+    fetch = _store(payload)
+    r, blobs, local = _served(tmp_path, qs.store_fetcher(fetch))
+    try:
+        assert r.blob(sha) == payload
+        assert fetch.asked == [f"blobs/{sha[:2]}/{sha}"]
+        assert (blobs / sha[:2] / sha).read_bytes() == payload, "the mirror is filled"
+        assert r.blob(sha) == payload
+        assert len(fetch.asked) == 1, "a filled mirror is not a second fetch"
+    finally:
+        local.con.close()
+
+
+def test_the_store_is_streamed_and_never_read_whole(tmp_path):
+    """A document in this record reaches 1.07 GB, and buffering one is what OOM-killed the
+    instance in August. The answer is consumed in chunks, never with a bare `read()`."""
+    payload = b"x" * (3 * qs.CHUNK + 17)
+    sha = hashlib.sha256(payload).hexdigest()
+    fetch = _store(payload)
+    r, _blobs, local = _served(tmp_path, qs.store_fetcher(fetch))
+    try:
+        assert r.blob(sha) == payload
+        # three full chunks, the remainder, and the empty read that ends the iteration
+        assert fetch.answers[0].reads == 5, "the store was not streamed"
+    finally:
+        local.con.close()
+
+
+def test_a_fetched_blob_whose_hash_is_wrong_is_never_served_or_cached(tmp_path):
+    """The sha IS the identity (ADR 0002). Wrong bytes are the STORE's fault, and caching them
+    would put a corrupt object in the store of record."""
+    fetch = _store(b"not what was asked for")
+    r, blobs, local = _served(tmp_path, qs.store_fetcher(fetch))
+    try:
+        with pytest.raises(pq.BlobCorrupt):
+            r.blob(A)
+        assert not (blobs / A[:2] / A).exists(), "never cached"
+        assert list((blobs / ".tmp").glob("*")) == [], "and nothing left spooled"
+    finally:
+        local.con.close()
+
+
+def test_a_403_is_the_environments_and_a_404_is_the_documents(tmp_path):
+    """The distinction the credential's `s3:ListBucket` exists to make (the operator,
+    2026-09-19): without it an absent document also answers 403 and the two collapse."""
+    denied = qs.store_fetcher(_store(raises=_http_error(403)))
+    r, _blobs, local = _served(tmp_path / "forbidden", denied)
+    try:
+        with pytest.raises(pq.BlobUnavailable):
+            r.blob(A)
+    finally:
+        local.con.close()
+    gone = qs.store_fetcher(_store(raises=_http_error(404)))
+    r2, _b2, local2 = _served(tmp_path / "absent", gone)
+    try:
+        with pytest.raises(pq.BlobMissing):
+            r2.blob(A)
+    finally:
+        local2.con.close()
+
+
+def test_a_store_that_will_not_answer_is_the_environments_not_the_documents(tmp_path):
+    """A 500, a reset or a timeout must not be charged to a page: every page would fail the
+    same way, and the returned draft re-raised it bare and looped the fleet."""
+    for n, boom in enumerate(
+        (_http_error(500), urllib.error.URLError("connection reset"), TimeoutError())
+    ):
+        r, _blobs, local = _served(tmp_path / f"s{n}", qs.store_fetcher(_store(raises=boom)))
+        try:
+            with pytest.raises(pq.BlobUnavailable):
+                r.blob(A)
+        finally:
+            local.con.close()
+
+
+def test_a_mirror_that_cannot_be_written_still_serves_the_bytes(tmp_path):
+    """The mirror is a cache, never the store: failing to fill it is no reason to refuse bytes
+    the fleet is waiting for. The spool file must not be left behind either."""
+    payload = b"%PDF-1.4 uncacheable"
+    sha = hashlib.sha256(payload).hexdigest()
+    r, blobs, local = _served(tmp_path, qs.store_fetcher(_store(payload)))
+    try:
+        # the shard is a FILE, so the landing's `mkdir` raises and the cache fill fails
+        (blobs / sha[:2]).write_bytes(b"in the way")
+        assert r.blob(sha) == payload, "the bytes are served anyway"
+        # the server deletes the spool AFTER the last byte is on the wire, so the client can
+        # be back before that has happened; wait for it rather than race it
+        spool = blobs / ".tmp"
+        for _ in range(100):
+            if not list(spool.glob("*")):
+                break
+            time.sleep(0.02)
+        assert list(spool.glob("*")) == [], "the spool file is cleaned up"
+    finally:
+        local.con.close()
+
+
+def test_without_a_store_a_miss_is_a_404_exactly_as_before(tmp_path):
+    """`store_fetcher(None)` is None, and the server is then what it was: no store configured
+    means the mirror is all there is, and a miss is the document's."""
+    assert qs.store_fetcher(None) is None
+    r, _blobs, local = _served(tmp_path, None)
+    try:
+        with pytest.raises(pq.BlobMissing):
+            r.blob(A)
+    finally:
+        local.con.close()
 
 
 # --- how a reader is told to stop (ADR 0025 addendum, proposal 1) -----------------------------
@@ -1090,7 +1287,7 @@ def test_claimable_counts_what_a_claim_could_lease_now(q):
 
 
 def test_the_transport_answers_what_is_claimable(remote):
-    r, _ = remote
+    r, _local, _real = remote
     assert r.claimable("dots") == 3
     req = urllib.request.Request(
         r.url + "/pending?pass=nope", headers={"Authorization": f"Bearer {TOKEN}"}
@@ -1104,7 +1301,7 @@ def test_the_transport_answers_what_is_claimable(remote):
 
 
 def test_the_transport_refuses_a_bad_token(remote):
-    r, _ = remote
+    r, _local, _real = remote
     bad = pq.RemoteQueue(r.url, "x" * 40)
     with pytest.raises(urllib.error.HTTPError) as e:
         bad.claim("w", "dots", 1, 60)

@@ -73,7 +73,14 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "rmi-ai-machine"))
 
 from ocr_wave import DOTS, DOTS_MODEL, DOTS_SERVER, _dots_call  # noqa: E402 — the driver's own
-from pagequeue import PASSES, Queue, RemoteQueue  # noqa: E402
+from pagequeue import (  # noqa: E402
+    PASSES,
+    BlobCorrupt,
+    BlobMissing,
+    BlobUnavailable,
+    Queue,
+    RemoteQueue,
+)
 from stopping import Stop, yield_now  # noqa: E402
 
 # The passes this worker can run: every pass whose key is dots.mocr's, since that is the engine
@@ -277,7 +284,7 @@ def main() -> int:
 
     read = failed = streak = 0
     last_server_death: tuple[str, int] | None = None
-    held: tuple[str, bytes] | None = None  # the last document fetched, for a remote worker
+    held: tuple[str, Path] | None = None  # the last document fetched, for a remote worker
     ids: list[int] = []
 
     try:
@@ -307,12 +314,25 @@ def main() -> int:
                         pdf = args.blobs / sha[:2] / sha
                     else:
                         if held is None or held[0] != sha:
+                            # STREAMED TO DISK, NEVER INTO RAM. `read_page` takes a path as
+                            # readily as bytes, and the documents this change newly makes
+                            # reachable (a pruned mirror used to be a flat 404) reach 1.07 GB
+                            # in this record — which is what OOM-killed the instance in August,
+                            # and the smallest box that leases pages has 8 GB (code review).
+                            if held is not None:
+                                held[1].unlink(missing_ok=True)  # the previous document
+                                held = None
+                            spool = args.scratch / f"doc-{sha}.pdf"
                             try:
-                                held = (sha, q.blob(sha))
-                            except urllib.error.HTTPError as e:
-                                if e.code == 404:
-                                    raise DocumentFailed("not on the node") from e
-                                raise
+                                held = (sha, q.blob_into(sha, spool))
+                            except BlobMissing as e:
+                                raise DocumentFailed(f"not in the store: {e}") from e
+                            except BlobCorrupt as e:
+                                # the store's, not the page's, and it will not fix itself on a
+                                # retry — but it is not final either: a document is never
+                                # written off on one answer from a store having a bad day. The
+                                # coordinator has already printed the alarm.
+                                raise DocumentFailed(f"the store is corrupt here: {e}") from e
                         pdf = held[1]
                     raw = read_page(
                         pdf, no, png, args.server, args.model, args.timeout, spec["max_megapixels"]
@@ -343,6 +363,30 @@ def main() -> int:
                         q.release(name, ids[i + 1 :])
                         log(f"{streak} page failures in a row, no page read; exit {EXIT_BREAKER}")
                         return EXIT_BREAKER
+                except BlobUnavailable as e:
+                    # THE ENVIRONMENT'S, SO NO PAGE PAYS. The node is unreachable or its
+                    # credential is: every page in the fleet would fail identically, so this
+                    # one and every one after it go back UNSPENT and the worker exits for the
+                    # resubmitter to bring back (ADR 0025 addendum, proposal 2). Retrying here
+                    # is the loop the old bare re-raise produced, minus the traceback.
+                    # THE RELEASE GOES TO THE SAME NODE THAT JUST FAILED, so it may fail
+                    # too — and an exception here would escape as the traceback this whole
+                    # mapping exists to prevent (ingest review). If it does not land, the
+                    # leases expire instead, and `_reap` SPENDS the attempt rather than
+                    # refunding it: the pages are not lost and no document is counted whole,
+                    # but they are not free either. Said plainly in the log rather than
+                    # claiming "unspent" when that may not be what happened.
+                    try:
+                        q.release(name, ids[i:])
+                        back = f"{len(ids) - i} released unspent"
+                    except Exception as release_failed:  # noqa: BLE001 — the node is the fault
+                        back = (
+                            f"{len(ids) - i} could NOT be released"
+                            f" ({type(release_failed).__name__}); they wait for lease expiry,"
+                            " which spends an attempt each"
+                        )
+                    log(f"the node cannot serve documents ({e}); {back}; exit {EXIT_ENVIRONMENT}")
+                    return EXIT_ENVIRONMENT
                 except DocumentFailed as e:
                     q.fail(name, job["job_id"], f"blob: {e}", final=False)
                     failed += 1
@@ -396,6 +440,11 @@ def main() -> int:
         except Exception:  # noqa: BLE001 — the queue itself may be what failed
             log("could not release; the leases expire on their own")
         return EXIT_ENVIRONMENT
+    finally:
+        # THE LAST DOCUMENT FETCHED IS A FILE NOW, not bytes that vanish with the process
+        # (code review). Up to 1.07 GB of it, on a scratch disk shared with the renders.
+        if held is not None:
+            held[1].unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

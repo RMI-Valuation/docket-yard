@@ -2381,3 +2381,33 @@ Also noted: **no vLLM is installed on rmi-ai-machine**, though the dots.mocr wei
 (5.7 GB). Re-running dots over the 40 text-layer pages therefore means standing vLLM back up on
 a 5090, which is a job of some length with real uncertainty — not the two minutes first
 estimated.
+
+
+## From rebuilding the blob refetch, 2026-09-19 (`blob-refetch-held`, ingest review + `/code-review high`)
+
+ADR 0025's addendum items 5 and 6 were Accepted on 2026-09-19 and the returned draft was
+rebuilt: the project's own signed GET instead of boto3, streamed with a per-chunk digest at
+both ends, structural classification on status codes, and the worker half in both lease loops.
+Eleven findings between the two reviews were acted on in the change. Three are owed.
+
+- **The worker half is not tested, and it is the half ADR 0025 cares most about.** The three
+  branches — `BlobMissing` and `BlobCorrupt` to a non-final `blob:` failure, `BlobUnavailable`
+  to a release and exit 4 — live inside each worker's `main()`, which loads a model and cannot
+  be called from a test. Everything else in those files that IS tested was extracted first
+  (`give_back`, `post_answer`, `claim_if_room`, `register_or_exit`), and the same extraction
+  would make these testable with a fake queue. Asserted today only by reading them, in a change
+  whose whole point is that a misclassified failure loops the fleet. **Do this before the next
+  change to either loop**, not after.
+- **A corrupt object in the store of record reaches nobody.** `queue_server` prints
+  `BLOB CORRUPT IN THE STORE` and that is the loudest thing available: `config.alloy` scrapes
+  `/metrics` and no logs, and `backup.py` excludes `ocr/logs`, so the line sits in a file
+  nobody tails. An earlier draft of the code comment claimed the monitor sees it, which was
+  untrue and is corrected in place. The fix that matches this fleet's own grammar (ADR 0019) is
+  a counter under `ocr/` that `monitor.py` reads into `/metrics`, with a detection rule beside
+  the three in `config.alloy`. Until then the only surfacing is the worker's non-final `blob:`
+  failure in `status()["errors"]`.
+- **`pull_blobs.py` fills the mirror on a size comparison and never a digest**
+  (`path.stat().st_size == obj["Size"]`), which migration 0018 warns about in writing. The
+  client now verifies every document it is served, mirror hits included, so a wrong-but-
+  same-size entry is caught at the reader instead of being read as that document's text — but
+  it is caught late and per page. The puller should compare the sha it already knows.

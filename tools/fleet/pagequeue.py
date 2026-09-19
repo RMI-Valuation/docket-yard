@@ -36,9 +36,12 @@ machine's client, with the same six methods and nothing else.
 
 import argparse
 import calendar
+import hashlib
+import http.client
 import json
 import sqlite3
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -67,6 +70,7 @@ class Unloadable(Exception):
 
 
 STATES = ("pending", "leased", "done", "failed")
+HEX64 = frozenset("0123456789abcdef")
 
 PASSES = {
     # pass -> the reading key a worker must declare; which routed class it reads; the roots a
@@ -197,6 +201,27 @@ CREATE TABLE IF NOT EXISTS collected (
 
 class KeyMismatch(Exception):
     """A worker declared a key that is not the pass's key."""
+
+
+# WHOSE FAULT A BLOB MISS IS — ADR 0025's addendum, proposals 5 and 6 (Accepted 2026-09-19).
+# Three classes and not one, because the queue's failure grammar already turns on whose fault a
+# thing is and each of these deserves a different answer from a worker. They live HERE, beside
+# the client that raises them, so the coordinator and both workers read one definition: the
+# server maps them onto status codes and `RemoteQueue.blob` maps the codes back.
+class BlobMissing(Exception):
+    """Absent from the mirror AND from the store: the DOCUMENT's. The page goes back unspent
+    and the document is not counted whole."""
+
+
+class BlobUnavailable(Exception):
+    """The fetch could not be made — no credential, a refused one, a broken connection. The
+    ENVIRONMENT's, so a worker must stop rather than spend pages on it: every page in the
+    fleet would fail the same way, and a worker that merely retried would loop."""
+
+
+class BlobCorrupt(Exception):
+    """The store answered with bytes that are not the sha asked for: the STORE's, and the one
+    failure here worth an alarm. Never cached, never served (ADR 0002: the sha is identity)."""
 
 
 class Queue:
@@ -546,6 +571,7 @@ class RemoteQueue:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as e:
             detail = e.read().decode("utf-8", "replace")
+            e.close()  # a response, not just an exception: close it
             if e.code == 409:
                 raise KeyMismatch(detail) from e
             if e.code == 400:
@@ -583,13 +609,90 @@ class RemoteQueue:
         body = {"worker": worker, "job_id": job_id, "error": error, "final": final}
         self._post("/fail", body)
 
-    def blob(self, sha: str) -> bytes:
-        """The document's bytes from the node, for a worker that holds no blobs."""
+    # LONGER THAN IT WAS, because the node's answer now starts later. On a mirror miss the
+    # coordinator downloads the WHOLE document from the store and verifies its hash before it
+    # sends a byte — it must, or it would serve bytes it has not checked — so a large refetch
+    # can be silent for minutes. At 300 s a worker gave up on a fetch the coordinator went on
+    # to finish and cache, exiting 4 for a document that was about to be there (code review).
+    BLOB_TIMEOUT = 1800
+
+    def blob_into(self, sha: str, dest: Path) -> Path:
+        """Stream the document from the node into `dest`, and return it.
+
+        NOTHING IS BUFFERED, at either end. A document in this record reaches 1.07 GB and
+        reading one into memory is what OOM-killed the instance on 2026-08-26; this path only
+        became reachable for big documents when a pruned mirror stopped being a 404, so the
+        worker's `resp.read()` had to go with the coordinator's (code review). The smallest
+        box that leases pages has 8 GB.
+
+        THE STATUS CODE IS THE CLASSIFICATION, and it is turned back into the three exceptions
+        here so that neither worker reads an HTTP code. Before ADR 0025's addendum both workers
+        matched `e.code == 404` themselves and re-raised everything else bare — so a 502 or 503
+        escaped the per-page handlers entirely, killed the worker with a traceback, left the
+        claim leased and recorded nothing. A restart then did it again: the fleet looped and no
+        page was ever charged. That is the failure this mapping exists to end."""
+        # THE WORKER CHECKS THE SHA TOO, though it came from the coordinator's own job table.
+        # It is now a FILENAME on this machine (`args.scratch / f"doc-{sha}.pdf"`), which it was
+        # not before this change, so a sha carrying path separators would write the download
+        # outside the scratch directory. Reaching that needs an already-compromised
+        # coordinator, which owns the worker anyway (security review rated it 2 and did not
+        # report it) — but the guard is one line, at the boundary where this side stops
+        # trusting the other, and the server has had the same one since it was written.
+        if len(sha) != 64 or set(sha) - HEX64:
+            raise BlobMissing(f"{sha!r} is not a sha256; nothing was asked for")
         req = urllib.request.Request(
             self.url + "/blob/" + sha, headers={"Authorization": f"Bearer {self.token}"}
         )
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            return resp.read()
+        digest = hashlib.sha256()
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            with (
+                urllib.request.urlopen(req, timeout=self.BLOB_TIMEOUT) as resp,
+                dest.open("wb") as out,
+            ):
+                for chunk in iter(lambda: resp.read(1 << 20), b""):
+                    out.write(chunk)
+                    digest.update(chunk)
+        except urllib.error.HTTPError as e:
+            dest.unlink(missing_ok=True)
+            detail = e.read().decode("utf-8", "replace")
+            if e.code == 404:
+                raise BlobMissing(detail) from e
+            if e.code == 502:
+                raise BlobCorrupt(detail) from e
+            if e.code == 503:
+                raise BlobUnavailable(detail) from e
+            raise
+        except (
+            TimeoutError,
+            urllib.error.URLError,
+            ConnectionError,
+            http.client.HTTPException,  # IncompleteRead: a body that stopped early
+            OSError,
+        ) as e:
+            # the NODE is unreachable, which is the environment's in exactly the way a refused
+            # credential is: every page would fail identically. `URLError` is an `OSError`, and
+            # so is `ConnectionError`; all are named because none implies the others here.
+            dest.unlink(missing_ok=True)
+            raise BlobUnavailable(f"the node did not answer: {type(e).__name__}: {e}") from e
+        # THE MIRROR HIT IS CHECKED HERE OR NOWHERE. The coordinator verifies what it FETCHES,
+        # but it serves what the mirror already holds unchecked — and the mirror is filled by
+        # `pull_blobs.py`, which skips an object whose SIZE matches and never compares a digest
+        # (ingest review; migration 0018 warns about size-only comparison in writing). So a
+        # wrong-but-same-size or bit-rotted mirror entry would be rendered, read and loaded as
+        # that document's text with nothing raising. The sha IS the identity (ADR 0002), and
+        # this is the only place in the fleet where both paths pass.
+        got = digest.hexdigest()
+        if got != sha:
+            dest.unlink(missing_ok=True)
+            raise BlobCorrupt(f"the node served {sha[:12]} with bytes hashing {got[:12]}")
+        return dest
+
+    def blob(self, sha: str) -> bytes:
+        """The document's bytes, for a caller small enough not to care. `blob_into` is what a
+        worker uses; this exists for the monitor and the tests, and holds one document."""
+        with tempfile.TemporaryDirectory() as tmp:
+            return self.blob_into(sha, Path(tmp) / sha).read_bytes()
 
 
 def _epoch(iso: str) -> float:
