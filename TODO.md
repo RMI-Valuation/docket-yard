@@ -8,25 +8,25 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **v2026.09.28 LIVE** (schema 33). The fleet runs `440118a`; rmi-nuc2 was built at that pin and
-  counts held across both moves (dots 46,838/134; tabular 6,799 pending/17,275/2,220)
+- **v2026.09.28 LIVE** (schema 33). The fleet runs `3629aa8` (coordinator moved forward
+  2026-09-20; nothing it executes changed). dots 46,838/134
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown;
   exposed 428. **The review page, for a person** — docket, sub-docket and document in one look,
   linked to scan, text, both dockets and the match; an ICC flag. GATED on the citations
   brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **ADR 0025 addendum: ALL SIX ACCEPTED, built and VERIFIED LIVE** 2026-09-19, re-proved on the
-  new coordinator 2026-09-20 — a miss fetches and hash-verifies, a hit serves from disk, a sha
-  in no store **404 not 503**. IAM user `docketyard-blobs-reader`, which cannot read
-  `litestream/`. Owed in `deferred.md`: the worker branches have no test, the corrupt-store
+- **ADR 0025 addendum: ALL SIX ACCEPTED and VERIFIED LIVE**, re-proved on the new coordinator
+  2026-09-20 — a miss fetches and hash-verifies, a hit serves from disk, a sha in no store
+  **404 not 503**. Owed in `deferred.md`: the worker branches have no test, the corrupt-store
   alarm reaches nobody, `pull_blobs.py` still compares size not sha
 - **STEP 3 IS DONE: rmi-nuc2 IS THE COORDINATOR** 2026-09-20 — queue (SQLite backup API,
   integrity ok), roots, readings, credentials, backup timer and Alloy across; blob answers
   re-proved; reader repointed. **rmi-nuc is rmi-fleet's now** — CPU worker, wiped, no DY claim
-- **THE TABULAR PASS IS READING AGAIN** since 2026-09-20 09:09 CDT on the 5090, started by
-  `fleet-up.sh` and **NOT by the broker** — never both. Key unchanged and the producer accepted
-  (`47644ecc`, transformers 5.16.1, render 150, mv 1.5); **do NOT raise the render mid-pass**.
-  The reader's `tools/fleet` was a pre-2026-09-19 copy (no `stopping.py`, no blob grammar) and
-  was replaced. A SUBMIT `JOBD_API_TOKEN` on rmi-nuc2 is what a BROKERED resume still needs
+- **THE TABULAR PASS READS THROUGH THE BROKER** since 2026-09-20 — job 39, `dy-ocr`,
+  `jobd-39.scope`, preemptible, so sbis can take the card back. Key unchanged; **do NOT raise
+  the render mid-pass**. **There was never a separate submit token**: one broker token, already
+  on the box. What blocked it was ours — `resubmit.py` refused every tabular submit (`3629aa8`).
+  **Keep `--host` pinned until the fleet raises `dy-ocr`'s `vram_gb`**: it asks 4 GiB on our own
+  floor and `needs: [cuda]` now matches the 2060, where every page OOMs
 - **rmi-nuc's 2060 cannot read this pass — measured 2026-09-20**, answered in rmi-fleet
   `deploy/docket-yard-bf16-reply.md`. Not bf16 speed: a page asks one 4.13 GiB block against
   5.60 GiB usable, so 7 of 7 OOM'd. **Our own memory floor is half what a page needs**
