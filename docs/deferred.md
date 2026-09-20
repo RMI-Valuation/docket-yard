@@ -2411,3 +2411,25 @@ Eleven findings between the two reviews were acted on in the change. Three are o
   client now verifies every document it is served, mirror hits included, so a wrong-but-
   same-size entry is caught at the reader instead of being read as that document's text — but
   it is caught late and per page. The puller should compare the sha it already knows.
+
+## The coordinator moved, and two things it uses assumed one box — 2026-09-20
+
+The coordinator role moved to another machine on 2026-09-20 (which box is the operator's and
+is recorded outside this repository). Both boxes' state matched file-for-file and the queue
+travelled through SQLite's backup API; the mirror deliberately did not travel, and the three
+blob answers were re-proved on the new box. Two repository-facing things surfaced in the doing.
+
+- **`tools/fleet/config.alloy` only works where Alloy runs in a container.** Its
+  `prometheus.exporter.unix` block names `/host/proc`, `/host/sys` and `/host/root`, which are
+  the container's bind mounts; on a box where Alloy runs as a plain binary those paths do not
+  exist and the exporter reports nothing, silently — the fleet series still flow, so the box's
+  vitals go missing without any alert saying so. The move needed a generated variant with three
+  lines rewritten, which is now a second config nothing in this repository knows about. Make the
+  three paths a variable with the container's values as the default, so one file serves both.
+- **`dy-backup.service` swept a directory the tool never wrote to.** The unit set
+  `TMPDIR` and cleaned `<data>/.backup-work/dy-backup-*`, while `backup.py` passes
+  `dir=<data>/.backup-tmp` to its own `TemporaryDirectory` and never consults `TMPDIR`. A run
+  killed mid-tarball (a power cut, an OOM) would have stranded ~636 MB, and the unit's comment
+  promising otherwise was false. **Fixed in place** the same day by passing `--tmp` explicitly;
+  recorded here because the same shape — a unit and a tool each deciding a path — is worth
+  looking for in the other units.

@@ -8,9 +8,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **v2026.09.28 LIVE** (schema 33). **The fleet's checkout moved to `440118a` on 2026-09-19**
-  after 12 commits at `67b1762` — deployed while the fleet was quiescent, backup first, counts
-  identical after (dots 46,838/134; tabular 6,799 pending/17,275/2,220). `reread-collect` runs now
+- **v2026.09.28 LIVE** (schema 33). The fleet runs `440118a`; rmi-nuc2 was built at that pin and
+  counts held across both moves (dots 46,838/134; tabular 6,799 pending/17,275/2,220)
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown;
   exposed 428. **The review page, for a person** — docket, sub-docket and document in one look,
   linked to scan, text, both dockets and the match; an ICC flag. GATED on the citations
@@ -25,12 +24,14 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   New IAM user `docketyard-blobs-reader` (GetObject on `blobs/*`, ListBucket on the bucket,
   and it CANNOT read `litestream/`). Owed in `deferred.md`: the worker branches have no test,
   the corrupt-store alarm reaches nobody, `pull_blobs.py` still compares size not sha
-- **THE FLEET REBUILD is his** (rmi-fleet `deploy/fleet-target-state.md`): steps 0–2 done,
-  **step 3 unblocked** — rmi-nuc2 becomes the coordinator, rmi-nuc a CPU worker; copy
-  `store.env` across with the rest
+- **STEP 3 IS DONE: rmi-nuc2 IS THE COORDINATOR** 2026-09-20 — queue (SQLite backup API,
+  integrity ok, four tables matching), roots, readings, `store.env`, `fleet.token`, backup
+  timer and Alloy all across; all three blob answers re-proved there; the reader repointed;
+  rmi-nuc holds no fleet role and its data is kept, not deleted. **Step 4 is next**: rmi-nuc
+  as a CPU worker (rmi-nuc2's jobd worker was already disabled, so nothing strands)
 - **`JOBD_API_TOKEN` on the coordinator is still the ONE thing between here and a brokered
-  resume** on today's topology. It needs no swap and no code: place it, then delete
-  `/data/docketyard/ocr/.stop-tabular` on rmi-ai-machine
+  resume**. It needs no code: place a SUBMIT token on rmi-nuc2 (the worker token already at
+  `~/.config/jobd/worker.env` is not it), then delete `ocr/.stop-tabular` on rmi-ai-machine
 - **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
   `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
   quotation per displayed reading, migration 0033. **His to accept; then migration + pass**

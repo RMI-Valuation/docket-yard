@@ -202,8 +202,9 @@ The fleet's detection is the same shape as production's: **Grafana Alloy on the 
 `docket_yard_fleet_stalled == 1` for ten minutes, `docket_yard_fleet_failing == 1` for ten
 minutes, and *absence* of `docket_yard_fleet_last_read_known` for ten minutes (the box, the
 monitor or Alloy is gone). The scrape block is production's `config.alloy` with the target
-swapped (`tools/fleet/config.alloy`, run as a container with the node's `/proc`, `/sys` and
-`/` mounted so it reports the node and not itself); endpoint, username and token are the
+swapped (`tools/fleet/config.alloy`, reading the node's own `/proc`, `/sys` and `/` — mounted
+into a container, or the paths themselves when it runs as a binary on the box — so it reports
+the node and not itself); endpoint, username and token are the
 operator's, in an env file on the node, and enter no repository. **The three rules exist in Grafana Cloud since 2026-09-10**, provisioned from
 `infra/grafana/provision.py` beside production's; the alertmanager's route to mail was proved
 with a temporary rule the same day.
