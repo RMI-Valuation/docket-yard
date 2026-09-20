@@ -2506,3 +2506,37 @@ more repetition, at ~70 s a page instead of ~35.
 N tokens repeat would fail these pages in seconds instead of 35, saving about 4 GPU hours over
 the ~470 cut pages still expected in this pass, and roughly 12 hours already spent generating
 garbage. It changes no reading that succeeds.
+
+### The early-stop guard does not work — measured and abandoned, 2026-09-20
+
+The obvious fix for the loops above is to detect the repetition and stop generating. It was
+built and tested against every answer this pass has published, and **it cannot be made safe.**
+Recorded here so it is not rebuilt.
+
+The rule tried: past an arm point, fire when the tail is an exact repeating period. Tested
+first against finished answers — **0 false positives in 18,595** — which is the wrong test. A
+live guard is asked while the answer is still growing, so the real test is every PREFIX. Under
+that test the same parameters truncate **43 published readings**, mid-table, and publish them
+as whole.
+
+Raising the bar does not rescue it. The discriminator is exhausted by the data: published,
+EOS-terminated answers contain exact periodic runs of **5,184 and 5,040 characters** — wide
+tables whose cells are genuinely empty, `<td></td>` repeated to the end of the row and then
+closed properly with `</tr></table>`. A degenerate loop and a mostly-empty grid are the same
+string until one of them stops. **The only signal that separates them is the ending, which is
+exactly what is not available in flight.**
+
+Two things follow.
+
+- **The GPU saving is not available.** ~35 s a page on ~470 remaining cut pages stays spent.
+  That is the price of not truncating real readings, and it is the right trade.
+- **A cut answer can still be classified AFTER the fact**, where there is no risk at all: the
+  answer is already failed, so testing its periodicity cannot harm a published reading. That
+  distinguishes "cut because the page is long" from "cut because the engine looped" — which is
+  the evidence the finality question above needs, and none of it exists today because the
+  worker discards the answer before anyone can look.
+
+**And a separate quality question it turned up:** two published readings are mostly empty
+table cells (5,040 and 3,042 characters of `<td></td>`). They are plausibly correct readings of
+mostly-empty grids, but nothing has ever checked, and an answer that is 80% empty cells is
+worth a look before it is served as the page's text.
