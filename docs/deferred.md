@@ -2433,3 +2433,31 @@ blob answers were re-proved on the new box. Two repository-facing things surface
   promising otherwise was false. **Fixed in place** the same day by passing `--tmp` explicitly;
   recorded here because the same shape — a unit and a tool each deciding a path — is worth
   looking for in the other units.
+
+## Measured: the tabular worker's memory floor is half what a page needs — 2026-09-20
+
+`hunyuan_worker.MIN_FREE_TO_LOAD` is 4 GiB — 2 GiB of weights plus 2 GiB of headroom — and the
+comment beside it says in terms that the headroom is "a bound, not a measurement: the parity
+probe on the GPU owes the real peak, and these follow it". The probe has now been run, on a
+6 GB card, with the pass's own code path (`read_page` → `ocr_run.run_hunyuan_ocr`), the reader's
+exact stack and the declared weights revision:
+
+- the weights take **1.91 GiB**, close to the 2 GiB assumed;
+- **each page then asks for a single 4.13 GiB block** — the vision encoder over a 150 DPI page —
+  against the 2 GiB of headroom assumed. An ordinary US Letter page is 2.10 MP at this render,
+  so this is the normal case and not a large sheet;
+- so one page needs about **6.1 GiB**, not 4.
+
+**What the wrong floor does** is admit a card that cannot read. A machine with 4–6 GiB free
+passes the check, loads the model, and then fails every page with an OOM that the retry cannot
+help; the worker exits 3 and the restart loop throttles it to one attempt a minute — a reader
+that looks alive, holds a card and reads nothing. The same 4 GB is in the fleet's `dy-ocr`
+placement profile, where it would match small cards for the same result.
+
+The fix is one constant and its comment, now that the number is measured: `MIN_HEADROOM` of
+about 4.5 GiB, so the floor lands near 6.5 GiB. It is deliberately not being changed mid-pass
+while a worker is reading. **Also worth deciding at the same time:** `max_new_tokens` (4,096) is
+in the producer declaration but NOT in the pass key, so a worker reading with a different budget
+would be accepted under the same key — the same silent-split shape as dtype. It is the dominant
+final failure on this pass (1,433 of 2,220 failures were `page: finish_reason length`), so the
+temptation to raise it is real, and raising it would change what the key names without saying so.

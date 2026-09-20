@@ -14,24 +14,24 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   exposed 428. **The review page, for a person** — docket, sub-docket and document in one look,
   linked to scan, text, both dockets and the match; an ICC flag. GATED on the citations
   brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **Tabular pass STOPPED CLEANLY mid-pass 2026-09-18 20:32Z** (`67b1762`): 17,275 done, 6,799
-  pending, 2,220 failed, **nothing leased** — a resume loses and re-reads nothing. Key
-  unchanged (HunyuanOCR `47644ecc`, transformers 5.16.1, render 150, mv 1.5); **do NOT raise
-  the render to 200 mid-pass — two live keys**
-- **ADR 0025 addendum: ALL SIX ACCEPTED, built, deployed and VERIFIED LIVE** 2026-09-19. A
-  mirror miss now refetches: measured on the coordinator — a mirror hit 200, a miss fetched
-  and hash-verified and the mirror filled, a sha in no store **404 not 503**, no spool left.
-  New IAM user `docketyard-blobs-reader` (GetObject on `blobs/*`, ListBucket on the bucket,
-  and it CANNOT read `litestream/`). Owed in `deferred.md`: the worker branches have no test,
-  the corrupt-store alarm reaches nobody, `pull_blobs.py` still compares size not sha
+- **ADR 0025 addendum: ALL SIX ACCEPTED, built and VERIFIED LIVE** 2026-09-19, re-proved on the
+  new coordinator 2026-09-20 — a miss fetches and hash-verifies, a hit serves from disk, a sha
+  in no store **404 not 503**. IAM user `docketyard-blobs-reader`, which cannot read
+  `litestream/`. Owed in `deferred.md`: the worker branches have no test, the corrupt-store
+  alarm reaches nobody, `pull_blobs.py` still compares size not sha
 - **STEP 3 IS DONE: rmi-nuc2 IS THE COORDINATOR** 2026-09-20 — queue (SQLite backup API,
-  integrity ok, four tables matching), roots, readings, `store.env`, `fleet.token`, backup
-  timer and Alloy all across; all three blob answers re-proved there; the reader repointed;
-  rmi-nuc is the fleet's CPU worker, its mirror and every DY credential deleted. **DY has no
-  further claim on that box** — it is rmi-fleet's now; its 4.7 GB of readings are redundant
-- **`JOBD_API_TOKEN` on the coordinator is still the ONE thing between here and a brokered
-  resume**. It needs no code: place a SUBMIT token on rmi-nuc2 (the worker token already at
-  `~/.config/jobd/worker.env` is not it), then delete `ocr/.stop-tabular` on rmi-ai-machine
+  integrity ok), roots, readings, credentials, backup timer and Alloy across; blob answers
+  re-proved; reader repointed. **rmi-nuc is rmi-fleet's now** — CPU worker, wiped, no DY claim
+- **THE TABULAR PASS IS READING AGAIN** since 2026-09-20 09:09 CDT on the 5090, started by
+  `fleet-up.sh` and **NOT by the broker** — never both. Key unchanged and the producer accepted
+  (`47644ecc`, transformers 5.16.1, render 150, mv 1.5); **do NOT raise the render mid-pass**.
+  The reader's `tools/fleet` was a pre-2026-09-19 copy (no `stopping.py`, no blob grammar) and
+  was replaced. A SUBMIT `JOBD_API_TOKEN` on rmi-nuc2 is what a BROKERED resume still needs
+- **rmi-nuc's 2060 cannot read this pass — measured 2026-09-20**, answered in rmi-fleet
+  `deploy/docket-yard-bf16-reply.md`. Not bf16 speed: a page asks one 4.13 GiB block against
+  5.60 GiB usable, so 7 of 7 OOM'd. **Our own memory floor is half what a page needs**
+  (`deferred.md`, dated) — and `max_new_tokens` sits outside the key while causing 65% of this
+  pass's final failures
 - **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
   `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
   quotation per displayed reading, migration 0033. **His to accept; then migration + pass**
