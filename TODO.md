@@ -27,7 +27,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **STEP 3 IS DONE: rmi-nuc2 IS THE COORDINATOR** 2026-09-20 — queue (SQLite backup API,
   integrity ok, four tables matching), roots, readings, `store.env`, `fleet.token`, backup
   timer and Alloy all across; all three blob answers re-proved there; the reader repointed;
-  rmi-nuc holds no fleet role and its data is kept, not deleted. **Step 4 is next**: rmi-nuc
+  rmi-nuc holds no fleet role, its 109 GB mirror deleted, its readings kept. **Then**: rmi-nuc
   as a CPU worker (rmi-nuc2's jobd worker was already disabled, so nothing strands)
 - **`JOBD_API_TOKEN` on the coordinator is still the ONE thing between here and a brokered
   resume**. It needs no code: place a SUBMIT token on rmi-nuc2 (the worker token already at
