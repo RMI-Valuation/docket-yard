@@ -298,7 +298,7 @@ nothing on the broker side resolves an engine, a version or a render.
 ```bash
 # on the coordinator, when a pass owes pages and nothing is reading them
 python3 tools/fleet/resubmit.py --db "$DB" --pass tabular \
-    --jobd-url http://<broker>:8765 --jobd-token-file ~/.config/jobd/submit.token \
+    --jobd-url http://<broker>:8765 --jobd-token-file <the broker token, mode 600> \
     --cwd /home/<user>/docket-yard -- \
     <hunyuan venv>/bin/python tools/fleet/hunyuan_worker.py \
         --queue http://<coordinator>:8131 --token-file "$DATA/fleet.token" \

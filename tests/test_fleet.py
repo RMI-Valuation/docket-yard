@@ -1684,3 +1684,69 @@ def test_a_page_outside_the_document_is_recorded_with_no_class(tmp_path):
     assert pq._routed_pages(root, A) == {1}  # 9 is not offered to the queue
     assert 9 not in pq._page_routes(root, A)
     assert all(str(no) in doc["pages"] for no in (1, 9))  # but the resume check is satisfied
+
+
+# --- resubmit's pass guard --------------------------------------------------------------
+
+
+resubmit = _module("resubmit", ROOT / "tools" / "fleet" / "resubmit.py")
+
+
+def _refusal(capsys, pass_, cmd, tmp_path):
+    """What `resubmit.main` SAYS for this gate and this reader command, driving the real code
+    path rather than a copy of it — a copy is how this guard stayed wrong. The token file does
+    not exist, so a command that passes the gate stops at the next step and never reaches the
+    broker; the message is what distinguishes the two."""
+    argv = [
+        "resubmit.py",
+        "--db",
+        str(tmp_path / "queue.sqlite"),
+        "--pass",
+        pass_,
+        "--jobd-url",
+        "http://broker.invalid:8765",
+        "--jobd-token-file",
+        str(tmp_path / "no-such.token"),
+        "--cwd",
+        "/home/x/docket-yard",
+        "--",
+        *cmd,
+    ]
+    old, sys.argv = sys.argv, argv
+    try:
+        code = resubmit.main()
+    finally:
+        sys.argv = old
+    return code, capsys.readouterr().out
+
+
+def test_a_reader_whose_pass_is_fixed_may_omit_the_flag(capsys, tmp_path):
+    """`hunyuan_worker.py` has no `--pass`: `PASS = "tabular"` is a module constant. Treating
+    that as the ambiguous case refused every brokered submission of the tabular pass — the one
+    `docs/compute-fleet.md` prints included — so the pass was only ever started by hand."""
+    cmd = ["/venv/bin/python", "tools/fleet/hunyuan_worker.py", "--queue", "http://c:8131"]
+
+    _, out = _refusal(capsys, "tabular", cmd, tmp_path)
+    assert "no --pass" not in out  # it got past the gate
+    assert "cannot read" in out  # and stopped at the token, which is the next step
+
+    code, out = _refusal(capsys, "dots", cmd, tmp_path)  # still cannot be gated as another
+    assert code == resubmit.EXIT_ENVIRONMENT
+    assert "always claims 'tabular'" in out
+
+
+def test_a_reader_that_defaults_is_still_ambiguous_without_the_flag(capsys, tmp_path):
+    """`dots_worker.py` takes `--pass` and falls back to `dots`, so an omitted flag under a
+    `reread` gate would watch one pass and launch a reader for another."""
+    cmd = ["/venv/bin/python", "tools/fleet/dots_worker.py", "--queue", "http://c:8131"]
+
+    code, out = _refusal(capsys, "reread", cmd, tmp_path)
+    assert code == resubmit.EXIT_ENVIRONMENT
+    assert "names no --pass" in out
+
+    _, out = _refusal(capsys, "reread", [*cmd, "--pass", "reread"], tmp_path)
+    assert "cannot read" in out  # past the gate
+
+    code, out = _refusal(capsys, "reread", [*cmd, "--pass", "dots"], tmp_path)
+    assert code == resubmit.EXIT_ENVIRONMENT
+    assert "gates on 'reread'" in out

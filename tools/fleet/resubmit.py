@@ -2,7 +2,7 @@
 """Ask the broker for a reader when a pass owes pages and nothing is reading them.
 
     python3 resubmit.py --db /data/docketyard/ocr/queue.sqlite --pass tabular \\
-        --jobd-url http://<broker>:8765 --jobd-token-file ~/.config/jobd/submit.token \\
+        --jobd-url http://<broker>:8765 --jobd-token-file <the broker token, mode 600> \\
         --cwd /home/<user>/docket-yard -- \\
         <venv>/bin/python tools/fleet/hunyuan_worker.py --queue http://<coordinator>:8131 ...
 
@@ -88,6 +88,14 @@ TERMINAL = frozenset(
     {"completed", "failed", "cancelled", "preempted", "orphaned", "scheduling_timeout"}
 )
 WORKERS = ("dots_worker.py", "hunyuan_worker.py")
+# A worker whose pass is FIXED in its own source cannot be given the wrong one, so an omitted
+# `--pass` says nothing about it. Only a worker that DEFAULTS is ambiguous when it is omitted:
+# `dots_worker.py` takes `--pass` and falls back to `dots`, so a `reread` gate with no `--pass`
+# would watch one pass and launch a reader for another. `hunyuan_worker.py` has no such flag —
+# `PASS = "tabular"` is a module constant — and treating it as ambiguous refused every brokered
+# submission of the tabular pass, including the one `docs/compute-fleet.md` prints. Measured
+# 2026-09-20, the first time that pass was submitted rather than started by hand.
+FIXED_PASS = {"hunyuan_worker.py": "tabular"}
 EXIT_ENVIRONMENT = 4
 
 
@@ -241,10 +249,18 @@ def main() -> int:
         return EXIT_ENVIRONMENT
     # the pass this gates on must be the pass the reader will claim. `dots_worker.py` defaults
     # to `dots`, so an omitted --pass would have this watch `reread` and launch a `dots` reader
+    fixed = next((p for w, p in FIXED_PASS.items() if any(w in c for c in cmd)), None)
     if "--pass" in cmd:
         named = cmd[cmd.index("--pass") + 1] if cmd.index("--pass") + 1 < len(cmd) else ""
         if named != args.pass_:
             log(f"the reader is given --pass {named!r} but this gates on {args.pass_!r}")
+            return EXIT_ENVIRONMENT
+        if fixed is not None and fixed != named:
+            log(f"this reader always claims {fixed!r}; it cannot be given --pass {named!r}")
+            return EXIT_ENVIRONMENT
+    elif fixed is not None:
+        if fixed != args.pass_:
+            log(f"this reader always claims {fixed!r}, not {args.pass_!r}")
             return EXIT_ENVIRONMENT
     elif any(w in c for c in cmd for w in WORKERS) and args.pass_ != "dots":
         log(f"the reader names no --pass, so it would claim 'dots', not {args.pass_!r}")
