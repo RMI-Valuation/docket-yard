@@ -2461,3 +2461,48 @@ in the producer declaration but NOT in the pass key, so a worker reading with a 
 would be accepted under the same key — the same silent-split shape as dtype. It is the dominant
 final failure on this pass (1,433 of 2,220 failures were `page: finish_reason length`), so the
 temptation to raise it is real, and raising it would change what the key names without saying so.
+
+## `finish_reason length` is the model looping, not a long page — measured 2026-09-20
+
+`page: finish_reason length` is **65% of the tabular pass's failures** — 1,490 pages, 7.4% of
+everything terminal, in 325 documents, **48 of which have no page read at all.** It is a FINAL
+failure, so none of those pages is re-read under this key. Two things were assumed about it and
+both are now measured.
+
+**It is not length.** Successful answers do not crowd the cap: median 594 tokens, p90 1,329,
+p99 2,172, max 3,946 against a 4,096 cap, with exactly ONE of 17,839 within 10% of it. A tail
+pressing on the limit would say "these pages are bigger"; a hole says something else.
+
+**It is repetition.** Three cut pages from the three worst documents were re-read through
+`ocr_run.run_hunyuan_ocr` and the answer read out of `_hunyuan_last` instead of being discarded
+by `generation_failure` — nobody had ever seen one, because the worker raises before it posts:
+
+- `579172b4 p3` — 818 lines, **5 distinct**; `## Subdivision Name` repeated 814 times
+- `63ede451 p10` — one line: `<td>reg of gross</td>` to the cap
+- `389410437 p48` — real text (`Subscribed and sworn before me this 21 day of…`), then
+  `53080, ` for ever
+
+All three at exactly 4,096 new tokens, `ended_with_eos False`, gzip ratio 0.013–0.018 on the
+last 4,000 characters (prose is ~0.3). Answers kept at `rmi-ai-machine:~/cut-probe/`.
+
+**So raising `max_new_tokens` is doubly wrong** and should now be refused on evidence rather
+than on principle: it is in the producer declaration but NOT in the pass key, so a reader with a
+bigger budget publishes under the same key while reading differently — and it would only buy
+more repetition, at ~70 s a page instead of ~35.
+
+**Two decisions this opens, both the operator's:**
+
+1. **Whose fault is a loop?** The grammar calls a cut answer the page's own, and therefore
+   final. That rule was written believing a cut meant the page was too big. A model that loops
+   is the ENGINE's behaviour, not a property of the page — another engine, or another render,
+   may read it fine. If that is right, these 1,490 pages should be non-final and re-readable by
+   a later pass, and the fix is in `ocr_wave.failure_reason`'s map plus its
+   `CLASSIFIER` version — not a quiet reclassification.
+2. **Is the prefix worth keeping?** `389410437 p48` had real text before it degenerated.
+   Publishing the good prefix would raise coverage and would also publish a partial reading as
+   a page's reading, which is a provenance claim (ADR 0021) and not an implementation detail.
+
+**Cheap and separable either way:** a repetition guard that stops generation when the last
+N tokens repeat would fail these pages in seconds instead of 35, saving about 4 GPU hours over
+the ~470 cut pages still expected in this pass, and roughly 12 hours already spent generating
+garbage. It changes no reading that succeeds.

@@ -18,20 +18,20 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   2026-09-20 — a miss fetches and hash-verifies, a hit serves from disk, a sha in no store
   **404 not 503**. Owed in `deferred.md`: the worker branches have no test, the corrupt-store
   alarm reaches nobody, `pull_blobs.py` still compares size not sha
-- **STEP 3 IS DONE: rmi-nuc2 IS THE COORDINATOR** 2026-09-20 — queue (SQLite backup API,
-  integrity ok), roots, readings, credentials, backup timer and Alloy across; blob answers
-  re-proved; reader repointed. **rmi-nuc is rmi-fleet's now** — CPU worker, wiped, no DY claim
-- **THE TABULAR PASS READS THROUGH THE BROKER** since 2026-09-20 — job 39, `dy-ocr`,
-  `jobd-39.scope`, preemptible, so sbis can take the card back. Key unchanged; **do NOT raise
-  the render mid-pass**. **There was never a separate submit token**: one broker token, already
-  on the box. What blocked it was ours — `resubmit.py` refused every tabular submit (`3629aa8`).
-  **Keep `--host` pinned until the fleet raises `dy-ocr`'s `vram_gb`**: it asks 4 GiB on our own
-  floor and `needs: [cuda]` now matches the 2060, where every page OOMs
+- **rmi-nuc2 IS THE COORDINATOR** since 2026-09-20 (queue, roots, readings, credentials, backup
+  and Alloy across; blob answers re-proved). **rmi-nuc is rmi-fleet's now** — wiped, no DY claim
+- **THE TABULAR PASS READS THROUGH THE BROKER** since 2026-09-20 — job 40 (39 cancelled to drop
+  `--blobs`, so a mirror miss is now a coordinator fetch), `dy-ocr`, preemptible. Key unchanged;
+  **do NOT raise the render mid-pass**. **There was never a separate submit token**: one broker
+  token, already on the box; what blocked it was ours (`3629aa8`). **Keep `--host` pinned until
+  the fleet raises `dy-ocr`'s `vram_gb`** — 4 GiB on our own floor, and `cuda` matches the 2060
 - **rmi-nuc's 2060 cannot read this pass — measured 2026-09-20**, answered in rmi-fleet
   `deploy/docket-yard-bf16-reply.md`. Not bf16 speed: a page asks one 4.13 GiB block against
   5.60 GiB usable, so 7 of 7 OOM'd. **Our own memory floor is half what a page needs**
-  (`deferred.md`, dated) — and `max_new_tokens` sits outside the key while causing 65% of this
-  pass's final failures
+- **HIS, and measured 2026-09-20 (`deferred.md`): `finish_reason length` is the MODEL LOOPING**,
+  not a long page — 1,490 pages final-failed, 48 documents with nothing read. **Do not raise
+  `max_new_tokens`.** Two decisions: is a loop the page's fault (it is filed as final) and is a
+  degenerate answer's good prefix worth publishing. A repetition guard is separable and cheap
 - **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
   `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
   quotation per displayed reading, migration 0033. **His to accept; then migration + pass**
