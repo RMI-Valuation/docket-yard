@@ -167,6 +167,22 @@ table.moved { width: 100%; border-collapse: collapse; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 999px; font: inherit; font-size: 13px; font-weight: 500; color: var(--ink); background: transparent; cursor: pointer; }
 .chip-on, .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+/* the type filters live behind a disclosure: three chips are the record's own split and mean
+   the same on every sheet, the types are a per-docket tail ordered by size. The count rides
+   in the chip because it is what a reader wants before spending a click. */
+.more-kinds { display: inline-block; }
+.more-kinds > summary { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px dashed var(--hair); border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; list-style: none; }
+.more-kinds > summary::-webkit-details-marker { display: none; }
+.more-kinds > summary::after { content: "▾"; margin-left: 6px; color: var(--muted); }
+.more-kinds[open] > summary::after { content: "▴"; }
+.more-kinds > summary:hover { border-color: var(--muted); }
+.more-kinds > .chips { padding: 10px 0 2px 0; }
+.chip-n { margin-left: 6px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] .chip-n { color: var(--paper); opacity: 0.75; }
+/* the week's numbers are a sentence, not a stat row: the third is a subset of the second and
+   the first counts a different thing, so three tiles promised a comparison that is not there */
+.week-count { font-size: 17px; line-height: 1.5; margin: 18px 0 0 0; max-width: 62ch; }
+.week-count .n { font-weight: 600; font-variant-numeric: tabular-nums; }
 .entry { display: grid; grid-template-columns: 96px 112px minmax(0, 1fr) 40px; gap: 16px; align-items: start; padding: var(--row-pad) 0; border-top: 1px solid var(--hair); }
 .entry[hidden] { display: none; }
 .entry-date { font-size: 14px; }

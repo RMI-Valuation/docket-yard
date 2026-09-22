@@ -161,9 +161,14 @@ def test_home_lists_the_week_once_per_record(client):
     # The proceeding that moved is the docket the filing was entered in, never its parent:
     # a sub-docket is named and linked as itself (revised 2026-08-30). A filing entered in
     # a docket and its sub is two `filing` rows and one filing, said so on the page.
+    # one sentence rather than three tiles since 2026-09-21, and the third number is inside it
+    # as what it is — a SUBSET of the second, not a third measure beside it
     assert (
-        '2</span><span class="l">filings observed, in 2 proceedings (one entered in two)' in r.text
+        '<span class="n">2</span> filings observed, in 2 proceedings (one entered in two)' in r.text
     )
+    assert "of them in FD 36873" in r.text
+    assert 'class="stats"' not in r.text  # the stat row belongs to /statistics, where the
+    # three numbers really are parallel
     assert '<td class="dk"><a href="/d/FD-36873/sub/1">FD 36873 (Sub-No. 1)</a></td>' in r.text
     assert "<table" in r.text and '<th scope="col">Docket</th>' in r.text
     assert "19–25 August 2026" in r.text
@@ -325,6 +330,74 @@ def test_sheet_toolbar_filters_and_order(client):
     assert 'datetime="2026-08-25">25 Aug 2026</time>' in r.text
     assert "(printed as 8/25/2026)" in r.text  # the quoted form is real text, not a tooltip
     assert 'aria-pressed="true">All entries' in r.text
+
+
+def _store_with_types(tmp_path, spec):
+    """A store whose FD 36873 holds `spec` — {type: how many} — so the chips have an order
+    to get wrong."""
+    db_path = tmp_path / "types.sqlite"
+    con = db.connect(db_path)
+
+    def save(body, action):
+        cid = records.save_capture(
+            con,
+            tmp_path,
+            source_system="stb-ajax",
+            endpoint="test",
+            table_action=action,
+            request_params=[],
+            body=body,
+            http_status=200,
+            ingest_mode="forward",
+        )
+        records.set_verdict(con, cid, filter_asserted=True, row_count=0, reported_total=0)
+        return cid
+
+    dockets.ingest_capture(
+        con, tmp_path, save(make_body([("FD_36873", "UP/NS CONTROL")], total=1), DOCKETS)
+    )
+    rows, fid = "", 400000
+    for ftype, n in spec.items():
+        for _ in range(n):
+            fid += 1
+            rows += filing_row(fid=str(fid), row=str(fid), ftype=ftype, date="8/25/2026")
+    observations.ingest_capture(con, tmp_path, save(body_of(rows, sum(spec.values())), FILINGS))
+    con.close()
+    return db_path
+
+
+def test_the_type_filters_are_a_disclosure_ordered_by_size(tmp_path):
+    """Three chips the reader learns once, then the types behind a disclosure, largest first
+    with its count. Alphabetical pills gave `Appeal` the same claim on the eye as the type that
+    is half the sheet, and on FD 36873 that was 21 of them (2026-09-21)."""
+    client = TestClient(
+        create_app(_store_with_types(tmp_path, {"Motion": 1, "Reply": 5, "Comment": 3}))
+    )
+    r = client.get("/d/FD-36873")
+    top = r.text[r.text.index('id="filters"') : r.text.index("</details>")]
+    # the three that mean the same thing on every sheet come before the disclosure
+    assert top.index(">All entries") < top.index(">Decisions") < top.index(">Filings")
+    assert top.index(">Filings") < top.index("<details")
+    # largest first, each carrying its count — NOT the alphabetical order, which would put
+    # Comment first and Reply last
+    assert [int(n) for n in re.findall(r'<span class="chip-n">(\d+)</span>', top)] == [5, 3, 1]
+    assert top.index("Reply") < top.index("Comment") < top.index("Motion")
+    assert 'class="more-kinds"' in top and "By type" in top
+
+
+def test_two_spellings_of_one_type_are_one_chip_with_the_whole_count(tmp_path):
+    """`filter_key` is the label lowercased, and `kind_label` falls back to the Board's own
+    first word verbatim — so `APPEAL of decision` and `Appeal of decision` are two labels and
+    ONE key. Keyed on the pair they rendered two chips sharing a `data-filter`, each printing a
+    fraction of what clicking it showed (/code-review, 2026-09-21)."""
+    client = TestClient(
+        create_app(_store_with_types(tmp_path, {"APPEAL of decision": 4, "Appeal of decision": 3}))
+    )
+    top = client.get("/d/FD-36873").text
+    top = top[top.index('id="filters"') : top.index("</details>")]
+    assert top.count('data-filter="appeal"') == 1  # one key, one chip
+    assert '<span class="chip-n">7</span>' in top  # and it counts every entry under that key
+    assert ">(1)</span>" in top  # the summary counts types, and there is one
 
 
 def test_display_helpers():

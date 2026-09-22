@@ -93,11 +93,25 @@
   {% else %}
     <h2 class="vh">Entries</h2>
     <div class="toolbar no-print">
+      {#- Three chips, then the types behind a disclosure. The three are the record's own
+          top-level split and mean the same thing on every sheet, so they stay where a reader
+          learns to find them; the types are a long tail that differs per docket, ordered by
+          how much of the sheet each one is. Twenty-one equal pills asked the reader to read a
+          menu before reading the record (interface.md § The type filters, 2026-09-21). -#}
       <div class="chips" id="filters" role="group" aria-label="Show">
         <button class="chip" type="button" data-filter="" aria-pressed="true">All entries</button>
         <button class="chip" type="button" data-filter="decision" aria-pressed="false">Decisions</button>
         <button class="chip" type="button" data-filter="filing" aria-pressed="false">Filings</button>
-        {% for key, label in kinds %}<button class="chip" type="button" data-filter="{{ key }}" aria-pressed="false">{{ label }}</button>{% endfor %}
+        {%- if kinds %}
+        <details class="more-kinds">
+          {#- the summary names the chosen type when this is shut, so a filter is never
+              invisible to the reader who set it -#}
+          <summary><span data-chosen>By type</span> <span class="muted" data-chosen-n>({{ kinds | length }})</span></summary>
+          <div class="chips">
+            {% for key, label, n in kinds %}<button class="chip" type="button" data-filter="{{ key }}" data-label="{{ label }}" data-n="{{ n }}" aria-pressed="false">{{ label }} <span class="chip-n">{{ n }}</span></button>{% endfor %}
+          </div>
+        </details>
+        {%- endif %}
       </div>
       <div class="toolbar-right small">
         {% if order == 'oldest' %}<a href="?">Newest first</a> · <span aria-current="true">oldest first</span>{% else %}<span aria-current="true">Newest first</span> · <a href="?order=oldest">oldest first</a>{% endif %}
@@ -234,10 +248,22 @@
       note.hidden = shown > 0;
       if (state) state.textContent = state.textContent.replace(/^[^,]+/, kind || party ? "filtered" : "all");
     };
+    // The disclosure's summary carries the chosen type, so shutting it never hides a filter.
+    // Its number goes with the label: the count beside "By type" is how many TYPES there are,
+    // and leaving it there under a type's name printed that number as if it were the type's
+    // own (/code-review, 2026-09-21).
+    const chosen = document.querySelector("#filters [data-chosen]");
+    const chosenN = document.querySelector("#filters [data-chosen-n]");
+    const base = chosen ? [chosen.textContent, chosenN ? chosenN.textContent : ""] : null;
     document.querySelectorAll("#filters .chip").forEach((chip) => {
       chip.addEventListener("click", () => {
         document.querySelectorAll("#filters .chip").forEach((c) => c.setAttribute("aria-pressed", String(c === chip)));
         kind = chip.dataset.filter;
+        if (chosen && base) {
+          const picked = chip.dataset.label;
+          chosen.textContent = picked || base[0];
+          if (chosenN) chosenN.textContent = picked ? "(" + chip.dataset.n + ")" : base[1];
+        }
         apply();
       });
     });

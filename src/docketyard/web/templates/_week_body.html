@@ -1,10 +1,14 @@
-  <div class="stats">
-    {% set dup = week.decision_entries - week.distinct_decisions %}
-    <div class="stat"><span class="n serif">{{ week.distinct_decisions }}</span><span class="l">decisions served{% if dup == 1 %} (one entered in two dockets){% elif dup > 1 %} ({{ dup }} entered in more than one docket){% endif %}</span></div>
-    {% set fdup = week.filing_entries - week.filings %}
-    <div class="stat"><span class="n serif">{{ week.filings }}</span><span class="l">filings observed, in {{ week.moved | length | plural('proceeding') }}{% if fdup == 1 %} (one entered in two){% elif fdup > 1 %} ({{ fdup }} entered in more than one){% endif %}</span></div>
-    {% if week.moved %}<div class="stat"><span class="n serif">{{ week.moved[0].filings }}</span><span class="l">of them in {{ printed_docket(parse_docket_id(week.moved[0].docket_raw)) }}</span></div>{% endif %}
-  </div>
+  {#- One sentence, not three tiles. The three numbers are not a comparable set — the third is
+      a SUBSET of the second and the first counts a different thing — so a stat row, which
+      promises comparison by its shape, was making a claim the numbers do not support. They are
+      four facts about a week; prose carries facts (interface.md § The week's numbers read as a
+      sentence, 2026-09-21). Large numerals still belong on `/statistics`, where the numbers
+      really are parallel and comparison is the job. -#}
+  <p class="week-count serif">
+    {%- set dup = week.decision_entries - week.distinct_decisions -%}
+    <span class="n">{{ week.distinct_decisions }}</span> decisions served{% if dup == 1 %} (one entered in two dockets){% elif dup > 1 %} ({{ dup }} entered in more than one docket){% endif %}
+    {%- set fdup = week.filing_entries - week.filings %} and <span class="n">{{ week.filings }}</span> filings observed, in {{ week.moved | length | plural('proceeding') }}{% if fdup == 1 %} (one entered in two){% elif fdup > 1 %} ({{ fdup }} entered in more than one){% endif %}{% if week.moved %} — <span class="n">{{ week.moved[0].filings }}</span> of them in {{ printed_docket(parse_docket_id(week.moved[0].docket_raw)) }}{% endif %}.
+  </p>
 </section>
 
 {#- One grid for decisions, the rail and the moved table, so a phone can put the rail LAST:

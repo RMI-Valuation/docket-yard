@@ -738,15 +738,30 @@ def create_app(
         order = "oldest" if request.query_params.get("order") == "oldest" else "newest"
         if order == "oldest":
             s = replace(s, entries=list(reversed(s.entries)))
-        # the filter chips offered are the kinds this docket actually contains
-        kinds = sorted(
-            {
-                (labels.filter_key(e.kind, e.type), labels.kind_label(e.kind, e.type))
-                for e in s.entries
-                if e.kind == "filing"
-            },
-            key=lambda k: k[1],
-        )
+        # The filter chips offered are the kinds this docket actually contains, ORDERED BY HOW
+        # MUCH OF IT THEY ARE and carrying their count. Alphabetical order gave every type the
+        # same claim on the reader — on FD 36873 that is 21 identical pills, led by `Appeal`,
+        # while Discovery and Comment are most of the sheet. The count is the information a
+        # reader wants before spending a click (interface.md § The type filters, 2026-09-21).
+        # TALLIED ON THE KEY, NOT ON (key, label). `filter_key` is the label lowercased with its
+        # dots stripped, and `kind_label` falls back to the Board's own first word verbatim — so
+        # `APPEAL of decision` and `Appeal of decision` are two labels and ONE key. Keyed on the
+        # pair, that renders two chips carrying the same `data-filter`, each printing a count
+        # that is a fraction of what clicking it shows (/code-review, 2026-09-21). One key, one
+        # chip; the label is the spelling that occurs most, ties by spelling so it is stable.
+        tally: dict[str, int] = {}
+        spellings: dict[str, dict[str, int]] = {}
+        for e in s.entries:
+            if e.kind == "filing":
+                key = labels.filter_key(e.kind, e.type)
+                tally[key] = tally.get(key, 0) + 1
+                seen = spellings.setdefault(key, {})
+                label = labels.kind_label(e.kind, e.type)
+                seen[label] = seen.get(label, 0) + 1
+        kinds = [
+            (key, max(sorted(spellings[key]), key=lambda la: spellings[key][la]), n)
+            for key, n in sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]
         # the way up, from this sheet's own reads and the registry's list of prefixes, which
         # is memoised on the store stamp (web/jsonld.py)
         trail = jsonld.sheet_trail(

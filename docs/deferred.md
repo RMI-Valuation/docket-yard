@@ -2540,3 +2540,34 @@ Two things follow.
 table cells (5,040 and 3,042 characters of `<td></td>`). They are plausibly correct readings of
 mostly-empty grids, but nothing has ever checked, and an answer that is 80% empty cells is
 worth a look before it is served as the page's text.
+
+## From the design review of the live pages — 2026-09-21
+
+Two of the four findings shipped the same day (`interface.md` § What a design review changed).
+These two are held, with what they are and why they are not being done now.
+
+- **One hairline and one radius serve every boundary, so nothing has rank.** `--hair` at 1px
+  is the entry-row separator, the register-group divider, the table rule, the fieldset border,
+  the footer rule, the masthead rule and the border around each 32px PDF icon; `border-radius:
+  4px` is on the viewer frame, page text, suggestions, inputs, fieldsets, selects, `.btn`,
+  `.connect-url` and both icon boxes. A row boundary, a section boundary and a control's edge
+  therefore carry identical visual weight, and in a dense record hierarchy has to come from
+  rule weight and spacing rhythm. The only place it does is `.week-head`'s 2px ink rule, which
+  works. **The fix** is three tokens rather than one — `--rule-section` (2px ink, extended to
+  `.moved-section` and `.register-group`), `--rule-row` (1px hair, rows only) and a separate
+  control border, or better a `--tint` fill and no border, so an edge means a boundary and a
+  fill means a control; and dropping the border and radius from `.pdf`, which is 1,250 boxes
+  on FD 36873 around a 16px glyph. **Why held:** it touches every page through shared tokens
+  and its value is visual rhythm, which needs someone judging rendered pages. The critique
+  behind it was made by reading CSS, not pixels, and that is not good enough for this one.
+- **The Board's ALL-CAPS summaries, rendered as printed, are the main body text.** Five
+  consecutive forty-word capitalised paragraphs on the home page. Capitals erase the
+  ascender/descender word-shape that carries fast scanning, which is exactly the reading these
+  users do, and `.as-printed` gives them 0.01em of tracking at full column width where caps
+  want roughly 0.05em and a 50–55 character measure. **The fidelity argument does not settle
+  it**: the Board's PDF is the authority and every row links to it, and the site already
+  re-renders the Board's dates while showing the printed form beside them — so case is
+  presentation, not content. **But it was a decision**, so changing it is the operator's and
+  belongs in `interface.md` before it belongs in a stylesheet. The narrow version — keep caps
+  for the caption, where legal convention expects them, and set the summary in sentence case —
+  is the one worth costing first.
