@@ -266,7 +266,10 @@ table.moved { width: 100%; border-collapse: collapse; }
   .entry-links { flex-direction: row; align-items: center; justify-content: flex-start; }
   .entry-decision { margin: 0 -20px; padding-left: 20px; padding-right: 20px; }
   .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
-  .chip, .chip-small { height: 40px; padding: 0 14px; font-size: 14px; }
+  /* the types inside the disclosure WRAP: sideways scrolling is for a strip a reader skims
+     past, and this is a list they opened on purpose to read (2026-09-22) */
+  .more-kinds > .chips { flex-wrap: wrap; overflow-x: visible; }
+  .chip, .chip-small, .more-kinds > summary { height: 40px; padding: 0 14px; font-size: 14px; }
   .pdf { width: 44px; height: 44px; }
   .docket-number { font-size: 40px; }
   .footer { flex-direction: column; }
@@ -295,10 +298,10 @@ table.moved { width: 100%; border-collapse: collapse; }
 
 /* follow (subscribe) form in the sheet rail */
 .follow { display: grid; gap: 8px; }
-.follow input[type="email"] { width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
+.follow input[type="email"] { width: 100%; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
 .follow-cadence { border: 0; padding: 0; margin: 0; display: grid; gap: 4px; }
 .follow-cadence label { display: flex; gap: 8px; align-items: center; font-size: 14px; }
-.follow input[type="url"] { width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
+.follow input[type="url"] { width: 100%; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
 .follow-alt { margin-top: 8px; }
 .follow-webhook { margin-top: 8px; }
 .follow-webhook summary { cursor: pointer; }
