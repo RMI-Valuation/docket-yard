@@ -9,7 +9,7 @@
 </section>
 
 <section>
-  <h2>Bulk snapshot</h2>
+  <h2 class="section-title">Bulk snapshot</h2>
   {% if manifest %}
   <p>One SQLite file, cut nightly. It is the live store minus every table that could name a reader — {% for t in manifest.omitted_tables %}<span class="mono">{{ t }}</span>{{ ', ' if not loop.last }}{% endfor %} — which never leave the machine, ciphertext included; the copy is built where it is not served and checked against an allowlist of public tables before it is offered. Numbers below are measured from the file itself.</p>
   <table class="moved">
@@ -32,7 +32,7 @@
 </section>
 
 <section>
-  <h2>JSON</h2>
+  <h2 class="section-title">JSON</h2>
   <p>Append <span class="mono">.json</span> to a docket, sub-docket, filing or decision address and the same record comes back as data — since shape 2, each address answers for what its own page covers, and a sub-docket names the <span class="mono">series</span> it sits under — with the same permanent address and a <span class="mono">Cache-Control</span> of thirty minutes. Feeds are at <a href="/feed">/feed</a>; the licence, what is stable and what is asked of a client are on the <a href="/api">API page</a>. There are no keys, no accounts and no rate limits; please be reasonable, identify your client in its <span class="mono">User-Agent</span>, and prefer the snapshot for anything that walks the whole record.</p>
   <table class="moved">
     <thead><tr><th scope="col">Address</th><th scope="col">Returns</th></tr></thead>

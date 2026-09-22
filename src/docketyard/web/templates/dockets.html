@@ -7,11 +7,14 @@
   {#- `/coverage` said the record holds 32,623 dockets and offered no way to look at one;
       the explainers dead-ended after quoting a count (navigation-review.md § C). -#}
   <p class="muted">The Board's registry of proceedings, by its own numbering. Each prefix means a different kind of proceeding — <a href="/about/prefixes">what the letters mean</a>. A proceeding is listed whether or not this record holds anything filed in it: the Board opened it, and its number is the answer even where the documents are older than this record reaches (<a href="/coverage">coverage</a>).</p>
-  <div class="stats">
-    <div class="stat"><span class="n serif">{{ total | commas }}</span><span class="l">numbers the Board opened directly, listed here</span></div>
-    <div class="stat"><span class="n serif">{{ (total + subs) | commas }}</span><span class="l">dockets in all, counting sub-numbers — what <a href="/coverage">coverage</a> reports</span></div>
-    <div class="stat"><span class="n serif">{{ held | commas }}</span><span class="l">holding at least one filing, decision or comment</span></div>
-  </div>
+  {#- A sentence, not a stat row, for the reason the home page's went (interface.md, 2026-09-21):
+      these three do not compare. The second CONTAINS the first, and the third is a subset of
+      it — three tiles side by side promised a comparison the numbers cannot support. -#}
+  <p class="count-line serif">
+    <span class="n">{{ total | commas }}</span> numbers the Board opened directly are listed here,
+    of <span class="n">{{ (total + subs) | commas }}</span> dockets in all counting sub-numbers —
+    what <a href="/coverage">coverage</a> reports — and <span class="n">{{ held | commas }}</span>
+    of the numbers listed hold at least one filing, decision or comment.</p>
   <p class="small muted">The two totals differ because a sub-docket is listed on its own series&rsquo; sheet rather than here: {{ subs | commas }} of them, reached from the number they sit under.</p>
 </section>
 <section>

@@ -537,8 +537,10 @@ def test_the_docket_index_lists_the_registry_by_number(tmp_path):
     assert 'href="/dockets/FD"' in r.text
     # both totals on the page, and they reconcile with the one /coverage publishes
     assert "listed here" in r.text and "dockets in all" in r.text
+    # a sentence rather than three tiles since 2026-09-22, for the reason the home page's went:
+    # the all-dockets figure CONTAINS the listed one, so they never were a comparable set
     held = int(
-        re.search(r'([\d,]+)</span><span class="l">dockets in all', r.text)
+        re.search(r'<span class="n">([\d,]+)</span> dockets in all', r.text)
         .group(1)
         .replace(",", "")
     )

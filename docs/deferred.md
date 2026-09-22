@@ -2571,3 +2571,32 @@ These two are held, with what they are and why they are not being done now.
   belongs in `interface.md` before it belongs in a stylesheet. The narrow version — keep caps
   for the caption, where legal convention expects them, and set the summary in sentence case —
   is the one worth costing first.
+
+### A clamped summary does not say it is clamped — built and withdrawn, 2026-09-22
+
+`--summary-lines` cuts a summary at 12 lines (1 under compact), and a cut one simply stops
+mid-sentence: nothing says there is more, and nothing but opening the document reveals it. A
+progressive-enhancement control was built for it — measure `scrollHeight` against
+`clientHeight`, add a "Show the whole summary" button where they differ — and **withdrawn after
+four review passes**, not because the findings were unfixable but because they kept coming and
+the last one was about shape rather than detail:
+
+- it measures in the wrong font, because Newsreader is `font-display: swap` and the first
+  measurement happens in Georgia's metrics;
+- it has to hold state against **filtering** (a hidden entry has no layout, so it measures 0
+  and looks unclamped), **compact density** (which must close what the reader opened),
+  **resize**, and **focus** (a button that removes itself takes the focus ring with it);
+- and it forces a layout read per summary — **about 1,250 of them on FD 36873** — at load, again
+  on `fonts.ready`, and on every resize.
+
+**The better shape is a `<details>` decided on the server.** The renderer already holds the
+summary text, so a length threshold can wrap a long one in a disclosure at render time: no
+measurement, no script, no focus or resize state, nothing to recompute when a filter hides a
+row, and the element carries its own `aria-expanded` and keyboard behaviour. The cost is that a
+character count is an approximation of a line count, so the threshold wants choosing against
+real summaries rather than guessed — which is the work, and it is small.
+
+Worth weighing first: **every entry already links to the document's text and to the Board's own
+PDF**, so a reader who wants the rest of a summary has two ways to it. The question is whether
+the truncation is confusing enough to be worth any mechanism at all, which is a judgement about
+readers rather than about code.

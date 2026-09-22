@@ -94,6 +94,25 @@ count. The count is what a reader wants before spending a click. The chips still
 client-side, and the summary names the chosen type so shutting the disclosure never hides a
 live filter.
 
+**Headings are asked for by name, 2026-09-22.** `h2` was one style doing two jobs. On a record
+surface it labels a dense block — "Decisions served", "Parties on record" — and is meant to be
+quiet, which is what the element carries and what it keeps. On a page of prose it is a section
+a reader navigates by, and the same 12px uppercase muted label made every heading on /about,
+/api, /corrections, /privacy, /methodology and the explainers smaller and fainter than the text
+beneath it, leaving those pages without landmarks. The tell was `h2.week-title`, which had to
+override every property of the rule to be a heading. So the heading style is `h2.section-title`,
+applied to the prose pages only. **Flipping the element instead was tried and withdrawn**: it
+silently restyled every `h2` that already carried a class — `.week-title`, `.page-heading`,
+`.register-docket` and five rail labels on /record — which is one global rule with partial
+overrides, the same failure as one hairline serving every boundary.
+
+**A clamped summary still does not say so** — built, reviewed four times, and withdrawn the
+same day; the analysis is in `docs/deferred.md`. Measuring the clamp in the browser is the
+wrong shape for this site: on a 1,250-entry sheet it forces a layout read per summary at load,
+again when the webfont lands, and on every resize, and it has to keep its state straight
+against filtering, compact density, resize and focus. A `<details>` decided on the server, by
+the length of the text it already holds, costs none of that and needs no script.
+
 **Held, deliberately, and recorded in `docs/deferred.md`:** one hairline and one 4px radius
 currently serve every boundary — row separator, section break, control border, icon box — so
 structure and decoration carry identical weight. The fix is to split that token into three
