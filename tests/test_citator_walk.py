@@ -435,6 +435,31 @@ def test_a_page_number_serialised_as_a_string_still_verifies(tmp_path):
     con.close()
 
 
+def test_an_ocr_walk_names_its_engine_per_page_through_text_id_not_reading_method(tmp_path):
+    """`load.py`'s interchange docstring said `reading_method` is set when the channel is OCR;
+    the walk never sets it, because one document's OCR pages can come from two engines
+    (docs/deferred.md, 2026-09-13, F3). What it stores is NULL, and the engine is still named:
+    per page, through `text_id`. This pins the corrected docstring to what the code does."""
+    from docketyard.citator import load as citator_load
+    from tests.test_citator_pipeline import _scored
+
+    con = _store(tmp_path)
+    _page(con, SHA, 1, "See EP 445, slip op. at 3.", channel="ocr", method="engine-a")
+    _page(con, SHA, 2, "See EP 445, slip op. at 3.", channel="ocr", method="engine-b")
+    con.commit()
+    stamps = _scored(con, channel="ocr", extractor_version=find.FINDER_VERSION)
+
+    doc = next(walk.documents(con))
+    assert "reading_method" not in doc and "reading_method_version" not in doc
+    citator_load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
+    rows = con.execute(
+        "SELECT r.page, r.reading_method, r.reading_method_version, t.method"
+        " FROM citation_reading r JOIN document_text t USING (text_id) ORDER BY r.page"
+    ).fetchall()
+    assert rows == [(1, None, None, "engine-a"), (2, None, None, "engine-b")]
+    con.close()
+
+
 @pytest.mark.parametrize(
     ("tamper", "match"),
     [

@@ -10,8 +10,13 @@ per document:
       "reading_channel": "text-layer",     FK reading_vocab; REQUIRED, because the channel
                                            is in every key below (ADR 0018 D3) and a default
                                            would claim the text layer for an OCR reading
-      "reading_method": null,              the OCR engine, and its version, when the channel
-      "reading_method_version": null,      is 'ocr' — payload, never key (ADR 0018 D3)
+      "reading_method": null,              the OCR engine and its version: payload, never
+      "reading_method_version": null,      key (ADR 0018 D3). OPTIONAL, AND THE WALK NEVER
+                                           SETS THEM: one document's OCR pages can come from
+                                           two engines, so a per-document value would be
+                                           wrong for some page. A walked reading stores them
+                                           NULL, and its engine is read per page through
+                                           `text_id` -> `document_text.method`/`_version`
       "pages_read": 33,                    so "read and found nothing" is not "not yet read"
       "findings": [
         {"page": 4, "key": "EP 328", "target": "EP 328", "quoted": "... the line ..."}
