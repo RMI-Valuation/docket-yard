@@ -1311,6 +1311,30 @@ def test_the_transport_refuses_a_bad_token(remote):
     assert e.value.code == 401
 
 
+def test_a_refused_post_is_answered_401_not_reset(remote):
+    """2026-09-11: the 401 went out with the body unread, and on Windows the client then saw
+    the socket reset (`ConnectionAbortedError`) instead of the answer. The body is drained
+    first, so a refused worker always learns WHY it was refused."""
+    import http.client
+    from urllib.parse import urlsplit
+
+    r, _local, _real = remote
+    where = urlsplit(r.url)
+    body = json.dumps({"worker": "w", "job_id": 1, "raw": "x" * 400_000}).encode()
+    for _ in range(10):
+        con = http.client.HTTPConnection(where.hostname, where.port, timeout=5)
+        try:
+            con.request(
+                "POST",
+                "/done",
+                body=body,
+                headers={"Authorization": "Bearer " + "x" * 40, "Content-Type": "application/json"},
+            )
+            assert con.getresponse().status == 401
+        finally:
+            con.close()
+
+
 def test_a_page_number_outside_the_document_is_the_documents_failure_at_both_ends():
     """Copilot on PR #34, 2026-09-17: page 0 passed the upper-bound check and `doc[0 - 1]`
     would have read the LAST page, silently."""

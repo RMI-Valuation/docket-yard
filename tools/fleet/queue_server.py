@@ -103,6 +103,7 @@ from docketyard.capture import s3  # noqa: E402
 BLOB_PREFIX = "blobs/"  # the store's layout, as `records.blob_path` and the web tier use it
 CHUNK = 1 << 20  # what a document is streamed in, both from the store and from the mirror
 SPOOL = "qs-"  # our spool files, so the sweep at start cannot take anything else's
+DRAIN_LIMIT = 1 << 20  # the most of a refused POST's body read before the 401 (`_drain`)
 
 
 def store_fetcher(fetch=None):
@@ -346,6 +347,7 @@ def serve(db: Path, blobs: Path, token: str, port: int, bind: str, fetch_missing
 
         def do_POST(self):  # noqa: N802
             if not self._authorised():
+                self._drain()
                 return self._json(401, {"error": "unauthorised"})
             path = self.path.split("?", 1)[0]
             try:
@@ -363,6 +365,26 @@ def serve(db: Path, blobs: Path, token: str, port: int, bind: str, fetch_missing
                 return self._json(400, {"error": f"missing {e}"})
             except Exception as e:  # noqa: BLE001 — a locked queue, anything: still an answer
                 return self._json(500, {"error": f"{type(e).__name__}: {e}"})
+
+        def _drain(self) -> None:
+            """Read and discard a refused request's body before answering it. Answering 401
+            with the body still unread let the socket close on unread data, which Windows
+            answers with a reset — so the client saw `ConnectionAbortedError` instead of the
+            401, once in six runs of `test_the_transport_refuses_a_bad_token` (2026-09-11).
+            BOUNDED, because the sender has not been authorised: past `DRAIN_LIMIT` the
+            connection is closed after the answer rather than read to the end for a stranger."""
+            try:
+                left = int(self.headers.get("Content-Length", 0))
+            except ValueError:
+                left = 0
+            if left > DRAIN_LIMIT:
+                self.close_connection = True
+                left = DRAIN_LIMIT
+            while left > 0:
+                got = self.rfile.read(min(left, 65536))
+                if not got:
+                    break
+                left -= len(got)
 
         def _dispatch(self, path: str, body: dict):
             if path == "/register":
