@@ -48,6 +48,7 @@ COMMIT_EVERY = 200
 LOG_EVERY = 2000  # items between progress lines
 LOCK_RETRIES = 5  # replays of ONE batch before the pass gives up; see `_with_retries`
 LOCK_BACKOFF = 2  # seconds before the first replay, doubling: 2, 4, 8, 16, 32 — 62 in all
+LOCK_BACKOFF_CAP = 60  # seconds: the longest one wait may be
 
 T = TypeVar("T")
 
@@ -129,7 +130,8 @@ def under_lock(
             con.rollback()  # gives the lock up, which is what the other writer is waiting for
             if not _is_lock(e) or attempt == lock_retries:
                 raise
-            wait = LOCK_BACKOFF * 2**attempt
+            # capped: `--lock-retries 20` doubled to a wait of weeks (specialist, 2026-10-03)
+            wait = min(LOCK_BACKOFF * 2**attempt, LOCK_BACKOFF_CAP)
             log(
                 f"  write lock busy at {getattr(e, 'label', what)} ({e}); rolled back,"
                 f" retrying {what} in {wait}s ({attempt + 1} of {lock_retries})"

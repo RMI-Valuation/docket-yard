@@ -3,15 +3,16 @@ profile (infra/deploy/README.md: `docketyard-reader`). The AWS CLI is not on thi
 boto3 is (`pip install boto3` in the repo's venv). Only keys under `blobs/<aa>/` are
 taken — never the staging area.
 
-**A file already present is kept only when it HASHES to its name**, never on its size alone.
-The name is the sha (ADR 0002), so the check needs nothing but the file, and a same-size
-wrong file is exactly what migration 0018 warns a size comparison lets through. The client
-verifies every document it is served, mirror hits included, so such a file was already caught
-at the reader — but late, and once per page read; caught here, it is refetched once. A
-download is verified the same way before it is landed. The price is that a re-run reads every
-present file once (minutes over the whole mirror) rather than costing one listing.
+**A download is landed only when it HASHES to its name** (ADR 0002: the name is the sha), so
+nothing this pulls is ever wrong under its name. **A file already present is kept on its size
+by default, and on its hash with `--verify`**: hashing every present file made a no-op re-run
+read the whole mirror (tens of GB) to confirm nothing changed, and the client already verifies
+every document it serves, mirror hits included (code review, 2026-10-03). A same-size wrong
+file — what migration 0018 warns a size comparison lets through — is caught at the reader
+without it, and here at once with it.
 
     python3 pull_blobs.py docketyard-prod /data/docketyard/blobs --profile docketyard-reader
+    python3 pull_blobs.py docketyard-prod /data/docketyard/blobs --verify   # hash what is there
 """
 
 import argparse
@@ -32,15 +33,15 @@ def digest_of(path: Path) -> str:
     return h.hexdigest()
 
 
-def held(path: Path, sha: str, size: int) -> bool:
-    """Whether the mirror already holds this object: present, the store's size (the cheap
-    refusal), and hashing to its own name (the one that settles it)."""
+def held(path: Path, sha: str, size: int, *, verify: bool = False) -> bool:
+    """Whether the mirror already holds this object: present at the store's size, and with
+    `verify`, hashing to its own name (the check that settles it)."""
     try:
         if path.stat().st_size != size:
             return False
     except FileNotFoundError:
         return False
-    return digest_of(path) == sha
+    return digest_of(path) == sha if verify else True
 
 
 def main() -> int:
@@ -51,6 +52,7 @@ def main() -> int:
     ap.add_argument("dest")
     ap.add_argument("--profile", default="docketyard-reader")
     ap.add_argument("--prefix", default="blobs/")
+    ap.add_argument("--verify", action="store_true", help="hash every present file, not size")
     args = ap.parse_args()
     s3 = boto3.Session(profile_name=args.profile).client("s3")
     dest = Path(args.dest)
@@ -65,7 +67,7 @@ def main() -> int:
                 continue  # the staging area or a half-written sibling: never a blob
             seen += 1
             path = dest / rel
-            if held(path, path.name, obj["Size"]):
+            if held(path, path.name, obj["Size"], verify=args.verify):
                 skipped += 1
                 continue
             path.parent.mkdir(parents=True, exist_ok=True)

@@ -328,7 +328,7 @@ def main(registry: Path, store: Path, findings: Path | None, card_out: Path | No
     for doc in docs:
         try:
             result = load.load_document(con, doc, held, works_by_day, stamps)
-        except load.WrongChannel as e:
+        except (load.WrongChannel, find.Undeclared) as e:
             # the one-channel-per-page guard, on a registry whose copy already holds another
             # channel's readings of a sampled page: a card measured around a refused document
             # would not be the load production runs, so none is written

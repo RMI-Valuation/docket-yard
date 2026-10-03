@@ -257,14 +257,13 @@ def register(app, *, db_path, connect, connect_rw, render, site_host, sender, se
             return _signin_page(request)
         con = connect_rw(db_path)
         try:
-            item = next(
-                (
-                    q
-                    for q in review.pending(con, queue, limit=10_000)
-                    if q["target_key_rendered"] == key
-                ),
-                None,
-            )
+            # one key asked through the queue's own query (`review.item`), as `citator
+            # decide` does: scanning `pending(limit=10_000)` read the whole queue to find one
+            # row and could not find one past the cap (code review, 2026-10-03)
+            try:
+                item = review.item(con, queue, key)
+            except ValueError:
+                item = None
             if item is None:
                 return render(
                     request,

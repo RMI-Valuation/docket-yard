@@ -914,7 +914,10 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--pages", type=int, default=10)
         p.add_argument("--per-page", type=int, default=PAGE_CLAMP, help="server clamps to 50")
         p.add_argument("--interval", type=float, default=2.0)
-        p.add_argument("--mode", choices=("forward", "backfill"), default="forward")
+        # REQUIRED, as on `fetch attachments`: a hand capture of a past range written as
+        # `forward` reaches the alert join (trap 8), and only the runbook's prose warned of it
+        # (stb-ingest-specialist, 2026-10-03)
+        p.add_argument("--mode", choices=("forward", "backfill"), required=True)
         p.set_defaults(func=lambda a, act=action: _run_capture(a, act))
 
     ing = sub.add_parser("ingest", help="consume asserted captures into the ledger")

@@ -287,3 +287,27 @@ def test_the_check_is_scoped_to_what_a_script_could_reach(monkeypatch):
     raw.execute("INSERT INTO elsewhere VALUES (42)")
     raw.commit()
     assert db.migrate(raw) == 2
+
+
+def test_a_temp_trigger_an_earlier_script_left_is_inside_the_next_scripts_scope(monkeypatch):
+    """Every pending migration runs on one connection, and a TEMP trigger lives in
+    `sqlite_temp_master`: left by script 2 on a table script 3 writes, it fires into a table
+    script 3 never names. The scope reads the temp schema too (schema-critic, 2026-10-03)."""
+    raw = _fk_store(
+        monkeypatch,
+        "BEGIN; DROP TRIGGER log_writes; CREATE TEMP TRIGGER sneaky AFTER INSERT ON main.log"
+        " BEGIN DELETE FROM parent; END; PRAGMA user_version = 2; COMMIT;",
+        "BEGIN; INSERT INTO log VALUES (1); PRAGMA user_version = 3; COMMIT;",
+    )
+    with pytest.raises(RuntimeError, match="dangling foreign keys"):
+        db.migrate(raw)
+
+
+def test_what_the_word_match_cannot_see_gets_the_full_check():
+    """`writable_schema` moves contents with no name and no DDL diff; a name that is not a
+    plain word escapes the word match. Both fall back to the store-wide check."""
+    plain = {("table", "parent"): ("parent", "CREATE TABLE parent (id)")}
+    assert not db._needs_full_check("DELETE FROM parent", plain, plain)
+    assert db._needs_full_check("PRAGMA writable_schema = ON", plain, plain)
+    odd = plain | {("table", "doc ument"): ("doc ument", 'CREATE TABLE "doc ument" (id)')}
+    assert db._needs_full_check("DELETE FROM parent", odd, odd)

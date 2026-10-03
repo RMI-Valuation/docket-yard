@@ -135,16 +135,32 @@ def _quoted(name: str) -> str:
 
 
 def _schema(con: Connection) -> dict[tuple[str, str], tuple[str, str | None]]:
-    """Every schema object, `(type, lower name) -> (lower tbl_name, sql)`, for `_fk_scope`."""
-    return {
-        (kind, name.lower()): (table.lower(), sql)
+    """Every schema object, `(type, lower name) -> (lower tbl_name, sql)`, for `_fk_scope` —
+    the TEMP schema too, prefixed `temp.`: a `CREATE TEMP TRIGGER ... ON main.t` an earlier
+    script left on this connection fires into tables a later script never names, and lives in
+    `sqlite_temp_master`, not `sqlite_master` (schema-critic, 2026-10-03)."""
+    out = {}
+    for prefix, master in (("", "sqlite_master"), ("temp.", "sqlite_temp_master")):
         for kind, name, table, sql in con.execute(
-            "SELECT type, name, tbl_name, sql FROM sqlite_master"
-        )
-    }
+            f"SELECT type, name, tbl_name, sql FROM {master}"
+        ):
+            out[(kind, prefix + name.lower())] = (table.lower(), sql)
+    return out
 
 
 _WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _needs_full_check(script: str, before: dict, after: dict) -> bool:
+    """Where `_fk_scope`'s over-approximation does not reach, the full check runs instead
+    (schema-critic, 2026-10-03): a script touching `writable_schema` can move a table's
+    contents with no name in its text and no visible DDL diff; and a table whose name is not a
+    plain word (`"doc ument"`, `café`) is invisible to the word match. Neither occurs in this
+    store's migrations, so this never costs the five minutes it saves elsewhere."""
+    if "writable_schema" in script.lower():
+        return True
+    names = {name.removeprefix("temp.") for (_, name) in (*before, *after)}
+    return any(not _WORD.fullmatch(n) for n in names if not n.startswith("sqlite_"))
 
 
 def _fk_scope(con: Connection, script: str, before: dict) -> list[str]:
@@ -170,7 +186,11 @@ def _fk_scope(con: Connection, script: str, before: dict) -> list[str]:
        write could strand. Not iterated: a child is checked, not written.
     """
     after = _schema(con)
-    objects = {name for (kind, name) in (*before, *after) if kind in ("table", "view")}
+    objects = {
+        name.removeprefix("temp.")
+        for (kind, name) in (*before, *after)
+        if kind in ("table", "view")
+    }
     scope = {w.lower() for w in _WORD.findall(script)} & objects
     scope |= {
         table
@@ -192,11 +212,13 @@ def _fk_scope(con: Connection, script: str, before: dict) -> list[str]:
         } & objects
         grew = not reached <= scope
         scope |= reached
-    tables = sorted(name for (kind, name) in after if kind == "table")
+    tables = sorted(
+        name for (kind, name) in after if kind == "table" and not name.startswith("temp.")
+    )
     children = {
         child
         for child in tables
-        for row in con.execute(f"PRAGMA foreign_key_list({_quoted(child)})")
+        for row in con.execute(f"PRAGMA main.foreign_key_list({_quoted(child)})")
         if row[2].lower() in scope
     }
     return [t for t in tables if t in scope | children]
@@ -234,11 +256,16 @@ def migrate(con: Connection, upto: int | None = None) -> int:
             stamped = con.execute("PRAGMA user_version").fetchone()[0]
             if stamped != version:
                 raise RuntimeError(f"migration {script} did not stamp user_version {version}")
-            broken = [
-                row
-                for table in _fk_scope(con, text, before)
-                for row in con.execute(f"PRAGMA foreign_key_check({_quoted(table)})").fetchall()
-            ]
+            if _needs_full_check(text, before, _schema(con)):
+                broken = con.execute("PRAGMA main.foreign_key_check").fetchall()
+            else:
+                broken = [
+                    row
+                    for table in _fk_scope(con, text, before)
+                    for row in con.execute(
+                        f"PRAGMA main.foreign_key_check({_quoted(table)})"
+                    ).fetchall()
+                ]
             if broken:
                 raise RuntimeError(f"migration {script} left dangling foreign keys: {broken[:5]}")
             applied = version

@@ -1221,7 +1221,8 @@ def test_a_stored_object_is_checked_by_checksum_not_only_by_size():
 
 def test_the_mirror_keeps_a_file_only_when_it_hashes_to_its_name(tmp_path):
     """`pull_blobs.py` compared sizes alone, which migration 0018 warns about in writing: a
-    same-size wrong file was kept, and caught only at the reader, once per page."""
+    same-size wrong file was kept, and caught only at the reader, once per page. With
+    `--verify` it is refused here; without, a re-run stays one listing (code review)."""
     pull = _module("pull_blobs", ROOT / "tools" / "rmi-ai-machine" / "pull_blobs.py")
     payload = b"%PDF-1.4 the document"
     sha = hashlib.sha256(payload).hexdigest()
@@ -1233,7 +1234,8 @@ def test_the_mirror_keeps_a_file_only_when_it_hashes_to_its_name(tmp_path):
     assert not pull.held(path, sha, len(payload) + 1)  # the store's size disagrees
     path.write_bytes(b"%PDF-1.4 not the doc!")  # the same length, other bytes
     assert len(path.read_bytes()) == len(payload)
-    assert not pull.held(path, sha, len(payload))
+    assert not pull.held(path, sha, len(payload), verify=True)
+    assert pull.held(path, sha, len(payload))  # by size alone, unless asked to verify
 
 
 # --- asking for a reader when one is owed (ADR 0025 addendum, proposal 2) ---------------------

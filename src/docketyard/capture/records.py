@@ -24,7 +24,8 @@ def blob_key(sha256: str) -> str:
     """The one spelling of the blob layout, `blobs/<sha[:2]>/<sha>`: the path under the data
     directory and the object key in the store are the same string (ADR 0022 D2). The host's
     `infra/deploy/prune_blobs.py` and the extract container's `infra/extract/extract.py` run
-    without this package and spell it themselves; change all three together."""
+    without this package and spell it themselves; change all three together. (`text.dispatch`
+    uses this one, under its `blobs` directory's parent.)"""
     return f"blobs/{sha256[:2]}/{sha256}"
 
 

@@ -400,3 +400,34 @@ def test_a_neighbour_walked_in_two_halves_can_still_prove_a_month_empty(tmp_path
     )
     assert out["empty"] == 1 and out["partial"] == 0
     assert any("reconciles" in n or "empty" in n for n in notes), notes
+
+
+def test_a_window_across_another_unwalked_month_does_not_outvote_a_declaration(tmp_path):
+    """August is done, September was never walked, October is declared empty. The nearest done
+    month looking back is August, so the window runs August..October and holds September's
+    rows too: its failing to reconcile says nothing about October, and the declaration stands
+    (code review, 2026-10-03)."""
+    from datetime import date as d
+
+    from docketyard.capture.stb import FILINGS
+
+    con = db.connect(tmp_path / "s.sqlite")
+    client = WindowStb(
+        {
+            (FILINGS, "08/01/2025", "08/31/2025"): _month_body(2, 8, year=2025),
+            # August's two and September's three
+            (FILINGS, "08/01/2025", "10/31/2025"): _month_body(5, 9, year=2025, first_id=500),
+        }
+    )
+    notes = []
+    walk.walk_observations(
+        con, client, FILINGS, d(2025, 8, 1), d(2025, 8, 31), data_dir=tmp_path, log=notes.append
+    )
+    walk.walk_observations(
+        con, client, FILINGS, d(2025, 10, 1), d(2025, 10, 31), data_dir=tmp_path, log=notes.append
+    )
+    got = con.execute(
+        "SELECT status FROM walk_slice WHERE slice_key = ?", (f"{FILINGS}:2025-10",)
+    ).fetchone()[0]
+    assert got == "empty", notes
+    assert any("did not reconcile" in n for n in notes), notes

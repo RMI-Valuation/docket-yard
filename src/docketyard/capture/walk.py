@@ -223,9 +223,10 @@ def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, dat
     total, nothing in between exists at the endpoint — the same envelope answered by a
     wrong criterion would not reconcile, because the window would answer it too. Two
     requests, both captured (mode backfill) so the proof is on record. Returns the proof
-    as text or None, and whether any done neighbour was asked at all: a window that was
-    asked and did not reconcile is evidence against the month being empty, where no
-    neighbour to ask is only the absence of a proof."""
+    as text or None, and whether a comparison that COULD have proved it was made: an
+    adjacent done month, both totals trustworthy, a window that did not reconcile — that is
+    evidence against the month being empty, where anything less is only the absence of a
+    proof."""
     spec = observations.SPECS[action]
     first, last = spec.date_criteria
     # A neighbour must be a month walked WHOLE, because the proof compares this month's
@@ -253,6 +254,7 @@ def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, dat
         lo = _month_bounds(s.month if delta == 1 else neighbour)[0]
         hi = _month_bounds(neighbour if delta == 1 else s.month)[1]
         totals = []
+        enveloped = set()  # which of the two requests answered the envelope
         # One side failing on this side of the wire is not a verdict on the month: the
         # other side is still asked, and a contradiction an earlier side found survives
         # it — `compared` is set only once both requests have answered (ingest
@@ -301,13 +303,24 @@ def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, dat
                     records.set_verdict(
                         con, capture_id, filter_asserted=False, row_count=0, reported_total=0
                     )
+                    enveloped.add(len(totals))
                     totals.append(None)
                 records.mark_processed(con, capture_id)  # a proof, never rows to ingest
         except Exception as e:  # noqa: BLE001 — a failed side is no proof either way
             con.rollback()
             log(f"   {s.key}: proof against {neighbour} FAILED ({type(e).__name__}: {e})")
             continue
-        compared = True
+        # Evidence AGAINST the month only when the comparison could have proved it: both
+        # totals trustworthy (filter asserted, cap not hit), and the neighbour the very next
+        # month — a window across other doubted months holds their rows too, so its failing
+        # to reconcile says nothing about this one. Otherwise it is merely no proof, and a
+        # declared month keeps its declaration (code review, 2026-10-03).
+        # A window answering the envelope while it CONTAINS a done month with rows is the
+        # wrong-criteria trap itself, so it counts; a total withheld because the filter did
+        # not assert or the cap was hit is merely unknown, and does not.
+        trap = 1 in enveloped and totals[0] is not None and totals[0] > 0
+        if neighbour == _step(s.month, delta) and (None not in totals or trap):
+            compared = True
         if totals[0] is not None and totals[0] == totals[1]:
             proof = (
                 f"a window {lo.isoformat()}..{hi.isoformat()} totals {totals[1]}, exactly"

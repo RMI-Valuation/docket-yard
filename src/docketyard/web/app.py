@@ -1971,7 +1971,9 @@ def create_app(
             sub = subscriptions.for_confirm_token(con, token) if vault.is_open() else None
             what = None
             if sub and sub.docket_id is not None:
-                what = urls.printed_docket(parse_docket_id(raw_of(con, sub.docket_id)))
+                raw = raw_of(con, sub.docket_id)
+                # a docket that no longer resolves (folded) is said plainly, not a 500
+                what = urls.printed_docket(parse_docket_id(raw)) if raw else "a proceeding"
             elif sub:
                 what = f"filings for {resolve.display_name(con, sub.party_id)}"
         finally:
@@ -2010,7 +2012,7 @@ def create_app(
                 " from the docket's page.",
                 404,
             )
-        what = what or urls.printed_docket(parse_docket_id(raw))
+        what = what or (urls.printed_docket(parse_docket_id(raw)) if raw else "a proceeding")
         if sub.channel == "webhook":
             when = "as they happen" if sub.cadence == "pass" else "once a day"
             return message(

@@ -52,6 +52,7 @@ from hashlib import sha256
 from pathlib import Path
 from sqlite3 import Connection
 
+from docketyard.capture import records
 from docketyard.store.db import utcnow
 from docketyard.text import load, paginate, queue
 from docketyard.text.fields import read_head
@@ -313,6 +314,7 @@ def partials(spool: Path, problems: list[str], *, now: float | None = None) -> i
     cutoff = (time.time() if now is None else now) - STALE_PARTIAL_SECONDS
     held = spool.parent / "quarantine"
     moved = 0
+    stuck: list[str] = []
     for shard in sorted(p for p in spool.iterdir() if p.is_dir()):
         for path in sorted(shard.glob("*.tmp")):
             try:
@@ -320,9 +322,19 @@ def partials(spool: Path, problems: list[str], *, now: float | None = None) -> i
                     continue  # a write in progress, or one that has only just died
                 held.mkdir(parents=True, exist_ok=True)
                 path.replace(held / path.name)
-            except OSError:
+            except FileNotFoundError:
                 continue  # renamed into place under us: it was a write, and it finished
+            except OSError as e:
+                # quarantine unwritable: the evidence is still there, and SAID — swallowing it
+                # was the silence this function exists to end (code review, 2026-10-03)
+                stuck.append(f"{path.name} ({type(e).__name__})")
+                continue
             moved += 1
+    if stuck:
+        problems.append(
+            f"text spool: {len(stuck)} half-written record(s) could not be moved to quarantine:"
+            f" {', '.join(stuck[:3])}"
+        )
     if moved:
         problems.append(
             f"text spool: {moved} half-written record(s) left by the parser, moved to"
@@ -358,7 +370,9 @@ def held_locally(blobs: Path, shas: list[str]) -> tuple[list[str], list[str]]:
     """
     present, pruned = [], []
     for sha in shas:
-        (present if (blobs / sha[:2] / sha).is_file() else pruned).append(sha)
+        # `blobs` IS the store's `blobs/` directory, so the key's own leading `blobs/` goes
+        # on its parent: one spelling of the layout (`records.blob_key`), not a fourth
+        (present if (blobs.parent / records.blob_key(sha)).is_file() else pruned).append(sha)
     return present, pruned
 
 
