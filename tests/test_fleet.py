@@ -1511,6 +1511,7 @@ def _zero() -> dict:
         "topped_up": 0,
         "unrouted_documents": 0,
         "unrouted_pages": 0,
+        "wave_routed": 0,
     }
 
 
@@ -1668,6 +1669,43 @@ def test_a_page_list_seed_sets_aside_a_document_a_non_page_failure_left_partial(
     n = pq.seed_from_list(q, listed, out, lst)  # not the page's fault: read it again whole
     assert (n["set_aside"], n["new"]) == (1, 2)
     assert not written.exists() and written.with_suffix(".json.superseded").exists()
+
+
+def test_a_document_the_wave_routed_is_refused_by_the_list_seed(listed, tmp_path):
+    """Nothing asserted that no document is both image-only and text-layer, which is the only
+    thing keeping `dots` and the re-read off the same page under the same key — and the loader
+    refuses the whole document when it happens (schema-critic, 2026-09-18)."""
+    out = tmp_path / "ocr"
+    q = pq.Queue(tmp_path / "q.sqlite")
+    _reread_route(out, A, {1: "degraded"})
+    _reread_route(out, B, {1: "degraded"})
+    _route_root(out, B, {1: "degraded"})  # the wave routed B: it is image-only
+    n = pq.seed_from_list(
+        q, listed, out, _page_list(tmp_path / "p.csv", [(A, 1, "1"), (B, 1, "1")])
+    )
+    assert (n["wave_routed"], n["new"]) == (1, 1)
+    assert q.pages_held(listed, A) == {1} and q.pages_held(listed, B) is None
+
+
+def test_a_narrower_list_does_not_shrink_a_reading_it_sets_aside(listed, tmp_path):
+    """`_decide`'s set-aside path queued the list alone, so a reading document gone missing
+    under a narrower list was rebuilt narrower, and the dropped page's row stayed live in the
+    store from the older run with no queue record (`pages_held` went {1,2} -> {1})."""
+    out = tmp_path / "ocr"
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", listed, {**KEY, "host": "x"})
+    _reread_route(out, A, {1: "degraded", 2: "degraded"})
+    both = _page_list(tmp_path / "a.csv", [(A, 1, "1"), (A, 2, "1")])
+    assert pq.seed_from_list(q, listed, out, both)["new"] == 2
+    for job in q.claim("w1", listed, 5, 60):
+        q.done("w1", job["job_id"], json.dumps([{"category": "Text", "text": "x"}]))
+    assert pq.collect_pass(q, listed, out) == 1
+    ocr_wave.shard(out / pq.PASSES[listed]["root"], A).unlink()  # the reading goes missing
+
+    one = _page_list(tmp_path / "b.csv", [(A, 1, "1")])
+    n = pq.seed_from_list(q, listed, out, one)
+    assert (n["missing_reading"], n["set_aside"], n["new"]) == (1, 1, 2)
+    assert q.pages_held(listed, A) == {1, 2}
 
 
 def test_the_two_seeds_refuse_each_others_pass(listed, tmp_path):

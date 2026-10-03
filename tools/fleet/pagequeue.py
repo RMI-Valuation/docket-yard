@@ -121,8 +121,9 @@ PASSES = {
     #     render_profile) and does NOT carry the role, so it does not keep the two passes apart
     #     — it makes it impossible for one page to hold both, and the loader then refuses the
     #     whole document ("a reading does not change role by being posted again"). What keeps
-    #     them apart is that no document is both image-only and text-layer, which nothing in
-    #     the store, the queue or these tests asserts (schema-critic, 2026-09-18).
+    #     them apart is that no document is both image-only and text-layer (schema-critic,
+    #     2026-09-18). `seed_from_list` refuses a document the wave has routed, so the queue
+    #     asserts it at the seed; the store still does not.
     #
     # ITS PAGES ARE ROUTED FIRST, by `ocr_wave.py route-list` (the operator, 2026-09-18). They
     # must be: `text/load.py` refuses an `ocr` reading whose page names no routed class and
@@ -836,6 +837,12 @@ def seed_from_list(
     its clean ones to the text layer — so pages 3 and 9 of an eleven-page document are a
     complete reading of what this pass owes it. "Whole" above means every page this pass owes
     reached a terminal state, not every page of the PDF.
+
+    A NARROWER LIST DOES NOT SHRINK A READING. When a document is read again — topped up, or
+    set aside — every page the queue held for it is queued again with what the list names, so
+    a moved cut stops new pages being queued but never leaves a page's older row live in the
+    store with nothing behind it. And a document the wave routed (image-only) is refused,
+    whatever the list says: it belongs to `dots`, under the same key.
     """
     from ocr_wave import shard  # noqa: PLC0415
 
@@ -868,8 +875,15 @@ def seed_from_list(
         "topped_up": 0,
         "unrouted_documents": 0,
         "unrouted_pages": 0,
+        "wave_routed": 0,
     }
     route_root = out / spec["route_root"]
+    # the route roots of the passes seeded from the wave's router: image-only documents
+    wave_roots = {
+        out / other["route_root"]
+        for other in PASSES.values()
+        if other["seeded_from"] == "route" and other["route_root"] != spec["route_root"]
+    }
     for sha in sorted(wanted):
         n["listed_pages"] += len(wanted[sha])
         # A PAGE WITHOUT A ROUTE IS NOT QUEUED. Its reading would be refused by the loader
@@ -881,6 +895,16 @@ def seed_from_list(
         routed = _routed_pages(route_root, sha)
         if not routed:
             n["unrouted_documents"] += 1
+            continue
+        # A DOCUMENT THE WAVE ROUTED IS IMAGE-ONLY, and is refused here whatever the list says.
+        # The separate roots keep the wave's routes out of this pass; they do not stop a list
+        # from naming an image-only document whose pages were then routed by `route-list` too,
+        # and then `dots` and this pass would read the same page under the same key — which
+        # `document_text_live` refuses for the WHOLE document at load, not the one page
+        # (schema-critic, 2026-09-18). Refused before any machine time is spent, and counted.
+        if any(shard(r, sha).exists() for r in wave_roots):
+            n["wave_routed"] += 1
+            print(f"  REFUSED {sha[:12]}: the wave routed it, so it is image-only", flush=True)
             continue
         if missing := wanted[sha] - routed:
             n["unrouted_pages"] += len(missing)
@@ -911,7 +935,14 @@ def seed_from_list(
             continue
         if not _decide(q, pass_, spec, out, sha, n, reread, dry_run=dry_run):
             continue
-        pages += [(sha, no) for no in sorted(wanted[sha])]
+        # THE SAME UNION AS THE TOP-UP. `_decide` can set a document aside (a non-page failure,
+        # or a reading document gone missing) under a list NARROWER than the one that seeded it;
+        # queueing the list alone would rebuild a narrower reading than the one replaced, and the
+        # dropped pages' rows would stay live in the store from the older run with no queue
+        # record behind them (`/code-review` + stb-ingest-specialist, 2026-09-19). A narrowing
+        # list is therefore not taken at its word for pages already held: it can stop new pages
+        # being queued, never shrink a reading. `held` is None for a document never seen.
+        pages += [(sha, no) for no in sorted(((held or set()) | wanted[sha]) & routed)]
     n["pages"] = len(pages)
     n["new"] = 0 if dry_run else q.seed(pass_, pages, reread=reread)
     return n
