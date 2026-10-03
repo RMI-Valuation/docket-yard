@@ -790,8 +790,27 @@ def test_a_fetched_blob_whose_hash_is_wrong_is_never_served_or_cached(tmp_path):
             r.blob(A)
         assert not (blobs / A[:2] / A).exists(), "never cached"
         assert list((blobs / ".tmp").glob("*")) == [], "and nothing left spooled"
+        # AND IT REACHES SOMEBODY: a line beside the queue, counted into /metrics for the rule
+        # in config.alloy. The stderr line alone sat in a log nobody tails (ingest review).
+        db = tmp_path / "q.sqlite"
+        (line,) = (tmp_path / pq.CORRUPT_LOG).read_text(encoding="utf-8").splitlines()
+        assert json.loads(line)["sha256"] == A
+        assert pq.corrupt_count(db) == 1
+        text = monitor.metrics(local.status(), 1800, pq.corrupt_count(db))
+        assert "docket_yard_fleet_blob_corrupt_total 1\n" in text
+        assert "BLOB CORRUPT IN THE STORE" in monitor.page(local.status(), 1800, 1)
     finally:
         local.con.close()
+
+
+def test_a_store_never_found_corrupt_says_zero_and_an_unreadable_log_says_nothing(tmp_path):
+    db = tmp_path / "q.sqlite"
+    assert pq.corrupt_count(db) == 0  # no log: nothing has ever been recorded
+    status = {"passes": {}, "workers": []}
+    assert "docket_yard_fleet_blob_corrupt_total 0\n" in monitor.metrics(status, 1800, 0)
+    (tmp_path / pq.CORRUPT_LOG).mkdir()  # a log that cannot be read is not a clean store
+    assert pq.corrupt_count(db) is None
+    assert "\ndocket_yard_fleet_blob_corrupt_total " not in monitor.metrics(status, 1800, None)
 
 
 def test_a_403_is_the_environments_and_a_404_is_the_documents(tmp_path):

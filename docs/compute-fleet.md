@@ -207,7 +207,12 @@ into a container, or the paths themselves when it runs as a binary on the box â€
 the node and not itself); endpoint, username and token are the
 operator's, in an env file on the node, and enter no repository. **The three rules exist in Grafana Cloud since 2026-09-10**, provisioned from
 `infra/grafana/provision.py` beside production's; the alertmanager's route to mail was proved
-with a temporary rule the same day.
+with a temporary rule the same day. A fourth series, `docket_yard_fleet_blob_corrupt_total`,
+counts the times the store answered a document with bytes that do not hash to its name â€” the
+queue server appends each to `ocr/blob-corrupt.log` and the monitor counts the lines (since
+2026-10-03; before that it was one stderr line nobody read). Its rule,
+`increase(docket_yard_fleet_blob_corrupt_total[1h]) > 0`, is written in `config.alloy` and is
+**not yet provisioned** in `infra/grafana/provision.py`.
 
 ## Running it
 

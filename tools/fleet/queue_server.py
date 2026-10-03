@@ -55,8 +55,8 @@ STRUCTURAL — the store's status code, never the text of an exception:
     absent, so a genuinely missing document and a broken credential become the same answer and
     this distinction cannot be made at all.
   * **any other status, or no answer, the environment's** — a 500, a 503, a reset, a timeout.
-  * **a hash that does not match, the store's** — 502, and it is printed where the monitor
-    sees it.
+  * **a hash that does not match, the store's** — 502, and recorded in `blob-corrupt.log`
+    beside the queue, which the monitor counts into `/metrics`.
 
 Nothing here mints, prints or logs a credential. **What DOES change is what `fleet.token` is
 worth**: `/blob/<sha>` was "what this box holds" and is now a read-through proxy for every
@@ -96,6 +96,7 @@ from pagequeue import (  # noqa: E402
     BlobUnavailable,
     KeyMismatch,
     Queue,
+    record_corrupt,
 )
 
 from docketyard.capture import s3  # noqa: E402
@@ -329,14 +330,18 @@ def serve(db: Path, blobs: Path, token: str, port: int, bind: str, fetch_missing
             except BlobUnavailable as e:
                 return self._json(503, {"error": str(e)})
             except BlobCorrupt as e:
-                # A CORRUPT OBJECT IN THE STORE OF RECORD, and the loudest thing available
-                # here is this line. **It is not an alarm**: `config.alloy` scrapes
-                # `/metrics` and no logs, and `backup.py` excludes `ocr/logs` — so nothing
-                # pages anyone on it (ingest review; an earlier draft of this comment claimed
-                # the monitor sees it, which was simply untrue). A counter the monitor can
-                # serve is owed in `docs/deferred.md`. What DOES surface is the worker's
-                # non-final `blob:` failure, in `status()["errors"]`.
+                # A CORRUPT OBJECT IN THE STORE OF RECORD. The stderr line alone reached
+                # nobody — `config.alloy` scrapes `/metrics` and no logs, and `backup.py`
+                # excludes `ocr/logs` (ingest review) — so it is also appended to the log
+                # beside the queue, which `monitor.py` counts into `/metrics` as
+                # `docket_yard_fleet_blob_corrupt_total` for the rule in `config.alloy`.
+                # Recording must not turn a 502 into a dropped connection, so a write that
+                # fails is said on stderr and the answer still goes out.
                 print(f"BLOB CORRUPT IN THE STORE: {e}", file=sys.stderr, flush=True)
+                try:
+                    record_corrupt(db, sha, str(e))
+                except OSError as failed:
+                    print(f"could not record it: {failed}", file=sys.stderr, flush=True)
                 return self._json(502, {"error": str(e)})
             try:
                 _serve_file(self, path)

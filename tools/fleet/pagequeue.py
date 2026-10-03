@@ -225,6 +225,36 @@ class BlobCorrupt(Exception):
     failure here worth an alarm. Never cached, never served (ADR 0002: the sha is identity)."""
 
 
+# WHERE A CORRUPT OBJECT IN THE STORE IS RECORDED, so it reaches somebody: one line per corrupt
+# answer, beside the queue, written by `queue_server.py` and counted by `monitor.py` into
+# `/metrics` (docket_yard_fleet_blob_corrupt_total), which Alloy scrapes and a rule watches.
+# Before this the loudest thing was a line on the server's stderr, in a log nobody tails and
+# `backup.py` excludes (ingest review, 2026-09-19). APPEND-ONLY, never rewritten: an append of
+# one short line needs no temp file, so the backup's walk of `ocr/` never meets one mid-rename,
+# and the file is itself the record of what the store answered and when.
+CORRUPT_LOG = "blob-corrupt.log"
+
+
+def record_corrupt(queue_db: Path, sha: str, detail: str) -> None:
+    """Append one corrupt answer to the log beside the queue file `queue_db`."""
+    line = json.dumps({"at": now(), "sha256": sha, "detail": detail}, sort_keys=True)
+    with (queue_db.parent / CORRUPT_LOG).open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+def corrupt_count(queue_db: Path) -> int | None:
+    """How many corrupt answers have been recorded beside `queue_db`, all time: 0 when the log
+    does not exist (nothing has ever been recorded), None when it cannot be read — which is
+    NOT zero, and the monitor leaves the series out rather than report a clean store."""
+    try:
+        with (queue_db.parent / CORRUPT_LOG).open(encoding="utf-8") as f:
+            return sum(1 for line in f if line.strip())
+    except FileNotFoundError:
+        return 0
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
 class Queue:
     def __init__(self, path: Path, *, readonly: bool = False, shared: bool = False):
         """`readonly` opens an existing file and only that: a monitor pointed at the wrong

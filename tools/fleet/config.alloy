@@ -19,6 +19,9 @@
 //   docket_yard_fleet_stalled == 1
 //   docket_yard_fleet_failing == 1
 //   absent(docket_yard_fleet_last_read_known)          the box, the monitor or Alloy is gone
+//   increase(docket_yard_fleet_blob_corrupt_total[1h]) > 0, `for: 0m`
+//                                                      the store answered a document with bytes
+//                                                      that do not hash to its name
 
 prometheus.scrape "fleet" {
 	targets = [{

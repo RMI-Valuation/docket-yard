@@ -37,7 +37,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from pagequeue import STATES, Queue  # noqa: E402
+from pagequeue import STATES, Queue, corrupt_count  # noqa: E402
 
 MIN_FAILED = 10
 
@@ -64,7 +64,9 @@ def failing(status: dict) -> list[str]:
     return out
 
 
-def metrics(status: dict, stall_seconds: int) -> str:
+def metrics(status: dict, stall_seconds: int, corrupt: int | None = 0) -> str:
+    """`corrupt` is `pagequeue.corrupt_count`: None (unreadable) leaves its series out, so an
+    unreadable log is never published as a store with nothing wrong in it."""
     lines = [
         "# HELP docket_yard_fleet_jobs Pages of a pass in each state",
         "# TYPE docket_yard_fleet_jobs gauge",
@@ -119,6 +121,13 @@ def metrics(status: dict, stall_seconds: int) -> str:
         age = w["last_seen_age_seconds"]
         lines.append(f"docket_yard_fleet_worker_last_seen_age_seconds{{{label}}} {age}")
         lines.append(f"docket_yard_fleet_worker_pages_done{{{label}}} {w['done']}")
+    lines += [
+        "# HELP docket_yard_fleet_blob_corrupt_total Documents the store answered with bytes"
+        " that do not hash to their name, all time",
+        "# TYPE docket_yard_fleet_blob_corrupt_total counter",
+    ]
+    if corrupt is not None:
+        lines.append(f"docket_yard_fleet_blob_corrupt_total {corrupt}")
     return "\n".join(lines) + "\n"
 
 
@@ -134,7 +143,7 @@ def _age(seconds) -> str:
     return f"{seconds / 86400:.1f} d"
 
 
-def page(status: dict, stall_seconds: int) -> str:
+def page(status: dict, stall_seconds: int, corrupt: int | None = 0) -> str:
     e = html.escape
     down, bad = stalled(status, stall_seconds), failing(status)
     parts = [
@@ -155,6 +164,11 @@ def page(status: dict, stall_seconds: int) -> str:
         parts.append(
             f"<div class=stalled>FAILING: {e(', '.join(bad))} failed more pages than it read"
             " in the last hour</div>"
+        )
+    if corrupt:
+        parts.append(
+            f"<div class=stalled>BLOB CORRUPT IN THE STORE: {corrupt:,} answer(s) recorded in"
+            " ocr/blob-corrupt.log</div>"
         )
     if not down and not bad:
         parts.append("<div class=ok>reading, or nothing owed</div>")
@@ -214,6 +228,7 @@ def serve(db: Path, port: int, stall_seconds: int, bind: str) -> None:
                     if state["q"] is None:
                         state["q"] = Queue(db, readonly=True, shared=True)
                     status = state["q"].status()
+                corrupt = corrupt_count(db)
             except Exception as e:  # noqa: BLE001 — the queue is what is being watched
                 state["q"] = None
                 self._send(503, "text/plain", f"queue unreadable: {type(e).__name__}: {e}\n")
@@ -221,7 +236,9 @@ def serve(db: Path, port: int, stall_seconds: int, bind: str) -> None:
             path = self.path.split("?", 1)[0]
             if path == "/metrics":
                 self._send(
-                    200, "text/plain; version=0.0.4; charset=utf-8", metrics(status, stall_seconds)
+                    200,
+                    "text/plain; version=0.0.4; charset=utf-8",
+                    metrics(status, stall_seconds, corrupt),
                 )
             elif path == "/status.json":
                 self._send(200, "application/json", json.dumps(status, indent=1))
@@ -234,7 +251,7 @@ def serve(db: Path, port: int, stall_seconds: int, bind: str) -> None:
                     body += f"failing: {', '.join(bad)}\n"
                 self._send(503 if body else 200, "text/plain", body or "ok\n")
             elif path == "/":
-                self._send(200, "text/html; charset=utf-8", page(status, stall_seconds))
+                self._send(200, "text/html; charset=utf-8", page(status, stall_seconds, corrupt))
             else:
                 self._send(404, "text/plain", "not found\n")
 
