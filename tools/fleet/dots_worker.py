@@ -122,12 +122,27 @@ def server_healthy(server: str) -> bool:
         return False
 
 
-def wait_for_server(server: str, seconds: int) -> bool:
+def wait_for_server(server: str, seconds: int, stop=lambda: False, every: float = 15) -> bool:
+    """True once the server is healthy; False after `seconds`, or AS SOON AS `stop()` is.
+
+    The stop is asked between one-second sleeps, not once per health check. It was not asked
+    at all until 2026-10-03 (the stop-signal review, 2026-09-19): a reader waiting on a dead
+    server sat out `--server-wait` (1800 s) through an operator's stop file, and a broker's
+    SIGTERM went unanswered until the SIGKILL, though `workstation-gate.ps1` promised the stop
+    is checked "instead of waiting for a server". Nothing is leased while this waits, so a
+    stop here owes nothing but the exit; the caller tells the two Falses apart by asking
+    `stop()` again."""
     deadline = time.time() + seconds
     while time.time() < deadline:
+        if stop():
+            return False
         if server_healthy(server):
             return True
-        time.sleep(15)
+        until = min(time.time() + every, deadline)
+        while time.time() < until:
+            if stop():
+                return False
+            time.sleep(min(1.0, max(until - time.time(), 0)))
     return False
 
 
@@ -230,7 +245,11 @@ def main() -> int:
     name = args.name or f"{socket.gethostname()}/{args.pass_}"
     if not server_healthy(args.server):
         log(f"no healthy server at {args.server}; waiting up to {args.server_wait}s")
-        if not wait_for_server(args.server, args.server_wait):
+        if not wait_for_server(args.server, args.server_wait, stopping):
+            if stopping():
+                log(stopping.why("stopped waiting for the server; nothing claimed"))
+                stopping.checkpoint_complete()
+                return 0
             log(f"server never answered; exit {EXIT_SERVER_GONE}")
             return EXIT_SERVER_GONE
     models = _get(args.server + "/models") or {}
@@ -342,7 +361,11 @@ def main() -> int:
                         log("the server died on two different pages in a row; exit 3")
                         return EXIT_SERVER_DIES
                     last_server_death = (sha, no)
-                    if not wait_for_server(args.server, args.server_wait):
+                    if not wait_for_server(args.server, args.server_wait, stopping):
+                        if stopping():  # every page went back above: nothing is held
+                            log(stopping.why("stopped waiting for the server; nothing held"))
+                            stopping.checkpoint_complete()
+                            return 0
                         log(
                             f"server did not return in {args.server_wait}s; exit {EXIT_SERVER_GONE}"
                         )

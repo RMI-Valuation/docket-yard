@@ -1707,6 +1707,27 @@ def test_the_worker_can_run_either_dots_pass_and_no_other(monkeypatch):
     assert worker.DPI == int(pq.PASSES["reread"]["key"]["render_profile"])
 
 
+def test_a_reader_waiting_for_its_server_still_hears_the_stop(monkeypatch):
+    """`wait_for_server` sat out `--server-wait` (1800 s) through a stop file and a SIGTERM,
+    though `workstation-gate.ps1` promised the stop is checked instead of waiting for a server
+    (stop-signal review, 2026-09-19)."""
+    if "fitz" not in sys.modules:
+        monkeypatch.setitem(sys.modules, "fitz", types.ModuleType("fitz"))
+    worker = _module("dots_worker", ROOT / "tools" / "fleet" / "dots_worker.py")
+    slept: list[float] = []
+    monkeypatch.setattr(worker.time, "sleep", slept.append)
+    monkeypatch.setattr(worker, "server_healthy", lambda server: False)
+    asked = iter([False, False, False, True])
+    started = time.monotonic()
+    assert worker.wait_for_server("http://s/v1", 1800, lambda: next(asked)) is False
+    assert time.monotonic() - started < 5 and len(slept) == 2  # stopped, not timed out
+    assert all(s <= 1.0 for s in slept)  # asked between one-second sleeps, not every 15 s
+    monkeypatch.setattr(worker, "server_healthy", lambda server: True)
+    assert worker.wait_for_server("http://s/v1", 1800, lambda: False) is True
+    src = (ROOT / "tools" / "fleet" / "dots_worker.py").read_text(encoding="utf-8")
+    assert src.count("wait_for_server(args.server, args.server_wait, stopping)") == 2
+
+
 def test_reseeding_a_pass_whose_root_is_not_its_key_sets_the_file_aside(tmp_path):
     """`tabular`'s root is `hunyuan-tabular`, not `tabular`. The set-aside branch looked its
     root up in ROOTS a second time, which is a no-op for `dots` and a KeyError for every other
