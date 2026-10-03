@@ -1134,7 +1134,7 @@ def create_app(
         settled."""
         return render(request, "contribute.html", idea_url=IDEA_URL)
 
-    @app.get("/coverage")  # like /stats: its numbers move once a poll, and it runs ~20 counts
+    @app.get("/coverage")
     def coverage_page(request: Request):
         con = _connect(db_path)
         try:
@@ -1145,7 +1145,7 @@ def create_app(
         # the published sentence cannot drift from what the poller does (deferred, the
         # caption-refresh review): the registry was walked once, and the watch has been
         # topping up captions since.
-        response = render(
+        return render(
             request,
             "coverage.html",
             cov=cov,
@@ -1156,8 +1156,6 @@ def create_app(
             caption_window_days=poll.CAPTION_WINDOW_DAYS,
             caption_attempts=poll.CAPTION_ATTEMPTS,
         )
-        response.headers.update(PUBLIC_CACHE)
-        return response
 
     @app.get("/stats")  # the numbers move once a poll; the page may be cached that long
     def stats_page(request: Request):
