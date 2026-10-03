@@ -269,6 +269,9 @@ instead of over the transport. An opportunistic reader's gate is the Windows for
 same role. Alloy runs on the coordinator with
 `config.alloy` (the fleet's series and the box's vitals) and on each worker with
 `config-host.alloy` (vitals only), the box's name in `FLEET_HOST` beside the credentials.
+Both read the container's `/host/*` bind mounts by default; where Alloy runs as a plain
+binary, the same env file sets `FLEET_PROCFS=/proc`, `FLEET_SYSFS=/sys` and `FLEET_ROOTFS=/`
+— one file serves both, and no generated variant is needed.
 
 ```
 bash ~/docket-yard/tools/fleet/fleet-up.sh coordinator     # on the coordinator

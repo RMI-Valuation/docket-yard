@@ -5,16 +5,23 @@
 //   docker run -d --name fleet-alloy --restart unless-stopped --network host \
 //     --env-file /data/docketyard/alloy.env \
 //     -v /data/docketyard/alloy:/var/lib/alloy/data \
-//     -v ~/docket-yard/tools/fleet/config.alloy:/etc/alloy/config.alloy:ro \
+//     -v /proc:/host/proc:ro -v /sys:/host/sys:ro -v /:/host/root:ro,rslave \
+//     -v ~/docket-yard/tools/fleet/config-host.alloy:/etc/alloy/config.alloy:ro \
 //     grafana/alloy:v1.10.0 run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
 //
 // Host networking so the exporter reads the box; the host's /proc, /sys and / mounted so it
 // reports the BOX's memory and disks, not a container's (production's lesson).
 
 prometheus.exporter.unix "host" {
-	procfs_path = "/host/proc"
-	sysfs_path  = "/host/sys"
-	rootfs_path = "/host/root"
+	// The container's bind mounts by default; the box's own paths where Alloy runs as a plain
+	// binary, set in the env file (FLEET_PROCFS=/proc, FLEET_SYSFS=/sys, FLEET_ROOTFS=/). A
+	// procfs path that does not exist fails the exporter's build, and v1.10.0 then refuses
+	// the whole config and exits 1 (probed in its image, 2026-10-03) — so every series this
+	// file sends stops, not only the vitals. The coordinator's move (2026-09-20) needed a
+	// rewritten copy of this file until these were variables.
+	procfs_path = coalesce(sys.env("FLEET_PROCFS"), "/host/proc")
+	sysfs_path  = coalesce(sys.env("FLEET_SYSFS"), "/host/sys")
+	rootfs_path = coalesce(sys.env("FLEET_ROOTFS"), "/host/root")
 
 	set_collectors = ["cpu", "loadavg", "meminfo", "filesystem", "diskstats"]
 	filesystem {
