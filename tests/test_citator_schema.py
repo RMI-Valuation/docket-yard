@@ -841,11 +841,22 @@ def test_the_page_is_in_the_key_and_every_row_has_one(tmp_path):
     _decided(con, page_no=1)
     _decided(con, page_no=9)  # the same ordinal on another page is another line
     assert _live(con, "decision_decided_date") == 2
-    with pytest.raises(sqlite3.IntegrityError):  # no writer may leave the page out now
-        _decided(con, ordinal=1, page_no=None, text_id=None)
+    # A HUMAN row, where no `text_id` is legal: a machine row with none is refused by the text_id
+    # CHECK whatever its page, so the page checks could be dropped and the test stay green (code
+    # review, 2026-10-03). Here only the page can be what fails.
+    human = {
+        "reading_channel": "human",
+        "method": "human",
+        "render_profile": "human",
+        "confidence": 1.0,
+        "confidence_state": "human",
+    }
+    _decided(con, page_no=2, **human)  # the row is legal with a page
+    with pytest.raises(sqlite3.IntegrityError, match="page_no"):  # and the page is required
+        _decided(con, ordinal=1, page_no=None, **human)
     for bad in (0, -1):
-        with pytest.raises(sqlite3.IntegrityError):
-            _decided(con, ordinal=2, page_no=bad, text_id=None)
+        with pytest.raises(sqlite3.IntegrityError, match="page_no"):
+            _decided(con, ordinal=2, page_no=bad, **human)
 
 
 def test_a_model_pass_may_not_supersede_a_human_decided_date(tmp_path):
