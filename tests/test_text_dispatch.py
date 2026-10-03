@@ -8,6 +8,8 @@ document for ever, and a dead container burning every attempt in the record.
 """
 
 import json
+import os
+import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -564,6 +566,27 @@ def test_a_container_ahead_of_its_pin_is_one_problem_a_pass_and_loses_nothing(tm
     out, problems = stage()
     assert out["loaded"].get("loaded") == 2, (out, problems)
     con.close()
+
+
+def test_a_write_the_parser_died_in_is_counted_once_and_kept(tmp_path):
+    """`extract.write` writes `.tmp` and renames, and admit and the sweep read `*.json` only, so
+    a container dying mid-write left nothing anyone counted — the same silence as a container
+    that never started (deferred.md, the ingest specialist on migration 0022, 2026-09-05). A
+    stale one is moved to quarantine and reported once; a fresh one is a write in progress."""
+    spool = tmp_path / "spool" / "ab"
+    spool.mkdir(parents=True)
+    dead, live = spool / ("a" * 64 + ".json.tmp"), spool / ("b" * 64 + ".json.tmp")
+    for path in (dead, live):
+        path.write_text('{"document_sha256": "trunc', encoding="utf-8")
+    old = time.time() - dispatch.STALE_PARTIAL_SECONDS - 60
+    os.utime(dead, (old, old))
+    problems: list[str] = []
+    assert dispatch.partials(tmp_path / "spool", problems) == 1
+    assert (tmp_path / "quarantine" / dead.name).is_file(), "kept as evidence"
+    assert live.is_file(), "a write in progress is left alone"
+    assert len(problems) == 1 and "died mid-write" in problems[0]
+    problems.clear()
+    assert dispatch.partials(tmp_path / "spool", problems) == 0 and problems == []  # once
 
 
 def test_a_landed_reading_is_swept_and_an_unlanded_one_is_kept(tmp_path):

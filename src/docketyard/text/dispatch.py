@@ -292,6 +292,46 @@ def sweep(con: Connection, spool: Path) -> int:
     return gone
 
 
+# How old a `.tmp` in the spool must be before it is a write that died rather than one in
+# progress. The container writes a record in one `write_text` after the parse, so a live
+# temporary file lives for well under a second; an hour is slack, not an estimate.
+STALE_PARTIAL_SECONDS = 3600
+
+
+def partials(spool: Path, problems: list[str], *, now: float | None = None) -> int:
+    """Count the half-written records the container left behind, and move them aside.
+
+    `extract.write` writes `<name>.json.tmp` and renames (ADR 0024 D9), so a `.tmp` that
+    outlives its write is a container that died mid-write — the OOM kill `serve_one` pops
+    documents to survive. `admit` and `sweep` glob `*.json` only, so until 2026-10-03 these
+    were never seen, and "the container is dying mid-write" read exactly like "the container
+    never started" (deferred.md, the ingest specialist on migration 0022, 2026-09-05).
+
+    Quarantined rather than deleted, for `admit`'s reason: the partial file is the evidence of
+    which document took the parser down. Moved, so each is reported once, not every pass."""
+    if not spool.is_dir():
+        return 0
+    cutoff = (time.time() if now is None else now) - STALE_PARTIAL_SECONDS
+    held = spool.parent / "quarantine"
+    moved = 0
+    for shard in sorted(p for p in spool.iterdir() if p.is_dir()):
+        for path in sorted(shard.glob("*.tmp")):
+            try:
+                if path.stat().st_mtime > cutoff:
+                    continue  # a write in progress, or one that has only just died
+                held.mkdir(parents=True, exist_ok=True)
+                path.replace(held / path.name)
+            except OSError:
+                continue  # renamed into place under us: it was a write, and it finished
+            moved += 1
+    if moved:
+        problems.append(
+            f"text spool: {moved} half-written record(s) left by the parser, moved to"
+            " quarantine — the `extract` container died mid-write; check its memory limit"
+        )
+    return moved
+
+
 def _clear(ready: Path, held: Path, problems: list[str]) -> int:
     """Move aside what the loader walked and did not land. See the caller for why."""
     if not ready.is_dir():
@@ -377,6 +417,7 @@ def run(
     # is a MOVE rather than a check so that nothing can land between the check and the walk.
     ready = spool.parent / "ready"
     out["admitted"], out["quarantined"] = admit(con, spool, ready, problems)
+    out["partial"] = partials(spool, problems)
 
     # 2. drain what the parser has already written. `paginate` first: it reads the same
     # records and writes the page-count denominator ADR 0022 D3 publishes, without which a
