@@ -876,28 +876,37 @@ def _scope(con: Connection, args: dict) -> _Scope | str:
 
 
 def _open_month_caveats(
-    con: Connection, since: str | None, until: str | None, *, shortfall: str
+    con: Connection,
+    since: str | None,
+    until: str | None,
+    *,
+    shortfall: str,
+    kind: str = "filings",
 ) -> list[str]:
     """What a filing figure inside this range cannot account for. Shared for the same reason
     `_Scope` is: a count that named its unfinished months and a list that did not would let
     an assistant treat the list as the whole set. Which months, and the walk-start rule, are
     the shared part; `shortfall` is only how each tool says what it is short OF."""
     lines = []
+    incomplete, walked = {
+        "filings": (coverage_store.filings_incomplete, coverage_store.filings_walked_from),
+        "decisions": (coverage_store.decisions_incomplete, coverage_store.decisions_walked_from),
+    }[kind]
     open_months = [
         m
-        for m in coverage_store.filings_incomplete(con)
+        for m in incomplete(con)
         if (not since or m >= since[:7]) and (not until or m <= until[:7])
     ]
     if open_months:
         lines.append(
-            f"Months this record has not finished for filings, inside the range {shortfall}:"
+            f"Months this record has not finished for {kind}, inside the range {shortfall}:"
             f" {', '.join(coverage_store.month_runs(tuple(open_months)))}."
         )
-    walked_from = coverage_store.filings_walked_from(con)
+    walked_from = walked(con)
     if walked_from and (not since or since[:7] < walked_from):
         lines.append(
-            f"This record's walk of filings begins at {walked_from}: nothing is claimed about"
-            " filings the Board dated earlier."
+            f"This record's walk of {kind} begins at {walked_from}: nothing is claimed about"
+            f" {kind} the Board dated earlier."
         )
     return lines
 
@@ -1207,6 +1216,129 @@ def _list_proceedings(con: Connection, args: dict, host: str) -> str:
     return "\n".join(lines)
 
 
+_BODY_LINES = 12  # deciding bodies listed in a breakdown; the rest are counted
+
+
+def _count_decisions(con: Connection, args: dict, host: str) -> str:
+    """How many decisions the Board typed a given way, or issued from a given body, within a
+    prefix and a served-date range. Asked for 2026-10-02 beside `recent_activity`: a brief
+    could count filings and could not count decisions. A sibling, not a flag on
+    `count_filings`, for the reason `list_proceedings` is one — an assistant reads the tool
+    list, not a parameter's description. Its members are what `recent_activity` lists with
+    `by: board_date`, `record_type: decision` and the same filters, which take the same
+    matching rules (`_types`, words in the deciding body)."""
+    try:
+        since = _day(args.get("served_from"), "served_from")
+        until = _day(args.get("served_to"), "served_to")
+    except ValueError as e:
+        return str(e) if str(e).startswith("`") else "A date must be a real day, YYYY-MM-DD."
+    if since and until and since > until:
+        return f"`served_from` ({since}) is after `served_to` ({until}); nothing can fall between."
+    prefix = str(args.get("prefix") or "").strip().upper()
+    if (
+        prefix
+        and con.execute("SELECT 1 FROM docket WHERE prefix = ? LIMIT 1", (prefix,)).fetchone()
+        is None
+    ):
+        return (
+            f"The record holds no docket prefix {prefix!r} (prefixes look like `AB`, `FD`, `NOR`)."
+        )
+    where, params = ["1 = 1"], []
+    if prefix:
+        where.append("d.prefix = ?")
+        params.append(prefix)
+    if since:
+        where.append("r.service_date >= ?")
+        params.append(since)
+    if until:
+        where.append("r.service_date <= ?")
+        params.append(until)
+    scope = (f" in {prefix} proceedings" if prefix else "") + (
+        f", served {since or 'from the first'} to {until or 'the latest held'}"
+        if since or until
+        else ""
+    )
+
+    asked = str(args.get("decision_type") or "").strip()
+    types: list[str] = []
+    if asked:
+        types = _types(con, asked, "decision_type")
+        if not types:
+            held = [t for (t,) in con.execute("SELECT DISTINCT decision_type FROM decision_record")]
+            return (
+                f"No decision type the Board uses matches {asked!r}. Its types are few and"
+                f" general: {', '.join(sorted(t for t in held if t))}. What a decision did — a"
+                " notice of interim trail use issued — is in its summary, not its type;"
+                " `search_the_record` reads summaries."
+            )
+        where.append(f"r.decision_type IN ({', '.join('?' * len(types))})")
+        params += types
+        scope += f", typed {', '.join(repr(t) for t in types)}"
+    body = str(args.get("deciding_body") or "").strip()
+    if body:
+        where.append("r.deciding_body LIKE ? ESCAPE '\\'")
+        params.append(activity_store.like(body))
+        scope += f", from a deciding body printed with the words {body!r}"
+    base = " FROM decision_record r JOIN docket d ON d.docket_id = r.docket_id WHERE " + (
+        " AND ".join(where)
+    )
+
+    decisions, proceedings, first, last = con.execute(
+        "SELECT COUNT(DISTINCT r.stb_decision_id), COUNT(DISTINCT r.docket_id),"
+        " MIN(NULLIF(r.service_date, '')), MAX(NULLIF(r.service_date, ''))" + base,
+        params,
+    ).fetchone()
+    lines: list[str] = []
+    if not decisions:
+        lines.append(
+            f"The record holds no decisions{scope}. That is an absence in this record, not proof"
+            " of absence at the Board."
+        )
+    else:
+        lines.append(
+            f"Decisions{scope}: {_plural(decisions, 'decision')} entered in"
+            f" {_plural(proceedings, 'proceeding')}, served {first} to {last}."
+        )
+        by_type = con.execute(
+            "SELECT r.decision_type, COUNT(DISTINCT r.stb_decision_id)"
+            + base
+            + " GROUP BY 1 ORDER BY 2 DESC, 1",
+            params,
+        ).fetchall()
+        if len(by_type) > 1 or not asked:
+            lines.append("By the Board's decision type:")
+            lines += [f"- {t or '(untyped)'}: {n:,}" for t, n in by_type]
+        by_body = con.execute(
+            "SELECT r.deciding_body, COUNT(DISTINCT r.stb_decision_id)"
+            + base
+            + " GROUP BY 1 ORDER BY 2 DESC, 1",
+            params,
+        ).fetchall()
+        if len(by_body) > 1 or not body:
+            lines.append("By the deciding body, as printed:")
+            lines += [
+                f"- {present(b) or '(none printed)'}: {n:,}" for b, n in by_body[:_BODY_LINES]
+            ]
+            if len(by_body) > _BODY_LINES:
+                lines.append(f"…and {len(by_body) - _BODY_LINES} rarer bodies.")
+        lines.append(
+            "A decision entered in more than one proceeding counts once among decisions and once"
+            " in each proceeding. Types and deciding bodies are the Board's labels as its table"
+            " prints them: neither says what a decision did, and this count has not read the"
+            " documents. To list these decisions, call `recent_activity` with `by:"
+            " board_date`, `record_type: decision` and the same prefix, dates, type and body."
+        )
+    lines += _open_month_caveats(
+        con,
+        since,
+        until,
+        shortfall="counted (the count is short by whatever they hold)",
+        kind="decisions",
+    )
+    lines.append(f"What the record holds and does not: {_site(host, '/coverage')}")
+    return "\n".join(lines)
+
+
 _RECENT_CAP = 100  # entries per call; `offset` reaches the rest
 _RECENT_DEFAULT = 50
 _MAX_DOCKETS = 50
@@ -1448,7 +1580,7 @@ def _recent(con: Connection, args: dict, host: str) -> str:
             " of document, not what it accomplished, and nothing here has read the documents."
             + (" `party` matched the printed words, not a resolved party." if party else "")
         )
-    lines += _window_caveats(con, by, start, end)
+    lines += _window_caveats(con, by, start, end, kinds)
     return "\n".join(lines)
 
 
@@ -1491,7 +1623,9 @@ def _activity_line(
     )
 
 
-def _window_caveats(con: Connection, by: str, start: str, end: str | None) -> list[str]:
+def _window_caveats(
+    con: Connection, by: str, start: str, end: str | None, kinds: tuple[str, ...]
+) -> list[str]:
     """What the window cannot account for, said in the answer rather than left to a
     `coverage` call a scheduled brief never makes."""
     c = coverage_store.watch(con)
@@ -1523,9 +1657,15 @@ def _window_caveats(con: Connection, by: str, start: str, end: str | None) -> li
             " The Board can post an entry days after its date, so a window already read can"
             " gain entries; `by: observed` (the default) does not miss them."
         )
-        lines += _open_month_caveats(
-            con, start, end, shortfall="(filings in them are missing from this list)"
-        )
+        for kind in ("filings", "decisions"):
+            if kind[:-1] in kinds:
+                lines += _open_month_caveats(
+                    con,
+                    start,
+                    end,
+                    shortfall=f"({kind} in them are missing from this list)",
+                    kind=kind,
+                )
     return lines
 
 
@@ -1778,6 +1918,35 @@ TOOLS: tuple[Tool, ...] = (
             ["filing_type"],
         ),
         _list_proceedings,
+    ),
+    Tool(
+        "count_decisions",
+        "Count decisions by the Board's type and deciding body",
+        "How many decisions the Board served, in how many proceedings, optionally within a"
+        " docket prefix and a served-date range, of a decision type (`Notice of Exemption`,"
+        " `Environmental Review`) or from a deciding body (`Entire Board`, `Director Of"
+        " Proceedings`, `Office of Chief Counsel`), with a breakdown by type and by body."
+        " Search results are capped and are never counts; this is the tool for 'how many"
+        " decisions'. It counts the Board's labels, not what a decision did. `recent_activity`"
+        " with `by: board_date` and `record_type: decision` lists them.",
+        _obj(
+            {
+                "decision_type": {
+                    "type": "string",
+                    "description": "The Board's decision type, or words in it; each type"
+                    " counted is named.",
+                },
+                "deciding_body": {
+                    "type": "string",
+                    "description": "Words in the deciding body as printed (`Entire Board`).",
+                },
+                "prefix": {"type": "string", "description": "A docket prefix, e.g. `AB`."},
+                "served_from": {"type": "string", "description": "YYYY-MM-DD, inclusive."},
+                "served_to": {"type": "string", "description": "YYYY-MM-DD, inclusive."},
+            },
+            [],
+        ),
+        _count_decisions,
     ),
     Tool(
         "recent_activity",

@@ -105,7 +105,8 @@ class Activity:
     items: list[Item]
 
 
-def _like(words: str) -> str:
+def like(words: str) -> str:
+    """A LIKE pattern for words as typed, `%` and `_` meaning themselves (with ESCAPE '\')."""
     escaped = words.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     return f"%{escaped}%"
 
@@ -131,7 +132,7 @@ def _where(kind: str, f: Filters) -> tuple[list[str], list] | None:
             params += f.filing_types
         if f.party:
             where.append("r.filed_for_raw LIKE ? ESCAPE '\\'")
-            params.append(_like(f.party))
+            params.append(like(f.party))
     elif kind == "decision":
         if f.party or (asked_type and not f.decision_types):
             return None
@@ -140,7 +141,7 @@ def _where(kind: str, f: Filters) -> tuple[list[str], list] | None:
             params += f.decision_types
         if f.deciding_body:
             where.append("r.deciding_body LIKE ? ESCAPE '\\'")
-            params.append(_like(f.deciding_body))
+            params.append(like(f.deciding_body))
     else:  # a comment has no Board type, no filer and no deciding body
         if asked_type or f.party or f.deciding_body:
             return None

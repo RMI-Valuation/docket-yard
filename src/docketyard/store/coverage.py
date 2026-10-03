@@ -167,7 +167,16 @@ def _incomplete(con: Connection, *actions: str, today: date | None = None) -> tu
 
 
 def filings_incomplete(con: Connection, today: date | None = None) -> tuple[str, ...]:
-    """Months not finished for filings alone — what a count over filings must name. The
+    return incomplete_for(con, FILINGS, today)
+
+
+def decisions_incomplete(con: Connection, today: date | None = None) -> tuple[str, ...]:
+    """The same rule over the decisions walk — what MCP's `count_decisions` must name."""
+    return incomplete_for(con, DECISIONS, today)
+
+
+def incomplete_for(con: Connection, action: str, today: date | None = None) -> tuple[str, ...]:
+    """Months not finished for one table alone — what a count over it must name. The
     coverage page's list unions filings with decisions, which would name a month a
     decisions-only gap left open as a hole in a filing count.
 
@@ -181,13 +190,13 @@ def filings_incomplete(con: Connection, today: date | None = None) -> tuple[str,
     that first month is claimed either way; the answer names where the walk begins."""
     q = con.execute
     today = today or date.today()
-    months = set(_incomplete(con, FILINGS, today=today))
+    months = set(_incomplete(con, action, today=today))
     ledger = {
         m
-        for (key,) in q("SELECT slice_key FROM walk_slice WHERE table_action = ?", (FILINGS,))
+        for (key,) in q("SELECT slice_key FROM walk_slice WHERE table_action = ?", (action,))
         if (m := walk.slice_month(key)) is not None
     }
-    start = _watch_starts(q, (FILINGS,)).get(FILINGS)
+    start = _watch_starts(q, (action,)).get(action)
     if ledger:
         year, month = int(min(ledger)[:4]), int(min(ledger)[5:7])
     elif start is not None:
@@ -211,13 +220,21 @@ def filings_incomplete(con: Connection, today: date | None = None) -> tuple[str,
 
 
 def filings_walked_from(con: Connection) -> str | None:
-    """The first month the filings walk names — where a count's coverage claim begins."""
-    # parsed, then the least — the rule `filings_incomplete` uses, so the two cannot disagree
+    return walked_from(con, FILINGS)
+
+
+def decisions_walked_from(con: Connection) -> str | None:
+    return walked_from(con, DECISIONS)
+
+
+def walked_from(con: Connection, action: str) -> str | None:
+    """The first month one table's walk names — where a count's coverage claim begins."""
+    # parsed, then the least — the rule `incomplete_for` uses, so the two cannot disagree
     # over a key that sorts first and names no month
     months = [
         m
         for (key,) in con.execute(
-            "SELECT slice_key FROM walk_slice WHERE table_action = ?", (FILINGS,)
+            "SELECT slice_key FROM walk_slice WHERE table_action = ?", (action,)
         )
         if (m := walk.slice_month(key)) is not None
     ]

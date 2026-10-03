@@ -1055,3 +1055,44 @@ def test_a_filtered_search_refuses_what_it_cannot_read(client):
     assert "`sort` is" in search_text(client, query="x", sort="oldest")
     assert "`page` must be" in search_text(client, query="x", page=0)
     assert "No filing or decision type" in search_text(client, query="x", type="zzz")
+
+
+# --- count_decisions (asked for 2026-10-02 beside recent_activity) --------------------------
+
+
+def test_a_decision_count_is_of_decisions_and_proceedings_not_rows(tmp_path):
+    con = _brief(tmp_path)
+    text = mcp._count_decisions(con, {"deciding_body": "chief counsel"}, "docketyard.org")
+    # one decision, entered in FD 36873 and its sub-docket
+    assert ": 1 decision entered in 2 proceedings, served 2026-08-21 to 2026-08-21." in text
+    assert "neither says what a decision did" in text
+    # its members are what recent_activity lists with the same filters
+    listed = recent(
+        con,
+        since="2026-08-01",
+        by="board_date",
+        record_type="decision",
+        deciding_body="chief counsel",
+    )
+    assert ": 1 decision." in listed
+    con.close()
+
+
+def test_without_a_type_or_body_the_decision_vocabulary_is_listed(tmp_path):
+    con = _brief(tmp_path)
+    text = mcp._count_decisions(con, {}, "docketyard.org")
+    assert "By the Board's decision type:\n- Decision: 1" in text
+    assert "By the deciding body, as printed:\n- Chief Counsel: 1" in text
+    con.close()
+
+
+def test_a_decisions_act_is_not_its_type_and_the_miss_says_so(tmp_path):
+    con = _brief(tmp_path)
+    text = mcp._count_decisions(con, {"decision_type": "NITU"}, "docketyard.org")
+    assert "No decision type the Board uses matches 'NITU'" in text
+    assert "is in its summary, not its type" in text
+    assert "nothing can fall between" in mcp._count_decisions(
+        con, {"served_from": "2026-09-01", "served_to": "2026-08-01"}, "h"
+    )
+    assert "holds no decisions" in mcp._count_decisions(con, {"served_from": "2026-09-01"}, "h")
+    con.close()
