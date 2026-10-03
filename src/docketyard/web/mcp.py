@@ -32,6 +32,7 @@ from sqlite3 import Connection
 from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.store import activity as activity_store
 from docketyard.store import coverage as coverage_store
+from docketyard.store import finder
 from docketyard.store import pages as pages_store
 from docketyard.store import search as search_store
 from docketyard.store import sheet as sheet_store
@@ -161,11 +162,72 @@ def _site(host: str, path: str) -> str:
 # --- the tools themselves -------------------------------------------------------------
 
 
+def _record_line(h: search_store.Hit, host: str) -> str:
+    # the caption first where there is one, the identifier beside it. An assistant
+    # handed "[docket] FD 30101 — 0 filings" has been told nothing about the
+    # proceeding, which is navigation-review.md § B on the third surface — fixed on
+    # the page and in /suggest, and left here until the schema-critic caught it.
+    named = f"{h.caption} ({h.title})" if h.caption else h.title
+    # why it matched, which for a decision is its summary as the Board printed it: a row
+    # reading "[decision] Decision 52200 — FD 29830" told an assistant nothing to judge
+    # relevance by (the independent graders, 2026-09-16). « » mark the matched words.
+    matched = _marked(h.snippet, f"{h.title} {h.fact}")
+    return f"[{h.kind}] {named} — {h.fact} — {_site(host, h.path)}" + (
+        f' — matched: "{matched}"' if matched else ""
+    )
+
+
+def _page_line(h: search_store.Hit, host: str) -> str:
+    # a page of machine-read text is handed over WITH who read it, the band's operand
+    # or its absence, and the scan (ADR 0021 D7): the text is a finding aid, the scan
+    # is the record, and an assistant told less would repeat the reading as a fact
+    named = f"{h.caption} ({h.title})" if h.caption else h.title
+    # the matched passage, since 2026-09-16 (the operator): an assistant choosing which
+    # page to read needs to see why each matched. The markers become « » — plain text
+    # the answer can carry, where the web tier turns them into tags after escaping
+    matched = (
+        h.snippet.replace(search_store.MARK_OPEN, "«").replace(search_store.MARK_CLOSE, "»")
+        if h.snippet
+        else ""
+    )
+    return (
+        f"[page] {named} — {h.fact} — {_site(host, h.path)} — {h.label}"
+        + (f" {h.band}" if h.band else "")
+        + (f' Matched: "{matched}"' if matched else "")
+        + f" The scan: {_site(host, h.scan)}. Machine-read text: check it against the scan."
+    )
+
+
+_SEARCH_FILTERS = (
+    "prefix",
+    "exclude_prefixes",
+    "date_from",
+    "date_to",
+    "record_type",
+    "type",
+    "exclude_dockets",
+    "sort",
+    "page",
+)
+_SEARCH_KINDS = {
+    "filing": ("filings",),
+    "decision": ("decisions",),
+    "comment": ("comments",),
+    "page": ("text",),
+}
+
+
 def _search(con: Connection, args: dict, host: str) -> str:
     text = str(args.get("query", "")).strip()
     if not text:
         return "Nothing was searched for."
     limit = max(1, min(int(args.get("limit", 10) or 10), 50))
+    # filtered, the search runs through the query layer `/search` reads (the operator
+    # reopened his 2026-09-17 decision on 2026-10-02: an assistant asking about
+    # "application September 2026" got one proceeding's filings and nothing else). With no
+    # filter the answer is the shape it has always been.
+    if any(args.get(k) not in (None, "", []) for k in _SEARCH_FILTERS):
+        return _search_filtered(con, args, text, limit, host)
     held = search_store.held_docket(con, text)
     hits = search_store.search(con, text, limit=limit)
     found = search_store.search_pages(con, text, limit=limit)  # clamped to PAGE_LIMIT inside
@@ -193,39 +255,8 @@ def _search(con: Connection, args: dict, host: str) -> str:
             f"The record holds nothing matching {text!r}. That is an absence in this record, "
             "not proof of absence at the Board."
         )
-    for h in hits:
-        # the caption first where there is one, the identifier beside it. An assistant
-        # handed "[docket] FD 30101 — 0 filings" has been told nothing about the
-        # proceeding, which is navigation-review.md § B on the third surface — fixed on
-        # the page and in /suggest, and left here until the schema-critic caught it.
-        named = f"{h.caption} ({h.title})" if h.caption else h.title
-        # why it matched, which for a decision is its summary as the Board printed it: a row
-        # reading "[decision] Decision 52200 — FD 29830" told an assistant nothing to judge
-        # relevance by (the independent graders, 2026-09-16). « » mark the matched words.
-        matched = _marked(h.snippet, f"{h.title} {h.fact}")
-        lines.append(
-            f"[{h.kind}] {named} — {h.fact} — {_site(host, h.path)}"
-            + (f' — matched: "{matched}"' if matched else "")
-        )
-    for h in pages:
-        # a page of machine-read text is handed over WITH who read it, the band's operand
-        # or its absence, and the scan (ADR 0021 D7): the text is a finding aid, the scan
-        # is the record, and an assistant told less would repeat the reading as a fact
-        named = f"{h.caption} ({h.title})" if h.caption else h.title
-        # the matched passage, since 2026-09-16 (the operator): an assistant choosing which
-        # page to read needs to see why each matched. The markers become « » — plain text
-        # the answer can carry, where the web tier turns them into tags after escaping
-        matched = (
-            h.snippet.replace(search_store.MARK_OPEN, "«").replace(search_store.MARK_CLOSE, "»")
-            if h.snippet
-            else ""
-        )
-        lines.append(
-            f"[page] {named} — {h.fact} — {_site(host, h.path)} — {h.label}"
-            + (f" {h.band}" if h.band else "")
-            + (f' Matched: "{matched}"' if matched else "")
-            + f" The scan: {_site(host, h.scan)}. Machine-read text: check it against the scan."
-        )
+    lines += [_record_line(h, host) for h in hits]
+    lines += [_page_line(h, host) for h in pages]
     if found.truncated and pages:
         # `len(pages)`, not PAGE_LIMIT: `_search` may have asked for fewer than twenty, and
         # the fold makes a short list the common case rather than the odd one. `and pages`
@@ -234,6 +265,173 @@ def _search(con: Connection, args: dict, host: str) -> str:
         # sentence to hand an assistant (code review, 2026-09-04).
         lines.append(f"…and more pages than the {len(pages)} shown; narrow the words.")
     if pages:
+        lines += [
+            "Read a page with `read_page` and the address above.",
+            TEXT_CAVEAT,
+            TEXT_LICENCE,
+        ]
+    return "\n".join(lines)
+
+
+def _family_ids(con: Connection, docket_id: int) -> set[int]:
+    """A docket and its sub-dockets, as its sheet reads them."""
+    return {
+        d
+        for (d,) in con.execute(
+            "SELECT docket_id FROM docket WHERE docket_id = ? OR parent_docket_id = ?",
+            (docket_id, docket_id),
+        )
+    }
+
+
+def _search_filtered(con: Connection, args: dict, text: str, limit: int, host: str) -> str:
+    """The words, narrowed: a flat list of the filings, decisions, comments and pages that
+    match, each once however many proceedings it was entered in. Docket captions are left
+    out — a filter is on what a proceeding holds, and `get_docket_sheet` reads a proceeding."""
+    try:
+        date_from = _day(args.get("date_from"), "date_from") or ""
+        date_to = _day(args.get("date_to"), "date_to") or ""
+    except ValueError as e:
+        return str(e) if str(e).startswith("`") else "A date must be a real day, YYYY-MM-DD."
+    if date_from and date_to and date_from > date_to:
+        return (
+            f"`date_from` ({date_from}) is after `date_to` ({date_to}); nothing can fall between."
+        )
+    held_prefixes = {p for (p,) in con.execute("SELECT DISTINCT prefix FROM docket")}
+    prefix = str(args.get("prefix") or "").strip().upper()
+    if prefix and prefix not in held_prefixes:
+        return (
+            f"The record holds no docket prefix {prefix!r} (prefixes look like `AB`, `FD`, `NOR`)."
+        )
+    excluded = _strings(args.get("exclude_prefixes"), "exclude_prefixes", '["MCF"]')
+    if isinstance(excluded, str):
+        return excluded
+    excluded = tuple(sorted({x.upper() for x in excluded}))
+    kind = str(args.get("record_type") or "").strip().casefold()
+    if kind and kind not in _SEARCH_KINDS:
+        return "`record_type` is `filing`, `decision`, `comment` or `page` (the text of documents)."
+    kinds = _SEARCH_KINDS[kind] if kind else ("decisions", "filings", "comments", "text")
+    sort = str(args.get("sort") or "best").strip().casefold()
+    if sort not in ("best", "newest"):
+        return "`sort` is `best` (the strongest match first; the default) or `newest`."
+    page = args.get("page")
+    page = 1 if page is None else page
+    if not isinstance(page, int) or isinstance(page, bool) or page < 1:
+        return "`page` must be a whole number, 1 or more."
+
+    notes, scope = [], []
+    dockets = _strings(args.get("exclude_dockets"), "exclude_dockets", '["FD 36873"]')
+    if isinstance(dockets, str):
+        return dockets
+    if len(dockets) > _MAX_DOCKETS:
+        return f"`exclude_dockets` takes at most {_MAX_DOCKETS} docket numbers a call."
+    groups: set[int] = set()
+    left_out = []
+    for asked in dockets:
+        identity = urls.lookup(asked)
+        docket_id = find_docket(con, identity) if identity else None
+        if identity is None or docket_id is None:
+            notes.append(
+                f"{asked!r} is not a docket number this record holds; nothing was left out for it."
+            )
+            continue
+        groups |= _family_ids(con, docket_id)
+        left_out.append(urls.printed_docket(identity))
+
+    ftypes = dtypes = ()
+    asked_type = str(args.get("type") or "").strip()
+    if asked_type:
+        ftypes = tuple(_types(con, asked_type)) if kind in ("", "filing", "page") else ()
+        dtypes = (
+            tuple(_types(con, asked_type, "decision_type"))
+            if kind in ("", "decision", "page")
+            else ()
+        )
+        if not ftypes and not dtypes:
+            return (
+                f"No filing or decision type the Board uses matches {asked_type!r}. A type is"
+                " the Board's label; search the words of a decision's summary without `type`."
+            )
+        scope.append("of the Board's types " + ", ".join(f"'{t}'" for t in (*ftypes, *dtypes)))
+        if "comments" in kinds:
+            kinds = tuple(k for k in kinds if k != "comments")  # a comment has no Board type
+
+    if prefix:
+        scope.insert(0, f"in {prefix} proceedings")
+    if excluded:
+        scope.append(f"leaving out {', '.join(excluded)} proceedings")
+    if left_out:
+        scope.append(f"leaving out {', '.join(left_out)} (each with its sub-dockets)")
+    if date_from or date_to:
+        scope.append(
+            f"dated {date_from or 'from the first'} to {date_to or 'the latest held'}"
+            " (filed, served, or received or sent, as the Board printed it)"
+        )
+
+    q = finder.Query(
+        text=text,
+        prefixes=(prefix,) if prefix else (),
+        date_from=date_from,
+        date_to=date_to,
+        kinds=kinds,
+        ftypes=ftypes,
+        dtypes=dtypes,
+        sort=sort,
+        page=page,
+        view="documents",
+        exclude_groups=tuple(sorted(groups)),
+        exclude_prefixes=excluded,
+        page_size=limit,
+    )
+    out = finder.find(con, q)
+    scoped = (", " + "; ".join(scope)) if scope else ""
+    lines = notes[:]
+    if out.records_rebuilding:
+        return "\n".join(
+            lines
+            + [
+                "The search index is being rebuilt, so nothing was searched for this answer."
+                " That is not an absence in this record; try again shortly."
+            ]
+        )
+    if out.pages_cut == "budget":
+        lines.append(
+            "The words matched too many pages to filter in time, so the text of documents was"
+            " left out of this answer; the records below are complete. Narrow the words."
+        )
+    elif out.pages_cut == "rebuilding":
+        lines.append(
+            "The text index is being rebuilt, so the words of documents were NOT searched"
+            " for this answer. The records below are unaffected; say so if you report it."
+        )
+    if not out.total:
+        lines.append(
+            f"The record holds nothing matching {text!r}{scoped}. That is an absence in this"
+            " record, not proof of absence at the Board."
+        )
+        return "\n".join(lines)
+    first = (page - 1) * limit + 1
+    last = first + len(out.documents) - 1
+    lines.append(
+        f"Matching {text!r}{scoped}: {out.total:,} filings, decisions, comments and pages"
+        " — a count of what matched, each once however many proceedings it was entered in."
+        + (
+            f" Showing {first}–{last}, "
+            + ("newest first." if sort == "newest" else "strongest match first.")
+            if out.documents
+            else f" `page` {page} is past the last of them."
+        )
+    )
+    shown_pages = False
+    for h in out.documents:
+        if h.kind == "page":
+            shown_pages = True
+            lines.append(_page_line(h, host))
+        else:
+            lines.append(_record_line(h, host))
+    if out.documents and last < out.total:
+        lines.append(f"{out.total - last:,} more: call again with `page` {page + 1}.")
+    if shown_pages:
         lines += [
             "Read a page with `read_page` and the address above.",
             TEXT_CAVEAT,
@@ -1124,14 +1322,7 @@ def _recent(con: Connection, args: dict, host: str) -> str:
                 missing.append(asked)
                 continue
             printed.append(urls.printed_docket(identity))
-            # a docket brings its sub-dockets, as its sheet does
-            found.update(
-                d
-                for (d,) in con.execute(
-                    "SELECT docket_id FROM docket WHERE docket_id = ? OR parent_docket_id = ?",
-                    (docket_id, docket_id),
-                )
-            )
+            found |= _family_ids(con, docket_id)  # a docket brings its sub-dockets
         if missing:
             notes.append(
                 "Not docket numbers this record holds, so not read: "
@@ -1412,14 +1603,56 @@ TOOLS: tuple[Tool, ...] = (
         " record holds nothing, it says so. A [page] line is text a machine read from a"
         " scan, labelled with who read it and its distance from a second reading; it is a"
         " finding aid, and the scan it links to is the record — never quote it as the"
-        " Board's words.",
+        " Board's words. Any filter — a prefix, prefixes or dockets to leave out, a date range,"
+        " a record type, the Board's own type, `sort`, `page` — returns instead one list of"
+        " the filings, decisions, comments and pages that match, with a total and pages.",
         _obj(
             {
                 "query": {"type": "string", "description": "What to look for."},
                 "limit": {
                     "type": "integer",
                     "description": "Results, 1-50. Default 10: up to that many record"
-                    " lines, and up to that many [page] lines, never more than 20.",
+                    " lines, and up to that many [page] lines, never more than 20. Filtered:"
+                    " the size of a page of results.",
+                },
+                "prefix": {"type": "string", "description": "Only this docket prefix, e.g. `AB`."},
+                "exclude_prefixes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": 'Docket prefixes to leave out, e.g. ["MCF"].',
+                },
+                "exclude_dockets": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "maxItems": _MAX_DOCKETS,
+                    "description": "Proceedings to leave out, each with its sub-dockets, e.g."
+                    ' ["FD 36873"].',
+                },
+                "date_from": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD, inclusive: the Board's filed, served, or"
+                    " received-or-sent date.",
+                },
+                "date_to": {"type": "string", "description": "YYYY-MM-DD, inclusive."},
+                "record_type": {
+                    "type": "string",
+                    "enum": ["filing", "decision", "comment", "page"],
+                    "description": "Only one kind; `page` is the text of documents.",
+                },
+                "type": {
+                    "type": "string",
+                    "description": "The Board's filing or decision type, or words in it;"
+                    " each type matched is named.",
+                },
+                "sort": {
+                    "type": "string",
+                    "enum": ["best", "newest"],
+                    "description": "Filtered: strongest match first (default) or newest.",
+                },
+                "page": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Filtered: which page of results, from 1.",
                 },
             },
             ["query"],

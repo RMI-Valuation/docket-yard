@@ -1003,3 +1003,55 @@ def test_recent_activity_refuses_what_it_cannot_read(tmp_path):
 def test_recent_activity_carries_the_standing_caveats(client):
     text = call(client, "recent_activity", {"since": "2026-01-01"})["content"][0]["text"]
     assert "does not say what any party argued" in text and "Coverage is not uniform" in text
+
+
+# --- search_the_record, filtered (the operator reopened his 2026-09-17 decision, 2026-10-02) --
+
+
+def search_text(client, **arguments):
+    return call(client, "search_the_record", arguments)["content"][0]["text"]
+
+
+def test_a_filtered_search_is_one_list_with_a_total(client):
+    text = search_text(client, query="replies", record_type="decision")
+    # the decision entered in both dockets is one item, with the count saying how it counted
+    assert ": 1 filings, decisions, comments and pages" in text
+    assert "each once however many proceedings it was entered in" in text
+    assert text.count("[decision] Decision 53210") == 1
+    # no filter: the shape it has always been
+    assert "filings, decisions, comments and pages" not in search_text(client, query="replies")
+
+
+def test_a_filtered_search_leaves_out_what_it_is_told_to(client):
+    text = search_text(client, query="replies", exclude_dockets=["FD 36873"])
+    # the decision is in FD 36873 and its sub-docket: leaving out the family leaves nothing
+    assert "The record holds nothing matching 'replies', leaving out FD 36873" in text
+    assert "not proof of absence at the Board" in text
+    assert "is not a docket number this record holds" in search_text(
+        client, query="replies", exclude_dockets=["FD 99999"]
+    )
+    assert "nothing matching" in search_text(client, query="replies", exclude_prefixes=["FD"])
+    assert "Decision 53210" in search_text(client, query="replies", exclude_prefixes=["MCF"])
+
+
+def test_a_filtered_search_narrows_by_date_type_and_prefix(client):
+    assert "Decision 53210" in search_text(
+        client, query="replies", date_from="2026-08-21", date_to="2026-08-21"
+    )
+    assert "nothing matching" in search_text(client, query="replies", date_from="2026-08-22")
+    assert "of the Board's types 'Decision'" in search_text(
+        client, query="replies", type="decision"
+    )
+    assert "in FD proceedings" in search_text(client, query="replies", prefix="fd")
+
+
+def test_a_filtered_search_refuses_what_it_cannot_read(client):
+    assert "must be a date written YYYY-MM-DD" in search_text(client, query="x", date_from="May")
+    assert "nothing can fall between" in search_text(
+        client, query="x", date_from="2026-05-01", date_to="2026-04-01"
+    )
+    assert "holds no docket prefix 'ZZ'" in search_text(client, query="x", prefix="zz")
+    assert "`record_type` is" in search_text(client, query="x", record_type="docket")
+    assert "`sort` is" in search_text(client, query="x", sort="oldest")
+    assert "`page` must be" in search_text(client, query="x", page=0)
+    assert "No filing or decision type" in search_text(client, query="x", type="zzz")
