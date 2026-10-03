@@ -148,7 +148,14 @@ def paginate_document(con, row: Pagination, now: str | None = None) -> str:
     return "superseded" if live is not None else "asserted"
 
 
-def run(con, root: Path, *, log=print, commit_every: int = batches.COMMIT_EVERY) -> Counter:
+def run(
+    con,
+    root: Path,
+    *,
+    log=print,
+    commit_every: int = batches.COMMIT_EVERY,
+    lock_retries: int = batches.LOCK_RETRIES,
+) -> Counter:
     """The pass over a directory, through `store.batches`: one key per `paginate_document`
     outcome, plus `unreadable`, `failed` and `aborted`."""
     allowed = outcomes(con)
@@ -158,4 +165,5 @@ def run(con, root: Path, *, log=print, commit_every: int = batches.COMMIT_EVERY)
         lambda row: paginate_document(con, row),
         log=log,
         commit_every=commit_every,
+        lock_retries=lock_retries,
     )

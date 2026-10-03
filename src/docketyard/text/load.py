@@ -835,6 +835,7 @@ def run(
     *,
     log=print,
     commit_every: int = batches.COMMIT_EVERY,
+    lock_retries: int = batches.LOCK_RETRIES,
     stamp=None,  # the stage's dispatch resolver; a hand load passes none (see load_reading)
 ) -> Counter:
     """The pass over a directory of readings, through `store.batches`.
@@ -864,4 +865,5 @@ def run(
         ),
         log=log,
         commit_every=commit_every,
+        lock_retries=lock_retries,
     )

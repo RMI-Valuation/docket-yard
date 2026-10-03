@@ -244,7 +244,14 @@ def route_document(con, route: Route, now: str | None = None) -> str:
     return next((word for word in _PRECEDENCE if word in seen), "unchanged")
 
 
-def run(con, root: Path, *, log=print, commit_every: int = batches.COMMIT_EVERY) -> Counter:
+def run(
+    con,
+    root: Path,
+    *,
+    log=print,
+    commit_every: int = batches.COMMIT_EVERY,
+    lock_retries: int = batches.LOCK_RETRIES,
+) -> Counter:
     """The pass over a route root, through `store.batches`: one key per `route_document`
     outcome, plus `unreadable`, `failed` and `aborted`, and `route_error_pages` — pages the
     router failed on, in the files read. Counted at READ, which happens once per file: a batch
@@ -263,6 +270,7 @@ def run(con, root: Path, *, log=print, commit_every: int = batches.COMMIT_EVERY)
         lambda route: route_document(con, route),
         log=log,
         commit_every=commit_every,
+        lock_retries=lock_retries,
     )
     if errors["route_error_pages"]:
         totals["route_error_pages"] = errors["route_error_pages"]
