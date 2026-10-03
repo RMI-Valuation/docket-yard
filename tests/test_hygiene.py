@@ -37,6 +37,7 @@ def test_reader_pages_carry_validators_and_a_short_cache_life(tmp_path):
     assert client.get("/stats").headers["etag"] == r.headers["etag"]
     # a page that already chose its own life keeps it
     assert client.get("/stats").headers["cache-control"] == "public, max-age=1800"
+    assert client.get("/coverage").headers["cache-control"] == "public, max-age=1800"
     # consent, token and telemetry paths are marked no-store
     assert client.get("/s/confirm/nope").headers["cache-control"] == "no-store"
     assert client.get("/health").headers["cache-control"] == "no-store"
