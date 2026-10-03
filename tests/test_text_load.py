@@ -8,6 +8,8 @@ blob tier, the run row that appends — and what the review of 2026-09-03 found.
 import argparse
 import hashlib
 import json
+import sqlite3
+import time
 
 import pytest
 
@@ -503,6 +505,29 @@ def test_the_pass_walks_the_directory_and_the_verb_reports(tmp_path, capsys):
     assert "directory of readings" in capsys.readouterr().out
 
 
+def test_the_verbs_take_the_lock_budget_from_the_command_line(tmp_path, capsys):
+    """`--lock-retries` reaches `batches.under_lock` (deferred.md, 2026-09-12: it had no CLI
+    route). At 0 a held write lock aborts the pass at the first refusal, with no backoff
+    slept — the probe an operator runs before committing to a long load."""
+    con = _store(tmp_path)
+    con.close()
+    root = tmp_path / "text"
+    _write(root, _extraction(SHA_A))
+    holder = sqlite3.connect(tmp_path / "s.sqlite", timeout=0)
+    holder.execute("BEGIN IMMEDIATE")  # the write lock, as Litestream's checkpoint holds it
+    argv = ["--db", str(tmp_path / "s.sqlite"), "--data-dir", str(tmp_path), "text", "load"]
+    started = time.monotonic()
+    assert cli.main([*argv, str(root), "--lock-retries", "0"]) == 1
+    assert time.monotonic() - started < 2, "a budget of 0 slept a backoff"
+    out = capsys.readouterr().out
+    assert "'aborted': 1" in out and "retrying" not in out
+    holder.rollback()
+    assert cli.main([*argv, str(root), "--lock-retries", "-1"]) == 1
+    assert "0 or more" in capsys.readouterr().out
+    assert cli.main([*argv, str(root), "--lock-retries", "0"]) == 0  # the lock is free now
+    holder.close()
+
+
 def test_a_second_re_posted_against_the_replacement_primary_is_a_new_row(tmp_path):
     """Same text, new agreement: the short-circuit that compared text alone kept the live
     second pointing its distance at the retired primary — the false number on a page the
@@ -574,10 +599,32 @@ def test_a_pinned_key_refuses_a_second_producers_version(tmp_path):
 
     load.declare_producer(con, "text-layer", "native", "primary", doc["tool"], doc["tool_version"])
     other = dict(doc, tool_version=doc["tool_version"] + ".1")
-    with pytest.raises(load.Unreadable, match="is pinned to"):
+    with pytest.raises(load.PinRefused, match="is pinned to"):
         load.load_reading(con, tmp_path, _reading(other))
     # and the declared version still loads: the pin refuses the contradiction, not the pass
     assert load.load_reading(con, tmp_path, _reading(doc)) == "restart"
+
+
+def test_a_pin_refusal_stops_the_pass_once_rather_than_failing_every_document(tmp_path, capsys):
+    """A root at the wrong version is ONE condition, the configuration's, and it arrived as N
+    per-document `failed` lines after the whole root was walked (deferred.md, the schema critic
+    on migration 0024, 2026-09-05). It stops at the first reading, with what landed before it
+    committed and the refused reading's batch rolled back."""
+    con = _store(tmp_path)
+    load.declare_producer(con, "text-layer", "native", "primary", "pymupdf", "9.9.9")
+    con.commit()
+    con.close()
+    root = tmp_path / "text"
+    _write(root, _extraction(SHA_A))
+    _write(root, _extraction(SHA_B))
+    assert cli._text(_ns(tmp_path, root)) == 1
+    out = capsys.readouterr().out
+    assert out.count("is pinned to pymupdf@9.9.9") == 2  # the log line and the verdict, once
+    assert "stopped:" in out and "failed" not in out
+    con = db.connect(tmp_path / "s.sqlite")
+    assert con.execute("SELECT COUNT(*) FROM ocr_run").fetchone() == (0,)
+    assert not con.in_transaction
+    con.close()
 
 
 def test_a_pin_on_the_text_layer_does_not_touch_the_ocr_wave(tmp_path):

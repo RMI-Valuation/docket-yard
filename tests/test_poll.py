@@ -15,6 +15,14 @@ from tests.test_observations import body_of, decision_row, filing_row
 from tests.test_walk import NO_RESULTS
 
 
+@pytest.fixture(autouse=True)
+def _text_stage_pinned(monkeypatch):
+    """Every store here is fresh, and the text stage refuses an unpinned store loudly, into
+    `problems` (deferred.md, the schema critic on migration 0024, 2026-09-05). These tests are
+    about capture, so the stage runs as production's does: pinned."""
+    monkeypatch.setattr(poll.extraction, "_pin", lambda con: ("pymupdf", "1.26.0"))
+
+
 class FakeStb:
     """One page per table (or the same full page forever); records every criteria list
     sent; serves a PDF for any URL; can fail one table's transport."""

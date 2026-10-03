@@ -785,6 +785,7 @@ def _text(args: argparse.Namespace) -> int:
     written, or nothing was attached (a wrong `--db`, an empty root), which is not a
     success just because the loop ran.
     """
+    from docketyard.store import batches
     from docketyard.text import load, paginate, route
 
     pass_ = {"load": load, "route": route}.get(args.what, paginate)
@@ -792,11 +793,24 @@ def _text(args: argparse.Namespace) -> int:
     if not root.is_dir():
         print(f"refused: {root} is not a directory of {pass_.NOUN}s")
         return 1
+    # `--lock-retries`: how many times one batch is rolled back and replayed against a held
+    # write lock before the pass aborts (`store.batches.under_lock`). The default is the
+    # library's; a long load beside a busy poller may want more, a probe none.
+    retries = getattr(args, "lock_retries", None)
+    if retries is not None and retries < 0:
+        print(f"refused: --lock-retries is {retries}; a count of replays is 0 or more")
+        return 1
+    knobs = {} if retries is None else {"lock_retries": retries}
     con = db.connect(args.db)
-    if pass_ is load:
-        totals = load.run(con, root, args.data_dir)
-    else:
-        totals = pass_.run(con, root)
+    try:
+        if pass_ is load:
+            totals = load.run(con, root, args.data_dir, **knobs)
+        else:
+            totals = pass_.run(con, root, **knobs)
+    except batches.Stop as e:
+        # the configuration, not a document: one line, not a `failed` per file
+        print(f"stopped: {e}. What landed before it is committed; re-run once that is fixed.")
+        return 1
     print(dict(totals))
     attached = sum(totals[k] for k in pass_.ATTACHED)
     if totals["aborted"]:
@@ -1061,6 +1075,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     rt.add_argument("root", help="the wave's route directory: <root>/<xx>/<sha>.json")
     rt.set_defaults(func=_text)
+    for pass_parser in (pg, ld, rt):
+        pass_parser.add_argument(
+            "--lock-retries",
+            type=int,
+            default=None,
+            help="replays of one batch against a held write lock before the pass aborts"
+            " (default 5: waits of 2, 4, 8, 16, 32 s)",
+        )
     pn = tx_sub.add_parser(
         "pin",
         help="declare which producer owns a reading key (ADR 0024 D6); with no --method,"
