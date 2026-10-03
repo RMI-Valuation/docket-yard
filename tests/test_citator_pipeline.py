@@ -371,6 +371,30 @@ def test_the_loader_refuses_a_channel_a_model_pass_cannot_read_on(tmp_path):
     assert con.execute("SELECT COUNT(*) FROM citation").fetchone()[0] == 0
 
 
+def test_a_document_that_does_not_declare_its_text_is_refused_as_undeclared(tmp_path):
+    """The `text_ref` refusal is about the TEXT, not the channel (ingest specialist,
+    2026-09-12), so it raises the producer's `find.Undeclared` and never `WrongChannel`: a
+    caller counting `WrongChannel` as "wrong channel, skipped" must not mis-file it. Spans on a
+    reading that declares no store text are the same declaration failing."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    finding = {"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."}
+    for text_ref in (None, "human", "pre-0026"):
+        with pytest.raises(find.Undeclared, match="text_ref") as raised:
+            load.load_document(
+                con,
+                _findings(finding, text_ref=text_ref),
+                keys.registry(con),
+                keys.works(con),
+                stamps,
+            )
+        assert not isinstance(raised.value, load.WrongChannel)
+    spanned = _findings(dict(finding, spans=[[0, 6, "EP 445"]]))
+    with pytest.raises(find.Undeclared, match="carries spans"):
+        load.load_document(con, spanned, keys.registry(con), keys.works(con), stamps)
+    assert con.execute("SELECT COUNT(*) FROM citation").fetchone()[0] == 0
+
+
 def test_the_loader_refuses_stamps_that_are_partial_or_point_at_nothing(tmp_path):
     """The guard proves the stamps' channel against the rows; it must also prove the rows
     exist and cover every stage, or a partial dict passes it and dies on a KeyError with

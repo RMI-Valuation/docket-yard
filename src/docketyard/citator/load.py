@@ -244,8 +244,13 @@ def load_document(
     # AND THE TEXT IT READ, checked SECOND and not first: the channel's primacy above is
     # deliberate and documented, and a document that lies about its channel should be refused
     # for that rather than for a missing declaration it was never asked for (ADR 0026 D8).
+    #
+    # `find.Undeclared`, NOT `WrongChannel` (ingest specialist, 2026-09-12): the channel here is
+    # fine, and a caller counting `WrongChannel` as "read on the wrong channel, skipped" would
+    # mis-file a document that never said which text it read. It is the producer's own refusal
+    # of the same declaration (`find.findings_document`), raised at both ends of the file.
     if text_ref not in ("store", "benchmark"):
-        raise WrongChannel(
+        raise find.Undeclared(
             f"{sha[:12]} says text_ref {text_ref!r}; a model pass declares 'store' or"
             " 'benchmark' (ADR 0026 D8). 'human' is the review layer's and 'pre-0026' is"
             " migration 0028's backfill; neither is a pass's to claim"
@@ -258,7 +263,7 @@ def load_document(
     # method version, satisfying the paired CHECK while breaking 0028's writer obligation.
     carries_spans = any(f.get("spans") for f in doc.get("findings", []))
     if carries_spans and text_ref != "store":
-        raise WrongChannel(
+        raise find.Undeclared(
             f"{sha[:12]} carries spans with text_ref {text_ref!r}. Offsets belong to the text"
             " a `text_id` names; a benchmark reading has none, so its spans point into a file"
             " nothing in the store identifies (ADR 0026 § Context, one channel over)"

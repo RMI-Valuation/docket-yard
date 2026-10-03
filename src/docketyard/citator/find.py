@@ -406,7 +406,10 @@ class Undeclared(ValueError):
     producer declares `text_ref`, because `findings_document` emits the same shape from store
     pages and from benchmark markers and only the caller knows which — so a default here would
     be a guess written into provenance, the way a defaulted `reading_channel` would write an
-    OCR pass's rows as text-layer."""
+    OCR pass's rows as text-layer.
+
+    RAISED AT BOTH ENDS OF THE FILE: here, where the producer can still say, and by
+    `load.load_document`, the boundary a hand-built or damaged document crosses."""
 
 
 def findings_document(
