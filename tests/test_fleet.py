@@ -651,7 +651,7 @@ def test_the_transport_carries_the_lease(remote):
     assert r.blob(real) == b"%PDF-1.4 real"
     # THE MIRROR HIT IS VERIFIED TOO, and this fixture's `A` holds bytes that are not its sha.
     # The coordinator checks what it FETCHES; only the client can check what the mirror already
-    # held, and `pull_blobs.py` fills that mirror on a size comparison alone (ingest review).
+    # held, and a file can rot or be copied in after `pull_blobs.py` checked it (ingest review).
     with pytest.raises(pq.BlobCorrupt):
         r.blob(A)
     # a miss with no store configured is still the document's, but it arrives as a type and
@@ -1165,6 +1165,23 @@ def test_a_stored_object_is_checked_by_checksum_not_only_by_size():
         {"ContentLength": 10, "ChecksumSHA256": other}, 10, digest
     )
     assert "no SHA-256" in backup.verify({"ContentLength": 10}, 10, digest)
+
+
+def test_the_mirror_keeps_a_file_only_when_it_hashes_to_its_name(tmp_path):
+    """`pull_blobs.py` compared sizes alone, which migration 0018 warns about in writing: a
+    same-size wrong file was kept, and caught only at the reader, once per page."""
+    pull = _module("pull_blobs", ROOT / "tools" / "rmi-ai-machine" / "pull_blobs.py")
+    payload = b"%PDF-1.4 the document"
+    sha = hashlib.sha256(payload).hexdigest()
+    path = tmp_path / sha[:2] / sha
+    assert not pull.held(path, sha, len(payload))  # absent
+    path.parent.mkdir()
+    path.write_bytes(payload)
+    assert pull.held(path, sha, len(payload))
+    assert not pull.held(path, sha, len(payload) + 1)  # the store's size disagrees
+    path.write_bytes(b"%PDF-1.4 not the doc!")  # the same length, other bytes
+    assert len(path.read_bytes()) == len(payload)
+    assert not pull.held(path, sha, len(payload))
 
 
 # --- asking for a reader when one is owed (ADR 0025 addendum, proposal 2) ---------------------

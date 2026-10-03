@@ -676,11 +676,11 @@ class RemoteQueue:
             dest.unlink(missing_ok=True)
             raise BlobUnavailable(f"the node did not answer: {type(e).__name__}: {e}") from e
         # THE MIRROR HIT IS CHECKED HERE OR NOWHERE. The coordinator verifies what it FETCHES,
-        # but it serves what the mirror already holds unchecked — and the mirror is filled by
-        # `pull_blobs.py`, which skips an object whose SIZE matches and never compares a digest
-        # (ingest review; migration 0018 warns about size-only comparison in writing). So a
-        # wrong-but-same-size or bit-rotted mirror entry would be rendered, read and loaded as
-        # that document's text with nothing raising. The sha IS the identity (ADR 0002), and
+        # but it serves what the mirror already holds unchecked. `pull_blobs.py` hashes what it
+        # fills and keeps (it compared sizes alone until 2026-10-03; migration 0018 warns about
+        # that in writing), but a file can rot, or be copied in by hand, after it was checked —
+        # and a wrong mirror entry would be rendered, read and loaded as that document's text
+        # with nothing raising. The sha IS the identity (ADR 0002), and
         # this is the only place in the fleet where both paths pass.
         got = digest.hexdigest()
         if got != sha:
