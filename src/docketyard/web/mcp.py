@@ -25,10 +25,12 @@ id — which a read-only server can afford and which means a restart strands nob
 
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from datetime import date as Day
 from sqlite3 import Connection
 
 from docketyard.ingest.dockets import find_docket, parse_docket_id
+from docketyard.store import activity as activity_store
 from docketyard.store import coverage as coverage_store
 from docketyard.store import pages as pages_store
 from docketyard.store import search as search_store
@@ -240,6 +242,41 @@ def _search(con: Connection, args: dict, host: str) -> str:
     return "\n".join(lines)
 
 
+def _entry_line(e: sheet_store.Entry, sheet_raw: str) -> str:
+    """One entry as the sheet hands it over, shared with `recent_activity` so a record reads
+    the same in both. `sheet_raw` is the docket the reader is looking at: an entry entered
+    elsewhere in the family says where."""
+    who = e.filed_for_raw or e.submitter or e.organisation or ""
+    board = e.attachments[0].url if e.attachments else ""
+    # the proceeding an entry was actually entered in — a family folds onto one sheet,
+    # but attributing a sub-docket's filing to the parent misstates the record
+    entered = parse_docket_id(e.docket_raw)
+    where = f" — in {urls.printed_docket(entered)}" if entered and e.docket_raw != sheet_raw else ""
+    # printed, not raw: `also_in` carries the store's own ids (AB_55_785_X), which
+    # resolve at neither docketyard.org nor stb.gov — and the `where` clause one line
+    # above already canonicalises the same class of value (ultrareview)
+    printed_also = [
+        urls.printed_docket(i) for i in map(parse_docket_id, e.also_in) if i is not None
+    ]
+    also = f" — also entered in {', '.join(printed_also)}" if printed_also else ""
+    # a decision's deciding body and its summary as the Board printed it: the JSON twin
+    # and the page carry both, and without them an assistant could say only that "a
+    # decision" was served and had to open the PDF or guess (the independent graders,
+    # 2026-09-16). Quoted, never paraphrased; `present` drops the Board's `--`.
+    body, summary = present(e.deciding_body), present(e.summary)
+    return (
+        # which date it is, so a served date is never quoted as a decided one
+        f"{labels.date_kind(e.kind)} {e.date or 'undated'} [{e.kind}] {e.record_id}"
+        + (f" — {e.type}" if e.type else "")
+        + (f" — {body}" if body else "")
+        + (f' — the Board\'s summary, as printed: "{summary}"' if summary else "")
+        + where
+        + also
+        + (f" — as printed: {who}" if who else "")
+        + (f" — the Board's file: {board}" if board else "")
+    )
+
+
 def _docket(con: Connection, args: dict, host: str) -> str:
     identity = urls.lookup(str(args.get("docket", "")))
     if identity is None:
@@ -288,40 +325,7 @@ def _docket(con: Connection, args: dict, host: str) -> str:
             rows.append(f"…and {len(s.sub_dockets) - limit} more, listed on the sheet.")
         return "\n".join(head + rows + ["", _NOT_HELD])
     rows = ["Entries, newest first:"]
-    for e in s.entries[:limit]:
-        who = e.filed_for_raw or e.submitter or e.organisation or ""
-        board = e.attachments[0].url if e.attachments else ""
-        # the proceeding an entry was actually entered in — a family folds onto one sheet,
-        # but attributing a sub-docket's filing to the parent misstates the record
-        entered = parse_docket_id(e.docket_raw)
-        where = (
-            f" — in {urls.printed_docket(entered)}"
-            if entered and e.docket_raw != s.raw_docket
-            else ""
-        )
-        # printed, not raw: `also_in` carries the store's own ids (AB_55_785_X), which
-        # resolve at neither docketyard.org nor stb.gov — and the `where` clause one line
-        # above already canonicalises the same class of value (ultrareview)
-        printed_also = [
-            urls.printed_docket(i) for i in map(parse_docket_id, e.also_in) if i is not None
-        ]
-        also = f" — also entered in {', '.join(printed_also)}" if printed_also else ""
-        # a decision's deciding body and its summary as the Board printed it: the JSON twin
-        # and the page carry both, and without them an assistant could say only that "a
-        # decision" was served and had to open the PDF or guess (the independent graders,
-        # 2026-09-16). Quoted, never paraphrased; `present` drops the Board's `--`.
-        body, summary = present(e.deciding_body), present(e.summary)
-        rows.append(
-            # which date it is, so a served date is never quoted as a decided one
-            f"- {labels.date_kind(e.kind)} {e.date or 'undated'} [{e.kind}] {e.record_id}"
-            + (f" — {e.type}" if e.type else "")
-            + (f" — {body}" if body else "")
-            + (f' — the Board\'s summary, as printed: "{summary}"' if summary else "")
-            + where
-            + also
-            + (f" — as printed: {who}" if who else "")
-            + (f" — the Board's file: {board}" if board else "")
-        )
+    rows += [f"- {_entry_line(e, s.raw_docket)}" for e in s.entries[:limit]]
     more = ""
     if len(s.entries) > limit:
         more = (
@@ -600,12 +604,13 @@ def _day(value, name: str) -> str | None:
     return text
 
 
-def _types(con: Connection, asked: str) -> list[str]:
-    """The Board's own filing types an asked name matches: that type alone when the name IS
-    one (case aside), else every type containing it. Matched against the types the store
-    holds, so an assistant is told which labels were counted rather than trusted to have
-    guessed the Board's spelling."""
-    held = [t for (t,) in con.execute("SELECT DISTINCT filing_type FROM filing") if t]
+def _types(con: Connection, asked: str, column: str = "filing_type") -> list[str]:
+    """The Board's own types an asked name matches: that type alone when the name IS one
+    (case aside), else every type containing it. Matched against the types the store holds,
+    so an assistant is told which labels were counted rather than trusted to have guessed the
+    Board's spelling. `column` is `filing_type`, or `decision_type` for decisions."""
+    table = {"filing_type": "filing", "decision_type": "decision_record"}[column]
+    held = [t for (t,) in con.execute(f"SELECT DISTINCT {column} FROM {table}") if t]
     needle = asked.strip().casefold()
     exact = [t for t in held if t.casefold() == needle]
     return exact or sorted(t for t in held if needle in t.casefold())
@@ -1004,6 +1009,335 @@ def _list_proceedings(con: Connection, args: dict, host: str) -> str:
     return "\n".join(lines)
 
 
+_RECENT_CAP = 100  # entries per call; `offset` reaches the rest
+_RECENT_DEFAULT = 50
+_MAX_DOCKETS = 50
+_KIND_ALIASES = {
+    "filing": "filing",
+    "filings": "filing",
+    "decision": "decision",
+    "decisions": "decision",
+    "comment": "comment",
+    "comments": "comment",
+    "environmental comment": "comment",
+    "environmental comments": "comment",
+}
+_KIND_NAMES = {"filing": "filing", "decision": "decision", "comment": "environmental comment"}
+
+
+def _instant(value, name: str, *, end: bool) -> str | None:
+    """A caller's datetime written the way the store writes its own
+    (`2026-10-01T06:00:00+00:00`), so the two compare as strings. A bare day is midnight UTC
+    at its start — or, closing a window, the midnight after it, so `until: 2026-10-01`
+    includes that day."""
+    if value is None or value == "":
+        return None
+    text = str(value).strip()
+    try:
+        if _DAY.fullmatch(text):
+            day = Day.fromisoformat(text)
+            if end:
+                day += timedelta(days=1)
+            return f"{day.isoformat()}T00:00:00+00:00"
+        moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        raise ValueError(
+            f"`{name}` must be a date (YYYY-MM-DD) or a date and time"
+            f" (2026-10-01T06:00:00Z), not {text!r}."
+        ) from None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    return moment.astimezone(UTC).isoformat(timespec="seconds")
+
+
+def _strings(value, name: str, example: str) -> tuple[str, ...] | str:
+    """A list-of-strings argument (a lone string is taken as a list of one), or the sentence
+    refusing it. The body is unauthenticated: a list is only a list because a client sent one."""
+    if value in (None, "", []):
+        return ()
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        return f"`{name}` is a list of strings, e.g. {example}."
+    return tuple(v.strip() for v in value if v.strip())
+
+
+def _record_path(kind: str, record_id: str, raw_docket: str) -> str | None:
+    if kind == "decision":
+        return urls.decision_path(record_id)
+    if kind == "filing":
+        return urls.filing_path(record_id)
+    ident = parse_docket_id(raw_docket)
+    return urls.comment_path(ident, record_id) if ident else None
+
+
+def _recent(con: Connection, args: dict, host: str) -> str:
+    """What arrived in the record inside a window, across every proceeding or a caller's own
+    list — the call a scheduled brief makes instead of guessing search words and diffing
+    sheets (the operator, 2026-10-02). The list is an argument, used once and dropped:
+    nothing here knows or keeps who watches what (ADR 0011)."""
+    by = str(args.get("by") or "observed").strip().lower().replace("-", "_")
+    if by not in ("observed", "board_date"):
+        return "`by` is `observed` (when this record saw it; the default) or `board_date`."
+    if not args.get("since"):
+        return (
+            "`since` is required: the start of the window, a date (YYYY-MM-DD) or a date and"
+            " time (2026-10-01T06:00:00Z). A brief passes the time of its last run."
+        )
+    try:
+        if by == "observed":
+            start = _instant(args.get("since"), "since", end=False)
+            end = _instant(args.get("until"), "until", end=True)
+        else:
+            start = _day(args.get("since"), "since")
+            end = _day(args.get("until"), "until")
+    except ValueError as e:
+        return str(e) if str(e).startswith("`") else "A date must be a real day, YYYY-MM-DD."
+    if start is None:
+        return "`since` is required."
+    # an observed `until` is exclusive and a Board-date one inclusive, so an empty window
+    # is `>=` in the one and `>` in the other
+    if end and (start >= end if by == "observed" else start > end):
+        return f"`since` ({start}) is not before `until` ({end}); nothing can fall between."
+
+    asked_kind = str(args.get("record_type") or "").strip().casefold()
+    if asked_kind and asked_kind not in _KIND_ALIASES:
+        return "`record_type` is `filing`, `decision` or `comment` (an environmental comment)."
+    kinds = (_KIND_ALIASES[asked_kind],) if asked_kind else activity_store.KINDS
+
+    notes: list[str] = []
+    scope: list[str] = []
+
+    dockets = _strings(args.get("dockets"), "dockets", '["FD 36844", "AB 55 (Sub-No. 794X)"]')
+    if isinstance(dockets, str):
+        return dockets
+    if len(dockets) > _MAX_DOCKETS:
+        return f"`dockets` takes at most {_MAX_DOCKETS} docket numbers a call."
+    docket_ids = None
+    if dockets:
+        found: set[int] = set()
+        printed, missing = [], []
+        for asked in dockets:
+            identity = urls.lookup(asked)
+            docket_id = find_docket(con, identity) if identity else None
+            if identity is None or docket_id is None:
+                missing.append(asked)
+                continue
+            printed.append(urls.printed_docket(identity))
+            # a docket brings its sub-dockets, as its sheet does
+            found.update(
+                d
+                for (d,) in con.execute(
+                    "SELECT docket_id FROM docket WHERE docket_id = ? OR parent_docket_id = ?",
+                    (docket_id, docket_id),
+                )
+            )
+        if missing:
+            notes.append(
+                "Not docket numbers this record holds, so not read: "
+                + ", ".join(repr(m) for m in missing)
+                + ". They may exist at the Board and not here."
+            )
+        if not found:
+            return "\n".join(notes)
+        docket_ids = tuple(sorted(found))
+        scope.append(f"in {', '.join(printed)} (each with its sub-dockets)")
+
+    held_prefixes = {p for (p,) in con.execute("SELECT DISTINCT prefix FROM docket")}
+    prefix = str(args.get("prefix") or "").strip().upper() or None
+    if prefix and prefix not in held_prefixes:
+        return (
+            f"The record holds no docket prefix {prefix!r} (prefixes look like `AB`, `FD`, `NOR`)."
+        )
+    if prefix:
+        scope.append(f"in {prefix} proceedings")
+    excluded = _strings(args.get("exclude_prefixes"), "exclude_prefixes", '["MCF"]')
+    if isinstance(excluded, str):
+        return excluded
+    excluded = tuple(sorted({x.upper() for x in excluded}))
+    unknown = [x for x in excluded if x not in held_prefixes]
+    if unknown:
+        notes.append(
+            f"No docket prefix {', '.join(unknown)} is held, so leaving it out changed nothing."
+        )
+    if excluded:
+        scope.append(f"leaving out {', '.join(excluded)} proceedings")
+
+    filing_types = decision_types = None
+    asked_type = str(args.get("type") or "").strip()
+    if asked_type:
+        filing_types = tuple(_types(con, asked_type)) if "filing" in kinds else ()
+        decision_types = (
+            tuple(_types(con, asked_type, "decision_type")) if "decision" in kinds else ()
+        )
+        if not filing_types and not decision_types:
+            return (
+                f"No {' or '.join(k for k in kinds if k != 'comment') or 'filing or decision'}"
+                f" type the Board uses matches {asked_type!r}. `count_filings` without"
+                " `filing_type` lists the filing types this record holds. A type is the"
+                " Board's label: what a decision did — a notice of interim trail use issued —"
+                " is in its summary, which `search_the_record` reads."
+            )
+        named = ", ".join(f"'{t}'" for t in (*filing_types, *decision_types))
+        scope.append(f"of the Board's types {named}")
+    party = str(args.get("party") or "").strip()
+    if party:
+        if len(party) < 3:
+            return "`party` needs at least three characters of the name as the Board prints it."
+        scope.append(f"filed for a party printed with the words {party!r}")
+    body = str(args.get("deciding_body") or "").strip()
+    if body:
+        scope.append(f"decided by a body printed with the words {body!r}")
+
+    limit = _small(args.get("limit"), _RECENT_DEFAULT, 1, _RECENT_CAP)
+    offset = args.get("offset") or 0
+    if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+        return "`offset` must be a whole number of entries to skip, 0 or more."
+
+    result = activity_store.activity(
+        con,
+        by=by,
+        start=start,
+        end=end,
+        filters=activity_store.Filters(
+            kinds=kinds,
+            docket_ids=docket_ids,
+            prefix=prefix,
+            exclude_prefixes=excluded,
+            filing_types=filing_types,
+            decision_types=decision_types,
+            party=party or None,
+            deciding_body=body or None,
+        ),
+        limit=limit,
+        offset=offset,
+    )
+
+    if by == "observed":
+        window = f"observed by this record's forward watch from {start}" + (
+            f" up to {end}" if end else " to now"
+        )
+    else:
+        window = f"the Board dated {start} to {end or 'the latest held'}"
+    scoped = (", " + "; ".join(scope)) if scope else ""
+    lines = notes[:]
+    if not result.total:
+        names = [_KIND_NAMES[k] + "s" for k in kinds]
+        kinds_said = " or ".join([", ".join(names[:-1]), names[-1]] if len(names) > 1 else names)
+        lines.append(
+            f"The record holds no {kinds_said} {window}{scoped}. That is an absence in this"
+            " record, not proof of absence at the Board."
+        )
+    else:
+        counted = ", ".join(
+            _plural(result.by_kind[k], _KIND_NAMES[k]) for k in kinds if result.by_kind[k]
+        )
+        first, last = offset + 1, offset + len(result.items)
+        lines.append(
+            f"Records {window}{scoped}: {counted}."
+            + (
+                f" Showing {first}–{last}, newest first by "
+                + ("when they were observed." if by == "observed" else "the Board's date.")
+                if result.items
+                else f" `offset` {offset} is past the last of them."
+            )
+        )
+        captioned: set[str] = set()
+        for it in result.items:
+            lines.append(_activity_line(it, by, start, host, captioned))
+        if result.items and last < result.total:
+            lines.append(
+                f"{result.total - last:,} more: call again with `offset` {last} for the next"
+                f" {min(limit, result.total - last):,}."
+            )
+        lines.append(
+            "A record entered in more than one proceeding is one entry here, under the docket"
+            " nearest the top of its family, naming where else it was entered. Types, captions,"
+            " summaries and the Filed For cell are the Board's as printed: a type names the kind"
+            " of document, not what it accomplished, and nothing here has read the documents."
+            + (" `party` matched the printed words, not a resolved party." if party else "")
+        )
+    lines += _window_caveats(con, by, start, end)
+    return "\n".join(lines)
+
+
+def _activity_line(
+    it: activity_store.Item, by: str, start: str, host: str, captioned: set[str]
+) -> str:
+    """One entry: the proceeding, the sheet's own line, the record's address here (which
+    `read_page` takes), and when it was observed or first held. A caption is printed the
+    first time its proceeding appears on a page — FD 36873's runs to 120 characters, and a
+    page of its notices repeated it fifty times."""
+    ident = parse_docket_id(it.raw_docket)
+    printed = urls.printed_docket(ident) if ident else it.raw_docket
+    if it.raw_docket in captioned:
+        caption = "(caption above)"
+    else:
+        captioned.add(it.raw_docket)
+        caption = it.caption or "(caption not yet observed)"
+    path = _record_path(it.entry.kind, it.entry.record_id, it.raw_docket)
+    if by == "observed":
+        # new, or a record held before the window that the Board's listing changed — an
+        # attachment added, a summary corrected — which is why the watch saw it again
+        if it.first_seen and it.first_seen < start:
+            when = (
+                f" — observed {it.observed_at}, held since {it.first_seen}: seen again"
+                " because the Board's listing of it changed"
+            )
+        else:
+            when = f" — observed {it.observed_at}, new to this record"
+    else:
+        how = {"forward": "the forward watch", "backfill": "a backfill wave"}
+        when = (
+            f" — first held here {it.first_seen}, from {how.get(it.first_mode or '', 'a capture')}"
+            if it.first_seen
+            else ""
+        )
+    return (
+        f"- {printed} — {caption} — {_entry_line(it.entry, it.raw_docket)}"
+        + (f" — here: {_site(host, path)}" if path else "")
+        + when
+    )
+
+
+def _window_caveats(con: Connection, by: str, start: str, end: str | None) -> list[str]:
+    """What the window cannot account for, said in the answer rather than left to a
+    `coverage` call a scheduled brief never makes."""
+    c = coverage_store.watch(con)
+    lines = []
+    if by == "observed":
+        if c.forward_since and start < c.forward_since:
+            lines.append(
+                f"The forward watch began at {c.forward_since}; nothing earlier was observed by"
+                " it. History is added in backfill waves, which this window never shows —"
+                " `by: board_date` reads the Board's dates over everything held."
+            )
+        hit = [
+            g
+            for g in c.gaps
+            if (not end or g.started_at < end) and (g.ended_at is None or g.ended_at >= start)
+        ]
+        if hit:
+            lines.append(
+                "Inside this window the watch was not keeping the record: "
+                + "; ".join(f"{g.started_at} to {g.ended_at or 'open'} ({g.failure})" for g in hit)
+                + ". Entries the Board posted then were observed later, in the window that"
+                " observed them."
+            )
+        if c.last_checked:
+            lines.append(f"Last checked against the Board: {c.last_checked}.")
+    else:
+        lines.append(
+            "Filtered by the Board's own dates, over everything held, backfill waves included."
+            " The Board can post an entry days after its date, so a window already read can"
+            " gain entries; `by: observed` (the default) does not miss them."
+        )
+        lines += _open_month_caveats(
+            con, start, end, shortfall="(filings in them are missing from this list)"
+        )
+    return lines
+
+
 def _coverage(con: Connection, args: dict, host: str) -> str:
     c = coverage_store.coverage(con)
     return (
@@ -1211,6 +1545,82 @@ TOOLS: tuple[Tool, ...] = (
             ["filing_type"],
         ),
         _list_proceedings,
+    ),
+    Tool(
+        "recent_activity",
+        "What is new in the record",
+        "Filings, decisions and environmental comments that arrived inside a window, across"
+        " every proceeding or a list you pass: the call for 'what is new since my last run'."
+        " `by: observed` (the default) is when this record's forward watch saw each one, so a"
+        " filing the Board posted late still lands in the run that first saw it; `by:"
+        " board_date` is the Board's own filed, served or received date over everything held."
+        " Narrow by prefix, prefixes to leave out (`MCF`), record type, the Board's own filing"
+        " or decision type, words in the Filed For cell as printed, or the deciding body. Each"
+        " entry is in the sheet's form, with the Board's own file. Nothing about the caller is"
+        " kept: a watchlist is yours, passed as `dockets` for one call.",
+        _obj(
+            {
+                "since": {
+                    "type": "string",
+                    "description": "Start, inclusive: YYYY-MM-DD, or a date and time"
+                    " (2026-10-01T06:00:00Z) when `by` is `observed`. Required.",
+                },
+                "until": {
+                    "type": "string",
+                    "description": "End: a time is exclusive, a day includes itself. Default: now.",
+                },
+                "by": {
+                    "type": "string",
+                    "enum": ["observed", "board_date"],
+                    "description": "Which time the window is on. Default `observed`.",
+                },
+                "dockets": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "maxItems": _MAX_DOCKETS,
+                    "description": "Only these proceedings, each with its sub-dockets, e.g."
+                    ' ["FD 36844"]. Used for this call only.',
+                },
+                "prefix": {"type": "string", "description": "Only this docket prefix, e.g. `AB`."},
+                "exclude_prefixes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": 'Docket prefixes to leave out, e.g. ["MCF"].',
+                },
+                "record_type": {
+                    "type": "string",
+                    "enum": ["filing", "decision", "comment"],
+                    "description": "Only one kind of record.",
+                },
+                "type": {
+                    "type": "string",
+                    "description": "The Board's filing or decision type, or words in it"
+                    " (`trail use`, `Notice of Exemption`); each type matched is named.",
+                },
+                "party": {
+                    "type": "string",
+                    "description": "Words in the Filed For cell as the Board printed it"
+                    " (`Union Pacific`); filings only. A match on the words, not a resolved"
+                    " party.",
+                },
+                "deciding_body": {
+                    "type": "string",
+                    "description": "Words in the deciding body as printed (`Entire Board`,"
+                    " `Director Of Proceedings`); decisions only.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": f"Entries, 1-{_RECENT_CAP}. Default {_RECENT_DEFAULT}.",
+                },
+                "offset": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Entries to skip, for the next page.",
+                },
+            },
+            ["since"],
+        ),
+        _recent,
     ),
     Tool(
         "coverage",

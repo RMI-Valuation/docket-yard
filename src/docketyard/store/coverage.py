@@ -302,9 +302,42 @@ def month_runs(months: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(r[0] if len(r) == 1 else f"{r[0]} to {r[-1]}" for r in runs)
 
 
+@dataclass(frozen=True)
+class Watch:
+    forward_since: str | None
+    last_checked: str | None
+    gaps: list[Gap]
+
+
+def watch(con: Connection) -> Watch:
+    """The forward watch's span and its outages: the part of `coverage` a window over the
+    watch needs (MCP's `recent_activity`), cheap enough to read on every call. `coverage`
+    reads it from here, so the two cannot disagree."""
+    span = (
+        "SELECT {} FROM capture WHERE ingest_mode = 'forward'"
+        " AND filter_asserted = 1 AND table_action IN (?, ?)"
+    )
+    return Watch(
+        forward_since=con.execute(span.format("MIN(captured_at)"), (FILINGS, DECISIONS)).fetchone()[
+            0
+        ],
+        last_checked=con.execute(span.format("MAX(captured_at)"), (FILINGS, DECISIONS)).fetchone()[
+            0
+        ],
+        gaps=[
+            Gap(*row)
+            for row in con.execute(
+                "SELECT started_at, ended_at, failure, note FROM coverage_gap"
+                " ORDER BY started_at DESC"
+            )
+        ],
+    )
+
+
 def coverage(con: Connection) -> Coverage:
     q = con.execute
     one = lambda sql, *p: q(sql, p).fetchone()[0]  # noqa: E731
+    w = watch(con)
     return Coverage(
         dockets=one("SELECT COUNT(*) FROM docket"),
         registry_walked_at=one(
@@ -312,18 +345,8 @@ def coverage(con: Connection) -> Coverage:
             " AND table_action = ?",
             DOCKETS,
         ),
-        forward_since=one(
-            "SELECT MIN(captured_at) FROM capture WHERE ingest_mode = 'forward'"
-            " AND filter_asserted = 1 AND table_action IN (?, ?)",
-            FILINGS,
-            DECISIONS,
-        ),
-        last_checked=one(
-            "SELECT MAX(captured_at) FROM capture WHERE ingest_mode = 'forward'"
-            " AND filter_asserted = 1 AND table_action IN (?, ?)",
-            FILINGS,
-            DECISIONS,
-        ),
+        forward_since=w.forward_since,
+        last_checked=w.last_checked,
         filings=one("SELECT COUNT(DISTINCT stb_filing_id) FROM filing"),
         decisions=one("SELECT COUNT(DISTINCT stb_decision_id) FROM decision_record"),
         # by (number, row ref), NOT the number alone: the row ref folds one comment
@@ -393,11 +416,5 @@ def coverage(con: Connection) -> Coverage:
         comments_incomplete=_incomplete(con, ENVIRO_COMMENTS),
         comments_from=one("SELECT MIN(NULLIF(date_received_or_sent, '')) FROM enviro_comment"),
         empty_prefixes=tuple(sorted(EXPECTED_EMPTY_PREFIXES)),
-        gaps=[
-            Gap(*row)
-            for row in q(
-                "SELECT started_at, ended_at, failure, note FROM coverage_gap"
-                " ORDER BY started_at DESC"
-            )
-        ],
+        gaps=w.gaps,
     )

@@ -855,3 +855,151 @@ def _many_entries(tmp_path):
     )
     con.commit()
     return con
+
+
+# --- recent_activity (asked for 2026-10-02, for a brief run as a scheduled task) -----------
+
+
+def _brief(tmp_path):
+    """The web store — a motion entered in FD 36873 and its sub-docket, a second motion in
+    the sub-docket, a decision entered in both — plus an environmental comment, every one
+    observed by a forward capture made as the test runs."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    ingest_comment(con, tmp_path, comment_row())
+    con.commit()
+    return con
+
+
+def recent(con, **arguments):
+    return mcp._recent(con, arguments, "docketyard.org")
+
+
+def test_recent_activity_lists_what_the_watch_observed_once_per_record(tmp_path):
+    con = _brief(tmp_path)
+    text = recent(con, since="2026-01-01")
+    # 311981 is two rows and one filing; 53210 likewise — counted and listed once each
+    assert ": 2 filings, 1 decision, 1 environmental comment." in text
+    assert text.count("[filing] 311981") == 1 and text.count("[decision] 53210") == 1
+    assert "also entered in FD 36873 (Sub-No. 1)" in text
+    # in the sheet's own form, with the record's address here and when it was observed
+    assert 'the Board\'s summary, as printed: "ORDERED REPLIES DUE"' in text
+    assert "here: https://docketyard.org/decision/53210" in text
+    assert "new to this record" in text
+    # the caption once per proceeding on a page, not on every line
+    assert text.count("UP/NS CONTROL") == 1 and "(caption above)" in text
+    # the watch began after `since`, and the answer says what that means
+    assert "nothing earlier was observed by it" in text
+    con.close()
+
+
+def test_recent_activity_narrows_without_keeping_anything(tmp_path):
+    con = _brief(tmp_path)
+    # a watchlist is an argument: a number the record does not hold is named, not guessed
+    text = recent(con, since="2026-01-01", dockets=["FD 36873 (Sub-No. 1)", "FD 99999"])
+    assert "'FD 99999'. They may exist at the Board and not here." in text
+    assert "[filing] 311900" in text and "in FD 36873 (Sub-No. 1)" in text
+    # the Filed For cell as printed; filings only, so no decision or comment rides along
+    text = recent(con, since="2026-01-01", party="nrdc")
+    assert ": 1 filing." in text and "not a resolved party" in text
+    # the Board's own type, named
+    text = recent(con, since="2026-01-01", type="motion")
+    assert "of the Board's types 'Motion'" in text and "[decision]" not in text
+    assert "No filing or decision type" in recent(con, since="2026-01-01", type="zzz")
+    text = recent(con, since="2026-01-01", deciding_body="chief counsel")
+    assert ": 1 decision." in text
+    # a prefix left out, and one the record does not hold
+    text = recent(con, since="2026-01-01", exclude_prefixes=["fd", "MCF"])
+    assert "holds no filings, decisions or environmental comments" in text
+    assert "No docket prefix MCF is held" in text
+    assert "holds no docket prefix 'ZZ'" in recent(con, since="2026-01-01", prefix="zz")
+    text = recent(con, since="2026-01-01", record_type="comment")
+    assert ": 1 environmental comment." in text and "[comment] EI-34280" in text
+    con.close()
+
+
+def test_recent_activity_pages_and_says_how_many_remain(tmp_path):
+    con = _brief(tmp_path)
+    text = recent(con, since="2026-01-01", limit=1)
+    assert "Showing 1–1" in text and "3 more: call again with `offset` 1" in text
+    text = recent(con, since="2026-01-01", limit=1, offset=3)
+    assert "Showing 4–4" in text and "more: call again" not in text
+    assert "past the last of them" in recent(con, since="2026-01-01", offset=9)
+    con.close()
+
+
+def test_recent_activity_windows_on_either_time_and_says_which(tmp_path):
+    con = _brief(tmp_path)
+    # the Board's dates: the decision was served 2026-08-21, the filings 08-24 and 08-25
+    text = recent(con, since="2026-08-24", until="2026-08-24", by="board_date")
+    assert ": 1 filing." in text and "[filing] 311900" in text
+    assert "first held here" in text and "from the forward watch" in text
+    assert "a window already read can gain entries" in text
+    # observed: a window that closed before the capture holds nothing, and says so
+    text = recent(con, since="2026-01-01", until="2026-01-02T12:00:00Z")
+    assert "The record holds no filings, decisions or environmental comments" in text
+    assert "not proof of absence at the Board" in text
+    con.close()
+
+
+def test_recent_activity_tells_a_record_seen_again_from_a_new_one(tmp_path):
+    """The Board relisting a held record with a change (a file added, a summary corrected)
+    is a new event for it; a brief must not report it as new."""
+    con = _brief(tmp_path)
+    con.execute("UPDATE capture SET captured_at = '2026-09-01T12:00:00+00:00'")
+    (cid,) = con.execute("SELECT capture_id FROM capture ORDER BY capture_id LIMIT 1").fetchone()
+    later = con.execute(
+        "INSERT INTO capture (source_system, endpoint, request_params, response_sha256,"
+        " http_status, filter_asserted, ingest_mode, captured_at, table_action)"
+        " SELECT source_system, endpoint, request_params, response_sha256, http_status,"
+        " filter_asserted, ingest_mode, '2026-09-20T12:00:00+00:00', table_action"
+        " FROM capture WHERE capture_id = ?",
+        (cid,),
+    ).lastrowid
+    con.execute(
+        "INSERT INTO event (event_type, docket_id, recorded_at, capture_id, source_key, payload,"
+        " payload_version) SELECT event_type, docket_id, recorded_at, ?, source_key, payload,"
+        " payload_version FROM event WHERE event_type = 'decision_observed' LIMIT 1",
+        (later,),
+    )
+    con.commit()
+    text = recent(con, since="2026-09-10")
+    assert ": 1 decision." in text
+    assert "held since 2026-09-01T12:00:00+00:00: seen again because the Board's listing" in text
+    assert "new to this record" not in text
+    con.close()
+
+
+def test_recent_activity_names_an_outage_inside_the_window(tmp_path):
+    con = _brief(tmp_path)
+    con.execute(
+        "INSERT INTO coverage_gap (started_at, ended_at, failure, note) VALUES"
+        " ('2026-03-01T00:00:00+00:00', '2026-03-01T06:00:00+00:00', 'captures', 'test')"
+    )
+    con.commit()
+    assert "was not keeping the record: 2026-03-01T00:00:00+00:00" in recent(
+        con, since="2026-02-01"
+    )
+    assert "was not keeping the record" not in recent(con, since="2026-04-01")
+    con.close()
+
+
+def test_recent_activity_refuses_what_it_cannot_read(tmp_path):
+    con = _brief(tmp_path)
+    assert "`since` is required" in recent(con)
+    assert "must be a date (YYYY-MM-DD) or a date and time" in recent(con, since="yesterday")
+    assert "must be a date written YYYY-MM-DD" in recent(
+        con, since="2026-01-01T00:00:00Z", by="board_date"
+    )
+    assert "nothing can fall between" in recent(con, since="2026-05-01", until="2026-04-01")
+    assert "`by` is `observed`" in recent(con, since="2026-01-01", by="filed")
+    assert "`record_type` is" in recent(con, since="2026-01-01", record_type="order")
+    assert "is a list of strings" in recent(con, since="2026-01-01", dockets=[1, 2])
+    assert "at most 50" in recent(con, since="2026-01-01", dockets=["FD 1"] * 51)
+    assert "at least three characters" in recent(con, since="2026-01-01", party="UP")
+    con.close()
+
+
+def test_recent_activity_carries_the_standing_caveats(client):
+    text = call(client, "recent_activity", {"since": "2026-01-01"})["content"][0]["text"]
+    assert "does not say what any party argued" in text and "Coverage is not uniform" in text
