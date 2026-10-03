@@ -81,6 +81,13 @@ class FusedHeld(RuntimeError):
     counts and names every such document on every run, and that count is the signal."""
 
 
+class Unquoted(ValueError):
+    """A key whose findings quote nothing. `quoted_passage` is NOT NULL and `''` passes it, so
+    the edge would reach a reader with no citing passage, against ADR 0017 D6 — and the span
+    test, the served-date anchor and the reviewer would all be reading an empty string. `find`
+    always quotes the line a target sat on, so this is a hand-built or damaged document."""
+
+
 class DecidedResidue(RuntimeError):
     """A reading `_retire_readings` would retire whose key a person has decided (ADR 0017 D5).
     The retraction holds such keys, so this is a store in a state no pass should have left."""
@@ -498,6 +505,17 @@ def load_document(
             f"{sha[:12]}: the own-fused rule re-keys {fused_held} onto this document's own docket,"
             " and the registry holds them. Refused on every walk until the rule or the finding"
             " changes (ADR 0018 addendum of 2026-09-14, item 3)"
+        )
+
+    # AND EVERY KEY QUOTES SOMETHING (code review, 2026-09-01), refused before the first write
+    # like everything above. Whitespace is nothing: the join below would store it as a passage.
+    unquoted = sorted(
+        at for at, quotes in passages.items() if not any((q or "").strip() for q in quotes)
+    )
+    if unquoted:
+        raise Unquoted(
+            f"{sha[:12]}: no quoted text for {unquoted[:5]}. An edge is published with its citing"
+            " passage (ADR 0017 D6), and an empty one would be stored as one"
         )
 
     for (page, key), quotes in sorted(passages.items()):

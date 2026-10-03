@@ -623,6 +623,29 @@ def test_a_target_the_finder_could_not_key_is_counted_out_of_class(tmp_path):
     assert con.execute("SELECT targets_out_of_class FROM extraction_run").fetchone() == (1,)
 
 
+def test_a_key_that_quotes_nothing_is_refused_before_any_write(tmp_path):
+    """`quoted_passage` is NOT NULL and `''` passes it, so an edge could reach a reader with no
+    citing passage, against ADR 0017 D6 (code review, 2026-09-01). One finding of a key quoting
+    the line is enough; none quoting anything, or only whitespace, refuses the document."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    for quoted in ("missing", None, "", "   "):
+        finding = {"page": 4, "target": "EP 445"}
+        if quoted != "missing":
+            finding["quoted"] = quoted
+        with pytest.raises(load.Unquoted, match="EP 445"):
+            load.load_document(con, _findings(finding), keys.registry(con), keys.works(con), stamps)
+    assert con.execute("SELECT COUNT(*) FROM citation_key").fetchone()[0] == 0
+    both = _findings(
+        {"page": 4, "target": "EP 445", "quoted": ""},
+        {"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."},
+    )
+    load.load_document(con, both, keys.registry(con), keys.works(con), stamps)
+    assert con.execute("SELECT quoted_passage FROM citation_reading").fetchone() == (
+        "See EP 445, slip op. at 3.",
+    )
+
+
 def test_a_key_minted_under_another_key_version_is_counted_and_kept(tmp_path):
     """`INSERT OR IGNORE` leaves the first inserter's `key_version` on the identity row (code
     review, 2026-09-01). A pass under another normaliser that produces the same key says so —
