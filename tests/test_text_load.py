@@ -599,32 +599,10 @@ def test_a_pinned_key_refuses_a_second_producers_version(tmp_path):
 
     load.declare_producer(con, "text-layer", "native", "primary", doc["tool"], doc["tool_version"])
     other = dict(doc, tool_version=doc["tool_version"] + ".1")
-    with pytest.raises(load.PinRefused, match="is pinned to"):
+    with pytest.raises(load.Unreadable, match="is pinned to"):
         load.load_reading(con, tmp_path, _reading(other))
     # and the declared version still loads: the pin refuses the contradiction, not the pass
     assert load.load_reading(con, tmp_path, _reading(doc)) == "restart"
-
-
-def test_a_pin_refusal_stops_the_pass_once_rather_than_failing_every_document(tmp_path, capsys):
-    """A root at the wrong version is ONE condition, the configuration's, and it arrived as N
-    per-document `failed` lines after the whole root was walked (deferred.md, the schema critic
-    on migration 0024, 2026-09-05). It stops at the first reading, with what landed before it
-    committed and the refused reading's batch rolled back."""
-    con = _store(tmp_path)
-    load.declare_producer(con, "text-layer", "native", "primary", "pymupdf", "9.9.9")
-    con.commit()
-    con.close()
-    root = tmp_path / "text"
-    _write(root, _extraction(SHA_A))
-    _write(root, _extraction(SHA_B))
-    assert cli._text(_ns(tmp_path, root)) == 1
-    out = capsys.readouterr().out
-    assert out.count("is pinned to pymupdf@9.9.9") == 2  # the log line and the verdict, once
-    assert "stopped:" in out and "failed" not in out
-    con = db.connect(tmp_path / "s.sqlite")
-    assert con.execute("SELECT COUNT(*) FROM ocr_run").fetchone() == (0,)
-    assert not con.in_transaction
-    con.close()
 
 
 def test_a_pin_on_the_text_layer_does_not_touch_the_ocr_wave(tmp_path):

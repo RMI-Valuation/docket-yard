@@ -2,8 +2,6 @@
 
 import sqlite3
 
-import pytest
-
 from docketyard.store import batches, db
 
 
@@ -117,26 +115,6 @@ def test_a_lock_that_never_clears_aborts_the_pass_and_rolls_the_batch_back(tmp_p
     assert "aborted at 0" in lines[-1] and "locked" in lines[-1]
     holder.rollback()
     assert _count(tmp_path) == 0 and not con.in_transaction
-
-
-def test_a_stop_ends_the_pass_once_and_keeps_what_landed_before_it(tmp_path):
-    """A condition of the CONFIGURATION, true of every item, is not N per-item failures: `Stop`
-    rolls back the open batch, keeps the committed ones, says so once, and reaches the caller
-    (deferred.md, the schema critic on migration 0024, 2026-09-05)."""
-    con = _store(tmp_path)
-    lines = []
-
-    def one(n):
-        if n >= 3:
-            raise batches.Stop("every item from here is at the wrong version")
-        con.execute("INSERT INTO t (n) VALUES (?)", (n,))
-        return "ok"
-
-    with pytest.raises(batches.Stop, match="wrong version"):
-        batches.run(con, ((str(n), n) for n in range(6)), one, log=lines.append, commit_every=2)
-    assert [r[0] for r in con.execute("SELECT n FROM t ORDER BY n")] == [0, 1]
-    assert _count(tmp_path) == 2 and not con.in_transaction, "the open batch is rolled back"
-    assert lines == ["  stopped: every item from here is at the wrong version"]
 
 
 def test_a_store_failure_that_is_not_a_lock_aborts_at_once(tmp_path):

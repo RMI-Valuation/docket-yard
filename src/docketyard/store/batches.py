@@ -35,8 +35,6 @@ loop in `cli._citator` still commits per document and counts every failure kind 
   `thing` may be the exception that stopped it being made — malformed input is the reader's
   finding, and the loop counts it under `unreadable` beside the store's own outcomes.
   `walk` is that reader for the sharded directories every pass reads.
-- A CONFIGURATION THAT IS WRONG FOR EVERY ITEM IS NOT A PER-ITEM FAILURE. `one` raises
-  `Stop`, the open batch is rolled back, and the exception reaches the caller (see `Stop`).
 """
 
 import sqlite3
@@ -86,20 +84,6 @@ def _chunk(items: Iterable[tuple[str, object]], size: int) -> Iterator[list]:
             batch = []
     if batch:
         yield batch
-
-
-class Stop(Exception):
-    """What is wrong is the PASS'S CONFIGURATION, not the document: raise it from `one` and
-    the pass stops, with the open batch rolled back and the exception raised to the caller.
-
-    Not counted per document, deliberately. A condition that holds for every item — a root
-    read at a version the store's pin refuses (ADR 0024 D6) — counted under `failed` arrives
-    as N failures, each with its own savepoint, rollback and log line, after the whole root
-    has been walked, when what the operator needs is one sentence at the first item
-    (`docs/deferred.md`, the schema critic on migration 0024, 2026-09-05). The batches
-    before it are committed and a restart of them is free, so stopping loses nothing.
-
-    Not a `ValueError`, so `walk` never mistakes it for an unreadable file."""
 
 
 class _StoreTrouble(sqlite3.OperationalError):
@@ -181,8 +165,8 @@ def _apply(con, batch: list, one: Callable[[object], str], log) -> Counter:
             con.execute("SAVEPOINT document")
             try:
                 outcome = one(thing)
-            except (sqlite3.OperationalError, Stop):
-                raise  # the store, or the configuration: not the document
+            except sqlite3.OperationalError:
+                raise  # the store, not the document
             except Exception as e:  # noqa: BLE001 — the document is refused, the pass goes on
                 con.execute("ROLLBACK TO document")
                 lines.append(f"  failed {label}: {type(e).__name__} {e}")
@@ -211,8 +195,7 @@ def run(
     sleep=time.sleep,
 ) -> Counter:
     """`one(thing)` returns the outcome word to count. Returns the counts: one key per
-    outcome, plus `unreadable`, `failed` and `aborted` as above. A `Stop` is raised, not
-    counted: the batches before it stand committed.
+    outcome, plus `unreadable`, `failed` and `aborted` as above.
 
     A batch is a batch of ITEMS, not of applied documents — an unreadable one occupies a
     place in it and touches nothing — because the batch is the unit that gets replayed.
@@ -244,10 +227,6 @@ def _with_retries(con, batch: list, one, log, lock_retries: int, sleep) -> Count
             lock_retries=lock_retries,
             sleep=sleep,
         )
-    except Stop as e:
-        con.rollback()  # `under_lock` rolls back only what it retries; this batch is undone
-        log(f"  stopped: {e}")
-        raise
     except sqlite3.OperationalError as e:
         cause = getattr(e, "cause", e)
         log(f"  aborted at {getattr(e, 'label', batch[0][0])}: {type(cause).__name__} {e}")
