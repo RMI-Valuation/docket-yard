@@ -320,13 +320,19 @@ def resolve(
             method=RULE_1,
             docket_id=docket_id,
             decision_id=_work(docket_id, works, segment),
-            # four digits or fewer: `\d{1,5}` caps the finder, so a five-digit docket cannot
-            # absorb a sixth and only the shorter numbers are at risk
+            # four digits or fewer: ADR 0017's exposure definition. It was argued from a finder
+            # capped at `\d{1,5}`, under which a five-digit docket could not absorb a sixth.
+            # THAT CAP IS GONE: the finder reads `keys.DOCKET`, `\d{1,6}` since 104 held dockets
+            # carry six digits, so a five-digit docket with a fused marker (`FD 368731`) now
+            # keys as a six-digit number this test does not look at. The document's OWN docket
+            # is caught by the own-fused rule (`keys.own_key`); any other is not, and that gap
+            # is recorded in docs/deferred.md rather than closed by widening this in passing.
             exposed=bool(stripped and digits <= 4 and stripped in held),
         )
     # rule 2: five printed digits, and the stripped reading resolves. The five-digit
-    # condition is ADR 0018 D4's; `\d{1,5}` caps the finder's sequence, so five digits is
-    # the longest a number can be and still have absorbed a marker.
+    # condition is ADR 0018 D4's, argued from the same old `\d{1,5}` cap: a six-digit fusion
+    # of a five-digit docket is outside this rule too (the note above), unless it is the
+    # document's own docket and `keys.own_key` re-keyed it before it got here.
     if digits == 5 and (repaired := held.get(key[:-1])) is not None:
         # A REPAIR REACHES THE WORK TOO. Nothing in ADR 0018 D4 excludes it, and the two
         # judgements are independent: the repair says which proceeding the printed number

@@ -371,6 +371,30 @@ def test_the_loader_refuses_a_channel_a_model_pass_cannot_read_on(tmp_path):
     assert con.execute("SELECT COUNT(*) FROM citation").fetchone()[0] == 0
 
 
+def test_a_document_that_does_not_declare_its_text_is_refused_as_undeclared(tmp_path):
+    """The `text_ref` refusal is about the TEXT, not the channel (ingest specialist,
+    2026-09-12), so it raises the producer's `find.Undeclared` and never `WrongChannel`: a
+    caller counting `WrongChannel` as "wrong channel, skipped" must not mis-file it. Spans on a
+    reading that declares no store text are the same declaration failing."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    finding = {"page": 4, "target": "EP 445", "quoted": "EP 445, slip op. at 3."}
+    for text_ref in (None, "human", "pre-0026"):
+        with pytest.raises(find.Undeclared, match="text_ref") as raised:
+            load.load_document(
+                con,
+                _findings(finding, text_ref=text_ref),
+                keys.registry(con),
+                keys.works(con),
+                stamps,
+            )
+        assert not isinstance(raised.value, load.WrongChannel)
+    spanned = _findings(dict(finding, spans=[[0, 6, "EP 445"]]))
+    with pytest.raises(find.Undeclared, match="carries spans"):
+        load.load_document(con, spanned, keys.registry(con), keys.works(con), stamps)
+    assert con.execute("SELECT COUNT(*) FROM citation").fetchone()[0] == 0
+
+
 def test_the_loader_refuses_stamps_that_are_partial_or_point_at_nothing(tmp_path):
     """The guard proves the stamps' channel against the rows; it must also prove the rows
     exist and cover every stage, or a partial dict passes it and dies on a KeyError with
@@ -584,6 +608,61 @@ def test_a_findings_document_becomes_four_families_and_a_run(tmp_path):
         "SELECT pages_read, targets_emitted, targets_out_of_class FROM extraction_run"
     ).fetchone()
     assert run == (9, 2, 1)
+
+
+def test_a_target_the_finder_could_not_key_is_counted_out_of_class(tmp_path):
+    """`find` drops a match whose raw will not normalise, and hands it back as `unkeyed`
+    (code review, 2026-09-01): the one drop nothing could audit is counted with the others."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    doc = _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."})
+    result = load.load_document(
+        con, doc | {"unkeyed": ["EP 4x"]}, keys.registry(con), keys.works(con), stamps
+    )
+    assert (result.emitted, result.out_of_class) == (1, 1)
+    assert con.execute("SELECT targets_out_of_class FROM extraction_run").fetchone() == (1,)
+
+
+def test_a_key_that_quotes_nothing_is_refused_before_any_write(tmp_path):
+    """`quoted_passage` is NOT NULL and `''` passes it, so an edge could reach a reader with no
+    citing passage, against ADR 0017 D6 (code review, 2026-09-01). One finding of a key quoting
+    the line is enough; none quoting anything, or only whitespace, refuses the document."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    for quoted in ("missing", None, "", "   "):
+        finding = {"page": 4, "target": "EP 445"}
+        if quoted != "missing":
+            finding["quoted"] = quoted
+        with pytest.raises(load.Unquoted, match="EP 445"):
+            load.load_document(con, _findings(finding), keys.registry(con), keys.works(con), stamps)
+    assert con.execute("SELECT COUNT(*) FROM citation_key").fetchone()[0] == 0
+    both = _findings(
+        {"page": 4, "target": "EP 445", "quoted": ""},
+        {"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."},
+    )
+    load.load_document(con, both, keys.registry(con), keys.works(con), stamps)
+    assert con.execute("SELECT quoted_passage FROM citation_reading").fetchone() == (
+        "See EP 445, slip op. at 3.",
+    )
+
+
+def test_a_key_minted_under_another_key_version_is_counted_and_kept(tmp_path):
+    """`INSERT OR IGNORE` leaves the first inserter's `key_version` on the identity row (code
+    review, 2026-09-01). A pass under another normaliser that produces the same key says so —
+    and does not rewrite the row, which is an identity and not this pass's to edit."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    doc = _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."})
+    first = load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
+    assert first.key_version_kept == 0
+    again = load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
+    assert again.key_version_kept == 0, "the same normaliser re-running is not an event"
+    con.execute("UPDATE citation_key SET key_version = 'norm-docket@1999-01-01'")
+    older = load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
+    assert older.key_version_kept == 1
+    assert con.execute("SELECT key_version FROM citation_key").fetchone() == (
+        "norm-docket@1999-01-01",
+    )
 
 
 def test_a_re_run_replaces_the_pass_row_and_supersedes_nothing_else(tmp_path):

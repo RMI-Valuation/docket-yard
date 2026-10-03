@@ -306,14 +306,7 @@ def _citator(args: argparse.Namespace) -> int:
         return 0
 
     if args.what == "decide":
-        item = next(
-            (
-                q
-                for q in review.pending(con, args.queue, limit=10_000)
-                if q["target_key_rendered"] == args.key
-            ),
-            None,
-        )
+        item = review.item(con, args.queue, args.key)  # the queue's own query, for one key
         if item is None:
             print(f"refused: {args.key} is not on the {args.queue} queue")
             return 1
@@ -611,6 +604,7 @@ def _citator(args: argparse.Namespace) -> int:
         "readings_retired",
         "work_gained",
         "work_lost",
+        "key_version_kept",
     )
     totals = dict.fromkeys(("documents", *counted), 0)
     owed_keys: list[str] = []
@@ -665,6 +659,11 @@ def _citator(args: argparse.Namespace) -> int:
     )
     if refused_fused_held:
         print(f"refused, a held docket re-keyed (never clears): {sorted(refused_fused_held)}")
+    if totals["key_version_kept"]:
+        print(
+            f"{totals['key_version_kept']} keys were minted under another KEY_VERSION than"
+            f" {keys.KEY_VERSION} and keep it: a re-normalisation produced the same key"
+        )
     # WHAT THIS SAID UNTIL 2026-09-04, AND WHY IT WAS WRONG BY THEN: "ADR 0017 D5's queues do
     # not exist yet, so these keys are PRINTED and not stored. Until `review_action` is in a
     # migration, the exposed class reaches a page unreviewed." Migration 0015 shipped

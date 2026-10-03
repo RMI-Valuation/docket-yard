@@ -139,6 +139,7 @@ reviewed AS (                            -- what a human has since said about th
   FROM citation_resolution
   WHERE confidence_state = 'human' AND superseded_by IS NULL
 ),
+-- A CHANGE TO `family` IS A NEW `methods.CLOSURE_VERSION` (ADR 0018 D8): a test fingerprints it
 family AS (                              -- ADR 0017 D4: self, sub-dockets and parent, over
   SELECT dr.stb_decision_id, dr.docket_id FROM decision_record dr   -- every docket a
   UNION                                                             -- consolidated decision

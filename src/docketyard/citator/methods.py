@@ -69,8 +69,16 @@ HUMAN_VERSION = "2026-09-01"
 # numbers and nothing to say why, and `class_measurement_identity` would collide them on one
 # benchmark_date. That is the fourth repetition of the error ADR 0017 § Consequences names,
 # so it is bumped here before the first edge is stamped rather than after.
+#
+# THE CLOSURE'S VERSION IS A CONSTANT, NOT A DATE IN THE MIDDLE OF A STRING (code review,
+# 2026-09-01). It still says `cite.py`, though the closure has lived only in `project.py`'s
+# `family` CTE since `web/cite.py`'s copy went: it is a NAME, part of every stored
+# `projection_rule_version`, and renaming it would move this rule with no rule changed. What
+# must move it is a change to the closure — and `tests/test_citator_rule_version.py`
+# fingerprints that CTE, so the change cannot land without a failing test naming this constant.
+CLOSURE_VERSION = "cite.py@2026-09-01"
 PROJECTION_RULE = (
-    f"span={judge.SPAN_VERSION};closure=cite.py@2026-09-01;rank={RANK_VERSION}"
+    f"span={judge.SPAN_VERSION};closure={CLOSURE_VERSION};rank={RANK_VERSION}"
     f";gate=exposed@{resolve.EXPOSURE_VERSION}"
 )
 

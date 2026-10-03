@@ -10,8 +10,13 @@ per document:
       "reading_channel": "text-layer",     FK reading_vocab; REQUIRED, because the channel
                                            is in every key below (ADR 0018 D3) and a default
                                            would claim the text layer for an OCR reading
-      "reading_method": null,              the OCR engine, and its version, when the channel
-      "reading_method_version": null,      is 'ocr' — payload, never key (ADR 0018 D3)
+      "reading_method": null,              the OCR engine and its version: payload, never
+      "reading_method_version": null,      key (ADR 0018 D3). OPTIONAL, AND THE WALK NEVER
+                                           SETS THEM: one document's OCR pages can come from
+                                           two engines, so a per-document value would be
+                                           wrong for some page. A walked reading stores them
+                                           NULL, and its engine is read per page through
+                                           `text_id` -> `document_text.method`/`_version`
       "pages_read": 33,                    so "read and found nothing" is not "not yet read"
       "findings": [
         {"page": 4, "key": "EP 328", "target": "EP 328", "quoted": "... the line ..."}
@@ -76,6 +81,13 @@ class FusedHeld(RuntimeError):
     counts and names every such document on every run, and that count is the signal."""
 
 
+class Unquoted(ValueError):
+    """A key whose findings quote nothing. `quoted_passage` is NOT NULL and `''` passes it, so
+    the edge would reach a reader with no citing passage, against ADR 0017 D6 — and the span
+    test, the served-date anchor and the reviewer would all be reading an empty string. `find`
+    always quotes the line a target sat on, so this is a hand-built or damaged document."""
+
+
 class DecidedResidue(RuntimeError):
     """A reading `_retire_readings` would retire whose key a person has decided (ADR 0017 D5).
     The retraction holds such keys, so this is a store in a state no pass should have left."""
@@ -103,6 +115,10 @@ class Loaded:
     # documents to their docket would pass unseen (ingest specialist, 2026-09-13, F2).
     work_gained: int = 0
     work_lost: int = 0
+    # a key already in `citation_key` under ANOTHER `KEY_VERSION`: the `INSERT OR IGNORE` keeps
+    # the first inserter's version, so a re-normalisation that produced the same string would
+    # otherwise pass without a word (code review, 2026-09-01). Counted, never rewritten.
+    key_version_kept: int = 0
     review: list[str] = field(default_factory=list)  # rendered keys, for ADR 0017 D5's queues
 
 
@@ -239,8 +255,13 @@ def load_document(
     # AND THE TEXT IT READ, checked SECOND and not first: the channel's primacy above is
     # deliberate and documented, and a document that lies about its channel should be refused
     # for that rather than for a missing declaration it was never asked for (ADR 0026 D8).
+    #
+    # `find.Undeclared`, NOT `WrongChannel` (ingest specialist, 2026-09-12): the channel here is
+    # fine, and a caller counting `WrongChannel` as "read on the wrong channel, skipped" would
+    # mis-file a document that never said which text it read. It is the producer's own refusal
+    # of the same declaration (`find.findings_document`), raised at both ends of the file.
     if text_ref not in ("store", "benchmark"):
-        raise WrongChannel(
+        raise find.Undeclared(
             f"{sha[:12]} says text_ref {text_ref!r}; a model pass declares 'store' or"
             " 'benchmark' (ADR 0026 D8). 'human' is the review layer's and 'pre-0026' is"
             " migration 0028's backfill; neither is a pass's to claim"
@@ -253,7 +274,7 @@ def load_document(
     # method version, satisfying the paired CHECK while breaking 0028's writer obligation.
     carries_spans = any(f.get("spans") for f in doc.get("findings", []))
     if carries_spans and text_ref != "store":
-        raise WrongChannel(
+        raise find.Undeclared(
             f"{sha[:12]} carries spans with text_ref {text_ref!r}. Offsets belong to the text"
             " a `text_id` names; a benchmark reading has none, so its spans point into a file"
             " nothing in the store identifies (ADR 0026 § Context, one channel over)"
@@ -412,6 +433,9 @@ def load_document(
     # span's — for the registry check below and for the reading's record (item 4).
     own = walk.own_of(con, sha)
     fused: dict[tuple[int, str], set[str]] = {}
+    # and the targets `find` matched and could not key, which it hands over rather than dropping
+    # (`find.find`'s `unkeyed`): out of class by the same test, so counted the same way
+    out.out_of_class += len(doc.get("unkeyed") or ())
     for finding in doc.get("findings", []):
         number = keys.normalise(finding.get("target", ""))
         if number is None or not keys.DOCKET_KEY.match(number):
@@ -483,6 +507,24 @@ def load_document(
             " changes (ADR 0018 addendum of 2026-09-14, item 3)"
         )
 
+    # AND EVERY KEY QUOTES SOMETHING (code review, 2026-09-01), refused before the first write
+    # like everything above. Whitespace is nothing: the join below would store it as a passage.
+    unquoted = sorted(
+        at for at, quotes in passages.items() if not any((q or "").strip() for q in quotes)
+    )
+    if unquoted:
+        raise Unquoted(
+            f"{sha[:12]}: no quoted text for {unquoted[:5]}. An edge is published with its citing"
+            " passage (ADR 0017 D6), and an empty one would be stored as one"
+        )
+
+    # EVERY WRITE BELOW IS ONE TRANSACTION, opened explicitly (schema-critic, 2026-09-01): left
+    # to `sqlite3`'s implicit one it is a transaction only on a connection in its default mode,
+    # and on an autocommit one each retirement's self-pointer would commit before the row it
+    # points at exists. The caller commits — per document, in `citator load` — or rolls back,
+    # and a transaction it already holds is joined.
+    if not con.in_transaction:
+        con.execute("BEGIN")
     for (page, key), quotes in sorted(passages.items()):
         passage = " | ".join(q for q in quotes if q)
         out.emitted += 1
@@ -527,11 +569,22 @@ def load_document(
                 return (0, "unmeasured", None, None)
             return (stamps[stage][1], "measured", stage, stamps[stage][0])
 
-        con.execute(
+        minted = con.execute(
             "INSERT OR IGNORE INTO citation_key (citing_document, page, target_kind,"
             " target_key, key_version, first_seen_at) VALUES (?, ?, 'stb', ?, ?, ?)",
             (sha, page, key, keys.KEY_VERSION, now),
         )
+        # THE KEY ROW BELONGS TO WHOEVER INSERTED FIRST, the defect ADR 0018 D2 rejected
+        # `cited_raw` over. Rewriting `key_version` would be an UPDATE on an identity row and
+        # is not this pass's call; a differing one is a re-normalisation event, so it is LOUD.
+        if minted.rowcount == 0:
+            kept = con.execute(
+                "SELECT key_version FROM citation_key WHERE citing_document = ? AND page = ?"
+                " AND target_kind = 'stb' AND target_key = ?",
+                (sha, page, key),
+            ).fetchone()
+            if kept is not None and kept[0] != keys.KEY_VERSION:
+                out.key_version_kept += 1
         # A BACKFILL IS RESTARTABLE, so a pass must run twice over one document without
         # minting a second assertion or a second edge. `unchanged` does NOT skip the rest of
         # the loop: the families below are keyed by reading channel, and an OCR pass over a
