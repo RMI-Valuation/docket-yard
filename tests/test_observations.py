@@ -420,6 +420,34 @@ def test_a_url_with_a_raw_en_dash_goes_on_the_wire_percent_encoded(tmp_path, mon
     assert stb._wire_url(sent[0]) == sent[0]  # applying it to a wire URL changes nothing
 
 
+def test_a_capture_records_the_wire_url_beside_the_stored_one_when_they_differ(con, tmp_path):
+    """`endpoint` stays the stored URL (the refusal rest and the re-check join on it), so the
+    percent-encoded form that went on the wire is recorded in `request_params` beside it —
+    and only when it differs, on the success path and the unanswered path alike."""
+    from docketyard.capture.stb import Unanswered
+
+    dash = "AB 290 – Comments.pdf"
+    rows = filing_row(pdf=dash) + filing_row(fid="2", row="8", pdf="a b.pdf")
+    ingest(con, tmp_path, rows + filing_row(fid="3", row="9"), total=3)
+    raw, spaced, plain = f"{S3}/830599/{dash}", f"{S3}/8/a b.pdf", f"{S3}/9/311981.pdf"
+
+    def fetch(u):
+        if u == spaced:
+            raise Unanswered("timed out")
+        return 200, b"%PDF-" + u.encode()
+
+    documents.fetch_attachments(con, tmp_path, fetch)
+    rows = con.execute(
+        "SELECT endpoint, request_params FROM capture WHERE table_action = ?",
+        (documents.FETCH_ACTION,),
+    ).fetchall()
+    assert {e: json.loads(p) for e, p in rows} == {
+        raw: [["url", raw], ["wire_url", f"{S3}/830599/AB%20290%20%E2%80%93%20Comments.pdf"]],
+        spaced: [["url", spaced], ["wire_url", f"{S3}/8/a%20b.pdf"]],
+        plain: [["url", plain]],
+    }
+
+
 def test_a_body_cut_short_is_retried_and_leaves_no_staging_file(tmp_path, monkeypatch):
     from docketyard.capture import stb
 
