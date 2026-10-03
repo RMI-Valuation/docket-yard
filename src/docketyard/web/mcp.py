@@ -33,6 +33,7 @@ from docketyard.ingest.dockets import find_docket, parse_docket_id
 from docketyard.store import activity as activity_store
 from docketyard.store import coverage as coverage_store
 from docketyard.store import finder
+from docketyard.store import gaps as gaps_store
 from docketyard.store import pages as pages_store
 from docketyard.store import search as search_store
 from docketyard.store import sheet as sheet_store
@@ -425,10 +426,20 @@ def _search_filtered(con: Connection, args: dict, text: str, limit: int, host: s
             " for this answer. The records below are unaffected; say so if you report it."
         )
     if not out.total:
-        lines.append(
-            f"The record holds nothing matching {text!r}{scoped}. That is an absence in this"
-            " record, not proof of absence at the Board."
-        )
+        if out.pages_cut in ("budget", "rebuilding") and "text" in kinds:
+            # the words of documents were not searched, so nothing found is not an absence:
+            # said beside a warning that the text was skipped, "the record holds nothing"
+            # contradicted it (Codex, PR #43)
+            lines.append(
+                f"No filing, decision or comment matched {text!r}{scoped}, and the text of"
+                " documents was not searched, so this is NOT an absence in this record. Narrow"
+                " the words, or try again."
+            )
+        else:
+            lines.append(
+                f"The record holds nothing matching {text!r}{scoped}. That is an absence in"
+                " this record, not proof of absence at the Board."
+            )
         return "\n".join(lines)
     first = (page - 1) * limit + 1
     last = first + len(out.documents) - 1
@@ -1429,6 +1440,14 @@ def _count_decisions(con: Connection, args: dict, host: str) -> str:
 
 
 _RECENT_CAP = 100  # entries per call; `offset` reaches the rest
+_MAX_WINDOW_DAYS = 366
+
+
+def _today(by: str) -> str:
+    """The open end of a window: today, written as the window's own bound is."""
+    return Day.today().isoformat() if by == "board_date" else datetime.now(UTC).isoformat()
+
+
 _RECENT_DEFAULT = 50
 _MAX_DOCKETS = 50
 _KIND_ALIASES = {
@@ -1518,6 +1537,17 @@ def _recent(con: Connection, args: dict, host: str) -> str:
     # is `>=` in the one and `>` in the other
     if end and (start >= end if by == "observed" else start > end):
         return f"`since` ({start}) is not before `until` ({end}); nothing can fall between."
+    # A window is bounded, because a call materialises every record in it before paging:
+    # `since: 0001-01-01` by the Board's dates read the whole archive, and twenty such calls
+    # at once passed the web container's memory cap (Codex security review, PR #43). A brief
+    # needs a day or a week; a year back is a later window, not a longer one.
+    span = (Day.fromisoformat((end or _today(by))[:10]) - Day.fromisoformat(start[:10])).days
+    if span > _MAX_WINDOW_DAYS:
+        return (
+            f"A window spans at most {_MAX_WINDOW_DAYS} days, and this one spans {span}. Move"
+            " `since` later, or set `until` and read the years before in further windows;"
+            " `count_filings` and `count_decisions` count over any range."
+        )
 
     asked_kind = str(args.get("record_type") or "").strip().casefold()
     if asked_kind and asked_kind not in _KIND_ALIASES:
@@ -1728,10 +1758,15 @@ def _window_caveats(
                 " it. History is added in backfill waves, which this window never shows —"
                 " `by: board_date` reads the Board's dates over everything held."
             )
+        # only the outages a late entry can fall inside (`gaps.CITED`): a documents or
+        # delivery gap does not interrupt observation, and naming one told a brief the watch
+        # had stopped when it had not (Codex, PR #43)
         hit = [
             g
             for g in c.gaps
-            if (not end or g.started_at < end) and (g.ended_at is None or g.ended_at >= start)
+            if g.failure in gaps_store.CITED
+            and (not end or g.started_at < end)
+            and (g.ended_at is None or g.ended_at >= start)
         ]
         if hit:
             lines.append(
@@ -1740,8 +1775,12 @@ def _window_caveats(
                 + ". Entries the Board posted then were observed later, in the window that"
                 " observed them."
             )
-        if c.last_checked:
-            lines.append(f"Last checked against the Board: {c.last_checked}.")
+        # the sheet's rule, not the newest capture of any table: the OLDEST of the record
+        # tables' latest checks, so filings polled after decisions or comments stopped cannot
+        # vouch for all three (Codex, PR #43)
+        checked = sheet_store.last_polled(con)
+        if checked:
+            lines.append(f"Last checked against the Board: {checked}.")
     else:
         lines.append(
             "Filtered by the Board's own dates, over everything held, backfill waves included."

@@ -2600,3 +2600,13 @@ Worth weighing first: **every entry already links to the document's text and to 
 PDF**, so a reader who wants the rest of a summary has two ways to it. The question is whether
 the truncation is confusing enough to be worth any mechanism at all, which is a judgement about
 readers rather than about code.
+
+## From Codex's security review of PR #43 (the MCP brief tools), 2026-10-03, against cb522bb
+
+- **No request budget in front of `/mcp`.** Codex measured 20 concurrent `recent_activity`
+  calls over the whole archive at 847 MB RSS, past the web container's 768 MiB cap; the
+  checked-in Caddyfile has no limiter. Fixed in the tool: a window spans at most 366 days, so
+  one call materialises at most a year of records. Not fixed: a per-client rate or
+  concurrency limit for `/mcp` (Caddy has none built in; a module or a semaphore in the
+  route are the options) — every MCP tool, and `/search`, can be called in parallel by
+  anyone. An infrastructure decision, not this PR's.
