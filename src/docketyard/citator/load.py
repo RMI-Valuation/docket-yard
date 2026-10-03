@@ -417,6 +417,9 @@ def load_document(
     # span's — for the registry check below and for the reading's record (item 4).
     own = walk.own_of(con, sha)
     fused: dict[tuple[int, str], set[str]] = {}
+    # and the targets `find` matched and could not key, which it hands over rather than dropping
+    # (`find.find`'s `unkeyed`): out of class by the same test, so counted the same way
+    out.out_of_class += len(doc.get("unkeyed") or ())
     for finding in doc.get("findings", []):
         number = keys.normalise(finding.get("target", ""))
         if number is None or not keys.DOCKET_KEY.match(number):

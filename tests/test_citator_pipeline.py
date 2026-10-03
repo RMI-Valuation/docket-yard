@@ -586,6 +586,19 @@ def test_a_findings_document_becomes_four_families_and_a_run(tmp_path):
     assert run == (9, 2, 1)
 
 
+def test_a_target_the_finder_could_not_key_is_counted_out_of_class(tmp_path):
+    """`find` drops a match whose raw will not normalise, and hands it back as `unkeyed`
+    (code review, 2026-09-01): the one drop nothing could audit is counted with the others."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    doc = _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."})
+    result = load.load_document(
+        con, doc | {"unkeyed": ["EP 4x"]}, keys.registry(con), keys.works(con), stamps
+    )
+    assert (result.emitted, result.out_of_class) == (1, 1)
+    assert con.execute("SELECT targets_out_of_class FROM extraction_run").fetchone() == (1,)
+
+
 def test_a_re_run_replaces_the_pass_row_and_supersedes_nothing_else(tmp_path):
     con = _store(tmp_path)
     stamps = _scored(con)

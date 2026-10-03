@@ -305,3 +305,19 @@ def test_every_raw_find_writes_is_what_printed_says_the_page_printed():
     from_find = [raw for f in find.find(page, OWN) for _, _, raw in f["spans"]]
     assert sorted(from_find) == sorted(by_printed)
     assert "AB-12 (Sub-No. 162X)" in by_printed and "WB25-33" in by_printed
+
+
+def test_a_match_that_will_not_key_is_handed_back_not_dropped(monkeypatch):
+    """Near-unreachable — the raw is sliced from a docket match — so the normaliser is made to
+    refuse one here. The drop is carried on the findings document for `load` to count (code
+    review, 2026-09-01), and a document with none carries no `unkeyed` key at all, so every
+    findings file already written is unchanged."""
+    page = "See EP 445 and FD 1."
+    assert "unkeyed" not in find.findings_document(
+        page, document_sha256="a" * 64, own=OWN, text_ref="benchmark"
+    )
+    real = find.normalise
+    monkeypatch.setattr(find, "normalise", lambda raw: None if raw == "FD 1" else real(raw))
+    doc = find.findings_document(page, document_sha256="a" * 64, own=OWN, text_ref="benchmark")
+    assert [f["target"] for f in doc["findings"]] == ["EP 445"]
+    assert doc["unkeyed"] == ["FD 1"]

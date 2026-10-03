@@ -210,7 +210,7 @@ def _to_close(line: str, depth: int) -> str:
     return line
 
 
-def find(page_text: str, own: set[str]) -> list[dict]:
+def find(page_text: str, own: set[str], unkeyed: list[str] | None = None) -> list[dict]:
     """Every docket-shaped hit on one page, with its kind and the line it sat on.
 
     `own` is the normalised keys of the dockets the citing work is entered in — record data,
@@ -240,6 +240,9 @@ def find(page_text: str, own: set[str]) -> list[dict]:
     - a span verifies as `" ".join(text[start:end].split()) == raw`, never as plain equality:
       `_target_end` crosses a newline for a wrapped sub-docket while the printed form is
       whitespace-collapsed (628 citations, the note above).
+
+    `unkeyed`, when given, collects every printed target that matched a docket pattern and
+    would not normalise — dropped here, so it is handed back to be COUNTED rather than lost.
     """
     found: dict[str, dict] = {}
     for m in docket_matches(page_text):
@@ -254,6 +257,12 @@ def find(page_text: str, own: set[str]) -> list[dict]:
         # into one finding (item 8) and the span test, not "not own", decides its kind
         key = own_key(normalise(raw), own)
         if key is None:
+            # NOT KEPT, BUT NOT SILENT (code review, 2026-09-01): `load` counts a finding that
+            # will not normalise as `out_of_class`, and a drop here was the one drop nothing
+            # could audit. Near-unreachable — the raw is sliced from a docket match — so it is
+            # handed back for `findings_document` to carry and `load` to count, not raised.
+            if unkeyed is not None:
+                unkeyed.append(raw)
             continue
         line = quoted(page_text, m.start(), end)
         names_document = key not in own or judge.names_document(line)
@@ -448,6 +457,7 @@ def findings_document(
             " record already knows, so a missing answer is a refusal and not a default."
         )
     found = []
+    unkeyed: list[str] = []
     page_list = list(text) if not isinstance(text, str) else pages(text)
     if isinstance(text, str) and len(page_list) == 1 and len(text) > 6000:
         raise Unmarked(
@@ -455,7 +465,7 @@ def findings_document(
             " Pass the pages explicitly; one page here would be a false location on every row."
         )
     for page, body in page_list:
-        for f in find(body, own):
+        for f in find(body, own, unkeyed):
             found.append({"page": page, **f})
     missing = [page for page, _ in page_list if text_ids and page not in text_ids]
     if missing:
@@ -478,6 +488,8 @@ def findings_document(
     if text_ref != "store":
         for f in found:
             f["printed"] = [raw for _, _, raw in f.pop("spans", None) or []]
+    # `unkeyed` (last) rides only when `find` matched a target it could not key, so every findings
+    # file the walk has ever written stays byte-identical; `load` adds it to `out_of_class`
     return {
         "document_sha256": document_sha256,
         "method": "regex-docket-cite",
@@ -494,4 +506,4 @@ def findings_document(
         # page this pass read, because a page it did not read found nothing (ADR 0018 D10)
         "pages_walked": [page for page, _ in page_list],
         "findings": found,
-    }
+    } | ({"unkeyed": unkeyed} if unkeyed else {})
