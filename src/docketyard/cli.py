@@ -786,6 +786,7 @@ def _text(args: argparse.Namespace) -> int:
     written, or nothing was attached (a wrong `--db`, an empty root), which is not a
     success just because the loop ran.
     """
+    from docketyard.store import batches
     from docketyard.text import load, paginate, route
 
     pass_ = {"load": load, "route": route}.get(args.what, paginate)
@@ -802,10 +803,15 @@ def _text(args: argparse.Namespace) -> int:
         return 1
     knobs = {} if retries is None else {"lock_retries": retries}
     con = db.connect(args.db)
-    if pass_ is load:
-        totals = load.run(con, root, args.data_dir, **knobs)
-    else:
-        totals = pass_.run(con, root, **knobs)
+    try:
+        if pass_ is load:
+            totals = load.run(con, root, args.data_dir, **knobs)
+        else:
+            totals = pass_.run(con, root, **knobs)
+    except batches.Stop as e:
+        # the configuration, not a document: one line, not a `failed` per file
+        print(f"stopped: {e}. What landed before it is committed; re-run once that is fixed.")
+        return 1
     print(dict(totals))
     attached = sum(totals[k] for k in pass_.ATTACHED)
     if totals["aborted"]:

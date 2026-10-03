@@ -93,6 +93,17 @@ from docketyard.text.fields import (
     text_sha256,
 )
 
+
+class PinRefused(batches.Stop):
+    """A reading at a version its key's pin refuses (ADR 0024 D6). NOT `Unreadable`, which is
+    what the store shows to be wrong with the READING: this is wrong with the CONFIGURATION —
+    a root read at the wrong version, or a container bumped without `text pin --repoint` — and
+    it is true of every reading in the root, so it stops the pass once rather than arriving as
+    one failure per document (`docs/deferred.md`, the schema critic on migration 0024,
+    2026-09-05). The stage reports it in `problems` once a pass, and leaves the files where
+    they are: nothing about them is wrong."""
+
+
 ROLES = ("primary", "second")  # what a model pass may write; 'human' is the review layer's
 ATTACHED = ("loaded", "unchanged", "restart", "run_only")  # a reading met its document
 NOUN = "reading"
@@ -668,7 +679,8 @@ def load_reading(
     CALLER holds the transaction. Returns `loaded`, `unchanged` (every page already said
     this), `restart` (this very pass is already recorded), `run_only` (a pass with no
     pages), or `unknown_document`. Raises `Unreadable` for what the store shows to be
-    wrong with the reading — `store.batches` counts that as `failed`."""
+    wrong with the reading — `store.batches` counts that as `failed` — and `PinRefused`
+    for a reading the pin refuses, which stops the pass."""
     now = now or utcnow()
     h = reading.header
     sha = h.document_sha256
@@ -689,9 +701,9 @@ def load_reading(
     if (pin := (pins(con) if pinned_keys is None else pinned_keys).get(key)) is not None and (
         pin != (h.key.method, h.key.method_version)
     ):
-        raise Unreadable(
+        raise PinRefused(
             f"{'/'.join(key)} is pinned to {pin[0]}@{pin[1]};"
-            f" this reading is {h.key.method}@{h.key.method_version}"
+            f" this reading of {sha[:12]} is {h.key.method}@{h.key.method_version}"
         )
     # WHICH DISPATCH THIS ANSWERS (ADR 0024 addendum, 2026-09-11). Only the stage passes
     # `stamp`; `cli._text` never does, so a hand load is NULL whatever its file quotes —

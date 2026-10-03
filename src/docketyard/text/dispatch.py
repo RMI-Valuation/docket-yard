@@ -52,6 +52,7 @@ from hashlib import sha256
 from pathlib import Path
 from sqlite3 import Connection
 
+from docketyard.store import batches
 from docketyard.store.db import utcnow
 from docketyard.text import load, paginate, queue
 from docketyard.text.fields import read_head
@@ -390,6 +391,16 @@ def run(
                     if pass_ is load
                     else pass_.run(con, ready)
                 )
+            except batches.Stop as e:
+                # THE CONFIGURATION, NOT THE FILES (ADR 0024 D6): a reading at a version the
+                # pin refuses — the container bumped without a re-point. One line a pass for
+                # as long as it holds, where it was one `failed` per document, and the files
+                # stay in `ready/`: `aborted` keeps `_clear` from quarantining readings
+                # nothing is wrong with, and the next pass after the re-point loads them.
+                con.rollback()
+                aborted = True
+                problems.append(f"text {name}: stopped — {e}")
+                continue
             except Exception as e:  # noqa: BLE001 — the stage must never cost the pass
                 con.rollback()
                 aborted = True

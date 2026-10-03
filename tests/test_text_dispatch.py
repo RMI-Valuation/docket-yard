@@ -514,6 +514,55 @@ def test_only_the_shape_this_stage_produces_is_accepted(tmp_path):
     con.close()
 
 
+def test_a_container_ahead_of_its_pin_is_one_problem_a_pass_and_loses_nothing(tmp_path):
+    """`pymupdf` bumped in the container and nobody ran `text pin --repoint`: every reading it
+    writes is refused by the pin. That is the CONFIGURATION, so it is one `problems` line a
+    pass — the only record of the refusal the store can honestly hold before an `ocr_run` row
+    could name a method that ran (deferred.md, the schema critic on migration 0024,
+    2026-09-05) — and the files stay in `ready/`, never quarantined: after the re-point the
+    next pass loads them."""
+    con = _store(tmp_path)
+    _pin(con)
+    shas = [_doc(con, "a"), _doc(con, "b")]
+    con.executemany(
+        "INSERT INTO extraction_dispatch (document_sha256, pinned_method,"
+        " pinned_method_version, dispatched_at) VALUES (?, ?, ?, ?)",
+        [(sha, *PIN, STAMP) for sha in shas],
+    )
+    con.commit()
+    for sha in shas:
+        _spool(tmp_path, sha, tool_version="1.27.0")
+
+    def stage():
+        problems: list[str] = []
+        out = dispatch.run(
+            con,
+            tmp_path,
+            spool=tmp_path / "spool",
+            requests=tmp_path / "req",
+            problems=problems,
+            log=lambda _: None,
+        )
+        return out, problems
+
+    out, problems = stage()
+    stopped = [p for p in problems if p.startswith("text loaded: stopped")]
+    assert len(stopped) == 1 and "pinned to pymupdf@1.26.0" in stopped[0], problems
+    assert not any("failed" in p or "refused by the loader" in p for p in problems), problems
+    assert "refused" not in out, "a stopped load must not clear the files it never judged"
+    assert len(list((tmp_path / "ready").rglob("*.json"))) == 2
+    assert not (tmp_path / "quarantine").exists()
+    assert con.execute("SELECT COUNT(*) FROM ocr_run").fetchone() == (0,)
+
+    load.repoint_producer(
+        con, dispatch.CHANNEL, dispatch.RENDER, dispatch.ROLE, "pymupdf", "1.27.0"
+    )
+    con.commit()
+    out, problems = stage()
+    assert out["loaded"].get("loaded") == 2, (out, problems)
+    con.close()
+
+
 def test_a_landed_reading_is_swept_and_an_unlanded_one_is_kept(tmp_path):
     """ADR 0024 D9: a file is removed only after the loader reports a landed outcome, never
     on `unreadable`, `failed` or `aborted`, or a parse failure would destroy the raw D5 needs
