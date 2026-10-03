@@ -593,6 +593,21 @@ def test_the_weights_revision_is_the_loaded_hash_else_the_caches_ref(tmp_path):
 
 # --- the transport: the same promises through queue_server.py and RemoteQueue -----------------
 
+
+def test_the_producer_names_the_dtype_the_weights_were_loaded_in():
+    """Not in the key (that would invalidate every reading), in the declaration: a float16
+    reader must not declare the same producer as a bf16 one (mapping the queue, 2026-09-19)."""
+
+    class Model:
+        dtype = "torch.bfloat16"  # what `str(torch.bfloat16)` says
+
+    assert hw.loaded_dtype(Model()) == "bfloat16"
+    assert hw.loaded_dtype(object()) is None
+    assert "dtype" not in pq.PASSES["tabular"]["key"]
+    src = (ROOT / "tools" / "fleet" / "hunyuan_worker.py").read_text(encoding="utf-8")
+    assert '"dtype": loaded_dtype(model),' in src
+
+
 import hashlib  # noqa: E402
 import io  # noqa: E402
 import socket  # noqa: E402

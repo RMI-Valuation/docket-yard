@@ -222,6 +222,18 @@ def weights_revision(name: str, commit_hash: str | None, cache: Path) -> str | N
     return ref.read_text(encoding="utf-8").strip() or None
 
 
+def loaded_dtype(model) -> str | None:
+    """The dtype the weights were LOADED in, as the producer declares it: `bfloat16`, not
+    `torch.bfloat16`. In the DECLARATION, never the key (mapping the queue, 2026-09-19).
+    `ocr_run.load_hunyuan` hardcodes bfloat16, so every reader is bf16 today; but a Turing card
+    has no hardware bf16, and a reader "fixed" to float16 would otherwise declare an identical
+    producer while reading differently — the silent split ADR 0023 exists to prevent. Adding it
+    to the key would invalidate every reading, so it is said here and only here. Read off the
+    model, not copied from `ocr_run`, so it says what was loaded rather than what was meant."""
+    dtype = getattr(model, "dtype", None)
+    return None if dtype is None else str(dtype).removeprefix("torch.")
+
+
 # --- one page -------------------------------------------------------------------------------
 
 
@@ -371,6 +383,7 @@ def main() -> int:
         "engine_version": transformers.__version__,
         "engine_model": args.model,
         "weights_revision": revision,
+        "dtype": loaded_dtype(model),
         "max_new_tokens": HUNYUAN_MAX_NEW_TOKENS,
         "max_megapixels": spec["max_megapixels"],
         "worker": Path(__file__).name,
