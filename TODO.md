@@ -18,8 +18,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   2026-09-20 — a miss fetches and hash-verifies, a hit serves from disk, a sha in no store
   **404 not 503**. Owed in `deferred.md`: the worker branches have no test, the corrupt-store
   alarm reaches nobody, `pull_blobs.py` still compares size not sha
-- **rmi-nuc2 IS THE COORDINATOR** since 2026-09-20 (queue, roots, readings, credentials, backup
-  and Alloy across; blob answers re-proved). **rmi-nuc is rmi-fleet's now** — wiped, no DY claim
 - **THE TABULAR PASS READS THROUGH THE BROKER** since 2026-09-20 — job 40 (39 cancelled to drop
   `--blobs`, so a mirror miss is now a coordinator fetch), `dy-ocr`, preemptible. Key unchanged;
   **do NOT raise the render mid-pass**. **There was never a separate submit token**: one broker
@@ -35,6 +33,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
   `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
   quotation per displayed reading, migration 0033. **His to accept; then migration + pass**
+- **MCP brief tools, PR from `mcp-brief`** (his, 2026-10-02): triage Copilot + Codex, merge,
+  then RELEASE — main also carries `list_proceedings`, unreleased
 
 ## Next
 
