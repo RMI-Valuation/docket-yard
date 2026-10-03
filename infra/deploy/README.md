@@ -212,6 +212,23 @@ checks. A per-table check in `db.migrate` would cut it and is recorded in `docs/
 
 ## Routine operations
 
+### Migration 0034 — a decided date keys on its page (ADR 0023 addendum of 2026-09-16)
+
+A **migrating release, behind the wall** (§ Deploying a migrating release). 0034 rebuilds
+`decision_decided_date`, which must hold **0 rows**: it refuses any other store rather than
+guess a page. Count first; then the README's sequence; then the pass, which writes only that
+held table:
+
+```sh
+docker compose run --rm --no-deps --entrypoint docketyard backfill   --db /data/docketyard.sqlite citator decided </dev/null
+```
+
+**Deployed 2026-10-03 (v2026.10.3).** Wall 20:40:56-20:49:50 UTC; 0034 in about 3 minutes
+(the runner's `foreign_key_check`); `quick_check` ok and foreign keys clean on the live store
+before the wall came down. The pass ran in 54 s: 16,427 lines from 16,031 documents. It reads
+the whole record each run and rewrites only what changed, so re-running it is safe at any
+time. `docker compose pull` also pulled a newer `caddy:2-alpine` and restarted it.
+
 ### Migration 0029 — a retraction retires the key's readings too (ADR 0018 addendum)
 
 A **migrating release, so it goes behind the wall** (§ Deploying a migrating release, ADR 0020).

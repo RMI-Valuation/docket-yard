@@ -8,7 +8,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **v2026.10.2 LIVE** (schema 33). The fleet runs `3629aa8` (coordinator moved forward
+- **v2026.10.3 LIVE** (schema 34; decided dates quoted, 16,427 lines, held). The fleet runs `3629aa8` (coordinator moved forward
   2026-09-20; nothing it executes changed). dots 46,838/134
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown;
   exposed 428. **The review page, for a person** — docket, sub-docket and document in one look,
@@ -30,9 +30,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   not a long page — 1,490 pages final-failed, 48 documents with nothing read. **Do not raise
   `max_new_tokens`.** Two decisions: is a loop the page's fault (it is filed as final) and is a
   degenerate answer's good prefix worth publishing. A repetition guard is separable and cheap
-- **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
-  `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
-  quotation per displayed reading, migration 0033. **His to accept; then migration + pass**
 
 ## Next
 
