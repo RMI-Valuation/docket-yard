@@ -326,7 +326,7 @@ def decide(
     cited_docket_id: int | None = None,
 ) -> int:
     """Record one decision: the assertion first, then the action naming it, in ONE
-    transaction. Returns the action id.
+    transaction, begun here and committed by the caller. Returns the action id.
 
     The order matters and § 7 fixes it: `produced_key` is written in the same transaction as
     the row it names, and it is THE authoritative link. There is no backward pointer from the
@@ -347,6 +347,15 @@ def decide(
         # a withdrawn grant ends NEW actions; past rows stand and stay attributed (ADR 0016)
         raise ValueError(f"reviewer {reviewer_id} was revoked at {grant[0]}")
 
+    # THE TRANSACTION IS OPENED HERE, not left to `sqlite3`'s implicit one (schema-critic,
+    # 2026-09-01, on migration 0015). Implicitly, every write below is one transaction only on a
+    # connection in its default mode; on an autocommit one each UPDATE commits alone, and the
+    # self-pointer the retirement writes first — which "cannot be told apart from a deliberate
+    # retirement" (migration 0014) — would stand committed until the INSERT after it. The
+    # COMMIT stays the caller's, as it always was: the CLI and the web route each commit or roll
+    # back the decision whole. A transaction the caller already holds is joined, not nested.
+    if not con.in_transaction:
+        con.execute("BEGIN")
     now = utcnow()
     # RE-DERIVED, not taken from the dict: `produced_key` is the authoritative link, and a
     # caller handing over an inconsistent item would make it name a different key than the

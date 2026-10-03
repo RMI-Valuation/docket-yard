@@ -596,3 +596,51 @@ def test_accepting_a_resolution_keeps_the_work_the_machine_named(tmp_path):
         "SELECT method, cited_docket_id, cited_decision_id FROM citation_resolution"
         " WHERE superseded_by IS NULL"
     ).fetchall() == [("human", 3, "77777")]
+
+
+def test_a_decision_and_a_load_are_one_transaction_on_an_autocommit_connection(tmp_path):
+    """`decide` said ONE transaction and opened none (schema-critic, 2026-09-01, on migration
+    0015): on an autocommit connection each statement committed alone, and the retirement's
+    self-pointer — indistinguishable from a deliberate retirement — stood committed before the
+    human row it was waiting for. Both writers now open the transaction and leave the commit
+    to the caller, so a caller that rolls back leaves nothing, on any connection mode."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    reviewer = _reviewer(con)
+    con.commit()
+    con.isolation_level = None  # autocommit: no implicit transaction for anyone to rely on
+    other = sqlite3.connect(tmp_path / "s.sqlite")
+
+    def live():
+        return other.execute("SELECT COUNT(*) FROM citation_resolution").fetchone()[0]
+
+    _load(con, stamps, EXPOSED)
+    assert con.in_transaction and live() == 0, "the load is uncommitted until its caller says"
+    con.rollback()
+    assert live() == 0
+    _load(con, stamps, EXPOSED)
+    con.commit()
+    rows = live()
+
+    item = review.pending(con, "citation_exposed")[0]
+    review.decide(
+        con,
+        reviewer_id=reviewer,
+        queue="citation_exposed",
+        item=item,
+        decision="accepted",
+        note="checked",
+    )
+    assert con.in_transaction
+    assert other.execute("SELECT COUNT(*) FROM review_action").fetchone()[0] == 0
+    assert live() == rows
+    assert (
+        other.execute(
+            "SELECT COUNT(*) FROM citation_resolution WHERE superseded_by = resolution_id"
+        ).fetchone()[0]
+        == 0
+    ), "no self-pointer is visible outside the transaction"
+    con.rollback()
+    assert con.execute("SELECT COUNT(*) FROM review_action").fetchone()[0] == 0
+    assert review.pending(con, "citation_exposed") == [item]
+    other.close()

@@ -518,6 +518,13 @@ def load_document(
             " passage (ADR 0017 D6), and an empty one would be stored as one"
         )
 
+    # EVERY WRITE BELOW IS ONE TRANSACTION, opened explicitly (schema-critic, 2026-09-01): left
+    # to `sqlite3`'s implicit one it is a transaction only on a connection in its default mode,
+    # and on an autocommit one each retirement's self-pointer would commit before the row it
+    # points at exists. The caller commits — per document, in `citator load` — or rolls back,
+    # and a transaction it already holds is joined.
+    if not con.in_transaction:
+        con.execute("BEGIN")
     for (page, key), quotes in sorted(passages.items()):
         passage = " | ".join(q for q in quotes if q)
         out.emitted += 1
