@@ -357,7 +357,17 @@ def run(
     out: dict = {"loaded": {}, "paginated": {}, "dispatched": 0}
     pin = _pin(con)
     if pin is None:
+        # REFUSED LOUDLY, into `problems` (deferred.md, the schema critic on migration 0024,
+        # 2026-09-05). `pinned()` returning None means both "deliberately unpinned" and
+        # "nobody got round to it", and a summary key alone let the second read as the
+        # first: the stage idle, every forward document unread, and a pass that exits 0.
+        # `text pin` cannot un-pin, so on a store that has ever run the stage this line means
+        # something is wrong with the store, not that someone chose it.
         out["skipped"] = "no producer pinned for text-layer/native/primary"
+        problems.append(
+            f"text extraction: no producer is pinned for {CHANNEL}/{RENDER}/{ROLE}, so nothing"
+            " was loaded or dispatched; declare one with `docketyard text pin`"
+        )
         return out
     method, version = pin
     out["pin"] = f"{method}@{version}"

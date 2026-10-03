@@ -255,6 +255,9 @@ def test_the_stage_does_nothing_until_a_producer_is_pinned(tmp_path):
         log=lambda _: None,
     )
     assert out["skipped"].startswith("no producer pinned")
+    # LOUDLY: a summary key alone let "nobody got round to it" read as "deliberately unpinned",
+    # and the pass exited 0 (deferred.md, the schema critic on migration 0024, 2026-09-05)
+    assert len(problems) == 1 and "docketyard text pin" in problems[0], problems
     assert not (tmp_path / "req").exists(), "nothing was handed over"
     assert con.execute("SELECT COUNT(*) FROM extraction_dispatch").fetchone() == (0,)
     con.close()
