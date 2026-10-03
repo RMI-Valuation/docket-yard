@@ -1235,3 +1235,16 @@ def test_a_capped_search_is_a_floor_not_a_count(client, monkeypatch):
     text = search_text(client, query="replies", sort="newest")
     assert "at least 1 filings" in text and "this is a floor and not a count" in text
     assert "newest first among what was examined" in text
+
+
+def test_leaving_out_thousands_of_proceedings_stays_under_the_variable_ceiling(tmp_path):
+    """Fifty carrier series expand to thousands of proceedings (Copilot, PR #43)."""
+    from docketyard.store import finder
+
+    con = _brief(tmp_path)
+    search.rebuild(con)
+    q = finder.Query(
+        text="replies", view="documents", exclude_groups=tuple(range(100_000, 140_000))
+    )
+    assert finder.find(con, q).total == 1
+    con.close()

@@ -247,8 +247,10 @@ def _filters(q: Query, alias: str = "p") -> tuple[str, list]:
         where.append(f"+{alias}.group_docket_id = ?")
         args.append(q.within)
     if q.exclude_groups:
-        where.append(f"+{alias}.group_docket_id NOT IN ({','.join('?' for _ in q.exclude_groups)})")
-        args += q.exclude_groups
+        # one bound JSON value, not a variable per id: fifty excluded carrier series expand to
+        # thousands of proceedings, past SQLite's ceiling on bound variables (Copilot, PR #43)
+        where.append(f"+{alias}.group_docket_id NOT IN (SELECT value FROM json_each(?))")
+        args.append(json.dumps(sorted(q.exclude_groups)))
     if q.exclude_prefixes:
         where.append(f"+{alias}.prefix NOT IN ({','.join('?' for _ in q.exclude_prefixes)})")
         args += q.exclude_prefixes
