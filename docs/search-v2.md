@@ -25,6 +25,10 @@
    examined, the page side is sorted among those and the page says so; records are always
    complete.
 
+**Revised 2026-10-02 (the operator):** MCP's `search_the_record` takes filters after all —
+any one sends the words through `finder.find` as a flat list with a total
+(`docs/machine-surface.md`); with none, its answer is unchanged.
+
 Unchanged: a docket number or citation is the fast path to its sheet; `/suggest` and MCP's
 `search_the_record` keep today's kinds and shape; nothing typed is stored or logged; a page
 hit carries who read it, the band and the scan (ADR 0021 D7).

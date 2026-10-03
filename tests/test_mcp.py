@@ -7,12 +7,14 @@ without them is worse than no source, so they are asserted, not trusted.
 """
 
 import ast
+import datetime
 import pathlib
 import re
 
 import pytest
 from fastapi.testclient import TestClient
 
+from docketyard.capture.stb import FILINGS
 from docketyard.store import db, search, sheet
 from docketyard.web import mcp
 from docketyard.web.app import create_app
@@ -855,3 +857,458 @@ def _many_entries(tmp_path):
     )
     con.commit()
     return con
+
+
+# --- recent_activity (asked for 2026-10-02, for a brief run as a scheduled task) -----------
+
+
+def _brief(tmp_path):
+    """The web store — a motion entered in FD 36873 and its sub-docket, a second motion in
+    the sub-docket, a decision entered in both — plus an environmental comment, every one
+    observed by a forward capture made as the test runs."""
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    ingest_comment(con, tmp_path, comment_row())
+    con.commit()
+    return con
+
+
+# a window ending now, well inside the 366-day bound whatever day the suite runs: the
+# fixture's captures are made as the test runs
+SINCE = (datetime.date.today() - datetime.timedelta(days=300)).isoformat()
+
+
+def recent(con, **arguments):
+    return mcp._recent(con, arguments, "docketyard.org")
+
+
+def test_recent_activity_lists_what_the_watch_observed_once_per_record(tmp_path):
+    con = _brief(tmp_path)
+    text = recent(con, since=SINCE)
+    # 311981 is two rows and one filing; 53210 likewise — counted and listed once each
+    assert ": 2 filings, 1 decision, 1 environmental comment." in text
+    assert text.count("[filing] 311981") == 1 and text.count("[decision] 53210") == 1
+    assert "also entered in FD 36873 (Sub-No. 1)" in text
+    # in the sheet's own form, with the record's address here and when it was observed
+    assert 'the Board\'s summary, as printed: "ORDERED REPLIES DUE"' in text
+    assert "here: https://docketyard.org/decision/53210" in text
+    assert "new to this record" in text
+    # the caption once per proceeding on a page, not on every line
+    assert text.count("UP/NS CONTROL") == 1 and "(caption above)" in text
+    # the watch began after `since`, and the answer says what that means
+    assert "nothing earlier was observed by it" in text
+    con.close()
+
+
+def test_recent_activity_narrows_without_keeping_anything(tmp_path):
+    con = _brief(tmp_path)
+    # a watchlist is an argument: a number the record does not hold is named, not guessed
+    text = recent(con, since=SINCE, dockets=["FD 36873 (Sub-No. 1)", "FD 99999"])
+    assert "'FD 99999'. They may exist at the Board and not here." in text
+    assert "[filing] 311900" in text and "in FD 36873 (Sub-No. 1)" in text
+    # the Filed For cell as printed; filings only, so no decision or comment rides along
+    text = recent(con, since=SINCE, party="nrdc")
+    assert ": 1 filing." in text and "not a resolved party" in text
+    # the Board's own type, named
+    text = recent(con, since=SINCE, type="motion")
+    assert "of the Board's types 'Motion'" in text and "[decision]" not in text
+    assert "No filing or decision type" in recent(con, since=SINCE, type="zzz")
+    text = recent(con, since=SINCE, deciding_body="chief counsel")
+    assert ": 1 decision." in text
+    # a prefix left out, and one the record does not hold
+    text = recent(con, since=SINCE, exclude_prefixes=["fd", "MCF"])
+    assert "holds no filings, decisions or environmental comments" in text
+    assert "No docket prefix MCF is held" in text
+    assert "holds no docket prefix 'ZZ'" in recent(con, since=SINCE, prefix="zz")
+    text = recent(con, since=SINCE, record_type="comment")
+    assert ": 1 environmental comment." in text and "[comment] EI-34280" in text
+    con.close()
+
+
+def test_recent_activity_pages_and_says_how_many_remain(tmp_path):
+    con = _brief(tmp_path)
+    text = recent(con, since=SINCE, limit=1)
+    assert "Showing 1–1" in text and "3 more: call again with `offset` 1" in text
+    text = recent(con, since=SINCE, limit=1, offset=3)
+    assert "Showing 4–4" in text and "more: call again" not in text
+    assert "past the last of them" in recent(con, since=SINCE, offset=9)
+    con.close()
+
+
+def test_recent_activity_windows_on_either_time_and_says_which(tmp_path):
+    con = _brief(tmp_path)
+    # the Board's dates: the decision was served 2026-08-21, the filings 08-24 and 08-25
+    text = recent(con, since="2026-08-24", until="2026-08-24", by="board_date")
+    assert ": 1 filing." in text and "[filing] 311900" in text
+    assert "first held here" in text and "from the forward watch" in text
+    assert "a window already read can gain entries" in text
+    # observed: a window that closed before the capture holds nothing, and says so
+    text = recent(con, since="2026-01-01", until="2026-01-02T12:00:00Z")
+    assert "The record holds no filings, decisions or environmental comments" in text
+    assert "not proof of absence at the Board" in text
+    con.close()
+
+
+def test_recent_activity_tells_a_record_seen_again_from_a_new_one(tmp_path):
+    """The Board relisting a held record with a change (a file added, a summary corrected)
+    is a new event for it; a brief must not report it as new."""
+    con = _brief(tmp_path)
+    con.execute("UPDATE capture SET captured_at = '2026-09-01T12:00:00+00:00'")
+    (cid,) = con.execute("SELECT capture_id FROM capture ORDER BY capture_id LIMIT 1").fetchone()
+    later = con.execute(
+        "INSERT INTO capture (source_system, endpoint, request_params, response_sha256,"
+        " http_status, filter_asserted, ingest_mode, captured_at, table_action)"
+        " SELECT source_system, endpoint, request_params, response_sha256, http_status,"
+        " filter_asserted, ingest_mode, '2026-09-20T12:00:00+00:00', table_action"
+        " FROM capture WHERE capture_id = ?",
+        (cid,),
+    ).lastrowid
+    con.execute(
+        "INSERT INTO event (event_type, docket_id, recorded_at, capture_id, source_key, payload,"
+        " payload_version) SELECT event_type, docket_id, recorded_at, ?, source_key, payload,"
+        " payload_version FROM event WHERE event_type = 'decision_observed' LIMIT 1",
+        (later,),
+    )
+    con.commit()
+    text = recent(con, since="2026-09-10", until="2026-12-31")
+    assert ": 1 decision." in text
+    assert "held since 2026-09-01T12:00:00+00:00: seen again because the Board's listing" in text
+    assert "new to this record" not in text
+    con.close()
+
+
+def test_recent_activity_names_an_outage_inside_the_window(tmp_path):
+    con = _brief(tmp_path)
+    con.execute(
+        "INSERT INTO coverage_gap (started_at, ended_at, failure, note) VALUES"
+        " ('2026-03-01T00:00:00+00:00', '2026-03-01T06:00:00+00:00', 'captures', 'test')"
+    )
+    con.commit()
+    assert "was not keeping the record: 2026-03-01T00:00:00+00:00" in recent(
+        con, since="2026-02-01", until="2026-06-01"
+    )
+    assert "was not keeping the record" not in recent(con, since="2026-04-01", until="2026-06-01")
+    con.close()
+
+
+def test_recent_activity_refuses_what_it_cannot_read(tmp_path):
+    con = _brief(tmp_path)
+    assert "`since` is required" in recent(con)
+    assert "must be a date (YYYY-MM-DD) or a date and time" in recent(con, since="yesterday")
+    assert "must be a date written YYYY-MM-DD" in recent(
+        con, since="2026-01-01T00:00:00Z", by="board_date"
+    )
+    assert "nothing can fall between" in recent(con, since="2026-05-01", until="2026-04-01")
+    assert "`by` is `observed`" in recent(con, since=SINCE, by="filed")
+    assert "`record_type` is" in recent(con, since=SINCE, record_type="order")
+    assert "is a list of strings" in recent(con, since=SINCE, dockets=[1, 2])
+    assert "at most 50" in recent(con, since=SINCE, dockets=["FD 1"] * 51)
+    assert "at least three characters" in recent(con, since=SINCE, party="UP")
+    con.close()
+
+
+def test_recent_activity_carries_the_standing_caveats(client):
+    text = call(client, "recent_activity", {"since": SINCE})["content"][0]["text"]
+    assert "does not say what any party argued" in text and "Coverage is not uniform" in text
+
+
+# --- search_the_record, filtered (the operator reopened his 2026-09-17 decision, 2026-10-02) --
+
+
+def search_text(client, **arguments):
+    return call(client, "search_the_record", arguments)["content"][0]["text"]
+
+
+def test_a_filtered_search_is_one_list_with_a_total(client):
+    text = search_text(client, query="replies", record_type="decision")
+    # the decision entered in both dockets is one item, with the count saying how it counted
+    assert ": 1 filings, decisions, comments and pages" in text
+    assert "each once however many proceedings it was entered in" in text
+    assert text.count("[decision] Decision 53210") == 1
+    # no filter: the shape it has always been
+    assert "filings, decisions, comments and pages" not in search_text(client, query="replies")
+
+
+def test_a_filtered_search_leaves_out_what_it_is_told_to(client):
+    text = search_text(client, query="replies", exclude_dockets=["FD 36873"])
+    # the decision is in FD 36873 and its sub-docket: leaving out the family leaves nothing
+    assert "The record holds nothing matching 'replies', leaving out FD 36873" in text
+    assert "not proof of absence at the Board" in text
+    assert "is not a docket number this record holds" in search_text(
+        client, query="replies", exclude_dockets=["FD 99999"]
+    )
+    assert "nothing matching" in search_text(client, query="replies", exclude_prefixes=["FD"])
+    assert "Decision 53210" in search_text(client, query="replies", exclude_prefixes=["MCF"])
+
+
+def test_a_filtered_search_narrows_by_date_type_and_prefix(client):
+    assert "Decision 53210" in search_text(
+        client, query="replies", date_from="2026-08-21", date_to="2026-08-21"
+    )
+    assert "nothing matching" in search_text(client, query="replies", date_from="2026-08-22")
+    assert "of the Board's types 'Decision'" in search_text(
+        client, query="replies", type="decision"
+    )
+    assert "in FD proceedings" in search_text(client, query="replies", prefix="fd")
+
+
+def test_a_filtered_search_refuses_what_it_cannot_read(client):
+    assert "must be a date written YYYY-MM-DD" in search_text(client, query="x", date_from="May")
+    assert "nothing can fall between" in search_text(
+        client, query="x", date_from="2026-05-01", date_to="2026-04-01"
+    )
+    assert "holds no docket prefix 'ZZ'" in search_text(client, query="x", prefix="zz")
+    assert "`record_type` is" in search_text(client, query="x", record_type="docket")
+    assert "`sort` is" in search_text(client, query="x", sort="oldest")
+    assert "`page` must be" in search_text(client, query="x", page=0)
+    assert "No filing or decision type" in search_text(client, query="x", type="zzz")
+
+
+# --- count_decisions (asked for 2026-10-02 beside recent_activity) --------------------------
+
+
+def test_a_decision_count_is_of_decisions_and_proceedings_not_rows(tmp_path):
+    con = _brief(tmp_path)
+    text = mcp._count_decisions(con, {"deciding_body": "chief counsel"}, "docketyard.org")
+    # one decision, entered in FD 36873 and its sub-docket
+    assert ": 1 decision entered in 2 proceedings, served 2026-08-21 to 2026-08-21." in text
+    assert "neither says what a decision did" in text
+    # its members are what recent_activity lists with the same filters
+    listed = recent(
+        con,
+        since="2026-08-01",
+        until="2026-12-31",
+        by="board_date",
+        record_type="decision",
+        deciding_body="chief counsel",
+    )
+    assert ": 1 decision." in listed
+    con.close()
+
+
+def test_without_a_type_or_body_the_decision_vocabulary_is_listed(tmp_path):
+    con = _brief(tmp_path)
+    text = mcp._count_decisions(con, {}, "docketyard.org")
+    assert "By the Board's decision type:\n- Decision: 1" in text
+    assert "By the deciding body, as printed:\n- Chief Counsel: 1" in text
+    con.close()
+
+
+def test_a_decisions_act_is_not_its_type_and_the_miss_says_so(tmp_path):
+    con = _brief(tmp_path)
+    text = mcp._count_decisions(con, {"decision_type": "NITU"}, "docketyard.org")
+    assert "No decision type the Board uses matches 'NITU'" in text
+    assert "is in its summary, not its type" in text
+    assert "nothing can fall between" in mcp._count_decisions(
+        con, {"served_from": "2026-09-01", "served_to": "2026-08-01"}, "h"
+    )
+    assert "holds no decisions" in mcp._count_decisions(con, {"served_from": "2026-09-01"}, "h")
+    con.close()
+
+
+def test_a_sheet_narrows_to_the_boards_dates(client):
+    text = call(
+        client,
+        "get_docket_sheet",
+        {"docket": "FD 36873", "date_from": "2026-08-24", "date_to": "2026-08-24"},
+    )["content"][0]["text"]
+    assert "Entries the Board dated 2026-08-24 to 2026-08-24" in text
+    assert ": 1 of the 4 on the sheet, newest first." in text
+    assert "[filing] 311900" in text and "[filing] 311981" not in text
+    assert "`recent_activity` windows on when this record observed it" in text
+    text = call(client, "get_docket_sheet", {"docket": "FD 36873", "date_from": "2026-09-01"})
+    assert "None. That is an absence in this record" in text["content"][0]["text"]
+    text = call(client, "get_docket_sheet", {"docket": "FD 36873", "date_from": "Aug 1"})
+    assert "must be a date written YYYY-MM-DD" in text["content"][0]["text"]
+
+
+def test_coverage_says_the_boards_activity_outside_dockets_is_not_held(client):
+    text = call(client, "coverage")["content"][0]["text"]
+    assert "The Board's activity outside its dockets — voting conferences" in text
+    assert "Federal Register notices" in text
+
+
+# --- from review of the brief tools, 2026-10-02 -------------------------------------------
+
+
+def _later_capture(con, when):
+    """A forward capture at `when`, copied from the first, for an event to hang on."""
+    (cid,) = con.execute("SELECT capture_id FROM capture ORDER BY capture_id LIMIT 1").fetchone()
+    return con.execute(
+        "INSERT INTO capture (source_system, endpoint, request_params, response_sha256,"
+        " http_status, filter_asserted, ingest_mode, captured_at, table_action)"
+        " SELECT source_system, endpoint, request_params, response_sha256, http_status,"
+        " filter_asserted, ingest_mode, ?, table_action FROM capture WHERE capture_id = ?",
+        (when, cid),
+    ).lastrowid
+
+
+def test_a_record_entered_anew_in_a_sub_docket_is_not_new(tmp_path):
+    """Held for weeks under FD 36873, then seen again in its sub-docket alone: the item is
+    the record, so it names both proceedings and when the record was first held."""
+    con = _brief(tmp_path)
+    con.execute("UPDATE capture SET captured_at = '2026-09-01T12:00:00+00:00'")
+    later = _later_capture(con, "2026-09-20T12:00:00+00:00")
+    con.execute(
+        "INSERT INTO event (event_type, docket_id, recorded_at, capture_id, source_key, payload,"
+        " payload_version) SELECT event_type, docket_id, recorded_at, ?, source_key, payload,"
+        " payload_version FROM event WHERE event_type = 'filing_observed'"
+        " AND source_key = 'FD_36873_1|311981'",
+        (later,),
+    )
+    con.commit()
+    text = recent(con, since="2026-09-10", until="2026-12-31")
+    assert ": 1 filing." in text
+    assert "- FD 36873 (Sub-No. 1) — PEORIA SUB — filed 2026-08-25 [filing] 311981" in text
+    assert "also entered in FD 36873" in text
+    assert "held since 2026-09-01T12:00:00+00:00" in text and "new to this record" not in text
+    con.close()
+
+
+def test_leaving_out_a_sub_docket_the_index_folds_says_what_it_left_out(tmp_path):
+    con = _brief(tmp_path)
+    (parent,) = con.execute("SELECT docket_id FROM docket WHERE raw_docket = 'FD_36873'").fetchone()
+    # a sub-docket with no caption of its own is searched as part of its parent
+    con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, parent_docket_id)"
+        " VALUES ('FD_36873_2', 'FD', 36873, 2, ?)",
+        (parent,),
+    )
+    con.commit()
+    search.rebuild(con)
+    text = mcp._search(
+        con, {"query": "replies", "exclude_dockets": ["FD 36873 (Sub-No. 2)"]}, "docketyard.org"
+    )
+    assert "FD 36873 (Sub-No. 2) is searched as part of FD 36873, so all of FD 36873" in text
+    con.close()
+
+
+def test_a_type_cannot_narrow_comments_and_says_why(tmp_path):
+    con = _brief(tmp_path)
+    for text in (
+        recent(con, since=SINCE, record_type="comment", type="Notice of Exemption"),
+        mcp._search(con, {"query": "x", "record_type": "comment", "type": "notice"}, "h"),
+    ):
+        assert "An environmental comment has no Board type" in text
+    con.close()
+
+
+def test_a_series_sheet_says_the_dates_did_not_narrow_it(tmp_path):
+    con = db.connect(build_store(tmp_path))
+    parent = con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence) VALUES ('AB_167', 'AB', 167)"
+    ).lastrowid
+    for sub in range(1, sheet.SERIES_SUBS + 2):
+        con.execute(
+            "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, suffix,"
+            " parent_docket_id) VALUES (?, 'AB', 167, ?, 'X', ?)",
+            (f"AB_167_{sub}_X", sub, parent),
+        )
+    con.commit()
+    out = mcp._docket(con, {"docket": "AB 167", "date_from": "2026-09-01"}, "h")
+    assert "a series has none: the list below is not narrowed" in out
+    con.close()
+
+
+def test_a_breakdown_counts_every_unprinted_body_on_one_line(tmp_path):
+    con = _brief(tmp_path)
+    (event,) = con.execute("SELECT MIN(observed_in_event) FROM decision_record").fetchone()
+    (docket_id,) = con.execute(
+        "SELECT docket_id FROM docket WHERE raw_docket = 'FD_36873'"
+    ).fetchone()
+    for did, body in (("60001", None), ("60002", "--"), ("60003", "")):
+        con.execute(
+            "INSERT INTO decision_record (docket_id, stb_decision_id, decision_type,"
+            " deciding_body, service_date, observed_in_event) VALUES (?, ?, 'Decision', ?,"
+            " '2026-08-30', ?)",
+            (docket_id, did, body, event),
+        )
+    con.commit()
+    text = mcp._count_decisions(con, {}, "h")
+    assert text.count("(none printed)") == 1 and "- (none printed): 3" in text
+    con.close()
+
+
+def test_a_capped_search_is_a_floor_not_a_count(client, monkeypatch):
+    from docketyard.store import finder
+
+    real = finder.find
+
+    def capped(con, q):
+        out = real(con, q)
+        out.pages_cut = "window"
+        return out
+
+    monkeypatch.setattr(finder, "find", capped)
+    text = search_text(client, query="replies", sort="newest")
+    assert "at least 1 filings" in text and "this is a floor and not a count" in text
+    assert "newest first among what was examined" in text
+
+
+def test_leaving_out_thousands_of_proceedings_stays_under_the_variable_ceiling(tmp_path):
+    """Fifty carrier series expand to thousands of proceedings (Copilot, PR #43)."""
+    from docketyard.store import finder
+
+    con = _brief(tmp_path)
+    search.rebuild(con)
+    q = finder.Query(
+        text="replies", view="documents", exclude_groups=tuple(range(100_000, 140_000))
+    )
+    assert finder.find(con, q).total == 1
+    con.close()
+
+
+# --- from Codex's review of PR #43, 2026-10-03 ----------------------------------------------
+
+
+def test_a_window_is_bounded(tmp_path):
+    """A call reads every record in its window before paging; the whole archive at once
+    passed the web container's memory cap under concurrent calls."""
+    con = _brief(tmp_path)
+    text = recent(con, since="0001-01-01", by="board_date")
+    assert "A window spans at most 366 days" in text and "count_decisions" in text
+    assert "A window spans at most" not in recent(
+        con, since="2025-01-01", until="2025-12-31", by="board_date"
+    )
+    con.close()
+
+
+def test_only_an_observation_outage_is_named_in_a_window(tmp_path):
+    con = _brief(tmp_path)
+    con.execute(
+        "INSERT INTO coverage_gap (started_at, ended_at, failure, note) VALUES"
+        " ('2026-03-01T00:00:00+00:00', '2026-03-01T06:00:00+00:00', 'documents', 'test')"
+    )
+    con.commit()
+    text = recent(con, since="2026-02-01", until="2026-06-01")
+    assert "was not keeping the record" not in text
+    con.close()
+
+
+def test_last_checked_is_the_oldest_tables_check(tmp_path):
+    """Filings polled after decisions stopped cannot vouch for decisions."""
+    con = _brief(tmp_path)
+    later = _later_capture(con, "2099-01-01T00:00:00+00:00")
+    con.execute("UPDATE capture SET table_action = ? WHERE capture_id = ?", (FILINGS, later))
+    con.commit()
+    text = recent(con, since=SINCE)
+    assert "Last checked against the Board: 2099" not in text
+    assert f"Last checked against the Board: {sheet.last_polled(con)}." in text
+    con.close()
+
+
+def test_a_search_that_skipped_the_text_is_not_an_absence(client, monkeypatch):
+    from docketyard.store import finder
+
+    real = finder.find
+
+    def skipped(con, q):
+        out = real(con, q)
+        out.pages_cut = "budget"
+        out.total, out.documents = 0, []
+        return out
+
+    monkeypatch.setattr(finder, "find", skipped)
+    text = search_text(client, query="zzznothing", prefix="FD")
+    assert "this is NOT an absence in this record" in text
+    assert "The record holds nothing matching" not in text

@@ -12,7 +12,7 @@
 </section>
 
 <section>
-  <h2 id="claude">Claude</h2>
+  <h2 class="section-title" id="claude">Claude</h2>
   <p>On the web at claude.ai or in the Claude desktop app, on any plan (the Free plan allows one custom connector):</p>
   <ol>
     <li>Open <strong>Customize</strong>, then <strong>Connectors</strong>.</li>
@@ -24,12 +24,12 @@
 </section>
 
 <section>
-  <h2 id="chatgpt">ChatGPT</h2>
+  <h2 class="section-title" id="chatgpt">ChatGPT</h2>
   <p>ChatGPT adds a server like this one through <strong>developer mode</strong>, on the web, on paid plans. Turn developer mode on in Settings, add an app with the address above and no authentication, then choose it from the <strong>+</strong> menu in a chat. On a Business, Enterprise or Edu workspace an admin has to allow it first. OpenAI renames these menus often, so follow its current guide: <a href="https://developers.openai.com/api/docs/guides/developer-mode" rel="noopener">developer mode</a>.</p>
 </section>
 
 <section>
-  <h2 id="developers">In a code editor or terminal</h2>
+  <h2 class="section-title" id="developers">In a code editor or terminal</h2>
   <table class="moved">
     <thead><tr><th scope="col">Tool</th><th scope="col">How</th></tr></thead>
     <tbody>
@@ -43,7 +43,7 @@
 </section>
 
 <section>
-  <h2 id="ask">Things to ask</h2>
+  <h2 class="section-title" id="ask">Things to ask</h2>
   <ul>
     <li>“What has happened recently in FD 36873?”</li>
     <li>“Find filings that mention Tehachapi, and tell me which docket each is in.”</li>
@@ -53,12 +53,12 @@
 </section>
 
 <section>
-  <h2 id="check">Check what it tells you</h2>
+  <h2 class="section-title" id="check">Check what it tells you</h2>
   <p>{{ site_name }} gives the assistant the record with its limits attached: what the record does not cover, that dates and captions are quoted as the Board printed them, and a link to the Board's own file on every answer. What the assistant then says is its own, and it can be wrong — especially about text read by machine from an old scan. <strong>Before you rely on an answer, open the Board's document it links.</strong> The document is the record; the answer is not.</p>
 </section>
 
 <section>
-  <h2 id="trouble">If something looks wrong</h2>
+  <h2 class="section-title" id="trouble">If something looks wrong</h2>
   <ul>
     <li><strong>The assistant does not use {{ site_name }}.</strong> Make sure the connector is turned on in that chat, and name it in your question: “Using {{ site_name }}, …”.</li>
     <li><strong>It is missing a tool this page mentions.</strong> Assistants remember a connector's tools from when it was added. Remove the connector and add it again, then start a new chat.</li>
@@ -67,7 +67,7 @@
 </section>
 
 <section>
-  <h2 id="privacy">Privacy</h2>
+  <h2 class="section-title" id="privacy">Privacy</h2>
   <p>No account or sign-in is involved, and nothing identifies you to {{ site_name }}. Your conversation is held by your assistant's provider, under its terms; {{ site_name }} sees only the lookups the assistant makes, and treats them as it treats any page request — see <a href="/privacy">privacy</a>.</p>
 </section>
 {% endblock %}

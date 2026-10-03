@@ -5,7 +5,7 @@
   <h1 class="serif">How the record is kept</h1>
   <p>This page is the accuracy contract: what {{ site_name }} takes from the Board unchanged, the few things it derives, and the rules every derived thing is produced under. It is written from the same source the code is built from, and it changes when the code does.</p>
 
-  <h2>Taken from the Board unchanged</h2>
+  <h2 class="section-title">Taken from the Board unchanged</h2>
   <ul>
     <li><strong>Docket numbers, captions, filing types, filers as filed, deciding bodies, decision summaries, and dates.</strong> Each is the cell the Board printed, kept verbatim in the store. Captions and summaries appear in the Board's own capitals.</li>
     <li><strong>Dates are quoted, never computed.</strong> A sheet shows the date the Board printed, in a different format (25 Aug 2026 for 8/25/2026); the printed form is kept alongside it. No date is inferred from context, a document, or another date.</li>
@@ -13,7 +13,7 @@
     <li><strong>Every response from the Board's search is kept raw</strong>, so the record can be rebuilt from what was actually received, and so a dispute about what the Board printed on a given day can be settled.</li>
   </ul>
 
-  <h2>Derived, and how</h2>
+  <h2 class="section-title">Derived, and how</h2>
   <ul>
     <li><strong>The short type label</strong> in a sheet's second column (Motion, Reply, Notice, Comments, Decision…) is a fixed mapping from the Board's filing-type string. It looks only at that string — never at who filed, never at the document. A type the mapping does not know shows its first word.</li>
     <li><strong>Folding a docket family.</strong> A record the Board enters in both a docket and one of its sub-dockets is shown once, on the copy nearest the parent, with a note of where else it was entered. The sub-docket relationship comes from the docket number itself (FD 36873 (Sub-No. 1) belongs to FD 36873).</li>
@@ -24,34 +24,34 @@
     <li><strong>Alerts</strong> are built only from the record's own ledger of new entries, only for entries observed after a subscription was confirmed, and only from the watch — never from history being back-filled. See the delivery promise on the <a href="/coverage">coverage</a> page.</li>
   </ul>
 
-  <h2>Never inferred</h2>
+  <h2 class="section-title">Never inferred</h2>
   <ul>
     <li><strong>A party's position.</strong> Nothing here says what anyone argued or supports. If that is ever derived, it will come from the document's own words, carry the method and version that produced it and a link to the passage, and a procedural filing will take no position regardless of who filed it.</li>
     <li><strong>Significance.</strong> Entries are not ranked or weighted.</li>
     <li><strong>Outcomes and deadlines.</strong> Not computed from anything.</li>
   </ul>
 
-  <h2>Provenance</h2>
+  <h2 class="section-title">Provenance</h2>
   <p>Every entry points at the capture it was observed in, and every capture at the raw response. Where a derived claim is ever published, it carries the source document, the location in it, the method and its version, when it was produced, and a confidence — and a later method does not overwrite an earlier claim; it supersedes it, and the earlier one stays on record.</p>
 
-  <h2 id="registers">Registers</h2>
+  <h2 class="section-title" id="registers">Registers</h2>
   <p>A register is one page over every entry of a type the Board itself printed — <a href="/court">decisions typed <span class="as-printed">{{ court_action | title }}</span></a>, <a href="/protective">filings whose type names a <span class="as-printed">{{ protective_order }}</span></a> — grouped by docket, newest first. It reads the Board's type string and nothing else: not the document, not the outcome. A case that reached court without a notice of that type, or an order granted without a motion so typed, is not on the register, and the page says so. A register is rebuilt from the record as it moves; it is never edited by hand.</p>
-  <h2 id="documents">Documents</h2>
+  <h2 class="section-title" id="documents">Documents</h2>
   <p>Every file the Board serves is fetched, hashed and kept; the hash is the file's identity. A file the Board's host refuses — it answers that the file is not there, or will not be served — is recorded as refused and asked for again a week later. A PDF or image is shown on its record's own page, and the bytes of every file have a permanent address, <span class="mono">/document/&lt;sha256&gt;.pdf</span> (or <span class="mono">.jpg</span>, <span class="mono">.zip</span>, <span class="mono">.xlsx</span>, <span class="mono">.docx</span> — the suffix says what the bytes are), which answers with exactly the bytes that hash to that name, forever. A file the Board replaces is a new hash with the old one chained to it; the Board's own link stays beside every file. Replacements are looked for, not waited for: every pass fetches {{ recheck_per_pass }} held files again, the longest-unchecked first and none sooner than {{ recheck_after_days }} days after its last check, so every file up to {{ recheck_max_mb }} MB is checked about every {{ recheck_cycle_days }} days; the few larger ones are re-fetched by hand.</p>
 
   {#- ADR 0024 § Owed 6's section ("Text for new material": the stage's terms and the queue's
       census) is HELD by the operator for rewording (2026-09-11); it was built in 848e366 and
       is restored from there, as is the one-day rest sentence from 3b538bc. -#}
-  <h2 id="search">Search</h2>
+  <h2 class="section-title" id="search">Search</h2>
   <p>One box. A docket number in any spelling opens its sheet without a search. Anything else is matched, word by word, against three things: docket captions as the Board prints them (a sub-docket with a caption of its own is a result at its own address, which opens the family sheet); every name a party is currently on record under; and the Board's own printed decision summaries. Documents are searched too, by their own index and shown in their own section under the record results: a page hit names the record, the page, who read it (the tool or engine and its version, and the class the page was routed as), the distance from a second reading where one exists or why there is none, and the scan one click away. The text is a finding aid and the scan is the record; nothing a search finds in machine-read text is asserted by this site. The index is rebuilt from the record whenever the record has changed; it holds no reader's query, and the server keeps none.</p>
 
-  <h2 id="webhooks">Feeds and webhooks</h2>
+  <h2 class="section-title" id="webhooks">Feeds and webhooks</h2>
   <p>Every alert channel renders the same record events — new or updated filings and decisions, and a file the Board replaced — observed by the forward poll. Entries added by a backfill wave never appear in any of them.</p>
   <ul>
     <li><strong>Atom feeds</strong> at <span class="mono">/feed</span> (agency-wide), <span class="mono">/d/&lt;docket&gt;/feed</span> and <span class="mono">/d/&lt;docket&gt;/sub/&lt;n&gt;/feed</span> (a proceeding — for most prefixes a sub-docket is a phase of its parent and its feed is the family’s, reached by a permanent redirect; for AB, where a Sub-No. is each line a carrier abandons, the sub-docket has a feed of its own) and <span class="mono">/p/&lt;id&gt;/feed</span> (filings for one party; the older <span class="mono">/feed/party/&lt;id&gt;</span> redirects there, permanently): the latest hundred entries, cached thirty minutes, nothing stored about the reader.</li>
     <li><strong>Webhooks</strong>: a signed JSON POST of the same entries to an https URL you control, as they happen or once a day. Confirmation is a ping to the URL carrying a confirmation link and a signing secret; nothing is delivered until the link is confirmed. Each delivery carries <span class="mono">X-DocketYard-Signature: sha256=&lt;HMAC-SHA256(secret, body)&gt;</span> over the exact bytes sent and <span class="mono">X-DocketYard-Delivery</span> with the alert id. It also carries <span class="mono">X-DocketYard-Timestamp</span> (Unix seconds) and <span class="mono">X-DocketYard-Signature-Timestamped: sha256=&lt;HMAC-SHA256(secret, "&lt;timestamp&gt;." + body)&gt;</span>: verify that one and refuse a timestamp more than five minutes from your clock, and a captured delivery cannot be replayed. The first signature is unchanged, so a receiver built against it keeps working. The body carries <span class="mono">shape_version</span>, raised when a field changes name or meaning; the body lists <span class="mono">events</span> (kind, docket, record id, the Board's date as printed, the record's permanent address here, the Board's files, and <span class="mono">late: true</span> when the entry was posted while this record was not being kept) and an <span class="mono">unsubscribe_url</span>. A delivery that is refused or unreachable is retried on later passes, three attempts in all. Only public https hosts are contacted, without following redirects.</li>
   </ul>
-  <h2>Known failure modes</h2>
+  <h2 class="section-title">Known failure modes</h2>
   <ul>
     <li>The Board's search returns a full unfiltered result set, with a success code, when a filter is passed the wrong way; and an identical "no results" envelope for a real empty result, an expired session token, and a page past the end. The pipeline positively checks that every response matches what it asked for, and refuses to ingest what it cannot prove. A refused page is kept raw and reported to the operator; it is never silently treated as empty.</li>
     <li>The search shows at most 10,000 rows per query. No single docket prefix reaches it today; the watch window is a week, far below it.</li>

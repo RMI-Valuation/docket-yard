@@ -106,3 +106,22 @@ def test_coverage_says_when_the_watch_began_and_what_the_record_spans(tmp_path):
     assert "every new entry is caught" not in page  # no guarantee was made
     assert "Outages" in page and "No outage has been recorded" in page
     assert "Gaps in the record" not in page
+
+
+def test_every_css_variable_used_is_defined():
+    """`.follow`'s two inputs asked for `var(--rule)`, a token that has never existed. An
+    undefined custom property makes the whole `border` shorthand invalid at computed-value
+    time, which resolves to `unset` — `border-style: none` — so the email field on the
+    subscribe form had no border at all, on a background the same colour as the page. A
+    typo in a token name fails silently and looks like a design choice (2026-09-22)."""
+    import re
+    from pathlib import Path
+
+    css = (Path(__file__).resolve().parents[1] / "src/docketyard/web/static/site.css").read_text(
+        encoding="utf-8"
+    )
+    defined = set(re.findall(r"(--[a-z0-9-]+)\s*:", css))
+    used = set(re.findall(r"var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]*)?\)", css))
+    # a var() with a fallback is allowed to name something undefined; a bare one is not
+    bare = {name for name in used if re.search(r"var\(\s*" + re.escape(name) + r"\s*\)", css)}
+    assert bare <= defined, f"used but never defined: {sorted(bare - defined)}"

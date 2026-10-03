@@ -91,6 +91,13 @@ class Query:
     page: int = 1
     within: int | None = None  # one proceeding: "N more matches in this proceeding"
     view: str = "proceedings"  # or "documents": the flat list (the operator's decision 1)
+    # left out, for MCP's `search_the_record` (the operator, 2026-10-02): a word like
+    # "application" is buried under one proceeding's hundreds of filings unless that
+    # proceeding can be set aside. Docket ids, family-expanded by the caller, matched against
+    # the proceeding a record is placed in; and docket prefixes
+    exclude_groups: tuple[int, ...] = ()
+    exclude_prefixes: tuple[str, ...] = ()
+    page_size: int = 0  # the flat list's size; 0 is DOCUMENT_PAGE_SIZE
 
     @property
     def dated(self) -> bool:
@@ -100,7 +107,18 @@ class Query:
     def filtered(self) -> bool:
         """A filter a placement must pass. `within` narrows too, but is not one a party or a
         caption fails."""
-        return bool(self.prefixes or self.dated or self.ftypes or self.dtypes)
+        return bool(
+            self.prefixes
+            or self.dated
+            or self.ftypes
+            or self.dtypes
+            or self.exclude_groups
+            or self.exclude_prefixes
+        )
+
+    @property
+    def size(self) -> int:
+        return self.page_size or DOCUMENT_PAGE_SIZE
 
 
 @dataclass
@@ -150,7 +168,7 @@ class Results:
 
     @property
     def page_count(self) -> int:
-        size = DOCUMENT_PAGE_SIZE if self.query.view == "documents" else PAGE_SIZE
+        size = self.query.size if self.query.view == "documents" else PAGE_SIZE
         return max(1, -(-self.total // size))
 
 
@@ -228,6 +246,14 @@ def _filters(q: Query, alias: str = "p") -> tuple[str, list]:
     if q.within is not None:
         where.append(f"+{alias}.group_docket_id = ?")
         args.append(q.within)
+    if q.exclude_groups:
+        # one bound JSON value, not a variable per id: fifty excluded carrier series expand to
+        # thousands of proceedings, past SQLite's ceiling on bound variables (Copilot, PR #43)
+        where.append(f"+{alias}.group_docket_id NOT IN (SELECT value FROM json_each(?))")
+        args.append(json.dumps(sorted(q.exclude_groups)))
+    if q.exclude_prefixes:
+        where.append(f"+{alias}.prefix NOT IN ({','.join('?' for _ in q.exclude_prefixes)})")
+        args += q.exclude_prefixes
     return (" AND ".join(where) or "1"), args
 
 
@@ -431,8 +457,8 @@ def _documents(con, q: Query, match: str | None, groups: dict[int, list[_Item]],
     else:
         order = sorted(seen.values(), key=lambda i: (_TIER[i.kind], i.score, i.key))
     out.total = len(order)
-    start = (max(1, q.page) - 1) * DOCUMENT_PAGE_SIZE
-    shown = order[start : start + DOCUMENT_PAGE_SIZE]
+    start = (max(1, q.page) - 1) * q.size
+    shown = order[start : start + q.size]
     hits = _record_hits(con, match, [i for i in shown if i.kind != "page"])
     hits.update(_page_hits(con, match, [i for i in shown if i.kind == "page"]))
     out.documents = [hits[(i.kind, i.key)] for i in shown if (i.kind, i.key) in hits]

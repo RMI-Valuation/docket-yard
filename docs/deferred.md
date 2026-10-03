@@ -2506,3 +2506,107 @@ more repetition, at ~70 s a page instead of ~35.
 N tokens repeat would fail these pages in seconds instead of 35, saving about 4 GPU hours over
 the ~470 cut pages still expected in this pass, and roughly 12 hours already spent generating
 garbage. It changes no reading that succeeds.
+
+### The early-stop guard does not work — measured and abandoned, 2026-09-20
+
+The obvious fix for the loops above is to detect the repetition and stop generating. It was
+built and tested against every answer this pass has published, and **it cannot be made safe.**
+Recorded here so it is not rebuilt.
+
+The rule tried: past an arm point, fire when the tail is an exact repeating period. Tested
+first against finished answers — **0 false positives in 18,595** — which is the wrong test. A
+live guard is asked while the answer is still growing, so the real test is every PREFIX. Under
+that test the same parameters truncate **43 published readings**, mid-table, and publish them
+as whole.
+
+Raising the bar does not rescue it. The discriminator is exhausted by the data: published,
+EOS-terminated answers contain exact periodic runs of **5,184 and 5,040 characters** — wide
+tables whose cells are genuinely empty, `<td></td>` repeated to the end of the row and then
+closed properly with `</tr></table>`. A degenerate loop and a mostly-empty grid are the same
+string until one of them stops. **The only signal that separates them is the ending, which is
+exactly what is not available in flight.**
+
+Two things follow.
+
+- **The GPU saving is not available.** ~35 s a page on ~470 remaining cut pages stays spent.
+  That is the price of not truncating real readings, and it is the right trade.
+- **A cut answer can still be classified AFTER the fact**, where there is no risk at all: the
+  answer is already failed, so testing its periodicity cannot harm a published reading. That
+  distinguishes "cut because the page is long" from "cut because the engine looped" — which is
+  the evidence the finality question above needs, and none of it exists today because the
+  worker discards the answer before anyone can look.
+
+**And a separate quality question it turned up:** two published readings are mostly empty
+table cells (5,040 and 3,042 characters of `<td></td>`). They are plausibly correct readings of
+mostly-empty grids, but nothing has ever checked, and an answer that is 80% empty cells is
+worth a look before it is served as the page's text.
+
+## From the design review of the live pages — 2026-09-21
+
+Two of the four findings shipped the same day (`interface.md` § What a design review changed).
+These two are held, with what they are and why they are not being done now.
+
+- **One hairline and one radius serve every boundary, so nothing has rank.** `--hair` at 1px
+  is the entry-row separator, the register-group divider, the table rule, the fieldset border,
+  the footer rule, the masthead rule and the border around each 32px PDF icon; `border-radius:
+  4px` is on the viewer frame, page text, suggestions, inputs, fieldsets, selects, `.btn`,
+  `.connect-url` and both icon boxes. A row boundary, a section boundary and a control's edge
+  therefore carry identical visual weight, and in a dense record hierarchy has to come from
+  rule weight and spacing rhythm. The only place it does is `.week-head`'s 2px ink rule, which
+  works. **The fix** is three tokens rather than one — `--rule-section` (2px ink, extended to
+  `.moved-section` and `.register-group`), `--rule-row` (1px hair, rows only) and a separate
+  control border, or better a `--tint` fill and no border, so an edge means a boundary and a
+  fill means a control; and dropping the border and radius from `.pdf`, which is 1,250 boxes
+  on FD 36873 around a 16px glyph. **Why held:** it touches every page through shared tokens
+  and its value is visual rhythm, which needs someone judging rendered pages. The critique
+  behind it was made by reading CSS, not pixels, and that is not good enough for this one.
+- **The Board's ALL-CAPS summaries, rendered as printed, are the main body text.** Five
+  consecutive forty-word capitalised paragraphs on the home page. Capitals erase the
+  ascender/descender word-shape that carries fast scanning, which is exactly the reading these
+  users do, and `.as-printed` gives them 0.01em of tracking at full column width where caps
+  want roughly 0.05em and a 50–55 character measure. **The fidelity argument does not settle
+  it**: the Board's PDF is the authority and every row links to it, and the site already
+  re-renders the Board's dates while showing the printed form beside them — so case is
+  presentation, not content. **But it was a decision**, so changing it is the operator's and
+  belongs in `interface.md` before it belongs in a stylesheet. The narrow version — keep caps
+  for the caption, where legal convention expects them, and set the summary in sentence case —
+  is the one worth costing first.
+
+### A clamped summary does not say it is clamped — built and withdrawn, 2026-09-22
+
+`--summary-lines` cuts a summary at 12 lines (1 under compact), and a cut one simply stops
+mid-sentence: nothing says there is more, and nothing but opening the document reveals it. A
+progressive-enhancement control was built for it — measure `scrollHeight` against
+`clientHeight`, add a "Show the whole summary" button where they differ — and **withdrawn after
+four review passes**, not because the findings were unfixable but because they kept coming and
+the last one was about shape rather than detail:
+
+- it measures in the wrong font, because Newsreader is `font-display: swap` and the first
+  measurement happens in Georgia's metrics;
+- it has to hold state against **filtering** (a hidden entry has no layout, so it measures 0
+  and looks unclamped), **compact density** (which must close what the reader opened),
+  **resize**, and **focus** (a button that removes itself takes the focus ring with it);
+- and it forces a layout read per summary — **about 1,250 of them on FD 36873** — at load, again
+  on `fonts.ready`, and on every resize.
+
+**The better shape is a `<details>` decided on the server.** The renderer already holds the
+summary text, so a length threshold can wrap a long one in a disclosure at render time: no
+measurement, no script, no focus or resize state, nothing to recompute when a filter hides a
+row, and the element carries its own `aria-expanded` and keyboard behaviour. The cost is that a
+character count is an approximation of a line count, so the threshold wants choosing against
+real summaries rather than guessed — which is the work, and it is small.
+
+Worth weighing first: **every entry already links to the document's text and to the Board's own
+PDF**, so a reader who wants the rest of a summary has two ways to it. The question is whether
+the truncation is confusing enough to be worth any mechanism at all, which is a judgement about
+readers rather than about code.
+
+## From Codex's security review of PR #43 (the MCP brief tools), 2026-10-03, against cb522bb
+
+- **No request budget in front of `/mcp`.** Codex measured 20 concurrent `recent_activity`
+  calls over the whole archive at 847 MB RSS, past the web container's 768 MiB cap; the
+  checked-in Caddyfile has no limiter. Fixed in the tool: a window spans at most 366 days, so
+  one call materialises at most a year of records. Not fixed: a per-client rate or
+  concurrency limit for `/mcp` (Caddy has none built in; a module or a semaphore in the
+  route are the options) — every MCP tool, and `/search`, can be called in parallel by
+  anyone. An infrastructure decision, not this PR's.

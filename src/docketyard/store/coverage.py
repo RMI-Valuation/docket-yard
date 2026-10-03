@@ -46,6 +46,12 @@ BY_DESIGN_LIMITS: tuple[tuple[str, str], ...] = (
         " scan one click away.",
     ),
     (
+        "The Board's activity outside its dockets",
+        " — voting conferences, hearings and arguments as events, press releases and Federal"
+        " Register notices. Where the Board enters a notice of one in a docket, that entry is"
+        " held like any other.",
+    ),
+    (
         "Anything the Board's search itself does not show.",
         " Its result tables display at most 10,000 rows per query and fail in ways that look"
         " like success; the pipeline asserts on every response that the filter it asked for"
@@ -167,7 +173,16 @@ def _incomplete(con: Connection, *actions: str, today: date | None = None) -> tu
 
 
 def filings_incomplete(con: Connection, today: date | None = None) -> tuple[str, ...]:
-    """Months not finished for filings alone — what a count over filings must name. The
+    return incomplete_for(con, FILINGS, today)
+
+
+def decisions_incomplete(con: Connection, today: date | None = None) -> tuple[str, ...]:
+    """The same rule over the decisions walk — what MCP's `count_decisions` must name."""
+    return incomplete_for(con, DECISIONS, today)
+
+
+def incomplete_for(con: Connection, action: str, today: date | None = None) -> tuple[str, ...]:
+    """Months not finished for one table alone — what a count over it must name. The
     coverage page's list unions filings with decisions, which would name a month a
     decisions-only gap left open as a hole in a filing count.
 
@@ -181,13 +196,13 @@ def filings_incomplete(con: Connection, today: date | None = None) -> tuple[str,
     that first month is claimed either way; the answer names where the walk begins."""
     q = con.execute
     today = today or date.today()
-    months = set(_incomplete(con, FILINGS, today=today))
+    months = set(_incomplete(con, action, today=today))
     ledger = {
         m
-        for (key,) in q("SELECT slice_key FROM walk_slice WHERE table_action = ?", (FILINGS,))
+        for (key,) in q("SELECT slice_key FROM walk_slice WHERE table_action = ?", (action,))
         if (m := walk.slice_month(key)) is not None
     }
-    start = _watch_starts(q, (FILINGS,)).get(FILINGS)
+    start = _watch_starts(q, (action,)).get(action)
     if ledger:
         year, month = int(min(ledger)[:4]), int(min(ledger)[5:7])
     elif start is not None:
@@ -211,13 +226,29 @@ def filings_incomplete(con: Connection, today: date | None = None) -> tuple[str,
 
 
 def filings_walked_from(con: Connection) -> str | None:
-    """The first month the filings walk names — where a count's coverage claim begins."""
-    # parsed, then the least — the rule `filings_incomplete` uses, so the two cannot disagree
+    return walked_from(con, FILINGS)
+
+
+def decisions_walked_from(con: Connection) -> str | None:
+    return walked_from(con, DECISIONS)
+
+
+def comments_incomplete(con: Connection, today: date | None = None) -> tuple[str, ...]:
+    return incomplete_for(con, ENVIRO_COMMENTS, today)
+
+
+def comments_walked_from(con: Connection) -> str | None:
+    return walked_from(con, ENVIRO_COMMENTS)
+
+
+def walked_from(con: Connection, action: str) -> str | None:
+    """The first month one table's walk names — where a count's coverage claim begins."""
+    # parsed, then the least — the rule `incomplete_for` uses, so the two cannot disagree
     # over a key that sorts first and names no month
     months = [
         m
         for (key,) in con.execute(
-            "SELECT slice_key FROM walk_slice WHERE table_action = ?", (FILINGS,)
+            "SELECT slice_key FROM walk_slice WHERE table_action = ?", (action,)
         )
         if (m := walk.slice_month(key)) is not None
     ]
@@ -302,9 +333,39 @@ def month_runs(months: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(r[0] if len(r) == 1 else f"{r[0]} to {r[-1]}" for r in runs)
 
 
+@dataclass(frozen=True)
+class Watch:
+    forward_since: str | None
+    last_checked: str | None
+    gaps: list[Gap]
+
+
+def watch(con: Connection) -> Watch:
+    """The forward watch's span and its outages: the part of `coverage` a window over the
+    watch needs (MCP's `recent_activity`), cheap enough to read on every call. `coverage`
+    reads it from here, so the two cannot disagree."""
+    since, last = con.execute(
+        "SELECT MIN(captured_at), MAX(captured_at) FROM capture WHERE ingest_mode = 'forward'"
+        " AND filter_asserted = 1 AND table_action IN (?, ?)",
+        (FILINGS, DECISIONS),
+    ).fetchone()
+    return Watch(
+        forward_since=since,
+        last_checked=last,
+        gaps=[
+            Gap(*row)
+            for row in con.execute(
+                "SELECT started_at, ended_at, failure, note FROM coverage_gap"
+                " ORDER BY started_at DESC"
+            )
+        ],
+    )
+
+
 def coverage(con: Connection) -> Coverage:
     q = con.execute
     one = lambda sql, *p: q(sql, p).fetchone()[0]  # noqa: E731
+    w = watch(con)
     return Coverage(
         dockets=one("SELECT COUNT(*) FROM docket"),
         registry_walked_at=one(
@@ -312,18 +373,8 @@ def coverage(con: Connection) -> Coverage:
             " AND table_action = ?",
             DOCKETS,
         ),
-        forward_since=one(
-            "SELECT MIN(captured_at) FROM capture WHERE ingest_mode = 'forward'"
-            " AND filter_asserted = 1 AND table_action IN (?, ?)",
-            FILINGS,
-            DECISIONS,
-        ),
-        last_checked=one(
-            "SELECT MAX(captured_at) FROM capture WHERE ingest_mode = 'forward'"
-            " AND filter_asserted = 1 AND table_action IN (?, ?)",
-            FILINGS,
-            DECISIONS,
-        ),
+        forward_since=w.forward_since,
+        last_checked=w.last_checked,
         filings=one("SELECT COUNT(DISTINCT stb_filing_id) FROM filing"),
         decisions=one("SELECT COUNT(DISTINCT stb_decision_id) FROM decision_record"),
         # by (number, row ref), NOT the number alone: the row ref folds one comment
@@ -393,11 +444,5 @@ def coverage(con: Connection) -> Coverage:
         comments_incomplete=_incomplete(con, ENVIRO_COMMENTS),
         comments_from=one("SELECT MIN(NULLIF(date_received_or_sent, '')) FROM enviro_comment"),
         empty_prefixes=tuple(sorted(EXPECTED_EMPTY_PREFIXES)),
-        gaps=[
-            Gap(*row)
-            for row in q(
-                "SELECT started_at, ended_at, failure, note FROM coverage_gap"
-                " ORDER BY started_at DESC"
-            )
-        ],
+        gaps=w.gaps,
     )

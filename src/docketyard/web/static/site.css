@@ -38,7 +38,18 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .skip { position: absolute; left: -9999px; top: 8px; padding: 8px 12px; background: var(--ink); color: var(--paper); z-index: 10; }
 .skip:focus { left: 8px; }
+/* TWO JOBS, AND ONLY ONE OF THEM IS THE ELEMENT'S. On a record surface an `h2` labels a dense
+   block — "Decisions served", "Parties on record" — and is meant to be quiet; that is this
+   rule, and it stays exactly as it was. On a page of PROSE an `h2` is a section a reader
+   navigates by, and this same style made every one of them smaller and fainter than the text
+   it introduced, so /about, /api, /corrections and the explainers had no landmarks. The
+   heading look is therefore asked for BY NAME on those pages rather than taken from the
+   element: flipping the element instead silently restyled every `h2` that already carried a
+   class — `.week-title`, `.page-heading`, `.register-docket` and five rail labels on
+   /record — which a review caught and which is the same failure as one hairline serving every
+   boundary (2026-09-22). */
 h2 { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 10px 0; }
+h2.section-title { font-family: "Newsreader", Georgia, "Times New Roman", serif; font-size: 21px; font-weight: 500; line-height: 1.25; letter-spacing: 0; text-transform: none; color: var(--ink); margin: 32px 0 8px 0; }
 ol.plain, ul.plain { list-style: none; margin: 0; padding: 0; }
 .sheet { max-width: 1440px; margin: 0 auto; }
 main { padding: 0 56px; }
@@ -167,6 +178,22 @@ table.moved { width: 100%; border-collapse: collapse; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 999px; font: inherit; font-size: 13px; font-weight: 500; color: var(--ink); background: transparent; cursor: pointer; }
 .chip-on, .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+/* the type filters live behind a disclosure: three chips are the record's own split and mean
+   the same on every sheet, the types are a per-docket tail ordered by size. The count rides
+   in the chip because it is what a reader wants before spending a click. */
+.more-kinds { display: inline-block; }
+.more-kinds > summary { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px dashed var(--hair); border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; list-style: none; }
+.more-kinds > summary::-webkit-details-marker { display: none; }
+.more-kinds > summary::after { content: "▾"; margin-left: 6px; color: var(--muted); }
+.more-kinds[open] > summary::after { content: "▴"; }
+.more-kinds > summary:hover { border-color: var(--muted); }
+.more-kinds > .chips { padding: 10px 0 2px 0; }
+.chip-n { margin-left: 6px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] .chip-n { color: var(--paper); opacity: 0.75; }
+/* the week's numbers are a sentence, not a stat row: the third is a subset of the second and
+   the first counts a different thing, so three tiles promised a comparison that is not there */
+.week-count, .count-line { font-size: 17px; line-height: 1.5; margin: 18px 0 0 0; max-width: 62ch; }
+.week-count .n, .count-line .n { font-weight: 600; font-variant-numeric: tabular-nums; }
 .entry { display: grid; grid-template-columns: 96px 112px minmax(0, 1fr) 40px; gap: 16px; align-items: start; padding: var(--row-pad) 0; border-top: 1px solid var(--hair); }
 .entry[hidden] { display: none; }
 .entry-date { font-size: 14px; }
@@ -250,7 +277,10 @@ table.moved { width: 100%; border-collapse: collapse; }
   .entry-links { flex-direction: row; align-items: center; justify-content: flex-start; }
   .entry-decision { margin: 0 -20px; padding-left: 20px; padding-right: 20px; }
   .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
-  .chip, .chip-small { height: 40px; padding: 0 14px; font-size: 14px; }
+  /* the types inside the disclosure WRAP: sideways scrolling is for a strip a reader skims
+     past, and this is a list they opened on purpose to read (2026-09-22) */
+  .more-kinds > .chips { flex-wrap: wrap; overflow-x: visible; }
+  .chip, .chip-small, .more-kinds > summary { height: 40px; padding: 0 14px; font-size: 14px; }
   .pdf { width: 44px; height: 44px; }
   .docket-number { font-size: 40px; }
   .footer { flex-direction: column; }
@@ -279,10 +309,10 @@ table.moved { width: 100%; border-collapse: collapse; }
 
 /* follow (subscribe) form in the sheet rail */
 .follow { display: grid; gap: 8px; }
-.follow input[type="email"] { width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
+.follow input[type="email"] { width: 100%; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
 .follow-cadence { border: 0; padding: 0; margin: 0; display: grid; gap: 4px; }
 .follow-cadence label { display: flex; gap: 8px; align-items: center; font-size: 14px; }
-.follow input[type="url"] { width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
+.follow input[type="url"] { width: 100%; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
 .follow-alt { margin-top: 8px; }
 .follow-webhook { margin-top: 8px; }
 .follow-webhook summary { cursor: pointer; }
