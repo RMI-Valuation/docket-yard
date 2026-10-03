@@ -202,9 +202,9 @@ def test_every_live_row_on_a_re_read_page_is_retired(tmp_path):
     assert _live(con) == [(1, 0, "Decided: March 11, 2021", "2021-03-11", "text-layer", newest)]
 
 
-def test_a_limited_run_sweeps_only_what_it_read(tmp_path):
-    """A document a limited run never reached keeps its rows live, for the run that reads it
-    to replace and point at (decision 6)."""
+def test_every_run_sweeps_every_stale_row_a_limited_one_included(tmp_path):
+    """Decision 6: every run retires every stale row, whichever documents it read (Copilot,
+    PR #44)."""
     con = _store(tmp_path)
     first = _page(con, 1, "Decided: March 10, 2021\n")
     decided.run(con)
@@ -213,9 +213,30 @@ def test_a_limited_run_sweeps_only_what_it_read(tmp_path):
         (LATER, first),
     )
     _page(con, 1, "Decided: March 10, 2021\n", at=LATER)
-    assert decided.run(con, limit=0).stale == 0  # read nothing, so swept nothing
+    assert decided.run(con, limit=0).stale == 1  # read nothing, and swept it anyway
     full = decided.run(con)
-    assert full.stale == 0 and full.retired == 1  # replaced on the re-read, not swept
+    assert full.lines == 1 and len(_live(con)) == 1
+
+
+def test_a_channel_of_blank_pages_is_read_and_found_empty(tmp_path):
+    """Migration 0018: an empty text is a completed reading, so its run is recorded (Copilot,
+    PR #44)."""
+    con = _store(tmp_path)
+    _page(con, 1, "")
+    decided.run(con)
+    assert con.execute(
+        "SELECT pages_read, targets_emitted FROM extraction_run WHERE method = ?",
+        (decided.METHOD,),
+    ).fetchone() == (1, 0)
+
+
+def test_a_limit_counts_documents_not_readings(tmp_path):
+    """One document read on two channels is one document (Copilot, PR #44)."""
+    con = _store(tmp_path)
+    _page(con, 1, "Decided: March 10, 2021\n")
+    _page(con, 2, "Decided: March 10, 2021\n", channel="ocr")
+    out = decided.run(con, limit=1)
+    assert out.documents == 2 and out.lines == 2  # both readings of the one document
 
 
 def test_a_person_s_reading_is_not_quoted_and_the_machine_s_quotation_goes_stale(tmp_path):

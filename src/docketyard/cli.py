@@ -1009,7 +1009,7 @@ def main(argv: list[str] | None = None) -> int:
     dd = ct_sub.add_parser(
         "decided", help="quote every `Decided:` line a decision's document prints (ADR 0023)"
     )
-    dd.add_argument("--limit", type=int, help="stop after this many document readings")
+    dd.add_argument("--limit", type=int, help="stop after this many documents")
     dd.set_defaults(func=_citator)
     cl = ct_sub.add_parser("load", help="one batch of findings documents into the families")
     cl.add_argument("findings", help="a directory of findings JSON, one per document")

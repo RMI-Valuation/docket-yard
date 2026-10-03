@@ -185,24 +185,23 @@ def _documents(con: Connection) -> list[str]:
     ]
 
 
-def _retire_stale(con: Connection, now: str, only: set[str] | None = None) -> int:
-    """Decision 6: a quotation whose text is no longer displayed is retired, dated, at
-    itself. `only` limits the sweep to the documents a limited run read, so a document it
-    never reached keeps its rows live for the run that reads it to replace and point at."""
+def _retire_stale(con: Connection, now: str) -> int:
+    """Decision 6: EVERY run retires every quotation whose text is no longer displayed, dated,
+    at itself, whichever documents it read — a limited run included (Copilot, PR #44: a sweep
+    narrowed to the documents read left stale quotations live, against the accepted decision).
+    A document a limited run never reached therefore has its stale rows retired at themselves,
+    and the run that reads it writes replacements that point back at nothing."""
     stale = [
-        (r, sha)
-        for r, sha in con.execute(
-            "SELECT decided_id, document_sha256 FROM decision_decided_date d"
+        r
+        for (r,) in con.execute(
+            "SELECT decided_id FROM decision_decided_date d"
             " WHERE d.superseded_by IS NULL AND d.text_id IS NOT NULL"
             " AND NOT EXISTS (SELECT 1 FROM document_text_display v WHERE v.text_id = d.text_id)"
         )
     ]
-    n = 0
-    for row_id, sha in stale:
-        if only is None or sha in only:
-            supersede.retire(con, "decision_decided_date", "decided_id", row_id, at=now)
-            n += 1
-    return n
+    for row_id in stale:
+        supersede.retire(con, "decision_decided_date", "decided_id", row_id, at=now)
+    return len(stale)
 
 
 def _live_on_page(con: Connection, sha: str, page_no: int) -> list[tuple]:
@@ -236,8 +235,10 @@ def read_document(
             continue
         by_channel.setdefault(channel, []).append(row)
     for channel, pages in sorted(by_channel.items()):
-        if not any((p[8] or "").strip() for p in pages):
-            continue  # nothing to read is not a reading (the walk's rule)
+        # A BLANK PAGE IS READ TOO, and its run recorded (Copilot, PR #44): migration 0018 makes
+        # an empty `document_text.text` a completed reading, and decision 8 says a run reads
+        # every displayed page. A channel of blank pages is read and found nothing — which is
+        # what `extraction_run` exists to say, rather than leaving it looking unread.
         found = 0
         for text_id, page_no, _, _, render, engine, engine_version, _, text in pages:
             page_lines = lines(text or "")
@@ -312,18 +313,17 @@ def run(con: Connection, *, limit: int | None = None, log=print) -> Summary:
     part-way keeps what it read and the poller is never locked out for the whole pass."""
     out = Summary()
     machine = methods.machine_channels(con)
-    read: set[str] = set()
     for n, sha in enumerate(_documents(con)):
-        if limit is not None and out.documents >= limit:
+        # documents, not readings: one document can be read on two channels (Copilot, PR #44)
+        if limit is not None and n >= limit:
             break
         read_document(con, sha, out, machine=machine)
-        read.add(sha)
         con.commit()
         if n and n % 2000 == 0:
             log(f"  {n:,} documents: {out.lines:,} lines on {out.pages:,} pages")
     # AFTER the documents, not before: a page read above retired its old rows and pointed each
     # at its replacement on the same (page, ordinal) (decision 6). What is still stale now is a
     # page no longer read — its text gone from the display — and retires at itself.
-    out.stale = _retire_stale(con, utcnow(), only=read if limit is not None else None)
+    out.stale = _retire_stale(con, utcnow())
     con.commit()
     return out
