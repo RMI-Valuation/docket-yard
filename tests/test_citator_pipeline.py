@@ -623,6 +623,25 @@ def test_a_target_the_finder_could_not_key_is_counted_out_of_class(tmp_path):
     assert con.execute("SELECT targets_out_of_class FROM extraction_run").fetchone() == (1,)
 
 
+def test_a_key_minted_under_another_key_version_is_counted_and_kept(tmp_path):
+    """`INSERT OR IGNORE` leaves the first inserter's `key_version` on the identity row (code
+    review, 2026-09-01). A pass under another normaliser that produces the same key says so —
+    and does not rewrite the row, which is an identity and not this pass's to edit."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    doc = _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."})
+    first = load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
+    assert first.key_version_kept == 0
+    again = load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
+    assert again.key_version_kept == 0, "the same normaliser re-running is not an event"
+    con.execute("UPDATE citation_key SET key_version = 'norm-docket@1999-01-01'")
+    older = load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
+    assert older.key_version_kept == 1
+    assert con.execute("SELECT key_version FROM citation_key").fetchone() == (
+        "norm-docket@1999-01-01",
+    )
+
+
 def test_a_re_run_replaces_the_pass_row_and_supersedes_nothing_else(tmp_path):
     con = _store(tmp_path)
     stamps = _scored(con)

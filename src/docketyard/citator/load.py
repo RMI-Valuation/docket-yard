@@ -108,6 +108,10 @@ class Loaded:
     # documents to their docket would pass unseen (ingest specialist, 2026-09-13, F2).
     work_gained: int = 0
     work_lost: int = 0
+    # a key already in `citation_key` under ANOTHER `KEY_VERSION`: the `INSERT OR IGNORE` keeps
+    # the first inserter's version, so a re-normalisation that produced the same string would
+    # otherwise pass without a word (code review, 2026-09-01). Counted, never rewritten.
+    key_version_kept: int = 0
     review: list[str] = field(default_factory=list)  # rendered keys, for ADR 0017 D5's queues
 
 
@@ -540,11 +544,22 @@ def load_document(
                 return (0, "unmeasured", None, None)
             return (stamps[stage][1], "measured", stage, stamps[stage][0])
 
-        con.execute(
+        minted = con.execute(
             "INSERT OR IGNORE INTO citation_key (citing_document, page, target_kind,"
             " target_key, key_version, first_seen_at) VALUES (?, ?, 'stb', ?, ?, ?)",
             (sha, page, key, keys.KEY_VERSION, now),
         )
+        # THE KEY ROW BELONGS TO WHOEVER INSERTED FIRST, the defect ADR 0018 D2 rejected
+        # `cited_raw` over. Rewriting `key_version` would be an UPDATE on an identity row and
+        # is not this pass's call; a differing one is a re-normalisation event, so it is LOUD.
+        if minted.rowcount == 0:
+            kept = con.execute(
+                "SELECT key_version FROM citation_key WHERE citing_document = ? AND page = ?"
+                " AND target_kind = 'stb' AND target_key = ?",
+                (sha, page, key),
+            ).fetchone()
+            if kept is not None and kept[0] != keys.KEY_VERSION:
+                out.key_version_kept += 1
         # A BACKFILL IS RESTARTABLE, so a pass must run twice over one document without
         # minting a second assertion or a second edge. `unchanged` does NOT skip the rest of
         # the loop: the families below are keyed by reading channel, and an OCR pass over a
