@@ -1096,3 +1096,25 @@ def test_a_decisions_act_is_not_its_type_and_the_miss_says_so(tmp_path):
     )
     assert "holds no decisions" in mcp._count_decisions(con, {"served_from": "2026-09-01"}, "h")
     con.close()
+
+
+def test_a_sheet_narrows_to_the_boards_dates(client):
+    text = call(
+        client,
+        "get_docket_sheet",
+        {"docket": "FD 36873", "date_from": "2026-08-24", "date_to": "2026-08-24"},
+    )["content"][0]["text"]
+    assert "Entries the Board dated 2026-08-24 to 2026-08-24" in text
+    assert ": 1 of the 4 on the sheet, newest first." in text
+    assert "[filing] 311900" in text and "[filing] 311981" not in text
+    assert "`recent_activity` windows on when this record observed it" in text
+    text = call(client, "get_docket_sheet", {"docket": "FD 36873", "date_from": "2026-09-01"})
+    assert "None. That is an absence in this record" in text["content"][0]["text"]
+    text = call(client, "get_docket_sheet", {"docket": "FD 36873", "date_from": "Aug 1"})
+    assert "must be a date written YYYY-MM-DD" in text["content"][0]["text"]
+
+
+def test_coverage_says_the_boards_activity_outside_dockets_is_not_held(client):
+    text = call(client, "coverage")["content"][0]["text"]
+    assert "The Board's activity outside its dockets — voting conferences" in text
+    assert "Federal Register notices" in text

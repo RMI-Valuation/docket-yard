@@ -60,7 +60,7 @@ Streamable HTTP (MCP 2025-11-25), checked against the specification rather than 
 
 ## The tools
 
-Seven, deliberately: each is a read a person could do, and none composes into a write.
+Nine, deliberately: each is a read a person could do, and none composes into a write.
 `count_filings` was added 2026-09-16, when an assistant asked how many NITUs had been
 consummated could only say that search results are capped and are not counts.
 `list_proceedings` was added 2026-09-18, when the tool that answered "how many" left an
@@ -68,15 +68,29 @@ assistant unable to answer "which": handed a correct count of 201 and asked for 
 most recent, it narrowed by date and then GUESSED a docket number from a search hit. A
 sibling rather than a flag on `count_filings`, because what the assistant lacked was not an
 argument but the knowledge that the capability existed, and it reads the tool list.
+`recent_activity` and `count_decisions` were added 2026-10-02, when the operator ran a brief
+as a scheduled task — a fresh session with no memory — and found it guessing search words
+and diffing whole sheets to learn what was new; `search_the_record` and `get_docket_sheet`
+took filters the same day. What the operator decided while they were built: a window is on
+when the watch **observed** a record by default, or on the Board's own date when asked
+(both, as a parameter); a watchlist is the caller's, passed as `dockets` for one call and
+never kept, which replaces exposing a reader's site follows; MCP's search takes filters
+(reopening his 2026-09-17 decision that it keep its shape). Checked against the rules and
+left out: category tags built from titles and summaries (a derived classification, which
+needs provenance and a decision — the closest fit is the Board's own type, which
+`recent_activity` filters on), and procedural schedules as a tool (pairing a date with an
+event is a derived assertion bordering C4; `read_page` hands the page over as printed).
 
 | Tool | Answers |
 | --- | --- |
-| `search_the_record` | proceedings, parties, decisions and comments by their own words, and pages of the Board's documents by their machine-read text (each `[page]` line labelled with who read it, the band's operand or its absence, and the scan); a docket number resolves directly. `limit` bounds the record lines; page lines are at most 20 |
-| `get_docket_sheet` | one proceeding's chronological sheet, newest first, each entry with the Board's own file and the sub-docket it was entered in |
+| `search_the_record` | with any filter (prefix, prefixes or dockets left out, a range on the Board's dates, record type, the Board's type, `sort`, `page`), one list through `finder.find` — the query layer `/search` reads — each item once, with a total. Without one, as it has always been: proceedings, parties, decisions and comments by their own words, and pages of the Board's documents by their machine-read text (each `[page]` line labelled with who read it, the band's operand or its absence, and the scan); a docket number resolves directly. `limit` bounds the record lines; page lines are at most 20 |
+| `get_docket_sheet` | one proceeding's chronological sheet, newest first, each entry with the Board's own file and the sub-docket it was entered in; `date_from`/`date_to` narrow it to the Board's own dates, and say how many of the sheet's entries that is |
 | `get_environmental_comment` | one comment by its Board number, with the commenter's own words as printed — quotation, never characterisation |
 | `read_page` | one page, or up to five, of a filing's, decision's or comment's file, by the address a search gave or `decision N`: the display view's text (contact details omitted) between begin and end markers, each page labelled with who read it and its band, the Board's own file and the scan; a blank, unread or unread-table page is said as the text page says it; an engine-read page adds that it carries OCR errors and is unreviewed; every answer ends with the text caveat and the licence line |
 | `count_filings` | how many filings the Board typed a given way (`Consummation Notice`), in how many proceedings, within a prefix and a filed-date range, and how many of those proceedings also hold a second type. It counts distinct filings (a filing entered in a docket and its sub-docket is two rows and one filing) and proceedings as entered; names every Board type a phrase matched; names the unfinished filing months inside the range; and says it counts the Board's labels, not what the documents did. A decision's act (a NITU issued) is not a filing type, and the miss says so |
 | `list_proceedings` | the proceedings behind a `count_filings` count, newest first by the matching filing's date, at most 25 a call with `offset` for the rest, and at most 6 filings printed per proceeding with the remainder counted (one proceeding can hold hundreds of a single type): each with its docket number, the Board's caption, its address here, and the matching filings with the Board's own ids and dates. It takes the count's filters from the same definition (`_Scope`), so the same arguments give the members of the same number; an `also_has` that matches no Board type is refused rather than listed unpaired, because a list that quietly dropped the pairing would read as an answer |
+| `recent_activity` | what arrived inside a window, across every proceeding or a `dockets` list the caller passes and the server never keeps: by default when the forward watch **observed** each record (the events an alert carries, plus comments), so a late posting lands in the run that first saw it and a backfill wave never reads as news; `by: board_date` windows on the Board's own dates over everything held, and says a window already read can gain entries. Narrowed by prefix, prefixes left out, record type, the Board's filing or decision type, words in the Filed For cell as printed (not a resolved party) and words in the deciding body. One entry per record however many proceedings it was entered in, in the sheet's own line (`_entry_line`), with its address for `read_page` and whether it is new or seen again; an outage inside the window and a window opening before the watch are said in the answer (`store/activity.py`, `coverage.watch`) |
+| `count_decisions` | how many decisions, in how many proceedings, by prefix, served-date range, the Board's decision type and words in the deciding body, with a breakdown by each; its members are what `recent_activity` lists with `by: board_date` and `record_type: decision` under the same filters, and a test holds the two to one number. Names the unfinished decision months inside the range |
 | `coverage` | what the record holds and what it does not, measured; the tool an assistant is told to call before calling the record complete. It names every limit the coverage page names, from one source (`store/coverage.py`), so the two cannot drift |
 
 A comment is folded by its **row ref**, not its number: one comment entered in a docket and

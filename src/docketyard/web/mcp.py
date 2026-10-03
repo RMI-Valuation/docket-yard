@@ -488,6 +488,18 @@ def _docket(con: Connection, args: dict, host: str) -> str:
             f"The record holds no proceeding numbered {urls.printed_docket(identity)}. "
             "It may exist at the Board and not here."
         )
+    # the Board's own dates, so "anything since the last brief?" need not read forty entries
+    # and diff them (the operator, 2026-10-02). What the watch OBSERVED since a run is
+    # `recent_activity`'s question; this one is about the dates the Board printed.
+    try:
+        date_from = _day(args.get("date_from"), "date_from")
+        date_to = _day(args.get("date_to"), "date_to")
+    except ValueError as e:
+        return str(e) if str(e).startswith("`") else "A date must be a real day, YYYY-MM-DD."
+    if date_from and date_to and date_from > date_to:
+        return (
+            f"`date_from` ({date_from}) is after `date_to` ({date_to}); nothing can fall between."
+        )
     s = sheet_store.docket_sheet(con, docket_id)
     if s is None:
         return "The record holds no sheet for that proceeding."
@@ -522,12 +534,35 @@ def _docket(con: Connection, args: dict, host: str) -> str:
         if len(s.sub_dockets) > limit:
             rows.append(f"…and {len(s.sub_dockets) - limit} more, listed on the sheet.")
         return "\n".join(head + rows + ["", _NOT_HELD])
+    entries = s.entries
     rows = ["Entries, newest first:"]
-    rows += [f"- {_entry_line(e, s.raw_docket)}" for e in s.entries[:limit]]
+    if date_from or date_to:
+        # an undated entry is outside every range, and is said to be rather than dropped
+        undated = sum(1 for e in entries if not e.date)
+        entries = [
+            e
+            for e in entries
+            if e.date
+            and (not date_from or e.date >= date_from)
+            and (not date_to or e.date <= date_to)
+        ]
+        rows = [
+            f"Entries the Board dated {date_from or 'from the first'} to"
+            f" {date_to or 'the latest held'} (filed, served, or received or sent):"
+            f" {len(entries):,} of the {len(s.entries):,} on the sheet, newest first."
+            + (f" {_plural(undated, 'undated entry')} cannot fall in a range." if undated else "")
+            + " The Board can post an entry days after its date; `recent_activity` windows on"
+            " when this record observed it."
+        ]
+        if not entries:
+            rows.append(
+                "None. That is an absence in this record, not proof of absence at the Board."
+            )
+    rows += [f"- {_entry_line(e, s.raw_docket)}" for e in entries[:limit]]
     more = ""
-    if len(s.entries) > limit:
+    if len(entries) > limit:
         more = (
-            f"\n({len(s.entries) - limit} older entries not shown — these are the"
+            f"\n({len(entries) - limit} older entries not shown — these are the"
             f" {limit} most recent, not the whole sheet. "
             # at the cap, "raise `limit`" sent an assistant round a loop it could not leave
             # (the independent graders, 2026-09-16)
@@ -1809,6 +1844,12 @@ TOOLS: tuple[Tool, ...] = (
             {
                 "docket": {"type": "string", "description": "The docket number."},
                 "limit": {"type": "integer", "description": "Entries, 1-100. Default 25."},
+                "date_from": {
+                    "type": "string",
+                    "description": "YYYY-MM-DD, inclusive: only entries the Board dated from"
+                    " this day (filed, served, or received or sent).",
+                },
+                "date_to": {"type": "string", "description": "YYYY-MM-DD, inclusive."},
             },
             ["docket"],
         ),

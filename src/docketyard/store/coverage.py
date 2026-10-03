@@ -46,6 +46,12 @@ BY_DESIGN_LIMITS: tuple[tuple[str, str], ...] = (
         " scan one click away.",
     ),
     (
+        "The Board's activity outside its dockets",
+        " — voting conferences, hearings and arguments as events, press releases and Federal"
+        " Register notices. Where the Board enters a notice of one in a docket, that entry is"
+        " held like any other.",
+    ),
+    (
         "Anything the Board's search itself does not show.",
         " Its result tables display at most 10,000 rows per query and fail in ways that look"
         " like success; the pipeline asserts on every response that the filter it asked for"
