@@ -923,7 +923,10 @@ def main(argv: list[str] | None = None) -> int:
     fa.add_argument("--limit", type=int)
     fa.add_argument("--interval", type=float, default=1.0)
     fa.add_argument("--refresh", action="store_true", help="refetch known documents (errata check)")
-    fa.add_argument("--mode", choices=("forward", "backfill"), default="forward")
+    # No default: the mode is the capture's provenance, and `forward` puts the document in
+    # the text stage's scope (text/queue.py D1). A by-hand run over a wave's backlog took the
+    # old default and pulled backfill documents in; the operator now says which it is.
+    fa.add_argument("--mode", choices=("forward", "backfill"), required=True)
     fa.set_defaults(func=_fetch_attachments)
 
     wk = sub.add_parser("walk", help="backfill campaign: every slice of a table, resumably")

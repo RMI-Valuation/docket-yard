@@ -448,6 +448,18 @@ def test_a_capture_records_the_wire_url_beside_the_stored_one_when_they_differ(c
     }
 
 
+def test_the_fetch_verb_will_not_guess_the_mode(tmp_path, capsys):
+    """`forward` scopes a document into the text stage (text/queue.py D1), so a by-hand fetch
+    over a wave's backlog must say `backfill` rather than inherit a default (deferred, the
+    no-answer fetch's reviews, 2026-09-11). Refused before any store is opened."""
+    from docketyard import cli
+
+    with pytest.raises(SystemExit):
+        cli.main(["--db", str(tmp_path / "s.sqlite"), "fetch", "attachments"])
+    assert "--mode" in capsys.readouterr().err
+    assert not (tmp_path / "s.sqlite").exists()
+
+
 def test_a_kill_before_the_verdict_leaves_no_unjudged_fetch_capture(tmp_path):
     """A fetch capture and its "not applicable" verdict commit together: a process killed
     between the INSERT and the UPDATE leaves neither, never a quarantined row nothing will
