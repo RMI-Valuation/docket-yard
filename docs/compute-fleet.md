@@ -214,6 +214,12 @@ queue server appends each to `ocr/blob-corrupt.log` and the monitor counts the l
 `increase(docket_yard_fleet_blob_corrupt_total[1h]) > 0`, is written in `config.alloy` and is
 **not yet provisioned** in `infra/grafana/provision.py`.
 
+A pass taken down on purpose says so: `ocr/.paused-<pass>` beside the queue, one line giving
+the reason, is published as `docket_yard_fleet_paused{pass}` and on the monitor page, dated
+by the file's mtime. It suppresses nothing — `stalled` still fires — and it stops no worker;
+the stop file does that. Whether a rule should read it (`stalled unless paused`) is not
+decided; until then it is the reason, published beside the alarm.
+
 ## Running it
 
 Four roles — `coordinator`, `worker`, `tabular`, `reread` — with tmux sessions for each,

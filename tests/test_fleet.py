@@ -146,6 +146,24 @@ def test_status_and_the_alarms_watch_pages_read_not_pages_finished(q):
     assert "-1" not in text
 
 
+def test_a_pass_down_on_purpose_is_published_and_suppresses_nothing(q, tmp_path):
+    """The 5090 swap, 2026-09-18: the pass was down an hour on purpose and the only thing the
+    fleet could say was STALLED. A marker beside the queue publishes the reason as its own
+    series; it never silences `stalled` (ADR 0020's maintenance mode is production's twin)."""
+    db = tmp_path / "q.sqlite"
+    assert monitor.paused(db) == {}
+    (tmp_path / ".paused-dots").write_text("card swap on the big box\n", encoding="utf-8")
+    (tmp_path / ".paused-nonsense").write_text("x", encoding="utf-8")  # not a pass: ignored
+    held = monitor.paused(db)
+    assert list(held) == ["dots"] and held["dots"]["why"] == "card swap on the big box"
+    text = monitor.metrics(q.status(), 0, 0, held)
+    assert 'docket_yard_fleet_paused{pass="dots"} 1' in text
+    assert 'docket_yard_fleet_stalled{pass="dots"} 1' in text  # still stalled: nothing hidden
+    assert "nonsense" not in text
+    assert "PAUSED: dots" in monitor.page(q.status(), 0, 0, held)
+    assert 'docket_yard_fleet_paused{pass="dots"} 0' in monitor.metrics(q.status(), 0, 0, {})
+
+
 def test_the_monitor_never_creates_a_queue(tmp_path):
     with pytest.raises(FileNotFoundError):
         pq.Queue(tmp_path / "missing.sqlite", readonly=True)
