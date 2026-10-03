@@ -20,3 +20,20 @@ def test_a_run_records_the_registry_it_was_made_against(tmp_path):
         "dockets 30123",
     ]
     assert not list(tmp_path.glob("*.json"))
+
+
+def test_an_orphan_decision_is_returned_and_said_beside_the_numbers(tmp_path):
+    """A decision with no docket in the registry is not run, and its truth targets stay in
+    the denominator, so every figure is lower than the rule's. It used to be a `print` fifty
+    lines above them; now the caller gets the orphans and prints them where the numbers are,
+    with how many truth targets they hold."""
+    text = tmp_path / "text"
+    text.mkdir()
+    (text / "heavy-99999.txt").write_text("===== page 1 =====\nFD 36873\n", encoding="utf-8")
+    run, orphans = citation_dryrun.run_the_finder(text, tmp_path / "run", own={})
+    assert orphans == ["99999"]
+    assert not list(run.glob("*.json")), "an orphan is not run with an empty `own`"
+
+    note = citation_dryrun.orphan_note(orphans, {"99999": {"FD 36873", "EP 445"}})
+    assert "1 decisions" in note and "2 truth targets" in note and "99999" in note
+    assert citation_dryrun.orphan_note([], {"99999": {"FD 36873"}}) == ""
