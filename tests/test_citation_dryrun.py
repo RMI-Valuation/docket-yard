@@ -37,3 +37,25 @@ def test_an_orphan_decision_is_returned_and_said_beside_the_numbers(tmp_path):
     note = citation_dryrun.orphan_note(orphans, {"99999": {"FD 36873", "EP 445"}})
     assert "1 decisions" in note and "2 truth targets" in note and "99999" in note
     assert citation_dryrun.orphan_note([], {"99999": {"FD 36873"}}) == ""
+
+
+def test_only_a_key_never_emitted_as_a_citation_can_explain_a_projected_caption(tmp_path):
+    """The agreement check's fourth legitimate difference (ADR 0017 D4): an in-family caption
+    whose line names a document projects in SQL while the Python chain counts citations only.
+    A key that is a citation on ANY page is already in the Python chain's sets, so it is not
+    one of these — only a key the run emitted as nothing but captions."""
+    import json
+
+    def finding(key, kind):
+        return {"key": key, "kind": kind, "target": key}
+
+    doc = {
+        "decision_id": "52526",
+        "pages": [
+            {"page": 1, "findings": [finding("FD 36873", "caption"), finding("EP 445", "caption")]},
+            {"page": 2, "findings": [finding("EP 445", "citation")]},
+        ],
+    }
+    (tmp_path / "52526.json").write_text(json.dumps(doc), encoding="utf-8")
+    (tmp_path / citation_dryrun.REGISTRY_FILE).write_text("registry x\n", encoding="utf-8")
+    assert citation_dryrun.caption_only(tmp_path) == {("52526", "FD 36873")}

@@ -301,6 +301,19 @@ def orphan_note(orphans: list[str], truth: dict[str, set[str]]) -> str:
     )
 
 
+def caption_only(run: Path) -> set[tuple[str, str]]:
+    """(decision, key) pairs the run emitted ONLY as captions, on every page. A key emitted as
+    a citation anywhere in the decision is in the Python chain's sets already; these are the
+    pairs it never sees, so the only ones a projected caption can explain."""
+    kinds: dict[tuple[str, str], set[str]] = {}
+    for path in sorted(run.glob("*.json")):
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        for page in doc.get("pages", []):
+            for f in page.get("findings", []):
+                kinds.setdefault((str(doc["decision_id"]), f["key"]), set()).add(f["kind"])
+    return {pair for pair, seen in kinds.items() if seen == {"caption"}}
+
+
 def record_registry(run: Path, registry: Path, dockets: int) -> Path:
     """Write which registry a run was made against, and a fingerprint of it, into the run."""
     path = run / REGISTRY_FILE
@@ -469,10 +482,25 @@ def main(
             print(f"    {citing_work}  {key}")
 
     reachable = {(d, k) for d, k in py["pairs"] if d in docs}
-    ok = sql_pairs == reachable - held_for_review
+    # AN IN-FAMILY CAPTION THAT PROJECTS IS A FOURTH LEGITIMATE DIFFERENCE (ADR 0017 D4). The
+    # Python chain counts citation-kind findings only, while the store holds captions too, and
+    # an own-family caption whose line names a document SHOULD project — it is the
+    # reconsideration edge query 2 exists to find. Since finder 2026-09-13 the kind is read
+    # from the same span test, so the set is expected empty; it is NAMED rather than failing a
+    # correct pipeline on the day the two tests part (finder review, 2026-09-01).
+    caption_edges = (sql_pairs - reachable) & caption_only(run)
+    if caption_edges:
+        print(
+            f"  {len(caption_edges)} in-family CAPTIONS project because their line names a"
+            " document (ADR 0017 D4), which the Python chain does not count:"
+        )
+        for citing_work, key in sorted(caption_edges):
+            print(f"    {citing_work}  {key}")
+    ok = sql_pairs - caption_edges == reachable - held_for_review
     print(
         f"\n  python projects {len(reachable)} pairs on documents the store holds, less"
         f" {len(held_for_review)} held for review; SQL projects {len(sql_pairs)}"
+        + (f", {len(caption_edges)} of them captions" if caption_edges else "")
     )
     print(f"  AGREEMENT: {'yes' if ok else 'NO'}")
     if orphaned:
