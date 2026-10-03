@@ -122,6 +122,10 @@ def connect(path: str | Path, upto: int | None = None) -> Connection:
     return con
 
 
+def _script(name: str) -> str:
+    return resources.files("docketyard.store").joinpath(name).read_text(encoding="utf-8")
+
+
 def migrate(con: Connection, upto: int | None = None) -> int:
     """Apply every migration above the stamped version (or up to `upto`, for tests that
     build an older store). Foreign-key enforcement is OFF while a script runs — SQLite's
@@ -148,8 +152,7 @@ def migrate(con: Connection, upto: int | None = None) -> int:
         for version, script in MIGRATIONS:
             if version <= applied or (upto is not None and version > upto):
                 continue
-            sql = resources.files("docketyard.store").joinpath(script).read_text(encoding="utf-8")
-            con.executescript(sql)
+            con.executescript(_script(script))
             stamped = con.execute("PRAGMA user_version").fetchone()[0]
             if stamped != version:
                 raise RuntimeError(f"migration {script} did not stamp user_version {version}")
@@ -157,6 +160,14 @@ def migrate(con: Connection, upto: int | None = None) -> int:
             if broken:
                 raise RuntimeError(f"migration {script} left dangling foreign keys: {broken[:5]}")
             applied = version
+    except BaseException:
+        # A statement that fails to PARSE partway raises with the script's own `BEGIN` still
+        # open, and a caller that kept the connection and committed would keep whatever ran
+        # before it — a half-applied migration under an unchanged `user_version` (the schema
+        # critic, 2026-09-13; production is safe only because `migrate`'s connection closes).
+        if con.in_transaction:
+            con.rollback()
+        raise
     finally:
         con.execute("PRAGMA foreign_keys = ON")
     con.commit()

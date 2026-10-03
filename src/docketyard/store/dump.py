@@ -334,8 +334,13 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
             "documents": q("SELECT COUNT(*) FROM document").fetchone()[0],
         }
         version = q("PRAGMA user_version").fetchone()[0]
+        # Not the full-text indexes' shadow tables (`search_fts_config`, `_data`, …): the
+        # `CREATE VIRTUAL TABLE` above them makes them, so a file that also creates them
+        # stops at "table already exists" — and the published schema did, until a test ran
+        # it instead of reading it (deferred, ADR 0024 Owed 5; found 2026-10-03)
         ddl = q(
-            "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL"
+            "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT IN"
+            " (SELECT name FROM pragma_table_list WHERE type = 'shadow')"
             " ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 ELSE 2 END, name"
         ).fetchall()
         schema = ";\n\n".join(r[0] for r in ddl) + f";\n\nPRAGMA user_version = {version};\n"

@@ -599,13 +599,6 @@ schema-critic pass of their own, not a tidy-up.
   cannot be stated in one sentence; and because `exposed` flags a correctly-resolved row for
   review rather than changing what it resolves to. If one is ever seen, it resolves right and
   is merely reviewed.
-- **`docket.sub_sequence = 0` is legal SQL and now collides with the parent's key.** No row
-  holds it (`parse_docket_id` maps 0 to None; measured 0 rows in production) and only ingest
-  writes `docket`, so it is unreachable — but `docket_identity` keeps 0 and NULL as two rows
-  while `keys.registry()` is a dict comprehension, so the second would silently overwrite the
-  first and the registry would lose a proceeding without a word. A guard in `registry()` that
-  raises on a duplicate key is one line and catches it loudly; the CHECK constraint is a
-  table rebuild.
 - **The site prints a docket in two forms its own citation grammar cannot read, and one of
   them names a DIFFERENT proceeding.** `urls.printed_docket` renders `AB_1182_0_X` as
   `AB 1182-X` and `urls.cite_docket` as `STB Docket No. AB 1182-X`; `keys.DOCKET` cannot take
@@ -676,18 +669,6 @@ regression; all three are gaps that have always been open and were never counted
 The stb-ingest-specialist's pass over the draft. Two findings stand on their own, whatever
 becomes of that record.
 
-- **`forward_pass` records no duration, and nothing alarms on an overrun.** `run_forever`
-  does `time.sleep(max(0.0, every - elapsed))` — a pass that takes longer than its interval
-  sleeps zero and the next one starts immediately, with no measurement, no summary key and no
-  problem raised. The only external signal is `alerts/build.py`'s `LATE_AFTER = 3 hours`, so
-  a pass could run six times its interval unnoticed. Today's worst case is ~14-15 minutes of
-  the 30 (captures ~120 s, captions ~25 s, `FETCH_LIMIT` 200 at the polite interval ~400 s,
-  `RECHECK_BUDGET_SECONDS` 300, plus alerts, party resolution and the index). **Two published
-  claims rest on the cadence**: `/coverage` says the Board's record search is asked "every
-  thirty minutes", and `/methodology` computes `recheck_cycle_days` from `POLL_MINUTES = 30`.
-  A pass that quietly takes 45 minutes makes both false, which is the drift `CLAUDE.md`
-  forbids. A `duration` in the summary and a problem when it exceeds the interval is cheap
-  and is owed whether or not ADR 0024 ships.
 - **The errata re-check gives archive documents a forward `document_source` row, continuously.**
   `recheck_urls` selects held URLs across the whole record and `fetch_attachments` then loads
   EVERY attachment row for them (`unfetched_only=False`), including rows whose
@@ -762,8 +743,8 @@ amendments are listed in the migration's own header; these are the rest.
 - **The extraction service needs `cpus:` and `mem_limit`.** Two vCPU; `web`'s healthcheck
   timeout was already raised to 30 s so a bulk load could not become a restart loop, and this
   adds CPU-bound work to every pass right after the heaviest write. Three misses trips
-  `docketyard-webwatch.timer`, which restarts `web`, which adds load. The pass measures no
-  duration and nothing alarms on overrun (already recorded above).
+  `docketyard-webwatch.timer`, which restarts `web`, which adds load. Since 2026-10-03 a pass
+  logs its duration and an overrun says so (`pass OVERRAN`), so this would at least be seen.
 - **`extraction_dispatch` carries no `ingest_mode`** — ADR 0024 § Owed 5's gap, same as
   `ocr_run`'s. Not urgent: `ADD COLUMN` survives publication, and the primary key is the only
   rebuild-class change the critic's widening survey could find.
@@ -883,9 +864,6 @@ it found is in the released code and is recorded here rather than dropped.
   once its reading is refused rather than when it is handed over. The loader-clock floor
   added 2026-09-11 adds the poller's own outage to this, and that case heals: the stale
   records are quarantined and their documents, with attempts left, are asked for again.
-- **`citator declare` tells the operator the wrong thing** (`cli.py` ~420, and
-  `project.unstamped_work_rows`'s docstring): "nothing re-stamps an unchanged answer", in the
-  release that ships `citator restamp --apply`, which does.
 
 ## From the no-answer fetch's reviews, 2026-09-11 (v2026.09.12)
 
@@ -921,9 +899,6 @@ The operator chose `ocr_run.dispatch_id`, echoed (ADR 0024 addendum 2026-09-11).
   the next one take its integer and an existing reading silently names another document's
   dispatch. AUTOINCREMENT needs a rebuild of a published table; 0026's header says do not
   delete dispatches. Both, or neither, deliberately.
-- **Nothing proves the published `schema.sql` parses** for a third party: the tests check it
-  by regex. Loading it into a fresh database is the test; 0026 spliced a column into
-  `ocr_run`'s stored DDL.
 - **The spool file name loses answers**: `extract.py` writes `<sha>.json`, so two requests
   for one document served back to back (after an outage) keep only the second record, and
   the first dispatch publishes as unanswered — true of the store, but a lost answer.
@@ -1451,19 +1426,6 @@ already carrying another channel's live citation readings, and the fixes wait he
   sample holds no repair (`ocr_citation_dryrun.py` now writes no card when it does), while the full
   rehearsal's load added one (repaired queue 1 -> 2). Scoring repairs needs a sample that has them,
   or holding rule-2 repairs on OCR for review — the operator's decision.
-- **A fractional page is truncated, not refused** (F2 of the same review, low, not new): `4.7`
-  is page 4 in the guard and in the insert alike. Refuse a non-integer page at the boundary.
-
-## A migration script that errors partway can leave its earlier DDL committable, 2026-09-13 (v2026.09.20)
-
-Found by the schema critic on the ADR 0018 retirement addendum; tested the same day in
-v2026.09.20's image (SQLite 3.46.1). `db.migrate` runs each script with `executescript`. A
-statement that fails to PARSE partway (not a `RAISE`) raises with the script's `BEGIN` still
-open, and a caller that keeps the connection and commits keeps whatever ran before the error
-(the test kept a `CREATE TABLE`, with `user_version` unchanged). Production is safe today only
-because the `migrate` service's connection closes on the exception, which rolls back. A
-`RAISE(ROLLBACK, '<fixed text>')` left nothing. Fix: `db.migrate` rolls back explicitly before
-re-raising, with a test that commits after a failing script.
 
 ## SQLite 3.53.4 in production, 2026-09-13 (v2026.09.20)
 

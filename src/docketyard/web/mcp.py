@@ -2105,7 +2105,9 @@ TOOLS: tuple[Tool, ...] = (
                 "since": {
                     "type": "string",
                     "description": "Start, inclusive: YYYY-MM-DD, or a date and time"
-                    " (2026-10-01T06:00:00Z) when `by` is `observed`. Required.",
+                    " (2026-10-01T06:00:00Z) when `by` is `observed`. Required. A window"
+                    f" spans at most {_MAX_WINDOW_DAYS} days; `count_filings` and"
+                    " `count_decisions` count over any range.",
                 },
                 "until": {
                     "type": "string",

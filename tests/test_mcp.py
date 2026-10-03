@@ -1312,3 +1312,11 @@ def test_a_search_that_skipped_the_text_is_not_an_absence(client, monkeypatch):
     text = search_text(client, query="zzznothing", prefix="FD")
     assert "this is NOT an absence in this record" in text
     assert "The record holds nothing matching" not in text
+
+
+def test_the_window_bound_is_in_the_description_not_only_the_refusal(client):
+    """An assistant read the tool list and described `recent_activity` without the bound,
+    learning it only by being refused (the operator's live test, 2026-10-03)."""
+    tools = {t["name"]: t for t in rpc(client, "tools/list").json()["result"]["tools"]}
+    since = tools["recent_activity"]["inputSchema"]["properties"]["since"]["description"]
+    assert f"at most {mcp._MAX_WINDOW_DAYS} days" in since

@@ -439,8 +439,8 @@ def _citator(args: argparse.Namespace) -> int:
             if stranded := project.unstamped_work_rows(con):
                 print(
                     f"  {stranded} live rows already name a document and carry the docket"
-                    " figure. They will NOT be published at the work grain: nothing"
-                    " re-stamps an unchanged answer (docs/deferred.md)."
+                    " figure. They are not published at the work grain until they are"
+                    " re-stamped: `citator restamp` counts them, `--apply` writes them."
                 )
         print(
             "An edge carries the RESOLUTION class's precision (ADR 0017 D3), not the"

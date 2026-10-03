@@ -86,6 +86,21 @@ def test_api_page_and_llms_txt_say_what_the_surface_is(tmp_path):
     assert "/api<" in client.get("/sitemap-pages-1.xml").text
 
 
+def test_the_published_schema_loads_into_an_empty_database(tmp_path):
+    """A third party's first step with `schema.sql` is to run it. The tests read it by
+    pattern, and 0026 spliced a column into `ocr_run`'s stored DDL — a file that is checked
+    for words is not checked for parsing (the schema critic, ADR 0024 Owed 5)."""
+    path = build_store(tmp_path)
+    out = tmp_path / "public"
+    dump.dump(path, out, today=date(2026, 9, 1), now="2026-09-01T04:10:00+00:00")
+    fresh = sqlite3.connect(tmp_path / "fresh.sqlite")
+    fresh.executescript((out / "schema.sql").read_text(encoding="utf-8"))
+    tables = {r[0] for r in fresh.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    assert {"docket", "filing", "decision_record", "event", "capture"} <= tables
+    assert fresh.execute("PRAGMA user_version").fetchone()[0] == db.MIGRATIONS[-1][0]
+    fresh.close()
+
+
 def test_snapshot_omits_readers_and_measures_itself(tmp_path):
     path = build_store(tmp_path)
     con = db.connect(path)

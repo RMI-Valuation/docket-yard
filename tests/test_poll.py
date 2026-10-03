@@ -83,6 +83,7 @@ def test_forward_pass_captures_ingests_and_fetches(tmp_path):
     )
     lines = []
     summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lines.append)
+    assert isinstance(summary["duration_s"], float)  # the cadence the site publishes rests on it
     assert summary["window"] == ("08/19/2026", "08/25/2026")
     assert summary["captured"] == {
         FILINGS: "done",
@@ -558,3 +559,22 @@ def test_a_pass_repairs_the_decision_registry_and_says_that_it_did(tmp_path):
     # a report nobody could act on
     summary = poll.forward_pass(con, client, tmp_path, today=date(2026, 8, 25), log=lambda _: 0)
     assert summary["decision_work_repaired"] == 0 and summary["problems"] == []
+
+
+def test_a_pass_that_overruns_its_interval_says_so(monkeypatch):
+    """The published cadence (every thirty minutes) rests on passes fitting in it."""
+    clock = iter([0.0, 2000.0, 2000.0, 2001.0])
+    monkeypatch.setattr(poll.time, "monotonic", lambda: next(clock))
+    lines, calls = [], []
+
+    def one_pass():
+        calls.append(1)
+        if len(calls) == 2:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(poll.time, "sleep", lambda s: None)
+    try:
+        poll.run_forever(one_pass, every=1800, log=lines.append)
+    except KeyboardInterrupt:
+        pass
+    assert lines == ["pass OVERRAN its interval: 2000 s against 1800 s"]
