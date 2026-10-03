@@ -59,6 +59,11 @@ from docketyard.citator import (  # noqa: E402
 from docketyard.store import db  # noqa: E402
 
 SCORE_FILE = "tools/rmi-ai-machine/projection_score.py"
+# BESIDE THE RUN, the registry it was made against. `kind` is a function of `own`, which comes
+# from the registry, and ADR 0016's own argument is that the old figures could not be
+# re-derived partly because nobody could say which registry they were scored against. Not a
+# `.json`: every reader of a run directory globs `*.json` as one decision each.
+REGISTRY_FILE = "registry.txt"
 
 
 def scratch_store(registry: Path, out: Path) -> sqlite3.Connection:
@@ -281,6 +286,13 @@ def run_the_finder(text_dir: Path, out: Path, own: dict[str, set[str]]) -> Path:
     return out
 
 
+def record_registry(run: Path, registry: Path, dockets: int) -> Path:
+    """Write which registry a run was made against, and a fingerprint of it, into the run."""
+    path = run / REGISTRY_FILE
+    path.write_text(f"registry {registry}\ndockets {dockets}\n", encoding="utf-8", newline="\n")
+    return path
+
+
 def main(
     text_dir: Path,
     registry: Path,
@@ -291,10 +303,12 @@ def main(
 ) -> int:
     con0 = sqlite3.connect(f"file:{registry}?mode=ro", uri=True)
     own = own_dockets(con0)
+    dockets = con0.execute("SELECT COUNT(*) FROM docket").fetchone()[0]
     con0.close()
     run = run_the_finder(text_dir, out, own)
+    record_registry(run, registry, dockets)
     py = python_chain(run, registry)
-    print(f"finder over {text_dir} -> {run}   registry {registry}\n")
+    print(f"finder over {text_dir} -> {run}   registry {registry} ({dockets} dockets)\n")
     print("PYTHON CHAIN (tools/rmi-ai-machine/projection_score.py):")
     print(
         f"  extraction {py['found']:3d}/{py['truth']}   resolution {py['resolved']:3d}"
