@@ -16,6 +16,7 @@ from sqlite3 import Connection
 from docketyard.ingest.dockets import ParsedDocket, parse_docket_id
 from docketyard.parties import resolve
 from docketyard.store.db import load_json
+from docketyard.store.home import month_keys
 
 _MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
@@ -57,16 +58,6 @@ class Stats:
     by_body: list[tuple[str | None, int]]  # deciding body as printed (None: blank), decisions
     busiest: list[Busiest]  # most filings this calendar year, folded by docket family
     year: int
-
-
-def month_keys(first: str, today: date) -> list[str]:
-    """Every YYYY-MM from `first` to the month of `today`, inclusive."""
-    y, m = int(first[:4]), int(first[5:])
-    out = []
-    while (y, m) <= (today.year, today.month):
-        out.append(f"{y:04d}-{m:02d}")
-        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
-    return out
 
 
 def stats(con: Connection, today: date | None = None) -> Stats:
