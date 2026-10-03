@@ -113,6 +113,7 @@ CAPTION_LOOKUPS = 10
 CAPTION_WINDOW_DAYS = 45
 CAPTION_ATTEMPTS = 8  # ~4 hours of passes; then it is reported, not asked again
 CAPTION_RETRY_HOURS = 6  # one ask per docket per this many hours, whatever the pass rate
+CONTROL_CANDIDATES = 2  # captioned dockets the caption control may ask before it raises
 
 
 def _caption_asks(con: Connection) -> dict[tuple[str, int, int | None], tuple[int, str]]:
@@ -303,49 +304,68 @@ def _caption_control(con: Connection, client, data_dir, *, problems: list[str], 
     So when the pass asked about anything, it also asks about one docket whose caption it
     holds. That ask MUST return a row. An envelope there is the endpoint telling us the
     question stopped working, and it is a problem line the same pass, at one request.
+
+    Unless the Board withdrew THAT row: the choice is deterministic, so one withdrawal would
+    raise the same line every pass, for ever, about a query that works. An envelope is
+    therefore put to the next captioned docket too (`CONTROL_CANDIDATES`), and the line is
+    raised only when none answers. A broken query fails them all; a withdrawn row fails
+    alone, and is logged by name rather than raised (stb-ingest-specialist, 2026-09-01).
+    Only the envelope is forgiven: a withdrawn row answers nothing, so rows that fail the
+    filter, a family answer or a page limit raise the line at once, as before.
     """
     # A SUB-docket, always. The criteria name `docketNum_three`, and without it the
     # endpoint answers the whole family — 392 rows for AB 290 — which `pages=1` cannot
     # finish, so the control would record `partial` and cry "the caption query may have
     # stopped working" on every pass, for ever, while 50 rows sat in the response
     # (code review, 2026-09-01).
-    row = con.execute(
+    candidates = con.execute(
         "SELECT d.prefix, d.sequence, d.sub_sequence FROM docket d"
         " JOIN docket_current c ON c.docket_id = d.docket_id"
         " WHERE d.sub_sequence IS NOT NULL"
         " AND TRIM(COALESCE(json_extract(c.latest_payload, '$.title'), '')) <> ''"
-        " ORDER BY d.docket_id LIMIT 1"
-    ).fetchone()
-    if row is None:  # no captioned sub-docket yet: there is no one-row question to ask
-        return
-    prefix, sequence, sub_sequence = row
-    criteria = [("docketNum_one", prefix), ("docketNum_two", str(sequence))]
-    if sub_sequence is not None:
-        criteria.append(("docketNum_three", str(sub_sequence)))
-    named = f"{prefix} {sequence}" + (f" ({sub_sequence})" if sub_sequence else "")
-    try:
-        result = walk.capture_slice(
-            con,
-            client,
-            DOCKETS,
-            criteria,
-            data_dir=data_dir,
-            pages=1,
-            mode="forward",
-            expected_empty=False,  # THE POINT: this one may not answer the envelope
-            log=log,
-        )
-    except Exception as e:  # noqa: BLE001 — the control never fails the pass either
-        con.rollback()
-        problems.append(f"caption control {named}: capture failed ({type(e).__name__}: {e})")
-        return
-    # `total == 1` and not merely "some rows": the criteria name one docket, so anything
-    # else means they did not filter — a family answer would otherwise slip through as
-    # success (code review, 2026-09-01)
-    if result.status != "done" or result.total != 1:
+        " ORDER BY d.docket_id LIMIT ?",
+        (CONTROL_CANDIDATES,),
+    ).fetchall()
+    failed: list[str] = []
+    for prefix, sequence, sub_sequence in candidates:  # none yet: no one-row question to ask
+        criteria = [("docketNum_one", prefix), ("docketNum_two", str(sequence))]
+        if sub_sequence is not None:
+            criteria.append(("docketNum_three", str(sub_sequence)))
+        named = f"{prefix} {sequence}" + (f" ({sub_sequence})" if sub_sequence else "")
+        try:
+            result = walk.capture_slice(
+                con,
+                client,
+                DOCKETS,
+                criteria,
+                data_dir=data_dir,
+                pages=1,
+                mode="forward",
+                expected_empty=False,  # THE POINT: this one may not answer the envelope
+                log=log,
+            )
+        except Exception as e:  # noqa: BLE001 — the control never fails the pass either
+            # the endpoint failing is not a withdrawn row: no second candidate is asked
+            con.rollback()
+            before = f" after {'; '.join(failed)}" if failed else ""
+            problems.append(
+                f"caption control {named}: capture failed ({type(e).__name__}: {e}){before}"
+            )
+            return
+        # `total == 1` and not merely "some rows": the criteria name one docket, so anything
+        # else means they did not filter — a family answer would otherwise slip through as
+        # success (code review, 2026-09-01)
+        if result.status == "done" and result.total == 1:
+            for earlier in failed:  # the query works; that row alone did not answer
+                log(f"caption control: {earlier} — the next candidate answered")
+            return
+        failed.append(f"{named} answered {_describe(result)}")
+        if not result.envelope_on_first_page:
+            break  # not what a withdrawn row looks like: no second candidate excuses it
+    if failed:
         problems.append(
-            f"caption control: asking about {named}, whose caption this record holds and"
-            f" whose number names exactly one row, answered {_describe(result)} — the"
+            f"caption control: asking about {'; then '.join(failed)} — each a docket whose"
+            " caption this record holds and whose number names exactly one row — the"
             " caption query itself may have stopped working, and every empty answer this"
             " pass should be doubted"
         )
