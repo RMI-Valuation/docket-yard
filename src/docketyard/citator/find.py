@@ -139,7 +139,17 @@ def printed(page_text: str, m: re.Match) -> str:
     `EP 542 (Sub-No. 32)`, and `citation_reading.cited_raw` is defined as "the string as THIS
     reading printed it". `keys.normalise` is the only thing allowed to turn it into a key.
     """
-    return " ".join(page_text[m.start() : _target_end(page_text, m)].split())
+    return _printed(page_text, m)[1]
+
+
+def _printed(page_text: str, m: re.Match) -> tuple[int, str]:
+    """(where the target ends, `printed`). ONE RULE FOR TWO CALLERS (ingest specialist,
+    2026-09-12, F10): `find` needs the end for its spans and its quote, and until this it
+    computed the collapsed slice inline while `printed` — which the benchmark's review tool
+    calls to match a page against a key — computed its own. A correction to one would have
+    moved the benchmark's answer and not the store's, both looking right."""
+    end = _target_end(page_text, m)
+    return end, " ".join(page_text[m.start() : end].split())
 
 
 def quoted(page_text: str, start: int, end: int) -> str:
@@ -233,8 +243,7 @@ def find(page_text: str, own: set[str]) -> list[dict]:
     """
     found: dict[str, dict] = {}
     for m in docket_matches(page_text):
-        end = _target_end(page_text, m)
-        raw = " ".join(page_text[m.start() : end].split())  # `printed`, without a second scan
+        end, raw = _printed(page_text, m)  # `printed`, and the end it was sliced to
         # THE KEY IS NORMALISED FROM THE RAW, never from a window past the match. A window
         # made `find` judge `own` and de-duplicate under one key while `load` stored another
         # — `load` normalises `target`, which is this raw — so the `kind` written against a

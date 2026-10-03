@@ -291,3 +291,17 @@ def test_a_long_forms_suffix_is_upper_case_only_as_the_abbreviated_one_is():
     assert keys.normalise("Ex Parte No. 290X") == "EP 290 (X)"
     assert keys.normalise("Ex Parte No. 290x") is None
     assert keys.normalise("EP 290x") is None
+
+
+def test_every_raw_find_writes_is_what_printed_says_the_page_printed():
+    """`printed` is the benchmark review tool's way of matching a page to a key, and `find` is
+    the store's (ingest specialist, 2026-09-12, F10). They are one rule: a wrapped sub-docket,
+    a hyphenated one, a glued suffix and a long form all come out the same either way."""
+    page = (
+        "See Docket No. AB-12\n(Sub-No. 162X), and WB25-33; also AB 1296X, and\n"
+        "STB Finance Docket No. 34002 (Sub-No. 1)."
+    )
+    by_printed = [find.printed(page, m) for m in keys.docket_matches(page)]
+    from_find = [raw for f in find.find(page, OWN) for _, _, raw in f["spans"]]
+    assert sorted(from_find) == sorted(by_printed)
+    assert "AB-12 (Sub-No. 162X)" in by_printed and "WB25-33" in by_printed
