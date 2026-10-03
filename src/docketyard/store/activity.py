@@ -17,6 +17,7 @@ dropped (ADR 0011). Every entry is built by the sheet's own row builders, so a r
 the same here as on its sheet.
 """
 
+import json
 from collections import Counter
 from dataclasses import dataclass, replace
 from sqlite3 import Connection
@@ -25,7 +26,6 @@ from docketyard.store import sheet
 from docketyard.store.db import load_json
 
 KINDS = ("filing", "decision", "comment")
-_CHUNK = 5_000  # observed records joined per statement
 
 
 @dataclass(frozen=True)
@@ -36,7 +36,10 @@ class _Spec:
     date: str
     columns: str
     event_type: str
-    fold: str  # the SQL for what makes two rows one record across a family
+    # what makes two rows one record across proceedings: the Board's id, and for a comment
+    # its row ref too — one comment entered in a docket and its sub-docket is one comment,
+    # while two comments the Board gave one number are two (`coverage.py`, the archive wave)
+    fold: str
 
 
 SPECS = {
@@ -58,8 +61,6 @@ SPECS = {
         "decision_observed",
         "r.stb_decision_id",
     ),
-    # by number AND row ref, as everywhere else: one comment entered in a docket and its
-    # sub-docket is one comment, while two comments the Board gave one number are two
     "comment": _Spec(
         "enviro_comment",
         "comment_pk",
@@ -94,7 +95,7 @@ class Item:
     raw_docket: str
     caption: str | None
     observed_at: str | None  # observed window: the newest forward observation inside it
-    first_seen: str | None  # the earliest observation of this record, either mode
+    first_seen: str | None  # the earliest observation of this record, in any proceeding
     first_mode: str | None  # 'forward' | 'backfill'
 
 
@@ -106,30 +107,32 @@ class Activity:
 
 
 def like(words: str) -> str:
-    """A LIKE pattern for words as typed, `%` and `_` meaning themselves (with ESCAPE '\')."""
+    """A LIKE pattern for words as typed, `%` and `_` meaning themselves (ESCAPE a backslash)."""
     escaped = words.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     return f"%{escaped}%"
 
 
 def _where(kind: str, f: Filters) -> tuple[list[str], list] | None:
-    """The filters for one kind, or None when they rule the whole kind out."""
+    """The filters for one kind, or None when they rule the whole kind out. A list of ids
+    is bound as ONE JSON value: a watchlist of carrier series expands to thousands of docket
+    ids (AB 167 alone is 996), past SQLite's ceiling on bound variables (code review)."""
     where, params = [], []
     if f.docket_ids is not None:
-        where.append(f"r.docket_id IN ({','.join('?' * len(f.docket_ids))})")
-        params += f.docket_ids
+        where.append("r.docket_id IN (SELECT value FROM json_each(?))")
+        params.append(json.dumps(f.docket_ids))
     if f.prefix:
         where.append("d.prefix = ?")
         params.append(f.prefix)
     if f.exclude_prefixes:
-        where.append(f"d.prefix NOT IN ({','.join('?' * len(f.exclude_prefixes))})")
-        params += f.exclude_prefixes
+        where.append("d.prefix NOT IN (SELECT value FROM json_each(?))")
+        params.append(json.dumps(f.exclude_prefixes))
     asked_type = f.filing_types is not None or f.decision_types is not None
     if kind == "filing":
         if f.deciding_body or (asked_type and not f.filing_types):
             return None
         if f.filing_types:
-            where.append(f"r.filing_type IN ({','.join('?' * len(f.filing_types))})")
-            params += f.filing_types
+            where.append("r.filing_type IN (SELECT value FROM json_each(?))")
+            params.append(json.dumps(f.filing_types))
         if f.party:
             where.append("r.filed_for_raw LIKE ? ESCAPE '\\'")
             params.append(like(f.party))
@@ -137,8 +140,8 @@ def _where(kind: str, f: Filters) -> tuple[list[str], list] | None:
         if f.party or (asked_type and not f.decision_types):
             return None
         if f.decision_types:
-            where.append(f"r.decision_type IN ({','.join('?' * len(f.decision_types))})")
-            params += f.decision_types
+            where.append("r.decision_type IN (SELECT value FROM json_each(?))")
+            params.append(json.dumps(f.decision_types))
         if f.deciding_body:
             where.append("r.deciding_body LIKE ? ESCAPE '\\'")
             params.append(like(f.deciding_body))
@@ -148,8 +151,8 @@ def _where(kind: str, f: Filters) -> tuple[list[str], list] | None:
     return where, params
 
 
-def _observed(con: Connection, start: str, end: str | None) -> dict[str, list[tuple]]:
-    """(docket_id, record id, newest observation) per kind, for every record the forward
+def _observed(con: Connection, start: str, end: str | None) -> dict[str, list[list]]:
+    """[docket_id, record id, newest observation] per kind, for every record the forward
     watch saw inside the window. One pass over the ledger for all three kinds."""
     types = {s.event_type: k for k, s in SPECS.items()}
     marks = ",".join("?" * len(types))
@@ -161,9 +164,9 @@ def _observed(con: Connection, start: str, end: str | None) -> dict[str, list[tu
         " AND c.captured_at >= ?" + (" AND c.captured_at < ?" if end else "") + " GROUP BY 1, 2, 3",
         [*types, start] + ([end] if end else []),
     ).fetchall()
-    out: dict[str, list[tuple]] = {k: [] for k in KINDS}
+    out: dict[str, list[list]] = {k: [] for k in KINDS}
     for etype, docket_id, rid, seen in rows:
-        out[types[etype]].append((docket_id, rid, seen))
+        out[types[etype]].append([docket_id, rid, seen])
     return out
 
 
@@ -180,22 +183,19 @@ def _candidates(
         f"SELECT '{kind}', r.{s.pk}, r.docket_id, {s.fold}, r.{s.date}, {{seen}}, r.{s.record_id}"
     )
     if by == "observed":
-        out = []
-        # in chunks: three bound values a row, under SQLite's 32,766-variable ceiling with
-        # room for the filters — a long window can see more records than one statement holds
-        for i in range(0, len(seen_rows), _CHUNK):
-            chunk = seen_rows[i : i + _CHUNK]
-            values = ",".join("(?, ?, ?)" for _ in chunk)
-            sql = (
-                f"WITH w(docket_id, rid, seen) AS (VALUES {values}) "
-                + head.format(seen="w.seen")
-                + f" FROM w JOIN {s.table} r"
-                f" ON r.docket_id = w.docket_id AND r.{s.record_id} = w.rid"
-                " JOIN docket d ON d.docket_id = r.docket_id"
-            )
-            sql += (" WHERE " + " AND ".join(where)) if where else ""
-            out += con.execute(sql, [v for row in chunk for v in row] + params).fetchall()
-        return out
+        if not seen_rows:
+            return []
+        # the window's records as one bound JSON value, joined back to their rows
+        sql = (
+            "WITH w AS (SELECT json_extract(value, '$[0]') AS docket_id,"
+            " json_extract(value, '$[1]') AS rid, json_extract(value, '$[2]') AS seen"
+            " FROM json_each(?)) "
+            + head.format(seen="w.seen")
+            + f" FROM w JOIN {s.table} r ON r.docket_id = w.docket_id AND r.{s.record_id} = w.rid"
+            " JOIN docket d ON d.docket_id = r.docket_id"
+            + ((" WHERE " + " AND ".join(where)) if where else "")
+        )
+        return con.execute(sql, [json.dumps(seen_rows), *params]).fetchall()
     where = [f"r.{s.date} >= ?"] + ([f"r.{s.date} <= ?"] if end else []) + where
     sql = (
         head.format(seen="NULL")
@@ -205,18 +205,41 @@ def _candidates(
     return con.execute(sql, [start] + ([end] if end else []) + params).fetchall()
 
 
-def _first_seen(con: Connection, kind: str, pk: int) -> tuple[str | None, str | None]:
-    """When this record first entered the store, and by which mode — through the source key
-    of the row's own latest event, which every observation of it shares."""
+def _copies(con: Connection, kind: str, keys: list[str]) -> dict[str, list[tuple[int, int]]]:
+    """fold key -> (pk, docket_id) of every row of each record, in every proceeding it was
+    entered in — not only the ones a window or a filter matched, so `also entered in` is
+    whole and `first_seen` is the record's, not one copy's (code review: a filing held for
+    months under a parent and newly entered in a sub-docket read as new).
+
+    One statement for the page, on the Board's id: there is no index on `stb_filing_id` or
+    `stb_decision_id` alone, so a lookup per record was a scan per record — fifty of them on
+    a default page, a second on production's store. One scan for all costs one."""
+    s = SPECS[kind]
+    ids = sorted({k.split("|")[0] for k in keys})
+    rows = con.execute(
+        f"SELECT {s.fold}, r.{s.pk}, r.docket_id FROM {s.table} r"
+        f" WHERE r.{s.record_id} IN (SELECT value FROM json_each(?))",
+        (json.dumps(ids),),
+    ).fetchall()
+    out: dict[str, list[tuple[int, int]]] = {k: [] for k in keys}
+    for key, pk, docket_id in rows:
+        if key in out:
+            out[key].append((pk, docket_id))
+    return out
+
+
+def _first_seen(con: Connection, kind: str, pks: list[int]) -> tuple[str | None, str | None]:
+    """When this record first entered the store, and by which mode — over the source keys of
+    every copy's own latest event, which every observation of that copy shares."""
     s = SPECS[kind]
     row = con.execute(
         "SELECT c.captured_at, c.ingest_mode FROM event e2"
         " JOIN capture c ON c.capture_id = e2.capture_id"
-        " WHERE e2.event_type = ? AND e2.source_key = ("
+        " WHERE e2.event_type = ? AND e2.source_key IN ("
         f"  SELECT e.source_key FROM {s.table} r JOIN event e ON e.event_id = r.observed_in_event"
-        f"  WHERE r.{s.pk} = ?)"
+        f"  WHERE r.{s.pk} IN (SELECT value FROM json_each(?)))"
         " ORDER BY c.captured_at, e2.event_id LIMIT 1",
-        (s.event_type, pk),
+        (s.event_type, json.dumps(pks)),
     ).fetchone()
     return (row[0], row[1]) if row else (None, None)
 
@@ -234,6 +257,20 @@ def _caption(con: Connection, docket_id: int) -> str | None:
         if title:
             return title
     return None
+
+
+def _dockets(con: Connection, ids: set[int]) -> dict[int, tuple[str, tuple]]:
+    """docket_id -> (raw docket, the order that puts the copy nearest its parent first): the
+    rule the sheet (`sheet._family`) and the search index (`search._NEAREST`) both lead with,
+    so a record is listed under the same docket on all three."""
+    return {
+        d: (raw, (-1 if sub is None else sub, suffix or "", d))
+        for d, raw, sub, suffix in con.execute(
+            "SELECT docket_id, raw_docket, sub_sequence, suffix FROM docket"
+            " WHERE docket_id IN (SELECT value FROM json_each(?))",
+            (json.dumps(sorted(ids)),),
+        )
+    }
 
 
 def activity(
@@ -254,50 +291,64 @@ def activity(
     for kind in filters.kinds:
         rows += _candidates(con, kind, by, start, end, filters, seen.get(kind, []))
 
-    raws = dict(con.execute("SELECT docket_id, raw_docket FROM docket").fetchall()) if rows else {}
-    tops = (
-        {d for (d,) in con.execute("SELECT docket_id FROM docket WHERE parent_docket_id IS NULL")}
-        if rows
-        else set()
-    )
-    # fold a record entered in several proceedings to one item: the copy nearest the top of
-    # its family leads (the sheet's rule), the rest are named as where else it was entered
+    # one item per record: the matched copies grouped by the record's fold key
     groups: dict[tuple, list[tuple]] = {}
     for row in rows:
         groups.setdefault((row[0], row[3]), []).append(row)
     heads = []
-    for copies in groups.values():
-        copies.sort(key=lambda r: (r[2] not in tops, r[2]))
-        observed = max((c[5] for c in copies if c[5]), default=None)
-        heads.append((copies[0], [raws.get(c[2], "") for c in copies[1:]], observed))
+    for (kind, fold_key), matched in groups.items():
+        observed = max((c[5] for c in matched if c[5]), default=None)
+        heads.append((kind, fold_key, matched, observed))
 
     def order(h):
-        (kind, _, _, _, date, _, rid), _, observed = h
+        kind, _, matched, observed = h
+        _, _, _, _, date, _, rid = matched[0]
         return (observed or "", sheet.sort_key(kind, date, rid))
 
     heads.sort(key=order, reverse=True)
-    by_kind = Counter(h[0][0] for h in heads)
+    by_kind = Counter(h[0] for h in heads)
+
+    page = heads[offset : offset + limit]
+    copies: dict[tuple[str, str], list[tuple[int, int]]] = {}
+    for kind in KINDS:
+        keys = [key for k, key, _, _ in page if k == kind]
+        if keys:
+            copies.update({(kind, key): c for key, c in _copies(con, kind, keys).items()})
+    meta = _dockets(
+        con,
+        {r[2] for _, _, matched, _ in page for r in matched}
+        | {d for found in copies.values() for _, d in found},
+    )
+
+    def nearest(docket_id: int) -> tuple:
+        return meta.get(docket_id, ("", (0, "", docket_id)))[1]
 
     items = []
-    for (kind, pk, docket_id, _, _, _, _), also_in, observed in heads[offset : offset + limit]:
+    for kind, fold_key, matched, observed in page:
+        # the lead is the nearest copy the window and filters MATCHED — a record listed under
+        # a prefix the caller left out would contradict the filter it passed
+        lead = min(matched, key=lambda r: nearest(r[2]))
+        pk, docket_id = lead[1], lead[2]
+        others = sorted((d for _, d in copies[(kind, fold_key)] if d != docket_id), key=nearest)
         s = SPECS[kind]
         row = con.execute(f"SELECT {s.columns} FROM {s.table} WHERE {s.pk} = ?", (pk,)).fetchone()
+        raw = meta.get(docket_id, ("",))[0]
         # the builders read only which docket of the family a row sits in
-        family = [sheet.SubDocket(docket_id, raws.get(docket_id, ""), None, 0, 0, 0, None)]
+        family = [sheet.SubDocket(docket_id, raw, None, 0, 0, 0, None)]
         if kind == "filing":
             entry = sheet._filing_entry(con, row, family, [])
         elif kind == "decision":
             entry = sheet._decision_entry(con, row, family)
         else:
             entry = sheet._comment_entry(con, row, family)
-        if also_in:
-            entry = replace(entry, also_in=also_in)
-        first, mode = _first_seen(con, kind, pk)
+        if others:
+            entry = replace(entry, also_in=[meta.get(d, ("",))[0] for d in others])
+        first, mode = _first_seen(con, kind, [p for p, _ in copies[(kind, fold_key)]] or [pk])
         items.append(
             Item(
                 entry=entry,
                 docket_id=docket_id,
-                raw_docket=raws.get(docket_id, ""),
+                raw_docket=raw,
                 caption=_caption(con, docket_id),
                 observed_at=observed,
                 first_seen=first,

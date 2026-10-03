@@ -1118,3 +1118,120 @@ def test_coverage_says_the_boards_activity_outside_dockets_is_not_held(client):
     text = call(client, "coverage")["content"][0]["text"]
     assert "The Board's activity outside its dockets — voting conferences" in text
     assert "Federal Register notices" in text
+
+
+# --- from review of the brief tools, 2026-10-02 -------------------------------------------
+
+
+def _later_capture(con, when):
+    """A forward capture at `when`, copied from the first, for an event to hang on."""
+    (cid,) = con.execute("SELECT capture_id FROM capture ORDER BY capture_id LIMIT 1").fetchone()
+    return con.execute(
+        "INSERT INTO capture (source_system, endpoint, request_params, response_sha256,"
+        " http_status, filter_asserted, ingest_mode, captured_at, table_action)"
+        " SELECT source_system, endpoint, request_params, response_sha256, http_status,"
+        " filter_asserted, ingest_mode, ?, table_action FROM capture WHERE capture_id = ?",
+        (when, cid),
+    ).lastrowid
+
+
+def test_a_record_entered_anew_in_a_sub_docket_is_not_new(tmp_path):
+    """Held for weeks under FD 36873, then seen again in its sub-docket alone: the item is
+    the record, so it names both proceedings and when the record was first held."""
+    con = _brief(tmp_path)
+    con.execute("UPDATE capture SET captured_at = '2026-09-01T12:00:00+00:00'")
+    later = _later_capture(con, "2026-09-20T12:00:00+00:00")
+    con.execute(
+        "INSERT INTO event (event_type, docket_id, recorded_at, capture_id, source_key, payload,"
+        " payload_version) SELECT event_type, docket_id, recorded_at, ?, source_key, payload,"
+        " payload_version FROM event WHERE event_type = 'filing_observed'"
+        " AND source_key = 'FD_36873_1|311981'",
+        (later,),
+    )
+    con.commit()
+    text = recent(con, since="2026-09-10")
+    assert ": 1 filing." in text
+    assert "- FD 36873 (Sub-No. 1) — PEORIA SUB — filed 2026-08-25 [filing] 311981" in text
+    assert "also entered in FD 36873" in text
+    assert "held since 2026-09-01T12:00:00+00:00" in text and "new to this record" not in text
+    con.close()
+
+
+def test_leaving_out_a_sub_docket_the_index_folds_says_what_it_left_out(tmp_path):
+    con = _brief(tmp_path)
+    (parent,) = con.execute("SELECT docket_id FROM docket WHERE raw_docket = 'FD_36873'").fetchone()
+    # a sub-docket with no caption of its own is searched as part of its parent
+    con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, parent_docket_id)"
+        " VALUES ('FD_36873_2', 'FD', 36873, 2, ?)",
+        (parent,),
+    )
+    con.commit()
+    search.rebuild(con)
+    text = mcp._search(
+        con, {"query": "replies", "exclude_dockets": ["FD 36873 (Sub-No. 2)"]}, "docketyard.org"
+    )
+    assert "FD 36873 (Sub-No. 2) is searched as part of FD 36873, so all of FD 36873" in text
+    con.close()
+
+
+def test_a_type_cannot_narrow_comments_and_says_why(tmp_path):
+    con = _brief(tmp_path)
+    for text in (
+        recent(con, since="2026-01-01", record_type="comment", type="Notice of Exemption"),
+        mcp._search(con, {"query": "x", "record_type": "comment", "type": "notice"}, "h"),
+    ):
+        assert "An environmental comment has no Board type" in text
+    con.close()
+
+
+def test_a_series_sheet_says_the_dates_did_not_narrow_it(tmp_path):
+    con = db.connect(build_store(tmp_path))
+    parent = con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence) VALUES ('AB_167', 'AB', 167)"
+    ).lastrowid
+    for sub in range(1, sheet.SERIES_SUBS + 2):
+        con.execute(
+            "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, suffix,"
+            " parent_docket_id) VALUES (?, 'AB', 167, ?, 'X', ?)",
+            (f"AB_167_{sub}_X", sub, parent),
+        )
+    con.commit()
+    out = mcp._docket(con, {"docket": "AB 167", "date_from": "2026-09-01"}, "h")
+    assert "a series has none: the list below is not narrowed" in out
+    con.close()
+
+
+def test_a_breakdown_counts_every_unprinted_body_on_one_line(tmp_path):
+    con = _brief(tmp_path)
+    (event,) = con.execute("SELECT MIN(observed_in_event) FROM decision_record").fetchone()
+    (docket_id,) = con.execute(
+        "SELECT docket_id FROM docket WHERE raw_docket = 'FD_36873'"
+    ).fetchone()
+    for did, body in (("60001", None), ("60002", "--"), ("60003", "")):
+        con.execute(
+            "INSERT INTO decision_record (docket_id, stb_decision_id, decision_type,"
+            " deciding_body, service_date, observed_in_event) VALUES (?, ?, 'Decision', ?,"
+            " '2026-08-30', ?)",
+            (docket_id, did, body, event),
+        )
+    con.commit()
+    text = mcp._count_decisions(con, {}, "h")
+    assert text.count("(none printed)") == 1 and "- (none printed): 3" in text
+    con.close()
+
+
+def test_a_capped_search_is_a_floor_not_a_count(client, monkeypatch):
+    from docketyard.store import finder
+
+    real = finder.find
+
+    def capped(con, q):
+        out = real(con, q)
+        out.pages_cut = "window"
+        return out
+
+    monkeypatch.setattr(finder, "find", capped)
+    text = search_text(client, query="replies", sort="newest")
+    assert "at least 1 filings" in text and "this is a floor and not a count" in text
+    assert "newest first among what was examined" in text

@@ -327,6 +327,7 @@ def _search_filtered(con: Connection, args: dict, text: str, limit: int, host: s
         return f"`exclude_dockets` takes at most {_MAX_DOCKETS} docket numbers a call."
     groups: set[int] = set()
     left_out = []
+    placed = search_store.proceedings(con) if dockets else {}
     for asked in dockets:
         identity = urls.lookup(asked)
         docket_id = find_docket(con, identity) if identity else None
@@ -335,11 +336,30 @@ def _search_filtered(con: Connection, args: dict, text: str, limit: int, host: s
                 f"{asked!r} is not a docket number this record holds; nothing was left out for it."
             )
             continue
-        groups |= _family_ids(con, docket_id)
-        left_out.append(urls.printed_docket(identity))
+        # The index places a record under its PROCEEDING by the sheet rule: a sub-docket with
+        # no caption of its own, or its parent's, is placed under the parent. Leaving out such
+        # a sub-docket can only mean leaving out the proceeding it is part of, and the answer
+        # says so rather than claiming a narrower exclusion than it made (code review).
+        own = placed.get(docket_id, (docket_id, ""))[0]
+        groups |= {placed.get(d, (d, ""))[0] for d in _family_ids(con, docket_id)}
+        if own != docket_id:
+            row = con.execute(
+                "SELECT raw_docket FROM docket WHERE docket_id = ?", (own,)
+            ).fetchone()
+            parent = parse_docket_id(row[0]) if row else None
+            whole = urls.printed_docket(parent) if parent else "its parent"
+            notes.append(
+                f"{urls.printed_docket(identity)} is searched as part of {whole}, so all of"
+                f" {whole} was left out."
+            )
+            left_out.append(whole)
+        else:
+            left_out.append(urls.printed_docket(identity))
 
     ftypes = dtypes = ()
     asked_type = str(args.get("type") or "").strip()
+    if asked_type and kind == "comment":
+        return "An environmental comment has no Board type, so `type` cannot narrow comments."
     if asked_type:
         ftypes = tuple(_types(con, asked_type)) if kind in ("", "filing", "page") else ()
         dtypes = (
@@ -412,12 +432,26 @@ def _search_filtered(con: Connection, args: dict, text: str, limit: int, host: s
         return "\n".join(lines)
     first = (page - 1) * limit + 1
     last = first + len(out.documents) - 1
+    # "window": unfiltered by placement, the page side ranks only the best PAGE_WINDOW pages,
+    # so the total is a floor and "newest" is newest among those — said as `/search` says it
+    # ("At least"), never handed over as a count (code review)
+    capped = out.pages_cut == "window"
+    if capped:
+        order = "newest first among what was examined." if sort == "newest" else "strongest first."
+    else:
+        order = "newest first." if sort == "newest" else "strongest match first."
     lines.append(
-        f"Matching {text!r}{scoped}: {out.total:,} filings, decisions, comments and pages"
-        " — a count of what matched, each once however many proceedings it was entered in."
+        f"Matching {text!r}{scoped}: {'at least ' if capped else ''}{out.total:,} filings,"
+        " decisions, comments and pages"
         + (
-            f" Showing {first}–{last}, "
-            + ("newest first." if sort == "newest" else "strongest match first.")
+            f" — the words matched more pages than the best {finder.PAGE_WINDOW:,} examined,"
+            " so this is a floor and not a count"
+            if capped
+            else " — a count of what matched"
+        )
+        + ", each once however many proceedings it was entered in."
+        + (
+            f" Showing {first}–{last}, {order}"
             if out.documents
             else f" `page` {page} is past the last of them."
         )
@@ -522,6 +556,14 @@ def _docket(con: Connection, args: dict, host: str) -> str:
             f"This number is a series: it holds no record of its own, and the"
             f" {len(s.sub_dockets)} proceedings under it each keep their own."
         )
+        if date_from or date_to:
+            # an index has no dates to narrow; listing it unremarked read as the series'
+            # activity inside the range (code review)
+            head.append(
+                "`date_from`/`date_to` narrow entries, and a series has none: the list below"
+                " is not narrowed. `recent_activity` with this number in `dockets` and"
+                " `by: board_date` reads every proceeding under it by date."
+            )
         rows = ["Proceedings under this number:"]
         for m in s.sub_dockets[:limit]:
             ident = parse_docket_id(m.raw_docket)
@@ -926,6 +968,10 @@ def _open_month_caveats(
     incomplete, walked = {
         "filings": (coverage_store.filings_incomplete, coverage_store.filings_walked_from),
         "decisions": (coverage_store.decisions_incomplete, coverage_store.decisions_walked_from),
+        "environmental comments": (
+            coverage_store.comments_incomplete,
+            coverage_store.comments_walked_from,
+        ),
     }[kind]
     open_months = [
         m
@@ -1254,6 +1300,14 @@ def _list_proceedings(con: Connection, args: dict, host: str) -> str:
 _BODY_LINES = 12  # deciding bodies listed in a breakdown; the rest are counted
 
 
+def _printed(column: str) -> str:
+    """A cell as printed, with an empty cell and the Board's placeholders all one NULL, so a
+    breakdown groups them as one "(none printed)" rather than a line each (code review). The
+    placeholders are the sheet's own (`present`), never a second list."""
+    blanks = ", ".join(repr(p) for p in sorted(set(sheet_store.PLACEHOLDERS)))
+    return f"CASE WHEN TRIM(COALESCE({column}, '')) IN ({blanks}) THEN NULL ELSE {column} END"
+
+
 def _count_decisions(con: Connection, args: dict, host: str) -> str:
     """How many decisions the Board typed a given way, or issued from a given body, within a
     prefix and a served-date range. Asked for 2026-10-02 beside `recent_activity`: a brief
@@ -1335,7 +1389,7 @@ def _count_decisions(con: Connection, args: dict, host: str) -> str:
             f" {_plural(proceedings, 'proceeding')}, served {first} to {last}."
         )
         by_type = con.execute(
-            "SELECT r.decision_type, COUNT(DISTINCT r.stb_decision_id)"
+            f"SELECT {_printed('r.decision_type')}, COUNT(DISTINCT r.stb_decision_id)"
             + base
             + " GROUP BY 1 ORDER BY 2 DESC, 1",
             params,
@@ -1344,7 +1398,7 @@ def _count_decisions(con: Connection, args: dict, host: str) -> str:
             lines.append("By the Board's decision type:")
             lines += [f"- {t or '(untyped)'}: {n:,}" for t, n in by_type]
         by_body = con.execute(
-            "SELECT r.deciding_body, COUNT(DISTINCT r.stb_decision_id)"
+            f"SELECT {_printed('r.deciding_body')}, COUNT(DISTINCT r.stb_decision_id)"
             + base
             + " GROUP BY 1 ORDER BY 2 DESC, 1",
             params,
@@ -1523,6 +1577,8 @@ def _recent(con: Connection, args: dict, host: str) -> str:
 
     filing_types = decision_types = None
     asked_type = str(args.get("type") or "").strip()
+    if asked_type and kinds == ("comment",):
+        return "An environmental comment has no Board type, so `type` cannot narrow comments."
     if asked_type:
         filing_types = tuple(_types(con, asked_type)) if "filing" in kinds else ()
         decision_types = (
@@ -1692,8 +1748,12 @@ def _window_caveats(
             " The Board can post an entry days after its date, so a window already read can"
             " gain entries; `by: observed` (the default) does not miss them."
         )
-        for kind in ("filings", "decisions"):
-            if kind[:-1] in kinds:
+        for kind, walked in (
+            ("filings", "filing"),
+            ("decisions", "decision"),
+            ("environmental comments", "comment"),
+        ):
+            if walked in kinds:
                 lines += _open_month_caveats(
                     con,
                     start,

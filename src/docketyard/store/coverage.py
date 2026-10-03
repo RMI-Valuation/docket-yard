@@ -233,6 +233,14 @@ def decisions_walked_from(con: Connection) -> str | None:
     return walked_from(con, DECISIONS)
 
 
+def comments_incomplete(con: Connection, today: date | None = None) -> tuple[str, ...]:
+    return incomplete_for(con, ENVIRO_COMMENTS, today)
+
+
+def comments_walked_from(con: Connection) -> str | None:
+    return walked_from(con, ENVIRO_COMMENTS)
+
+
 def walked_from(con: Connection, action: str) -> str | None:
     """The first month one table's walk names — where a count's coverage claim begins."""
     # parsed, then the least — the rule `incomplete_for` uses, so the two cannot disagree
@@ -336,17 +344,14 @@ def watch(con: Connection) -> Watch:
     """The forward watch's span and its outages: the part of `coverage` a window over the
     watch needs (MCP's `recent_activity`), cheap enough to read on every call. `coverage`
     reads it from here, so the two cannot disagree."""
-    span = (
-        "SELECT {} FROM capture WHERE ingest_mode = 'forward'"
-        " AND filter_asserted = 1 AND table_action IN (?, ?)"
-    )
+    since, last = con.execute(
+        "SELECT MIN(captured_at), MAX(captured_at) FROM capture WHERE ingest_mode = 'forward'"
+        " AND filter_asserted = 1 AND table_action IN (?, ?)",
+        (FILINGS, DECISIONS),
+    ).fetchone()
     return Watch(
-        forward_since=con.execute(span.format("MIN(captured_at)"), (FILINGS, DECISIONS)).fetchone()[
-            0
-        ],
-        last_checked=con.execute(span.format("MAX(captured_at)"), (FILINGS, DECISIONS)).fetchone()[
-            0
-        ],
+        forward_since=since,
+        last_checked=last,
         gaps=[
             Gap(*row)
             for row in con.execute(
