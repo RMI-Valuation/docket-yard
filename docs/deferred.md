@@ -5,6 +5,116 @@ dropped (`CLAUDE.md` § Review before commit). Each carries the date and the rel
 found against. `TODO.md` holds only near-term work and points here; an item leaves this file
 when it is fixed (the commit is the record) or graduates back to `TODO.md` when chosen.
 
+## Waiting on the operator — every open decision in this file, 2026-10-03
+
+Gathered by a review of the whole file (six readers, each closed item checked by a second
+reader before it was deleted). Each line is one decision; the entry it points to, below, holds
+the measurement and the reasoning. An answer moves the item to `TODO.md` or closes it here.
+
+### What readers see and what is published
+
+- Board summaries in sentence case, caps kept for captions? (§ design review of the live pages)
+- Long summaries behind a server-side `<details>`? (§ a clamped summary does not say it is clamped)
+- MCP `INSTRUCTIONS`/`read_page`: quote misprints as printed, carry the reader label, mark
+  inference apart? (§ the operator's live test of the brief tools)
+- A table page's text display says the text layer does not keep the table's rows? (§ the
+  operator's check of the text-quality labels)
+- A "not in the record" citation display — it publishes a coverage statement? (§ the OCR wave's
+  unloaded pages)
+- Search masks the text of pages the text page hides behind the table marker? (§ same)
+- Suffixed dockets rendered the Board's way (`AB 1182 (Sub-No. 0X)`) on every sheet, alert and
+  `/cite`? (§ the schema critic on the key fix)
+- A bounded window (`?from=`) for very long text pages, against the one-address rule? (§ the
+  pagination pass)
+- How a page with a re-read second reading describes itself, and whether a cross-channel
+  agreement distance is ever published as a band? (§ the text-layer re-read pass)
+- The party layer into the CC0 snapshot, robots.txt and mcp.json once the attorney review
+  clears it? (§ store and operations)
+- The four measurement-registry tables published together — irreversible? (§ the schema critic
+  against migration 0018)
+- `ocr_run.note` closed to fixed shapes, or withheld from the snapshot? (§ migration 0031)
+- Is a published snapshot an artefact pinned at its schema, or a store later releases migrate?
+  (§ code review against migrations 0018)
+- `docket.series` in the JSON twin: fill it (additive) or remove it (shape bump)? (§ two
+  `series` shapes)
+- Monthly snapshots deposited with a DOI (Zenodo)? (§ the independent graders)
+
+### Text and OCR passes
+
+- Load the 2,578 collected `hunyuan-tabular` readings? (§ the mirror is expendable)
+- `max_new_tokens` in the tabular pass key? (§ the tabular worker's memory floor)
+- Model loops: an engine failure a later pass may re-read (1,490 pages), and is a loop's good
+  prefix ever published? (§ `finish_reason length` is the model looping)
+- The forward pass routes a new document page by page, and scores a text layer as it lands?
+  (§ text-layer quality)
+- The re-read: the ~6,170 prose pages first, promotion decided before the other ~25,600; and
+  `ocr_run` gains a `reading_role` before any loads? (§ the text-layer re-read pass)
+- Text-layer readings retired when a page's primary moves to OCR? (§ two channels' readings)
+- A re-route retires `page_route` verdicts for pages it no longer classifies? (§ the OCR wave's
+  unloaded pages)
+- The extraction queue ordered by the record's own date (an ADR 0024 change)? (§ migration 0022)
+
+### Citator: finder, resolver and decided dates
+
+- The finder keys `F.D. No. N`, `MC-F-N`, a bare `Docket No. N` from the citing docket, and long
+  forms without `No.` — each measured first? (§ docket forms the long-form finder leaves out)
+- Hyphenated sub-docket forms (`WB25-33`) key as the sub-docket (an ADR 0018 key change)?
+  (§ reviewing the finder; § reviewing `docketyard.citator`)
+- Rule 2 widened to six-digit numbers whose five-digit parent is held? (§ docket forms…)
+- The span test widened to own-family citations by reporter or name (a `SPAN_VERSION` bump)?
+  (§ docket forms…)
+- A second channel on one key: freeze the identity row, or gate the edge on the channel's
+  resolution; and `span` partitioned by channel? (§ two channels' readings)
+- Rule-2 repairs read on OCR held for review, or scored on a sample that has repairs? (§ same)
+- The citation identity row's stamp: documented, or made channel-independent? (§ `methods.stamp`)
+- `class_measurement.resolution_method_version` names both rules when a sheet has repairs?
+  (§ migration 0025)
+- A decision and its correction on one day resolve to the correction (an ADR 0018 D4
+  refinement)? (§ the work-level sheet)
+- A human reading's copied passage acceptable while copied offsets are not — and ADR 0026 says
+  why? (§ a human citation reading copies the machine's string)
+- The served-date window ends at non-docket targets too (changes edges)? (§ migration 0023 and
+  the work-grain step)
+- Decided dates now exist: build the pick, the disagreement queue, an ADR 0018 D4 revisit, and
+  resolve "decided `<date>`" citations to a document? (§ the OCR wave's unloaded pages; § the
+  work-level resolution step)
+- ADR 0023: `method` in the decided-date index, or strike "two extractor methods" from decision
+  3; and decision 8 reworded to the identity rule? (§ ADR 0023's decided-date pass)
+
+### Schema and provenance
+
+- The same-document dispatch trigger and an AUTOINCREMENT rebuild of `extraction_dispatch`, or
+  neither, deliberately? (§ ADR 0024 Owed 5)
+- `render_version` on `review_action` and `correction` while both are small? (§ `keys.render`)
+- A normaliser version on `class_measurement`, and `target_key_version` on `correction`?
+  (§ the schema critic on the key fix)
+- A `review_target_vocab` row for `ocr_run`? (§ migration 0023)
+- The party seed and joins re-attributed to a reviewer-zero row, or a new ADR? (§ migration 0015)
+
+### Operations and security
+
+- A per-client rate or concurrency limit on `/mcp`? (§ Codex's security review of PR #43)
+- Production off static IAM keys (EC2 t4g or Roles Anywhere), or accept them? (§ store and
+  operations)
+- The web tier keeps `DY_EMAIL_KEY` (documented), or confirmation sending splits from it?
+  (§ the drafted ADR 0012 addendum)
+- CPUWeight shares instead of the user-slice CPUQuota? (§ the release review of v2026.09.10)
+- Litestream retention to match the 30-day bucket versioning; old monthly archives pruned?
+  (§ the instance resize)
+- SQLite 3.53.4 built into the image, CI and local aligned? (§ SQLite 3.53.4 in production)
+- `backup.py` gets a route-roots selector or the addendum accepts one cadence; and the addendum
+  sanctions the no-delete backup key? (§ the specialist on the coordinator backup)
+- Register the workstation gate's ONLOGON task? (§ the workstation's gate)
+
+### Capabilities and your own sheets
+
+- Start the deadline engine (C4), every deadline quoted from the decision's own words?
+  (§ deadline engine)
+- The alert cadence switch and a per-address signed manage page? (§ the merged page search)
+- Should the backfill reach SO 2, cited 855 times and not held? (§ the citator's first run)
+- Normalise the two should-be rows (51532 NOR 42060 (1), 52211 FD 36732) in the work sheet?
+  (§ the review harness)
+
 ## Web tier
 
 - **A comment's page hit counts `?file=N` in the copy it picks; the page reads the canonical
@@ -239,11 +349,6 @@ The serious ones were fixed in the same session and are pinned by tests in
   threshold, say — mints no new key, supersedes nothing and is invisible in every
   measurement, against ADR 0007. Carry the rule as part of the method and add a real
   `RESOLVER_VERSION`.
-- **A six-digit fusion is outside both the repair and the exposure test.** ADR 0017's
-  argument rests on the finder's `\d{1,5}`; `keys.DOCKET` allows six, because 104 held
-  dockets have six-digit sequences and a five-digit cap would key them as nothing. So a
-  five-digit docket that absorbed a marker is neither repaired nor flagged. Widening either
-  rule is a change to an accepted definition.
 - **`citation_key.key_version` belongs to whoever inserted first.** `INSERT OR IGNORE` on
   the four-column key leaves the old value when a re-run under a bumped `KEY_VERSION`
   produces the same key — the same "whichever channel inserted first owns it for ever"
@@ -440,12 +545,6 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
 
 ## Found 2026-09-03, code review on `methods.stamp`'s channel term (main at 682fe97, unreleased)
 
-- **`declare` ranks no channel but the text layer.** RANKS carries `text-layer` only and the
-  projection INNER-joins every resolution and judgement to its rank row on the channel, so
-  a measured OCR load would store rows no page can show. `citator load` now refuses an
-  unranked channel (`methods.ranked`), so the failure is loud; the gap itself is a new
-  `rank_version` carrying OCR at ranks 3 and 4 under ADR 0018 D7, which waits on the
-  namespace question in `ocr-migration.md` item 8. A decision, not a default.
 - **The `citation` identity row takes the stamp of whichever pass asserted it.** The key
   carries no channel and `unchanged` is keyed on (method, version) alone, so a document
   read OCR-first keeps the OCR figure through a same-version text-layer pass, and a newer
@@ -704,11 +803,6 @@ Both are the ADR's text, not the table's shape.
 
 ## From the code review of the work-level resolution step, 2026-09-05
 
-- **A bare parent printed on the same line as its own sub-docket takes the child's segment.**
-  `resolve._anchored` finds the target by its printed form, and `FD 36873` matches inside
-  `FD 36873 (Sub-No. 1)`, so the parent can be credited with the document that followed the
-  child. Same family, so the cost is small; the real fix is a finder that reports each
-  occurrence's offset, which is a `find.py` change and a re-measurement.
 - **`served on <date>` is not read, deliberately.** 0.96% of pages against the matched form's
   5.43% (200,000 production pages, 2026-09-05). Admitting it would break the containment that
   makes ADR 0018 D4's "the text names a document" true by construction — `judge`'s span
@@ -726,15 +820,6 @@ Both are the ADR's text, not the table's shape.
 Findings that belong to the ADR or to the poller rather than to the DDL. The seven ADR
 amendments are listed in the migration's own header; these are the rest.
 
-- **The loader must never delete a spool file from inside `one()`.** `batches.run` returns
-  aggregate counters, so a loader built on it cannot know WHICH files landed, and deleting
-  inside the `SAVEPOINT` means an `aborted` batch loses the rows and the raw together — trap
-  9 broken and ADR 0024 D9's own rule broken in one event. Sweep the spool after `run`
-  returns and delete `<sha>.json` only where an `ocr_run` row now exists for that sha at the
-  file's own reading key.
-- **`run_forever` has no watchdog**, so a hung `subprocess.run` stops the poller for ever
-  with nothing raised. `EXTRACT_BUDGET_SECONDS` bounds when the stage stops STARTING work, not
-  how long one invocation may hang: the call needs `timeout=` and a kill.
 - **The pin disagreement is never diagnosed.** The loader holds both the dispatch's
   `pinned_method_version` and the spool record's `tool_version` (D9 carries it), so "the file
   disagrees with the dispatch" is one query and turns a header comment into a control.
@@ -885,8 +970,6 @@ commit. Left:
 - **A CLI `fetch attachments` over a wave's backlog with the default `--mode forward`**
   stamps its captures `forward`, which pulls those documents into the text stage's scope
   (`text/queue.py` D1). Predates the stage; `drain.sh` passes `--mode backfill`.
-- **A truncated error body** raised inside `consume(e)` escapes the retry (it is raised from
-  within the `HTTPError` handler) and leaves no capture. Rare; noted.
 
 ## From the schema critic on ADR 0024 Owed 5, the dispatch stamp, 2026-09-11 (v2026.09.12)
 
@@ -986,21 +1069,6 @@ Six were fixed before the commit (the missing transaction, the header's false cl
 the dry run's stamp assertion, and the class missing from every published count). These are
 what was accepted as not-now, and one is a question for the operator.
 
-- **Nothing re-stamps a row whose class should have changed, and there is no verb that
-  would.** `supersede.if_changed` compares `(outcome, cited_docket_id, cited_decision_id)`,
-  so a measurement declared after a load never reaches the rows that preceded it: they keep
-  the class they were stamped with for ever. ADR 0017 § Consequences promises "re-measurement
-  is a scorer run, not a migration", and today the only path from a re-scored class to its
-  rows is hand-written SQL over every one — the migration-touching-every-row shape the five
-  queries exist to catch. The work class makes it two classes needing it independently, on
-  different cadences (the scorer's run against the operator's judging sitting). **What
-  shipped instead is the number**: `project.unstamped_work_rows` counts live rows naming a
-  document that are not work-stamped, and `citator declare` prints it, so the ordering is
-  visible when it is broken rather than silent. **And `citator restamp` was built the same
-  day** (the operator's decision): it retires a live row and appends an identical assertion
-  under the newest measurement of the class the row's own shape calls for, so 0017's promise
-  is true rather than aspirational, and what a reader saw before the re-stamp stays in the
-  table. This item is closed; it is kept here because the reasoning is what the verb is for.
 - **A reviewer's `accepted` carries a work-level claim they were never shown.**
   `review.pending` shows the docket, the printed target and the passage — never the drafted
   document — and `decide` carries the machine row's `cited_decision_id` onto the human row at
@@ -1044,10 +1112,6 @@ published as a measurement. `class_measurement.recall` takes NULL.
 
 What his 23 judged stops found, kept because each names a cause rather than a count:
 
-- **A served date whose year wraps to the next line is unreachable** — four instances, each
-  named by him. The finder quotes ONE line, so the date never reaches `resolve.SERVED`.
-  **Chosen as a Ripe candidate on `ROADMAP.md`, 2026-09-10**, priced there: a `SPAN_VERSION`
-  bump and a re-measurement of every edge stamped by the old one.
 - **A citation whose date is printed only at its first mention** (52295 citing FD 35873). The
   span test is disjunctive over the whole citing work (ADR 0017 D4); the resolver's date
   anchor is per page and per occurrence. The asymmetry is deliberate and now has an instance:
@@ -1122,27 +1186,6 @@ the node: no worker, no alarm, `last seen` simply ageing.
 All seven findings were fixed before the run that matters was started; the first was caught
 with the run already in flight and cost a restart. Recorded because two of them are the same
 mistake the benchmark harness made, in a file written an hour after that one was fixed:
-
-- **The served date was anchored on the normalised key rather than the number as the page
-  printed it.** `resolve._anchored` takes the raw form, which `resolve.resolve` and
-  `benchmark_review` both pass. Measured over the real queue: **43 of 1,476 exposed items**
-  lost their date, so their offered decision list collapsed to `"none"` and they could never
-  have cleared — a floor on the clearing rate, reported as a rate. Every hyphenated printing
-  (`AB-564`, `AB-12`) was affected. The two runs made before the fix are set aside in
-  `data/` as `.superseded-served-date-bug` rather than deleted.
-- **A page whose live reading is `human` was shown to the panel**, though `walk.documents`
-  narrows `_PAGES` to the machine channels and the finder therefore never read it. Copying a
-  query without copying the filter that follows it is the trap; `pages_of` now takes the
-  channel set.
-- **`decision_attachment` is not unique by document**, so keeping one arbitrary carrier named
-  a decision whose own dockets are not the union the finder used. `walk.own_by_document` is
-  the shipped answer and is now called rather than re-derived.
-- Three guards the benchmark scorer already had were absent here: a division by zero on an
-  empty run, two runs collapsing on a shared basename, and a "panel" of one agreeing with
-  itself. **A sibling tool is not a review** — the guards have to be carried over deliberately.
-- The keys the panel would clear were computed and thrown away. They are now written out with
-  `--clears`, because a clearing rule cannot be accepted on a rate: a slice of those keys is
-  what gives it a measured precision (ADR 0017 D3).
 
 ## A human citation reading copies the machine's printed string and passage, 2026-09-12 (v2026.09.15)
 
@@ -1239,10 +1282,6 @@ shape-only and would not catch it.
 
 - **`review_action` and `correction` want a `render_version`** while both tables are still
   small. That is the whole fix, and it is cheapest now.
-- The second finding from the same pass — `source_location` is declared `{page, block_id,
-  bbox}` and `load.py` writes only the page — is **not** deferred: it is the justification the
-  offsets work now stands on (`TODO.md` § Next), after the recall claim for offsets measured at
-  12 of 506 rows.
 
 ## Deadline engine (C4), graduated from TODO 2026-09-11
 
@@ -1316,45 +1355,6 @@ not read, each small or ambiguous enough to want its own decision:
   this finder they were not emitted at all, so nothing regressed. Widening rule 2 to six
   digits reopens ADR 0017's exposure reasoning (`keys.py` names the cost), so it is the
   operator's decision, not a patch.
-- **The resolver's family limit: a parent takes its own sub-docket's served date.** *(Decided
-  2026-09-13 by the operator: he judges the 12 answers retiring it would change, and the count
-  decides.)* **Re-measured against the live resolver** (key anchor, limit kept) the 12 were 2: the
-  figure had compared the old spelling anchor. `EP 575` in decision 39033 (FD 35134) cites "STB Ex
-  Parte No. 575 and STB Ex Parte No. 575 (Sub-No. 1) (STB served Oct. 30, 2007)" — decision 36758
-  is filed in both dockets, so the limit is right; `FD 34554` in decision 41393 (FD 34554 (Sub-No.
-  140)) cites "FD 34554 (STB served Oct. 7, 2004) … FD 34554 (Sub-No. 2) (STB served February 11,
-  2005)" — the limit makes the parent see both dates and name nothing, where notice 35093 is right.
-  **Decided (the operator): every citation should reach its own document**, which a FALLBACK
-  anchor does — strict key first, the family's occurrences only when that finds no service date.
-  Checked on both pages: EP 575 and EP 575 (1) keep 36758; FD 34554 gains 35093 while FD 34554
-  (2) keeps 35555 (served 2005-02-11). To be built with the fused-digit finder rule below, as one
-  finder version. *(Measured 2026-09-14 on a restore of that day, main's resolver against the
-  branch `finder-fallback-anchor`'s over every live reading, 104,765 on both channels: ONE answer
-  changes, reading 308248, `FD 34554` gaining 35093; nothing lost or altered.)*
-  *(Codex on PR #32, 2026-09-14, P1, verified: the fallback changes what a resolution ASSERTS, but
-  the row is still `registry-match@rule-1`/`rule-2-repair`, and `FINDER_VERSION` lives on `citation`
-  and `citation_reading`, not on `citation_resolution`. `resolve.py`'s own note of 2026-09-10 says
-  "any LATER widening of what a row asserts is a version bump", and `_anchored`'s docstring
-  contradicts it. Decided the same day by the operator: BUMP THE RESOLVER'S VERSION, schema-critic
-  scoping how older-version rows are superseded, ranked and queued before any code; rehearse again.)*
-  *(Schema-critic's scope, verified 2026-09-14: `citation_resolution` has NO human-row trigger (the
-  loader's `method = 'registry-match'` filter is the only guard); the projection inner-joins
-  resolutions to rank rows by `method_version` (`project.py:52-57`), so a row left at the old
-  version stops publishing; `measure` writes `RULE_1` into the card and `stamp` never checks it.
-  Design: bump both rules (`rule-1/2026-09-14`, `rule-2-repair/2026-09-14`), retire every older
-  resolver row on the key and channel onto the new one, read `work_gained`/`work_lost` against any
-  version, `stamp` refuses a card of another resolver version, rebuild both cards, rehearse on a
-  fresh restore. Decided by the operator: THE RE-LOAD MUST REACH EVERY LIVE RESOLUTION and the
-  release waits for 0 left at the old version on live keys; FINDER_VERSION stays 2026-09-14.)* Pinned by
-  the 2026-09-10 review as a limit that must survive (`test_the_anchor_finds_the_target_as_
-  printed_and_stops_at_a_sentence`), and kept when `resolve._anchored` moved from a spelling to
-  a key (ingest specialist F1, 2026-09-13): `FD 36873` anchors on `FD 36873 (Sub-No. 1) (STB
-  served …)` and names the parent-docket decision served that day, if exactly one. Measured on
-  the production mirror 2026-09-13, retiring it would change **12** work-level answers — **8**
-  documents lost and **4** gained — and at least one kept answer is wrong: `EP 575` on
-  `1c1d6d2eab12` p1 takes the date of `Ex Parte No. 575 (Sub-No. …)` beside it. Whether a
-  same-day decision entered in both dockets makes the parent's answer right often enough to
-  keep is a question about published claims, so it is the operator's.
 - **The span test cannot see an own-family citation by reporter or by name.** Finder
   2026-09-13b reads an own-family mention's kind from `judge.names_document` (the operator's
   decision), and on the sixty two truth citations became captions: decision 51532's `EP 328`
@@ -1368,8 +1368,6 @@ not read, each small or ambiguous enough to want its own decision:
   34002 (…` does not end the earlier target's rest-of-line there, while `resolve._anchored`,
   reading the joined line, does. The effect is a shorter quote (the next line is not added), not
   a wrong answer.
-- **The gap after `No.` needs no width limit, measured** (ingest specialist F4): 0 long-form
-  matches on the production mirror have more than two spaces between `No.` and the number.
 - **The second number of a `Nos.` list** — `Finance Docket Nos. 32760 and 32760 (Sub-No. 1)`
   keys the first only, as `FD 36744 et al.` already does for the abbreviated form. Not counted.
 
@@ -1604,10 +1602,6 @@ extraction pass only** — no pick, no display, ADR 0018 D4 untouched; the grain
   ADR 0018 D2). No page renders the display today, and every consumer that exists (`review._base`,
   `project`) already joins live `citation`. Owed only when the display is built; no schema. Building it
   publishes a coverage statement — the operator's.
-- **The veto's trigger** (0014 item 7, ADR 0018 D7): two cross-row conditions — a suppress method's
-  measurement carries `false_veto_rate`, and its resolutions are `measured`. No suppress row is written
-  (`methods.py`), and 0014 judged a trigger for an inert mechanism not worth its weight. A new migration
-  with triggers, so schema-critic; the rule is already decided. Build with the veto, not before.
 - **A consumer for ADR 0023's pick rule**: `web/cite.py` sends a `decided` phrase to the sheet, and
   nothing writes or reads `decision_decided_date` (only `dump.py` and `supersede.py` name it). Owed
   first: a decided-date extraction pass, then the pick, a disagreement queue, and ADR 0018 D4 (which says
@@ -1801,10 +1795,6 @@ the figures in that README are now his, not the drafting pass's.
   agreed, and 4 of the 7 corrections moved a page from `partial`/`noisy` to `garbage`
   (L09, L56, L62, L63). Any future model-drafted label set for this work should be treated as
   a lower bound on the damage until checked.
-- **The sample cannot size the record.** Eight pages a cell puts garbage between 16,000 and
-  205,000 pages and "at least noisy" between 127,000 and 488,000 (Wilson, 95%). The >=0.7
-  band's 866k pages dominate both intervals. The ~100-page top-up of that band is what narrows
-  them; until it exists, no coverage figure may be published from this work.
 - **`mixed` pages are the worst class** (7 of 9 garbage) and the router has no such class:
   a page that is half map and half prose goes to one reader whole.
 
@@ -1910,31 +1900,6 @@ reproduce and was measured mostly off-population; the note now carries the three
 instead. Nothing here blocks the prose pass — a queue order that is wrong costs reading order,
 not a wrong assertion — but two things are owed if the screen is ever leaned on harder.
 
-- **The screen is effectively unmeasured on the pages it orders.** Of the 166 labelled pages only
-  32 are below the 0.5 cut, and only **5 of those are prose**: precision 0.80 (4/5), recall 0.80
-  (4/5). The pooled 166-page figure is carried by the ≥0.7 band, which is 134 of the pages and
-  where prose is most of the population and easy to spot (blind kinds there: precision 0.95,
-  recall 1.00). His 95 checked kinds give 0.89/0.91. **Owed: ~40 kind labels drawn from the
-  flagged set itself**, if the screen is to carry a stated rate. The indication it does give is
-  worth having and is why the pass is still worth seeding: prose is 5 of 32 flagged pages (16%)
-  and roughly 80% of what the screen selects, a fivefold lift in purity.
-  **PAID 2026-09-19** — 40 drawn from the flagged set, stratified on the screen's own verdict and
-  labelled by the operator on a blind sheet (`docs/research/text-quality/README.md` § The flagged
-  set's own kinds). On-population: **precision 0.75 (0.53–0.89), recall 0.66 (0.42–1.00)**, prose
-  23.3% of the flagged set (~7,400 pages). The screen may now carry a stated rate. Two figures
-  above are corrected by it: the **fivefold lift is 3.2×** (both halves of that division moved),
-  and the composition of the flagged set is **tables first at 37%**, not maps — the 32-page read
-  came from a band × era draw and was never a population estimate. Recall still swings on two
-  labels; a wider draw is the only thing that narrows it, and nothing needs it yet.
-- **71 of the 166 kind labels are unchecked model labels**, which is the thing the operator's own
-  rule forbids being turned into a rate ("model labels are a screen, never a measurement"). The
-  quality labels in this directory were kept honest about this; the kind labels behind the screen
-  were pooled without the distinction. The separation now lives in the module's note.
-- Smaller, fixed in place rather than deferred: the precision/recall table printed a raw sample
-  count inside a population-weighted precision cell, so `0.80 (42/48)` invited a division that
-  gives 0.875; and the queue builder's docstring read as though 6,170 prose pages sat in 4,896
-  documents, which is the count for all 31,798 flagged pages (the prose subset is 1,501).
-
 ## From building the text-layer re-read pass, 2026-09-18 (`reread`, schema-critic + `/code-review`)
 
 The operator gave the go for the prose re-read and chose a page-list seed over routing the
@@ -1947,14 +1912,6 @@ backwards claim about `document_text_live` in the pass's own comment.
 
 ### Closed the same day
 
-- **A re-read page had no routed class, and the store refuses such a reading.** `text/load.py`
-  raises "an OCR reading names the class it was routed as (ADR 0021 D4)" and
-  `CHECK (reading_channel <> 'ocr' OR route_class IS NOT NULL)` refuses the row; every page read
-  would have been machine time thrown away. **The operator chose to route the pages first**
-  (2026-09-18), so `ocr_wave.py route-list` routes a page list with the layout model alone, into
-  the re-read's own route root, and the seed skips anything unrouted. The alternatives were
-  worse: a new `route_class_vocab` member would overload a *tier* vocabulary with a *selection
-  reason*, and relaxing the CHECK is a rebuild of a 1.4M-row table.
 - **The disjointness guard the critic asked for is half-built**: the two passes now read
   different route roots, so a text-layer document cannot reach `dots` through a route document.
   Nothing still asserts that no document is both image-only and text-layer.
@@ -2001,10 +1958,6 @@ backwards claim about `document_text_live` in the pass's own comment.
   `dots.mocr/1.5/200` now means two things — a primary reading of a degraded scan and a second
   reading of a suspect text layer — and a third party summing `pages_read` cannot tell them
   apart. Half the pages counted are displayed to nobody.
-- ~~`fleet-up.sh` has no `reread` role~~ — built once the shape settled: a `reread-collect`
-  service on the coordinator and a `reread` worker role sharing the `dots` server and key, with
-  its own stop file (`.stop-reread`). The two workers share one card, so the role is opt-in and
-  never part of `worker` or `all`, as `tabular` is.
 
 ## The fleet's blob mirrors are stale, not holed, 2026-09-18 (tabular pass, v2026.09.28)
 
@@ -2017,24 +1970,11 @@ essentially the entire remainder of the pass's 11.4% failure rate.
   one. The earlier reading of this — 434 documents "in NEITHER blob mirror, so no node reads
   them this seed" — was right about the mirrors and wrong about the record. S3 is the store and
   the mirrors are caches (`infra/deploy/README.md`); these caches simply lag.
-- **The coordinator cannot refill its own mirror.** `rmi-nuc` holds the blob mirror the fleet
-  reads through and has `boto3`, but no `~/.aws` credentials; `rmi-ai-machine` has the
-  `docketyard-reader` profile and `pull_blobs.py`. So the box that owns the mirror cannot fill
-  it, and the box that can fill it is the one we keep saying is stateless and replaceable. That
-  asymmetry is the defect, not the missing bytes — and it bites harder once the card moves or
-  the workstation is swapped for a 5090.
 - **These pages cannot be recovered in the running seed.** `pagequeue` has `seed`, `collect`,
   `status`, `reap` and `fail` — there is no requeue verb, and a `blob:` failure that has spent
   its attempts is `failed`, which the design intends: re-read at a later seed. Resetting them
   would be hand-written SQL against a live queue. The designed path is a later seed, once the
   mirror is filled.
-- **Cheap guard worth pricing: the seed does not check that it can read what it seeds.**
-  `seed --dry-run` reports how many pages and documents it would queue, but nothing verifies
-  the blobs are reachable from the nodes that will claim them. A presence check at seed time —
-  local mirror, then S3 — would have surfaced 310 unreadable documents in seconds instead of
-  728 spent attempts over two days. It is the same shape as the endpoint rule in `CLAUDE.md`:
-  positively assert the precondition rather than infer it from a result that also has an
-  innocent explanation.
 
 ## Two `series` shapes ride in one docket JSON, 2026-09-18 (v2026.09.28, shape 3)
 
@@ -2106,27 +2046,11 @@ coordinator moves. Neither is a wrong assertion in the record today.
   project rather than from the broker. Live because the coordinator's own unused card is
   Turing. Adding dtype to the *declaration* is additive and forward-only; adding it to the
   *key* would invalidate every reading, so the two must not be confused.
-- **The stale-mirror defect has a second remedy nobody had costed.** Measured 2026-09-19:
-  the instance already holds 112 GB of blobs and already serves any document by hash, with an
-  S3 refetch on a cache miss and the hash verified. So a reader could fetch document bytes
-  without any mirror and without any credential on any fleet box, which would retire the
-  `docketyard-reader` asymmetry recorded above rather than paper over it. **It is not free:**
-  `docs/compute-fleet.md` says "Production never joins the fleet", and having the instance
-  serve the fleet's bytes crosses that sentence, so it is an ADR amendment and not an
-  implementation detail. Recorded as an option, not a plan.
 
 ## From the schema critic on the ADR 0025 addendum, 2026-09-19 (Proposed)
 
 Folded into the addendum where it was wording; these two are code and are filed.
 
-- **A restore whose queue is newer than its file tree silences documents, permanently.**
-  `_decide` returns on `known == "whole"` (`pagequeue.py:639-641`) **without checking that the
-  reading document exists** — while the `reread` branch just below it checks deliberately, with
-  a comment saying the queue's verdict stands either way. So a coordinator restored from a
-  queue snapshot taken after its file tree marks those documents whole, never re-queues them
-  and never collects them: silent, per-document, and the 2026-09-06 shape again. The operator's
-  procedure can avoid it — **restore files first, then the queue** — but a three-line fall-
-  through to the `reread` verdict when `shard()` is absent would make the order not matter.
 - **A worker's registration overwrites its own producer on every restart.**
   `register` is `ON CONFLICT (name) DO UPDATE SET producer = excluded.producer`
   (`pagequeue.py:240-245`) on a name defaulting to `<host>/<pass>`. The producer is published
@@ -2208,17 +2132,6 @@ Where each result sits, measured 2026-09-19:
 - **In the store, replicated:** the `dots` and `ppocr` readings. Safe; nothing owed.
 - **On disk only, never loaded:** 2,578 collected `hunyuan-tabular` documents. Loading them is
   the operator's go (`docs/compute-fleet.md`), not yet given.
-- **On disk only, and with no home in the store at all: the route roots** (27,269 documents).
-  Seeding copies each route document's own method and method version into every page of every
-  reading, so for a page that has been read AND loaded the classification survives in the
-  store. For a page that has not, it exists nowhere else — and the tabular pass alone holds
-  **9,019 unread pages** (6,799 pending, 2,220 failed). This is the artefact that wants an
-  off-LAN copy permanently, not the queue and not the blobs.
-- 16 raw answers in `queue.sqlite` belong to documents not yet written out.
-
-**Resuming and making the backup routine are one decision.** The 2026-09-19 snapshot is valid
-only because nothing has read since 2026-09-18 20:28Z. Once a pass runs, the coordinator
-accumulates irreplaceable results continuously and a pre-resume copy decays by the hour.
 
 ## Correction: the route roots are expensive, not irreplaceable — 2026-09-19
 
@@ -2270,11 +2183,6 @@ change. These are recorded instead.
   (the archive already carries it — the queue is the last member), `--no-same-owner`, and the
   fact that `fleet.token` and `fleet-node` are deliberately **not** in the archive and must be
   replaced by hand. A rebuilt coordinator needs that token from the password manager.
-- Smaller, fixed in place rather than deferred: the queue snapshot is genuinely atomic
-  (`Connection.backup` with the default `pages=-1` copies under one read transaction), so the
-  docstring's earlier "a hash can never prove fidelity to a database that moved" was more
-  pessimistic than the mechanism — the pessimism would have become TRUE had anyone later
-  "improved" it into a chunked loop, which is why the reason is now written beside the call.
 
 ## Page regions: ADR 0003's blocks are unbuilt, and dots already produces them, 2026-09-19
 
@@ -2343,7 +2251,6 @@ Also noted: **no vLLM is installed on rmi-ai-machine**, though the dots.mocr wei
 (5.7 GB). Re-running dots over the 40 text-layer pages therefore means standing vLLM back up on
 a 5090, which is a job of some length with real uncertainty — not the two minutes first
 estimated.
-
 
 ## From rebuilding the blob refetch, 2026-09-19 (`blob-refetch-held`, ingest review + `/code-review high`)
 
@@ -2463,11 +2370,6 @@ more repetition, at ~70 s a page instead of ~35.
 2. **Is the prefix worth keeping?** `389410437 p48` had real text before it degenerated.
    Publishing the good prefix would raise coverage and would also publish a partial reading as
    a page's reading, which is a provenance claim (ADR 0021) and not an implementation detail.
-
-**Cheap and separable either way:** a repetition guard that stops generation when the last
-N tokens repeat would fail these pages in seconds instead of 35, saving about 4 GPU hours over
-the ~470 cut pages still expected in this pass, and roughly 12 hours already spent generating
-garbage. It changes no reading that succeeds.
 
 ### The early-stop guard does not work — measured and abandoned, 2026-09-20
 

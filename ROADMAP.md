@@ -18,18 +18,18 @@ with its index, captions for newly-opened proceedings, environmental comments (v
 the third record row, walked back to September 2000), the record's own text (Migration A,
 v2026.09.2: 976,058 pages, one row per reading), the citator's finder and work-level step
 (v2026.09.9–11), the derivation fleet on the operator's LAN (ADR 0025, 2026-09-09), and text for
-new material read on the instance (ADR 0024, v2026.09.12–13). The
-Ripe list is the menu for what follows.
+new material read on the instance (ADR 0024, v2026.09.12–13), the finder's line wrap and the
+Board's long docket forms (v2026.09.15, v2026.09.19: 22,547 citation edges in the store, none
+shown), search built out (v2026.09.27), the machine surface for assistants (MCP, through
+v2026.10.1), and decided dates quoted (v2026.10.3, held). The Ripe list is the menu for what
+follows.
 
 ## Chosen
 
 | # | Milestone | Done means | Chosen | Status |
 | --- | --- | --- | --- | --- |
-| — | Party types on `/parties` (F3's first slice) | Every party carries a typed classification (railroad, company, government, association, individual, law firm, …) as a derived assertion with ADR 0007 provenance and an ADR 0016 review path; `/parties` gains a browse by type (large types collapsed) beside the search, which stays | 2026-08-30 | Design done (`docs/party-types.md`); rules v2 at 83.3% on its own sheet, a second unseen sample must confirm before any type ships; schema-critic before the assertion table exists |
-| — | OCR of the image-only record (M3's first slice, `docs/ocr-plan.md`) | Ground truth the operator checks (90 pages, three tiers); candidates measured by CER/WER and by docket-number and date errors, API candidate included; a review layer (agreement → confidence, registry checks, a reviewer queue with identity from the start, ~50 pages a week); text published only above the measured threshold, with provenance | 2026-08-28 | Ground truth checked 2026-08-29; five engines scored; ADRs 0017–0023 accepted; Migration A shipped 2026-09-03 (v2026.09.2, 161,801 text-layer pages loaded 2026-09-04); the `dots` OCR wave read on the fleet (ADR 0025) and, with Paddle's `second` and `graphic` passes, loaded 2026-09-11 — 41,622 `dots` pages each with a band, 13,943 routed graphic; the review layer (Migration B) is owed |
-
-| — | The finder reads the Board's long docket forms (C2's recall) | `Finance Docket No. N` and `Ex Parte No. N` are found and keyed as `FD N` / `EP N`, sub-numbers included; a checked sample of long-form hits measures it (the sixty print none); the text layer is re-loaded; only then is the OCR channel's card built | 2026-09-13 | Measured with finder 2026-09-12 on the text layer: 6,028 (page, docket) citations to held proceedings not emitted, 4,078 of them in 1996–2005 decisions; 21,128 more name the document's own family (counted by family, not by the finder's `kind`) |
-| — | The finder's line wrap (C2's precision and recall) | A docket citation whose `(Sub-No. …)` or `served` date wraps onto the next line resolves to the sub-docket and the document it names; the benchmark re-measured and every edge the old span stamped re-asserted (a `SPAN_VERSION` bump, `resolve.py`), before any review of the queue | 2026-09-11 | Measured on the first load: 584 of 71,296 resolved citations lost a wrapped sub-number (all 584 held), 233 projected edges among them; the served-date wrap was 4 of 106 judged claims |
+| — | Party types on `/parties` (F3's first slice) | Every party carries a typed classification (railroad, company, government, association, individual, law firm, …) as a derived assertion with ADR 0007 provenance and an ADR 0016 review path; `/parties` gains a browse by type (large types collapsed) beside the search, which stays | 2026-08-30 | Design done (`docs/party-types.md`); rules v2 at 83.3% on its own sheet. The unseen held-out sheet has been with the operator since 2026-09-10 (`docs/research/party-types/held-out/`); 95% per type on it gates the assertion migration (schema-critic first) |
+| — | OCR of the image-only record (M3's first slice, `docs/ocr-plan.md`) | Ground truth the operator checks (90 pages, three tiers); candidates measured by CER/WER and by docket-number and date errors, API candidate included; a review layer (agreement → confidence, registry checks, a reviewer queue with identity from the start, ~50 pages a week); text published only above the measured threshold, with provenance | 2026-08-28 | Ground truth checked 2026-08-29; five engines scored; ADRs 0017–0023 accepted; Migration A shipped 2026-09-03 (v2026.09.2, 161,801 text-layer pages loaded 2026-09-04); the `dots` OCR wave read on the fleet (ADR 0025) and, with Paddle's `second` and `graphic` passes, loaded 2026-09-11 — 41,622 `dots` pages each with a band, 13,943 routed graphic. Since: the tabular pass reads through the fleet's broker, and the text-layer re-read is built; both wait on publishing rules that are the operator's (`TODO.md`). The review layer (Migration B) is owed |
 
 ## Ripe — awaiting a decision
 
@@ -40,16 +40,16 @@ the capability map with the whole record held). None is chosen.
    cites that decision, docket or document) against the validated registry, shipped as "cited
    by" lists and search ranking; treatment classification lands later on the same edges.
    The schema (migration 0014), the finder, the resolver and the work-level step are
-   shipped (v2026.08.51–v2026.09.11), and the first load ran 2026-09-11: 15,198 edges in
-   the store, 1,945 exposed keys held for `/review`. What is not built is the display — the
-   "cited by" lists and ranking this slice would ship. The citation resolver, shipped in
+   shipped (v2026.08.51–v2026.09.19): 22,547 edges in the store, 428 exposed keys held for
+   review. What is not built is the display — the "cited by" lists and ranking this slice
+   would ship — and its review page waits on the citations brief (`TODO.md`). The citation resolver, shipped in
    v2026.08.36, is its front door.
-2. **Fielded search** (F4) — the one box shipped 2026-08-26 (captions, parties, summaries);
-   fields, boolean and proximity wait for the extracted text.
+2. **Fielded search** (F4) — search built out in v2026.09.27 (grouped by proceeding,
+   filters by docket type, dates, kinds and the Board's types, paged); fields, boolean and
+   proximity remain.
 3. **Rate-case index** (D5's first slice) — the 3,952 NOR dockets with parties and quoted
    spans; only 136 carry held filings, so thin until the ICC-era gap closes. The casebook
    proper (methodology, outcome) is human coding.
-4. *(Chosen 2026-09-11 — see § Chosen, the finder's line wrap.)*
 5. **Places quoted from captions** (C3/D2's first slice, ADR 0008) — re-taken ripe 2026-09-10:
    3,730 of 30,184 held captions name a county, parish or borough, 52.1% of AB captions
    (3,158 of 6,056); a `place` row per mention with the caption as provenance, AB first, a

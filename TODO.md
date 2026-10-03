@@ -8,10 +8,13 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
+- **Every decision waiting on him is listed in `docs/deferred.md` § Waiting on the operator**
+  (64, gathered 2026-10-03); an answer moves an item here or closes it there.
+
 - **v2026.10.3 LIVE** (schema 34; decided dates quoted, 16,427 lines, held). The fleet runs `3629aa8` (coordinator moved forward
   2026-09-20; nothing it executes changed). dots 46,838/134
-- **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown;
-  exposed 428. **The review page, for a person** — docket, sub-docket and document in one look,
+- **The citator is loaded** (rank v7, finder 2026-09-14b, since v2026.09.24): 26,205 rows,
+  22,547 edges, none shown; exposed 428. **The review page, for a person** — docket, sub-docket and document in one look,
   linked to scan, text, both dockets and the match; an ICC flag. GATED on the citations
   brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
 - **ADR 0025 addendum: ALL SIX ACCEPTED and VERIFIED LIVE**, re-proved on the new coordinator
