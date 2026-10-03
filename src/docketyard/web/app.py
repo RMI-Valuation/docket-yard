@@ -49,7 +49,7 @@ from docketyard import __version__
 from docketyard.alerts import feedback, mail, subscriptions, vault, webhooks
 from docketyard.capture import poll, s3
 from docketyard.ingest import observations
-from docketyard.ingest.dockets import find_docket, parse_docket_id
+from docketyard.ingest.dockets import find_docket, parse_docket_id, raw_of
 from docketyard.parties import resolve
 from docketyard.store import (
     coverage,
@@ -1973,10 +1973,7 @@ def create_app(
             sub = subscriptions.for_confirm_token(con, token) if vault.is_open() else None
             what = None
             if sub and sub.docket_id is not None:
-                raw = con.execute(
-                    "SELECT raw_docket FROM docket WHERE docket_id = ?", (sub.docket_id,)
-                ).fetchone()[0]
-                what = urls.printed_docket(parse_docket_id(raw))
+                what = urls.printed_docket(parse_docket_id(raw_of(con, sub.docket_id)))
             elif sub:
                 what = f"filings for {resolve.display_name(con, sub.party_id)}"
         finally:
@@ -2002,9 +1999,7 @@ def create_app(
             raw = None
             what = None
             if sub and sub.docket_id is not None:
-                raw = con.execute(
-                    "SELECT raw_docket FROM docket WHERE docket_id = ?", (sub.docket_id,)
-                ).fetchone()[0]
+                raw = raw_of(con, sub.docket_id)
             elif sub:
                 what = f"filings for {resolve.display_name(con, sub.party_id)}"
         finally:
