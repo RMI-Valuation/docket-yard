@@ -303,6 +303,46 @@ seed) and the worker moves on at its next start.
 When the queue empties: `collect` has written every document; `second` and `graphic` follow
 as `ocr_wave.py` documents; rsync and `text load` each root in that order on the instance.
 
+### Restoring the coordinator from a backup
+
+`tools/fleet/backup.py` writes `dy-coordinator-<UTC stamp>.tar.gz` and, only once S3's own
+checksum agrees with what was sent, `<same>.manifest.json` with `"verified": true` and the
+tarball's `sha256`. A tarball with no manifest beside it is one whose upload was never
+verified: take the newest that has one. Every member is under `ocr/`, so it is extracted at
+the data root.
+
+```
+# 1. nothing may write ocr/ while it is laid down: stop the coordinator's sessions
+tmux kill-session -t fleet-queue; tmux kill-session -t fleet-monitor
+tmux kill-session -t dots-collect; tmux kill-session -t tabular-collect
+tmux kill-session -t reread-collect
+# 2. fetch the tarball and its manifest; the digest must be the manifest's "sha256"
+sha256sum dy-coordinator-<stamp>.tar.gz
+# 3. a stale WAL beside the restored queue would be replayed into it: remove both sidecars
+rm -f /data/docketyard/ocr/queue.sqlite-wal /data/docketyard/ocr/queue.sqlite-shm
+# 4. extract in archive order, as the user that runs the fleet
+tar -xzf dy-coordinator-<stamp>.tar.gz -C /data/docketyard --no-same-owner
+```
+
+- **The order is the archive's, so extract it whole and in one pass.** `ocr/queue.sqlite` is
+  the archive's LAST member, after every file it describes, which is the restore order — files
+  before the queue. Pulling the queue out first, or extracting members selectively, can leave a
+  queue newer than its file tree, and the next seed then reads those documents again
+  (`missing_reading` in its report; GPU time, not silence, since 2026-09-19).
+- **`--no-same-owner`**, because the archive carries the backing-up user's numeric uid and gid,
+  and a tar run as root restores them — on a rebuilt box, an owner that may not exist, and files
+  the fleet's user cannot write. Extract as that user and no sudo is needed.
+- **Three files are deliberately NOT in the archive** and are replaced by hand, because they
+  live beside `ocr/` rather than in it: `fleet.token` (the transport's shared secret — from the
+  password manager; every reader holds the same line, so a new one must be put on every reader
+  too), `store.env` (the read-only store credential, without which a blob miss is a 404 again),
+  and, on each READER, `fleet-node` (one line, `http://<coordinator>:8131`) — which must be
+  rewritten on every reader if the coordinator's address changed. None enters a repository.
+- **Not in it either, and not needed: the blob mirror, the engine cache, the render scratch and
+  the logs** (`backup.py`'s `NEVER`). The mirror refills on demand from the store.
+- Then `fleet-up.sh coordinator`, and a `seed --dry-run` per pass before any real seed: a
+  `missing_reading` above zero says the restore was skewed and a wave is about to be re-read.
+
 ### Running a reader through the broker
 
 Since 2026-09-18 a broker places readers on cards (ADR 0025 addendum, proposals 1–4 Accepted
