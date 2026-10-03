@@ -72,15 +72,18 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "rmi-ai-machine"))
 
-from ocr_wave import DOTS, DOTS_MODEL, DOTS_SERVER, _dots_call  # noqa: E402 — the driver's own
-from pagequeue import (  # noqa: E402
-    PASSES,
-    BlobCorrupt,
-    BlobMissing,
-    BlobUnavailable,
-    Queue,
-    RemoteQueue,
+from leaseloop import (  # noqa: E402 — what both lease loops do the same way
+    EXIT_ENVIRONMENT,
+    DocumentFailed,
+    Fetched,
+    document_failed,
+    log,
+    node_unavailable,
+    page_index,
+    register_or_exit,
 )
+from ocr_wave import DOTS, DOTS_MODEL, DOTS_SERVER, _dots_call  # noqa: E402 — the driver's own
+from pagequeue import PASSES, BlobUnavailable, Queue, RemoteQueue  # noqa: E402
 from stopping import Stop, yield_now  # noqa: E402
 
 # The passes this worker can run: every pass whose key is dots.mocr's, since that is the engine
@@ -90,23 +93,15 @@ from stopping import Stop, yield_now  # noqa: E402
 PASSES_HERE = tuple(p for p, spec in PASSES.items() if spec["key"] == DOTS)
 PASS = "dots"  # the default; --pass picks another of PASSES_HERE
 DPI = int(PASSES[PASS]["key"]["render_profile"])  # the render IS the key; one source
-EXIT_SERVER_GONE, EXIT_SERVER_DIES, EXIT_ENVIRONMENT, EXIT_BREAKER = 2, 3, 4, 5
+EXIT_SERVER_GONE, EXIT_SERVER_DIES, EXIT_BREAKER = 2, 3, 5  # EXIT_ENVIRONMENT (4): leaseloop
 
 
 class PageFailed(Exception):
     """The page's own fault; final."""
 
 
-class DocumentFailed(Exception):
-    """The document's — its bytes are not here or will not open; not final."""
-
-
 class ServerDown(Exception):
     """The server did not answer; the page is not to blame, or not yet."""
-
-
-def log(msg: str) -> None:
-    print(time.strftime("%Y-%m-%d %H:%M:%S ") + msg, flush=True)
 
 
 def _get(url: str, timeout: int = 10):
@@ -179,27 +174,6 @@ def read_page(pdf, no: int, png: Path, server: str, model: str, timeout: int, mp
         raise
     finally:
         png.unlink(missing_ok=True)
-
-
-def page_index(no: int, page_count: int) -> int:
-    """The 0-based index of page `no` of a document of `page_count` pages, or DocumentFailed.
-    Both ends: page 0 would index the LAST page (`doc[-1]`) and read the wrong one silently
-    (Copilot on PR #34, 2026-09-17)."""
-    if not 1 <= no <= page_count:
-        raise DocumentFailed(f"has {page_count} pages, the route says {no}")
-    return no - 1
-
-
-def register_or_exit(q, name: str, pass_: str, producer: dict) -> int | None:
-    """Register with the queue, or the environment exit code with the reason logged. A queue
-    that is locked, unreachable or refuses the key is the environment's failure, not an
-    unclassified crash (Copilot on PR #34, 2026-09-17)."""
-    try:
-        q.register(name, pass_, producer)
-    except Exception as e:  # noqa: BLE001 — every way registration fails is the environment's
-        log(f"could not register with the queue ({type(e).__name__}: {e}); exit {EXIT_ENVIRONMENT}")
-        return EXIT_ENVIRONMENT
-    return None
 
 
 def main() -> int:
@@ -284,7 +258,7 @@ def main() -> int:
 
     read = failed = streak = 0
     last_server_death: tuple[str, int] | None = None
-    held: tuple[str, Path] | None = None  # the last document fetched, for a remote worker
+    fetched = Fetched(q, args.scratch)  # the last document fetched, for a remote worker
     ids: list[int] = []
 
     try:
@@ -313,27 +287,7 @@ def main() -> int:
                     if args.blobs:  # on the node, or a mirror of its blobs: read the disk
                         pdf = args.blobs / sha[:2] / sha
                     else:
-                        if held is None or held[0] != sha:
-                            # STREAMED TO DISK, NEVER INTO RAM. `read_page` takes a path as
-                            # readily as bytes, and the documents this change newly makes
-                            # reachable (a pruned mirror used to be a flat 404) reach 1.07 GB
-                            # in this record — which is what OOM-killed the instance in August,
-                            # and the smallest box that leases pages has 8 GB (code review).
-                            if held is not None:
-                                held[1].unlink(missing_ok=True)  # the previous document
-                                held = None
-                            spool = args.scratch / f"doc-{sha}.pdf"
-                            try:
-                                held = (sha, q.blob_into(sha, spool))
-                            except BlobMissing as e:
-                                raise DocumentFailed(f"not in the store: {e}") from e
-                            except BlobCorrupt as e:
-                                # the store's, not the page's, and it will not fix itself on a
-                                # retry — but it is not final either: a document is never
-                                # written off on one answer from a store having a bad day. The
-                                # coordinator has already printed the alarm.
-                                raise DocumentFailed(f"the store is corrupt here: {e}") from e
-                        pdf = held[1]
+                        pdf = fetched.path_of(sha)
                     raw = read_page(
                         pdf, no, png, args.server, args.model, args.timeout, spec["max_megapixels"]
                     )
@@ -364,33 +318,11 @@ def main() -> int:
                         log(f"{streak} page failures in a row, no page read; exit {EXIT_BREAKER}")
                         return EXIT_BREAKER
                 except BlobUnavailable as e:
-                    # THE ENVIRONMENT'S, SO NO PAGE PAYS. The node is unreachable or its
-                    # credential is: every page in the fleet would fail identically, so this
-                    # one and every one after it go back UNSPENT and the worker exits for the
-                    # resubmitter to bring back (ADR 0025 addendum, proposal 2). Retrying here
-                    # is the loop the old bare re-raise produced, minus the traceback.
-                    # THE RELEASE GOES TO THE SAME NODE THAT JUST FAILED, so it may fail
-                    # too — and an exception here would escape as the traceback this whole
-                    # mapping exists to prevent (ingest review). If it does not land, the
-                    # leases expire instead, and `_reap` SPENDS the attempt rather than
-                    # refunding it: the pages are not lost and no document is counted whole,
-                    # but they are not free either. Said plainly in the log rather than
-                    # claiming "unspent" when that may not be what happened.
-                    try:
-                        q.release(name, ids[i:])
-                        back = f"{len(ids) - i} released unspent"
-                    except Exception as release_failed:  # noqa: BLE001 — the node is the fault
-                        back = (
-                            f"{len(ids) - i} could NOT be released"
-                            f" ({type(release_failed).__name__}); they wait for lease expiry,"
-                            " which spends an attempt each"
-                        )
-                    log(f"the node cannot serve documents ({e}); {back}; exit {EXIT_ENVIRONMENT}")
-                    return EXIT_ENVIRONMENT
+                    # the environment's, so no page pays: `leaseloop.node_unavailable`
+                    return node_unavailable(q, name, ids, i, e)
                 except DocumentFailed as e:
-                    q.fail(name, job["job_id"], f"blob: {e}", final=False)
+                    document_failed(q, name, job["job_id"], sha, no, e)
                     failed += 1
-                    log(f"  document {sha[:12]} {e}; p{no} back for a later seed")
                 except ServerDown as e:
                     if stopping():  # a deliberate stop ended the request: nobody's fault
                         # the page in flight goes back UNSPENT: a stop did not fail it
@@ -443,8 +375,7 @@ def main() -> int:
     finally:
         # THE LAST DOCUMENT FETCHED IS A FILE NOW, not bytes that vanish with the process
         # (code review). Up to 1.07 GB of it, on a scratch disk shared with the renders.
-        if held is not None:
-            held[1].unlink(missing_ok=True)
+        fetched.drop()
 
 
 if __name__ == "__main__":

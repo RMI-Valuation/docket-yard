@@ -1379,6 +1379,99 @@ def test_a_queue_that_refuses_registration_is_the_environments_exit():
     assert q.got == ("w1", "tabular", {"k": 1})
 
 
+# --- the worker half of the blob refetch (ADR 0025 addendum, proposals 5-6) -------------------
+
+# the module the workers imported, not a second copy of it: `hw` put tools/fleet on the path
+ll = importlib.import_module("leaseloop")
+
+
+class _Blobs:
+    """A queue whose `blob_into` answers from a script: bytes, or an exception to raise."""
+
+    def __init__(self, answers: dict):
+        self.answers, self.asked = answers, []
+
+    def blob_into(self, sha, dest):
+        self.asked.append(sha)
+        got = self.answers[sha]
+        if isinstance(got, BaseException):
+            raise got
+        dest.write_bytes(got)
+        return dest
+
+
+def test_a_missing_or_corrupt_blob_is_the_documents_and_an_unreachable_node_is_not(tmp_path):
+    """`BlobMissing` and `BlobCorrupt` are the document's (not final, `blob:`); `BlobUnavailable`
+    is the environment's and must reach the loop as itself, so no page pays for it."""
+    store = _Blobs(
+        {
+            A: b"%PDF a",
+            B: b"%PDF b",
+            "c" * 64: pq.BlobMissing("gone"),
+            "d" * 64: pq.BlobCorrupt("bad bytes"),
+            "e" * 64: pq.BlobUnavailable("403"),
+        }
+    )
+    held = ll.Fetched(store, tmp_path)
+    first = held.path_of(A)
+    assert first.read_bytes() == b"%PDF a"
+    assert held.path_of(A) == first and store.asked == [A]  # held: fetched once per document
+    second = held.path_of(B)
+    assert not first.exists() and second.read_bytes() == b"%PDF b"  # one document at a time
+    with pytest.raises(ll.DocumentFailed, match="not in the store"):
+        held.path_of("c" * 64)
+    # a failed fetch drops what was held, so the old name can never serve the old path again
+    assert not second.exists() and held.sha is None
+    with pytest.raises(ll.DocumentFailed, match="the store is corrupt"):
+        held.path_of("d" * 64)
+    with pytest.raises(pq.BlobUnavailable):  # NOT DocumentFailed: the node is not a document
+        held.path_of("e" * 64)
+    held.path_of(A)
+    held.drop()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_document_failure_spends_the_attempt_and_is_never_final(q):
+    job = q.claim("w1", "dots", 1, 60)[0]
+    ll.document_failed(q, "w1", job["job_id"], A, 1, ll.DocumentFailed("not in the store: x"))
+    row = q.con.execute(
+        "SELECT state, attempts, error FROM job WHERE job_id = ?", (job["job_id"],)
+    ).fetchone()
+    assert (row["state"], row["attempts"]) == ("pending", 1)
+    assert row["error"].startswith("blob: ")
+    assert ocr_wave.failure_reason(row["error"]) == "document-bytes"  # not the page's own
+
+
+def test_an_unreachable_node_gives_every_page_back_unspent_and_exits_4(q):
+    jobs = q.claim("w1", "dots", 3, 60)
+    ids = [j["job_id"] for j in jobs]
+    q.done("w1", ids[0], "[]")
+    assert ll.node_unavailable(q, "w1", ids, 1, pq.BlobUnavailable("403")) == ll.EXIT_ENVIRONMENT
+    rows = q.con.execute("SELECT job_id, state, attempts FROM job ORDER BY job_id").fetchall()
+    back = {r["job_id"]: (r["state"], r["attempts"]) for r in rows}
+    assert back[ids[1]] == back[ids[2]] == ("pending", 0)  # refunded: no page pays
+
+    class Unreachable:
+        def release(self, name, ids):
+            raise ConnectionError("the node again")
+
+    # the release goes to the node that just failed; its failure must not escape as a traceback
+    assert ll.node_unavailable(Unreachable(), "w1", ids, 0, pq.BlobUnavailable("x")) == 4
+
+
+def test_both_lease_loops_take_their_blob_branches_from_one_place():
+    """The branches tested above are the ones the loops run, not a copy beside them."""
+    for name in ("dots_worker.py", "hunyuan_worker.py"):
+        src = (ROOT / "tools" / "fleet" / name).read_text(encoding="utf-8")
+        assert "pdf = fetched.path_of(sha)" in src, name
+        assert "return node_unavailable(q, name, ids, i, e)" in src, name
+        assert 'document_failed(q, name, job["job_id"], sha, no, e)' in src, name
+        assert "fetched.drop()" in src, name
+        for twin in ("def page_index", "def register_or_exit", "class DocumentFailed", "blob_into"):
+            assert twin not in src, f"{name} keeps its own {twin}"
+    assert hw.page_index is ll.page_index and hw.DocumentFailed is ll.DocumentFailed
+
+
 # --- the text-layer re-read: a pass seeded from a page list, over separately routed pages ----
 
 
