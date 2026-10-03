@@ -18,6 +18,8 @@ import re
 import sqlite3
 from pathlib import Path
 
+from benchmark_files import decision_id_of
+
 PAGE_RE = re.compile(r"^===== page (\d+) =====$", re.M)
 # `FD 36873`, `FD-36873`, `EP 542 (Sub-No. 32)`, `EP 711 (Sub-\nNo. 2)` and the older
 # `NOR DOCKET NO. 42183` (prefix, then the words, then the number — decision 52616's caption).
@@ -133,7 +135,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     orphans = []
     for f in sorted(args.text_dir.glob("*.txt")):
-        did = f.stem.rsplit("-", 1)[-1]
+        did = decision_id_of(f)
         if did not in own:
             # without the decision's own dockets the `own` rule calls every caption a
             # citation — degrade loudly, not silently (code review, 2026-08-30)

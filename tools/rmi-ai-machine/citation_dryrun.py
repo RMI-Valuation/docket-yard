@@ -45,6 +45,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 import benchmark_score as bs  # noqa: E402
 import projection_score as ps  # noqa: E402
+from benchmark_files import decision_id_of  # noqa: E402
 
 from docketyard.citator import (  # noqa: E402
     find,
@@ -246,7 +247,7 @@ def run_the_finder(text_dir: Path, out: Path, own: dict[str, set[str]]) -> Path:
         stale.unlink()
     orphans = []
     for path in sorted(text_dir.glob("*.txt")):
-        did = path.stem.rsplit("-", 1)[-1]
+        did = decision_id_of(path)
         if did not in own:
             # without the decision's own dockets the rule calls every caption a citation:
             # degrade LOUDLY, never silently (the same guard benchmark_regex.py carries)
