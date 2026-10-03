@@ -351,6 +351,38 @@ def test_the_unresolved_queue_skips_a_number_outside_the_held_record(tmp_path):
     assert queued == ["AB 900"]
 
 
+def test_a_limited_queue_and_one_item_are_the_whole_queues_rows(tmp_path):
+    """`pending` stops reading at `limit` and `item` asks the queue for one key (schema-critic,
+    2026-09-01): neither may change WHICH rows a reviewer is shown. The held-record filter runs
+    before the count — the ICC-era `AB 3` on page 2 sorts first and must not use up a place."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    _load(
+        con,
+        stamps,
+        {"page": 2, "target": "AB 3", "quoted": "AB 3, an ICC-era number"},
+        {"page": 6, "target": "AB 900", "quoted": "AB 900, slip op. at 2"},
+        {"page": 7, "target": "AB 901", "quoted": "AB 901, slip op. at 2"},
+        {"page": 8, "target": "AB 902", "quoted": "AB 902, slip op. at 2"},
+        EXPOSED,
+    )
+    for queue in review.QUEUES:
+        whole = review.pending(con, queue, limit=None)
+        for limit in (0, 1, 2, 50, -1):
+            assert review.pending(con, queue, limit=limit) == whole[:limit], (queue, limit)
+        for row in whole:
+            assert review.item(con, queue, row["target_key_rendered"]) == row
+    assert [r["target_key"] for r in review.pending(con, "citation_unresolved", limit=2)] == [
+        "AB 900",
+        "AB 901",
+    ]
+    # not on this queue, not on any, or not the key as `keys.render` writes it
+    assert review.item(con, "citation_unresolved", keys.render(SHA, 4, "stb", "AB 1242")) is None
+    assert review.item(con, "citation_unresolved", keys.render(SHA, 2, "stb", "AB 3")) is None
+    assert review.item(con, "citation_unresolved", f"{SHA}/06/stb/AB 900") is None
+    assert review.item(con, "citation_unresolved", "not a key") is None
+
+
 def test_a_human_answer_carries_a_human_reading_or_it_projects_nothing(tmp_path):
     """The projection's reading join is INNER and channel-matched. A review that wrote only
     a resolution would win the ranking and then show nothing — silently turning an accepted
@@ -644,3 +676,39 @@ def test_a_decision_and_a_load_are_one_transaction_on_an_autocommit_connection(t
     assert con.execute("SELECT COUNT(*) FROM review_action").fetchone()[0] == 0
     assert review.pending(con, "citation_exposed") == [item]
     other.close()
+
+
+def test_the_decide_verb_finds_its_item_by_key_and_refuses_one_off_the_queue(tmp_path, capsys):
+    """`citator decide` reads the one item it is given (`review.item`), not a 10,000-row
+    listing of the queue it then scans (schema-critic, 2026-09-01)."""
+    import argparse
+
+    from docketyard import cli
+
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    _load(con, stamps, EXPOSED)
+    reviewer = _reviewer(con)
+    con.commit()
+    con.close()
+
+    def decide(key):
+        return cli._citator(
+            argparse.Namespace(
+                db=str(tmp_path / "s.sqlite"),
+                what="decide",
+                queue="citation_exposed",
+                key=key,
+                reviewer=reviewer,
+                decision="accepted",
+                note="checked the page",
+                docket=None,
+            )
+        )
+
+    assert decide(keys.render(SHA, 4, "stb", "EP 445")) == 1
+    assert "is not on the citation_exposed queue" in capsys.readouterr().out
+    assert decide(keys.render(SHA, 4, "stb", "AB 1242")) == 0
+    assert "accepted by C. Rex" in capsys.readouterr().out
+    con = db.connect(tmp_path / "s.sqlite")
+    assert review.pending(con, "citation_exposed") == []

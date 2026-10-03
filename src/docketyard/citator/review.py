@@ -132,21 +132,40 @@ QUEUES = {
 }
 
 
-def in_the_held_record(con, key: str) -> bool:
+def in_the_held_record(con, key: str, ranges: dict[str, tuple[int, int]] | None = None) -> bool:
     """Is this unresolved target's number inside the range the registry holds for its prefix?
 
     ADR 0017 D5 queues an unresolved target only when it is — an ICC-era number is EXPECTED
     to fail, and a queue full of expected failures trains a reviewer to skim past the real
     ones. Read in Python rather than SQL because the prefix and sequence live inside the
     normalised key, and parsing it is `keys`' job and nobody else's.
+
+    `ranges` is `_held_ranges(con)`, read once by a caller testing many keys; without it the
+    one prefix asked about is read, which is the same answer.
     """
     m = keys.DOCKET.match(key)
     if not m:
         return False
-    row = con.execute(
-        "SELECT MIN(sequence), MAX(sequence) FROM docket WHERE prefix = ?", (m.group(1),)
-    ).fetchone()
-    return bool(row and row[0] is not None and row[0] <= int(m.group(2)) <= row[1])
+    if ranges is None:
+        row = con.execute(
+            "SELECT MIN(sequence), MAX(sequence) FROM docket WHERE prefix = ?", (m.group(1),)
+        ).fetchone()
+        span = (row[0], row[1]) if row and row[0] is not None else None
+    else:
+        span = ranges.get(m.group(1))
+    return bool(span and span[0] <= int(m.group(2)) <= span[1])
+
+
+def _held_ranges(con) -> dict[str, tuple[int, int]]:
+    """prefix -> (lowest, highest) held sequence: `in_the_held_record`'s range for every prefix
+    in ONE query, where the queue used to run one per row (schema-critic, 2026-09-01)."""
+    return {
+        prefix: (low, high)
+        for prefix, low, high in con.execute(
+            "SELECT prefix, MIN(sequence), MAX(sequence) FROM docket GROUP BY prefix"
+        )
+        if low is not None
+    }
 
 
 def grant(con, email: str, credit_name: str, note: str, *, counts_public: bool = False) -> int:
@@ -295,24 +314,67 @@ def pending(con, queue: str, limit: int | None = 50) -> list[dict]:
     """
     if queue not in QUEUES:
         raise ValueError(f"no such queue: {queue}")
-    rows = [
-        {
-            "target_key_rendered": keys.render(doc, page, kind, key),
-            "citing_document": doc,
-            "page": page,
-            "target_kind": kind,
-            "target_key": key,
-            "cited_docket_id": docket_id,
-            "cited_raw": raw,  # what the page PRINTED, for the human reading below
-            "quoted_passage": passage,
-        }
-        for doc, page, kind, key, docket_id, raw, passage in con.execute(
-            QUEUES[queue] + " ORDER BY r.citing_document, r.page, r.target_key"
+    # THE QUEUE IS READ ONLY AS FAR AS IT IS SHOWN (schema-critic, 2026-09-01). It used to be
+    # materialised whole and sliced, with a range query per row; now the cursor stops at
+    # `limit` and the ranges are read once. The same rows in the same order: the SQL order is
+    # untouched, and the held-record filter runs before the count, as the slice did. A
+    # negative limit keeps the slice's own meaning, which is "all but the last".
+    if limit is not None and limit < 0:
+        return _items(con, queue, "", ())[:limit]
+    return _items(con, queue, "", (), limit=limit)
+
+
+def item(con, queue: str, rendered: str) -> dict | None:
+    """The one item `pending` would list under this rendered key, or None.
+
+    `citator decide` found its item by listing `pending(..., limit=10_000)` and scanning for
+    the key: the whole queue read to find one row, and an item past the ten-thousandth not
+    found at all (schema-critic, 2026-09-01). This asks the queue's own query for the key, so
+    the item is the same dict and "not on this queue" means the same thing, without the cap.
+    """
+    if queue not in QUEUES:
+        raise ValueError(f"no such queue: {queue}")
+    parts = rendered.split("/", 3)
+    # the key exactly as `keys.render` writes it: `04` for page 4 never matched before either
+    if len(parts) != 4 or not parts[1].isdigit() or str(int(parts[1])) != parts[1]:
+        return None
+    doc, page, kind, key = parts
+    found = _items(
+        con,
+        queue,
+        " AND r.citing_document = ? AND r.page = ? AND r.target_kind = ? AND r.target_key = ?",
+        (doc, int(page), kind, key),
+        limit=1,
+    )
+    return found[0] if found else None
+
+
+def _items(con, queue: str, narrow: str, args: tuple, *, limit: int | None = None) -> list[dict]:
+    """The queue's rows as `pending` returns them, `narrow` ANDed onto its predicate."""
+    if limit == 0:
+        return []
+    held = _held_ranges(con) if queue == "citation_unresolved" else None
+    rows: list[dict] = []
+    for doc, page, kind, key, docket_id, raw, passage in con.execute(
+        QUEUES[queue] + narrow + " ORDER BY r.citing_document, r.page, r.target_key", args
+    ):
+        if held is not None and not in_the_held_record(con, key, held):
+            continue
+        rows.append(
+            {
+                "target_key_rendered": keys.render(doc, page, kind, key),
+                "citing_document": doc,
+                "page": page,
+                "target_kind": kind,
+                "target_key": key,
+                "cited_docket_id": docket_id,
+                "cited_raw": raw,  # what the page PRINTED, for the human reading below
+                "quoted_passage": passage,
+            }
         )
-    ]
-    if queue == "citation_unresolved":
-        rows = [r for r in rows if in_the_held_record(con, r["target_key"])]
-    return rows if limit is None else rows[:limit]
+        if limit is not None and len(rows) >= limit:
+            break
+    return rows
 
 
 def decide(

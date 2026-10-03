@@ -306,14 +306,7 @@ def _citator(args: argparse.Namespace) -> int:
         return 0
 
     if args.what == "decide":
-        item = next(
-            (
-                q
-                for q in review.pending(con, args.queue, limit=10_000)
-                if q["target_key_rendered"] == args.key
-            ),
-            None,
-        )
+        item = review.item(con, args.queue, args.key)  # the queue's own query, for one key
         if item is None:
             print(f"refused: {args.key} is not on the {args.queue} queue")
             return 1
