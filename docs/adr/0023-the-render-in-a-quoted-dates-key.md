@@ -2,7 +2,8 @@
 
 - **Status:** Accepted
 - **Date:** 2026-09-02
-- **Accepted:** 2026-09-03 (the operator: "ADR 0023 is approved")
+- **Accepted:** 2026-09-03 (the operator: "ADR 0023 is approved"); the addendum of 2026-09-16
+  accepted 2026-10-03
 - **Scope:** `decision_decided_date` only. The OCR engine's VERSION in that key, the dated
   `HUMAN_VERSION` sitting in four shipped citator keys, the positional `ordinal`, and the
   display's pick rule are **deliberately not here**; see § What this record does not decide.
@@ -410,9 +411,9 @@ does, this is the rule it implements, with its method and version on the row.
 
 ## Addendum (2026-09-16): the page in the key, and what the extraction pass writes
 
-**Status: Proposed.** The operator chose, on 2026-09-16, to build the decided-date extraction
-pass and nothing downstream of it. That pass is the first writer this table has had, so the
-positional `ordinal` this record left undecided is now live. Migration 0033.
+**Status: Accepted** by the operator, 2026-10-03. The operator chose, on 2026-09-16, to
+build the decided-date extraction pass and nothing downstream of it. That pass is the first writer this table has had, so the
+positional `ordinal` this record left undecided is now live. Migration 0034.
 
 **Measured on the 2026-09-15 restore** over the shipped walk's decision-carried documents:
 262 documents print a `Decided:` line more than once, every one of them on more than one page;
@@ -493,7 +494,7 @@ the same number of lines on all 17 pages, and the same date on 16.
     Nothing renders the key yet, so decision 5's `target_key_version` obligation still falls to
     the first code that does.
 
-11. **Migration 0033 rebuilds the table**, which is empty in production and in every store the
+11. **Migration 0034 rebuilds the table**, which is empty in production and in every store the
     repository builds. A store that already holds rows refuses the migration rather than guess
     a page.
 

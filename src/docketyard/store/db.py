@@ -95,6 +95,7 @@ MIGRATIONS: list[tuple[int, str]] = [
     # next pass rebuilds it. `decided-date-grain` also claims 0033: whichever lands second
     # renumbers.
     (33, "0033_search_placements.sql"),
+    (34, "0034_decided_date_page_key.sql"),
 ]
 
 

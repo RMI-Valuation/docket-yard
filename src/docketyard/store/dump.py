@@ -130,6 +130,9 @@ HELD_TABLES: tuple[str, ...] = (
     # and this list promises children before parents. It sat above the block, which inverted
     # that for the one new edge. Latent, `scrub` dropping with foreign keys OFF, which is
     # exactly the condition the header says the order is kept against.
+    # a CHILD of `document_text` since migration 0034 (`text_id`), so above it: the inversion
+    # the 0028 review found for `citation_reading` (schema-critic, 2026-10-03)
+    "decision_decided_date",
     "document_text",
     # Migration 0032 (ADR 0021 addendum, 2026-09-15): the router's per-page verdict. A child of
     # `route_class_vocab`, so above it; provenance of the held text layer, held with it.
@@ -141,7 +144,6 @@ HELD_TABLES: tuple[str, ...] = (
     "text_payload",
     "citation",
     "citation_key",
-    "decision_decided_date",
     "extraction_run",
     "assertion_method",
     "class_measurement",

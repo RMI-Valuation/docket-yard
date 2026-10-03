@@ -239,7 +239,7 @@ def test_migration_0033_empties_the_index_clears_its_signature_and_keeps_its_bui
     )
     con.commit()
     con.close()
-    con = db.connect(path)  # the migration production will run
+    con = db.connect(path, upto=33)  # the migration production ran
     assert con.execute("PRAGMA user_version").fetchone()[0] == 33
     assert con.execute("SELECT COUNT(*) FROM search_doc").fetchone()[0] == 0
     assert (
