@@ -6,6 +6,8 @@ display — it says nothing about what a document argues, and never looks at who
 filing from the Board itself is labelled by its type like any other).
 """
 
+from datetime import date
+
 from docketyard.store import registers
 
 _RULES: tuple[tuple[str, str], ...] = (
@@ -82,6 +84,35 @@ def register_link(kind: str, entry_type: str | None) -> tuple[str, str] | None:
 
 def prefix_name(prefix: str) -> str:
     return PREFIX_NAMES.get(prefix, f"{prefix} docket")
+
+
+# WHICH date a record's `date` is, said beside it (the operator, 2026-09-16, on the
+# independent graders' finding): a decision's is the day the Board SERVED it, which is not the
+# day it was decided — and a quoted decided date, when the extraction pass reads one, arrives
+# beside this one rather than replacing it. A filing's is the Board's official filing date; a
+# comment's is the cell the Board heads "date received or sent".
+DATE_KINDS = {"filing": "filed", "decision": "served", "comment": "received or sent"}
+
+# The Board's own citation month forms, as its decisions print them: "(STB served Sept. 3, 2026)"
+_CITE_MONTHS = (
+    "Jan.", "Feb.", "Mar.", "Apr.", "May", "June",
+    "July", "Aug.", "Sept.", "Oct.", "Nov.", "Dec.",
+)  # fmt: skip
+
+
+def date_kind(kind: str) -> str:
+    return DATE_KINDS.get(kind, "dated")
+
+
+def cite_date(kind: str, value: str | None) -> str:
+    """The parenthetical a citation carries: "(STB served Sept. 3, 2026)" for a decision,
+    "(filed Aug. 25, 2026)" for a filing; a value that is not an ISO date is left out."""
+    try:
+        d = date.fromisoformat((value or "")[:10])
+    except ValueError:
+        return ""
+    when = f"{_CITE_MONTHS[d.month - 1]} {d.day}, {d.year}"
+    return f"(STB served {when})" if kind == "decision" else f"({date_kind(kind)} {when})"
 
 
 def display_filed_for(raw: str) -> str:

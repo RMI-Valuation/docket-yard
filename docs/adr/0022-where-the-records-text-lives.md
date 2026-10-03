@@ -224,3 +224,15 @@ cannot become held.
 § Validation. Two consequences were accepted deliberately with it: the resize opens a
 recorded coverage gap, and the dump classification is one-way in one direction — held can
 become public, public cannot become held.*
+
+## Addendum (2026-09-16): an assistant may read the held text on a user's request
+
+Decided by the operator in session, answering four questions. The page text stays held from
+the dedication (D3) and from the named agents' crawl; the MCP server serves it one page at a
+time (at most five a call) to answer a user's question, through `read_page` and a matched
+passage on each `[page]` search hit. Both tiers, each carrying D4's label, band and scan;
+an engine-read page also says it carries OCR errors and is unreviewed. Every answer carrying
+text ends with the operator's caveat — the text is served as read, an AI's reading of it may
+be wrong, what an assistant does with it is outside Docket Yard's control, and the document
+should be reviewed — and a line saying the text is served for reading, not for collection or
+training. `docs/machine-surface.md` § The AI policy has the wording.

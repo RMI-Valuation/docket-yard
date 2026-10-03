@@ -72,7 +72,7 @@ PUBLIC_VIEWS = frozenset({"docket_current"})
 # changes, and it carries party names — the held layer — so the snapshot ships it EMPTY: the
 # tables stay (a restored copy is at the release's schema and `docketyard search rebuild`
 # remakes it), the rows go.
-DERIVED_TABLES = ("search_doc", "search_meta")
+DERIVED_TABLES = ("search_doc", "search_meta", "search_place", "search_document")
 # The FTS index's tables are not listed by hand: SQLite names an FTS5 virtual table's
 # shadows `<name>_<suffix>` and may change the set between versions, so `scrub` derives
 # them from `PRAGMA table_list` instead — a renamed shadow would otherwise fail the
@@ -131,8 +131,12 @@ HELD_TABLES: tuple[str, ...] = (
     # that for the one new edge. Latent, `scrub` dropping with foreign keys OFF, which is
     # exactly the condition the header says the order is kept against.
     "document_text",
-    # its only referrer is `document_text`, so publishing it would ship an orphan taxonomy of
-    # the held layer's own method. The tiers are public on /methodology; the table is not.
+    # Migration 0032 (ADR 0021 addendum, 2026-09-15): the router's per-page verdict. A child of
+    # `route_class_vocab`, so above it; provenance of the held text layer, held with it.
+    "page_route",
+    # its referrers are `document_text` and `page_route` (0032), both held, so publishing it would
+    # ship an orphan taxonomy of the held layer's own method. The tiers are public on
+    # /methodology; the table is not.
     "route_class_vocab",
     "text_payload",
     "citation",
@@ -330,8 +334,13 @@ def scrub(src: Path, dst: Path) -> tuple[dict, int, str]:
             "documents": q("SELECT COUNT(*) FROM document").fetchone()[0],
         }
         version = q("PRAGMA user_version").fetchone()[0]
+        # Not the full-text indexes' shadow tables (`search_fts_config`, `_data`, …): the
+        # `CREATE VIRTUAL TABLE` above them makes them, so a file that also creates them
+        # stops at "table already exists" — and the published schema did, until a test ran
+        # it instead of reading it (deferred, ADR 0024 Owed 5; found 2026-10-03)
         ddl = q(
-            "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL"
+            "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT IN"
+            " (SELECT name FROM pragma_table_list WHERE type = 'shadow')"
             " ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 ELSE 2 END, name"
         ).fetchall()
         schema = ";\n\n".join(r[0] for r in ddl) + f";\n\nPRAGMA user_version = {version};\n"

@@ -78,7 +78,8 @@ whose docstring is the runbook):
    dots.mocr primary at 200 DPI and PP-OCRv6 second at 150 with the distance, so the band
    is bought where the errors are. Graphic: PP-OCRv6 primary, in the last pass. Unrouted (the
    router found nothing): PP-OCRv6, because the blank call is unsafe. Tabular: not in this
-   wave; the page shows "not yet read" until the HunyuanOCR pass.
+   wave; until the HunyuanOCR pass the page is marked *scanned; contains a table we have not
+   read*, naming the router and linking the scan (decision 3; `page_route`, migration 0032).
 
 ## What is to be read
 

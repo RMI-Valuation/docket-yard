@@ -1,0 +1,1634 @@
+{
+ "T001": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in first 4 lines; brochure prose reproduced exactly",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "mixed",
+   "note": "0 errors; prose over a faint background drawing",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T002": {
+  "A": {
+   "kind": "prose",
+   "note": "3 errors in lines 4-6; TIH and quotes mangled, search would miss",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "5 errors in first paragraph",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T003": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors across whole letter; born-digital text",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors; whole letter reproduced verbatim",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T004": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors; one paragraph duplicated as a run-on line",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors; last paragraph duplicated as a run-on line",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T005": {
+  "A": {
+   "kind": "table",
+   "note": "0 errors in 12 data rows; grid flattened to one value per line",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  },
+  "B": {
+   "kind": "table",
+   "note": "0 errors; every value in reading order, grid gone",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  }
+ },
+ "T006": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in first 5 lines; comment letter exact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors across the whole letter",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T007": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors; form letter reproduced exactly",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors; whole letter reproduced verbatim",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T008": {
+  "A": {
+   "kind": "table",
+   "note": "0 errors in mileposts and codes; cells row-wise, grid gone",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  },
+  "B": {
+   "kind": "table",
+   "note": "0 errors; both tables row-major in reading order",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  }
+ },
+ "T009": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in lines 1-4; only page number dropped",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; only page number dropped",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T010": {
+  "A": {
+   "kind": "mixed",
+   "note": "0 errors in 3 lines; span headers hoisted above column heads",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  },
+  "B": {
+   "kind": "mixed",
+   "note": "0 errors in 3 lines; table cells row-major, grid gone",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  }
+ },
+ "T011": {
+  "A": {
+   "kind": "prose",
+   "note": "4+ errors in lines 10-12; a party name corrupted throughout",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "6 errors in 3 lines; a party name corrupted nearly everywhere",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T012": {
+  "A": {
+   "kind": "mixed",
+   "note": "0 errors in values; table banner headers land after the data",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  },
+  "B": {
+   "kind": "mixed",
+   "note": "0 errors; column-group headers displaced below the table body",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  }
+ },
+ "T013": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in caption block and counsel list",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors; caption and service block fully reproduced",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T014": {
+  "A": {
+   "kind": "prose",
+   "note": "3 split tokens in ~300 words",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "4 split-word errors",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T015": {
+  "A": {
+   "kind": "prose",
+   "note": "2 errors in ~280 words",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "1 error in roughly 230 words",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T016": {
+  "A": {
+   "kind": "table",
+   "note": "4 header errors in ~50 words",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "ordered"
+  },
+  "B": {
+   "kind": "table",
+   "note": "4 header errors; numbers correct",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "ordered"
+  }
+ },
+ "T017": {
+  "A": {
+   "kind": "prose",
+   "note": "2 errors in one 20-word line",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "2 errors in the one short paragraph",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T018": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors across 22 lines; verbatim",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors across the whole page",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T019": {
+  "A": {
+   "kind": "prose",
+   "note": "0 wrong words; footnote markers spaced, em-dashes flattened",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; footnotes reproduced too",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T020": {
+  "A": {
+   "kind": "prose",
+   "note": "4 offeror misreads; that key term never correct",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "3 errors, all one term rendered wrongly",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T021": {
+  "A": {
+   "kind": "table",
+   "note": "0 errors in 4 lines; cells in reading order, grid gone",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  },
+  "B": {
+   "kind": "table",
+   "note": "0 errors in 3 lines; cells in reading order, grid gone",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  }
+ },
+ "T022": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors; page is mostly redaction bars, visible text exact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "page almost wholly redacted; 0 errors in visible text",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T023": {
+  "A": {
+   "kind": "prose",
+   "note": "page number merged, path garbled, signer name line dropped",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "2 errors plus dropped closing and signature name",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T024": {
+  "A": {
+   "kind": "prose",
+   "note": "6 of 11 words wrong in line 4; party names corrupted throughout",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "3+ errors per line",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T025": {
+  "A": {
+   "kind": "prose",
+   "note": "2 errors in ~380 words",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "1 wrong word; spaced periods throughout",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T026": {
+  "A": {
+   "kind": "mixed",
+   "note": "0 errors; bar-chart labels appended after body, no table",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "mixed",
+   "note": "0 errors in 3 lines; bar-chart labels and values captured",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T027": {
+  "A": {
+   "kind": "drawing",
+   "note": "chart; axis label garbled, ~50 month labels missing; 5+ errors",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "drawing",
+   "note": "all x-axis dates missing, axis title garbled; 5 errors in 6 lines",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T028": {
+  "A": {
+   "kind": "prose",
+   "note": "Excmption, Favctte, Gitomcr, KAIIN; 3 errors in 3 body lines",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "KAIIN, Favctte, Excmption-in, letterhead lost; 5 errors in 3 lines",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T029": {
+  "A": {
+   "kind": "prose",
+   "note": "born-digital, footnote and URL intact; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "bullets plus footnote and URL; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T030": {
+  "A": {
+   "kind": "map",
+   "note": "labels accurate but ~40 symbol-noise lines; THI RD; 2 errors",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "map",
+   "note": "labels good but 50 junk-symbol lines, THI RD split; 3 errors",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T031": {
+  "A": {
+   "kind": "prose",
+   "note": "body exact; date line and signature captions dropped; 1 error",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "mixed",
+   "note": "notary block lines missing, RANSON I LSBA; 2 errors plus omissions",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T032": {
+  "A": {
+   "kind": "prose",
+   "note": "comment letter reproduced exactly; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "comment letter reproduced exactly; 0 errors in 3 lines (labeller revised from noisy)",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T033": {
+  "A": {
+   "kind": "prose",
+   "note": "exhibit cover; header, stamp and Bates present; 0 errors",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "exhibit cover page with headers; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T034": {
+  "A": {
+   "kind": "prose",
+   "note": "short email block reproduced exactly; 0 errors",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "short email footer; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T035": {
+  "A": {
+   "kind": "prose",
+   "note": "letterhead, ENTERED stamp, body right; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "only logo rendered I: I Clark Hill; 1 error in 53 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T036": {
+  "A": {
+   "kind": "prose",
+   "note": "Sidley letter with stamps fully reproduced; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "letter plus ENTERED/FILED stamps captured; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T037": {
+  "A": {
+   "kind": "prose",
+   "note": "quoted comments and page footers exact; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "ellipses and quotes preserved; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T038": {
+  "A": {
+   "kind": "prose",
+   "note": "transcript; line numbers hoisted, text exact; 0 errors",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "deposition Q&A, numbers hoisted to top; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T039": {
+  "A": {
+   "kind": "prose",
+   "note": "fused opening line, cipher-like misreads; ~6 errors per line",
+   "quality": "garbage",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "fused unreadable fragments throughout; 10+ errors in first 2 lines",
+   "quality": "garbage",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T040": {
+  "A": {
+   "kind": "prose",
+   "note": "hearing transcript reproduced exactly; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "hearing transcript, line numbers split off; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T041": {
+  "A": {
+   "kind": "prose",
+   "note": "form comment letter exact including curly quotes; 0 errors",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "short CREDO comment letter; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T042": {
+  "A": {
+   "kind": "prose",
+   "note": "V.S.C., Hams, Menwether, docs, (Hi); 3 errors in first 4 lines",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "Hams, Menwether x2, V.S.C., (ni), (Hi); 6 errors in 8 lines",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T043": {
+  "A": {
+   "kind": "prose",
+   "note": "interrogatories and document requests exact; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "interrogatories and requests; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T044": {
+  "A": {
+   "kind": "prose",
+   "note": "heavy substitutions: nol, fhe, Grunis, lund, ul; 4-5 errors per line",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "nol, fhe, cum un, Grunis, reversiunury; 7 errors in 3 lines",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T045": {
+  "A": {
+   "kind": "prose",
+   "note": "long letter accurate; only Yz and oflaw; 2 errors in 45 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "only Yz for half and oflaw; 2 errors in 45 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T046": {
+  "A": {
+   "kind": "prose",
+   "note": "brief text with quote marks intact; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "curly quotes preserved; 0 errors in 3 lines checked",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T047": {
+  "A": {
+   "kind": "prose",
+   "note": "signature block and addresses exact; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "two-column signature block in reading order; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T048": {
+  "A": {
+   "kind": "prose",
+   "note": "EXPARTENO fused, SURF ACL, SIB-NO, Gram, JohnM; 4 errors in 3 lines",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "SURF ACL, EXPARTENO, SIB-NO, Gram, JohnM; 6 errors in 7 lines",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T049": {
+  "A": {
+   "kind": "prose",
+   "note": "headings and bullet list reproduced exactly; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "headings and bullets intact; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T050": {
+  "A": {
+   "kind": "prose",
+   "note": "introduction page exact including footer line; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "RCAF introduction; 0 errors across first 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T051": {
+  "A": {
+   "kind": "prose",
+   "note": "certificate of service reproduced exactly; 0 errors in 3 lines",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "certificate of service; 0 errors in 3 lines checked",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T052": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 4 lines; short decision closing page",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors; short order page fully reproduced",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T053": {
+  "A": {
+   "kind": "prose",
+   "note": "3 errors in 3 lines: HAMP read RAMP x3, ofland",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "5 errors: HAMP read RAMP x3, ofland",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T054": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 citations checked; reference list intact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; reference list and DOI intact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T055": {
+  "A": {
+   "kind": "mixed",
+   "note": "4+ errors: fused title, lntermodal x3, lsotanks",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "mixed",
+   "note": "9 errors in ~140 words: fused title, lntermodal x3, lsotanks",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "ordered"
+  }
+ },
+ "T056": {
+  "A": {
+   "kind": "prose",
+   "note": "~half of 209 lines corrupted; 12 of first 16 unreadable",
+   "quality": "garbage",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "Federal Register scan; 5+ errors in 3 lines, many lines unreadable",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T057": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; form comment letter reproduced exactly",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors; whole comment letter reproduced",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T058": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; comment letter reproduced exactly",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors; whole comment letter reproduced",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T059": {
+  "A": {
+   "kind": "prose",
+   "note": "2 errors in ~45 words: bracket digit, Kem for Kern",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "2 errors in ~45 words; table area redacted blank",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T060": {
+  "A": {
+   "kind": "prose",
+   "note": "0 word errors in 3 lines; 3 ligature codepoints only",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 word errors in 3 lines; 3 ligature characters",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T061": {
+  "A": {
+   "kind": "prose",
+   "note": "3 errors in ~50 words; signature block dropped",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "3 errors in 8 lines; signature block missing",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T062": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; comment letter reproduced exactly",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors; form letter reproduced exactly",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T063": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in all 5 lines of text",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors; short order page fully reproduced",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T064": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; body and both footnotes intact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; both footnotes present",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T065": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; signature line preserved",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors; signature line reproduced",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T066": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; block quote and footnote intact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; blockquote and footnote intact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T067": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; comment letter reproduced exactly",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors; whole letter reproduced",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T068": {
+  "A": {
+   "kind": "prose",
+   "note": "10+ errors in 3 lines; symbol noise, dropped words, corrupt header",
+   "quality": "garbage",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "8+ errors in 3 lines; binding noise, words dropped",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T069": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; monospaced email reproduced exactly",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; email headers and body exact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T070": {
+  "A": {
+   "kind": "mixed",
+   "note": "0 word errors in 3 lines; display equation scrambled to fragments",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "mixed",
+   "note": "prose 0 errors in 3 lines; CAPM equation broken into fragments",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T071": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; citations and section symbols intact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; section symbols and figures intact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T072": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; footnotes intact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; footnotes present",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T073": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; interpunct padding, words unbroken",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "deposition; 0 errors in 3 lines, middot leaders in margins",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T074": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; case names and footnotes intact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; footnotes and italics preserved",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T075": {
+  "A": {
+   "kind": "prose",
+   "note": "4 errors in ~450 words",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "4 errors in ~450 words",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T076": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; interrogatory and answer intact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; born-digital text",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T077": {
+  "A": {
+   "kind": "prose",
+   "note": "3 errors in ~90 words; footnote line 2 garbage",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "body exact, but ~14 errors: footnote line 2 garbled, final line dropped",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T078": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; footnote hoisted to top",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; footnote hoisted to top",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T079": {
+  "A": {
+   "kind": "map",
+   "note": "most plan labels missing; 8 of ~25 present, 1 garbled",
+   "quality": "partial",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "drawing",
+   "note": "most labels absent; surviving fragments also broken",
+   "quality": "partial",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T080": {
+  "A": {
+   "kind": "prose",
+   "note": "2 errors: signature name garbled, 'Jeffrey 0.'; columns split cleanly",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "5 errors; lead signer name destroyed by signature overlap",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T081": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; footnote moved to end",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; docket numbers exact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T082": {
+  "A": {
+   "kind": "map",
+   "note": "legend and title block exact; 0 errors, only symbol-font glyph noise",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "map",
+   "note": "0 errors; every legend and milepost label reproduced",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T083": {
+  "A": {
+   "kind": "mixed",
+   "note": "prose clean; table ~10 errors, Port/City values interleaved",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "scrambled"
+  },
+  "B": {
+   "kind": "mixed",
+   "note": "~17 errors, nearly all in the table",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "scrambled"
+  }
+ },
+ "T084": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; scan-faded letters all recovered",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; columns read left block then right",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T085": {
+  "A": {
+   "kind": "prose",
+   "note": "3 errors in one line; MITU eirJDodying, subst^ution, fused email",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "10+ errors; both signers' names lost",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T086": {
+  "A": {
+   "kind": "mixed",
+   "note": "0 errors in 3 lines; statement rows in order, columns merged",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  },
+  "B": {
+   "kind": "mixed",
+   "note": "0 errors; layer adds 3 lines not visible on the page",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  }
+ },
+ "T087": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors across the whole letter",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; form comment letter",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T088": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; figures and rates exact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T089": {
+  "A": {
+   "kind": "prose",
+   "note": "5 errors in one line; ~25% of words corrupted but readable",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "~5 errors per line; readable but near garbage, fax scan",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T090": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; citations and quotes exact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T091": {
+  "A": {
+   "kind": "prose",
+   "note": "1 error (W.Washington); columns split cleanly, left then right",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "1 error in ~230 words: a missing space",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T092": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; born-digital decision text",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T093": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; numbered objections intact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T094": {
+  "A": {
+   "kind": "table",
+   "note": "4 errors (RJ., LisaMcFadden, 1 849, 3 15); column-major, header cells lost",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "ordered"
+  },
+  "B": {
+   "kind": "table",
+   "note": "4 errors; header row lost",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "ordered"
+  }
+ },
+ "T095": {
+  "A": {
+   "kind": "prose",
+   "note": "4 errors in ~30 lines: 91508DoIezalLn, Larkms, ISTh, MccafXree",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "4 errors; a fused address, two corrupted names",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T096": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors; transcript line numbers interleaved but text exact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; transcript line numbers interleaved only",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T097": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; header/footer/footnote hoisted",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; header/footnote hoisted, words exact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T098": {
+  "A": {
+   "kind": "prose",
+   "note": "6 errors: EI-Lahham twice, I 8 U.S.C. \u00a7 I 001, I8, 28,2014",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "5 errors; a name twice, split statute digits",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T099": {
+  "A": {
+   "kind": "prose",
+   "note": "10+ errors: mles, demunage, accmed, firom, 95Q0",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "11+ errors; recurring misreads, search fails",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T100": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors across the whole letter",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; born-digital comment letter",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T101": {
+  "A": {
+   "kind": "prose",
+   "note": "2 errors, both under the signature; address blocks exact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "4 errors; signature name lost, firm name split",
+   "quality": "noisy",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ },
+ "T102": {
+  "A": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines; blank-line padding in signature block",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  },
+  "B": {
+   "kind": "prose",
+   "note": "0 errors in 3 lines checked; brief and signature block exact",
+   "quality": "clean",
+   "rotate": false,
+   "structure": "n/a"
+  }
+ }
+}

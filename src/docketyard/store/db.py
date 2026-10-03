@@ -85,6 +85,16 @@ MIGRATIONS: list[tuple[int, str]] = [
     # store already stamped 32 by a branch merged first would never apply 0031, and nothing
     # here would say so.
     (31, "0031_ocr_page_failure.sql"),
+    # 0032 applies ADR 0021's addendum (2026-09-15, accepted 2026-09-16): the router's verdict as
+    # its own page-grain assertion, so a tabular page no engine read can say so. A new held table
+    # and no rebuild. Deploy after 0030 and 0031, never before: `migrate` skips any number at or
+    # below the stamped version.
+    (32, "0032_page_route.sql"),
+    # 0033 rebuilds the search index to place a record in every proceeding it was entered in,
+    # with filings and every decision indexed (docs/search-v2.md). Derived and disposable; the
+    # next pass rebuilds it. `decided-date-grain` also claims 0033: whichever lands second
+    # renumbers.
+    (33, "0033_search_placements.sql"),
 ]
 
 
@@ -110,6 +120,10 @@ def connect(path: str | Path, upto: int | None = None) -> Connection:
     con.execute("PRAGMA foreign_keys = ON")
     migrate(con, upto=upto)
     return con
+
+
+def _script(name: str) -> str:
+    return resources.files("docketyard.store").joinpath(name).read_text(encoding="utf-8")
 
 
 def migrate(con: Connection, upto: int | None = None) -> int:
@@ -138,8 +152,7 @@ def migrate(con: Connection, upto: int | None = None) -> int:
         for version, script in MIGRATIONS:
             if version <= applied or (upto is not None and version > upto):
                 continue
-            sql = resources.files("docketyard.store").joinpath(script).read_text(encoding="utf-8")
-            con.executescript(sql)
+            con.executescript(_script(script))
             stamped = con.execute("PRAGMA user_version").fetchone()[0]
             if stamped != version:
                 raise RuntimeError(f"migration {script} did not stamp user_version {version}")
@@ -147,6 +160,14 @@ def migrate(con: Connection, upto: int | None = None) -> int:
             if broken:
                 raise RuntimeError(f"migration {script} left dangling foreign keys: {broken[:5]}")
             applied = version
+    except BaseException:
+        # A statement that fails to PARSE partway raises with the script's own `BEGIN` still
+        # open, and a caller that kept the connection and committed would keep whatever ran
+        # before it — a half-applied migration under an unchanged `user_version` (the schema
+        # critic, 2026-09-13; production is safe only because `migrate`'s connection closes).
+        if con.in_transaction:
+            con.rollback()
+        raise
     finally:
         con.execute("PRAGMA foreign_keys = ON")
     con.commit()

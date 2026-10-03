@@ -599,13 +599,6 @@ schema-critic pass of their own, not a tidy-up.
   cannot be stated in one sentence; and because `exposed` flags a correctly-resolved row for
   review rather than changing what it resolves to. If one is ever seen, it resolves right and
   is merely reviewed.
-- **`docket.sub_sequence = 0` is legal SQL and now collides with the parent's key.** No row
-  holds it (`parse_docket_id` maps 0 to None; measured 0 rows in production) and only ingest
-  writes `docket`, so it is unreachable — but `docket_identity` keeps 0 and NULL as two rows
-  while `keys.registry()` is a dict comprehension, so the second would silently overwrite the
-  first and the registry would lose a proceeding without a word. A guard in `registry()` that
-  raises on a duplicate key is one line and catches it loudly; the CHECK constraint is a
-  table rebuild.
 - **The site prints a docket in two forms its own citation grammar cannot read, and one of
   them names a DIFFERENT proceeding.** `urls.printed_docket` renders `AB_1182_0_X` as
   `AB 1182-X` and `urls.cite_docket` as `STB Docket No. AB 1182-X`; `keys.DOCKET` cannot take
@@ -676,18 +669,6 @@ regression; all three are gaps that have always been open and were never counted
 The stb-ingest-specialist's pass over the draft. Two findings stand on their own, whatever
 becomes of that record.
 
-- **`forward_pass` records no duration, and nothing alarms on an overrun.** `run_forever`
-  does `time.sleep(max(0.0, every - elapsed))` — a pass that takes longer than its interval
-  sleeps zero and the next one starts immediately, with no measurement, no summary key and no
-  problem raised. The only external signal is `alerts/build.py`'s `LATE_AFTER = 3 hours`, so
-  a pass could run six times its interval unnoticed. Today's worst case is ~14-15 minutes of
-  the 30 (captures ~120 s, captions ~25 s, `FETCH_LIMIT` 200 at the polite interval ~400 s,
-  `RECHECK_BUDGET_SECONDS` 300, plus alerts, party resolution and the index). **Two published
-  claims rest on the cadence**: `/coverage` says the Board's record search is asked "every
-  thirty minutes", and `/methodology` computes `recheck_cycle_days` from `POLL_MINUTES = 30`.
-  A pass that quietly takes 45 minutes makes both false, which is the drift `CLAUDE.md`
-  forbids. A `duration` in the summary and a problem when it exceeds the interval is cheap
-  and is owed whether or not ADR 0024 ships.
 - **The errata re-check gives archive documents a forward `document_source` row, continuously.**
   `recheck_urls` selects held URLs across the whole record and `fetch_attachments` then loads
   EVERY attachment row for them (`unfetched_only=False`), including rows whose
@@ -762,8 +743,8 @@ amendments are listed in the migration's own header; these are the rest.
 - **The extraction service needs `cpus:` and `mem_limit`.** Two vCPU; `web`'s healthcheck
   timeout was already raised to 30 s so a bulk load could not become a restart loop, and this
   adds CPU-bound work to every pass right after the heaviest write. Three misses trips
-  `docketyard-webwatch.timer`, which restarts `web`, which adds load. The pass measures no
-  duration and nothing alarms on overrun (already recorded above).
+  `docketyard-webwatch.timer`, which restarts `web`, which adds load. Since 2026-10-03 a pass
+  logs its duration and an overrun says so (`pass OVERRAN`), so this would at least be seen.
 - **`extraction_dispatch` carries no `ingest_mode`** — ADR 0024 § Owed 5's gap, same as
   `ocr_run`'s. Not urgent: `ADD COLUMN` survives publication, and the primary key is the only
   rebuild-class change the critic's widening survey could find.
@@ -883,9 +864,6 @@ it found is in the released code and is recorded here rather than dropped.
   once its reading is refused rather than when it is handed over. The loader-clock floor
   added 2026-09-11 adds the poller's own outage to this, and that case heals: the stale
   records are quarantined and their documents, with attempts left, are asked for again.
-- **`citator declare` tells the operator the wrong thing** (`cli.py` ~420, and
-  `project.unstamped_work_rows`'s docstring): "nothing re-stamps an unchanged answer", in the
-  release that ships `citator restamp --apply`, which does.
 
 ## From the no-answer fetch's reviews, 2026-09-11 (v2026.09.12)
 
@@ -921,9 +899,6 @@ The operator chose `ocr_run.dispatch_id`, echoed (ADR 0024 addendum 2026-09-11).
   the next one take its integer and an existing reading silently names another document's
   dispatch. AUTOINCREMENT needs a rebuild of a published table; 0026's header says do not
   delete dispatches. Both, or neither, deliberately.
-- **Nothing proves the published `schema.sql` parses** for a third party: the tests check it
-  by regex. Loading it into a fresh database is the test; 0026 spliced a column into
-  `ocr_run`'s stored DDL.
 - **The spool file name loses answers**: `extract.py` writes `<sha>.json`, so two requests
   for one document served back to back (after an outage) keep only the second record, and
   the first dispatch publishes as unanswered — true of the store, but a lost answer.
@@ -1451,19 +1426,6 @@ already carrying another channel's live citation readings, and the fixes wait he
   sample holds no repair (`ocr_citation_dryrun.py` now writes no card when it does), while the full
   rehearsal's load added one (repaired queue 1 -> 2). Scoring repairs needs a sample that has them,
   or holding rule-2 repairs on OCR for review — the operator's decision.
-- **A fractional page is truncated, not refused** (F2 of the same review, low, not new): `4.7`
-  is page 4 in the guard and in the insert alike. Refuse a non-integer page at the boundary.
-
-## A migration script that errors partway can leave its earlier DDL committable, 2026-09-13 (v2026.09.20)
-
-Found by the schema critic on the ADR 0018 retirement addendum; tested the same day in
-v2026.09.20's image (SQLite 3.46.1). `db.migrate` runs each script with `executescript`. A
-statement that fails to PARSE partway (not a `RAISE`) raises with the script's `BEGIN` still
-open, and a caller that keeps the connection and commits keeps whatever ran before the error
-(the test kept a `CREATE TABLE`, with `user_version` unchanged). Production is safe today only
-because the `migrate` service's connection closes on the exception, which rolls back. A
-`RAISE(ROLLBACK, '<fixed text>')` left nothing. Fix: `db.migrate` rolls back explicitly before
-re-raising, with a test that commits after a failing script.
 
 ## SQLite 3.53.4 in production, 2026-09-13 (v2026.09.20)
 
@@ -1658,6 +1620,24 @@ extraction pass only** — no pick, no display, ADR 0018 D4 untouched; the grain
   `ocr_wave.page_failure`, under the runs their reading documents wrote (the conditions are in the
   next section).
 
+**From the schema critic and PR #36 on migration 0032 (`page_route`), 2026-09-15** — what was NOT
+fixed on that branch (the omitted-page counts and the forward-only retirement triggers were):
+
+- **A file's silence still leaves a verdict live.** `text route` compares only the pages a file
+  names, so a page a later file no longer classifies keeps its old verdict; the pass now counts
+  the document under `omits_live_pages` rather than passing it over, but nothing retires the
+  orphan. The converse too: an OLDER root still fills a page that has no live row because the
+  newer run failed there, staleness being judged only against a live row. Whether a re-route
+  should retire what it omits is a decision, not a bug.
+- **Page search does not consult `page_route`** (`store/search.py`, the page hits): a hit is built from
+  the indexed text, so a page the text page hides behind the table marker — a blank or junk text layer
+  on a tabular page — can still be found and shown with that text. Whether search should mask it too
+  is the operator's call (found on PR #36, 2026-09-15).
+- **`document_pagination`'s retirement history is still rewritable**: `superseded_by` and
+  `superseded_at` can be re-pointed, back-dated or cleared in place there. `page_route` closed
+  this at 0032 and `citation_reading` at 0028; the published table is the one left, and it is a
+  rebuild, not an ALTER.
+
 ## From the schema critic on migration 0030, 2026-09-15 (branch `veto-trigger`, against v2026.09.24)
 
 - **A veto's measurement is not pinned to a rate-bearing class.** The triggers ask only that the
@@ -1689,3 +1669,925 @@ extraction pass only** — no pick, no display, ADR 0018 D4 untouched; the grain
   producer's reason verbatim up to 500 characters — "the exception", in ADR 0024's own words — and
   `ocr_run` is PUBLIC. That is the leak `ocr_page_failure.detail`'s closed shapes were built to
   close: a path or a host in an exception reaches a snapshot that cannot be withdrawn.
+
+## From reviewing the tabular pass's build, 2026-09-15 (branch `hunyuan-tabular`, not yet run)
+
+- **OCR producer pins cannot tell two engines apart at one profile and role.** Producer pins are
+  keyed `(channel, render_profile, role)`, so `hunyuan-ocr` 1.5 at `ocr`/`150`/`primary` shares a pin
+  key with `pp-ocrv6-medium`: the first OCR pin would refuse one of the two roots. No OCR pin exists
+  yet, so nothing refuses today. Found by the stb-ingest-specialist on this branch; schema-critic
+  decides the key when OCR pins arrive.
+
+## The independent graders, 2026-09-16 (against v2026.09.24, live MCP of four tools)
+
+Five cold-start AI graders — an STB practitioner, a researcher, an API developer, an assistant
+using the MCP server, a skeptical auditor — each graded the live site and the public repo
+without this repository's planning files, and a separate verifier re-checked every finding.
+Grades: B, B, B, B+, B; every verifier held its grade. **The data itself held up** (about twenty
+records checked field by field against stb.gov, all identical); what follows is where it falls
+short. The operator's reading: not a failure, a list to work through. Verdicts are the
+verifier's; "partly" means true but overstated, and the narrowed form is what is recorded.
+
+Merged 2026-09-17 and not yet released: the first fixes (#39: decision summaries through MCP,
+JSON misses, wording an assistant repeats, README and CONTRIBUTING, the `/api` example) and the
+operator's nine decisions (#40: early years, last checked and JSON shape 3, parties and text for
+user-directed fetchers, the CC0 label, served dates, timestamped webhook signatures, the
+repeated-filer prose, an as-of cite). Those items have left this file; the commits are the record.
+
+### Fix now — still open
+
+All three fixed 2026-09-18 (`6f9b44a`), except the half below that was always the larger one.
+
+- **`/openapi.json` publishes no response schemas** (developer I2, the half that was never the
+  mechanical one). The `/review` routes and the duplicate HEAD operation ids are gone; what a
+  route *returns* is still undescribed, and waits with F5's next step.
+
+### The operator's to choose later
+
+- **A monthly snapshot deposit with a DOI** (researcher I8; his decision 9, 2026-09-16): the cite
+  now carries an access date and the newest kept archive; a third-party deposit (Zenodo) publishes
+  permanently, so it waits for him to choose it.
+
+### From review of the tabular pass's last fixes, 2026-09-17 (PR #34, merged)
+
+- **`page_index` and `register_or_exit` exist twice, in `dots_worker.py` and `hunyuan_worker.py`**
+  (`/code-review` low): the twins are duplicated on purpose (hunyuan_worker's docstring: a rule
+  change belongs in both, and the dots loop runs), and these two pure helpers were added to both
+  in one commit. A shared fleet module would stop them drifting; worth doing when the dots worker
+  is next changed, not while a pass runs on it.
+
+### Capability-scale — chosen from the menu, not fixed in passing
+
+- **No filings by filer and date** (practitioner I1, partly — MCP search does return parties):
+  `/p/<id>` folds sub-dockets into a family row with no date filter and has no JSON. F3.
+- **Search has no filters, operators, recency, paging or totals** (practitioner I4, researcher
+  I4, assistant I5; confirmed). F4, Ripe #2.
+- **Aggregates by prefix and year** (researcher I3, confirmed) — PR #38's `count_filings` is the
+  MCP half; `/stats` has none.
+- **Paging**: a large sheet is one 870 KB document with a store-wide ETag (developer I5), MCP
+  sheets stop at 100 entries (assistant I4), feeds at 100 events with no archive (practitioner
+  I5 partly — about seven days on `/feed`; developer I6).
+- **The snapshot has no caption or summary columns and no codebook** (researcher I6, confirmed);
+  counting units (`DISTINCT stb_filing_id`) are undocumented. A view is a schema question.
+- **586 of 723 AB rows are captionless series parents** (researcher I7, partly — 92.4% of all
+  docket rows carry a caption).
+- **No decision numbers or schedule pointer on a sheet** (practitioner I6) — extraction.
+- **`create_app` is one ~1,900-line closure** (developer I9); **error formats differ by route**
+  (developer I10: 422 JSON on some, HTML 404 elsewhere; `.JSON` case-sensitive).
+- **Capture provenance is in the snapshot but not the JSON twin** (auditor I8, partly).
+
+## Text-layer quality, 2026-09-17 (against v2026.09.28; `docs/research/text-quality/`)
+
+Found while measuring why `/filing/18005` shows garbled text. The operator's four decisions of
+the same day are in `TODO.md` § Next; what is recorded here is what was measured and NOT acted
+on.
+
+- **The image-only test is per document and has no quality dimension.** `extract_text.py` and
+  `infra/extract/extract.py` call a document image-only only when EVERY page holds under 20
+  stripped characters, so one readable page keeps a whole scanned document on the text-layer
+  path, and a garbled layer is never second-read by anything (ADR 0024 D7's queue takes empty
+  pages only). Deferred: whether the forward pass should route a new document's *pages* rather
+  than the document.
+- **`noisy` text layers are invisible to a lexicon check.** 6 of 16 sampled pages scoring ≥0.7
+  were readable-but-frequently-wrong (`infonnalion`, `Buriington`). Sixteen pages cannot size
+  the class, and no cheap signal in this family will find it — the errors are word-shaped. A
+  second reading with a distance is the only instrument that would, which is ADR 0021 D8's
+  operand over 866k pages. Deferred until the ≥0.7 sample exists.
+- **Broken font encodings are a distinct failure with a distinct repair.** Born-digital PDFs
+  whose `ToUnicode` map is wrong yield a substitution cipher (`Pd_ed KWY_\_Y` for `Union
+  Pacific`, `Qixve` for `Metra`); they are why 2020–26 leads the low-score table, and OCR of
+  the render fixes them outright. No detector for them beyond the score.
+- **~5,500 pages score <0.3 in 2020–26**, the era whose documents the forward pass reads today.
+  The re-read decision covers the backlog; whether the FORWARD pass should score a page as it
+  lands, and re-read it there, is not decided.
+- **The signal is weak on engine readings** (AUC 0.59 against the wave's measured
+  `agreement_distance` on 55,356 degraded primaries) and **blind to invention**: a local
+  `deepseek-ocr` reading of 18005 invented fluent sentences and scored 0.96. Nothing here
+  should be used to judge an OCR reading.
+- **1,104,935-page-era note:** blank text-layer pages inside otherwise-text-layer documents
+  (14,894 in 2000–04 alone) remain outside both the OCR queue and this signal's floor.
+
+## From the operator's check of the text-quality labels, 2026-09-17
+
+He checked all 64 pages against their scans (`docs/research/text-quality/labels-checked.json`);
+the figures in that README are now his, not the drafting pass's.
+
+- **The wave reads a sideways page sideways.** `ocr_wave.py` builds PP-OCRv6 with
+  `use_doc_orientation_classify=False` and `use_textline_orientation=False` (466-468), and
+  **9 of his 64 pages carry "rotate before OCR"**, 6 of them scoring under 0.3. The benchmark's
+  `ppocr-pre` run measured those toggles as worse (12.3% CER against 11.8%) — but on the 90
+  IMAGE-ONLY pages, a population where rotation is rarer than in this text-layer sample. Owed
+  before the re-read: measure orientation detection on rotated text-layer pages specifically,
+  and decide whether the render or the reader fixes it.
+  **MEASURED 2026-09-17, and it rules out the cheap fix: all 9 of those pages carry
+  `/Rotate = 0` and a PORTRAIT page box** — the scan itself is sideways and the PDF says
+  nothing. Neither the rotation flag nor the aspect ratio finds them (8 other pages of the 64
+  DO declare a rotation, and pymupdf already honours those, so the declared ones render
+  upright). Only a content-based orientation classifier or the layout model's own reading
+  order can detect the other kind, which is the toggle the wave turns off.
+  **PROBED 2026-09-17** (`docs/research/text-quality/` § The rotation probe): rendering each of
+  the 9 at four rotations and scoring the PP-OCR reading does NOT pick the upright one — the
+  spread is hundredths and the winner lands on all four values — so that cheap detector is out.
+  A VL model read the two tried at 0° about as well as turned, and **dots.mocr is itself a VL
+  model**, so this bears on PP-OCRv6's tiers, not on the degraded-tier reader. None of the 9 is
+  prose, so it does not block the prose re-read. Still owed before the graphic and tabular
+  pages: the toggles on against off over rotated pages, scored against checked truth.
+- **No table page keeps its grid.** 20 table/mixed pages carry a structure verdict: 5 ordered,
+  9 scrambled, 7 absent, 0 grid — and 7 of them have clean words. A table's text layer is
+  usable for search and useless for reading a row, at any score. Nothing in the display says
+  so; whether a table page should say it is the operator's, and it is an argument for the
+  HunyuanOCR tabular pass rather than for this re-read.
+- **The drafting pass was systematically kinder than the check.** 46 of 53 quality drafts
+  agreed, and 4 of the 7 corrections moved a page from `partial`/`noisy` to `garbage`
+  (L09, L56, L62, L63). Any future model-drafted label set for this work should be treated as
+  a lower bound on the damage until checked.
+- **The sample cannot size the record.** Eight pages a cell puts garbage between 16,000 and
+  205,000 pages and "at least noisy" between 127,000 and 488,000 (Wilson, 95%). The >=0.7
+  band's 866k pages dominate both intervals. The ~100-page top-up of that band is what narrows
+  them; until it exists, no coverage figure may be published from this work.
+- **`mixed` pages are the worst class** (7 of 9 garbage) and the router has no such class:
+  a page that is half map and half prose goes to one reader whole.
+
+## From the top-up sample, 2026-09-17 (`docs/research/text-quality/`)
+
+102 pages above 0.7, labelled twice blind and 31 of them checked by the operator.
+
+- **Model labellers are miscalibrated in BOTH directions, and neither direction is safe.** The
+  64-page pass was too kind (4 of 7 corrections moved a page to `garbage`); the two top-up
+  passes are too harsh, over-calling faults ~2.5x — he overruled both of them on 8 pages, every
+  one `noisy` to them and `clean` to him. They missed nothing he called faulty (0 of 13
+  both-clean pages). Any future label set here needs a checked subsample before its rate is
+  used; a blind pass alone is a screen, never a measurement.
+- **~110,500 of 931,392 judged text-layer pages are faulty (65,300-330,000), about one in
+  eight.** 29% sit in the 3.4% the signal flags below 0.5; the rest are spread across the
+  0.9+ band, whose SIZE now drives the interval's width. Narrowing it further means more
+  labelled pages there, not a better signal — and the operator's time is the binding cost.
+- **What "faulty" is up there is not what it is down here.** Above 0.7 the failures are a lost
+  signature name, one party name wrong in every occurrence, a fused address — pages that read
+  fine and defeat a search for the one term that matters. Re-reading them with OCR is not
+  obviously a repair: the text layer is right about the body and wrong about the name.
+- **A text layer can be a SUPERSET of its page.** T086 carries three lines that appear nowhere
+  on the rendered page (a statement date and two notices). Nothing checks that the layer's text
+  is on the page; the display shows it as the page's text.
+
+## From the schema critic on the 0021 quality addendum, 2026-09-17 (branch `text-layer-quality`)
+
+Two of its findings were errors in the MEASUREMENT and are corrected in
+`docs/research/text-quality/README.md`: `good` was printed under two denominators
+(`hits/word-shaped` in the 18005 table, `hits/letter-bearing` everywhere else — 0.56 against
+0.22 for one reading), and garbage recall was 0.92 from a 16-page cell that held no garbage,
+against 0.68 once the top-up's 1-in-102 is carried. Both are recorded in the addendum itself
+so the correction travels with the decision. What is left open:
+
+- **`class_measurement` cannot name a lexicon.** The addendum makes the lexicon an operand of
+  the score, but the measurement registry has no column for it and its identity index has
+  none either: a row scored under lexicon B may legally point at a measurement taken under
+  lexicon A, and two measurements of one cut under two lexicons on one day collide. Widening
+  that key is ADR 0018 D8's, declined 2026-09-01 as a rare same-day collision; the lexicon
+  makes a second, likelier instance, because the vocabulary grows with the record. Re-open
+  when the quality migration is written.
+- **`document_text_display` exposes `asserted_at` but not `superseded_at`, and takes no as-of
+  parameter.** So "the display row live on date D" cannot be read from the shipped view, and
+  0028 forbids re-deriving the human-over-primary rule against `document_text`. Validation
+  query 3 leans on this for text pages TODAY, before any quality row exists; the quality
+  addendum is only the first record to rely on it as though done.
+- **The operational join is left unbuilt, deliberately**:
+  `citation_reading.text_id = text_quality.text_id` would give the citator a re-walk queue —
+  edges read off pages the signal flags — on a graph built from numbers read out of that same
+  text. Not foreclosed, not argued.
+
+## From the third schema-critic pass on the 0021 quality addendum, 2026-09-17
+
+Three passes, each finding real breaks, twice in the previous pass's own repair. Open against
+the third draft; none is acted on, because the scope question above them is the operator's.
+
+- **A new lexicon blanks every warning on the site until the re-score finishes.** The writer
+  scores under the live rule's instrument, so the moment a new rule lands no page has a score
+  under it — ~1.085M readings, hours of scoring — and decision 14 makes silence read as "no
+  fault found". The dated rule's "one INSERT" is true of the cut and the floor, false of the
+  lexicon, which is the operand that changes most.
+- **Decision 15's suppression is unbuildable as written.** A `text_quality` human row cannot win
+  the tie-break (its method is `human`, not the rule's instrument); a `document_text` human row
+  does suppress, but only by a person ASSERTING the page's text — thousands of characters they
+  did not transcribe — and it silently deletes the page's band sentence too. The record does not
+  say which table it meant. Also `review_action_live` is keyed `(queue, target_table,
+  target_key)`, so a "this text is misread" report and a "this warning is wrong" report are one
+  live row and the second supersedes the first; a new `review_queue_vocab` member separates them
+  without touching `search.PAGE_TABLES`.
+- **The population is 1,085,292 rows, not ~931k** (judged 931,392 + blank 85,224 + short
+  68,676), and no byte figure is given where ADR 0022 measured 365 B/row before accepting
+  `document_text`. `/methodology`'s "3.5% flagged" is 3.4% of judged pages and 2.9% of the rows
+  that would exist.
+- **The owed as-of projection is the thing 0028 forbids.** An as-of view beside the current one
+  IS a second copy of the display rule; the only non-duplicating construction redefines
+  `document_text_display`, which is `page_fts`'s external content — a full page-index rebuild,
+  measured at 27m26s over 1,104,935 rows, behind the wall.
+- **No validator moves when a score or a rule lands.** `page_stamp` names `document_text`,
+  `document_pagination` and `page_route`; migration 0032 added its terms for exactly this
+  reason. Without a term, a rule change alters what every text page says behind unchanged ETags
+  and a 300 s public cache.
+- **The stored precision is cut-conditional and would sit on rows the cut never touched.**
+  Precision 1.00/0.72 is measured over the flagged set; putting `score_row_id` on every score
+  row stamps a page at 0.95 with a figure that says nothing about it. Leaving machine rows
+  `unmeasured` and gating the sentence in the web tier is the alternative the draft refuses.
+- **The lexicon in the blob tier contradicts ADR 0022 D2** ("one artefact goes to the blob tier:
+  the engine payload"), and `prune_blobs.py` deletes a local blob 30 days after S3 holds it —
+  against a writer that refuses to score without it. A 23,524-word list is small enough to live
+  in the store.
+- Smaller: the instrument is three repeated TEXT columns (a 64-char digest among them) on
+  1.085M rows, where an `instrument` row would intern it; `quality_rule` has no stated
+  `rule_id`, no `superseded_by` column and a unique index over no columns; `text_quality_run`
+  has no key and no typed outcome vocabulary, which is ADR 0021 D5's own rule; no `run_id` on a
+  score; and the § Validation line "nothing derived is published from a score" contradicts
+  decision 13, which publishes one.
+
+## From scoring the prose screen on its own population, 2026-09-18 (branch `text-layer-quality`)
+
+The re-read's order is the operator's (prose first), and `text_quality.looks_like_prose` is what
+obeys it. Its note claimed "on the 166 labelled pages, recall 0.92 and precision 0.92". Re-scored
+read-only over production with the labels separated by who made them, that figure does not
+reproduce and was measured mostly off-population; the note now carries the three rows below
+instead. Nothing here blocks the prose pass — a queue order that is wrong costs reading order,
+not a wrong assertion — but two things are owed if the screen is ever leaned on harder.
+
+- **The screen is effectively unmeasured on the pages it orders.** Of the 166 labelled pages only
+  32 are below the 0.5 cut, and only **5 of those are prose**: precision 0.80 (4/5), recall 0.80
+  (4/5). The pooled 166-page figure is carried by the ≥0.7 band, which is 134 of the pages and
+  where prose is most of the population and easy to spot (blind kinds there: precision 0.95,
+  recall 1.00). His 95 checked kinds give 0.89/0.91. **Owed: ~40 kind labels drawn from the
+  flagged set itself**, if the screen is to carry a stated rate. The indication it does give is
+  worth having and is why the pass is still worth seeding: prose is 5 of 32 flagged pages (16%)
+  and roughly 80% of what the screen selects, a fivefold lift in purity.
+  **PAID 2026-09-19** — 40 drawn from the flagged set, stratified on the screen's own verdict and
+  labelled by the operator on a blind sheet (`docs/research/text-quality/README.md` § The flagged
+  set's own kinds). On-population: **precision 0.75 (0.53–0.89), recall 0.66 (0.42–1.00)**, prose
+  23.3% of the flagged set (~7,400 pages). The screen may now carry a stated rate. Two figures
+  above are corrected by it: the **fivefold lift is 3.2×** (both halves of that division moved),
+  and the composition of the flagged set is **tables first at 37%**, not maps — the 32-page read
+  came from a band × era draw and was never a population estimate. Recall still swings on two
+  labels; a wider draw is the only thing that narrows it, and nothing needs it yet.
+- **71 of the 166 kind labels are unchecked model labels**, which is the thing the operator's own
+  rule forbids being turned into a rate ("model labels are a screen, never a measurement"). The
+  quality labels in this directory were kept honest about this; the kind labels behind the screen
+  were pooled without the distinction. The separation now lives in the module's note.
+- Smaller, fixed in place rather than deferred: the precision/recall table printed a raw sample
+  count inside a population-weighted precision cell, so `0.80 (42/48)` invited a division that
+  gives 0.875; and the queue builder's docstring read as though 6,170 prose pages sat in 4,896
+  documents, which is the count for all 31,798 flagged pages (the prose subset is 1,501).
+
+## From building the text-layer re-read pass, 2026-09-18 (`reread`, schema-critic + `/code-review`)
+
+The operator gave the go for the prose re-read and chose a page-list seed over routing the
+documents. Building it found that routing is not optional, and both reviewers found it
+independently. The pass is committed, guarded so it cannot be seeded, and the two things below
+the first are owed before any reading from it is loaded. Acted on in the same commit: the
+`ROOTS`/root-name mixup (a real `KeyError` waiting for `tabular`'s first partial re-seed), the
+silent drop of newly-listed pages on re-seed, `seeded_from` separated from `class`, and the
+backwards claim about `document_text_live` in the pass's own comment.
+
+### Closed the same day
+
+- **A re-read page had no routed class, and the store refuses such a reading.** `text/load.py`
+  raises "an OCR reading names the class it was routed as (ADR 0021 D4)" and
+  `CHECK (reading_channel <> 'ocr' OR route_class IS NOT NULL)` refuses the row; every page read
+  would have been machine time thrown away. **The operator chose to route the pages first**
+  (2026-09-18), so `ocr_wave.py route-list` routes a page list with the layout model alone, into
+  the re-read's own route root, and the seed skips anything unrouted. The alternatives were
+  worse: a new `route_class_vocab` member would overload a *tier* vocabulary with a *selection
+  reason*, and relaxing the CHECK is a rebuild of a 1.4M-row table.
+- **The disjointness guard the critic asked for is half-built**: the two passes now read
+  different route roots, so a text-layer document cannot reach `dots` through a route document.
+  Nothing still asserts that no document is both image-only and text-layer.
+
+### Open — owed before a reading from this pass is loaded
+
+- **Loading would change published text on every re-read page, with no dated rule.**
+  `store/pages.py:band` LEFT JOINs the live `second` row whatever its channel, so a re-read row
+  with no agreement turns "Read once; no second reading to compare it with, so no band." into
+  "A second reading exists (dots.mocr 1.5); its distance from this one has not been computed, so
+  no band." on `/text`, in search hits (`store/search.py`, `store/finder.py`) and through MCP
+  (`web/mcp.py`). It contradicts ADR 0021 D8's "a text-layer page has no band and says so", and
+  it is not replayable: `_SELECT` has no `superseded_at` term and `document_text_display` has no
+  as-of form — the gap the withdrawn 0021 addendum already records.
+- **The agreement distance is not a computation, it is a publishing decision.** Computing it
+  makes `band()` print a number as a band on ~31,800 public pages using a **cross-channel**
+  instrument: the measured AUC 0.93–0.97 was two *engine* readings at one tier, and the research
+  README's own 0.59 against engine readings points the other way. A text-layer-versus-engine
+  distance has been measured at nothing. Computing it later is also a supersede-and-reinsert of
+  every row, not an UPDATE (`document_text.text` is immutable by trigger), and needs the reading
+  documents re-collected, because the loader only writes an agreement the file quotes.
+- **`second` spends the page's one `second` slot.** `document_text_one_second` is unique per
+  live page, so the re-read takes the slot where the cheap second reading that catches invention
+  would have gone — and dots.mocr is itself a VL model, so a re-read that invents is
+  indistinguishable from one that repairs. Suggestion from the critic, worth weighing: run the
+  ~6,170 prose pages, take the promotion decision with them in hand, and do **not** run the
+  remaining ~25,600 until it is taken.
+- **Promotion has a citator cost nobody has priced.** Under ADR 0026 a `citation_reading` names
+  its `text_id` and staleness is detected over `document_text_display`. Promoting the re-read
+  retires every text-layer primary on those pages at once, so every edge read off them goes
+  stale in one step — a bounded but real re-walk.
+- **The reading records no reason for its own existence.** `text_quality_queue.py` writes the
+  scored `text_id` as the CSV's first column and the seed throws it away; `job` has no column
+  for it and the reading document carries no trace of the score, the cut, the lexicon or the
+  screen. Every other reading in `document_text` says why it was read that way (`route_class`
+  with its method and version). Carrying `text_id` into `agreement_against` would make the
+  binding a row rather than a note — and it is unrecoverable once a text-layer primary is
+  superseded between seed and load, which a pymupdf bump through `repoint_producer` does.
+- **Nothing asserts that no document is both image-only and text-layer**, which is the only
+  thing keeping `dots` and `reread` off the same page. When it is violated the loader refuses
+  the whole document's reading, not the one page. Cheap guard: have `seed_from_list` refuse a
+  sha that has a route document.
+- **`ocr_run` is published and has no `reading_role`** (`dump.py`, ADR 0022 D3), so the key
+  `dots.mocr/1.5/200` now means two things — a primary reading of a degraded scan and a second
+  reading of a suspect text layer — and a third party summing `pages_read` cannot tell them
+  apart. Half the pages counted are displayed to nobody.
+- ~~`fleet-up.sh` has no `reread` role~~ — built once the shape settled: a `reread-collect`
+  service on the coordinator and a `reread` worker role sharing the `dots` server and key, with
+  its own stop file (`.stop-reread`). The two workers share one card, so the role is opt-in and
+  never part of `worker` or `all`, as `tabular` is.
+
+## The fleet's blob mirrors are stale, not holed, 2026-09-18 (tabular pass, v2026.09.28)
+
+Measured while reporting on the running pass. **728 pages across 310 documents had failed
+`blob: missing on the node`** — after the page-owned `finish_reason length` failures (1,324),
+essentially the entire remainder of the pass's 11.4% failure rate.
+
+- **Nothing is lost.** None of the 310 are on the coordinator, but **all 310 are in S3**
+  (`docketyard-prod`, `blobs/<aa>/<sha>`), 190.4 MB in total, checked by `head_object` on every
+  one. The earlier reading of this — 434 documents "in NEITHER blob mirror, so no node reads
+  them this seed" — was right about the mirrors and wrong about the record. S3 is the store and
+  the mirrors are caches (`infra/deploy/README.md`); these caches simply lag.
+- **The coordinator cannot refill its own mirror.** `rmi-nuc` holds the blob mirror the fleet
+  reads through and has `boto3`, but no `~/.aws` credentials; `rmi-ai-machine` has the
+  `docketyard-reader` profile and `pull_blobs.py`. So the box that owns the mirror cannot fill
+  it, and the box that can fill it is the one we keep saying is stateless and replaceable. That
+  asymmetry is the defect, not the missing bytes — and it bites harder once the card moves or
+  the workstation is swapped for a 5090.
+- **These pages cannot be recovered in the running seed.** `pagequeue` has `seed`, `collect`,
+  `status`, `reap` and `fail` — there is no requeue verb, and a `blob:` failure that has spent
+  its attempts is `failed`, which the design intends: re-read at a later seed. Resetting them
+  would be hand-written SQL against a live queue. The designed path is a later seed, once the
+  mirror is filled.
+- **Cheap guard worth pricing: the seed does not check that it can read what it seeds.**
+  `seed --dry-run` reports how many pages and documents it would queue, but nothing verifies
+  the blobs are reachable from the nodes that will claim them. A presence check at seed time —
+  local mirror, then S3 — would have surfaced 310 unreadable documents in seconds instead of
+  728 spent attempts over two days. It is the same shape as the endpoint rule in `CLAUDE.md`:
+  positively assert the precondition rather than infer it from a result that also has an
+  innocent explanation.
+
+## Two `series` shapes ride in one docket JSON, 2026-09-18 (v2026.09.28, shape 3)
+
+Found while locking the docket-level JSON keys (the graders' I4). A sub-docket's response
+carries **two keys named `series` with different shapes**:
+
+- `series` at the body level is the full reference — `{raw_docket, printed, url}` — shaped
+  deliberately by `sheet_json`, with `raw_docket` in the store's own spelling because
+  `canonical()` renders a family as `FD_36873_0`, which no address resolves (code review,
+  2026-09-01).
+- `docket.series` is `{raw_docket}` alone, and nobody shaped it: it falls out of `asdict()`
+  on `sheet.DocketSheet`, whose `series` field the route never pops the way it pops
+  `parties`. A client reading the inner one gets `FD_36873` with no printed form and no
+  address, and has no way to know the outer one is richer.
+
+Locked as served rather than corrected — narrowing or dropping a published key is a shape
+decision, not a test's to make, and `shape_version` 3 is live. The options when it is
+chosen: pop `series` from the docket object (a removal, so a bump), or fill it to match the
+body's three fields (additive, which the API page's promise allows without a bump). The
+second costs nothing and makes the two agree; the first is cleaner and cannot be done
+quietly. **The operator's call.**
+
+## A pass cannot be declared deliberately down, 2026-09-18 (the 5090 swap)
+
+The tabular pass was stopped cleanly for a card swap, and the fleet had no way to say so.
+STALLED fired thirty minutes later — correct by its own rule (pages owed, none read) and
+useless, because the condition was intended. `/health` served 503 for the whole window.
+
+- **There is no quiet way to quiet it.** `monitor.py` only reports; the rules are evaluated
+  off the box by design (ADR 0019 — "a dead box cannot report its own death"), so the silence
+  belongs in the alerting side, outside this repo. Raising `--stall` hides the next real
+  stall and needs somebody to remember to put it back. Stopping the monitor is worse than
+  either: the off-box rules include *the series absent altogether*, so it swaps one alert for
+  another and blinds the operator in between.
+- **Production already has the concept and the fleet does not.** ADR 0020 gave the instance a
+  maintenance mode; a pass has no equivalent. The shape that would fit: a `paused` marker
+  beside the stop file that the monitor reads, exposed as its own series
+  (`docket_yard_fleet_paused{pass}`) rather than by suppressing the stalled one — so the
+  reason is published, dated, and visible, instead of an alert silently not firing. The
+  stop file is nearly this already; it records the intent and nothing reads it.
+- **Why it matters beyond tidiness:** an alarm that is right, unactionable and recurring is
+  how an operator learns to ignore the alarm. The pass was down about an hour today and the
+  fleet will be stopped and started far more often once the broker arbitrates it, which makes
+  this more frequent, not less.
+
+## Stats deferrals, graduated from TODO 2026-09-18 (v2026.09.28)
+
+Parked in `TODO.md` and recorded here instead when the plan cap fired — they were the only
+two items in that file held nowhere else.
+
+- **One month walker for `home.py` and `stats.py`.** The two walk the record's months
+  separately for their own figures; one walker would serve both and be measured once.
+- **No index on `filing(filed_date)`.** Every date-ranged filing query — the coverage page,
+  `count_filings`, `list_proceedings` — scans. Not felt at 54,422 filings; worth having before
+  the backfill's later waves land, and worth measuring rather than assuming.
+
+## From mapping the queue end to end, 2026-09-19 (the stopped tabular pass)
+
+Found while mapping where every artefact of the pass lives, before deciding whether the
+coordinator moves. Neither is a wrong assertion in the record today.
+
+- **`dtype` is not in the producer declaration.** A worker declares the pass key, its host,
+  the engine and version, the model and its weights revision, the max new tokens, the
+  megapixel bound and the render (`hunyuan_worker.py` § producer) — but not the dtype.
+  `ocr_run.load_hunyuan` hardcodes `bfloat16`, so every reader is bf16 today and the gap is
+  latent, not live. It bites the moment a pre-Ampere card is added: Turing has no hardware
+  bf16, and "fixing" that with float16 would declare an **identical reading key while reading
+  differently** — the silent key split ADR 0023 exists to prevent, arriving from inside this
+  project rather than from the broker. Live because the coordinator's own unused card is
+  Turing. Adding dtype to the *declaration* is additive and forward-only; adding it to the
+  *key* would invalidate every reading, so the two must not be confused.
+- **The stale-mirror defect has a second remedy nobody had costed.** Measured 2026-09-19:
+  the instance already holds 112 GB of blobs and already serves any document by hash, with an
+  S3 refetch on a cache miss and the hash verified. So a reader could fetch document bytes
+  without any mirror and without any credential on any fleet box, which would retire the
+  `docketyard-reader` asymmetry recorded above rather than paper over it. **It is not free:**
+  `docs/compute-fleet.md` says "Production never joins the fleet", and having the instance
+  serve the fleet's bytes crosses that sentence, so it is an ADR amendment and not an
+  implementation detail. Recorded as an option, not a plan.
+
+## From the schema critic on the ADR 0025 addendum, 2026-09-19 (Proposed)
+
+Folded into the addendum where it was wording; these two are code and are filed.
+
+- **A restore whose queue is newer than its file tree silences documents, permanently.**
+  `_decide` returns on `known == "whole"` (`pagequeue.py:639-641`) **without checking that the
+  reading document exists** — while the `reread` branch just below it checks deliberately, with
+  a comment saying the queue's verdict stands either way. So a coordinator restored from a
+  queue snapshot taken after its file tree marks those documents whole, never re-queues them
+  and never collects them: silent, per-document, and the 2026-09-06 shape again. The operator's
+  procedure can avoid it — **restore files first, then the queue** — but a three-line fall-
+  through to the `reread` verdict when `shard()` is absent would make the order not matter.
+- **A worker's registration overwrites its own producer on every restart.**
+  `register` is `ON CONFLICT (name) DO UPDATE SET producer = excluded.producer`
+  (`pagequeue.py:240-245`) on a name defaulting to `<host>/<pass>`. The producer is published
+  only in the root's `_manifest.json`, and `result.worker` — the page→worker link — is selected
+  at collect and never used. So if the environment moves between restarts (a transformers
+  upgrade, a re-pulled snapshot, a different card behind a pinned `--name`), the manifest names
+  the **new** producer for pages read by the **old** one, which under ADR 0007 is a derived
+  assertion whose method block was rewritten after the fact. Latent today because the fleet
+  restarts rarely and by hand; **brokered placement makes restarts frequent and chosen by
+  something else**, which is what moves this from tidy to load-bearing. The critic's shape:
+  an append-only `worker_registration` row per distinct producer, `result.registration_id`, and
+  `collect` writing the producers observed on that document's own pages.
+
+## From reviewing the seed's missing-reading fix, 2026-09-19 (`/code-review` + stb-ingest-specialist)
+
+Both passes called the change correct and shippable. Two findings are choices, not defects.
+
+- **Re-reading is the expensive correct verdict, and a cheap one exists behind a guard.** When
+  a restore leaves the queue newer than the file tree, the queue is by definition the surviving
+  artefact — and it still holds every page's raw engine answer in `result`, written at `done()`
+  before anything parses it. The fix throws those rows away at the next seed and spends GPU time
+  re-reading pages already read; applied corpus-wide by a skewed restore that is up to 26,294
+  pages for `tabular` alone. It also churns the store: a re-read is not bit-identical across
+  kernels, so every page whose text differs retires a live row and inserts a replacement, with
+  an FTS delete and insert, over text that was already correct. **The cheap verdict:** delete
+  only the `collected` row, leave jobs and results, and let the next `collect` rebuild the
+  identical file from `pages_of` with no machine time. **It is only safe under a guard** — the
+  route document may have been re-run since, so the pages the queue holds may no longer be the
+  pages the pass owes, and a naive recollect would rebuild over a stale page set and then report
+  `whole` with the file present, silent again in the same class. `seed_from_list` already has
+  the comparison (`pages_held`); `seed_pass` has `wanted` in hand but does not pass it to
+  `_decide`. Recollect when the held page set equals what the pass now owes, re-read otherwise.
+  Not taken today: the current behaviour is safe, and the restore order is the mitigation.
+- **A narrowing list plus a missing reading document drops a held page.** The new branch reaches
+  `seed_from_list` untested. Its top-up path queues `(held | wanted) & routed`, but `_decide`'s
+  set-aside path leaves the caller queueing `sorted(wanted[sha])` alone — so under a *narrower*
+  list the rebuilt reading document is narrower than the one that went missing, and the dropped
+  pages' rows stay live in the store from the older run with no queue record. Confirmed in the
+  review by running it: `pages_held` goes {1,2} → {1}. The store is not corrupted — page-level
+  supersession makes it legal — and a narrowing list is the operator's own cut moving, so this
+  is recorded rather than changed. Either queue `(held | wanted[sha]) & routed` on this path
+  too, or say in `seed_from_list`'s docstring that a narrowing list is taken at its word.
+
+## From the specialist on the stop signal, 2026-09-19 (ADR 0025 addendum proposal 1)
+
+The two findings that could lose or misattribute a page were fixed in the same change. These
+three are recorded rather than built.
+
+- **`wait_for_server` ignores both the stop file and the signal**, and a document claims the
+  opposite. `dots_worker.wait_for_server` loops up to `--server-wait` 1800 s with no stop
+  check, so an operator's `touch .stop` does not stop a reader waiting on a dead server, and a
+  preempted one is killed rather than exiting 0 with its marker. Nothing is lost — nothing is
+  leased at that point — but `workstation-gate.ps1` states in its own header that the stop file
+  is checked "before each page **and instead of waiting for a server**", which is behaviour the
+  code does not have. Pre-existing; the fix is to pass the predicate into the sleep loop.
+- **A brokered placement and `fleet-up.sh`'s restart loop must be mutually exclusive by
+  construction, not by care.** The loop restarts a worker a minute after ANY exit, so a reader
+  a broker just preempted goes back on the card sixty seconds later, overriding the placement
+  the broker made. Written into `docs/compute-fleet.md` as a rule; nothing enforces it. Related:
+  exit 0 now means three different things (queue drained, stop file, preempt) and only the
+  third prints a marker — **the owed resubmitter must key off the broker's `preempted` state or
+  the `jobd-checkpoint-complete` line, never the exit code.**
+- **A forward hazard to record before anyone closes the grace gap.** The obvious next step for
+  "a page that outruns the grace" is a transformers `StoppingCriteria` wired to the stop flag.
+  If that is ever added, the generation ends with `ended_with_eos=False` and
+  `new_tokens < max_new_tokens`, so `generation_failure` returns None and the **truncated**
+  answer is posted as `done` — a silently short reading with no failure row, which is the
+  2026-09-06 shape. An interrupted generation must be released unspent, never posted.
+
+## The mirror is expendable; the results are not — the operator, 2026-09-19
+
+**His decision, and it settles what a coordinator move has to carry.** The fleet's blob mirror
+is a cache of a store that is always retrievable (ADR 0022 D2: S3 is the store, a mirror is a
+cache), so the 109 GB does not travel and does not need refilling before a move — it warms, or
+it is simply not there. What must be where it belongs is the **derived** half.
+
+Where each result sits, measured 2026-09-19:
+
+- **In the store, replicated:** the `dots` and `ppocr` readings. Safe; nothing owed.
+- **On disk only, never loaded:** 2,578 collected `hunyuan-tabular` documents. Loading them is
+  the operator's go (`docs/compute-fleet.md`), not yet given.
+- **On disk only, and with no home in the store at all: the route roots** (27,269 documents).
+  Seeding copies each route document's own method and method version into every page of every
+  reading, so for a page that has been read AND loaded the classification survives in the
+  store. For a page that has not, it exists nowhere else — and the tabular pass alone holds
+  **9,019 unread pages** (6,799 pending, 2,220 failed). This is the artefact that wants an
+  off-LAN copy permanently, not the queue and not the blobs.
+- 16 raw answers in `queue.sqlite` belong to documents not yet written out.
+
+**Resuming and making the backup routine are one decision.** The 2026-09-19 snapshot is valid
+only because nothing has read since 2026-09-18 20:28Z. Once a pass runs, the coordinator
+accumulates irreplaceable results continuously and a pre-resume copy decays by the hour.
+
+## Correction: the route roots are expensive, not irreplaceable — 2026-09-19
+
+Written the same day as the claim it corrects, because it reached an ADR, this file, `TODO.md`
+and the fleet's private notes before anyone checked it against the code.
+
+**The claim was that re-running the router "is not reproduction — it orphans the provenance
+already quoted by every reading collected under the old one."** `_page_routes`
+(`tools/fleet/pagequeue.py`) says the opposite in its own docstring: it carries "the route
+document's OWN method and version rather than this module's constants — a document routed by an
+earlier version must say so, which is what makes the reading scorable (ADR 0007)". **Mixed
+router versions are a designed-for state, not a broken one.** And for a page already read and
+loaded, the class and method are copied into the reading, so the route document is redundant
+for it.
+
+What is actually true, and what should be said instead:
+
+- Re-running the router costs a layout-model pass over the corpus, and yields a **different
+  method version**. That is recorded per page rather than hidden.
+- A page reclassified on the way changes what each pass owes its document; the seed already
+  handles that by re-reading, at the cost of the reading.
+- The expensive artefact is the **readings**, not the routes: 17,275 tabular pages already read
+  is roughly 43 hours of GPU at 9 s a page.
+- **All of it together is 464 MB.** Keeping it across a rebuild is a tar file, not a
+  constraint on how the machines are built.
+
+I took a reviewer's framing and propagated it without checking the code, which is the failure
+`claims-are-not-measurements` names. The figures in this file's 2026-09-19 entries stand; the
+word "irreplaceable" does not.
+
+## From the specialist on the coordinator backup, 2026-09-19 (ADR 0025 addendum proposal 3)
+
+Fourteen findings; the ones that could let a wrong backup look right were fixed in the same
+change. These are recorded instead.
+
+- **The addendum contemplates two cadences and the tool has one.** Item 3 says "The route roots
+  are copied **most often**", and `backup.py` copies everything on one rhythm because the whole
+  archive is 636 MB and splitting it would buy little. Defensible, but it quietly collapses a
+  distinction an Accepted record drew — **the operator's to settle**, either by adding a
+  selector or by amending the item.
+- **This is the second exception to decision 6's literal words, and only the first is written
+  down.** D6 says "no node holds the store or a key"; the 2026-09-19 addendum sharpens that to
+  "no node can **write to the store**" and sanctions a read-only `GetObject`+`ListBucket`
+  credential. `fleet-backup-writer` is a *write-capable* key on the coordinator — scoped to one
+  bucket that is not the store, with no delete action — which is consistent with that reading
+  but is not stated anywhere. One sentence in the addendum would close it, so the next box is
+  reasoned about rather than quietly excepted.
+- **A restore procedure is owed**, beside `docs/compute-fleet.md`'s backup entry: extract order
+  (the archive already carries it — the queue is the last member), `--no-same-owner`, and the
+  fact that `fleet.token` and `fleet-node` are deliberately **not** in the archive and must be
+  replaced by hand. A rebuilt coordinator needs that token from the password manager.
+- Smaller, fixed in place rather than deferred: the queue snapshot is genuinely atomic
+  (`Connection.backup` with the default `pages=-1` copies under one read transaction), so the
+  docstring's earlier "a hash can never prove fidelity to a database that moved" was more
+  pessimistic than the mechanism — the pessimism would have become TRUE had anyone later
+  "improved" it into a chunked loop, which is why the reason is now written beside the call.
+
+## Page regions: ADR 0003's blocks are unbuilt, and dots already produces them, 2026-09-19
+
+The operator proposed a vision model that maps a page into labelled regions with bounding
+boxes — prose, table, map, stamp, header, footer, letterhead — "YOLO for documents", and asked
+whether it is worth exploring. Measured before answering, and the answer is that most of it
+already exists and none of it is reachable.
+
+**ADR 0003 (Accepted 2026-08-25) already decided this**: the IR stores, per page, "text,
+blocks with bounding boxes, font size and weight, rotation, whether the page had a text layer
+or was OCR'd, and per-block confidence. Capture more than the current feature set needs." Built
+of that list: the channel, and a page-grain `engine_confidence`. **Not built: blocks, bounding
+boxes, font size and weight, per-block confidence.** The only `bbox` in `src/` is migration
+0014's *declared* `source_location` shape `{page, block_id, bbox}`, which `load.py` never wrote
+and which 0028 (ADR 0026 D4) had to correct to `{page, spans}`, recording that `block_id` and
+`bbox` were unreachable from anything.
+
+**The wave's own engine produces regions and the payloads are on disk.** `DOTS_PROMPT` asks
+dots.mocr for "each layout element's bbox, its category, and the corresponding text content"
+over 11 DocLayNet categories in reading order, and the collected reading keeps the model's raw
+answer in `engine.pages[].raw`. Measured over 3,999 of the 15,895 payloads under
+`/data/docketyard/ocr/dots` on rmi-ai-machine — 13,977 pages, ~15 regions a page, **over
+210,000 region boxes already held**:
+
+| category | per 100 pages | | category | per 100 pages |
+| --- | ---: | --- | --- | ---: |
+| Text | 1,065 | | Page-footer | 54 |
+| List-item | 141 | | Page-header | 41 |
+| Picture | 100 | | Table | 6 |
+| Section-header | 91 | | Footnote | 3 |
+| Title | 67 | | Caption / Formula | 2 / 1 |
+
+**55.4% of those pages are text AND picture**, and 4,364 of them carry more than one picture
+region — which is exactly the operator's point: a page that is mostly prose, plus a stamp, plus
+a letterhead. The page-level `kind` this project has been labelling by hand collapses all of it
+to one word, and the prose screen it feeds scores 0.75/0.66 (§ above).
+
+**What is genuinely free, and what is not.**
+
+- Free for OCR'd pages: the regions above, already paid for. Nothing loads them, because the
+  store has no region grain and ADR 0022 D3 sends the engine payload to the blob tier.
+- Nearly free for text-layer pages: both extractors call `page.get_text()` for a flat string;
+  `get_text("dict")` returns blocks, lines and spans with bboxes and font size — ADR 0003's
+  list, same parse, no GPU. Probed on the 40 labelled pages: it carries signal the screen does
+  not read (distinct font sizes, median by kind: prose 11, table 5, map 19, mixed 55,
+  drawing 140; distinct column starts: prose 4, table 3, drawing 14). **No rule was fitted and
+  no rate is claimed — 40 pages with 3 drawings and 1 form cannot support one.** What it does
+  NOT give is a semantic category: geometry only.
+- NOT free: the operator's vocabulary. DocLayNet has no stamp, letterhead or map — all three
+  are `Picture`. Getting his labels means a classifier over the ~1 picture-region-per-page
+  crops dots already located, which is far cheaper than a second page-level VLM pass. A full
+  re-pass over ~1.4M page readings at dots' ~2.7 s/page is ~1,000 GPU-hours and is not the
+  proposal.
+
+**What is unmeasured, and blocks any claim.** Not one bbox or category has been checked by a
+person. Model labels are a screen, never a measurement, so nothing above may be published as a
+property of the record — it is what the model asserted. Region-grain truth does not exist; the
+206 operator-labelled pages are page-grain and cannot score a region classifier.
+
+**The real cost is schema, not GPU.** A region is a derived assertion and carries provenance
+(CLAUDE.md), so this is a new grain, an ADR, and schema-critic — not a tool. It also touches
+the reading key: capturing blocks alongside the same text may or may not move `method_version`,
+and that is an ask-rather-than-assume question, not an implementation detail.
+
+Also noted: **no vLLM is installed on rmi-ai-machine**, though the dots.mocr weights are cached
+(5.7 GB). Re-running dots over the 40 text-layer pages therefore means standing vLLM back up on
+a 5090, which is a job of some length with real uncertainty — not the two minutes first
+estimated.
+
+
+## From rebuilding the blob refetch, 2026-09-19 (`blob-refetch-held`, ingest review + `/code-review high`)
+
+ADR 0025's addendum items 5 and 6 were Accepted on 2026-09-19 and the returned draft was
+rebuilt: the project's own signed GET instead of boto3, streamed with a per-chunk digest at
+both ends, structural classification on status codes, and the worker half in both lease loops.
+Eleven findings between the two reviews were acted on in the change. Three are owed.
+
+- **The worker half is not tested, and it is the half ADR 0025 cares most about.** The three
+  branches — `BlobMissing` and `BlobCorrupt` to a non-final `blob:` failure, `BlobUnavailable`
+  to a release and exit 4 — live inside each worker's `main()`, which loads a model and cannot
+  be called from a test. Everything else in those files that IS tested was extracted first
+  (`give_back`, `post_answer`, `claim_if_room`, `register_or_exit`), and the same extraction
+  would make these testable with a fake queue. Asserted today only by reading them, in a change
+  whose whole point is that a misclassified failure loops the fleet. **Do this before the next
+  change to either loop**, not after.
+- **A corrupt object in the store of record reaches nobody.** `queue_server` prints
+  `BLOB CORRUPT IN THE STORE` and that is the loudest thing available: `config.alloy` scrapes
+  `/metrics` and no logs, and `backup.py` excludes `ocr/logs`, so the line sits in a file
+  nobody tails. An earlier draft of the code comment claimed the monitor sees it, which was
+  untrue and is corrected in place. The fix that matches this fleet's own grammar (ADR 0019) is
+  a counter under `ocr/` that `monitor.py` reads into `/metrics`, with a detection rule beside
+  the three in `config.alloy`. Until then the only surfacing is the worker's non-final `blob:`
+  failure in `status()["errors"]`.
+- **`pull_blobs.py` fills the mirror on a size comparison and never a digest**
+  (`path.stat().st_size == obj["Size"]`), which migration 0018 warns about in writing. The
+  client now verifies every document it is served, mirror hits included, so a wrong-but-
+  same-size entry is caught at the reader instead of being read as that document's text — but
+  it is caught late and per page. The puller should compare the sha it already knows.
+
+## The coordinator moved, and two things it uses assumed one box — 2026-09-20
+
+The coordinator role moved to another machine on 2026-09-20 (which box is the operator's and
+is recorded outside this repository). Both boxes' state matched file-for-file and the queue
+travelled through SQLite's backup API; the mirror deliberately did not travel, and the three
+blob answers were re-proved on the new box. Two repository-facing things surfaced in the doing.
+
+- **`tools/fleet/config.alloy` only works where Alloy runs in a container.** Its
+  `prometheus.exporter.unix` block names `/host/proc`, `/host/sys` and `/host/root`, which are
+  the container's bind mounts; on a box where Alloy runs as a plain binary those paths do not
+  exist and the exporter reports nothing, silently — the fleet series still flow, so the box's
+  vitals go missing without any alert saying so. The move needed a generated variant with three
+  lines rewritten, which is now a second config nothing in this repository knows about. Make the
+  three paths a variable with the container's values as the default, so one file serves both.
+- **`dy-backup.service` swept a directory the tool never wrote to.** The unit set
+  `TMPDIR` and cleaned `<data>/.backup-work/dy-backup-*`, while `backup.py` passes
+  `dir=<data>/.backup-tmp` to its own `TemporaryDirectory` and never consults `TMPDIR`. A run
+  killed mid-tarball (a power cut, an OOM) would have stranded ~636 MB, and the unit's comment
+  promising otherwise was false. **Fixed in place** the same day by passing `--tmp` explicitly;
+  recorded here because the same shape — a unit and a tool each deciding a path — is worth
+  looking for in the other units.
+
+## Measured: the tabular worker's memory floor is half what a page needs — 2026-09-20
+
+`hunyuan_worker.MIN_FREE_TO_LOAD` is 4 GiB — 2 GiB of weights plus 2 GiB of headroom — and the
+comment beside it says in terms that the headroom is "a bound, not a measurement: the parity
+probe on the GPU owes the real peak, and these follow it". The probe has now been run, on a
+6 GB card, with the pass's own code path (`read_page` → `ocr_run.run_hunyuan_ocr`), the reader's
+exact stack and the declared weights revision:
+
+- the weights take **1.91 GiB**, close to the 2 GiB assumed;
+- **each page then asks for a single 4.13 GiB block** — the vision encoder over a 150 DPI page —
+  against the 2 GiB of headroom assumed. An ordinary US Letter page is 2.10 MP at this render,
+  so this is the normal case and not a large sheet;
+- so one page needs about **6.1 GiB**, not 4.
+
+**What the wrong floor does** is admit a card that cannot read. A machine with 4–6 GiB free
+passes the check, loads the model, and then fails every page with an OOM that the retry cannot
+help; the worker exits 3 and the restart loop throttles it to one attempt a minute — a reader
+that looks alive, holds a card and reads nothing. The same 4 GB is in the fleet's `dy-ocr`
+placement profile, where it would match small cards for the same result.
+
+The fix is one constant and its comment, now that the number is measured: `MIN_HEADROOM` of
+about 4.5 GiB, so the floor lands near 6.5 GiB. It is deliberately not being changed mid-pass
+while a worker is reading. **Also worth deciding at the same time:** `max_new_tokens` (4,096) is
+in the producer declaration but NOT in the pass key, so a worker reading with a different budget
+would be accepted under the same key — the same silent-split shape as dtype. It is the dominant
+final failure on this pass (1,433 of 2,220 failures were `page: finish_reason length`), so the
+temptation to raise it is real, and raising it would change what the key names without saying so.
+
+## `finish_reason length` is the model looping, not a long page — measured 2026-09-20
+
+`page: finish_reason length` is **65% of the tabular pass's failures** — 1,490 pages, 7.4% of
+everything terminal, in 325 documents, **48 of which have no page read at all.** It is a FINAL
+failure, so none of those pages is re-read under this key. Two things were assumed about it and
+both are now measured.
+
+**It is not length.** Successful answers do not crowd the cap: median 594 tokens, p90 1,329,
+p99 2,172, max 3,946 against a 4,096 cap, with exactly ONE of 17,839 within 10% of it. A tail
+pressing on the limit would say "these pages are bigger"; a hole says something else.
+
+**It is repetition.** Three cut pages from the three worst documents were re-read through
+`ocr_run.run_hunyuan_ocr` and the answer read out of `_hunyuan_last` instead of being discarded
+by `generation_failure` — nobody had ever seen one, because the worker raises before it posts:
+
+- `579172b4 p3` — 818 lines, **5 distinct**; `## Subdivision Name` repeated 814 times
+- `63ede451 p10` — one line: `<td>reg of gross</td>` to the cap
+- `389410437 p48` — real text (`Subscribed and sworn before me this 21 day of…`), then
+  `53080, ` for ever
+
+All three at exactly 4,096 new tokens, `ended_with_eos False`, gzip ratio 0.013–0.018 on the
+last 4,000 characters (prose is ~0.3). Answers kept at `rmi-ai-machine:~/cut-probe/`.
+
+**So raising `max_new_tokens` is doubly wrong** and should now be refused on evidence rather
+than on principle: it is in the producer declaration but NOT in the pass key, so a reader with a
+bigger budget publishes under the same key while reading differently — and it would only buy
+more repetition, at ~70 s a page instead of ~35.
+
+**Two decisions this opens, both the operator's:**
+
+1. **Whose fault is a loop?** The grammar calls a cut answer the page's own, and therefore
+   final. That rule was written believing a cut meant the page was too big. A model that loops
+   is the ENGINE's behaviour, not a property of the page — another engine, or another render,
+   may read it fine. If that is right, these 1,490 pages should be non-final and re-readable by
+   a later pass, and the fix is in `ocr_wave.failure_reason`'s map plus its
+   `CLASSIFIER` version — not a quiet reclassification.
+2. **Is the prefix worth keeping?** `389410437 p48` had real text before it degenerated.
+   Publishing the good prefix would raise coverage and would also publish a partial reading as
+   a page's reading, which is a provenance claim (ADR 0021) and not an implementation detail.
+
+**Cheap and separable either way:** a repetition guard that stops generation when the last
+N tokens repeat would fail these pages in seconds instead of 35, saving about 4 GPU hours over
+the ~470 cut pages still expected in this pass, and roughly 12 hours already spent generating
+garbage. It changes no reading that succeeds.
+
+### The early-stop guard does not work — measured and abandoned, 2026-09-20
+
+The obvious fix for the loops above is to detect the repetition and stop generating. It was
+built and tested against every answer this pass has published, and **it cannot be made safe.**
+Recorded here so it is not rebuilt.
+
+The rule tried: past an arm point, fire when the tail is an exact repeating period. Tested
+first against finished answers — **0 false positives in 18,595** — which is the wrong test. A
+live guard is asked while the answer is still growing, so the real test is every PREFIX. Under
+that test the same parameters truncate **43 published readings**, mid-table, and publish them
+as whole.
+
+Raising the bar does not rescue it. The discriminator is exhausted by the data: published,
+EOS-terminated answers contain exact periodic runs of **5,184 and 5,040 characters** — wide
+tables whose cells are genuinely empty, `<td></td>` repeated to the end of the row and then
+closed properly with `</tr></table>`. A degenerate loop and a mostly-empty grid are the same
+string until one of them stops. **The only signal that separates them is the ending, which is
+exactly what is not available in flight.**
+
+Two things follow.
+
+- **The GPU saving is not available.** ~35 s a page on ~470 remaining cut pages stays spent.
+  That is the price of not truncating real readings, and it is the right trade.
+- **A cut answer can still be classified AFTER the fact**, where there is no risk at all: the
+  answer is already failed, so testing its periodicity cannot harm a published reading. That
+  distinguishes "cut because the page is long" from "cut because the engine looped" — which is
+  the evidence the finality question above needs, and none of it exists today because the
+  worker discards the answer before anyone can look.
+
+**And a separate quality question it turned up:** two published readings are mostly empty
+table cells (5,040 and 3,042 characters of `<td></td>`). They are plausibly correct readings of
+mostly-empty grids, but nothing has ever checked, and an answer that is 80% empty cells is
+worth a look before it is served as the page's text.
+
+## From the design review of the live pages — 2026-09-21
+
+Two of the four findings shipped the same day (`interface.md` § What a design review changed).
+These two are held, with what they are and why they are not being done now.
+
+- **One hairline and one radius serve every boundary, so nothing has rank.** `--hair` at 1px
+  is the entry-row separator, the register-group divider, the table rule, the fieldset border,
+  the footer rule, the masthead rule and the border around each 32px PDF icon; `border-radius:
+  4px` is on the viewer frame, page text, suggestions, inputs, fieldsets, selects, `.btn`,
+  `.connect-url` and both icon boxes. A row boundary, a section boundary and a control's edge
+  therefore carry identical visual weight, and in a dense record hierarchy has to come from
+  rule weight and spacing rhythm. The only place it does is `.week-head`'s 2px ink rule, which
+  works. **The fix** is three tokens rather than one — `--rule-section` (2px ink, extended to
+  `.moved-section` and `.register-group`), `--rule-row` (1px hair, rows only) and a separate
+  control border, or better a `--tint` fill and no border, so an edge means a boundary and a
+  fill means a control; and dropping the border and radius from `.pdf`, which is 1,250 boxes
+  on FD 36873 around a 16px glyph. **Why held:** it touches every page through shared tokens
+  and its value is visual rhythm, which needs someone judging rendered pages. The critique
+  behind it was made by reading CSS, not pixels, and that is not good enough for this one.
+- **The Board's ALL-CAPS summaries, rendered as printed, are the main body text.** Five
+  consecutive forty-word capitalised paragraphs on the home page. Capitals erase the
+  ascender/descender word-shape that carries fast scanning, which is exactly the reading these
+  users do, and `.as-printed` gives them 0.01em of tracking at full column width where caps
+  want roughly 0.05em and a 50–55 character measure. **The fidelity argument does not settle
+  it**: the Board's PDF is the authority and every row links to it, and the site already
+  re-renders the Board's dates while showing the printed form beside them — so case is
+  presentation, not content. **But it was a decision**, so changing it is the operator's and
+  belongs in `interface.md` before it belongs in a stylesheet. The narrow version — keep caps
+  for the caption, where legal convention expects them, and set the summary in sentence case —
+  is the one worth costing first.
+
+### A clamped summary does not say it is clamped — built and withdrawn, 2026-09-22
+
+`--summary-lines` cuts a summary at 12 lines (1 under compact), and a cut one simply stops
+mid-sentence: nothing says there is more, and nothing but opening the document reveals it. A
+progressive-enhancement control was built for it — measure `scrollHeight` against
+`clientHeight`, add a "Show the whole summary" button where they differ — and **withdrawn after
+four review passes**, not because the findings were unfixable but because they kept coming and
+the last one was about shape rather than detail:
+
+- it measures in the wrong font, because Newsreader is `font-display: swap` and the first
+  measurement happens in Georgia's metrics;
+- it has to hold state against **filtering** (a hidden entry has no layout, so it measures 0
+  and looks unclamped), **compact density** (which must close what the reader opened),
+  **resize**, and **focus** (a button that removes itself takes the focus ring with it);
+- and it forces a layout read per summary — **about 1,250 of them on FD 36873** — at load, again
+  on `fonts.ready`, and on every resize.
+
+**The better shape is a `<details>` decided on the server.** The renderer already holds the
+summary text, so a length threshold can wrap a long one in a disclosure at render time: no
+measurement, no script, no focus or resize state, nothing to recompute when a filter hides a
+row, and the element carries its own `aria-expanded` and keyboard behaviour. The cost is that a
+character count is an approximation of a line count, so the threshold wants choosing against
+real summaries rather than guessed — which is the work, and it is small.
+
+Worth weighing first: **every entry already links to the document's text and to the Board's own
+PDF**, so a reader who wants the rest of a summary has two ways to it. The question is whether
+the truncation is confusing enough to be worth any mechanism at all, which is a judgement about
+readers rather than about code.
+
+## From Codex's security review of PR #43 (the MCP brief tools), 2026-10-03, against cb522bb
+
+- **No request budget in front of `/mcp`.** Codex measured 20 concurrent `recent_activity`
+  calls over the whole archive at 847 MB RSS, past the web container's 768 MiB cap; the
+  checked-in Caddyfile has no limiter. Fixed in the tool: a window spans at most 366 days, so
+  one call materialises at most a year of records. Not fixed: a per-client rate or
+  concurrency limit for `/mcp` (Caddy has none built in; a module or a semaphore in the
+  route are the options) — every MCP tool, and `/search`, can be called in parallel by
+  anyone. An infrastructure decision, not this PR's.
+
+## The operator's live test of the brief tools, 2026-10-03 (against v2026.10.1)
+
+Run through the claude.ai connector. Every figure checked matched the live record (769
+decisions in 378 proceedings since 2025-01-01, every breakdown line; 839 notices of intent in
+18 proceedings), the 366-day bound refused and the assistant moved to the counts as the
+refusal suggests, and the procedural schedule of decision 53251 was read, not computed —
+every date matched the page. The operator judged none of it a concern. Held, not acted on:
+
+- **An apparent misprint was corrected in the answer's table** ("Oct 15, 2026" where the
+  schedule prints "October 15, 2016"), the misprint named only in prose after it.
+- **The reading label and the Board's file link were not repeated** with the quoted dates,
+  though `read_page` and `INSTRUCTIONS` ask for both.
+- **The assistant's own inferences sat beside the quotation** ("that is why the proposals
+  matter"; "the label ends July 2025, and Chief Counsel takes over").
+
+The lever, if wanted: a line in `INSTRUCTIONS` and on `read_page` — quote a date exactly as
+printed and note a discrepancy beside it, never in its place; carry who read the page and the
+Board's file; keep inference visibly apart from what the document says.

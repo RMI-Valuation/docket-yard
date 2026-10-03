@@ -403,6 +403,7 @@ def forward_pass(
     other table or the attachment fetch."""
     if days < MIN_WINDOW_DAYS:
         raise ValueError(f"window must be at least {MIN_WINDOW_DAYS} days (see module doc)")
+    began = time.monotonic()
     start, end = window(today or date.today(), days)
     summary: dict = {"window": (start, end), "captured": {}, "ingested": {}, "problems": []}
     try:
@@ -586,6 +587,10 @@ def forward_pass(
         con.rollback()
         summary["text"] = {"failed": True}
         summary["problems"].append(f"text extraction failed ({type(e).__name__}: {e})")
+    # how long the pass took, in its own summary line: `/coverage` says the Board is asked
+    # every thirty minutes and `/methodology` derives the re-check cycle from it, and a pass
+    # that quietly ran longer would make both false (deferred, the ADR 0024 review)
+    summary["duration_s"] = round(time.monotonic() - began, 1)
     log(f"poll {start}..{end}: {summary}")
     return summary
 
@@ -601,4 +606,9 @@ def run_forever(make_pass, every: float, log=print) -> None:
             make_pass()
         except Exception as e:  # noqa: BLE001
             log(f"pass ABORTED ({type(e).__name__}: {e})")
-        time.sleep(max(0.0, every - (time.monotonic() - started)))
+        elapsed = time.monotonic() - started
+        if elapsed > every:
+            # its own line, like ABORTED, so a log search finds it: the next pass starts at
+            # once and the published cadence is no longer true (deferred, the ADR 0024 review)
+            log(f"pass OVERRAN its interval: {elapsed:.0f} s against {every:.0f} s")
+        time.sleep(max(0.0, every - elapsed))

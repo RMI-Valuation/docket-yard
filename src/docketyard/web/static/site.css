@@ -38,7 +38,18 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .skip { position: absolute; left: -9999px; top: 8px; padding: 8px 12px; background: var(--ink); color: var(--paper); z-index: 10; }
 .skip:focus { left: 8px; }
+/* TWO JOBS, AND ONLY ONE OF THEM IS THE ELEMENT'S. On a record surface an `h2` labels a dense
+   block — "Decisions served", "Parties on record" — and is meant to be quiet; that is this
+   rule, and it stays exactly as it was. On a page of PROSE an `h2` is a section a reader
+   navigates by, and this same style made every one of them smaller and fainter than the text
+   it introduced, so /about, /api, /corrections and the explainers had no landmarks. The
+   heading look is therefore asked for BY NAME on those pages rather than taken from the
+   element: flipping the element instead silently restyled every `h2` that already carried a
+   class — `.week-title`, `.page-heading`, `.register-docket` and five rail labels on
+   /record — which a review caught and which is the same failure as one hairline serving every
+   boundary (2026-09-22). */
 h2 { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 10px 0; }
+h2.section-title { font-family: "Newsreader", Georgia, "Times New Roman", serif; font-size: 21px; font-weight: 500; line-height: 1.25; letter-spacing: 0; text-transform: none; color: var(--ink); margin: 32px 0 8px 0; }
 ol.plain, ul.plain { list-style: none; margin: 0; padding: 0; }
 .sheet { max-width: 1440px; margin: 0 auto; }
 main { padding: 0 56px; }
@@ -85,6 +96,10 @@ main { padding: 0 56px; }
 .register-entries { margin-top: 10px; }
 .register-entries li { padding: 3px 0; }
 @media (max-width: 900px) { .viewer { grid-template-columns: 1fr; } .viewer-frame { height: 70vh; } }
+/* the rail stays beside a long text: a search can open a document at page 100, and the docket
+   it belongs to should not be 100 pages up. Screen only, so print is not clipped; a rail taller
+   than the window scrolls on its own. */
+@media screen and (min-width: 901px) { .viewer-rail { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow-y: auto; } }
 .lookup { position: relative; }
 .suggest { position: absolute; top: 100%; left: 0; right: 0; z-index: 5; margin: 4px 0 0; padding: 4px 0; list-style: none; background: var(--paper); border: 1px solid var(--hair); border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
 .suggest li a { display: block; padding: 6px 12px; color: var(--ink); text-decoration: none; }
@@ -107,6 +122,11 @@ h2.week-title { font-family: "Newsreader", Georgia, serif; font-size: 26px; font
 .stat .l { font-size: 13px; color: var(--muted); }
 .two-col { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 56px; padding-top: 32px; }
 .two-col.wide-rail { grid-template-columns: minmax(0, 1fr) 420px; }
+.week-grid { display: grid; grid-template-columns: minmax(0, 1fr) 420px; column-gap: 56px; padding-top: 32px; grid-template-areas: "decisions rail" "moved moved"; }
+.week-decisions { grid-area: decisions; }
+.week-rail { grid-area: rail; }
+.week-grid > .moved-section { grid-area: moved; }
+.rail-uses { display: grid; gap: 14px; font-size: 14px; line-height: 1.5; }
 .rail { display: flex; flex-direction: column; gap: 32px; }
 .rail p { margin: 0; font-size: 14px; line-height: 1.5; }
 .rail .mono { color: var(--ink); }
@@ -128,6 +148,26 @@ table.moved { width: 100%; border-collapse: collapse; }
 .docket-number { margin: 8px 0 0 0; font-size: 56px; line-height: 1; font-weight: 500; letter-spacing: -0.02em; white-space: nowrap; }
 .caption-title { margin: 18px 0 0 0; max-width: 860px; font-size: 22px; line-height: 1.3; letter-spacing: 0.01em; }
 .caption-note { margin: 10px 0 0 0; font-size: 13px; }
+/* search, built out (docs/search-v2.md): the filters are a form inside <details>, so they work
+   without script and fold to one line on a phone */
+.search-form { display: grid; gap: 12px; margin-top: 16px; }
+.filters summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+.filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 24px; margin-top: 12px; }
+.filter-grid fieldset { border: 1px solid var(--hair); border-radius: 4px; padding: 10px 12px; margin: 0; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.filter-grid legend { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 0 4px; }
+.filter-grid label { font-size: 14px; }
+.filter-grid select, .filter-grid input[type=date] { width: 100%; font: inherit; font-size: 14px; background: var(--paper); color: var(--ink); border: 1px solid var(--hair); border-radius: 4px; }
+.filter-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.results { padding-top: 24px; display: grid; gap: 12px; }
+.party-strip ul { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.proceedings { display: grid; }
+.proceeding { padding: 14px 0; border-top: 1px solid var(--hair); display: grid; gap: 6px; }
+.proceeding-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.proceeding-head .dk { font-weight: 600; }
+.evidence { display: grid; gap: 8px; padding-left: 16px; border-left: 2px solid var(--hair); }
+.evidence .kind { display: inline-block; min-width: 64px; }
+.pager { display: flex; gap: 16px; align-items: center; padding-top: 8px; }
+.connect-url { font-size: 22px; padding: 12px 16px; border: 1px solid var(--hair); border-radius: 4px; background: var(--tint); overflow-wrap: anywhere; }
 .record-summary { margin: 16px 0 0 0; font-size: 17px; font-style: italic; }
 .actions { display: flex; align-items: center; gap: 10px; margin-top: 28px; }
 .actions .ext { margin-left: 8px; font-size: 14px; }
@@ -138,6 +178,22 @@ table.moved { width: 100%; border-collapse: collapse; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 999px; font: inherit; font-size: 13px; font-weight: 500; color: var(--ink); background: transparent; cursor: pointer; }
 .chip-on, .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+/* the type filters live behind a disclosure: three chips are the record's own split and mean
+   the same on every sheet, the types are a per-docket tail ordered by size. The count rides
+   in the chip because it is what a reader wants before spending a click. */
+.more-kinds { display: inline-block; }
+.more-kinds > summary { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px dashed var(--hair); border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; list-style: none; }
+.more-kinds > summary::-webkit-details-marker { display: none; }
+.more-kinds > summary::after { content: "▾"; margin-left: 6px; color: var(--muted); }
+.more-kinds[open] > summary::after { content: "▴"; }
+.more-kinds > summary:hover { border-color: var(--muted); }
+.more-kinds > .chips { padding: 10px 0 2px 0; }
+.chip-n { margin-left: 6px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] .chip-n { color: var(--paper); opacity: 0.75; }
+/* the week's numbers are a sentence, not a stat row: the third is a subset of the second and
+   the first counts a different thing, so three tiles promised a comparison that is not there */
+.week-count, .count-line { font-size: 17px; line-height: 1.5; margin: 18px 0 0 0; max-width: 62ch; }
+.week-count .n, .count-line .n { font-weight: 600; font-variant-numeric: tabular-nums; }
 .entry { display: grid; grid-template-columns: 96px 112px minmax(0, 1fr) 40px; gap: 16px; align-items: start; padding: var(--row-pad) 0; border-top: 1px solid var(--hair); }
 .entry[hidden] { display: none; }
 .entry-date { font-size: 14px; }
@@ -190,6 +246,8 @@ table.moved { width: 100%; border-collapse: collapse; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
   .weeks-list { columns: 2 140px; column-gap: 20px; }
   .two-col, .two-col.wide-rail { grid-template-columns: 1fr; gap: 32px; }
+  .filter-grid { grid-template-columns: 1fr; }
+  .week-grid { grid-template-columns: 1fr; grid-template-areas: "decisions" "moved" "rail"; row-gap: 8px; }
   .row { grid-template-columns: 1fr; gap: 4px; }
   .moved thead { display: none; }
   .moved tr { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 0; border-top: 1px solid var(--hair); }
@@ -219,7 +277,10 @@ table.moved { width: 100%; border-collapse: collapse; }
   .entry-links { flex-direction: row; align-items: center; justify-content: flex-start; }
   .entry-decision { margin: 0 -20px; padding-left: 20px; padding-right: 20px; }
   .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
-  .chip, .chip-small { height: 40px; padding: 0 14px; font-size: 14px; }
+  /* the types inside the disclosure WRAP: sideways scrolling is for a strip a reader skims
+     past, and this is a list they opened on purpose to read (2026-09-22) */
+  .more-kinds > .chips { flex-wrap: wrap; overflow-x: visible; }
+  .chip, .chip-small, .more-kinds > summary { height: 40px; padding: 0 14px; font-size: 14px; }
   .pdf { width: 44px; height: 44px; }
   .docket-number { font-size: 40px; }
   .footer { flex-direction: column; }
@@ -234,7 +295,7 @@ table.moved { width: 100%; border-collapse: collapse; }
   main { padding: 0; }
   .no-print, .prefs, .toolbar, .skip { display: none !important; }
   .print-only { display: block; }
-  .two-col, .two-col.wide-rail { display: block; }
+  .two-col, .two-col.wide-rail, .week-grid { display: block; }
   .rail { margin-top: 24px; }
   h1 { break-after: avoid; }
   .entry, .row, .moved tr { break-inside: avoid; }
@@ -248,10 +309,10 @@ table.moved { width: 100%; border-collapse: collapse; }
 
 /* follow (subscribe) form in the sheet rail */
 .follow { display: grid; gap: 8px; }
-.follow input[type="email"] { width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
+.follow input[type="email"] { width: 100%; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
 .follow-cadence { border: 0; padding: 0; margin: 0; display: grid; gap: 4px; }
 .follow-cadence label { display: flex; gap: 8px; align-items: center; font-size: 14px; }
-.follow input[type="url"] { width: 100%; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
+.follow input[type="url"] { width: 100%; padding: 8px 10px; border: 1px solid var(--hair); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
 .follow-alt { margin-top: 8px; }
 .follow-webhook { margin-top: 8px; }
 .follow-webhook summary { cursor: pointer; }

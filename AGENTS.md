@@ -8,7 +8,10 @@ own PDF.
 
 **Status: the wedge is live; M6 (parties) and M7 (stats) shipped after it.** <https://docketyard.org>
 serves the sheets, alerts, parties and the trust pages from one Lightsail instance (ADR
-0012), polling forward every 30 minutes since 2026-08-26; M1–M6 done, unannounced.
+0012), polling forward every 30 minutes since 2026-08-26; M1–M6 done. No longer unannounced:
+the operator presented it at the ARDA Technology Section's AI Spotlight on 2026-09-17, and it
+is being shared onward by word of mouth, including inside a Class I railroad. Real outside
+readers now rely on it.
 Waves 2–3 of the backfill are running. What comes next is chosen from the capability map
 by the operator and recorded in `ROADMAP.md` § Chosen — never assumed; what has shipped is
 recorded in `docs/milestones.md`. Production operations: `infra/deploy/README.md`.

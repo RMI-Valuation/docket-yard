@@ -9,6 +9,13 @@ is never shown on a page.
 Every delivery is signed: `X-DocketYard-Signature: sha256=<HMAC-SHA256(secret, body)>`
 over the exact bytes sent. Receivers should verify before trusting a payload.
 
+Since 2026-09-16 every delivery is ALSO signed with its moment (the operator's decision on the
+independent graders' finding that a captured delivery could be replayed for ever):
+`X-DocketYard-Timestamp: <unix seconds>` and
+`X-DocketYard-Signature-Timestamped: sha256=<HMAC-SHA256(secret, "<timestamp>." + body)>`. A
+receiver that checks the second and refuses an old timestamp is protected against replay. The
+first header is unchanged, so no receiver built before breaks.
+
 The outbound request is the one place this service connects to an address a stranger
 chose. It is limited to https, to public unicast hosts, to one request with no redirects,
 and to a short timeout. The host is resolved once, every address checked, and the
@@ -24,6 +31,7 @@ import ipaddress
 import json
 import socket
 import ssl
+import time
 import urllib.parse
 from dataclasses import dataclass
 
@@ -94,6 +102,36 @@ def verify(secret: str, body: bytes, signature: str) -> bool:
     return hmac.compare_digest(sign(secret, body), signature or "")
 
 
+REPLAY_WINDOW = 300  # seconds a receiver is told to accept a timestamp either side of now
+
+
+def sign_timestamped(secret: str, timestamp: int, body: bytes) -> str:
+    """The signature over `<timestamp>.<body>`: the moment is inside what is signed, so a
+    captured delivery cannot be replayed with a fresh timestamp."""
+    signed = str(timestamp).encode() + b"." + body
+    return "sha256=" + hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
+
+
+def verify_timestamped(
+    secret: str,
+    body: bytes,
+    timestamp: str,
+    signature: str,
+    *,
+    now: float,
+    window: int = REPLAY_WINDOW,
+) -> bool:
+    """For receivers: the timestamped signature matches AND the moment is within `window`
+    seconds of `now`. A timestamp that is not an integer is refused, not guessed at."""
+    try:
+        moment = int(timestamp)
+    except (TypeError, ValueError):
+        return False
+    if abs(now - moment) > window:
+        return False
+    return hmac.compare_digest(sign_timestamped(secret, moment, body), signature or "")
+
+
 class _PinnedHTTPS(http.client.HTTPSConnection):
     """Connects to the address that was checked, and verifies the certificate against
     the name the subscriber gave — so what was vetted is what is dialled."""
@@ -125,7 +163,13 @@ def encode(payload: dict) -> bytes:
 
 
 def post(
-    url: str, payload: dict, secret: str, *, delivery_id: str, timeout: int = TIMEOUT
+    url: str,
+    payload: dict,
+    secret: str,
+    *,
+    delivery_id: str,
+    timeout: int = TIMEOUT,
+    now: float | None = None,
 ) -> Result:
     """One signed POST, no redirects. Raises RefusedDestination for a host this service
     will not dial; never raises for the receiver's behaviour — the Result says what
@@ -134,6 +178,7 @@ def post(
     host = u.hostname or ""
     address = public_addresses(host)[0]
     body = encode(payload)
+    moment = int(time.time() if now is None else now)
     path = urllib.parse.urlunsplit(("", "", u.path or "/", u.query, ""))
     conn = _PinnedHTTPS(host, address, u.port or 443, timeout, ssl.create_default_context())
     try:
@@ -145,6 +190,8 @@ def post(
                 "Content-Type": "application/json; charset=utf-8",
                 "User-Agent": USER_AGENT,
                 "X-DocketYard-Signature": sign(secret, body),
+                "X-DocketYard-Timestamp": str(moment),
+                "X-DocketYard-Signature-Timestamped": sign_timestamped(secret, moment, body),
                 "X-DocketYard-Delivery": delivery_id,
             },
         )

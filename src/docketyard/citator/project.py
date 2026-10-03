@@ -239,7 +239,7 @@ def unstamped_work_rows(con) -> int:
     never reaches the rows that preceded it: they hold a `cited_decision_id` that no query
     will ever publish, for ever, and nothing in the store says so. A discipline that is
     invisible when broken is the shape ADR 0018 D7 was corrected for (schema-critic,
-    2026-09-10). Re-stamping them is not implemented — see `docs/deferred.md`.
+    2026-09-10). `citator restamp --apply` re-stamps them (`citator/restamp.py`).
     """
     return con.execute(
         "SELECT COUNT(*) FROM citation_resolution"

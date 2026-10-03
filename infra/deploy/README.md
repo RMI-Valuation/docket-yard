@@ -186,6 +186,12 @@ checks. A per-table check in `db.migrate` would cut it and is recorded in `docs/
    it makes the next pass rebuild everything whether or not the schema moved. v2026.08.45
    (`INDEX_FORMAT` 3) is such a release.
 
+   **Migration 0033 (search-v2, `INDEX_FORMAT` 4) empties the index and must be rebuilt
+   before the maintenance wall comes down.** `/search` says "being rebuilt" rather than
+   answering nothing, but `/suggest` and MCP's search answer empty until the rebuild lands.
+   It now writes placements and a document map as well (≈400,000 rows): measure its time and
+   write lock in the rehearsal, in production's image, before the release.
+
    **It is not urgent, and an earlier version of this paragraph said it was.** Measured on
    the instance 2026-08-31 at 96,225 rows: 24.1 s in all, of which the write transaction —
    the only part holding the write lock — is **5.6 s**, well inside the 30 s `_connect_rw`

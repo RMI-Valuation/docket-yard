@@ -49,6 +49,7 @@ class Pagination:
     page_count: int | None
     method: str
     method_version: str
+    had_text_layer: int | None = None
 
 
 # THE ONE SELECT over the display view and the page's live second reading. `readings` and
@@ -127,9 +128,65 @@ def band(p: PageText) -> str:
     )
 
 
+@dataclass(frozen=True)
+class Route:
+    """A page's live router verdict (`page_route`, migration 0032)."""
+
+    page_no: int
+    route_class: str
+    method: str
+    method_version: str
+
+
+def routes(con: Connection, document_sha256: str) -> dict[int, Route]:
+    """The document's live router verdicts, by page."""
+    rows = con.execute(
+        "SELECT page_no, route_class, method, method_version FROM page_route"
+        " WHERE document_sha256 = ? AND superseded_by IS NULL",
+        (document_sha256,),
+    ).fetchall()
+    return {r[0]: Route(*r) for r in rows}
+
+
+# What a page is shown as: its text, "Read as blank.", the unread-table marker, or "Not yet read."
+TEXT, BLANK, TABLE, UNREAD = "text", "blank", "table", "unread"
+
+
+def state(page: PageText | None, route: Route | None, had_text_layer: int | None = None) -> str:
+    """THE DISPLAY RULE for one page (ADR 0021 addendum, 2026-09-15), pure.
+
+    A person's row and an engine's reading are what they say: text, or blank. A text layer is
+    its text, EXCEPT on a page the router called `tabular` where the text layer is blank or the
+    document was paginated as having none (`had_text_layer = 0`, the live pagination row's):
+    the extractor calls a document image-only when every page carries under 20 stripped
+    characters, so a scanned table's stray page number is junk, not a reading of the table.
+    That page is the marker, as is a tabular page with no reading at all (`ocr-plan.md`
+    decision 3). Anything else blank is blank.
+
+    ONE EMPTINESS TEST: whitespace-stripped, as `citator/walk.py` skips a page that has no text.
+    The template's own test was truthiness, so a page of spaces read as text there and as blank
+    to the walk; it is blank everywhere now."""
+    tabular = route is not None and route.route_class == "tabular"
+    if page is None:
+        return TABLE if tabular else UNREAD
+    blank = not (page.text or "").strip()
+    if page.reading_channel == "text-layer" and tabular and (blank or had_text_layer == 0):
+        return TABLE
+    return BLANK if blank else TEXT
+
+
+def marker(route: Route) -> str:
+    """The marker's sentence, naming the verdict's provenance. The page adds the scan link."""
+    return (
+        "Scanned; contains a table we have not read."
+        f" Routed as a table by {route.method} {route.method_version}."
+    )
+
+
 def pagination(con: Connection, document_sha256: str) -> Pagination | None:
     row = con.execute(
-        "SELECT outcome, page_count, method, method_version FROM document_pagination"
+        "SELECT outcome, page_count, method, method_version, had_text_layer"
+        " FROM document_pagination"
         " WHERE document_sha256 = ? AND superseded_by IS NULL",
         (document_sha256,),
     ).fetchone()

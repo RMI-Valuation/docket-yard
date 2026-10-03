@@ -1,0 +1,18 @@
+[Unit]
+Description=Docket Yard: nightly backup of the coordinator's derived work
+Documentation=file:///home/%u/docket-yard/docs/compute-fleet.md
+
+[Timer]
+# 03:40 UTC. The hour is not load-bearing: this runs on the coordinator and production's
+# nightly dump (04:10 UTC) runs on the instance, so the two never contend. The fleet has no
+# quiet window to aim for either — a pass reads at any hour — and does not need one, because
+# the queue is snapshotted through SQLite's backup API while it is being served. A run
+# mid-pass is as sound as a run on an idle box; that is the whole point of not using `cp`.
+OnCalendar=*-*-* 03:40:00 UTC
+# a box that was off at 03:40 backs up when it comes back, rather than skipping the day
+Persistent=true
+# so a fleet of coordinators would not all upload on the same second
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

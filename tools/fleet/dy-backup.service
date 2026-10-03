@@ -1,0 +1,43 @@
+[Unit]
+# The coordinator's derived work, off the coordinator (ADR 0025 addendum, proposal 3).
+#
+# A systemd USER unit, not a tmux session: `docs/compute-fleet.md` records that tmux is where
+# the operator looks and that units are owed because tmux does not survive a reboot. A backup
+# that stops silently at the next power cut is not a backup, so this is the first thing on the
+# coordinator to be a unit.
+#
+# It needs no network ordering beyond the default: a run that cannot reach S3 exits 4, says so,
+# and the timer tries again tomorrow. Nothing is lost by a missed night, because nothing is
+# deleted by a later one — the writer holds no delete action at all.
+Description=Docket Yard: back the coordinator's derived work up to S3
+Documentation=file:///home/%u/docket-yard/docs/compute-fleet.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+# built on DISK, not in /tmp: /tmp is a 16 GB tmpfs on this box, so the default would build a
+# half-gigabyte tarball in RAM on the machine that is serving the queue. `--tmp` below is what
+# actually decides that directory — the tool passes `dir=` to its own TemporaryDirectory and
+# never consults TMPDIR, so until 2026-09-20 this unit's cleanup swept a path nothing wrote to
+Environment=TMPDIR=%h/docketyard/.backup-work
+ExecStartPre=/usr/bin/mkdir -p %h/docketyard/.backup-work
+# DELIBERATELY NOT the repository checkout. The fleet's checkout is pinned to the commit the
+# running pass was started from, and moving it is a deploy that changes what the collect loops
+# execute on their next tick. A backup that cannot run until the fleet is redeployed is a
+# backup that does not happen, so this file is copied to ~/dy-tools/ on its own. It imports
+# nothing from the project — standard library plus boto3 — so nothing couples the two.
+# Updating it is `scp tools/fleet/backup.py <the coordinator>:~/dy-tools/`.
+ExecStart=/usr/bin/python3 %h/dy-tools/backup.py \
+    --data %h/docketyard \
+    --tmp %h/docketyard/.backup-work \
+    --bucket rmi-fleet-backups \
+    --prefix docket-yard/ \
+    --profile fleet-backup
+# the work directory is emptied whether the run succeeded or not, so a failed night cannot
+# leave half a tarball behind to fill the disk before the next one
+ExecStopPost=/bin/sh -c 'rm -rf %h/docketyard/.backup-work/dy-backup-* || true'
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=default.target

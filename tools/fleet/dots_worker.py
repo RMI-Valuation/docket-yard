@@ -72,10 +72,23 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "rmi-ai-machine"))
 
-from ocr_wave import DOTS_MODEL, DOTS_SERVER, _dots_call  # noqa: E402 — the driver's own
-from pagequeue import PASSES, Queue, RemoteQueue  # noqa: E402
+from ocr_wave import DOTS, DOTS_MODEL, DOTS_SERVER, _dots_call  # noqa: E402 — the driver's own
+from pagequeue import (  # noqa: E402
+    PASSES,
+    BlobCorrupt,
+    BlobMissing,
+    BlobUnavailable,
+    Queue,
+    RemoteQueue,
+)
+from stopping import Stop, yield_now  # noqa: E402
 
-PASS = "dots"
+# The passes this worker can run: every pass whose key is dots.mocr's, since that is the engine
+# it talks to. `dots` reads the routed degraded pages; `reread` reads the flagged text-layer
+# pages from a page list and writes them as `second` (docs/research/text-quality/). One worker,
+# one engine, one key — the pass chooses which queue it claims from, never what it declares.
+PASSES_HERE = tuple(p for p, spec in PASSES.items() if spec["key"] == DOTS)
+PASS = "dots"  # the default; --pass picks another of PASSES_HERE
 DPI = int(PASSES[PASS]["key"]["render_profile"])  # the render IS the key; one source
 EXIT_SERVER_GONE, EXIT_SERVER_DIES, EXIT_ENVIRONMENT, EXIT_BREAKER = 2, 3, 4, 5
 
@@ -138,9 +151,7 @@ def read_page(pdf, no: int, png: Path, server: str, model: str, timeout: int, mp
     except Exception as e:  # noqa: BLE001 — a file that will not open at all
         raise DocumentFailed(f"will not open: {type(e).__name__}: {e}") from e
     with opened as doc:
-        if no > doc.page_count:
-            raise DocumentFailed(f"has {doc.page_count} pages, the route says {no}")
-        page = doc[no - 1]
+        page = doc[page_index(no, doc.page_count)]
         r = page.rect
         megapixels = (r.width / 72 * DPI) * (r.height / 72 * DPI) / 1e6
         if megapixels > mp:
@@ -170,6 +181,27 @@ def read_page(pdf, no: int, png: Path, server: str, model: str, timeout: int, mp
         png.unlink(missing_ok=True)
 
 
+def page_index(no: int, page_count: int) -> int:
+    """The 0-based index of page `no` of a document of `page_count` pages, or DocumentFailed.
+    Both ends: page 0 would index the LAST page (`doc[-1]`) and read the wrong one silently
+    (Copilot on PR #34, 2026-09-17)."""
+    if not 1 <= no <= page_count:
+        raise DocumentFailed(f"has {page_count} pages, the route says {no}")
+    return no - 1
+
+
+def register_or_exit(q, name: str, pass_: str, producer: dict) -> int | None:
+    """Register with the queue, or the environment exit code with the reason logged. A queue
+    that is locked, unreachable or refuses the key is the environment's failure, not an
+    unclassified crash (Copilot on PR #34, 2026-09-17)."""
+    try:
+        q.register(name, pass_, producer)
+    except Exception as e:  # noqa: BLE001 — every way registration fails is the environment's
+        log(f"could not register with the queue ({type(e).__name__}: {e}); exit {EXIT_ENVIRONMENT}")
+        return EXIT_ENVIRONMENT
+    return None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--db", type=Path, help="the queue file, on the node")
@@ -179,7 +211,16 @@ def main() -> int:
     ap.add_argument("--scratch", required=True, type=Path)
     ap.add_argument("--server", default=DOTS_SERVER)
     ap.add_argument("--model", default=DOTS_MODEL)
-    ap.add_argument("--name", default=None, help="worker name; default <host>/dots")
+    ap.add_argument("--name", default=None, help="worker name; default <host>/<pass>")
+    ap.add_argument(
+        "--pass",
+        dest="pass_",
+        default=PASS,
+        choices=PASSES_HERE,
+        help="which queue to claim from. Both passes here are dots.mocr at 200 DPI — the same"
+        " key, so the same producer declaration — and differ in which pages they hold and what"
+        " role their reading lands under. Default: dots",
+    )
     ap.add_argument("--batch", type=int, default=4, help="pages claimed per lease")
     ap.add_argument("--lease", type=int, default=2700, help="seconds; extended after every page")
     ap.add_argument("--timeout", type=int, default=600, help="seconds per page")
@@ -193,8 +234,12 @@ def main() -> int:
         " — how a gate stops a worker without waiting for its leases to expire",
     )
     args = ap.parse_args()
+    # installed BEFORE the server wait: a reader can spend up to --server-wait here, and a
+    # broker that signals during it should get a clean exit rather than a SIGKILL. Nothing is
+    # leased yet, so the flag simply stops the first claim.
+    stopping = Stop(args.stop_file).install()
 
-    spec = PASSES[PASS]
+    spec = PASSES[args.pass_]
     if args.blobs and not args.blobs.is_dir():
         log(f"--blobs {args.blobs} is not a directory; exit {EXIT_ENVIRONMENT}")
         return EXIT_ENVIRONMENT
@@ -208,7 +253,7 @@ def main() -> int:
     else:
         log(f"give --db and --blobs (the coordinator) or --queue; exit {EXIT_ENVIRONMENT}")
         return EXIT_ENVIRONMENT
-    name = args.name or f"{socket.gethostname()}/{PASS}"
+    name = args.name or f"{socket.gethostname()}/{args.pass_}"
     if not server_healthy(args.server):
         log(f"no healthy server at {args.server}; waiting up to {args.server_wait}s")
         if not wait_for_server(args.server, args.server_wait):
@@ -229,33 +274,39 @@ def main() -> int:
         "max_megapixels": spec["max_megapixels"],
         "worker": Path(__file__).name,
     }
-    q.register(name, PASS, producer)
+    if (code := register_or_exit(q, name, args.pass_, producer)) is not None:
+        return code
     log(f"{name} registered as {producer}")
+    # logged HERE, not at the yield: a page that outruns the grace is SIGKILLed and never
+    # reaches `why()`, which is exactly when the operator wants to know what the budget was
+    log(f"stop: file {args.stop_file}, signal grace {stopping.grace:.0f}s")
     args.scratch.mkdir(parents=True, exist_ok=True)
 
     read = failed = streak = 0
     last_server_death: tuple[str, int] | None = None
-    held: tuple[str, bytes] | None = None  # the last document fetched, for a remote worker
+    held: tuple[str, Path] | None = None  # the last document fetched, for a remote worker
     ids: list[int] = []
-
-    def stopping() -> bool:
-        return bool(args.stop_file and args.stop_file.exists())
 
     try:
         while True:
             if args.max_pages and read + failed >= args.max_pages:
                 log(f"--max-pages reached: {read} read, {failed} failed")
                 return 0
-            jobs = q.claim(name, PASS, args.batch, args.lease)
+            if stopping():
+                # before the claim, not after: a stopped reader that claimed first would spend
+                # two coordinator round trips inside the grace, and a reader started under the
+                # operator's latch would claim and release a batch every restart
+                log(stopping.why("nothing claimed"))
+                stopping.checkpoint_complete()
+                return 0
+            jobs = q.claim(name, args.pass_, args.batch, args.lease)
             if not jobs:
                 log(f"queue empty: {read} read, {failed} failed this session")
                 return 0
             ids = [j["job_id"] for j in jobs]
             for i, job in enumerate(jobs):
                 if stopping():
-                    q.release(name, ids[i:])
-                    log(f"stop file present; {len(ids) - i} pages released; exit 0")
-                    return 0
+                    return yield_now(q, name, ids, i, stopping, log)
                 sha, no = job["document_sha256"], job["page_no"]
                 png = args.scratch / f"{name.replace('/', '_')}_{sha[:12]}_p{no}.png"
                 try:
@@ -263,17 +314,47 @@ def main() -> int:
                         pdf = args.blobs / sha[:2] / sha
                     else:
                         if held is None or held[0] != sha:
+                            # STREAMED TO DISK, NEVER INTO RAM. `read_page` takes a path as
+                            # readily as bytes, and the documents this change newly makes
+                            # reachable (a pruned mirror used to be a flat 404) reach 1.07 GB
+                            # in this record — which is what OOM-killed the instance in August,
+                            # and the smallest box that leases pages has 8 GB (code review).
+                            if held is not None:
+                                held[1].unlink(missing_ok=True)  # the previous document
+                                held = None
+                            spool = args.scratch / f"doc-{sha}.pdf"
                             try:
-                                held = (sha, q.blob(sha))
-                            except urllib.error.HTTPError as e:
-                                if e.code == 404:
-                                    raise DocumentFailed("not on the node") from e
-                                raise
+                                held = (sha, q.blob_into(sha, spool))
+                            except BlobMissing as e:
+                                raise DocumentFailed(f"not in the store: {e}") from e
+                            except BlobCorrupt as e:
+                                # the store's, not the page's, and it will not fix itself on a
+                                # retry — but it is not final either: a document is never
+                                # written off on one answer from a store having a bad day. The
+                                # coordinator has already printed the alarm.
+                                raise DocumentFailed(f"the store is corrupt here: {e}") from e
                         pdf = held[1]
                     raw = read_page(
                         pdf, no, png, args.server, args.model, args.timeout, spec["max_megapixels"]
                     )
                 except PageFailed as e:
+                    if stopping():
+                        # A STOP MUST NOT LOOK LIKE A CUT PAGE. A broker signals the whole
+                        # scope, so the server can be torn down under an in-flight request and
+                        # answer `finish_reason: abort` — which `read_page` calls the page's
+                        # own and this branch would fail FINALLY. The document then reads
+                        # `whole` for ever and a good page is gone from the pass. Cost when
+                        # this fires on a genuinely cut page: one re-render at the next
+                        # placement, which fails it finally then.
+                        return yield_now(
+                            q,
+                            name,
+                            ids,
+                            i,
+                            stopping,
+                            log,
+                            f"stopped mid-page on {sha[:12]} p{no} ({e}); ",
+                        )
                     q.fail(name, job["job_id"], f"page: {e}", final=True)
                     failed += 1
                     streak += 1
@@ -282,15 +363,46 @@ def main() -> int:
                         q.release(name, ids[i + 1 :])
                         log(f"{streak} page failures in a row, no page read; exit {EXIT_BREAKER}")
                         return EXIT_BREAKER
+                except BlobUnavailable as e:
+                    # THE ENVIRONMENT'S, SO NO PAGE PAYS. The node is unreachable or its
+                    # credential is: every page in the fleet would fail identically, so this
+                    # one and every one after it go back UNSPENT and the worker exits for the
+                    # resubmitter to bring back (ADR 0025 addendum, proposal 2). Retrying here
+                    # is the loop the old bare re-raise produced, minus the traceback.
+                    # THE RELEASE GOES TO THE SAME NODE THAT JUST FAILED, so it may fail
+                    # too — and an exception here would escape as the traceback this whole
+                    # mapping exists to prevent (ingest review). If it does not land, the
+                    # leases expire instead, and `_reap` SPENDS the attempt rather than
+                    # refunding it: the pages are not lost and no document is counted whole,
+                    # but they are not free either. Said plainly in the log rather than
+                    # claiming "unspent" when that may not be what happened.
+                    try:
+                        q.release(name, ids[i:])
+                        back = f"{len(ids) - i} released unspent"
+                    except Exception as release_failed:  # noqa: BLE001 — the node is the fault
+                        back = (
+                            f"{len(ids) - i} could NOT be released"
+                            f" ({type(release_failed).__name__}); they wait for lease expiry,"
+                            " which spends an attempt each"
+                        )
+                    log(f"the node cannot serve documents ({e}); {back}; exit {EXIT_ENVIRONMENT}")
+                    return EXIT_ENVIRONMENT
                 except DocumentFailed as e:
                     q.fail(name, job["job_id"], f"blob: {e}", final=False)
                     failed += 1
                     log(f"  document {sha[:12]} {e}; p{no} back for a later seed")
                 except ServerDown as e:
                     if stopping():  # a deliberate stop ended the request: nobody's fault
-                        q.release(name, ids[i:])
-                        log(f"stopped mid-page on {sha[:12]} p{no}; {len(ids) - i} released")
-                        return 0
+                        # the page in flight goes back UNSPENT: a stop did not fail it
+                        return yield_now(
+                            q,
+                            name,
+                            ids,
+                            i,
+                            stopping,
+                            log,
+                            f"stopped mid-page on {sha[:12]} p{no} ({e}); ",
+                        )
                     log(f"  SERVER DOWN on {sha[:12]} p{no} ({e}); {len(ids) - i - 1} released")
                     q.fail(name, job["job_id"], f"server: {e}", final=False)
                     q.release(name, ids[i + 1 :])
@@ -317,13 +429,22 @@ def main() -> int:
             if (read + failed) % 40 < args.batch:
                 log(f"  {read} read, {failed} failed this session")
     except Exception:  # noqa: BLE001 — nobody's we named: the queue, the venv, a 4xx
-        log("NOT THE PAGE'S FAULT; releasing what is held and exiting")
         log(traceback.format_exc())
         try:
+            if stopping.signal_name:
+                # the twin's rule: a signal while something was in flight is the broker taking
+                # the machine, so this exits 0 with its marker rather than as a fault
+                return yield_now(q, name, ids, 0, stopping, log, "stopped mid-page; ")
+            log("NOT THE PAGE'S FAULT; releasing what is held and exiting")
             q.release(name, ids)  # the whole batch: the page in flight is not to blame
         except Exception:  # noqa: BLE001 — the queue itself may be what failed
             log("could not release; the leases expire on their own")
         return EXIT_ENVIRONMENT
+    finally:
+        # THE LAST DOCUMENT FETCHED IS A FILE NOW, not bytes that vanish with the process
+        # (code review). Up to 1.07 GB of it, on a scratch disk shared with the renders.
+        if held is not None:
+            held[1].unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

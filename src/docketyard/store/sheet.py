@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass, field
 from sqlite3 import Connection
 
+from docketyard.capture.stb import DECISIONS, ENVIRO_COMMENTS, FILINGS
 from docketyard.parties import resolve
 from docketyard.store.db import load_json
 
@@ -96,7 +97,11 @@ class DocketSheet:
     filings: int
     decisions: int
     comments: int
-    last_checked: str | None  # latest capture that touched the family, ISO UTC
+    # SHAPE 3 (the operator, 2026-09-16, on the independent graders' finding): until
+    # then `last_checked` was the latest capture that brought this family an entry, so
+    # a quiet docket polled every thirty minutes read weeks stale. Now two fields:
+    last_checked: str | None  # the Board last asked about every record table, ISO UTC
+    last_new_entry: str | None  # the latest capture that brought this family an entry
     series: Series | None = None  # the number above this one, when this is a sub-docket
     parties: list[dict] = field(default_factory=list)  # the Parties block (party module)
 
@@ -215,7 +220,34 @@ def _family_totals(con: Connection, ids: list[int]) -> dict:
     return counts
 
 
-def _last_checked(con: Connection, ids: list[int]) -> str | None:
+# The first day the Board's own search returns anything for (measured, stb-data-source.md
+# § Measured 2026-08-27): a sheet whose earliest entry falls within a year of it may be the
+# later part of an older proceeding, and says so (the operator, 2026-09-16).
+RECORD_BEGINS = "1996-01-25"
+EARLY_UNTIL = "1997-01-25"
+
+
+def last_polled(con: Connection) -> str | None:
+    """When the watch last asked the Board about every record table: the OLDEST of the
+    tables' latest asserted forward captures, among the tables the watch asks, since a docket
+    is checked only when its filings, decisions and comments all were. A poll asks for every
+    docket at once, so this is every docket's; an outage leaves it at the last capture that
+    succeeded, which is what "checked" means. Read backwards by capture id, which stops at the
+    first match (0.08 ms a table on the Sept 16 snapshot of 113,030 captures, against 82 ms
+    for MAX over all)."""
+    times = []
+    for action in (FILINGS, DECISIONS, ENVIRO_COMMENTS):
+        row = con.execute(
+            "SELECT captured_at FROM capture WHERE ingest_mode = 'forward'"
+            " AND filter_asserted = 1 AND table_action = ? ORDER BY capture_id DESC LIMIT 1",
+            (action,),
+        ).fetchone()
+        if row is not None:  # a table the watch has never asked (a fresh store) is not a gap
+            times.append(row[0])
+    return min(times, default=None)
+
+
+def _last_new_entry(con: Connection, ids: list[int]) -> str | None:
     marks = ",".join("?" for _ in ids)
     return con.execute(
         f"SELECT MAX(c.captured_at) FROM capture c JOIN event e ON e.capture_id = c.capture_id"
@@ -356,7 +388,8 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
             # its sub-docket is two `filing` rows and one filing, which is the fold the
             # entry list used to do (ADR 0005)
             **_family_totals(con, ids),
-            last_checked=_last_checked(con, ids),
+            last_checked=last_polled(con),
+            last_new_entry=_last_new_entry(con, ids),
             # the Parties block is not rendered on a series, so it is not resolved either
             parties=[],
         )
@@ -389,7 +422,6 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
     # nearest the parent (family order) and note where else it was entered
     entries = _fold_family_duplicates(entries, [m.raw_docket for m in family])
     entries.sort(key=lambda e: sort_key(e.kind, e.date, e.record_id), reverse=True)
-    last = _last_checked(con, ids)
     return DocketSheet(
         docket_id=docket_id,
         raw_docket=raw,
@@ -403,7 +435,8 @@ def docket_sheet(con: Connection, docket_id: int) -> DocketSheet | None:
         filings=sum(1 for e in entries if e.kind == "filing"),
         decisions=sum(1 for e in entries if e.kind == "decision"),
         comments=sum(1 for e in entries if e.kind == "comment"),
-        last_checked=last,
+        last_checked=last_polled(con),
+        last_new_entry=_last_new_entry(con, ids),
         parties=resolve.parties_in(con, ids),
     )
 

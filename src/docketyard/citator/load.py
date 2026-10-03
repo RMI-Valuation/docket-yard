@@ -36,6 +36,17 @@ from docketyard.store import supersede
 from docketyard.store.db import dump_json, utcnow
 
 
+def _page(value) -> int:
+    """A page number from a findings document, or a refusal. `int()` truncated: `4.7` was
+    page 4 in the guard and in the insert alike, a location the document never gave (code
+    review of the OCR channel's card, 2026-09-13). A page is a whole number, or digits."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    raise ValueError(f"page {value!r} is not a whole page number")
+
+
 class NotTheOwner(RuntimeError):
     """A findings document whose method does not own the class it is writing into. Two
     extractors emitting the same target on the same page would collide on a key with no
@@ -134,8 +145,8 @@ def _shared_pages(con, doc: dict, channel: str) -> list[tuple[int, str]]:
     already holds live citation readings on. Its walked pages count, not only the pages it found
     something on: a pass over a page is what a retraction trusts. A `human` reading is the review
     layer's, not a second pass, and does not count."""
-    walked = {int(p) for p in doc.get("pages_walked") or ()}
-    walked |= {int(f["page"]) for f in doc.get("findings", [])}
+    walked = {_page(p) for p in doc.get("pages_walked") or ()}
+    walked |= {_page(f["page"]) for f in doc.get("findings", [])}
     return sorted(
         (page, other)
         for page, other in con.execute(
@@ -291,7 +302,7 @@ def load_document(
     # the word of a reading that identifies nothing it read. `findings_document` refuses the
     # same shape at the producer; this is the boundary.
     if text_ref == "store":
-        unpointed = sorted({int(p) for p in doc.get("pages_walked") or ()} - set(text_ids))
+        unpointed = sorted({_page(p) for p in doc.get("pages_walked") or ()} - set(text_ids))
         if unpointed:
             raise WrongChannel(
                 f"{sha[:12]} page(s) {unpointed[:5]}: walked by a 'store' reading with no"
@@ -416,7 +427,7 @@ def load_document(
                 f" {finding.get('key')!r}, but its target {finding.get('target')!r} keys as"
                 f" {key!r} for this document's own dockets (ADR 0018 addendum of 2026-09-14)"
             )
-        at = (int(finding["page"]), key)
+        at = (_page(finding["page"]), key)
         occurrences = [s[2] for s in finding.get("spans") or []]
         if text_ref != "store":  # a benchmark reading carries its printed forms without offsets
             occurrences += finding.get("printed") or []
@@ -443,7 +454,7 @@ def load_document(
     # before the first write so a refused document leaves nothing behind.
     if text_ref == "store":
         for finding in doc.get("findings", []):
-            page_no = int(finding["page"])
+            page_no = _page(finding["page"])
             if page_no not in texts:
                 raise WrongChannel(
                     f"{sha[:12]} page {page_no}: a 'store' finding on a page no text_id names"
@@ -976,7 +987,7 @@ def load_document(
     # key a person DECIDED (ADR 0017 D5). And a key with a question still OPEN before a person:
     # an escalation writes no human row, and retracting its key would drop the item unseen.
     emitted = set(passages)
-    walked = {int(p) for p in doc.get("pages_walked") or ()}
+    walked = {_page(p) for p in doc.get("pages_walked") or ()}
     for citation_id, page, key in con.execute(
         "SELECT citation_id, page, target_key FROM citation WHERE citing_document = ?"
         " AND target_kind = 'stb' AND superseded_by IS NULL AND method = ? AND method_version <> ?",

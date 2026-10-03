@@ -235,12 +235,21 @@ def registry(con) -> dict[str, int]:
     """Every held proceeding, keyed the way a citation is. This is the registry ADR 0017 D2
     checks against in RESOLUTION - never inside the finder, which would make an unresolvable
     target impossible to emit and empty the review queue by construction."""
-    return {
-        registry_key(p, s, sub, suf): did
-        for did, p, s, sub, suf in con.execute(
-            "SELECT docket_id, prefix, sequence, sub_sequence, suffix FROM docket"
-        )
-    }
+    out: dict[str, int] = {}
+    for did, p, s, sub, suf in con.execute(
+        "SELECT docket_id, prefix, sequence, sub_sequence, suffix FROM docket"
+    ):
+        key = registry_key(p, s, sub, suf)
+        # LOUDLY, not by overwrite: `sub_sequence = 0` is legal SQL and keys as the parent,
+        # so a comprehension would lose a proceeding without a word (schema-critic, the key
+        # fix). Unreachable today — ingest maps 0 to None — which is why it is a raise.
+        if key in out:
+            raise ValueError(
+                f"two dockets key as {key!r} (docket_id {out[key]} and {did}); the registry"
+                " would lose one"
+            )
+        out[key] = did
+    return out
 
 
 def works(con) -> dict[tuple[int, str], str]:

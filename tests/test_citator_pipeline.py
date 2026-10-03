@@ -1774,3 +1774,27 @@ def test_restamp_leaves_a_class_it_does_not_own_alone(tmp_path):
         "SELECT confidence, measured_class FROM citation_resolution WHERE superseded_by IS NULL"
     ).fetchall() == [(0.985, "on-page-veto")]
     con.close()
+
+
+def test_the_loader_refuses_a_fractional_page_rather_than_truncating_it(tmp_path):
+    """`int(4.7)` is 4: a location the document never gave, in the guard and the insert alike
+    (code review of the OCR channel's card, 2026-09-13)."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    doc = _findings({"page": 4.7, "target": "EP 445", "quoted": "EP 445, slip op. at 3."})
+    with pytest.raises(ValueError, match="not a whole page number"):
+        load.load_document(con, doc, keys.registry(con), keys.works(con), stamps)
+    for table in ("citation", "citation_reading", "citation_resolution"):
+        assert con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+
+
+def test_two_dockets_keying_alike_are_refused_not_overwritten(tmp_path):
+    """`sub_sequence = 0` keys as the parent; a dict comprehension kept the second and lost the
+    first without a word (schema-critic, the key fix)."""
+    con = _store(tmp_path)
+    con.execute(
+        "INSERT INTO docket (raw_docket, prefix, sequence, sub_sequence, suffix)"
+        " VALUES ('EP_445_0', 'EP', 445, 0, NULL)"
+    )
+    with pytest.raises(ValueError, match="two dockets key as 'EP 445'"):
+        keys.registry(con)

@@ -68,6 +68,60 @@ inherits its system.
 Process: mock the sheet visually (realistic content — FD 36873) and iterate to approval
 **before** any template is written. Done 2026-08-25; working files in `design/docket-sheet/`.
 
+## What a design review changed, and what it left alone — 2026-09-21
+
+A critique of the live pages, against this document. It found the identity intact: the
+self-hosted faces, the warm paper, tabular numerals everywhere, density and theme as the
+reader's, and a print stylesheet all read as a designed thing rather than a template. Two
+things did not, and both are now changed.
+
+**The week's numbers read as a sentence.** The home and week pages opened with three 44px
+numerals in equal columns — decisions served, filings observed, and the largest docket's
+share. A stat row promises by its shape that its numbers compare, and these do not: the third
+is a SUBSET of the second, and the first counts a different unit. They are four facts about a
+week, so they are now one serif sentence with the numerals in 600 weight. This does not
+retract "the homepage is a dashboard" above: it says a tile is for a measure, and a measure
+must be commensurable with the tiles beside it. `/statistics` keeps its stat row, where
+filings, decisions and comments really are parallel and comparison is the job.
+
+**The type filters are a disclosure ordered by size.** The sheet offered every filing type as
+an equal pill, alphabetically — 21 of them on FD 36873, led by `Appeal`. Alphabetical order
+with uniform emphasis is a list rendered rather than designed, and it inverts the real
+distribution. Now: `All entries`, `Decisions` and `Filings` stay as chips, because they are
+the record's own top-level split and mean the same thing on every sheet; the types sit behind
+a `By type` disclosure, **ordered by how much of this docket each one is**, each carrying its
+count. The count is what a reader wants before spending a click. The chips still filter
+client-side, and the summary names the chosen type so shutting the disclosure never hides a
+live filter.
+
+**Headings are asked for by name, 2026-09-22.** `h2` was one style doing two jobs. On a record
+surface it labels a dense block — "Decisions served", "Parties on record" — and is meant to be
+quiet, which is what the element carries and what it keeps. On a page of prose it is a section
+a reader navigates by, and the same 12px uppercase muted label made every heading on /about,
+/api, /corrections, /privacy, /methodology and the explainers smaller and fainter than the text
+beneath it, leaving those pages without landmarks. The tell was `h2.week-title`, which had to
+override every property of the rule to be a heading. So the heading style is `h2.section-title`,
+applied to the prose pages only. **Flipping the element instead was tried and withdrawn**: it
+silently restyled every `h2` that already carried a class — `.week-title`, `.page-heading`,
+`.register-docket` and five rail labels on /record — which is one global rule with partial
+overrides, the same failure as one hairline serving every boundary.
+
+**A clamped summary still does not say so** — built, reviewed four times, and withdrawn the
+same day; the analysis is in `docs/deferred.md`. Measuring the clamp in the browser is the
+wrong shape for this site: on a 1,250-entry sheet it forces a layout read per summary at load,
+again when the webfont lands, and on every resize, and it has to keep its state straight
+against filtering, compact density, resize and focus. A `<details>` decided on the server, by
+the length of the text it already holds, costs none of that and needs no script.
+
+**Held, deliberately, and recorded in `docs/deferred.md`:** one hairline and one 4px radius
+currently serve every boundary — row separator, section break, control border, icon box — so
+structure and decoration carry identical weight. The fix is to split that token into three
+tiers. It is right, it touches every page through shared tokens, and its whole value is
+visual rhythm, which wants someone looking at rendered pages rather than at CSS. **Also
+held:** whether the Board's ALL-CAPS summaries should be rendered as printed. That is the
+largest reading improvement available and the only item here with a provenance edge, so it is
+the operator's, and it changes this document before it changes a stylesheet.
+
 ## Surfaces beyond the sheet
 
 Brief for what comes after M3, drawn from the project's ancestor — the single-docket UP–NS

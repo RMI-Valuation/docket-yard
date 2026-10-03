@@ -1,27 +1,37 @@
 Docket Yard — data licence
 
-The data in this snapshot, and everything served by docketyard.org's JSON endpoints, is
-the raw index of the Board's record — dockets, filings, decisions, dates, documents by
-content hash, and the capture ledger that is their provenance — and is dedicated to the
-public domain under the Creative Commons CC0 1.0 Universal dedication:
+The data in this snapshot, and everything served by docketyard.org's JSON endpoints, is the
+raw index of the Board's record: dockets, filings, decisions and environmental comments, their
+dates and types, documents by content hash, and — in the snapshot — the capture ledger that is
+their provenance.
+
+WHAT IS DEDICATED. Docket Yard's compilation of the record, the provenance it records, and the
+fields that are the Board's own work — docket numbers and captions, record identifiers, dates,
+types, deciding bodies and decision summaries — are dedicated to the public domain under the
+Creative Commons CC0 1.0 Universal dedication:
 
     https://creativecommons.org/publicdomain/zero/1.0/
 
-The underlying records are those of the United States Surface Transportation Board, a
-federal agency; as works of the United States Government they are in the public domain.
-Docket Yard's compilation of them, and the provenance it records, are dedicated to the
-public domain by RMI Valuation, LLC, its operator. You may copy, modify, distribute and use the
-data, for any purpose, without asking permission and without attribution.
+The Board is a federal agency, and its own works are in the public domain. The compilation and
+its provenance are dedicated by RMI Valuation, LLC, Docket Yard's operator. You may copy,
+modify, distribute and use them, for any purpose, without asking permission and without
+attribution.
+
+WHAT IS REPRODUCED AS FILED. The words of filings and of environmental comments — a
+commenter's letter, name and town; a filer's "filed for" cell — are in the public record
+because their authors filed them with the Board, and they are published here as the Board
+publishes them. Docket Yard reproduces them; it does not own them and does not purport to
+dedicate them. Whatever rights their authors hold remain theirs.
 
 The data is provided as is, without warranty of any kind. Every record carries its source;
 the Board's own file is authoritative. Docket Yard is not affiliated with the Board.
 
 Attribution is welcome but not required: "Docket Yard, https://docketyard.org".
 
-Not included: Docket Yard's enriched layer — entity resolution (the party module),
-and later the citation graph — is derived work whose licence is under review and is
-withheld from the snapshot and the JSON until that review is done. It will be published
-under terms stated here when it is; nothing about it is implied by this dedication.
+NOT INCLUDED. Docket Yard's enriched layer — entity resolution (the party module), the
+machine-read text of documents, and the citation graph — is derived work whose licence is under
+review and is withheld from the snapshot and the JSON until that review is done. It will be
+published under terms stated here when it is; nothing about it is implied by this dedication.
 
-The software that produces the data is a separate work, licensed under the GNU Affero
-General Public License v3.0 (see the repository's LICENSE).
+The software that produces the data is a separate work, licensed under the GNU Affero General
+Public License v3.0 (see the repository's LICENSE).

@@ -42,13 +42,16 @@
       {#- Two entry points into 32,623 proceedings — this week, and a text box — was the
           reason none of it was browsable (navigation-review.md § C). The three indexes built
           2026-09-01 are named here, at the operator's choice of all five over a shorter
-          masthead: what moved, every proceeding, everyone who files, every week. -#}
+          masthead: what moved, every proceeding, everyone who files, every week. Search joined
+          them with search-v2 (the operator, 2026-09-17): the box beside it is a quick lookup,
+          and the filters, order and grouped results are on the page. -#}
       <nav class="nav" aria-label="Site">
         <a href="/">This week</a>
         <a href="/dockets">Dockets</a>
         <a href="/parties">Parties</a>
         <a href="/weeks">Weeks</a>
         <a href="/stats">Statistics</a>
+        <a href="/search">Search</a>
       </nav>
     </div>
     <form class="lookup" action="/search" method="get" role="search">
@@ -59,9 +62,9 @@
   <main id="main">{% block main %}{% endblock %}</main>
   <footer class="footer">
     <div class="footer-links">
-      <a href="/about">About</a> · <a href="/coverage">Coverage</a> · <a href="/weeks">Weeks</a> · <a href="/dockets">Dockets</a> · <a href="/stats">Statistics</a> · <a href="/court">Court actions</a> · <a href="/protective">Protective orders</a> · <a href="/feed">Feed</a> · <a href="/data">Data</a> · <a href="/api">API</a> · <a href="/methodology">Methodology</a> · <a href="/corrections">Corrections</a> · <a href="/contribute">Contribute</a> · <a href="/privacy">Privacy</a> · <a href="https://github.com/RMI-Valuation/docket-yard" rel="noopener">Source</a>
+      <a href="/about">About</a> · <a href="/coverage">Coverage</a> · <a href="/weeks">Weeks</a> · <a href="/dockets">Dockets</a> · <a href="/stats">Statistics</a> · <a href="/court">Court actions</a> · <a href="/protective">Protective orders</a> · <a href="/feed">Feed</a> · <a href="/data">Data</a> · <a href="/api">API</a> · <a href="/ai">AI assistants</a> · <a href="/methodology">Methodology</a> · <a href="/corrections">Corrections</a> · <a href="/contribute">Contribute</a> · <a href="/privacy">Privacy</a> · <a href="https://github.com/RMI-Valuation/docket-yard" rel="noopener">Source</a>
     </div>
-    <div>{{ site_name }} is operated by RMI Valuation, LLC and is not affiliated with the Surface Transportation Board.</div>
+    <div>{{ site_name }} is operated by RMI Valuation, LLC and is not affiliated with the Surface Transportation Board. {% if site_version.startswith('v') %}<a href="https://github.com/RMI-Valuation/docket-yard/releases/tag/{{ site_version }}" rel="noopener">Release {{ site_version }}</a>{% else %}Development build{% endif %}.</div>
   </footer>
 </div>
 <script>

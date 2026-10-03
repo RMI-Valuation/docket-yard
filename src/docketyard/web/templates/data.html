@@ -3,13 +3,13 @@
 {% block main %}
 <section class="caption">
   <h1 class="serif">The record as data</h1>
-  <p class="muted">Bulk access is a promise, not a feature. The raw index — every docket, filing, decision, date and document {{ site_name }} holds about the Board’s proceedings, with its provenance — is downloadable as one file, and every docket, filing and decision has a JSON twin at its own address. That index is dedicated to the public domain (<a href="https://creativecommons.org/publicdomain/zero/1.0/" rel="noopener">CC0 1.0</a>): use it for anything, no permission or attribution needed. The Board’s own file remains the authority for every record.</p>
+  <p class="muted">Bulk access is a promise, not a feature. The raw index — every docket, filing, decision, date and document {{ site_name }} holds about the Board’s proceedings, with its provenance — is downloadable as one file, and every docket, filing and decision has a JSON twin at its own address. That index — the compilation, and the fields that are the Board’s own work: numbers, captions, dates, types, summaries — is dedicated to the public domain (<a href="https://creativecommons.org/publicdomain/zero/1.0/" rel="noopener">CC0 1.0</a>): use it for anything, no permission or attribution needed. The words of filings and environmental comments are in the public record because their authors filed them, and are reproduced here as the Board publishes them; they are not {{ site_name }}’s to dedicate. The Board’s own file remains the authority for every record.</p>
   <p class="muted"><strong>Machines are welcome, and so is training.</strong> The raw index is dedicated to the public domain, so training on it needs no permission and none is withheld: <a href="/robots.txt">robots.txt</a> names the AI crawlers explicitly rather than leaving them to guess at silence. There is a read-only <a href="/.well-known/mcp.json">MCP server</a> at <span class="mono">/mcp</span> and a plain-language <a href="/llms.txt">/llms.txt</a>. One thing is asked rather than required: if you answer questions from this record, carry what a reader would have seen — <a href="/coverage">coverage is not uniform</a>, every date and caption is quoted rather than computed, and nothing here says what any party argued. An answer that drops those is worse than no source.</p>
-  <p class="muted">Held back for now: the <a href="/parties">party module</a> — who filed for whom, resolved to entities with their other names and successions — the citator (citation edges and their readings), and the machine-read text of the record's documents, shown page by page beside each record. {{ manifest.held_reason if manifest else 'It is derived work whose licence awaits review; it is withheld until then, not dedicated by default.' }} It stays readable on every sheet.</p>
+  <p class="muted">Held back for now: the <a href="/parties">party module</a> — who filed for whom, resolved to entities with their other names and successions — the citator (citation edges and their readings), and the machine-read text of the record's documents, shown page by page beside each record. {{ manifest.held_reason if manifest else 'It is derived work whose licence awaits review; it is withheld until then, not dedicated by default.' }} It stays readable on every sheet, and an assistant may read the page text through the MCP server to answer a user's question — not to collect it or train on it. What an assistant makes of the text is outside this site's control; the document itself is the thing to review.</p>
 </section>
 
 <section>
-  <h2>Bulk snapshot</h2>
+  <h2 class="section-title">Bulk snapshot</h2>
   {% if manifest %}
   <p>One SQLite file, cut nightly. It is the live store minus every table that could name a reader — {% for t in manifest.omitted_tables %}<span class="mono">{{ t }}</span>{{ ', ' if not loop.last }}{% endfor %} — which never leave the machine, ciphertext included; the copy is built where it is not served and checked against an allowlist of public tables before it is offered. Numbers below are measured from the file itself.</p>
   <table class="moved">
@@ -32,7 +32,7 @@
 </section>
 
 <section>
-  <h2>JSON</h2>
+  <h2 class="section-title">JSON</h2>
   <p>Append <span class="mono">.json</span> to a docket, sub-docket, filing or decision address and the same record comes back as data — since shape 2, each address answers for what its own page covers, and a sub-docket names the <span class="mono">series</span> it sits under — with the same permanent address and a <span class="mono">Cache-Control</span> of thirty minutes. Feeds are at <a href="/feed">/feed</a>; the licence, what is stable and what is asked of a client are on the <a href="/api">API page</a>. There are no keys, no accounts and no rate limits; please be reasonable, identify your client in its <span class="mono">User-Agent</span>, and prefer the snapshot for anything that walks the whole record.</p>
   <table class="moved">
     <thead><tr><th scope="col">Address</th><th scope="col">Returns</th></tr></thead>
@@ -43,6 +43,6 @@
       <tr><td class="mono">/health</td><td class="title">The store’s freshness, as the heartbeat reads it.</td></tr>
     </tbody>
   </table>
-  <p class="small muted">Every response carries <span class="mono">source</span>, <span class="mono">licence</span> and <span class="mono">generated_at</span>. Field names follow the snapshot’s schema; a field the Board left blank is <span class="mono">null</span>, never guessed. Every response carries <span class="mono">shape_version</span>; it is raised, and announced here, when a field changes name or meaning.</p>
+  <p class="small muted">Every response carries <span class="mono">source</span>, <span class="mono">licence</span> and <span class="mono">generated_at</span>. Field names follow the snapshot’s schema; a field the Board left blank is <span class="mono">null</span>, never guessed. Every response carries <span class="mono">shape_version</span>; it is raised, and announced here, when a field changes name or meaning. <strong>Shape 3</strong> (2026-09-16): a sheet's <span class="mono">last_checked</span> is now when the watch last asked the Board about every record table, and the new <span class="mono">last_new_entry</span> is the latest capture that brought the docket an entry — what <span class="mono">last_checked</span> meant until shape 3.</p>
 </section>
 {% endblock %}

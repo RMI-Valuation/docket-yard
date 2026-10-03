@@ -8,7 +8,7 @@
 </section>
 
 <section>
-  <h2 id="what">What answers</h2>
+  <h2 class="section-title" id="what">What answers</h2>
   <table class="moved">
     <thead><tr><th scope="col">Address</th><th scope="col">Returns</th></tr></thead>
     <tbody>
@@ -18,17 +18,18 @@
       <tr><td class="mono">/d/FD-36873/feed<br>/d/AB-55/sub/794X/feed<br>/p/&lt;id&gt;/feed<br>/feed</td><td class="title">Atom: a docket, a proceeding, a party, or the agency. An AB sub-docket has its own feed; elsewhere a sub-docket’s feed redirects to its family’s, which is what following it follows. Webhooks carry the same payload, signed — see <a href="/methodology#webhooks">methodology</a>.</td></tr>
       <tr><td class="mono">/d?q=&lt;citation&gt;<br>/cite?q=&lt;citation&gt;</td><td class="title">The citation resolver: a docket or decision in any of the Board's printed forms — <span class="mono">STB Finance Docket No. 36873</span>, <span class="mono">Ex Parte No. 711</span>, <span class="mono">AB 55 (Sub-No. 785X)</span>, <span class="mono">FD 36873 (STB served Aug. 25, 2026)</span>, <span class="mono">Decision 53210</span> — answers 303 to the permanent address (<span class="mono">/d</span>) or JSON naming it (<span class="mono">/cite</span>). Never a guess: a date two decisions share resolves to the sheet, and says so.</td></tr>
       <tr><td class="mono">/court<br>/protective</td><td class="title">Registers: every Notice of Court Action, and every motion for a protective order, by docket — projections of a type the Board printed.</td></tr>
+      <tr><td class="mono">/search?q=</td><td class="title">Search, as an HTML page: results grouped by proceeding. Filters are parameters, repeatable where it says so: <span class="mono">prefix</span> (AB, FD…), <span class="mono">from</span> and <span class="mono">to</span> (ISO dates the Board printed), <span class="mono">in</span> (captions, decisions, filings, comments, text, parties), <span class="mono">ftype</span> and <span class="mono">dtype</span> (the Board's filing and decision types), <span class="mono">sort</span> (best or newest), <span class="mono">page</span>, <span class="mono">docket</span> (within one proceeding) and <span class="mono">view=documents</span> (every match once). Not indexed, never cached, and nothing typed is kept.</td></tr>
       <tr><td class="mono">/suggest?q=</td><td class="title">Search-as-you-type over docket numbers, captions and party names: a JSON list of hits. Nothing typed is kept.</td></tr>
       <tr><td class="mono">/sitemap.xml</td><td class="title">Every address the record has, paginated by kind, with <span class="mono">lastmod</span>; the cheapest way to learn what exists.</td></tr>
       <tr><td class="mono">/health</td><td class="title">The store's freshness, as the heartbeat reads it.</td></tr>
-      <tr><td class="mono">/openapi.json</td><td class="title">The machine description of every route this site serves, HTML pages included, generated from the code that serves them. There is no separate API: the pages <em>are</em> the API.</td></tr>
+      <tr><td class="mono">/openapi.json</td><td class="title">The machine description of every <em>public</em> route this site serves, HTML pages included, generated from the code that serves them; the gated reviewer surface is not described in it. There is no separate API: the pages <em>are</em> the API.</td></tr>
       <tr><td class="mono">/llms.txt</td><td class="title">A plain-text account of what this record is and is not, for an assistant that reads it — the same caveats a reader gets.</td></tr>
     </tbody>
   </table>
 </section>
 
 <section>
-  <h2 id="example">An example</h2>
+  <h2 class="section-title" id="example">An example</h2>
   <pre class="mono small">curl -H "User-Agent: my-tool/1.0 (hello@example.org)" https://{{ site_host }}/filing/311981.json</pre>
   <pre class="mono small">{
   "source": "https://{{ site_host }}/",
@@ -41,7 +42,7 @@
     "kind": "filing",
     "date": "2026-08-25",
     "date_printed": "8/25/2026",
-    "docket_raw": "FD 36873",
+    "docket_raw": "FD_36873",
     "record_id": "311981",
     "type": "Motion",
     "filed_for_raw": "Union Pacific Railroad Company",
@@ -50,32 +51,33 @@
                      "document_sha256": "9bbce28b…",
                      "media_type": "pdf"}],
     "url": "https://{{ site_host }}/filing/311981",
-    "docket": {"raw_docket": "FD 36873", "printed": "FD 36873", "url": "https://{{ site_host }}/d/FD-36873"}
+    "docket": {"raw_docket": "FD_36873", "printed": "FD 36873", "url": "https://{{ site_host }}/d/FD-36873"}
   }
 }</pre>
   <p class="small muted">Illustrative: the dates and attachment are shaped like the real ones, not copied from them. A field the Board left blank is <span class="mono">null</span>, never guessed.</p>
 </section>
 
 <section>
-  <h2 id="licence">Licence</h2>
-  <p>The raw index — every docket, filing, decision, date and document hash, with its provenance — is dedicated to the public domain under <a href="https://creativecommons.org/publicdomain/zero/1.0/" rel="noopener">CC0 1.0</a>; every JSON response says so in its <span class="mono">licence</span> field. The Board's own files are United States government records. The enriched layer (the party module: who filed for whom, resolved to entities; and the machine-read text of documents) is <strong>held</strong> out of the JSON and the snapshot until its licence is reviewed; the <span class="mono">held</span> field says so on every response. The code that serves all of this is AGPL.</p>
+  <h2 class="section-title" id="licence">Licence</h2>
+  <p>The raw index — the compilation of every docket, filing, decision, date and document hash, with its provenance, and the fields that are the Board's own work — is dedicated to the public domain under <a href="https://creativecommons.org/publicdomain/zero/1.0/" rel="noopener">CC0 1.0</a>; every JSON response says so in its <span class="mono">licence</span> field. The words of filings and environmental comments are in the public record because their authors filed them, and are reproduced as the Board publishes them; they are not ours to dedicate. The enriched layer (the party module: who filed for whom, resolved to entities; and the machine-read text of documents) is <strong>held</strong> out of the JSON and the snapshot until its licence is reviewed; the <span class="mono">held</span> field says so on every response. The code that serves all of this is AGPL.</p>
 </section>
 
 <section>
-  <h2 id="mcp">For an assistant</h2>
-  <p>A read-only <a href="/.well-known/mcp.json">MCP server</a> answers at <span class="mono">/mcp</span> (Streamable HTTP, no key, no session): search the record, read a docket sheet, read an environmental comment, and ask what is <a href="/coverage">not covered</a>. Nothing on that surface writes, subscribes or spends on a reader's behalf, and every answer carries the caveats this page carries — coverage is not uniform, every date and caption is quoted rather than computed, and nothing here says what any party argued. <a href="/llms.txt">/llms.txt</a> is the same thing in prose. <a href="/robots.txt">robots.txt</a> says what AI crawlers may do, in place of leaving them to guess.</p>
+  <h2 class="section-title" id="mcp">For an assistant</h2>
+  <p>Setting one up for the first time? <a href="/ai">Connect an AI assistant</a> walks through it. A read-only <a href="/.well-known/mcp.json">MCP server</a> answers at <span class="mono">/mcp</span> (Streamable HTTP, no key, no session): search the record, read a docket sheet, read an environmental comment, read a page of a document's text on a user's question, count filings by the Board's own filing type, list the proceedings behind such a count, and ask what is <a href="/coverage">not covered</a>. Nothing on that surface writes, subscribes or spends on a reader's behalf, and every answer carries the caveats this page carries — coverage is not uniform, every date and caption is quoted rather than computed, and nothing here says what any party argued. <a href="/llms.txt">/llms.txt</a> is the same thing in prose. <a href="/robots.txt">robots.txt</a> says what AI crawlers may do, in place of leaving them to guess.</p>
 
-  <h2 id="stability">What is stable</h2>
+  <h2 class="section-title" id="stability">What is stable</h2>
   <ul>
     <li><strong>Addresses are permanent.</strong> A docket, filing, decision, party or document address, once served, answers forever — the same record, or a 301 to where it now lives (never a 404 for something that existed). This is a written commitment, not a habit: <a href="https://github.com/RMI-Valuation/docket-yard/blob/main/docs/adr/0013-permanent-urls.md" rel="noopener">ADR 0013</a>.</li>
     <li><strong>Shapes are versioned.</strong> Every JSON response carries <span class="mono">shape_version</span> (now {{ shape_version }}). It is raised — and announced on the <a href="/data">data page</a> — when a field changes name or meaning. New fields may appear without a bump; read by name, not by position.</li>
     <li><strong>Releases are dated.</strong> The software is released as <span class="mono">vYYYY.MM.N</span>; this response came from <span class="mono">{{ version }}</span>. Nothing about a release is a promise beyond the two lines above.</li>
+    <li><strong>A miss says so, as data.</strong> An address that holds nothing answers 404; at a <span class="mono">.json</span> address the body is JSON — <span class="mono">{"error": "not_found", "detail": …, "shape_version": {{ shape_version }}}</span> — never an HTML page.</li>
     <li><strong>Blanks are blanks.</strong> A date is the one the Board printed, in ISO form beside the printed form; nothing is computed from context. Nothing here says what any party's position is.</li>
   </ul>
 </section>
 
 <section>
-  <h2 id="pace">What is asked of a client</h2>
+  <h2 class="section-title" id="pace">What is asked of a client</h2>
   <ul>
     <li>Send a <span class="mono">User-Agent</span> that names your tool and a way to reach you.</li>
     <li>Honour <span class="mono">Cache-Control</span> and <span class="mono">ETag</span>: pages are good for {{ page_cache // 60 }} minutes, JSON for {{ json_cache // 60 }}, a document for {{ document_cache // 86400 }} days; a matching <span class="mono">If-None-Match</span> is a 304 and costs nothing.</li>

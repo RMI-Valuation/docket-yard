@@ -112,6 +112,7 @@ def test_webhook_subscribe_ping_confirm_deliver_signed(store, monkeypatch):
     assert secret2 == secret and delivery_id == str(ids[0])
     assert payload["events"][0]["record_id"] == "312000" and payload["events"][0]["late"] is False
     assert payload["unsubscribe_url"].startswith("https://docketyard.org/s/unsubscribe/")
+    assert payload["shape_version"] == build.WEBHOOK_SHAPE == 1  # the payload's own version
     body = webhooks.encode(payload)
     assert webhooks.verify(secret, body, webhooks.sign(secret, body))
     assert not webhooks.verify(secret, body + b" ", webhooks.sign(secret, body))
@@ -292,3 +293,46 @@ def test_a_feed_address_checks_the_address_it_names(store):
     assert client.get("/d/FD-36873/sub/999", follow_redirects=False).status_code == 404
     assert client.get("/d/FD-36873/sub/999/feed", follow_redirects=False).status_code == 404
     assert client.get("/d/FD-99999/feed", follow_redirects=False).status_code == 404
+
+
+def test_a_delivery_is_also_signed_with_its_moment_and_old_receivers_still_verify(monkeypatch):
+    """The independent graders, 2026-09-16: the HMAC covered only the body, so a captured
+    delivery could be replayed for ever. The operator's decision: a timestamped signature
+    ALONGSIDE the first, which is unchanged."""
+    sent = {}
+
+    class FakeConnection:
+        def __init__(self, *args):
+            pass
+
+        def request(self, method, path, body, headers):
+            sent.update(body=body, headers=headers)
+
+        def getresponse(self):
+            class R:
+                status = 200
+
+                def read(self, n):
+                    return b""
+
+            return R()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(webhooks, "public_addresses", lambda host: ["93.184.216.34"])
+    monkeypatch.setattr(webhooks, "_PinnedHTTPS", FakeConnection)
+    payload = {"shape_version": 1, "events": []}
+    assert webhooks.post(
+        "https://hooks.example.org/in", payload, "s3cret", delivery_id="7", now=1_800_000_000
+    ).accepted
+    body, h = sent["body"], sent["headers"]
+    assert webhooks.verify("s3cret", body, h["X-DocketYard-Signature"])  # unchanged
+    assert h["X-DocketYard-Timestamp"] == "1800000000"
+    ts, sig = h["X-DocketYard-Timestamp"], h["X-DocketYard-Signature-Timestamped"]
+    assert webhooks.verify_timestamped("s3cret", body, ts, sig, now=1_800_000_100)
+    # replayed later: refused. Replayed with a fresh timestamp: the signature no longer fits
+    assert not webhooks.verify_timestamped("s3cret", body, ts, sig, now=1_800_000_000 + 301)
+    assert not webhooks.verify_timestamped("s3cret", body, "1800000900", sig, now=1_800_000_900)
+    assert not webhooks.verify_timestamped("s3cret", body + b" ", ts, sig, now=1_800_000_000)
+    assert not webhooks.verify_timestamped("s3cret", body, "soon", sig, now=1_800_000_000)

@@ -42,6 +42,14 @@ the pages are: `/d/FD-36873.json` and `/d/FD-36873/sub/1.json` (`sheet.DocketShe
 serialised, plus `printed`, `url`, a `url` per entry, and `series` when the address sits
 under a number), `/filing/<id>.json`, `/decision/<id>.json` (the entry plus its docket).
 
+**Shape 3 (2026-09-16): `last_checked` is the last poll; `last_new_entry` is new.** Until
+shape 3 a sheet's `last_checked` was the latest capture that brought the docket an entry,
+so a quiet docket polled every thirty minutes read weeks stale (two of the independent
+graders, the operator's decision the same day). `last_checked` is now `sheet.last_polled`:
+the oldest of the three record tables' latest asserted forward captures. The old value is
+`last_new_entry`. A shape-2 consumer reading `last_checked` as last activity should read
+`last_new_entry`.
+
 **Shape 2 (2026-09-01): a JSON address covers what the page at that address covers.** Until
 then it answered with the family whatever was asked for, so `/d/AB-55/sub/794X.json`
 published all 766 proceedings under AB 55 while the page beside it showed one line, and

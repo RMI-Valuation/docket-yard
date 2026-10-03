@@ -1,0 +1,236 @@
+{
+ "L01": {
+  "by_rotation": {
+   "0": {
+    "good": 0.465,
+    "lettered": 43,
+    "boxes": 42
+   },
+   "90": {
+    "good": 0.512,
+    "lettered": 43,
+    "boxes": 43
+   },
+   "180": {
+    "good": 0.512,
+    "lettered": 43,
+    "boxes": 44
+   },
+   "270": {
+    "good": 0.488,
+    "lettered": 43,
+    "boxes": 44
+   }
+  },
+  "best": 90,
+  "kind": "table"
+ },
+ "L04": {
+  "by_rotation": {
+   "0": {
+    "good": 0.333,
+    "lettered": 93,
+    "boxes": 98
+   },
+   "90": {
+    "good": 0.291,
+    "lettered": 151,
+    "boxes": 173
+   },
+   "180": {
+    "good": 0.328,
+    "lettered": 128,
+    "boxes": 129
+   },
+   "270": {
+    "good": 0.317,
+    "lettered": 123,
+    "boxes": 140
+   }
+  },
+  "best": 0,
+  "kind": "mixed"
+ },
+ "L08": {
+  "by_rotation": {
+   "0": {
+    "good": 0.803,
+    "lettered": 66,
+    "boxes": 46
+   },
+   "90": {
+    "good": 0.812,
+    "lettered": 69,
+    "boxes": 40
+   },
+   "180": {
+    "good": 0.797,
+    "lettered": 69,
+    "boxes": 43
+   },
+   "270": {
+    "good": 0.652,
+    "lettered": 69,
+    "boxes": 42
+   }
+  },
+  "best": 90,
+  "kind": "table"
+ },
+ "L20": {
+  "by_rotation": {
+   "0": {
+    "good": 0.37,
+    "lettered": 27,
+    "boxes": 17
+   },
+   "90": {
+    "good": 0.382,
+    "lettered": 34,
+    "boxes": 18
+   },
+   "180": {
+    "good": 0.238,
+    "lettered": 21,
+    "boxes": 17
+   },
+   "270": {
+    "good": 0.412,
+    "lettered": 34,
+    "boxes": 18
+   }
+  },
+  "best": 270,
+  "kind": "map"
+ },
+ "L29": {
+  "by_rotation": {
+   "0": {
+    "good": 0.5,
+    "lettered": 36,
+    "boxes": 66
+   },
+   "90": {
+    "good": 0.4,
+    "lettered": 45,
+    "boxes": 65
+   },
+   "180": {
+    "good": 0.4,
+    "lettered": 45,
+    "boxes": 65
+   },
+   "270": {
+    "good": 0.545,
+    "lettered": 33,
+    "boxes": 65
+   }
+  },
+  "best": 270,
+  "kind": "mixed"
+ },
+ "L31": {
+  "by_rotation": {
+   "0": {
+    "good": 0.663,
+    "lettered": 169,
+    "boxes": 119
+   },
+   "90": {
+    "good": 0.568,
+    "lettered": 162,
+    "boxes": 107
+   },
+   "180": {
+    "good": 0.575,
+    "lettered": 160,
+    "boxes": 121
+   },
+   "270": {
+    "good": 0.631,
+    "lettered": 168,
+    "boxes": 108
+   }
+  },
+  "best": 0,
+  "kind": "table"
+ },
+ "L44": {
+  "by_rotation": {
+   "0": {
+    "good": 0.792,
+    "lettered": 77,
+    "boxes": 32
+   },
+   "90": {
+    "good": 0.859,
+    "lettered": 85,
+    "boxes": 35
+   },
+   "180": {
+    "good": 0.808,
+    "lettered": 73,
+    "boxes": 33
+   },
+   "270": {
+    "good": 0.847,
+    "lettered": 85,
+    "boxes": 35
+   }
+  },
+  "best": 90,
+  "kind": "drawing"
+ },
+ "L45": {
+  "by_rotation": {
+   "0": {
+    "good": 0.75,
+    "lettered": 48,
+    "boxes": 31
+   },
+   "90": {
+    "good": 0.66,
+    "lettered": 47,
+    "boxes": 33
+   },
+   "180": {
+    "good": 0.698,
+    "lettered": 43,
+    "boxes": 29
+   },
+   "270": {
+    "good": 0.733,
+    "lettered": 60,
+    "boxes": 40
+   }
+  },
+  "best": 0,
+  "kind": "map"
+ },
+ "L47": {
+  "by_rotation": {
+   "0": {
+    "good": 0.588,
+    "lettered": 277,
+    "boxes": 124
+   },
+   "90": {
+    "good": 0.711,
+    "lettered": 318,
+    "boxes": 123
+   },
+   "180": {
+    "good": 0.729,
+    "lettered": 332,
+    "boxes": 128
+   },
+   "270": {
+    "good": 0.702,
+    "lettered": 285,
+    "boxes": 121
+   }
+  },
+  "best": 180,
+  "kind": "map"
+ }
+}

@@ -1,5 +1,10 @@
 # Unified search — design note
 
+> **Superseded for `/search` by [`search-v2.md`](search-v2.md)** (built 2026-09-17 on branch
+> `search-v2`): results grouped by proceeding, filings indexed, placements, filters, order and
+> paging. This note stays the account of the index's mechanics, `/suggest`, and the page index,
+> which search-v2 builds on and does not change.
+
 > **Status: built 2026-08-26** (migration 0010, `store/search.py`, `/search`, `/suggest`),
 > after the party pages and the contribute page. The schema-critic reviewed 0010 before
 > commit (its findings — the snapshot, decision duplicates, the sheet's counts, unparsed

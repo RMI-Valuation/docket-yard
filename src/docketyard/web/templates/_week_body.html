@@ -1,14 +1,21 @@
-  <div class="stats">
-    {% set dup = week.decision_entries - week.distinct_decisions %}
-    <div class="stat"><span class="n serif">{{ week.distinct_decisions }}</span><span class="l">decisions served{% if dup == 1 %} (one entered in two dockets){% elif dup > 1 %} ({{ dup }} entered in more than one docket){% endif %}</span></div>
-    {% set fdup = week.filing_entries - week.filings %}
-    <div class="stat"><span class="n serif">{{ week.filings }}</span><span class="l">filings observed, in {{ week.moved | length | plural('proceeding') }}{% if fdup == 1 %} (one entered in two){% elif fdup > 1 %} ({{ fdup }} entered in more than one){% endif %}</span></div>
-    {% if week.moved %}<div class="stat"><span class="n serif">{{ week.moved[0].filings }}</span><span class="l">of them in {{ printed_docket(parse_docket_id(week.moved[0].docket_raw)) }}</span></div>{% endif %}
-  </div>
+  {#- One sentence, not three tiles. The three numbers are not a comparable set — the third is
+      a SUBSET of the second and the first counts a different thing — so a stat row, which
+      promises comparison by its shape, was making a claim the numbers do not support. They are
+      four facts about a week; prose carries facts (interface.md § The week's numbers read as a
+      sentence, 2026-09-21). Large numerals still belong on `/statistics`, where the numbers
+      really are parallel and comparison is the job. -#}
+  <p class="week-count serif">
+    {%- set dup = week.decision_entries - week.distinct_decisions -%}
+    <span class="n">{{ week.distinct_decisions }}</span> decisions served{% if dup == 1 %} (one entered in two dockets){% elif dup > 1 %} ({{ dup }} entered in more than one docket){% endif %}
+    {%- set fdup = week.filing_entries - week.filings %} and <span class="n">{{ week.filings }}</span> filings observed, in {{ week.moved | length | plural('proceeding') }}{% if fdup == 1 %} (one entered in two){% elif fdup > 1 %} ({{ fdup }} entered in more than one){% endif %}{% if week.moved %} — <span class="n">{{ week.moved[0].filings }}</span> of them in {{ printed_docket(parse_docket_id(week.moved[0].docket_raw)) }}{% endif %}.
+  </p>
 </section>
 
-<section class="two-col wide-rail">
-  <div>
+{#- One grid for decisions, the rail and the moved table, so a phone can put the rail LAST:
+    as a column beside the decisions it fell between them and the moved table (the operator,
+    2026-09-17). -#}
+<div class="week-grid">
+  <section class="week-decisions">
     <h2>Decisions served</h2>
     <ol class="plain">
     {% for d in week.decisions %}
@@ -24,14 +31,19 @@
     <li class="muted">No decisions served in this window.</li>
     {% endfor %}
     </ol>
-  </div>
-  <aside class="rail">
+  </section>
+  {#- what a reader can do with the record; who runs it is in the lead and the footer -#}
+  <aside class="rail week-rail">
     <div>
-      <h2>What this is</h2>
-      <p>{{ site_name }} is an independent public record, operated by RMI Valuation, LLC. It is not affiliated with the Surface Transportation Board; every entry links to the Board’s own document, and dates are quoted from the record, never computed.</p>
+      <h2>Use the record</h2>
+      <ul class="plain rail-uses">
+        <li><strong>Follow a proceeding.</strong> Every docket sheet takes an email address for its new filings and decisions, and has its own feed; <a href="/feed">one feed</a> carries the whole agency.</li>
+        <li><strong>Ask an AI assistant.</strong> Connect Claude, ChatGPT or another assistant to the read-only MCP server at <span class="mono">{{ site_host }}/mcp</span>. <a href="/ai">How to connect</a></li>
+        <li><strong>Take the data.</strong> A nightly download of the whole index, public domain, and JSON at every address. <a href="/data">Data</a></li>
+        <li><strong>Know its limits.</strong> What the record holds, and what it does not yet. <a href="/coverage">Coverage</a></li>
+      </ul>
     </div>
   </aside>
-</section>
 
 <section class="moved-section">
   {# This file is shared by the home page and every dated week page, so the window it is
@@ -54,5 +66,6 @@
     {% endfor %}
     </tbody>
   </table>
-  <p class="small muted">Captions and summaries appear as the Board prints them. Counts are filings observed in the record between {{ fmt_range(week.start, week.end) }}; decisions are listed above and not counted here.</p>
+  <p class="small muted">Captions and summaries appear as the Board prints them. Counts are filings observed in the record between {{ fmt_range(week.start, week.end) }}; decisions are listed above and not counted here. Dates are quoted from the record, never computed.</p>
 </section>
+</div>

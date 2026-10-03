@@ -55,6 +55,30 @@ def test_migrations_are_numbered_one_to_n_and_a_gap_refuses_before_anything_appl
     assert raw.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()[0] == 0
 
 
+def test_a_script_that_fails_partway_leaves_nothing_a_commit_could_keep(con, monkeypatch):
+    """A statement that fails to PARSE partway raises with the script's `BEGIN` still open;
+    a caller that kept the connection and committed kept what ran before it (the schema
+    critic, 2026-09-13). `migrate` rolls back before re-raising."""
+    head = db.MIGRATIONS[-1][0]
+    monkeypatch.setattr(db, "MIGRATIONS", [*db.MIGRATIONS, (head + 1, "broken.sql")])
+    real = db._script
+    monkeypatch.setattr(
+        db,
+        "_script",
+        lambda name: (
+            "BEGIN TRANSACTION; CREATE TABLE half_applied (x); SELEC broken; COMMIT;"
+            if name == "broken.sql"
+            else real(name)
+        ),
+    )
+    with pytest.raises(sqlite3.OperationalError):
+        db.migrate(con)
+    con.commit()  # what a caller that kept the connection would do
+    assert con.execute("PRAGMA user_version").fetchone()[0] == head
+    tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "half_applied" not in tables
+
+
 def test_versionless_tables_are_refused():
     raw = sqlite3.connect(":memory:")
     raw.execute("CREATE TABLE capture (x)")  # tables exist, no version stamp

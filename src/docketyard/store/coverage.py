@@ -21,6 +21,44 @@ from docketyard.capture.stb import (
 from docketyard.ingest import observations
 from docketyard.store import home
 
+# The limits that are by DESIGN rather than measured: the same sentences the coverage page
+# prints and the `coverage` tool hands an assistant. One source, because two copies of a
+# published limit drift, and a limit that has drifted is a false coverage claim — the thing
+# `CLAUDE.md` forbids under "published pages are generated from the same source". A grader
+# found the tool naming none of these while the server's own instructions tell an assistant
+# to repeat what the page says (deferred, the independent graders, 2026-09-16).
+#
+# Measured limits are deliberately NOT here. A sentence with a number in it is read off
+# `Coverage` at render time, so it cannot be stale in one place and current in the other.
+# Rendered as `<strong>{head}</strong>{rest}` on the page and `- {head}{rest}` for a
+# machine, so each `rest` carries its own leading punctuation.
+BY_DESIGN_LIMITS: tuple[tuple[str, str], ...] = (
+    (
+        "Rail recordations",
+        ", which the Board keeps in a separate table.",
+    ),
+    (
+        "Document text.",
+        " Files are kept and linked. Text is read from inside them as passes run — the"
+        " publisher's own text layer first, machine-read scans after — and shown page by page"
+        " at each record's text address, labelled with who read it. Nothing derived from it is"
+        " asserted. It is searched: a page found that way is shown with who read it and the"
+        " scan one click away.",
+    ),
+    (
+        "The Board's activity outside its dockets",
+        " — voting conferences, hearings and arguments as events, press releases and Federal"
+        " Register notices. Where the Board enters a notice of one in a docket, that entry is"
+        " held like any other.",
+    ),
+    (
+        "Anything the Board's search itself does not show.",
+        " Its result tables display at most 10,000 rows per query and fail in ways that look"
+        " like success; the pipeline asserts on every response that the filter it asked for"
+        " was applied, and quarantines anything it cannot prove.",
+    ),
+)
+
 
 @dataclass(frozen=True)
 class Gap:
@@ -54,6 +92,10 @@ class Coverage:
     # list under that sentence told readers that 1996-01 through 2000-08 were incomplete
     # for filings and decisions, which they are not.
     records_incomplete: tuple[str, ...]  # filings and decisions
+    records_walked_from: str | None  # walked_back_to: None while anything is outstanding
+    # filings the record holds by the Board's year, from the first year to the first
+    # holding more than DENSE_YEAR — the thin early years, measured, not characterised
+    early_filing_years: list[tuple[str, int]]
     comments_incomplete: tuple[str, ...]  # environmental comments
     comments_from: str | None  # earliest comment the record holds, by the Board's own date
     empty_prefixes: tuple[str, ...]
@@ -130,6 +172,152 @@ def _incomplete(con: Connection, *actions: str, today: date | None = None) -> tu
     )
 
 
+def filings_incomplete(con: Connection, today: date | None = None) -> tuple[str, ...]:
+    return incomplete_for(con, FILINGS, today)
+
+
+def decisions_incomplete(con: Connection, today: date | None = None) -> tuple[str, ...]:
+    """The same rule over the decisions walk — what MCP's `count_decisions` must name."""
+    return incomplete_for(con, DECISIONS, today)
+
+
+def incomplete_for(con: Connection, action: str, today: date | None = None) -> tuple[str, ...]:
+    """Months not finished for one table alone — what a count over it must name. The
+    coverage page's list unions filings with decisions, which would name a month a
+    decisions-only gap left open as a hole in a filing count.
+
+    AND THE MONTHS NO SLICE NAMES. `_incomplete` reads the ledger, so a month no slice names
+    is not in it at all — and a count over it read as complete: a month no wave has begun
+    (code review, 2026-09-16), and a month after the watch began that an outage longer than
+    its re-ask window left unasked (the high pass, the same day). One rule for both: from the
+    ledger's first month (or the watch's, with no ledger) through today, a month no slice
+    names is finished only if the watch asked for every day of it up to today, less the
+    recorded outages (`home.gap_shadows`, the rule `_incomplete` applies). Nothing before
+    that first month is claimed either way; the answer names where the walk begins."""
+    q = con.execute
+    today = today or date.today()
+    months = set(_incomplete(con, action, today=today))
+    ledger = {
+        m
+        for (key,) in q("SELECT slice_key FROM walk_slice WHERE table_action = ?", (action,))
+        if (m := walk.slice_month(key)) is not None
+    }
+    start = _watch_starts(q, (action,)).get(action)
+    if ledger:
+        year, month = int(min(ledger)[:4]), int(min(ledger)[5:7])
+    elif start is not None:
+        year, month = start.year, start.month
+    else:
+        return tuple(sorted(months))
+    shadows = home.gap_shadows(con, today)
+    while (year, month) <= (today.year, today.month):
+        name = f"{year:04d}-{month:02d}"
+        if name not in ledger:
+            owed = {d for d in walk.month_days(name) if d <= today}
+            watched = {
+                d
+                for d in owed
+                if start is not None and start <= d and not any(lo <= d <= hi for lo, hi in shadows)
+            }
+            if watched < owed:
+                months.add(name)
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return tuple(sorted(months))
+
+
+def filings_walked_from(con: Connection) -> str | None:
+    return walked_from(con, FILINGS)
+
+
+def decisions_walked_from(con: Connection) -> str | None:
+    return walked_from(con, DECISIONS)
+
+
+def comments_incomplete(con: Connection, today: date | None = None) -> tuple[str, ...]:
+    return incomplete_for(con, ENVIRO_COMMENTS, today)
+
+
+def comments_walked_from(con: Connection) -> str | None:
+    return walked_from(con, ENVIRO_COMMENTS)
+
+
+def walked_from(con: Connection, action: str) -> str | None:
+    """The first month one table's walk names — where a count's coverage claim begins."""
+    # parsed, then the least — the rule `incomplete_for` uses, so the two cannot disagree
+    # over a key that sorts first and names no month
+    months = [
+        m
+        for (key,) in con.execute(
+            "SELECT slice_key FROM walk_slice WHERE table_action = ?", (action,)
+        )
+        if (m := walk.slice_month(key)) is not None
+    ]
+    return min(months, default=None)
+
+
+DENSE_YEAR = 1000  # filings in a year: the threshold the page names, not a judgement of it
+
+
+def walked_back_to(con: Connection, today: date | None = None) -> str | None:
+    """The month from which BOTH filings and decisions are walked through to the watch, with no
+    month outstanding — else None. What `/stats` and `/coverage` need before saying the early
+    numbers are the Board's own table.
+
+    Three ways a month is outstanding, all refused (code review, 2026-09-16): a month a wave
+    began and did not finish (`_incomplete`); a month between a table's first slice and the
+    watch that no slice names, which `_incomplete` cannot see because it reads the ledger;
+    and a table walked less far back than the other — the answer is the LATER of the two
+    first months, since before it only one table is walked."""
+    today = today or date.today()
+    if _incomplete(con, FILINGS, DECISIONS, today=today):
+        return None
+    starts = _watch_starts(con.execute, (FILINGS, DECISIONS))
+    firsts = []
+    for action in (FILINGS, DECISIONS):
+        ledger = {
+            m
+            for (key,) in con.execute(
+                "SELECT slice_key FROM walk_slice WHERE table_action = ?", (action,)
+            )
+            if (m := walk.slice_month(key)) is not None
+        }
+        if not ledger:
+            return None
+        start = starts.get(action) or today
+        year, month = int(min(ledger)[:4]), int(min(ledger)[5:7])
+        while (year, month) <= (start.year, start.month):
+            name = f"{year:04d}-{month:02d}"
+            # the watch covers its own month from its first day on; before that, only a slice does
+            if name not in ledger and ((year, month) < (start.year, start.month) or start.day > 1):
+                return None
+            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+        firsts.append(min(ledger))
+    return max(firsts)
+
+
+def early_filing_years(con: Connection, this_year: str | None = None) -> list[tuple[str, int]]:
+    """(year, filings) from the record's first filing year through the first year after which
+    every full year holds more than DENSE_YEAR. The Board's own filings table is thin in its
+    early years — walked, and empty at the Board (`stb-data-source.md` § Measured 2026-08-27)
+    — and a reader was left to read that as months still to come (the independent graders,
+    2026-09-16). Not "the first year above": 2000 holds 1,180 and 2001 falls back to 456
+    (measured on the Sept 16 snapshot), so the thin run ends at 2002. The current year is
+    partial and never decides it."""
+    this_year = this_year or str(date.today().year)
+    years = [
+        (year, n)
+        for year, n in con.execute(
+            "SELECT substr(filed_date, 1, 4), COUNT(DISTINCT stb_filing_id) FROM filing"
+            " WHERE filed_date GLOB '[0-9][0-9][0-9][0-9]-*' GROUP BY 1 ORDER BY 1"
+        )
+    ]
+    full = [(y, n) for y, n in years if y < this_year]
+    for i in range(len(full)):
+        if all(n > DENSE_YEAR for _, n in full[i:]):
+            return full[: i + 1]
+    return full
+
+
 def month_runs(months: tuple[str, ...]) -> tuple[str, ...]:
     """Consecutive months collapsed into ranges: 56 unfinished comment months print as
     `1996-01 to 2000-08`, not as 56 comma-separated strings. Presentation only — the
@@ -145,9 +333,39 @@ def month_runs(months: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(r[0] if len(r) == 1 else f"{r[0]} to {r[-1]}" for r in runs)
 
 
+@dataclass(frozen=True)
+class Watch:
+    forward_since: str | None
+    last_checked: str | None
+    gaps: list[Gap]
+
+
+def watch(con: Connection) -> Watch:
+    """The forward watch's span and its outages: the part of `coverage` a window over the
+    watch needs (MCP's `recent_activity`), cheap enough to read on every call. `coverage`
+    reads it from here, so the two cannot disagree."""
+    since, last = con.execute(
+        "SELECT MIN(captured_at), MAX(captured_at) FROM capture WHERE ingest_mode = 'forward'"
+        " AND filter_asserted = 1 AND table_action IN (?, ?)",
+        (FILINGS, DECISIONS),
+    ).fetchone()
+    return Watch(
+        forward_since=since,
+        last_checked=last,
+        gaps=[
+            Gap(*row)
+            for row in con.execute(
+                "SELECT started_at, ended_at, failure, note FROM coverage_gap"
+                " ORDER BY started_at DESC"
+            )
+        ],
+    )
+
+
 def coverage(con: Connection) -> Coverage:
     q = con.execute
     one = lambda sql, *p: q(sql, p).fetchone()[0]  # noqa: E731
+    w = watch(con)
     return Coverage(
         dockets=one("SELECT COUNT(*) FROM docket"),
         registry_walked_at=one(
@@ -155,18 +373,8 @@ def coverage(con: Connection) -> Coverage:
             " AND table_action = ?",
             DOCKETS,
         ),
-        forward_since=one(
-            "SELECT MIN(captured_at) FROM capture WHERE ingest_mode = 'forward'"
-            " AND filter_asserted = 1 AND table_action IN (?, ?)",
-            FILINGS,
-            DECISIONS,
-        ),
-        last_checked=one(
-            "SELECT MAX(captured_at) FROM capture WHERE ingest_mode = 'forward'"
-            " AND filter_asserted = 1 AND table_action IN (?, ?)",
-            FILINGS,
-            DECISIONS,
-        ),
+        forward_since=w.forward_since,
+        last_checked=w.last_checked,
         filings=one("SELECT COUNT(DISTINCT stb_filing_id) FROM filing"),
         decisions=one("SELECT COUNT(DISTINCT stb_decision_id) FROM decision_record"),
         # by (number, row ref), NOT the number alone: the row ref folds one comment
@@ -231,14 +439,10 @@ def coverage(con: Connection) -> Coverage:
         # say so — but it is not a filings month, and the sentence that names them is about
         # filings and decisions.
         records_incomplete=_incomplete(con, FILINGS, DECISIONS),
+        records_walked_from=walked_back_to(con),
+        early_filing_years=early_filing_years(con),
         comments_incomplete=_incomplete(con, ENVIRO_COMMENTS),
         comments_from=one("SELECT MIN(NULLIF(date_received_or_sent, '')) FROM enviro_comment"),
         empty_prefixes=tuple(sorted(EXPECTED_EMPTY_PREFIXES)),
-        gaps=[
-            Gap(*row)
-            for row in q(
-                "SELECT started_at, ended_at, failure, note FROM coverage_gap"
-                " ORDER BY started_at DESC"
-            )
-        ],
+        gaps=w.gaps,
     )

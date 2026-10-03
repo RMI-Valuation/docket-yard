@@ -8,47 +8,51 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown; exposed
-  428. **The review page, for a person**: docket, sub-docket and document in one look, linked to
-  scan, text, both dockets and the match; same-docket filings citable (his); an ICC flag. GATED on
-  the citations brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
-- **Three schema PRs (2026-09-15), all findings fixed, ALL THREE REHEARSED** in production's image
-  (v2026.09.24, SQLite 3.46.1) on a restore, in number order: #35 `veto-trigger` (0030, ee7e2ac,
-  precheck 0 rows, 4.4 s), #37 `ocr-page-failure` (0031, ebf7cc5, 3.7 s), #36 `page-route` (0032,
-  71a4278, 3.6 s). Additive throughout: no row moved, fk clean, no temp left; figures on each PR.
-  Merge in number order; each addendum is Proposed, his to accept
-- **HunyuanOCR tabular pass, PR #34** (67b1762): parity probe PASSED, 4070 empty (9 MiB), dots
-  sessions stopped. Seed measured from the coordinator's route root: **26,294 pages in 3,385
-  documents** (1,616 one-page, 104 over fifty, largest 536). At the probe's 3.3-10.3 s/page that
-  is **roughly 36-48 h** on one 4070. **Starting it is his** (a seed with no worker reading pages
-  the monitor as STALLED from the first scrape)
-- **Claude batch for the 134 pages dots refused: COLLECTED and the load REHEARSED** on a restore —
-  98 documents, `loaded: 98`, +134 `document_text` (ocr/claude-sonnet-5/200-max2576-grey primary,
-  unmeasured), +98 `ocr_run`, 98 blobs (1.35 MB); it supersedes 134 `text-layer`/pymupdf primaries,
-  121 of them empty and the other 13 holding only the STB's 9-char e-filing stamp, which the new
-  reading keeps. 554,016 characters where 121 pages showed nothing. No pin needed (the OCR channel
-  is unpinned by design), no human row touched, no migration. **Loading waits for his go**
-- **Decided dates: measured** (`deferred.md` § 2026-09-15) — his call what to build
+- **v2026.10.2 LIVE** (schema 33). The fleet runs `3629aa8` (coordinator moved forward
+  2026-09-20; nothing it executes changed). dots 46,838/134
+- **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown;
+  exposed 428. **The review page, for a person** — docket, sub-docket and document in one look,
+  linked to scan, text, both dockets and the match; an ICC flag. GATED on the citations
+  brief's 1-3; `panel_check_sheet.py`'s composition is its spec (untracked)
+- **ADR 0025 addendum: ALL SIX ACCEPTED and VERIFIED LIVE**, re-proved on the new coordinator
+  2026-09-20 — a miss fetches and hash-verifies, a hit serves from disk, a sha in no store
+  **404 not 503**. Owed in `deferred.md`: the worker branches have no test, the corrupt-store
+  alarm reaches nobody, `pull_blobs.py` still compares size not sha
+- **THE TABULAR PASS READS THROUGH THE BROKER** since 2026-09-20 — job 40 (39 cancelled to drop
+  `--blobs`, so a mirror miss is now a coordinator fetch), `dy-ocr`, preemptible. Key unchanged;
+  **do NOT raise the render mid-pass**. **There was never a separate submit token**: one broker
+  token, already on the box; what blocked it was ours (`3629aa8`). **Keep `--host` pinned until
+  the fleet raises `dy-ocr`'s `vram_gb`** — 4 GiB on our own floor, and `cuda` matches the 2060
+- **rmi-nuc's 2060 cannot read this pass — measured 2026-09-20**, answered in rmi-fleet
+  `deploy/docket-yard-bf16-reply.md`. Not bf16 speed: a page asks one 4.13 GiB block against
+  5.60 GiB usable, so 7 of 7 OOM'd. **Our own memory floor is half what a page needs**
+- **HIS, and measured 2026-09-20 (`deferred.md`): `finish_reason length` is the MODEL LOOPING**,
+  not a long page — 1,490 pages final-failed, 48 documents with nothing read. **Do not raise
+  `max_new_tokens`.** Two decisions: is a loop the page's fault (it is filed as final) and is a
+  degenerate answer's good prefix worth publishing. A repetition guard is separable and cheap
+- **Decided dates, extraction pass only (his, 2026-09-16)**: ADR 0023 addendum Proposed on branch
+  `decided-date-grain` (acbec23), schema-critic clean on pass 3 — page in the key, one live
+  quotation per displayed reading, migration 0033. **His to accept; then migration + pass**
 
 ## Next
 
+- **The prose re-read is BUILT and needs a GPU and one file copy** (`32345db`). To run: put
+  `queue.csv.gz` (production `/tmp/tq/pages.csv.gz` is its source) on a fleet node — **auto
+  mode refuses the scp** — then `route-list` and seed. Owed before ANY load, in `deferred.md`:
+  loading changes what every re-read page publishes about itself with no dated rule
+  (`pages.py:band`), and the agreement distance is a publishing decision, not a computation
+- **2,578 collected readings await his load** (the mirror is expendable and backs up nightly)
 - **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
   `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
   `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
-  migration (schema-critic first) and the browse on `/parties`
-- With the operator: a sheet's JSON-LD block in Google's Rich Results test, from a browser
-- ADR 0024 Owed 2, the per-page failure record — HIS CHOICE to build (2026-09-15): addendum
-  draft for the shape, schema-critic, his acceptance, then a branch
-- **Held by the operator for rewording (2026-09-11)**: `/methodology`'s text-stage section
-  (`848e366`) and the one-day-rest sentence (`3b538bc`); § Documents has his narrowed one
-- The workstation gate's ONLOGON task is still unregistered (`deferred.md`)
-- Seed wave 2 (after wave 3 tables): unresolved spans; pre-2020 roads and successions
-- Deadline engine (C4): no obligations in decision JSON; fixture of 8 in `docs/deferred.md`
+  migration (schema-critic first), then the browse on `/parties`
+- **Held by the operator**: `/methodology`'s text-stage section (`848e366`) and the one-day-rest
+  sentence (`3b538bc`); a sheet's JSON-LD in Rich Results. Gate's ONLOGON task unregistered
+- Seed wave 2: unresolved spans; pre-2020 roads. Deadline engine (C4): fixture of 8 in
+  `docs/deferred.md`
 
 ## Parked
 
 - **Docket summaries (P6) and the AB status facet are specified, not chosen**
   (`docs/summaries.md`, 2026-09-10): the fifty-document sample is what a decision starts;
   the rule-only status slice (800 consummations, 714 trail-use filings) could go first
-- A key held off the box (KMS), decrypting only at send time — ADR 0014's open forward step
-- Stats deferrals: one month walker for `home.py`/`stats.py`; index `filing(filed_date)`

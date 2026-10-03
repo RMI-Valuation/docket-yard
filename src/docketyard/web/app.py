@@ -20,6 +20,7 @@ address (ADR 0011); those three handlers open a writable connection and nothing 
 
 import hashlib
 import os
+import re
 import secrets
 import sqlite3
 import time
@@ -30,7 +31,7 @@ from importlib import resources
 from pathlib import Path
 from urllib.parse import urlencode
 
-from fastapi import Body, FastAPI, Form, HTTPException, Request
+from fastapi import Body, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import (
     FileResponse,
     JSONResponse,
@@ -56,6 +57,7 @@ from docketyard.store import (
     display,
     dump,
     explainers,
+    finder,
     home,
     projections,
     registers,
@@ -80,9 +82,14 @@ from docketyard.web import (
 )
 
 _PKG = resources.files("docketyard.web")
-JSON_SHAPE = 2  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
+JSON_SHAPE = 3  # bumped when a field of the JSON twins changes meaning or name (docs/data.md)
 POLL_MINUTES = 30  # the watch's cadence, as /coverage states it (compose: --interval 30)
 PAGE_CACHE = 300  # seconds a reader page may be cached: a poll is 1800, a late entry costs one
+# The named AI agents that fetch a page because a person asked, now — not to index or train.
+# They may read what a person may read (the operator, 2026-09-16): the party pages and the page
+# text are held from the DEDICATION, and reading one on request dedicates nothing (robots.txt).
+USER_DIRECTED_AGENTS = ("ChatGPT-User", "Claude-User", "Perplexity-User")
+
 NEVER_CACHE = ("/s/", "/subscribe", "/ses/", "/health", "/metrics", "/suggest", "/review")
 # tokens, consent, and the one signed-in surface
 MOUNTS = ("/static/", "/data/files/")  # StaticFiles: streams, validates and HEADs itself
@@ -191,6 +198,38 @@ def fmt_day_month(value: str | None) -> str:
     except ValueError:
         return value
     return f"{d.day} {d.strftime('%b')}"
+
+
+MAX_FILTER_VALUES = 20  # values of one filter a search address may carry
+MAX_RESULT_PAGE = 500  # the deepest results page asked for; beyond it, narrow the search
+ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _search_url(q, **changes) -> str:
+    """The address of this search with some parameters changed: paging, "N more in this
+    proceeding", and removing one filter. Repeated parameters stay repeated."""
+    params: list[tuple[str, str]] = []
+    values = {
+        "q": [q.text] if q.text else [],
+        "prefix": list(q.prefixes),
+        "from": [q.date_from] if q.date_from else [],
+        "to": [q.date_to] if q.date_to else [],
+        "in": [] if set(q.kinds) == set(finder.KINDS) else list(q.kinds),
+        "ftype": list(q.ftypes),
+        "dtype": list(q.dtypes),
+        "sort": [q.sort] if q.sort != "best" else [],
+        "view": [q.view] if q.view != "proceedings" else [],
+        "docket": [],
+    }
+    for key, value in changes.items():
+        values[key.rstrip("_")] = (
+            []
+            if value in (None, "", ())
+            else (list(value) if isinstance(value, (list, tuple)) else [str(value)])
+        )
+    for key, vals in values.items():
+        params += [(key, v) for v in vals]
+    return "/search?" + urlencode(params)
 
 
 def highlight(snippet: str) -> Markup:
@@ -303,11 +342,25 @@ def create_app(
         prefix_name=labels.prefix_name,
         display_filed_for=labels.display_filed_for,
     )
+
+    def cite_as_of() -> str:
+        """What a citation can pin a moment to (the operator, 2026-09-16, on the independent
+        graders' finding): the day it was read, and the newest KEPT archive — a dated file a
+        reader can fetch again later. Not `latest`, which the next night overwrites (code
+        review, 2026-09-16)."""
+        manifest = dump.read_manifest(public_dir)
+        kept = manifest.dated[0].name if manifest and manifest.dated else None
+        return f"Accessed {fmt_date(utcnow())}" + (f"; bulk archive {kept}" if kept else "")
+
+    templates.env.globals["cite_as_of"] = cite_as_of
+    templates.env.globals["record_begins"] = sheet.RECORD_BEGINS
+    templates.env.globals["early_until"] = sheet.EARLY_UNTIL
     # The stylesheet is cached a week; its URL carries its content hash so a deploy is seen.
     css_hash = hashlib.sha256((_PKG / "static" / "site.css").read_bytes()).hexdigest()[:12]
     templates.env.globals.update(
         site_name=site_name,
         site_host=site_host,
+        site_version=__version__,  # the release tag the image was built from; 0.0.0 off a release
         asset_v=css_hash,
         docket_path=urls.docket_path,
         printed_docket=urls.printed_docket,
@@ -324,6 +377,7 @@ def create_app(
         entry_text_path=urls.entry_text_path,  # a comment's text sits under its docket
         page_label=store_pages.label,  # who read a page, and its band: one wording for the
         page_band=store_pages.band,  # text page and the search hit (ADR 0021 D7, D8)
+        page_marker=store_pages.marker,  # a tabular page no engine read (ADR 0021 addendum)
         entry_path=urls.entry_path,  # a sheet entry's address, whatever kind it is
         entry_viewer_path=urls.entry_viewer_path,
         document_path=urls.document_path,
@@ -333,6 +387,8 @@ def create_app(
         explainer_path=urls.explainer_path,
         parse_docket_id=parse_docket_id,
         kind_label=labels.kind_label,
+        date_kind=labels.date_kind,
+        cite_date=labels.cite_date,
         filter_key=labels.filter_key,
         register_link=labels.register_link,
         # what a follow (and the page's own Atom link) actually follows, so the template
@@ -398,13 +454,19 @@ def create_app(
             "   WHERE document_sha256 = ? AND superseded_by IS NULL),"
             " (SELECT MAX(pagination_id) FROM document_pagination"
             "   WHERE document_sha256 = ? AND superseded_by IS NULL),"
+            # the router's verdicts (migration 0032): a route load turns "Read as blank." into
+            # the unread-table marker, so it must move the validator
+            " (SELECT MAX(route_id) FROM page_route"
+            "   WHERE document_sha256 = ? AND superseded_by IS NULL),"
+            " (SELECT COUNT(*) FROM page_route"
+            "   WHERE document_sha256 = ? AND superseded_by IS NULL),"
             " (SELECT MAX(correction_id) FROM correction"
             "   WHERE (target_table = 'document_text' AND target_key GLOB ?)"
             "      OR (target_table = 'document_pagination' AND target_key IN"
             "          (SELECT CAST(pagination_id AS TEXT) FROM document_pagination"
             "            WHERE document_sha256 = ?))),"
             " (SELECT build FROM search_meta WHERE key = 'page_built')",
-            (*search.PAGE_TABLES, sha, sha, sha, f"{sha}/*", sha),
+            (*search.PAGE_TABLES, sha, sha, sha, sha, sha, f"{sha}/*", sha),
         ).fetchone()
         return ".".join(str(v or 0) for v in row)
 
@@ -513,16 +575,20 @@ def create_app(
         # over. Readable by people and ordinary crawlers, as the party pages are.
         # And /search (the operator, 2026-09-10): a result page prints snippets of the page
         # text and party names, so an agent refused /text and /p/ could read both from it.
+        # Since 2026-09-16 (the operator, on the independent graders' findings) the held
+        # paths are refused to the agents that index or train, and not to the three that fetch
+        # on a person's request; /search, which prints the held layer in bulk, stays refused to
+        # every named agent.
         held = [
             "Disallow: /p/",
             "Disallow: /parties",
             "Disallow: /filing/*/text",
             "Disallow: /decision/*/text",
             "Disallow: /d/*/comment/*/text",  # `*` spans a `/sub/<n>` segment too
-            "Disallow: /search",
         ]
         for agent in AI_AGENTS:
-            lines += [f"User-agent: {agent}", *disallow, *held, ""]
+            refused = [] if agent in USER_DIRECTED_AGENTS else held
+            lines += [f"User-agent: {agent}", *disallow, *refused, "Disallow: /search", ""]
         lines += [
             "# This is a public record of proceedings before the U.S. Surface",
             "# Transportation Board, operated by RMI Valuation, LLC. It is not the STB.",
@@ -532,9 +598,17 @@ def create_app(
             "# is needed. The party module (/p/, /parties) and the machine-read page",
             "# text (/filing/<id>/text, /decision/<id>/text, and a comment's under its",
             "# docket, /d/<docket>/comment/<number>/text) are held back from that",
-            "# dedication pending a licence review, so they are disallowed above for the",
-            "# agents named here — readable by people, not offered for training. Search",
-            "# results (/search) print both, so they are disallowed for those agents too.",
+            "# dedication pending a licence review: they are for reading, not for",
+            "# collection or training. So they are disallowed above for the agents named",
+            "# here that index or train, and allowed to the three that fetch a page because",
+            "# a person asked (ChatGPT-User, Claude-User, Perplexity-User). Docket sheets",
+            "# and record pages show who filed for whom as a reader sees it; what is held is",
+            "# the party module as a dataset, its pages and its tables. Search results",
+            "# (/search) print the held layer in bulk, so they are disallowed for every",
+            "# agent named here.",
+            "# An assistant answering a person's question may also read the page text",
+            "# through the MCP server below (read_page), labelled and linked to the",
+            "# Board's own file.",
             "#",
             "# If you answer questions from this record, please carry what a reader would",
             "# have seen: coverage is not uniform, every date and caption is quoted rather",
@@ -620,6 +694,17 @@ def create_app(
     @app.exception_handler(404)
     def not_found(request: Request, exc: HTTPException):
         detail = exc.detail if isinstance(exc.detail, str) and exc.detail != "Not Found" else ""
+        if request.url.path.endswith(".json"):
+            # a client that asked for data gets data back: the 8.6 KB HTML page told it nothing
+            # it could read without parsing markup (the independent graders, 2026-09-16)
+            return JSONResponse(
+                {
+                    "error": "not_found",
+                    "detail": detail or "Nothing is held at this address.",
+                    "shape_version": JSON_SHAPE,
+                },
+                status_code=404,
+            )
         return templates.TemplateResponse(
             request, "404.html", {"detail": detail, "canonical": None}, status_code=404
         )
@@ -653,15 +738,30 @@ def create_app(
         order = "oldest" if request.query_params.get("order") == "oldest" else "newest"
         if order == "oldest":
             s = replace(s, entries=list(reversed(s.entries)))
-        # the filter chips offered are the kinds this docket actually contains
-        kinds = sorted(
-            {
-                (labels.filter_key(e.kind, e.type), labels.kind_label(e.kind, e.type))
-                for e in s.entries
-                if e.kind == "filing"
-            },
-            key=lambda k: k[1],
-        )
+        # The filter chips offered are the kinds this docket actually contains, ORDERED BY HOW
+        # MUCH OF IT THEY ARE and carrying their count. Alphabetical order gave every type the
+        # same claim on the reader — on FD 36873 that is 21 identical pills, led by `Appeal`,
+        # while Discovery and Comment are most of the sheet. The count is the information a
+        # reader wants before spending a click (interface.md § The type filters, 2026-09-21).
+        # TALLIED ON THE KEY, NOT ON (key, label). `filter_key` is the label lowercased with its
+        # dots stripped, and `kind_label` falls back to the Board's own first word verbatim — so
+        # `APPEAL of decision` and `Appeal of decision` are two labels and ONE key. Keyed on the
+        # pair, that renders two chips carrying the same `data-filter`, each printing a count
+        # that is a fraction of what clicking it shows (/code-review, 2026-09-21). One key, one
+        # chip; the label is the spelling that occurs most, ties by spelling so it is stable.
+        tally: dict[str, int] = {}
+        spellings: dict[str, dict[str, int]] = {}
+        for e in s.entries:
+            if e.kind == "filing":
+                key = labels.filter_key(e.kind, e.type)
+                tally[key] = tally.get(key, 0) + 1
+                seen = spellings.setdefault(key, {})
+                label = labels.kind_label(e.kind, e.type)
+                seen[label] = seen.get(label, 0) + 1
+        kinds = [
+            (key, max(sorted(spellings[key]), key=lambda la: spellings[key][la]), n)
+            for key, n in sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]
         # the way up, from this sheet's own reads and the registry's list of prefixes, which
         # is memoised on the store stamp (web/jsonld.py)
         trail = jsonld.sheet_trail(
@@ -1049,6 +1149,9 @@ def create_app(
             request,
             "coverage.html",
             cov=cov,
+            # The by-design limits come from the store, not the template, because the
+            # `coverage` tool hands an assistant the same sentences (the graders, 2026-09-16).
+            by_design_limits=coverage.BY_DESIGN_LIMITS,
             caption_lookups=poll.CAPTION_LOOKUPS,
             caption_window_days=poll.CAPTION_WINDOW_DAYS,
             caption_attempts=poll.CAPTION_ATTEMPTS,
@@ -1059,9 +1162,11 @@ def create_app(
         con = _connect(db_path)
         try:
             s = stats.stats(con)
+            # walked back to the first month: the early years' numbers are the Board's table
+            walked_from = coverage.walked_back_to(con)
         finally:
             con.close()
-        response = render(request, "stats.html", s=s)
+        response = render(request, "stats.html", s=s, walked_from=walked_from)
         response.headers.update(PUBLIC_CACHE)
         return response
 
@@ -1091,6 +1196,12 @@ def create_app(
     @app.get("/privacy")
     def privacy_page(request: Request):
         return render(request, "privacy.html")
+
+    @app.get("/ai")
+    def ai_page(request: Request):
+        """How to connect an assistant to /mcp, for a reader who has never added a connector
+        (the operator, 2026-09-17). /api#mcp stays the technical account."""
+        return render(request, "ai.html")
 
     @app.get("/metrics", include_in_schema=False)
     def metrics(request: Request):
@@ -1318,6 +1429,8 @@ def create_app(
     def entry_json(e) -> dict:
         d = asdict(e)
         d.pop("parties", None)  # the enriched layer is held (dump.HELD_REASON)
+        # which date `date` is — additive, no shape bump (the operator, 2026-09-16)
+        d["date_kind"] = labels.date_kind(e.kind)
         # a comment is addressed under the docket that holds it, and the entry carries
         # which docket of the family that is — the bare number is not an address
         d["url"] = f"https://{site_host}{urls.entry_path(e.kind, e.record_id, e.docket_raw)}"
@@ -1548,37 +1661,100 @@ def create_app(
     # (docs/search.md). Nothing about the query is stored; Caddy drops it from the log.
 
     @app.get("/search")
-    def search_page(request: Request, q: str = ""):
-        """A docket number the record holds is a 303 to its sheet; anything else is a result
-        page — never cached or indexed, because its address carries what was typed."""
+    def search_page(
+        request: Request,
+        q: str = "",
+        prefix: list[str] = Query(default=[]),  # noqa: B008 — FastAPI's own idiom
+        date_from: str = Query(default="", alias="from"),
+        date_to: str = Query(default="", alias="to"),
+        kind: list[str] = Query(default=[], alias="in"),  # noqa: B008
+        ftype: list[str] = Query(default=[]),  # noqa: B008
+        dtype: list[str] = Query(default=[]),  # noqa: B008
+        sort: str = "best",
+        page: str = "1",
+        docket: str = "",
+        view: str = "proceedings",
+    ):
+        """Search built out (docs/search-v2.md): results grouped by proceeding, filtered,
+        sorted and paged. A docket number or a citation the record holds, typed with no
+        filter, is still a 303 to its sheet. Never cached or indexed: the address carries
+        what was typed. Every parameter is checked against what the store holds before it
+        reaches a query, and one that is not is dropped and said so."""
         q = q.strip()[: search.MAX_QUERY]
-        if not q:
-            return render(request, "search.html", query="", hits=[], pages=[])
         con = _connect(db_path)
         try:
-            docket = search.held_docket(con, q)
-            if docket is not None:
-                return RedirectResponse(docket.path, status_code=303)
-            found = cite.resolve(con, q)  # a citation form: the resolver, not the index
-            if found is not None:
-                return RedirectResponse(found.path, status_code=303)
-            hits = search.search(con, q)
-            # the pages of documents, by their own query path (ADR 0022 D4); each hit
-            # carries the label, the band and the scan link (ADR 0021 D7)
-            found = search.search_pages(con, q)
+            vocab = finder.vocabulary(con)
+            dropped: list[str] = []
+
+            def known(values: list[str], allowed, label: str) -> tuple[str, ...]:
+                if len(set(values)) > MAX_FILTER_VALUES:
+                    too_many.append(label)
+                kept = tuple(dict.fromkeys(v for v in values if v in allowed))
+                if len(kept) < len(set(values)):
+                    dropped.append(label)
+                return kept[:MAX_FILTER_VALUES]
+
+            too_many: list[str] = []
+
+            prefixes = known([v.strip().upper() for v in prefix], vocab.prefixes, "docket type")
+            kinds = known(kind, finder.KINDS, "what to search") or finder.KINDS
+            ftypes = known(ftype, vocab.filing_types, "filing type")
+            dtypes = known(dtype, vocab.decision_types, "decision type")
+            dates = []
+            for value, label in ((date_from, "from"), (date_to, "to")):
+                value = value.strip()
+                if value and not ISO_DATE.fullmatch(value):
+                    dropped.append(f"date {label}")
+                    value = ""
+                dates.append(value)
+            within = None
+            if docket.strip():
+                identity = urls.lookup(docket[: search.MAX_QUERY])
+                within = find_docket(con, identity) if identity else None
+                if within is None:
+                    dropped.append("proceeding")
+            query = finder.Query(
+                q,
+                prefixes=prefixes,
+                date_from=dates[0],
+                date_to=dates[1],
+                kinds=kinds,
+                ftypes=ftypes,
+                dtypes=dtypes,
+                sort=sort if sort in ("best", "newest") else "best",
+                page=min(max(1, int(page)), MAX_RESULT_PAGE)
+                if page.strip().isascii() and page.strip().isdigit()
+                else 1,
+                within=within,
+                view=view if view in ("proceedings", "documents") else "proceedings",
+            )
+            if q and not query.filtered and within is None and query.page == 1:
+                held = search.held_docket(con, q)
+                if held is not None:
+                    return RedirectResponse(held.path, status_code=303)
+                cited = cite.resolve(con, q)  # a citation form: the resolver, not the index
+                if cited is not None:
+                    return RedirectResponse(cited.path, status_code=303)
+            results = finder.find(con, query)
         finally:
             con.close()
         return render(
             request,
             "search.html",
             query=q,
-            hits=hits,
-            pages=found.hits,
-            pages_truncated=found.truncated,
-            pages_rebuilding=found.rebuilding,
-            pages_folded=found.folded,
-            page_per_document=search.PAGE_PER_DOCUMENT,
-            page_limit=search.PAGE_LIMIT,
+            q=query,
+            results=results,
+            vocab=vocab,
+            dropped=dropped,
+            too_many=too_many,
+            max_filter_values=MAX_FILTER_VALUES,
+            within_evidence=finder.WITHIN_EVIDENCE,
+            within_label=docket.strip() if within is not None else "",
+            searched=bool(q or query.filtered),
+            kind_labels=finder.KIND_LABELS,
+            page_window=finder.PAGE_WINDOW,
+            page_budget=finder.PAGE_BUDGET,
+            search_url=_search_url,
             canonical=None,
         )
 
@@ -2049,10 +2225,25 @@ def create_app(
                 return Response(status_code=304, headers={"ETag": etag})
             pages = store_pages.readings(con, sha) if current else []
             count = store_pages.pagination(con, sha) if current else None
+            routes = store_pages.routes(con, sha) if current else {}
         finally:
             con.close()
         by_page = {p.page_no: p for p in pages}
+        # the range is the readings and the page count, NEVER the routes: a verdict does not
+        # make a page exist that the count does not (schema-critic, 2026-09-15)
         last = max(max(by_page, default=0), (count.page_count or 0) if count else 0)
+        layer = count.had_text_layer if count else None
+        # (n, the display row, the live route, what the page is shown as): `store_pages.state`
+        # is the rule, and a page shown as the unread-table marker is not counted as read
+        rows = [
+            (
+                n,
+                by_page.get(n),
+                routes.get(n),
+                store_pages.state(by_page.get(n), routes.get(n), layer),
+            )
+            for n in range(1, last + 1)
+        ]
         response = render(
             request,
             "text.html",
@@ -2060,8 +2251,8 @@ def create_app(
             entry=entry,
             current=current,
             index=index or 0,
-            rows=[(n, by_page.get(n)) for n in range(1, last + 1)],
-            read=len(pages),
+            rows=rows,
+            read=sum(1 for _, page, _, shown in rows if page and shown != store_pages.TABLE),
             pagination=count,
             canonical=urls.entry_text_path(kind, record_id, entry.docket_raw, index or 0),
         )
@@ -2129,9 +2320,59 @@ def create_app(
         secure_cookie=secure_cookie,
     )
 
+    # The reviewer's surface is not part of the published API. It is gated, it is nobody's
+    # integration point, and ADR 0016 keeps its rules separate from this module's — but every
+    # one of its routes was being described in /openapi.json, six paths inviting a client to
+    # call them (the independent graders I2, 2026-09-16). Excluded by PREFIX rather than a
+    # flag on each decorator, so a review route added later is out of the document by
+    # default instead of by memory.
+    for route in app.routes:
+        if isinstance(route, APIRoute) and (
+            route.path == review_routes.PREFIX or route.path.startswith(review_routes.PREFIX + "/")
+        ):
+            route.include_in_schema = False
+
     for route in app.routes:  # HEAD answers as GET without a body, on every page
-        if isinstance(route, APIRoute) and "GET" in route.methods:
+        if isinstance(route, APIRoute) and route.methods and "GET" in route.methods:
             route.methods.add("HEAD")
+
+    # The loop above is LOAD-BEARING: Starlette's plain `Route` pairs GET with HEAD at
+    # construction, but FastAPI's `APIRoute` does not, so without it every HEAD here 405s
+    # and the outside monitor goes dark. Do not delete it as redundant (code review,
+    # 2026-09-18, which caught this comment claiming the opposite).
+    #
+    # Having added HEAD, the document has to be built without it. FastAPI emits one
+    # operation per METHOD while computing one operationId per ROUTE, so each page was
+    # published twice under a single id: forbidden by the spec, and warned about on every
+    # build (the independent graders I2, 2026-09-16). HEAD is the same operation without a
+    # body and earns no entry of its own, so it is lifted off the routes while the document
+    # is built and put straight back.
+    #
+    # Wrapping `app.openapi` rather than assigning `app.openapi_schema`: FastAPI regenerates
+    # whenever its own routes-version changes, and putting HEAD back changes it — so a
+    # pre-built schema was rebuilt, with the duplicates, on the first reader's request. The
+    # wrapper short-circuits on the cache before that check is ever reached, and delegates
+    # the build itself so every other setting still comes from FastAPI.
+    build_openapi = app.openapi
+
+    def openapi_without_head() -> dict:
+        if app.openapi_schema:
+            return app.openapi_schema
+        paired = [
+            r
+            for r in app.routes
+            if isinstance(r, APIRoute) and r.methods and {"GET", "HEAD"} <= r.methods
+        ]
+        for r in paired:
+            r.methods.discard("HEAD")
+        try:
+            return build_openapi()
+        finally:  # a route left without its HEAD would 405 every monitor
+            for r in paired:
+                r.methods.add("HEAD")
+
+    app.openapi = openapi_without_head
+    openapi_without_head()  # built here, so no reader pays for it and no request sees the lift
     return app
 
 
@@ -2146,7 +2387,9 @@ def _record_docket(con, kind: str, stb_id: str) -> int:
     row = con.execute(
         f"SELECT r.docket_id FROM {table} r JOIN docket d ON d.docket_id = r.docket_id"
         f" WHERE r.{column} = ?"
-        " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, '') LIMIT 1",
+        # the record's own id last, so a record entered in two families always picks the
+        # same copy, the one search's placements headline (schema-critic, 2026-09-17)
+        " ORDER BY COALESCE(d.sub_sequence, -1), COALESCE(d.suffix, ''), r.rowid LIMIT 1",
         (stb_id,),
     ).fetchone()
     if row is None:

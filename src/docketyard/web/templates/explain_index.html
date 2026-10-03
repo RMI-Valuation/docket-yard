@@ -18,7 +18,7 @@
 </section>
 
 <section>
-  <h2>The five prefixes that carry the living record</h2>
+  <h2 class="section-title">The five prefixes that carry the living record</h2>
   <p>Together these hold {{ f.dockets_in(pages) | commas }} of the registry’s {{ f.total_dockets | commas }} dockets and nearly every filing since the watch began.{{ g('C') }} Each has its own page.</p>
   <table class="moved">
     <thead><tr><th scope="col">Prefix</th><th scope="col">What it is</th><th scope="col" class="num">Dockets</th><th scope="col" class="num">Filings held</th></tr></thead>
@@ -32,7 +32,7 @@
 </section>
 
 <section>
-  <h2 id="other">Prefixes with a smaller or older record</h2>
+  <h2 class="section-title" id="other">Prefixes with a smaller or older record</h2>
   <p>A few hold a live, small stream today; most of the rest are ICC-era series the Board inherited and keeps searchable. The record column is what the registry holds.{{ g('C') }} A row graded <span class="grade">[?]</span> is a reading of the captions that the Board’s records staff have not yet confirmed; it is shown so the gap is public.</p>
   <table class="moved">
     <thead><tr><th scope="col">Prefix</th><th scope="col" class="num">Record</th><th scope="col">What it is</th></tr></thead>
@@ -46,7 +46,7 @@
 </section>
 
 <section>
-  <h2 id="suffixes">Suffixes</h2>
+  <h2 class="section-title" id="suffixes">Suffixes</h2>
   <p>The form offers twenty letters; the record uses them unevenly.{{ g('B') }}{{ g('C') }}</p>
   <table class="moved">
     <thead><tr><th scope="col">Suffix</th><th scope="col">Where</th><th scope="col">Meaning</th></tr></thead>
@@ -62,12 +62,12 @@
 </section>
 
 <section>
-  <h2 id="decisions">Decision types, as the Board labels them</h2>
+  <h2 class="section-title" id="decisions">Decision types, as the Board labels them</h2>
   <p>The Board’s search offers nine;{{ g('B') }} the record holds them in this proportion:{{ g('C') }} {% for t, n in f.decision_types if t %}<strong>{{ t }}</strong> ({{ n | commas }}){{ ', ' if not loop.last else '.' }}{% endfor %} A <em>Decision</em> is the Board’s or a delegated official’s ruling; a <em>Notice of Exemption</em> a class exemption taking effect on notice; an <em>Environmental Review</em> the Office of Environmental Analysis’s assessment (AB and FD only); a <em>Notice</em> a procedural, hearing or Federal Register notice; a <em>Notice of Court Action</em> a court ruling on a Board decision (every one is on the <a href="/court">court-action register</a>); a <em>Corrected</em> decision or notice an errata reissue — {{ site_name }} records both versions.</p>
 </section>
 
 <section>
-  <h2 id="not-the-board">Not the Board — where a reader with a rail problem should look</h2>
+  <h2 class="section-title" id="not-the-board">Not the Board — where a reader with a rail problem should look</h2>
   <p>A large share of people who reach the Board are at the wrong agency. From the Board’s own material:{{ g('B') }}</p>
   <table class="moved">
     <thead><tr><th scope="col">Concern</th><th scope="col">Who handles it</th></tr></thead>

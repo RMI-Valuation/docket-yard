@@ -161,9 +161,14 @@ def test_home_lists_the_week_once_per_record(client):
     # The proceeding that moved is the docket the filing was entered in, never its parent:
     # a sub-docket is named and linked as itself (revised 2026-08-30). A filing entered in
     # a docket and its sub is two `filing` rows and one filing, said so on the page.
+    # one sentence rather than three tiles since 2026-09-21, and the third number is inside it
+    # as what it is — a SUBSET of the second, not a third measure beside it
     assert (
-        '2</span><span class="l">filings observed, in 2 proceedings (one entered in two)' in r.text
+        '<span class="n">2</span> filings observed, in 2 proceedings (one entered in two)' in r.text
     )
+    assert "of them in FD 36873" in r.text
+    assert 'class="stats"' not in r.text  # the stat row belongs to /statistics, where the
+    # three numbers really are parallel
     assert '<td class="dk"><a href="/d/FD-36873/sub/1">FD 36873 (Sub-No. 1)</a></td>' in r.text
     assert "<table" in r.text and '<th scope="col">Docket</th>' in r.text
     assert "19–25 August 2026" in r.text
@@ -327,6 +332,74 @@ def test_sheet_toolbar_filters_and_order(client):
     assert 'aria-pressed="true">All entries' in r.text
 
 
+def _store_with_types(tmp_path, spec):
+    """A store whose FD 36873 holds `spec` — {type: how many} — so the chips have an order
+    to get wrong."""
+    db_path = tmp_path / "types.sqlite"
+    con = db.connect(db_path)
+
+    def save(body, action):
+        cid = records.save_capture(
+            con,
+            tmp_path,
+            source_system="stb-ajax",
+            endpoint="test",
+            table_action=action,
+            request_params=[],
+            body=body,
+            http_status=200,
+            ingest_mode="forward",
+        )
+        records.set_verdict(con, cid, filter_asserted=True, row_count=0, reported_total=0)
+        return cid
+
+    dockets.ingest_capture(
+        con, tmp_path, save(make_body([("FD_36873", "UP/NS CONTROL")], total=1), DOCKETS)
+    )
+    rows, fid = "", 400000
+    for ftype, n in spec.items():
+        for _ in range(n):
+            fid += 1
+            rows += filing_row(fid=str(fid), row=str(fid), ftype=ftype, date="8/25/2026")
+    observations.ingest_capture(con, tmp_path, save(body_of(rows, sum(spec.values())), FILINGS))
+    con.close()
+    return db_path
+
+
+def test_the_type_filters_are_a_disclosure_ordered_by_size(tmp_path):
+    """Three chips the reader learns once, then the types behind a disclosure, largest first
+    with its count. Alphabetical pills gave `Appeal` the same claim on the eye as the type that
+    is half the sheet, and on FD 36873 that was 21 of them (2026-09-21)."""
+    client = TestClient(
+        create_app(_store_with_types(tmp_path, {"Motion": 1, "Reply": 5, "Comment": 3}))
+    )
+    r = client.get("/d/FD-36873")
+    top = r.text[r.text.index('id="filters"') : r.text.index("</details>")]
+    # the three that mean the same thing on every sheet come before the disclosure
+    assert top.index(">All entries") < top.index(">Decisions") < top.index(">Filings")
+    assert top.index(">Filings") < top.index("<details")
+    # largest first, each carrying its count — NOT the alphabetical order, which would put
+    # Comment first and Reply last
+    assert [int(n) for n in re.findall(r'<span class="chip-n">(\d+)</span>', top)] == [5, 3, 1]
+    assert top.index("Reply") < top.index("Comment") < top.index("Motion")
+    assert 'class="more-kinds"' in top and "By type" in top
+
+
+def test_two_spellings_of_one_type_are_one_chip_with_the_whole_count(tmp_path):
+    """`filter_key` is the label lowercased, and `kind_label` falls back to the Board's own
+    first word verbatim — so `APPEAL of decision` and `Appeal of decision` are two labels and
+    ONE key. Keyed on the pair they rendered two chips sharing a `data-filter`, each printing a
+    fraction of what clicking it showed (/code-review, 2026-09-21)."""
+    client = TestClient(
+        create_app(_store_with_types(tmp_path, {"APPEAL of decision": 4, "Appeal of decision": 3}))
+    )
+    top = client.get("/d/FD-36873").text
+    top = top[top.index('id="filters"') : top.index("</details>")]
+    assert top.count('data-filter="appeal"') == 1  # one key, one chip
+    assert '<span class="chip-n">7</span>' in top  # and it counts every entry under that key
+    assert ">(1)</span>" in top  # the summary counts types, and there is one
+
+
 def test_display_helpers():
     from docketyard.web import labels
     from docketyard.web.app import fmt_range
@@ -367,6 +440,27 @@ def test_health_reports_freshness_without_judging_it(client):
     assert h["last_event"] and h["age_seconds"]["last_event"] >= 0
     assert h["last_document"] is None and h["age_seconds"]["last_document"] is None
     assert "Set-Cookie" not in r.headers
+
+
+def test_the_footer_names_the_release_that_served_the_page(tmp_path, monkeypatch):
+    path = build_store(tmp_path)
+    assert "Development build." in TestClient(create_app(path)).get("/").text  # off a release
+    monkeypatch.setattr("docketyard.web.app.__version__", "v2026.09.26")
+    html = TestClient(create_app(path)).get("/coverage").text
+    assert (
+        '<a href="https://github.com/RMI-Valuation/docket-yard/releases/tag/v2026.09.26"'
+        ' rel="noopener">Release v2026.09.26</a>.' in html
+    )
+
+
+def test_the_ai_page_gives_the_address_and_is_linked(client):
+    html = client.get("/ai").text
+    assert "Connect an AI assistant" in html
+    assert "https://docketyard.org/mcp" in html
+    assert "claude mcp add --transport http docket-yard https://docketyard.org/mcp" in html
+    assert "open the Board's document it links" in html
+    assert '<a href="/ai">How to connect</a>' in client.get("/").text
+    assert '<a href="/ai">AI assistants</a>' in client.get("/coverage").text
 
 
 def test_record_pages_and_404s(client):
@@ -443,8 +537,10 @@ def test_the_docket_index_lists_the_registry_by_number(tmp_path):
     assert 'href="/dockets/FD"' in r.text
     # both totals on the page, and they reconcile with the one /coverage publishes
     assert "listed here" in r.text and "dockets in all" in r.text
+    # a sentence rather than three tiles since 2026-09-22, for the reason the home page's went:
+    # the all-dockets figure CONTAINS the listed one, so they never were a comparable set
     held = int(
-        re.search(r'([\d,]+)</span><span class="l">dockets in all', r.text)
+        re.search(r'<span class="n">([\d,]+)</span> dockets in all', r.text)
         .group(1)
         .replace(",", "")
     )
@@ -491,3 +587,163 @@ def test_a_banded_prefix_splits_by_number_and_the_bands_are_permanent(tmp_path):
     band = client.get("/dockets/FD/36000")
     assert band.status_code == 200 and 'href="/d/FD-36873"' in band.text
     assert client.get("/dockets/FD/2000").status_code == 404  # a range holding nothing
+
+
+def test_a_decisions_date_says_it_is_the_served_date_everywhere(tmp_path):
+    """The operator, 2026-09-16, on the independent graders' finding: a decision's date is the
+    day the Board served it, not the day it was decided, and nothing said so. Labelled, so a
+    quoted decided date can arrive beside it later without renaming anything."""
+    from docketyard.web import labels, mcp
+
+    path = build_store(tmp_path)
+    client = TestClient(create_app(path))
+    page = client.get("/decision/53210").text
+    assert "Served <time" in page
+    assert "(STB served Aug. 21, 2026)</p>" in page  # the Board's own citation form
+    assert "(filed Aug. 25, 2026)</p>" in client.get("/filing/311981").text
+    assert '<span class="small">served </span>' in client.get("/d/FD-36873").text
+    d = client.get("/decision/53210.json").json()["decision"]
+    assert d["date_kind"] == "served" and d["date"] == "2026-08-21"
+    assert client.get("/filing/311981.json").json()["filing"]["date_kind"] == "filed"
+    con = db.connect(path)
+    out = mcp._docket(con, {"docket": "FD 36873"}, "docketyard.org")
+    con.close()
+    assert "- served 2026-08-21 [decision] 53210" in out
+    assert "- filed 2026-08-25 [filing] 311981" in out
+    assert labels.cite_date("decision", "2026-09-03") == "(STB served Sept. 3, 2026)"
+    assert labels.cite_date("filing", "2026-06-01") == "(filed June 1, 2026)"
+    assert labels.cite_date("decision", None) == ""
+
+
+def test_last_checked_is_the_last_poll_and_the_last_entry_is_said_apart(tmp_path):
+    """Two independent graders, 2026-09-16: `last checked` was the latest capture that brought
+    the docket an entry, so a quiet docket polled every thirty minutes read weeks stale. Shape 3
+    (the operator's decision): the poll and the entry are two fields, and the page shows both."""
+    from docketyard.web import mcp
+
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    (entry_time,) = con.execute("SELECT MAX(captured_at) FROM capture").fetchone()
+    # a later pass that found nothing new for any docket: every table asked, no events
+    for action in (FILINGS, DECISIONS):
+        cid = records.save_capture(
+            con,
+            tmp_path,
+            source_system="stb-ajax",
+            endpoint="test",
+            table_action=action,
+            request_params=[],
+            body=b'{"success": true, "data": {"rows": "", "total": 0}}',
+            http_status=200,
+            ingest_mode="forward",
+        )
+        records.set_verdict(con, cid, filter_asserted=True, row_count=0, reported_total=0)
+        con.execute(
+            "UPDATE capture SET captured_at = '2099-01-01T00:00:00+00:00' WHERE capture_id = ?",
+            (cid,),
+        )
+    con.commit()
+    s = sheet.docket_sheet(con, 1)
+    assert s.last_checked == "2099-01-01T00:00:00+00:00"
+    assert s.last_new_entry == entry_time
+    out = mcp._docket(con, {"docket": "FD 36873"}, "docketyard.org")
+    con.close()
+    assert "Last checked against the Board: 2099-01-01" in out
+    assert f"Last new entry observed: {entry_time}" in out
+    client = TestClient(create_app(path))
+    d = client.get("/d/FD-36873.json").json()
+    assert d["shape_version"] == 3
+    assert d["docket"]["last_checked"].startswith("2099") and d["docket"]["last_new_entry"]
+    assert "last new entry" in client.get("/d/FD-36873").text
+
+
+def test_a_cite_block_carries_the_day_it_was_read_and_the_snapshot(tmp_path):
+    """The researcher grader, 2026-09-16: a paper citing a sheet could not say what it showed
+    that day. The operator's decision: an access date and the bulk snapshot, now."""
+    from docketyard.store import dump
+
+    path = build_store(tmp_path)
+    client = TestClient(create_app(path))
+    from datetime import UTC, datetime
+
+    today = datetime.now(UTC)  # the page's clock is UTC
+    assert f"Accessed {today.day} {today.strftime('%b %Y')}." in client.get("/d/FD-36873").text
+    dump.dump(path, tmp_path / "public")  # a snapshot exists: the cite names it
+    page = TestClient(create_app(path)).get("/decision/53210").text
+    kept = dump.read_manifest(tmp_path / "public").dated[0].name
+    assert f"; bulk archive {kept}." in page and "latest" not in kept  # a file that stays
+
+
+def test_the_thin_early_years_are_said_to_be_the_boards_and_an_early_sheet_warns(
+    tmp_path, monkeypatch
+):
+    """The operator's decision 1 on the independent graders' findings: the early years' small
+    numbers read as months still to come, and a sheet that may be the later part of an older
+    proceeding gave no hint. Measured years on /coverage; one line on such a sheet."""
+    from docketyard.store import coverage
+
+    path = build_store(tmp_path)
+    con = db.connect(path)
+    (event,) = con.execute("SELECT MIN(observed_in_event) FROM filing").fetchone()
+    for i, filed in enumerate(["1996-03-01", "1997-05-01", "1999-01-01", "1999-02-01"]):
+        con.execute(
+            "INSERT INTO filing (docket_id, stb_filing_id, filing_type, filed_date,"
+            " observed_in_event) VALUES (1, ?, 'Letter', ?, ?)",
+            (str(800000 + i), filed, event),
+        )
+    con.commit()
+    monkeypatch.setattr(coverage, "DENSE_YEAR", 1)
+    years = coverage.early_filing_years(con, this_year="2026")
+    # 1999 holds two (> 1) and so does no later full year: the thin run ends at 1999
+    assert years == [("1996", 1), ("1997", 1), ("1999", 2)]
+    con.close()
+    client = TestClient(create_app(path))
+    page = client.get("/d/FD-36873").text
+    assert "The record begins with the Board’s own search, on 25 Jan 1996." in page
+    # a sheet whose record starts later carries no such line
+    assert "The record begins with" not in client.get("/d/FD-36873/sub/1").text
+
+
+def test_the_licence_dedicates_what_is_ours_and_reproduces_what_was_filed():
+    """The operator's decision 5: comments and filings are public record and stay published as
+    filed; the label says CC0 covers the compilation and the Board's own fields."""
+    from importlib import resources
+
+    text = resources.files("docketyard").joinpath("LICENSE-DATA.txt").read_text(encoding="utf-8")
+    assert "WHAT IS DEDICATED" in text and "WHAT IS REPRODUCED AS FILED" in text
+    assert "does not purport" in text and "machine-read text of documents" in text
+    assert "as works of the United States Government they are in the public domain" not in text
+
+
+def test_walked_back_to_refuses_a_gap_no_wave_began_and_takes_the_later_table(tmp_path):
+    """Code review, 2026-09-16: `/stats` and `/coverage` said "every month back to 1996-01 has
+    been walked" while a month between waves had no slice, or one table was walked less far
+    back than the other."""
+    from docketyard.store import coverage
+
+    con = db.connect(build_store(tmp_path))
+    start = coverage._watch_starts(con.execute, (FILINGS, DECISIONS))[FILINGS]
+
+    def months(first: str):
+        y, m = int(first[:4]), int(first[5:7])
+        while (y, m) <= (start.year, start.month):
+            yield f"{y:04d}-{m:02d}"
+            y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+
+    def slice_(action, month):
+        con.execute(
+            "INSERT OR REPLACE INTO walk_slice (slice_key, table_action, criteria, status, rows,"
+            " captures, completed_at) VALUES (?, ?, '[]', 'done', 0, 1, '2026-09-01')",
+            (f"{action}:{month}", action),
+        )
+
+    for m in months("2025-11"):
+        slice_(FILINGS, m)
+    for m in months("2026-01"):
+        slice_(DECISIONS, m)
+    con.commit()
+    assert coverage.walked_back_to(con) == "2026-01"  # decisions reach back less far
+    con.execute("DELETE FROM walk_slice WHERE slice_key = ?", (f"{FILINGS}:2025-12",))
+    con.commit()
+    assert coverage.walked_back_to(con) is None  # a month no slice names is outstanding
+    con.close()
