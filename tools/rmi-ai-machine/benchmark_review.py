@@ -42,6 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 import benchmark_score as bs  # noqa: E402
+from benchmark_files import decision_id_of  # noqa: E402
 from citation_dryrun import own_dockets  # noqa: E402
 
 from docketyard.citator import find, keys, resolve  # noqa: E402
@@ -174,7 +175,7 @@ def review(args) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     files = sorted(args.text_dir.glob("*.txt"))[: args.limit or None]
     for path in files:
-        did = path.stem.rsplit("-", 1)[-1]
+        did = decision_id_of(path)
         target = out_dir / f"{did}.json"
         if target.exists() and not errored(target):
             continue

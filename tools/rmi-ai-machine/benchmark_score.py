@@ -31,6 +31,8 @@ import unicodedata
 from collections import defaultdict
 from pathlib import Path
 
+from benchmark_files import decision_id_of
+
 ROOT = Path(__file__).resolve().parents[2]
 LABELS = ROOT / "docs/research/benchmark/labels.csv"
 OUT = ROOT / "docs/research/benchmark/runs"
@@ -158,7 +160,7 @@ def load_text(text_dir: Path) -> dict:
     extraction emits a page's body and then its footnotes, so the halves are not adjacent
     (16 of the sheet's 977 quotes, measured 2026-08-30; the queue sends those to the PDF)."""
     return {
-        f.stem.rsplit("-", 1)[-1]: flat(f.read_text(encoding="utf-8", errors="replace"))
+        decision_id_of(f): flat(f.read_text(encoding="utf-8", errors="replace"))
         for f in text_dir.glob("*.txt")
     }
 

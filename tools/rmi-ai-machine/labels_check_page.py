@@ -25,6 +25,8 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from benchmark_files import decision_id_of
+
 ROOT = Path(__file__).resolve().parents[2]
 # disposable, beside the mirrored text (data/ is gitignored); an earlier revision wrote
 # into one session's temp scratchpad, which made the queue unbuildable from a fresh
@@ -205,7 +207,7 @@ def main() -> None:
         by_decision[r["decision_id"]].append(r)
 
     text_dir = ROOT / "data/benchmark/text"
-    files = {f.name.split("-")[-1].removesuffix(".txt"): f for f in text_dir.glob("*.txt")}
+    files = {decision_id_of(f): f for f in text_dir.glob("*.txt")}
 
     order = {"heavy": 0, "routine": 1, "short": 2}
     items = []

@@ -45,6 +45,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 import benchmark_score as bs  # noqa: E402
 import projection_score as ps  # noqa: E402
+from benchmark_files import decision_id_of  # noqa: E402
 
 from docketyard.citator import (  # noqa: E402
     find,
@@ -58,6 +59,11 @@ from docketyard.citator import (  # noqa: E402
 from docketyard.store import db  # noqa: E402
 
 SCORE_FILE = "tools/rmi-ai-machine/projection_score.py"
+# BESIDE THE RUN, the registry it was made against. `kind` is a function of `own`, which comes
+# from the registry, and ADR 0016's own argument is that the old figures could not be
+# re-derived partly because nobody could say which registry they were scored against. Not a
+# `.json`: every reader of a run directory globs `*.json` as one decision each.
+REGISTRY_FILE = "registry.txt"
 
 
 def scratch_store(registry: Path, out: Path) -> sqlite3.Connection:
@@ -233,20 +239,23 @@ def pct(part: int, whole: int) -> str:
     return f"{100 * part / whole:5.1f}%" if whole else "    n/a"
 
 
-def run_the_finder(text_dir: Path, out: Path, own: dict[str, set[str]]) -> Path:
+def run_the_finder(text_dir: Path, out: Path, own: dict[str, set[str]]) -> tuple[Path, list[str]]:
     """The SHIPPED finder over every extracted decision, written in benchmark_run.py's shape
     so `projection_score.py` can score it beside the models.
 
     This is the run ADR 0017 § The figures describes and could not re-derive — the finder
     with NO registry filter (D2) — and it is regenerated on every dry run rather than kept as
     a directory nobody can reproduce. `data/` is disposable, and this is what makes it so.
+
+    Returns the run and its ORPHANS — decisions with no docket in the registry, which are not
+    run at all — so the caller can print them beside the figures they lower.
     """
     out.mkdir(parents=True, exist_ok=True)
     for stale in out.glob("*.json"):
         stale.unlink()
     orphans = []
     for path in sorted(text_dir.glob("*.txt")):
-        did = path.stem.rsplit("-", 1)[-1]
+        did = decision_id_of(path)
         if did not in own:
             # without the decision's own dockets the rule calls every caption a citation:
             # degrade LOUDLY, never silently (the same guard benchmark_regex.py carries)
@@ -275,9 +284,41 @@ def run_the_finder(text_dir: Path, out: Path, own: dict[str, set[str]]) -> Path:
             ],
         }
         (out / f"{did}.json").write_text(json.dumps(doc, indent=1), encoding="utf-8")
-    if orphans:
-        print(f"  WARNING: {len(orphans)} decisions have no docket in the registry: {orphans[:5]}")
-    return out
+    return out, orphans
+
+
+def orphan_note(orphans: list[str], truth: dict[str, set[str]]) -> str:
+    """The orphans, said where the numbers are. An orphan is skipped by the finder but its
+    truth targets stay in every denominator, so each figure printed is lower than the rule's
+    by an amount nothing beside it shows — the warning used to be a line fifty above the
+    numbers (finder review, 2026-09-01). Empty when there are none."""
+    if not orphans:
+        return ""
+    lost = sum(len(truth.get(did, ())) for did in orphans)
+    return (
+        f"  ORPHANS: {len(orphans)} decisions have no docket in the registry and were not run;"
+        f" their {lost} truth targets stay in every denominator: {sorted(orphans)}"
+    )
+
+
+def caption_only(run: Path) -> set[tuple[str, str]]:
+    """(decision, key) pairs the run emitted ONLY as captions, on every page. A key emitted as
+    a citation anywhere in the decision is in the Python chain's sets already; these are the
+    pairs it never sees, so the only ones a projected caption can explain."""
+    kinds: dict[tuple[str, str], set[str]] = {}
+    for path in sorted(run.glob("*.json")):
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        for page in doc.get("pages", []):
+            for f in page.get("findings", []):
+                kinds.setdefault((str(doc["decision_id"]), f["key"]), set()).add(f["kind"])
+    return {pair for pair, seen in kinds.items() if seen == {"caption"}}
+
+
+def record_registry(run: Path, registry: Path, dockets: int) -> Path:
+    """Write which registry a run was made against, and a fingerprint of it, into the run."""
+    path = run / REGISTRY_FILE
+    path.write_text(f"registry {registry}\ndockets {dockets}\n", encoding="utf-8", newline="\n")
+    return path
 
 
 def main(
@@ -290,10 +331,12 @@ def main(
 ) -> int:
     con0 = sqlite3.connect(f"file:{registry}?mode=ro", uri=True)
     own = own_dockets(con0)
+    dockets = con0.execute("SELECT COUNT(*) FROM docket").fetchone()[0]
     con0.close()
-    run = run_the_finder(text_dir, out, own)
+    run, orphans = run_the_finder(text_dir, out, own)
+    record_registry(run, registry, dockets)
     py = python_chain(run, registry)
-    print(f"finder over {text_dir} -> {run}   registry {registry}\n")
+    print(f"finder over {text_dir} -> {run}   registry {registry} ({dockets} dockets)\n")
     print("PYTHON CHAIN (tools/rmi-ai-machine/projection_score.py):")
     print(
         f"  extraction {py['found']:3d}/{py['truth']}   resolution {py['resolved']:3d}"
@@ -303,6 +346,8 @@ def main(
         f"  precision  {py['projected']} of {py['shown']} shown ="
         f" {pct(py['projected'], py['shown'])}\n"
     )
+    if orphaned := orphan_note(orphans, py["T"]):
+        print(orphaned + "\n")
 
     con = scratch_store(registry, store)
     version = find.FINDER_VERSION
@@ -437,12 +482,29 @@ def main(
             print(f"    {citing_work}  {key}")
 
     reachable = {(d, k) for d, k in py["pairs"] if d in docs}
-    ok = sql_pairs == reachable - held_for_review
+    # AN IN-FAMILY CAPTION THAT PROJECTS IS A FOURTH LEGITIMATE DIFFERENCE (ADR 0017 D4). The
+    # Python chain counts citation-kind findings only, while the store holds captions too, and
+    # an own-family caption whose line names a document SHOULD project — it is the
+    # reconsideration edge query 2 exists to find. Since finder 2026-09-13 the kind is read
+    # from the same span test, so the set is expected empty; it is NAMED rather than failing a
+    # correct pipeline on the day the two tests part (finder review, 2026-09-01).
+    caption_edges = (sql_pairs - reachable) & caption_only(run)
+    if caption_edges:
+        print(
+            f"  {len(caption_edges)} in-family CAPTIONS project because their line names a"
+            " document (ADR 0017 D4), which the Python chain does not count:"
+        )
+        for citing_work, key in sorted(caption_edges):
+            print(f"    {citing_work}  {key}")
+    ok = sql_pairs - caption_edges == reachable - held_for_review
     print(
         f"\n  python projects {len(reachable)} pairs on documents the store holds, less"
         f" {len(held_for_review)} held for review; SQL projects {len(sql_pairs)}"
+        + (f", {len(caption_edges)} of them captions" if caption_edges else "")
     )
     print(f"  AGREEMENT: {'yes' if ok else 'NO'}")
+    if orphaned:
+        print(orphaned)
     if not ok:
         print(f"    in python not SQL: {sorted(reachable - sql_pairs)[:5]}")
         print(f"    in SQL not python: {sorted(sql_pairs - reachable)[:5]}")
