@@ -41,9 +41,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 import benchmark_score as bs  # noqa: E402
-from citation_dryrun import own_dockets  # noqa: E402
 
-from docketyard.citator import keys, resolve  # noqa: E402
+from docketyard.citator import keys, resolve, walk  # noqa: E402
 from docketyard.web import urls as site  # noqa: E402
 
 SHEET = Path("docs/research/benchmark/labels.csv")
@@ -196,7 +195,12 @@ def build(store: Path, run: Path) -> list[dict]:
     con = sqlite3.connect(f"file:{store}?mode=ro", uri=True)
     sheet, quotes = sheet_rows(), passages(run)
     decs, urls, caps = decisions(con), pdf_urls(con), captions(con)
-    own = own_dockets(con)  # the family the anchor's own-fused rule reads, by citing decision
+    # THE FAMILY THE ANCHOR'S OWN-FUSED RULE READS, PER CITING DOCUMENT — the loader's union
+    # over every decision carrying the bytes, not the citing decision's own family. A document
+    # carried by decisions in unrelated dockets was anchored with one carrier's family here
+    # while `load` re-keyed with all of them, so the sheet could miss a re-key the store
+    # made (finder 2026-09-14b review). 0 of the sixty documents has two carriers today.
+    own = walk.own_by_document(con)
     registered = {r[0] for r in con.execute("SELECT stb_decision_id FROM decision_work")}
 
     # ONE DRAFTED ROW IS ONE CLAIM, and a claim is (citing work, target, document): a citing
@@ -205,8 +209,9 @@ def build(store: Path, run: Path) -> list[dict]:
     # A pair that reached no document is one row however many pages it sat on — there is one
     # thing to say about it.
     claims: dict[tuple[str, str, str], dict] = {}
-    for citing, page, key, docket_id, decision_id in con.execute(
-        "SELECT COALESCE(dr.stb_decision_id, r.citing_document), r.page, r.target_key,"
+    for citing, sha, page, key, docket_id, decision_id in con.execute(
+        "SELECT COALESCE(dr.stb_decision_id, r.citing_document), r.citing_document,"
+        "       r.page, r.target_key,"
         "       r.cited_docket_id, r.cited_decision_id"
         " FROM citation_resolution r"
         " LEFT JOIN decision_attachment da ON da.document_sha256 = r.citing_document"
@@ -215,16 +220,22 @@ def build(store: Path, run: Path) -> list[dict]:
     ):
         at = claims.setdefault(
             (str(citing), key, decision_id or ""),
-            {"docket_id": docket_id, "decision_id": decision_id, "pages": []},
+            {"docket_id": docket_id, "decision_id": decision_id, "pages": [], "docs": set()},
         )
         at["pages"].append((int(page), key))
+        at["docs"].add(sha)
 
     # a pair the sheet labels that the loader never resolved at all (no bytes, no finding):
     # it still owes a row if its quote names a date, or the recall denominator is the
     # pipeline's own reach rather than the sheet's
     for pair in sheet:
         if not any(c[0] == pair[0] and c[1] == pair[1] for c in claims):
-            claims[(pair[0], pair[1], "")] = {"docket_id": None, "decision_id": None, "pages": []}
+            claims[(pair[0], pair[1], "")] = {
+                "docket_id": None,
+                "decision_id": None,
+                "pages": [],
+                "docs": set(),
+            }
 
     rows = []
     for (citing, key, _), got in sorted(claims.items()):
@@ -232,13 +243,12 @@ def build(store: Path, run: Path) -> list[dict]:
         printed = next((r["target"] for r in sheet_rows_here if r["target"]), key)
         pages = sorted({p for p, _ in got["pages"]})
         segments, lines, day = [], [], None
+        # one citing work is one document in the dry run; were it ever two, either one's
+        # family is a family `load` read, so their union is what could have re-keyed it
+        family = set().union(*(own.get(sha, set()) for sha in got["docs"]))
         for page in pages:
             passage = " | ".join(q for q in quotes.get((citing, page, key), []) if q)
-            segment = (
-                resolve._anchored(passage, printed, key=key, own=own.get(citing, set()))
-                if passage
-                else ""
-            )
+            segment = resolve._anchored(passage, printed, key=key, own=family) if passage else ""
             if segment:
                 segments.append(segment)
             if passage:
