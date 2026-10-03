@@ -74,6 +74,7 @@ def test_a_line_is_quoted_as_printed_and_read_never_corrected():
     assert decided.parse("Decided:  April 21, 20004") is None  # not a year
     assert decided.parse("Decided: 18, 1997") is None  # no month printed
     assert decided.parse("Decided: January 77. 1998") is None  # not a day
+    assert decided.parse("Decided: No 12 2004, October 5, 2017") == "2017-10-05"
 
 
 def test_an_empty_label_takes_the_next_line_unless_that_line_is_a_label():
@@ -86,6 +87,9 @@ def test_an_empty_label_takes_the_next_line_unless_that_line_is_a_label():
         assert " ".join(text[start:end].split()) == raw
     (bare,) = decided.lines("Decided:\nVice Chairman Primus: concurring\n")
     assert bare.printed_text == "Decided:" and bare.decided_date is None
+    # a date line with a label after it is the date, not a label (code review)
+    (dated,) = decided.lines("Decided:\nSeptember 30 2016 Served: October 3 2016\n")
+    assert dated.decided_date == "2016-09-30"
 
 
 def test_the_pass_quotes_every_line_of_every_page_with_its_page_and_text(tmp_path):
@@ -126,14 +130,92 @@ def test_a_document_read_and_found_empty_says_so(tmp_path):
     ).fetchone() == (1, 0)
 
 
-def test_an_unchanged_document_is_not_read_again(tmp_path):
-    """Decision 8."""
+def test_an_unchanged_page_is_not_rewritten(tmp_path):
+    """Decision 8: a page whose live quotations already quote its displayed text, at this
+    version, line for line, is left as it is."""
     con = _store(tmp_path)
     _page(con, 1, "Decided: March 10, 2021\n")
     decided.run(con)
+    (before,) = con.execute("SELECT decided_id FROM decision_decided_date").fetchone()
     again = decided.run(con)
-    assert (again.documents, again.skipped, again.lines) == (0, 1, 0)
-    assert len(_live(con)) == 1
+    assert (again.unchanged, again.retired) == (1, 0)
+    assert con.execute("SELECT decided_id FROM decision_decided_date").fetchall() == [(before,)]
+
+
+def test_a_text_stamped_before_the_last_run_is_still_quoted(tmp_path):
+    """The clock rule this replaced: the text loader stamps `asserted_at` when a batch starts
+    and commits later, so a text the display shows only after a run can carry an EARLIER stamp
+    than that run, and was skipped for ever (code review and the schema critic, 2026-10-03)."""
+    con = _store(tmp_path)
+    first = _page(con, 1, "Decided: March 10, 2O21\n")
+    decided.run(con)
+    con.execute(
+        "UPDATE document_text SET superseded_by = text_id, superseded_at = ? WHERE text_id = ?",
+        (LATER, first),
+    )
+    newer = _page(con, 1, "Decided: March 10, 2021\n", at="2000-01-01T00:00:00+00:00")
+    decided.run(con)
+    assert _live(con) == [(1, 0, "Decided: March 10, 2021", "2021-03-10", "text-layer", newer)]
+
+
+def test_a_page_shown_again_after_a_correction_is_withdrawn_is_quoted_again(tmp_path):
+    """The second way the clock rule lost a page: the machine reading comes back to the display
+    with its old stamp after a person's correction is retired."""
+    con = _store(tmp_path)
+    machine = _page(con, 1, "Decided: March 10, 2021\n")
+    decided.run(con)
+    person = _page(con, 1, "Decided: March 10, 2021\n", channel="human", role="human", at=LATER)
+    decided.run(con)
+    assert _live(con) == []  # the person's page is not quoted, and the machine row went stale
+    con.execute(
+        "UPDATE document_text SET superseded_by = text_id, superseded_at = ? WHERE text_id = ?",
+        (LATER, person),
+    )
+    decided.run(con)
+    assert [r[5] for r in _live(con)] == [machine]
+
+
+def test_every_live_row_on_a_re_read_page_is_retired(tmp_path):
+    """Decision 5, every live machine row of the method on the page: two live rows sharing a
+    line — two readings' quotations, which `one_per_line` allows because their texts differ —
+    are both retired on a re-read, where a map keyed by line kept one of them (code review)."""
+    con = _store(tmp_path)
+    layer = _page(con, 1, "Decided: March 10, 2021\n")
+    decided.run(con)
+    ocr = _page(con, 1, "Decided: March 10, 2021\n", channel="ocr", role="second")
+    con.execute(  # a second reading's quotation of the same line, as a later pass might write
+        "INSERT INTO decision_decided_date (document_sha256, date_kind, page_no, ordinal,"
+        " reading_channel, method, method_version, render_profile, reading_method,"
+        " reading_method_version, printed_text, decided_date, text_id, asserted_at,"
+        " confidence, confidence_state) VALUES (?, 'decided', 1, 0, 'ocr', ?, ?, '200',"
+        " 'dots.mocr', '1.5', 'Decided: March 10, 2021', '2021-03-10', ?, ?, 0, 'unmeasured')",
+        (SHA, decided.METHOD, decided.VERSION, ocr, STAMP),
+    )
+    assert len(_live(con)) == 2
+    con.execute(
+        "UPDATE document_text SET superseded_by = text_id, superseded_at = ? WHERE text_id = ?",
+        (LATER, layer),
+    )
+    newest = _page(con, 1, "Decided: March 11, 2021\n", at=LATER)
+    out = decided.run(con)
+    assert out.retired == 2
+    assert _live(con) == [(1, 0, "Decided: March 11, 2021", "2021-03-11", "text-layer", newest)]
+
+
+def test_a_limited_run_sweeps_only_what_it_read(tmp_path):
+    """A document a limited run never reached keeps its rows live, for the run that reads it
+    to replace and point at (decision 6)."""
+    con = _store(tmp_path)
+    first = _page(con, 1, "Decided: March 10, 2021\n")
+    decided.run(con)
+    con.execute(
+        "UPDATE document_text SET superseded_by = text_id, superseded_at = ? WHERE text_id = ?",
+        (LATER, first),
+    )
+    _page(con, 1, "Decided: March 10, 2021\n", at=LATER)
+    assert decided.run(con, limit=0).stale == 0  # read nothing, so swept nothing
+    full = decided.run(con)
+    assert full.stale == 0 and full.retired == 1  # replaced on the re-read, not swept
 
 
 def test_a_person_s_reading_is_not_quoted_and_the_machine_s_quotation_goes_stale(tmp_path):

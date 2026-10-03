@@ -21,26 +21,28 @@ ordinal)`, or leaves it pointing at itself. A line a newer version no longer fin
 does not stay live. Every run also retires, at itself, every row whose `text_id` has left the
 display — the page's text replaced, or a person's reading now shown in its place.
 
-WHEN IT READS (decision 8). One `extraction_run` row per (document, method, version, channel)
-says a pass read EVERY displayed page of that document on that channel at `ran_at`. A channel
-is read again only when a displayed text on it was asserted at or after that row's `ran_at`,
-or when the method's version moves; an unchanged page is not rewritten. A run that finds no
-line still writes its row, which is what separates read-and-found-nothing from not-yet-read
-(ADR 0018 D10).
+WHEN IT WRITES (decision 8). One `extraction_run` row per (document, method, version,
+channel) says a pass read EVERY displayed page of that document on that channel at `ran_at`,
+and a run that finds no line still writes it — what separates read-and-found-nothing from
+not-yet-read (ADR 0018 D10). An unchanged page is not rewritten: a page whose live quotations
+already name its displayed text, at this version, with the lines this reading finds, is left
+as it is. THE PASS READS EVERY DOCUMENT TO KNOW THAT, rather than skipping one whose texts
+were all asserted before its last `ran_at`. The clock rule lost pages (code review and the
+schema critic, 2026-10-03): the text loader stamps `asserted_at` when a batch starts and
+commits it later, so a text committed after a run began could carry an earlier stamp and be
+skipped for ever; and a page going back to an older reading, after a person's correction was
+withdrawn, carried an old stamp and was never quoted again. Reading the record costs about a
+minute; skipping by identity, not by clock, is what keeps an unchanged page unwritten.
 """
 
-import json
 import re
 from dataclasses import dataclass, field
 from datetime import date
 from sqlite3 import Connection
 
 from docketyard.citator import methods
-
-# the walk's selection of decision-carried documents, so the two passes read the same bytes
-from docketyard.citator.walk import _DOCUMENTS
 from docketyard.store import supersede
-from docketyard.store.db import utcnow
+from docketyard.store.db import dump_json, utcnow
 
 METHOD = "decided-line"
 # Any change to the line rule, the join, the spans or the parse below is a new version
@@ -52,7 +54,9 @@ VERSION = "2026-10-03"
 _DECIDED = re.compile(r"^[ \t]*Decided:", re.MULTILINE)
 # a next line that opens with a label of its own — "Served:", "Vice Chairman Primus:" — is not
 # the date the empty `Decided:` was waiting for
-_LABEL = re.compile(r"^\s*[A-Z][\w.' -]{0,40}:")
+# no digits in it: "September 30 2016 Served:" is the date the label waited for, with a
+# label after it, not a label (code review, 2026-10-03)
+_LABEL = re.compile(r"^\s*[A-Z][A-Za-z.' -]{0,40}:")
 
 _MONTHS = {
     m: i
@@ -103,7 +107,7 @@ class Line:
 @dataclass
 class Summary:
     documents: int = 0  # (document, channel) pairs read
-    skipped: int = 0  # read before at this version, nothing new displayed
+    unchanged: int = 0  # pages whose live quotations already quote their displayed text
     pages: int = 0
     lines: int = 0
     retired: int = 0  # rows retired because their page was read again
@@ -115,16 +119,16 @@ def parse(printed: str) -> str | None:
     """The ISO reading of a quoted line, or None when it will not parse. A reading, never a
     correction: `October 15, 2016` printed is 2016-10-15, whatever the decision's body says."""
     after = printed.split(":", 1)[1] if ":" in printed else printed
-    m = _DATE.search(after)
-    if not m:
-        return None
-    month = _MONTHS.get(m.group(1).lower())
-    if month is None:
-        return None
-    try:
-        return date(int(m.group(3)), month, int(m.group(2))).isoformat()
-    except ValueError:  # February 30 is shaped right and is not a day
-        return None
+    # the first match whose word is a month: "No 12 2004 … October 5, 2017" reads the second
+    for m in _DATE.finditer(after):
+        month = _MONTHS.get(m.group(1).lower())
+        if month is None:
+            continue
+        try:
+            return date(int(m.group(3)), month, int(m.group(2))).isoformat()
+        except ValueError:  # February 30 is shaped right and is not a day
+            return None
+    return None
 
 
 def lines(text: str) -> list[Line]:
@@ -170,43 +174,63 @@ def lines(text: str) -> list[Line]:
 
 
 def _documents(con: Connection) -> list[str]:
-    """Every document a decision carries — the walk's own selection, so the two passes read
-    the same set of bytes."""
-    return sorted({sha for sha, *_ in con.execute(_DOCUMENTS)})
+    """Every document a decision carries: the set `citator.walk` reads, without the family
+    closure it builds beside it, which adds no document."""
+    return [
+        sha
+        for (sha,) in con.execute(
+            "SELECT DISTINCT document_sha256 FROM decision_attachment"
+            " WHERE document_sha256 IS NOT NULL ORDER BY 1"
+        )
+    ]
 
 
-def _retire_stale(con: Connection, now: str) -> int:
+def _retire_stale(con: Connection, now: str, only: set[str] | None = None) -> int:
     """Decision 6: a quotation whose text is no longer displayed is retired, dated, at
-    itself. A replacement that lands later is a new row; nothing repoints across runs."""
+    itself. `only` limits the sweep to the documents a limited run read, so a document it
+    never reached keeps its rows live for the run that reads it to replace and point at."""
     stale = [
-        r
-        for (r,) in con.execute(
-            "SELECT decided_id FROM decision_decided_date d"
+        (r, sha)
+        for r, sha in con.execute(
+            "SELECT decided_id, document_sha256 FROM decision_decided_date d"
             " WHERE d.superseded_by IS NULL AND d.text_id IS NOT NULL"
             " AND NOT EXISTS (SELECT 1 FROM document_text_display v WHERE v.text_id = d.text_id)"
         )
     ]
-    for row_id in stale:
-        supersede.retire(con, "decision_decided_date", "decided_id", row_id, at=now)
-    return len(stale)
+    n = 0
+    for row_id, sha in stale:
+        if only is None or sha in only:
+            supersede.retire(con, "decision_decided_date", "decided_id", row_id, at=now)
+            n += 1
+    return n
 
 
-def _last_run(con: Connection, sha: str, channel: str) -> str | None:
-    row = con.execute(
-        "SELECT ran_at FROM extraction_run WHERE document_sha256 = ? AND method = ?"
-        " AND method_version = ? AND reading_channel = ?",
-        (sha, METHOD, VERSION, channel),
-    ).fetchone()
-    return row[0] if row else None
+def _live_on_page(con: Connection, sha: str, page_no: int) -> list[tuple]:
+    """Every live machine row of this METHOD on one page, whatever its version, text or
+    channel (decision 5): (decided_id, ordinal, text_id, method_version, printed_text,
+    decided_date)."""
+    return con.execute(
+        "SELECT decided_id, ordinal, text_id, method_version, printed_text, decided_date"
+        " FROM decision_decided_date WHERE document_sha256 = ? AND page_no = ? AND method = ?"
+        " AND reading_channel <> ? AND superseded_by IS NULL ORDER BY ordinal, decided_id",
+        (sha, page_no, METHOD, methods.HUMAN),
+    ).fetchall()
 
 
-def read_document(con: Connection, sha: str, out: Summary, *, now: str | None = None) -> None:
+def read_document(
+    con: Connection,
+    sha: str,
+    out: Summary,
+    *,
+    now: str | None = None,
+    machine: set[str] | None = None,
+) -> None:
     """One document, every machine channel its display shows. The caller commits."""
     now = now or utcnow()
-    machine = methods.machine_channels(con)
+    machine = machine if machine is not None else methods.machine_channels(con)
     by_channel: dict[str, list[tuple]] = {}
     for row in con.execute(_PAGES, (sha,)).fetchall():
-        text_id, page_no, channel, role, *_ = row
+        _, _, channel, role, *_ = row
         if role == "human" or channel not in machine:
             out.human_pages += 1  # decision 3: a person's reading is not a model's to quote
             continue
@@ -214,29 +238,31 @@ def read_document(con: Connection, sha: str, out: Summary, *, now: str | None = 
     for channel, pages in sorted(by_channel.items()):
         if not any((p[8] or "").strip() for p in pages):
             continue  # nothing to read is not a reading (the walk's rule)
-        ran = _last_run(con, sha, channel)
-        # decision 8: read when never read at this version, or a displayed text on this
-        # channel was asserted at or after the run that read it
-        if ran is not None and all(p[7] < ran for p in pages):
-            out.skipped += 1
-            continue
         found = 0
         for text_id, page_no, _, _, render, engine, engine_version, _, text in pages:
-            # decision 5: retire every live machine row of this METHOD on this page first
-            old = {
-                ordinal: decided_id
-                for decided_id, ordinal in con.execute(
-                    "SELECT decided_id, ordinal FROM decision_decided_date"
-                    " WHERE document_sha256 = ? AND page_no = ? AND method = ?"
-                    " AND reading_channel <> ? AND superseded_by IS NULL",
-                    (sha, page_no, METHOD, methods.HUMAN),
-                )
-            }
-            for decided_id in old.values():
+            page_lines = lines(text or "")
+            found += len(page_lines)
+            out.pages += 1
+            live = _live_on_page(con, sha, page_no)
+            # decision 8: unchanged is "these rows already quote THIS text, at this version,
+            # line for line", decided by identity and never by a clock
+            if [(r[1], r[2], r[3], r[4], r[5]) for r in live] == [
+                (ln.ordinal, text_id, VERSION, ln.printed_text, ln.decided_date)
+                for ln in page_lines
+            ]:
+                out.unchanged += 1
+                continue
+            # decision 5: retire EVERY live machine row of this METHOD on the page first — a
+            # map keyed by ordinal kept one of two rows sharing a line (code review)
+            for decided_id, *_ in live:
                 supersede.retire(con, "decision_decided_date", "decided_id", decided_id, at=now)
-            out.retired += len(old)
+            out.retired += len(live)
+            # each retired row points at the new row on its line; the first per line is enough
+            successor_of: dict[int, list[int]] = {}
+            for decided_id, ordinal, *_ in live:
+                successor_of.setdefault(ordinal, []).append(decided_id)
             ocr = channel == "ocr"
-            for line in lines(text or ""):
+            for line in page_lines:
                 new_id = con.execute(
                     "INSERT INTO decision_decided_date (document_sha256, date_kind, page_no,"
                     " ordinal, reading_channel, method, method_version, render_profile,"
@@ -258,18 +284,16 @@ def read_document(con: Connection, sha: str, out: Summary, *, now: str | None = 
                         line.printed_text,
                         line.decided_date,
                         text_id,
-                        json.dumps({"page": page_no, "spans": line.spans}),
+                        dump_json({"page": page_no, "spans": line.spans}),
                         sha,
                         now,
                     ),
                 ).lastrowid
-                if line.ordinal in old:  # the retired row points at its replacement
+                for old_id in successor_of.get(line.ordinal, ()):
                     con.execute(
                         "UPDATE decision_decided_date SET superseded_by = ? WHERE decided_id = ?",
-                        (new_id, old[line.ordinal]),
+                        (new_id, old_id),
                     )
-                found += 1
-            out.pages += 1
         out.lines += found
         out.documents += 1
         con.execute(
@@ -287,16 +311,19 @@ def run(con: Connection, *, limit: int | None = None, log=print) -> Summary:
     """The pass over every decision-carried document, committed per document so a run killed
     part-way keeps what it read and the poller is never locked out for the whole pass."""
     out = Summary()
+    machine = methods.machine_channels(con)
+    read: set[str] = set()
     for n, sha in enumerate(_documents(con)):
         if limit is not None and out.documents >= limit:
             break
-        read_document(con, sha, out)
+        read_document(con, sha, out, machine=machine)
+        read.add(sha)
         con.commit()
         if n and n % 2000 == 0:
             log(f"  {n:,} documents: {out.lines:,} lines on {out.pages:,} pages")
     # AFTER the documents, not before: a page read above retired its old rows and pointed each
     # at its replacement on the same (page, ordinal) (decision 6). What is still stale now is a
     # page no longer read — its text gone from the display — and retires at itself.
-    out.stale = _retire_stale(con, utcnow())
+    out.stale = _retire_stale(con, utcnow(), only=read if limit is not None else None)
     con.commit()
     return out

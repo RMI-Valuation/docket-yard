@@ -457,7 +457,7 @@ def _citator(args: argparse.Namespace) -> int:
         print(
             f"decided-date pass ({decided.METHOD} {decided.VERSION}):"
             f" {out.documents:,} document readings, {out.pages:,} pages,"
-            f" {out.lines:,} lines quoted; {out.skipped:,} unchanged and not re-read;"
+            f" {out.lines:,} lines quoted; {out.unchanged:,} pages unchanged, not rewritten;"
             f" {out.retired:,} rows replaced on re-read, {out.stale:,} retired as stale;"
             f" {out.human_pages:,} pages a person's reading displays, not read"
         )

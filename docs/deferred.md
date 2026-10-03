@@ -2591,3 +2591,37 @@ every date matched the page. The operator judged none of it a concern. Held, not
 The lever, if wanted: a line in `INSTRUCTIONS` and on `read_page` — quote a date exactly as
 printed and note a discrepancy beside it, never in its place; carry who read the page and the
 Board's file; keep inference visibly apart from what the document says.
+
+## From building ADR 0023's decided-date pass, 2026-10-03 (migration 0034, branch `decided-date-grain`)
+
+The operator accepted the addendum of 2026-09-16 on 2026-10-03. Schema-critic (two passes) and
+`/code-review` high reviewed the migration and the pass; what was fixed is in the commits.
+
+### The operator's
+
+- **Decision 3 and decision 5 disagree** (schema-critic). Decision 3 says the pick rule may
+  compare "two extractor methods"; decision 5's index, `UNIQUE (text_id, date_kind, ordinal)`,
+  lets only one method's quotation of a line be live, so a second method's insert fails
+  loudly. Built as decision 5 states it. Adding `method` to the index is a DROP/CREATE, not a
+  rebuild; striking the clause from decision 3 is the other way. Either is his.
+- **Decision 8 is kept by identity, not by its clock.** The addendum's rule — a page is not
+  yet read when its displayed text was asserted at or after the run's `ran_at` — lost pages
+  two ways (code review and the critic, both confirmed): the text loader stamps `asserted_at`
+  when a batch starts and commits it later, and a page going back to an older reading keeps
+  that reading's old stamp. The pass therefore reads every document each run (about 45 s over
+  the record) and leaves a page unwritten when its live quotations already quote its displayed
+  text, at this version, line for line. The outcome decision 8 asks for — an unchanged page is
+  not rewritten — holds; its mechanism is different, and a consumer that judges "read" from
+  `ran_at` alone inherits the clock's gap until the next run. Rewording decision 8, or a
+  commit-ordered watermark on `extraction_run` (a schema change), would close that for a
+  consumer; no consumer exists.
+
+### Owed, not decided
+
+- **A quotation of a text already superseded is accepted at insert** (critic N3). Decision 6
+  detects staleness over the display and the sweep retires it; refusing stale-at-birth in the
+  trigger would make the commit race above loud rather than swept. Not taken: the sweep is the
+  rule the addendum chose.
+- **`document_text`'s own `page_no`, `method` and `method_version` are mutable** (only `text` is
+  immutable, 0020:48), so the agreement 0034's trigger checks at insert could be broken from the
+  text side. Nothing updates them; the guard belongs to `document_text`, not this table.

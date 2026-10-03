@@ -92,9 +92,11 @@ MIGRATIONS: list[tuple[int, str]] = [
     (32, "0032_page_route.sql"),
     # 0033 rebuilds the search index to place a record in every proceeding it was entered in,
     # with filings and every decision indexed (docs/search-v2.md). Derived and disposable; the
-    # next pass rebuilds it. `decided-date-grain` also claims 0033: whichever lands second
-    # renumbers.
+    # next pass rebuilds it.
     (33, "0033_search_placements.sql"),
+    # 0034 rebuilds `decision_decided_date` (0 rows everywhere) for the ADR 0023 addendum of
+    # 2026-09-16: the page in the key, the text a quotation read. Written as 0033 and renumbered
+    # at acceptance, 0033 having shipped first. A store holding rows refuses it.
     (34, "0034_decided_date_page_key.sql"),
 ]
 
