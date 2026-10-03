@@ -1406,6 +1406,29 @@ def test_a_refused_post_is_answered_401_not_reset(remote):
             con.close()
 
 
+def test_a_refused_post_whose_body_never_arrives_is_still_answered(remote, monkeypatch):
+    """Codex and Copilot, PR #45: the drain had no deadline, so a stranger declaring a body and
+    sending none held a server thread before the 401. It gives up after `DRAIN_SECONDS`."""
+    import socket
+    from urllib.parse import urlsplit
+
+    monkeypatch.setattr(qs, "DRAIN_SECONDS", 0.5)  # the module the `remote` server runs
+    r, _local, _real = remote
+    where = urlsplit(r.url)
+    with socket.create_connection((where.hostname, where.port), timeout=10) as s:
+        crlf = b"\r\n"
+        head = [
+            b"POST /done HTTP/1.1",
+            b"Host: x",
+            b"Authorization: Bearer " + b"x" * 40,
+            b"Content-Type: application/json",
+            b"Content-Length: 1000",  # and one byte of it ever arrives
+        ]
+        s.sendall(crlf.join(head) + crlf + crlf + b"{")
+        answer = s.recv(200)
+    assert answer.startswith(b"HTTP/1.") and b" 401 " in answer.split(crlf, 1)[0]
+
+
 def test_a_page_number_outside_the_document_is_the_documents_failure_at_both_ends():
     """Copilot on PR #34, 2026-09-17: page 0 passed the upper-bound check and `doc[0 - 1]`
     would have read the LAST page, silently."""

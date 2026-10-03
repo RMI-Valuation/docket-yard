@@ -513,9 +513,11 @@ with it, which is what D4's per-pin count is for.
   should be about two (one clean pass per `DY_POLL_EVERY`). A `poll …: {… problems: […]}`
   line names what went wrong in that pass; a `pass ABORTED` line is a bug, not the
   endpoint. The off-box heartbeat (M4) is what pages someone.
-- **Errata**: the poller fetches each document once. Nothing yet re-fetches known documents
-  to catch a silent replacement (`fetch attachments --refresh` exists but is unscheduled);
-  see `TODO.md`.
+- **Errata**: the poller fetches each document once, and its errata re-check (since
+  v2026.08.35) re-fetches held documents on a budget. A hand refresh is
+  `fetch attachments --mode forward --refresh` — `--mode` is required since 2026-10-03, so a
+  past range is never written as forward by default (trap 8); use `--mode backfill` for a
+  wave's documents.
 
 ## Resizing the instance (a rebuild)
 

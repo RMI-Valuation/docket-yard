@@ -14,12 +14,35 @@ def test_a_run_records_the_registry_it_was_made_against(tmp_path):
     which registry it read cannot be re-derived, which is ADR 0016's complaint about the old
     figures. And the record must not be a `.json`, or every reader of the run directory
     takes it for a decision."""
-    path = citation_dryrun.record_registry(tmp_path, Path("data/prod-copy.sqlite"), 30123)
+    path = citation_dryrun.record_registry(
+        tmp_path, Path("data/prod-copy.sqlite"), 30123, "ab" * 32
+    )
     assert path.read_text(encoding="utf-8").splitlines() == [
         f"registry {Path('data/prod-copy.sqlite')}",
         "dockets 30123",
+        "sha256 " + "ab" * 32,
     ]
     assert not list(tmp_path.glob("*.json"))
+
+
+def test_the_registry_digest_moves_when_the_count_does_not():
+    """Codex and Copilot, PR #45: a decision moved to another docket keeps the docket count and
+    changes `own`, so the findings; the digest must see it."""
+    import sqlite3
+
+    con = sqlite3.connect(":memory:")
+    con.execute(
+        "CREATE TABLE docket (docket_id INTEGER PRIMARY KEY, raw_docket, prefix, sequence,"
+        " sub_sequence, suffix, parent_docket_id)"
+    )
+    con.executemany(
+        "INSERT INTO docket VALUES (?, ?, 'FD', ?, NULL, NULL, NULL)",
+        [(1, "FD_1", 1), (2, "FD_2", 2)],
+    )
+    before = citation_dryrun.registry_digest(con, {"52000": {"FD 1"}})
+    after = citation_dryrun.registry_digest(con, {"52000": {"FD 2"}})  # moved, same count
+    assert before != after and len(before) == 64
+    assert before == citation_dryrun.registry_digest(con, {"52000": {"FD 1"}})  # stable
 
 
 def test_an_orphan_decision_is_returned_and_said_beside_the_numbers(tmp_path):

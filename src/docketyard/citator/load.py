@@ -435,7 +435,12 @@ def load_document(
     fused: dict[tuple[int, str], set[str]] = {}
     # and the targets `find` matched and could not key, which it hands over rather than dropping
     # (`find.find`'s `unkeyed`): out of class by the same test, so counted the same way
-    out.out_of_class += len(doc.get("unkeyed") or ())
+    unkeyed = doc.get("unkeyed") or []
+    # a list of the printed raws, or a refusal: a string counted its characters and a mapping
+    # its keys, corrupting the audit figure instead of refusing malformed output (Copilot, #45)
+    if not isinstance(unkeyed, list) or not all(isinstance(r, str) for r in unkeyed):
+        raise find.Undeclared(f"{sha[:12]}: `unkeyed` is not a list of printed targets")
+    out.out_of_class += len(unkeyed)
     for finding in doc.get("findings", []):
         number = keys.normalise(finding.get("target", ""))
         if number is None or not keys.DOCKET_KEY.match(number):

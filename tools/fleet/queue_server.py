@@ -105,6 +105,7 @@ BLOB_PREFIX = "blobs/"  # the store's layout, as `records.blob_path` and the web
 CHUNK = 1 << 20  # what a document is streamed in, both from the store and from the mirror
 SPOOL = "qs-"  # our spool files, so the sweep at start cannot take anything else's
 DRAIN_LIMIT = 1 << 20  # the most of a refused POST's body read before the 401 (`_drain`)
+DRAIN_SECONDS = 5.0  # and the longest a stranger's body may take to arrive
 
 
 def store_fetcher(fetch=None):
@@ -377,7 +378,11 @@ def serve(db: Path, blobs: Path, token: str, port: int, bind: str, fetch_missing
             answers with a reset — so the client saw `ConnectionAbortedError` instead of the
             401, once in six runs of `test_the_transport_refuses_a_bad_token` (2026-09-11).
             BOUNDED, because the sender has not been authorised: past `DRAIN_LIMIT` the
-            connection is closed after the answer rather than read to the end for a stranger."""
+            connection is closed after the answer rather than read to the end for a stranger.
+            AND TIMED (Codex and Copilot, PR #45): a declared body that never arrives blocked the
+            read with no deadline, holding a server thread per such connection before the 401.
+            Past `DRAIN_SECONDS` the read gives up, the 401 still goes out, and the connection
+            closes after it."""
             try:
                 left = int(self.headers.get("Content-Length", 0))
             except ValueError:
@@ -385,11 +390,20 @@ def serve(db: Path, blobs: Path, token: str, port: int, bind: str, fetch_missing
             if left > DRAIN_LIMIT:
                 self.close_connection = True
                 left = DRAIN_LIMIT
-            while left > 0:
-                got = self.rfile.read(min(left, 65536))
-                if not got:
-                    break
-                left -= len(got)
+            if left <= 0:
+                return
+            previous = self.connection.gettimeout()
+            self.connection.settimeout(DRAIN_SECONDS)
+            try:
+                while left > 0:
+                    got = self.rfile.read(min(left, 65536))
+                    if not got:
+                        break
+                    left -= len(got)
+            except OSError:  # TimeoutError included: what arrived is enough to answer
+                self.close_connection = True
+            finally:
+                self.connection.settimeout(previous)
 
         def _dispatch(self, path: str, body: dict):
             if path == "/register":

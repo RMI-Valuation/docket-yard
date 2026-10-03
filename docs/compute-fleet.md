@@ -318,12 +318,19 @@ tmux kill-session -t dots-collect; tmux kill-session -t tabular-collect
 tmux kill-session -t reread-collect
 # 2. fetch the tarball and its manifest; the digest must be the manifest's "sha256"
 sha256sum dy-coordinator-<stamp>.tar.gz
-# 3. a stale WAL beside the restored queue would be replayed into it: remove both sidecars
-rm -f /data/docketyard/ocr/queue.sqlite-wal /data/docketyard/ocr/queue.sqlite-shm
+# 3. restore into a CLEAN ocr/: move the current tree aside, whole (its WAL included)
+mv /data/docketyard/ocr /data/docketyard/ocr.before-restore-<stamp>
 # 4. extract in archive order, as the user that runs the fleet
 tar -xzf dy-coordinator-<stamp>.tar.gz -C /data/docketyard --no-same-owner
 ```
 
+- **Into a clean tree, never over the old one** (Copilot, PR #45). tar replaces only the members
+  it holds, so files written after the backup would survive the restore, and that skew is the
+  one the dry run cannot see: `pagequeue._decide` accepts a complete reading the restored queue
+  has no record of. Moving `ocr/` aside also retires its stale WAL, which would otherwise be
+  replayed into the restored queue. What the archive leaves out on purpose (below) can be
+  copied back from `ocr.before-restore-<stamp>` if wanted; delete that tree once the restored
+  coordinator has seeded cleanly.
 - **The order is the archive's, so extract it whole and in one pass.** `ocr/queue.sqlite` is
   the archive's LAST member, after every file it describes, which is the restore order — files
   before the queue. Pulling the queue out first, or extracting members selectively, can leave a

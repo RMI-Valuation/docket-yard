@@ -623,6 +623,19 @@ def test_a_target_the_finder_could_not_key_is_counted_out_of_class(tmp_path):
     assert con.execute("SELECT targets_out_of_class FROM extraction_run").fetchone() == (1,)
 
 
+def test_a_malformed_unkeyed_list_is_refused_not_counted(tmp_path):
+    """A string counted its characters and a mapping its keys (Copilot, PR #45)."""
+    con = _store(tmp_path)
+    stamps = _scored(con)
+    doc = _findings({"page": 4, "target": "EP 445", "quoted": "See EP 445, slip op. at 3."})
+    for bad in ("EP 4x", {"EP 4x": 1}, [1, 2]):
+        with pytest.raises(find.Undeclared, match="not a list of printed targets"):
+            load.load_document(
+                con, doc | {"unkeyed": bad}, keys.registry(con), keys.works(con), stamps
+            )
+    assert con.execute("SELECT COUNT(*) FROM citation").fetchone() == (0,)
+
+
 def test_a_key_that_quotes_nothing_is_refused_before_any_write(tmp_path):
     """`quoted_passage` is NOT NULL and `''` passes it, so an edge could reach a reader with no
     citing passage, against ADR 0017 D6 (code review, 2026-09-01). One finding of a key quoting

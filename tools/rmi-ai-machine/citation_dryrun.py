@@ -35,6 +35,7 @@ Two things it also checks, because both are claims the records make about themse
     projected count comes out low here.
 """
 
+import hashlib
 import json
 import sqlite3
 import sys
@@ -314,10 +315,29 @@ def caption_only(run: Path) -> set[tuple[str, str]]:
     return {pair for pair, seen in kinds.items() if seen == {"caption"}}
 
 
-def record_registry(run: Path, registry: Path, dockets: int) -> Path:
-    """Write which registry a run was made against, and a fingerprint of it, into the run."""
+def registry_digest(con: sqlite3.Connection, own: dict[str, set[str]]) -> str:
+    """A sha256 of what a run reads from the registry: every docket row and the own-docket map
+    the finder is handed. A count was not a fingerprint — a registry refreshed in place with a
+    decision moved to another docket kept its path and its count while `own`, and so the
+    findings, changed (Codex and Copilot, PR #45). Read in one transaction by the caller."""
+    h = hashlib.sha256()
+    for row in con.execute(
+        "SELECT docket_id, raw_docket, prefix, sequence, sub_sequence, suffix, parent_docket_id"
+        " FROM docket ORDER BY docket_id"
+    ):
+        h.update(json.dumps(row).encode("utf-8") + b"\n")
+    for did in sorted(own):
+        h.update(json.dumps([did, sorted(own[did])]).encode("utf-8") + b"\n")
+    return h.hexdigest()
+
+
+def record_registry(run: Path, registry: Path, dockets: int, digest: str = "") -> Path:
+    """Write which registry a run was made against, and a fingerprint of its contents."""
     path = run / REGISTRY_FILE
-    path.write_text(f"registry {registry}\ndockets {dockets}\n", encoding="utf-8", newline="\n")
+    lines = [f"registry {registry}", f"dockets {dockets}"] + (
+        [f"sha256 {digest}"] if digest else []
+    )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return path
 
 
@@ -330,11 +350,13 @@ def main(
     work_block: Path | None = None,
 ) -> int:
     con0 = sqlite3.connect(f"file:{registry}?mode=ro", uri=True)
+    con0.execute("BEGIN")  # one snapshot for the map, the count and the digest
     own = own_dockets(con0)
     dockets = con0.execute("SELECT COUNT(*) FROM docket").fetchone()[0]
+    digest = registry_digest(con0, own)
     con0.close()
     run, orphans = run_the_finder(text_dir, out, own)
-    record_registry(run, registry, dockets)
+    record_registry(run, registry, dockets, digest)
     py = python_chain(run, registry)
     print(f"finder over {text_dir} -> {run}   registry {registry} ({dockets} dockets)\n")
     print("PYTHON CHAIN (tools/rmi-ai-machine/projection_score.py):")
