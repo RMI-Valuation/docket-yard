@@ -509,11 +509,12 @@ def test_a_decided_date_is_quoted_and_its_ordinal_is_in_the_key(tmp_path):
     """Owed item 5, and ADR 0017 D7's two fences: never a decision_record column, never a
     ledger event. Dates are quoted, never computed."""
     con = _store(tmp_path)
+    text = _text_for(con, "text-layer", "native", None, None)
     sql = (
-        "INSERT INTO decision_decided_date (document_sha256, date_kind, ordinal,"
-        " reading_channel, method, method_version, render_profile, printed_text,"
-        " decided_date, asserted_at, confidence, confidence_state) VALUES (?, 'decided', ?,"
-        " 'text-layer', 'layout', 'v1', 'native', ?, ?, ?, 0.9, 'unmeasured')"
+        "INSERT INTO decision_decided_date (document_sha256, date_kind, page_no, text_id,"
+        " ordinal, reading_channel, method, method_version, render_profile, printed_text,"
+        " decided_date, asserted_at, confidence, confidence_state) VALUES (?, 'decided', 1,"
+        f" {text}, ?, 'text-layer', 'layout', 'v1', 'native', ?, ?, ?, 0.9, 'unmeasured')"
     )
     con.execute(sql, (KEY[0], 0, "Decided: October 5, 2017", "2017-10-05", STAMP))
     with pytest.raises(sqlite3.IntegrityError):
@@ -521,11 +522,11 @@ def test_a_decided_date_is_quoted_and_its_ordinal_is_in_the_key(tmp_path):
     con.execute(sql, (KEY[0], 1, "Decided: October 6, 2017", "2017-10-06", STAMP))
     with pytest.raises(sqlite3.IntegrityError):  # a row with no printed form is a computation
         con.execute(
-            "INSERT INTO decision_decided_date (document_sha256, date_kind, reading_channel,"
-            " method, method_version, render_profile, decided_date, asserted_at, confidence,"
-            " confidence_state) VALUES (?, 'decided', 'text-layer', 'layout', 'v2', 'native',"
-            " '2017-10-05', ?, 0.9, 'x')",
-            (KEY[0], STAMP),
+            "INSERT INTO decision_decided_date (document_sha256, date_kind, page_no, text_id,"
+            " reading_channel, method, method_version, render_profile, decided_date,"
+            " asserted_at, confidence, confidence_state) VALUES (?, 'decided', 1, ?,"
+            " 'text-layer', 'layout', 'v2', 'native', '2017-10-05', ?, 0.9, 'x')",
+            (KEY[0], text, STAMP),
         )
     assert "decided_date" not in {r[1] for r in con.execute("PRAGMA table_info(decision_record)")}
     # nobody has scored this stage, so no row of it may claim to be measured: the stage is
@@ -549,27 +550,74 @@ def test_a_re_read_at_a_better_render_sits_beside_the_earlier_quotation(tmp_path
     RENDER axis alone: one engine at one version, read twice at different DPI."""
     con = _store(tmp_path)
     sql = (
-        "INSERT INTO decision_decided_date (document_sha256, date_kind, ordinal,"
-        " reading_channel, method, method_version, render_profile, reading_method,"
+        "INSERT INTO decision_decided_date (document_sha256, date_kind, page_no, text_id,"
+        " ordinal, reading_channel, method, method_version, render_profile, reading_method,"
         " reading_method_version, printed_text, decided_date, asserted_at, confidence,"
-        " confidence_state) VALUES (?, 'decided', 0, 'ocr', 'layout', 'v1', ?, 'dots.mocr',"
-        " '1.5', ?, ?, ?, 0.9, 'unmeasured')"
+        " confidence_state) VALUES (?, 'decided', 1, ?, 0, 'ocr', 'layout', 'v1', ?,"
+        " 'dots.mocr', '1.5', ?, ?, ?, 0.9, 'unmeasured')"
     )
-    con.execute(sql, (KEY[0], "150", "Decided: October 5, 2Ol7", None, STAMP))
-    con.execute(sql, (KEY[0], "200", "Decided: October 5, 2017", "2017-10-05", STAMP))
+    t150 = _text_for(con, "ocr", "150", "dots.mocr", "1.5")
+    t200 = _text_for(con, "ocr", "200", "dots.mocr", "1.5")
+    con.execute(sql, (KEY[0], t150, "150", "Decided: October 5, 2Ol7", None, STAMP))
+    con.execute(sql, (KEY[0], t200, "200", "Decided: October 5, 2017", "2017-10-05", STAMP))
     live = con.execute(
         "SELECT render_profile, printed_text FROM decision_decided_date"
         " WHERE superseded_by IS NULL ORDER BY render_profile"
     ).fetchall()
     assert live == [("150", "Decided: October 5, 2Ol7"), ("200", "Decided: October 5, 2017")]
     with pytest.raises(sqlite3.IntegrityError):  # the SAME render still supersedes, or collides
-        con.execute(sql, (KEY[0], "200", "Decided: October 6, 2017", "2017-10-06", STAMP))
+        con.execute(sql, (KEY[0], t200, "200", "Decided: October 6, 2017", "2017-10-06", STAMP))
+
+
+def _text_for(con, channel, render, engine, version, page=1):
+    """The `document_text` row a machine quotation read (migration 0034), made once per
+    reading: same document, page, channel, render and, for OCR, engine and version - the
+    columns `decision_decided_date_text_is_its_own` compares."""
+    method, method_version = (engine, version) if channel == "ocr" else ("pymupdf", "1.28")
+    found = con.execute(
+        "SELECT text_id FROM document_text WHERE document_sha256 = ? AND page_no = ?"
+        " AND reading_channel = ? AND render_profile = ? AND method = ? AND method_version = ?",
+        (KEY[0], page, channel, render, method, method_version),
+    ).fetchone()
+    if found:
+        return found[0]
+    # one live primary per page: a test that needs several readings of a page retires the one
+    # before, dated, which the trigger under test does not look at
+    con.execute(
+        "UPDATE document_text SET superseded_by = text_id, superseded_at = ?"
+        " WHERE document_sha256 = ? AND page_no = ? AND reading_role = 'primary'"
+        " AND superseded_by IS NULL",
+        (STAMP, KEY[0], page),
+    )
+    ocr = channel == "ocr"
+    con.execute(
+        "INSERT INTO document_text (document_sha256, page_no, method, method_version,"
+        " render_profile, reading_channel, reading_role, route_class, route_method,"
+        " route_method_version, text, text_sha256, confidence, confidence_state, asserted_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, 'primary', ?, ?, ?, 'Decided: October 5, 2017', ?, 0,"
+        " 'unmeasured', ?)",
+        (
+            KEY[0],
+            page,
+            method,
+            method_version,
+            render,
+            channel,
+            "degraded" if ocr else None,
+            "pp-doclayoutv3" if ocr else None,
+            "3.0" if ocr else None,
+            "a" * 64,
+            STAMP,
+        ),
+    )
+    return con.execute("SELECT last_insert_rowid()").fetchone()[0]
 
 
 def _decided(con, **over):
     row = {
         "document_sha256": KEY[0],
         "date_kind": "decided",
+        "page_no": 1,
         "ordinal": 0,
         "reading_channel": "ocr",
         "method": "layout",
@@ -590,12 +638,43 @@ def _decided(con, **over):
     # making every non-OCR call pass two explicit Nones.
     if row["reading_channel"] != "ocr" and "reading_method" not in over:
         row["reading_method"] = row["reading_method_version"] = None
+    # a machine quotation names the text it read (migration 0034) and a person's does not; a
+    # row whose values no text row could hold (a bad page, a bad engine id) is the one under
+    # test and is refused on its own account, so it is given no text
+    if "text_id" not in over:
+        machine = row["reading_channel"] in ("ocr", "text-layer")
+        row["text_id"] = (
+            _text_for(
+                con,
+                row["reading_channel"],
+                row["render_profile"],
+                row["reading_method"],
+                row["reading_method_version"],
+                row["page_no"],
+            )
+            if machine and _text_can_hold(row)
+            else None
+        )
     cols = ", ".join(row)
     con.execute(
         f"INSERT INTO decision_decided_date ({cols}) VALUES ({', '.join('?' * len(row))})",
         list(row.values()),
     )
     return con.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+def _text_can_hold(row) -> bool:
+    """Whether `document_text` would accept a reading with this row's values."""
+    for col in ("render_profile", "reading_method", "reading_method_version"):
+        v = row.get(col)
+        if v is not None and (v == "" or "/" in str(v)):
+            return False
+    page = row.get("page_no")
+    if page is None or page < 1:
+        return False
+    if row["reading_channel"] == "text-layer" and row["render_profile"] != "native":
+        return False
+    return not (row["reading_channel"] == "ocr" and row.get("reading_method") is None)
 
 
 def test_a_decided_date_written_without_a_render_is_refused(tmp_path):
@@ -632,8 +711,11 @@ def test_a_key_column_that_would_not_parse_back_out_of_the_rendered_key_is_refus
     # engine's published id carries a slash, and the short name is what may be stored
     with pytest.raises(sqlite3.IntegrityError):
         _decided(con, reading_method="rednote-hilab/dots.ocr")
-    # the VERSION stays payload and is unconstrained, because it is not in the key
-    _decided(con, reading_method_version="1.5/rc2")
+    # the VERSION stays payload, out of the key; since migration 0034 an OCR quotation's
+    # version must equal its text's, and `document_text` refuses a '/' in a version, so such a
+    # quotation cannot name its text and is refused there instead
+    with pytest.raises(sqlite3.IntegrityError):
+        _decided(con, reading_method_version="1.5/rc2")
 
 
 def test_an_ocr_reading_must_name_the_engine_that_read_it(tmp_path):
@@ -750,19 +832,31 @@ def test_only_one_human_reading_of_a_date_is_live_at_a_time(tmp_path):
     _decided(con, ordinal=1, method_version="2026-10-01", **human)
 
 
-def test_a_page_is_recorded_where_source_location_held_it_in_json(tmp_path):
-    """ADR 0023 D2. Typed, nullable and OUTSIDE the key: a re-read that paginates differently
-    would otherwise mint a row that supersedes nothing — the defect `source_location` was
-    taken out of the key for. ADR 0021 D4 is what makes it channel-independent: the sha fixes
-    the byte stream, so page order is a property of the bytes."""
+def test_the_page_is_in_the_key_and_every_row_has_one(tmp_path):
+    """ADR 0023 addendum of 2026-09-16, decision 1, reversing 0019's nullable page outside the
+    key. 262 decision-carried documents print `Decided:` on more than one page; without the
+    page in the key a service copy's repeat on page 9 and the original on page 1 are one line,
+    and the second write collides with the first."""
     con = _store(tmp_path)
-    _decided(con, page_no=4)
-    _decided(con, ordinal=1, page_no=None)  # no writer exists to be held to it yet
-    for bad in (0, -1):
-        with pytest.raises(sqlite3.IntegrityError):
-            _decided(con, ordinal=2, page_no=bad)
-    # not in the key: two renders of ONE page are two rows, and repaginating is not a new one
+    _decided(con, page_no=1)
+    _decided(con, page_no=9)  # the same ordinal on another page is another line
     assert _live(con, "decision_decided_date") == 2
+    # A HUMAN row, where no `text_id` is legal: a machine row with none is refused by the text_id
+    # CHECK whatever its page, so the page checks could be dropped and the test stay green (code
+    # review, 2026-10-03). Here only the page can be what fails.
+    human = {
+        "reading_channel": "human",
+        "method": "human",
+        "render_profile": "human",
+        "confidence": 1.0,
+        "confidence_state": "human",
+    }
+    _decided(con, page_no=2, **human)  # the row is legal with a page
+    with pytest.raises(sqlite3.IntegrityError, match="page_no"):  # and the page is required
+        _decided(con, ordinal=1, page_no=None, **human)
+    for bad in (0, -1):
+        with pytest.raises(sqlite3.IntegrityError, match="page_no"):
+            _decided(con, ordinal=2, page_no=bad, **human)
 
 
 def test_a_model_pass_may_not_supersede_a_human_decided_date(tmp_path):
@@ -1101,3 +1195,97 @@ def test_a_live_row_cannot_be_given_a_retirement_date_by_itself(tmp_path):
             "UPDATE citation_reading SET superseded_at = ? WHERE reading_id = ?", (STAMP, rid)
         )
     assert _live(con, "citation_reading") == 1
+
+
+# --- migration 0034: a quotation names the text it read (ADR 0023 addendum, 2026-09-16) -----
+
+
+def test_a_machine_quotation_names_its_text_and_a_persons_does_not(tmp_path):
+    """Decision 4: a person read the page, and which stored reading they looked at is not
+    what they assert; a machine quotation with no text is provenance nobody can check."""
+    con = _store(tmp_path)
+    with pytest.raises(sqlite3.IntegrityError):
+        _decided(con, text_id=None)
+    human = {
+        "reading_channel": "human",
+        "method": "human",
+        "render_profile": "human",
+        "confidence": 1.0,
+        "confidence_state": "human",
+    }
+    _decided(con, **human)
+    text = _text_for(con, "text-layer", "native", None, None)
+    with pytest.raises(sqlite3.IntegrityError):
+        _decided(con, ordinal=1, text_id=text, **human)
+
+
+def test_the_text_a_quotation_names_must_be_its_own(tmp_path):
+    """Decision 4's trigger: same document, page, channel and render, and on the `ocr` channel
+    the same engine at the same version. A `text_id` naming another page's text would make the
+    quotation's provenance look checkable and be false."""
+    con = _store(tmp_path)
+    page_two = _text_for(con, "ocr", "200", "dots.mocr", "1.5", page=2)
+    other_render = _text_for(con, "ocr", "150", "dots.mocr", "1.5")
+    other_version = _text_for(con, "ocr", "200", "dots.mocr", "1.4")
+    layer = _text_for(con, "text-layer", "native", None, None)
+    for wrong in (page_two, other_render, other_version, layer):
+        with pytest.raises(sqlite3.IntegrityError, match="text_id names another"):
+            _decided(con, text_id=wrong)
+    _decided(con)  # the row's own reading
+    # a text-layer row names no engine, and its text_id is what recovers it
+    _decided(
+        con,
+        ordinal=1,
+        reading_channel="text-layer",
+        render_profile="native",
+        text_id=layer,
+    )
+
+
+def test_a_quotations_text_id_and_what_it_was_checked_against_never_change(tmp_path):
+    con = _store(tmp_path)
+    row = _decided(con)
+    other = _text_for(con, "ocr", "200", "dots.mocr", "1.5", page=2)
+    for col, value in (
+        ("text_id", other),
+        ("page_no", 2),
+        ("render_profile", "150"),
+        ("reading_method", "pp-ocrv6"),
+        ("reading_method_version", "1.6"),
+    ):
+        with pytest.raises(sqlite3.IntegrityError, match="never change"):
+            con.execute(
+                f"UPDATE decision_decided_date SET {col} = ? WHERE decided_id = ?", (value, row)
+            )
+
+
+def test_a_retirement_date_is_never_moved(tmp_path):
+    con = _store(tmp_path)
+    row = _decided(con)
+    con.execute(
+        "UPDATE decision_decided_date SET superseded_by = ?, superseded_at = ?"
+        " WHERE decided_id = ?",
+        (row, STAMP, row),
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+        con.execute(
+            "UPDATE decision_decided_date SET superseded_at = '2020-01-01' WHERE decided_id = ?",
+            (row,),
+        )
+
+
+def test_one_live_quotation_per_line_per_reading(tmp_path):
+    """Decision 5. Two versions of one extractor differ in a key column, so the live key alone
+    keeps both live on one line; this index refuses a writer that forgot to retire first."""
+    con = _store(tmp_path)
+    first = _decided(con, method_version="v1")
+    with pytest.raises(sqlite3.IntegrityError, match="one_per_line|UNIQUE"):
+        _decided(con, method_version="v2")
+    con.execute(
+        "UPDATE decision_decided_date SET superseded_by = ?, superseded_at = ?"
+        " WHERE decided_id = ?",
+        (first, STAMP, first),
+    )
+    _decided(con, method_version="v2")
+    _decided(con, ordinal=1, method_version="v2")  # another line of the same reading
+    assert _live(con, "decision_decided_date") == 2

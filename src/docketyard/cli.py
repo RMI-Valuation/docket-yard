@@ -448,6 +448,21 @@ def _citator(args: argparse.Namespace) -> int:
         )
         return 0
 
+    if args.what == "decided":
+        # ADR 0023's addendum of 2026-09-16: the `Decided:` lines, quoted. Writes a held table;
+        # nothing a reader sees changes, and no line is called a decision's date (decision 9).
+        from docketyard.citator import decided
+
+        out = decided.run(con, limit=args.limit)
+        print(
+            f"decided-date pass ({decided.METHOD} {decided.VERSION}):"
+            f" {out.documents:,} document readings, {out.pages:,} pages,"
+            f" {out.lines:,} lines quoted; {out.unchanged:,} pages unchanged, not rewritten;"
+            f" {out.retired:,} rows replaced on re-read, {out.stale:,} retired as stale;"
+            f" {out.human_pages:,} pages a person's reading displays, not read"
+        )
+        return 0
+
     if args.what == "restamp":
         # ADR 0017 § Consequences' promise, made true: "re-measurement is a scorer run, not a
         # migration". `supersede.if_changed` writes only when an ANSWER changes, so a card
@@ -991,6 +1006,11 @@ def main(argv: list[str] | None = None) -> int:
     cf.add_argument("out", help="empty directory; one subdirectory per reading channel")
     cf.add_argument("--channel", help="only this reading channel (default: every machine one)")
     cf.set_defaults(func=_citator)
+    dd = ct_sub.add_parser(
+        "decided", help="quote every `Decided:` line a decision's document prints (ADR 0023)"
+    )
+    dd.add_argument("--limit", type=int, help="stop after this many documents")
+    dd.set_defaults(func=_citator)
     cl = ct_sub.add_parser("load", help="one batch of findings documents into the families")
     cl.add_argument("findings", help="a directory of findings JSON, one per document")
     cl.set_defaults(func=_citator)

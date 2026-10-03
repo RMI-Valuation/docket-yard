@@ -637,7 +637,8 @@ def test_migration_0019_carries_a_decided_date_row_across_the_rebuild(tmp_path):
     con.commit()
     con.close()
 
-    con = db.connect(path)
+    # to 0033: 0034 refuses a row with no page, which this one is (its own test, below)
+    con = db.connect(path, upto=33)
     row = con.execute(
         "SELECT date_kind, ordinal, reading_channel, method, method_version, render_profile,"
         " printed_text, decided_date, page_no, source_location, confidence, confidence_state,"
@@ -1311,3 +1312,46 @@ def test_page_failures_ship_in_the_snapshot_with_their_vocabulary(tmp_path):
     ).fetchall() == [(run, 2, "oversize", 1, "oversize: 8.4 MP at 200 DPI")]
     assert published.execute("PRAGMA foreign_key_check").fetchall() == []  # nothing dangles
     published.close()
+
+
+def test_migration_0034_refuses_a_quotation_it_would_have_to_invent_a_page_for(tmp_path):
+    """ADR 0023 addendum of 2026-09-16, decision 11: a store that already holds decided dates
+    refuses the rebuild rather than guess a page or a text. 0 rows anywhere today, which is
+    why this is the one place the refusal runs."""
+    path = tmp_path / "s.sqlite"
+    con = db.connect(path, upto=33)
+    con.execute(
+        "INSERT INTO document (document_sha256, size_bytes, media_type, first_seen_at)"
+        " VALUES (?, 1, 'pdf', ?)",
+        (SHA, STAMP),
+    )
+    con.execute(
+        "INSERT INTO decision_decided_date (document_sha256, date_kind, ordinal,"
+        " reading_channel, method, method_version, render_profile, printed_text,"
+        " decided_date, asserted_at, confidence, confidence_state) VALUES (?, 'decided', 0,"
+        " 'text-layer', 'layout', 'v1', 'native', 'Decided: October 5, 2017', '2017-10-05',"
+        " ?, 0.9, 'unmeasured')",
+        (SHA, STAMP),
+    )
+    con.commit()
+    _refused_whole(con)
+    # and a row that HAS a page is refused too: its ordinal counted lines across the document
+    # under 0019 and would be reinterpreted per page under 0034 (schema-critic, 2026-10-03)
+    con.execute("UPDATE decision_decided_date SET page_no = 3")
+    con.commit()
+    _refused_whole(con)
+    con.close()
+
+
+def _refused_whole(con):
+    """The migration failed AND left nothing: the copy fails before the DROP, so without the
+    rollback a committing caller would keep an orphan `_rebuilt` table beside the old one."""
+    with pytest.raises(sqlite3.IntegrityError):
+        db.migrate(con)
+    con.commit()  # what a caller that kept the connection would do
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 33
+    assert con.execute("SELECT COUNT(*) FROM decision_decided_date").fetchone()[0] == 1
+    names = {r[0] for r in con.execute("SELECT name FROM sqlite_master")}
+    assert "decision_decided_date_rebuilt" not in names
+    columns = {r[1] for r in con.execute("PRAGMA table_info(decision_decided_date)")}
+    assert "text_id" not in columns

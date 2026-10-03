@@ -2,7 +2,8 @@
 
 - **Status:** Accepted
 - **Date:** 2026-09-02
-- **Accepted:** 2026-09-03 (the operator: "ADR 0023 is approved")
+- **Accepted:** 2026-09-03 (the operator: "ADR 0023 is approved"); the addendum of 2026-09-16
+  accepted 2026-10-03
 - **Scope:** `decision_decided_date` only. The OCR engine's VERSION in that key, the dated
   `HUMAN_VERSION` sitting in four shipped citator keys, the positional `ordinal`, and the
   display's pick rule are **deliberately not here**; see § What this record does not decide.
@@ -407,3 +408,103 @@ disagreement publishes nothing and is queued for a person. Readers are not ranke
 each other for this purpose. No consumer needs the rule yet — `cite.py` sends `decided` to
 the sheet unchanged — so nothing publishes a single decided date today; when something
 does, this is the rule it implements, with its method and version on the row.
+
+## Addendum (2026-09-16): the page in the key, and what the extraction pass writes
+
+**Status: Accepted** by the operator, 2026-10-03. The operator chose, on 2026-09-16, to
+build the decided-date extraction pass and nothing downstream of it. That pass is the first writer this table has had, so the
+positional `ordinal` this record left undecided is now live. Migration 0034.
+
+**Measured on the 2026-09-15 restore** over the shipped walk's decision-carried documents:
+262 documents print a `Decided:` line more than once, every one of them on more than one page;
+247 repeat one date, as service copies do. The 11 that carry distinct dates are compilations
+reprinting a sequence of earlier decisions ("Decision No. 1" to "No. 13"). One page in the
+record prints two lines. Where a page has both a primary and a second reading, the two found
+the same number of lines on all 17 pages, and the same date on 16.
+
+1. **The page is in the live key, and every row has one.** This reverses decision 2's nullable
+   `page_no` outside the key. The reason decision 2 gave for keeping it out does not hold: ADR
+   0021 D4 makes page order a property of the bytes, and `document_text` already keys on the
+   page. The key becomes `(document_sha256, date_kind, page_no, ordinal, reading_channel,
+   method, method_version, render_profile, COALESCE(reading_method, ''))`.
+
+2. **`ordinal` counts `Decided:` lines within one reading of one page**, from 0. It stays
+   positional on a page that prints two lines, and one such page exists.
+
+3. **The pass quotes the reading a page displays, and only that one.** The page's row in
+   `document_text_display` chooses the `text_id`. The pass then reads `document_text.text`
+   through that id, never the view's masked text, so `printed_text` and its spans are the
+   stored bytes. ADR 0021 D3's rule that only the primary feeds the citator therefore holds for
+   this table too. A page whose displayed reading is a person's is skipped and nothing is
+   written for it, because 0019 binds `reading_channel = 'human'` to `method = 'human'`. No such
+   page exists today.
+
+   **This writer uses less than decisions 1 and 6 allow.** Those decisions keep a second
+   render's or a second engine's quotation live beside the first, so that a disagreement is a
+   finding. Quoting only the displayed reading means at most one machine quotation per line is
+   live, so the pick rule compares a machine row with a human one, or two extractor methods,
+   and the disagreement between readings measured above is not visible in this table. Retired
+   rows keep their `printed_text`, so nothing is lost. The key stays wide on purpose: a later
+   pass over second readings needs no rebuild.
+
+4. **A machine quotation names the text it read.** `text_id` references `document_text`. It is
+   `NOT NULL` exactly when `reading_channel <> 'human'`, and it stays out of the live key under
+   decision 6: a newer reading replaces the older one rather than sitting beside it. A trigger
+   refuses an insert unless `document_sha256`, `page_no`, `reading_channel` and
+   `render_profile` equal the `text_id` row's, and, on the `ocr` channel only, `reading_method`
+   and `reading_method_version` equal its `method` and `method_version`. A text-layer row keeps
+   `reading_method` NULL under 0019's CHECK, and `text_id` recovers its engine. `text_id` is
+   never updated.
+
+5. **One live quotation per line per reading**: `UNIQUE (text_id, date_kind, ordinal) WHERE
+   superseded_by IS NULL AND text_id IS NOT NULL`. When the pass reads a page (decision 8 says
+   which pages it reads), it first retires
+   every live machine row of the same extractor `method` on that page, whatever the row's
+   `method_version` or `text_id`, dated in the same transaction. It then writes what it found,
+   so a line that a newer version no longer finds does not stay live.
+
+6. **A quotation is stale when its `text_id` has left `document_text_display`.** Every run
+   retires every stale row in the table, dated, whichever documents it reads, and a consumer
+   counts only rows that are not stale. A retired row points at its replacement when one lands
+   at the same `(page_no, ordinal)`, and at itself otherwise.
+
+7. **What a row holds.** `date_kind` is `decided`. `printed_text` is the line as printed. When
+   nothing follows the colon, it is the line and the next non-empty line joined by one space,
+   unless that next line opens with a label (a word followed by a colon). `source_location` is
+   `{"page", "spans"}`, one span per line quoted, as ADR 0026 records spans. `decided_date` is
+   the ISO reading, or NULL when the text will not parse. `confidence` is 0 and `unmeasured`.
+   Any change to these rules is a new extractor `method_version`.
+
+8. **Read and not yet read.** `extraction_run` stays per document, method, version and channel,
+   and a run reads every displayed page of its document on that channel, so its `ran_at` covers
+   all of them. A page is not yet read when its channel has no run row, or when its displayed
+   `text_id` was asserted at or after that row's `ran_at`. Such a page is never counted as read
+   and found empty (ADR 0018 D10). A document with no such page and a run at this
+   `method_version` is not read again, so an unchanged page is not rewritten. `ran_at` takes
+   `db.utcnow()`'s form, which `asserted_at` takes, and the pass runs where the store is.
+
+9. **A quotation is not the decision's date.** A compilation's lines are true quotations of
+   other decisions. The pick rule (the addendum of 2026-09-03) compares values within
+   `(document_sha256, date_kind, page_no, ordinal)`. Choosing which line is the decision's own
+   date is a consumer's job, and no consumer is built. ADR 0018 D4 is untouched, and the table
+   stays held.
+
+10. **The rendered review key is nine segments**, with `<page_no>` after `<date_kind>`.
+    `decision_decided_date_one_human` becomes `(document_sha256, date_kind, page_no, ordinal)`.
+    Nothing renders the key yet, so decision 5's `target_key_version` obligation still falls to
+    the first code that does.
+
+11. **Migration 0034 rebuilds the table**, which is empty in production and in every store the
+    repository builds. A store that already holds rows refuses the migration rather than guess
+    a page.
+
+### Owed
+
+- A `document_pagination` supersession that shrinks a page count retires no quotation from a
+  page that no longer exists. `document_text` has the same gap.
+- A quotation of text a person corrected needs 0019's channel binding revisited first. Until
+  then, a person correcting a page's text retires that page's machine quotation, even when the
+  correction is elsewhere on the page, and nothing replaces it.
+- A human decided-date row names its line by `(page_no, ordinal)`. If the displayed reading
+  changes and finds a different number of lines on that page, the ordinal can point at another
+  line. One page in the record prints two.
