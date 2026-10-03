@@ -8,7 +8,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## In motion
 
-- **v2026.10.1 LIVE** (schema 33). The fleet runs `3629aa8` (coordinator moved forward
+- **v2026.10.2 LIVE** (schema 33). The fleet runs `3629aa8` (coordinator moved forward
   2026-09-20; nothing it executes changed). dots 46,838/134
 - **The citator is loaded** (v2026.09.19, rank v4): 25,777 rows, 22,547 edges, none shown;
   exposed 428. **The review page, for a person** — docket, sub-docket and document in one look,
