@@ -146,6 +146,24 @@ def test_status_and_the_alarms_watch_pages_read_not_pages_finished(q):
     assert "-1" not in text
 
 
+def test_a_pass_down_on_purpose_is_published_and_suppresses_nothing(q, tmp_path):
+    """The 5090 swap, 2026-09-18: the pass was down an hour on purpose and the only thing the
+    fleet could say was STALLED. A marker beside the queue publishes the reason as its own
+    series; it never silences `stalled` (ADR 0020's maintenance mode is production's twin)."""
+    db = tmp_path / "q.sqlite"
+    assert monitor.paused(db) == {}
+    (tmp_path / ".paused-dots").write_text("card swap on the big box\n", encoding="utf-8")
+    (tmp_path / ".paused-nonsense").write_text("x", encoding="utf-8")  # not a pass: ignored
+    held = monitor.paused(db)
+    assert list(held) == ["dots"] and held["dots"]["why"] == "card swap on the big box"
+    text = monitor.metrics(q.status(), 0, 0, held)
+    assert 'docket_yard_fleet_paused{pass="dots"} 1' in text
+    assert 'docket_yard_fleet_stalled{pass="dots"} 1' in text  # still stalled: nothing hidden
+    assert "nonsense" not in text
+    assert "PAUSED: dots" in monitor.page(q.status(), 0, 0, held)
+    assert 'docket_yard_fleet_paused{pass="dots"} 0' in monitor.metrics(q.status(), 0, 0, {})
+
+
 def test_the_monitor_never_creates_a_queue(tmp_path):
     with pytest.raises(FileNotFoundError):
         pq.Queue(tmp_path / "missing.sqlite", readonly=True)
@@ -593,6 +611,21 @@ def test_the_weights_revision_is_the_loaded_hash_else_the_caches_ref(tmp_path):
 
 # --- the transport: the same promises through queue_server.py and RemoteQueue -----------------
 
+
+def test_the_producer_names_the_dtype_the_weights_were_loaded_in():
+    """Not in the key (that would invalidate every reading), in the declaration: a float16
+    reader must not declare the same producer as a bf16 one (mapping the queue, 2026-09-19)."""
+
+    class Model:
+        dtype = "torch.bfloat16"  # what `str(torch.bfloat16)` says
+
+    assert hw.loaded_dtype(Model()) == "bfloat16"
+    assert hw.loaded_dtype(object()) is None
+    assert "dtype" not in pq.PASSES["tabular"]["key"]
+    src = (ROOT / "tools" / "fleet" / "hunyuan_worker.py").read_text(encoding="utf-8")
+    assert '"dtype": loaded_dtype(model),' in src
+
+
 import hashlib  # noqa: E402
 import io  # noqa: E402
 import socket  # noqa: E402
@@ -651,7 +684,7 @@ def test_the_transport_carries_the_lease(remote):
     assert r.blob(real) == b"%PDF-1.4 real"
     # THE MIRROR HIT IS VERIFIED TOO, and this fixture's `A` holds bytes that are not its sha.
     # The coordinator checks what it FETCHES; only the client can check what the mirror already
-    # held, and `pull_blobs.py` fills that mirror on a size comparison alone (ingest review).
+    # held, and a file can rot or be copied in after `pull_blobs.py` checked it (ingest review).
     with pytest.raises(pq.BlobCorrupt):
         r.blob(A)
     # a miss with no store configured is still the document's, but it arrives as a type and
@@ -775,8 +808,27 @@ def test_a_fetched_blob_whose_hash_is_wrong_is_never_served_or_cached(tmp_path):
             r.blob(A)
         assert not (blobs / A[:2] / A).exists(), "never cached"
         assert list((blobs / ".tmp").glob("*")) == [], "and nothing left spooled"
+        # AND IT REACHES SOMEBODY: a line beside the queue, counted into /metrics for the rule
+        # in config.alloy. The stderr line alone sat in a log nobody tails (ingest review).
+        db = tmp_path / "q.sqlite"
+        (line,) = (tmp_path / pq.CORRUPT_LOG).read_text(encoding="utf-8").splitlines()
+        assert json.loads(line)["sha256"] == A
+        assert pq.corrupt_count(db) == 1
+        text = monitor.metrics(local.status(), 1800, pq.corrupt_count(db))
+        assert "docket_yard_fleet_blob_corrupt_total 1\n" in text
+        assert "BLOB CORRUPT IN THE STORE" in monitor.page(local.status(), 1800, 1)
     finally:
         local.con.close()
+
+
+def test_a_store_never_found_corrupt_says_zero_and_an_unreadable_log_says_nothing(tmp_path):
+    db = tmp_path / "q.sqlite"
+    assert pq.corrupt_count(db) == 0  # no log: nothing has ever been recorded
+    status = {"passes": {}, "workers": []}
+    assert "docket_yard_fleet_blob_corrupt_total 0\n" in monitor.metrics(status, 1800, 0)
+    (tmp_path / pq.CORRUPT_LOG).mkdir()  # a log that cannot be read is not a clean store
+    assert pq.corrupt_count(db) is None
+    assert "\ndocket_yard_fleet_blob_corrupt_total " not in monitor.metrics(status, 1800, None)
 
 
 def test_a_403_is_the_environments_and_a_404_is_the_documents(tmp_path):
@@ -1167,6 +1219,23 @@ def test_a_stored_object_is_checked_by_checksum_not_only_by_size():
     assert "no SHA-256" in backup.verify({"ContentLength": 10}, 10, digest)
 
 
+def test_the_mirror_keeps_a_file_only_when_it_hashes_to_its_name(tmp_path):
+    """`pull_blobs.py` compared sizes alone, which migration 0018 warns about in writing: a
+    same-size wrong file was kept, and caught only at the reader, once per page."""
+    pull = _module("pull_blobs", ROOT / "tools" / "rmi-ai-machine" / "pull_blobs.py")
+    payload = b"%PDF-1.4 the document"
+    sha = hashlib.sha256(payload).hexdigest()
+    path = tmp_path / sha[:2] / sha
+    assert not pull.held(path, sha, len(payload))  # absent
+    path.parent.mkdir()
+    path.write_bytes(payload)
+    assert pull.held(path, sha, len(payload))
+    assert not pull.held(path, sha, len(payload) + 1)  # the store's size disagrees
+    path.write_bytes(b"%PDF-1.4 not the doc!")  # the same length, other bytes
+    assert len(path.read_bytes()) == len(payload)
+    assert not pull.held(path, sha, len(payload))
+
+
 # --- asking for a reader when one is owed (ADR 0025 addendum, proposal 2) ---------------------
 
 resubmit = _module("resubmit", ROOT / "tools" / "fleet" / "resubmit.py")
@@ -1311,6 +1380,30 @@ def test_the_transport_refuses_a_bad_token(remote):
     assert e.value.code == 401
 
 
+def test_a_refused_post_is_answered_401_not_reset(remote):
+    """2026-09-11: the 401 went out with the body unread, and on Windows the client then saw
+    the socket reset (`ConnectionAbortedError`) instead of the answer. The body is drained
+    first, so a refused worker always learns WHY it was refused."""
+    import http.client
+    from urllib.parse import urlsplit
+
+    r, _local, _real = remote
+    where = urlsplit(r.url)
+    body = json.dumps({"worker": "w", "job_id": 1, "raw": "x" * 400_000}).encode()
+    for _ in range(10):
+        con = http.client.HTTPConnection(where.hostname, where.port, timeout=5)
+        try:
+            con.request(
+                "POST",
+                "/done",
+                body=body,
+                headers={"Authorization": "Bearer " + "x" * 40, "Content-Type": "application/json"},
+            )
+            assert con.getresponse().status == 401
+        finally:
+            con.close()
+
+
 def test_a_page_number_outside_the_document_is_the_documents_failure_at_both_ends():
     """Copilot on PR #34, 2026-09-17: page 0 passed the upper-bound check and `doc[0 - 1]`
     would have read the LAST page, silently."""
@@ -1336,6 +1429,99 @@ def test_a_queue_that_refuses_registration_is_the_environments_exit():
     q = Accepting()
     assert hw.register_or_exit(q, "w1", "tabular", {"k": 1}) is None
     assert q.got == ("w1", "tabular", {"k": 1})
+
+
+# --- the worker half of the blob refetch (ADR 0025 addendum, proposals 5-6) -------------------
+
+# the module the workers imported, not a second copy of it: `hw` put tools/fleet on the path
+ll = importlib.import_module("leaseloop")
+
+
+class _Blobs:
+    """A queue whose `blob_into` answers from a script: bytes, or an exception to raise."""
+
+    def __init__(self, answers: dict):
+        self.answers, self.asked = answers, []
+
+    def blob_into(self, sha, dest):
+        self.asked.append(sha)
+        got = self.answers[sha]
+        if isinstance(got, BaseException):
+            raise got
+        dest.write_bytes(got)
+        return dest
+
+
+def test_a_missing_or_corrupt_blob_is_the_documents_and_an_unreachable_node_is_not(tmp_path):
+    """`BlobMissing` and `BlobCorrupt` are the document's (not final, `blob:`); `BlobUnavailable`
+    is the environment's and must reach the loop as itself, so no page pays for it."""
+    store = _Blobs(
+        {
+            A: b"%PDF a",
+            B: b"%PDF b",
+            "c" * 64: pq.BlobMissing("gone"),
+            "d" * 64: pq.BlobCorrupt("bad bytes"),
+            "e" * 64: pq.BlobUnavailable("403"),
+        }
+    )
+    held = ll.Fetched(store, tmp_path)
+    first = held.path_of(A)
+    assert first.read_bytes() == b"%PDF a"
+    assert held.path_of(A) == first and store.asked == [A]  # held: fetched once per document
+    second = held.path_of(B)
+    assert not first.exists() and second.read_bytes() == b"%PDF b"  # one document at a time
+    with pytest.raises(ll.DocumentFailed, match="not in the store"):
+        held.path_of("c" * 64)
+    # a failed fetch drops what was held, so the old name can never serve the old path again
+    assert not second.exists() and held.sha is None
+    with pytest.raises(ll.DocumentFailed, match="the store is corrupt"):
+        held.path_of("d" * 64)
+    with pytest.raises(pq.BlobUnavailable):  # NOT DocumentFailed: the node is not a document
+        held.path_of("e" * 64)
+    held.path_of(A)
+    held.drop()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_document_failure_spends_the_attempt_and_is_never_final(q):
+    job = q.claim("w1", "dots", 1, 60)[0]
+    ll.document_failed(q, "w1", job["job_id"], A, 1, ll.DocumentFailed("not in the store: x"))
+    row = q.con.execute(
+        "SELECT state, attempts, error FROM job WHERE job_id = ?", (job["job_id"],)
+    ).fetchone()
+    assert (row["state"], row["attempts"]) == ("pending", 1)
+    assert row["error"].startswith("blob: ")
+    assert ocr_wave.failure_reason(row["error"]) == "document-bytes"  # not the page's own
+
+
+def test_an_unreachable_node_gives_every_page_back_unspent_and_exits_4(q):
+    jobs = q.claim("w1", "dots", 3, 60)
+    ids = [j["job_id"] for j in jobs]
+    q.done("w1", ids[0], "[]")
+    assert ll.node_unavailable(q, "w1", ids, 1, pq.BlobUnavailable("403")) == ll.EXIT_ENVIRONMENT
+    rows = q.con.execute("SELECT job_id, state, attempts FROM job ORDER BY job_id").fetchall()
+    back = {r["job_id"]: (r["state"], r["attempts"]) for r in rows}
+    assert back[ids[1]] == back[ids[2]] == ("pending", 0)  # refunded: no page pays
+
+    class Unreachable:
+        def release(self, name, ids):
+            raise ConnectionError("the node again")
+
+    # the release goes to the node that just failed; its failure must not escape as a traceback
+    assert ll.node_unavailable(Unreachable(), "w1", ids, 0, pq.BlobUnavailable("x")) == 4
+
+
+def test_both_lease_loops_take_their_blob_branches_from_one_place():
+    """The branches tested above are the ones the loops run, not a copy beside them."""
+    for name in ("dots_worker.py", "hunyuan_worker.py"):
+        src = (ROOT / "tools" / "fleet" / name).read_text(encoding="utf-8")
+        assert "pdf = fetched.path_of(sha)" in src, name
+        assert "return node_unavailable(q, name, ids, i, e)" in src, name
+        assert 'document_failed(q, name, job["job_id"], sha, no, e)' in src, name
+        assert "fetched.drop()" in src, name
+        for twin in ("def page_index", "def register_or_exit", "class DocumentFailed", "blob_into"):
+            assert twin not in src, f"{name} keeps its own {twin}"
+    assert hw.page_index is ll.page_index and hw.DocumentFailed is ll.DocumentFailed
 
 
 # --- the text-layer re-read: a pass seeded from a page list, over separately routed pages ----
@@ -1377,6 +1563,7 @@ def _zero() -> dict:
         "topped_up": 0,
         "unrouted_documents": 0,
         "unrouted_pages": 0,
+        "wave_routed": 0,
     }
 
 
@@ -1536,6 +1723,43 @@ def test_a_page_list_seed_sets_aside_a_document_a_non_page_failure_left_partial(
     assert not written.exists() and written.with_suffix(".json.superseded").exists()
 
 
+def test_a_document_the_wave_routed_is_refused_by_the_list_seed(listed, tmp_path):
+    """Nothing asserted that no document is both image-only and text-layer, which is the only
+    thing keeping `dots` and the re-read off the same page under the same key — and the loader
+    refuses the whole document when it happens (schema-critic, 2026-09-18)."""
+    out = tmp_path / "ocr"
+    q = pq.Queue(tmp_path / "q.sqlite")
+    _reread_route(out, A, {1: "degraded"})
+    _reread_route(out, B, {1: "degraded"})
+    _route_root(out, B, {1: "degraded"})  # the wave routed B: it is image-only
+    n = pq.seed_from_list(
+        q, listed, out, _page_list(tmp_path / "p.csv", [(A, 1, "1"), (B, 1, "1")])
+    )
+    assert (n["wave_routed"], n["new"]) == (1, 1)
+    assert q.pages_held(listed, A) == {1} and q.pages_held(listed, B) is None
+
+
+def test_a_narrower_list_does_not_shrink_a_reading_it_sets_aside(listed, tmp_path):
+    """`_decide`'s set-aside path queued the list alone, so a reading document gone missing
+    under a narrower list was rebuilt narrower, and the dropped page's row stayed live in the
+    store from the older run with no queue record (`pages_held` went {1,2} -> {1})."""
+    out = tmp_path / "ocr"
+    q = pq.Queue(tmp_path / "q.sqlite")
+    q.register("w1", listed, {**KEY, "host": "x"})
+    _reread_route(out, A, {1: "degraded", 2: "degraded"})
+    both = _page_list(tmp_path / "a.csv", [(A, 1, "1"), (A, 2, "1")])
+    assert pq.seed_from_list(q, listed, out, both)["new"] == 2
+    for job in q.claim("w1", listed, 5, 60):
+        q.done("w1", job["job_id"], json.dumps([{"category": "Text", "text": "x"}]))
+    assert pq.collect_pass(q, listed, out) == 1
+    ocr_wave.shard(out / pq.PASSES[listed]["root"], A).unlink()  # the reading goes missing
+
+    one = _page_list(tmp_path / "b.csv", [(A, 1, "1")])
+    n = pq.seed_from_list(q, listed, out, one)
+    assert (n["missing_reading"], n["set_aside"], n["new"]) == (1, 1, 2)
+    assert q.pages_held(listed, A) == {1, 2}
+
+
 def test_the_two_seeds_refuse_each_others_pass(listed, tmp_path):
     out = tmp_path / "ocr"
     q = pq.Queue(tmp_path / "q.sqlite")
@@ -1571,6 +1795,27 @@ def test_the_worker_can_run_either_dots_pass_and_no_other(monkeypatch):
     assert set(worker.PASSES_HERE) == {"dots", "reread"}  # every pass whose key is dots.mocr's
     assert "tabular" not in worker.PASSES_HERE
     assert worker.DPI == int(pq.PASSES["reread"]["key"]["render_profile"])
+
+
+def test_a_reader_waiting_for_its_server_still_hears_the_stop(monkeypatch):
+    """`wait_for_server` sat out `--server-wait` (1800 s) through a stop file and a SIGTERM,
+    though `workstation-gate.ps1` promised the stop is checked instead of waiting for a server
+    (stop-signal review, 2026-09-19)."""
+    if "fitz" not in sys.modules:
+        monkeypatch.setitem(sys.modules, "fitz", types.ModuleType("fitz"))
+    worker = _module("dots_worker", ROOT / "tools" / "fleet" / "dots_worker.py")
+    slept: list[float] = []
+    monkeypatch.setattr(worker.time, "sleep", slept.append)
+    monkeypatch.setattr(worker, "server_healthy", lambda server: False)
+    asked = iter([False, False, False, True])
+    started = time.monotonic()
+    assert worker.wait_for_server("http://s/v1", 1800, lambda: next(asked)) is False
+    assert time.monotonic() - started < 5 and len(slept) == 2  # stopped, not timed out
+    assert all(s <= 1.0 for s in slept)  # asked between one-second sleeps, not every 15 s
+    monkeypatch.setattr(worker, "server_healthy", lambda server: True)
+    assert worker.wait_for_server("http://s/v1", 1800, lambda: False) is True
+    src = (ROOT / "tools" / "fleet" / "dots_worker.py").read_text(encoding="utf-8")
+    assert src.count("wait_for_server(args.server, args.server_wait, stopping)") == 2
 
 
 def test_reseeding_a_pass_whose_root_is_not_its_key_sets_the_file_aside(tmp_path):

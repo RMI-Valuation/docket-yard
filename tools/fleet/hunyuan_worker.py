@@ -17,7 +17,9 @@ docstring says why the two cannot share one).
 THIS IS `dots_worker.py`'S TWIN, MINUS THE SERVER. The lease loop, the stop file, the breaker
 and the failure taxonomy are the same, and are duplicated rather than factored out: the dots
 loop is interleaved with its server's life (wait, die-twice, release) and moving it would
-change a worker that is running. A change to either loop's rules belongs in both.
+change a worker that is running. A change to either loop's rules belongs in both. What is
+not interleaved with anything — the page index, registration, and the blob branches — is held
+once in `leaseloop.py`, where it is tested without a model.
 
 The model loads ONCE, before anything is claimed — a queue with nothing to claim loads
 nothing, since the restart loop would otherwise load 2 GB of weights a minute — and a load
@@ -78,7 +80,6 @@ import argparse
 import os
 import socket
 import sys
-import time
 import traceback
 from pathlib import Path
 
@@ -86,25 +87,28 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "rmi-ai-machine"))
 
+from leaseloop import (  # noqa: E402 — what both lease loops do the same way
+    EXIT_ENVIRONMENT,
+    DocumentFailed,
+    Fetched,
+    document_failed,
+    log,
+    node_unavailable,
+    page_index,
+    register_or_exit,
+)
 from ocr_run import (  # noqa: E402 — the benchmark's own call, not a copy of it
     HUNYUAN_MAX_NEW_TOKENS,
     load_hunyuan,
     run_hunyuan_ocr,
 )
-from pagequeue import (  # noqa: E402
-    PASSES,
-    BlobCorrupt,
-    BlobMissing,
-    BlobUnavailable,
-    Queue,
-    RemoteQueue,
-)
+from pagequeue import PASSES, BlobUnavailable, Queue, RemoteQueue  # noqa: E402
 from stopping import Stop, yield_now  # noqa: E402
 
 PASS = "tabular"
 DPI = int(PASSES[PASS]["key"]["render_profile"])  # the render IS the key; one source
 MODEL = "tencent/HunyuanOCR"
-EXIT_CARD, EXIT_ENVIRONMENT, EXIT_BREAKER = 3, 4, 5
+EXIT_CARD, EXIT_BREAKER = 3, 5  # EXIT_ENVIRONMENT (4) is leaseloop's, shared
 
 GIB = 1024**3
 # The floors. The model is 2.0 GB of VRAM in bfloat16 (the benchmark's measurement,
@@ -120,16 +124,8 @@ class PageFailed(Exception):
     """The page's own fault; final."""
 
 
-class DocumentFailed(Exception):
-    """The document's — its bytes are not here or will not open; not final."""
-
-
 class GpuOutOfMemory(Exception):
     """Out of GPU memory after the retry: the card's, not the page's; not final."""
-
-
-def log(msg: str) -> None:
-    print(time.strftime("%Y-%m-%d %H:%M:%S ") + msg, flush=True)
 
 
 # --- pure: the classification, testable without torch ---------------------------------------
@@ -226,28 +222,19 @@ def weights_revision(name: str, commit_hash: str | None, cache: Path) -> str | N
     return ref.read_text(encoding="utf-8").strip() or None
 
 
+def loaded_dtype(model) -> str | None:
+    """The dtype the weights were LOADED in, as the producer declares it: `bfloat16`, not
+    `torch.bfloat16`. In the DECLARATION, never the key (mapping the queue, 2026-09-19).
+    `ocr_run.load_hunyuan` hardcodes bfloat16, so every reader is bf16 today; but a Turing card
+    has no hardware bf16, and a reader "fixed" to float16 would otherwise declare an identical
+    producer while reading differently — the silent split ADR 0023 exists to prevent. Adding it
+    to the key would invalidate every reading, so it is said here and only here. Read off the
+    model, not copied from `ocr_run`, so it says what was loaded rather than what was meant."""
+    dtype = getattr(model, "dtype", None)
+    return None if dtype is None else str(dtype).removeprefix("torch.")
+
+
 # --- one page -------------------------------------------------------------------------------
-
-
-def page_index(no: int, page_count: int) -> int:
-    """The 0-based index of page `no` of a document of `page_count` pages, or DocumentFailed.
-    Both ends: page 0 would index the LAST page (`doc[-1]`) and read the wrong one silently
-    (Copilot on PR #34, 2026-09-17)."""
-    if not 1 <= no <= page_count:
-        raise DocumentFailed(f"has {page_count} pages, the route says {no}")
-    return no - 1
-
-
-def register_or_exit(q, name: str, pass_: str, producer: dict) -> int | None:
-    """Register with the queue, or the environment exit code with the reason logged. A queue
-    that is locked, unreachable or refuses the key is the environment's failure, not an
-    unclassified crash (Copilot on PR #34, 2026-09-17)."""
-    try:
-        q.register(name, pass_, producer)
-    except Exception as e:  # noqa: BLE001 — every way registration fails is the environment's
-        log(f"could not register with the queue ({type(e).__name__}: {e}); exit {EXIT_ENVIRONMENT}")
-        return EXIT_ENVIRONMENT
-    return None
 
 
 def render_page(pdf, no: int, png: Path, mp: float) -> None:
@@ -396,6 +383,7 @@ def main() -> int:
         "engine_version": transformers.__version__,
         "engine_model": args.model,
         "weights_revision": revision,
+        "dtype": loaded_dtype(model),
         "max_new_tokens": HUNYUAN_MAX_NEW_TOKENS,
         "max_megapixels": spec["max_megapixels"],
         "worker": Path(__file__).name,
@@ -410,7 +398,7 @@ def main() -> int:
 
     read = failed = streak = 0
     last_oom: tuple[str, int] | None = None
-    held: tuple[str, Path] | None = None  # the last document fetched, for a remote worker
+    fetched = Fetched(q, args.scratch)  # the last document fetched, for a remote worker
     ids: list[int] = []
     in_flight: int | None = None  # the index in `ids` of the page the model is reading
 
@@ -444,27 +432,7 @@ def main() -> int:
                     if args.blobs:  # on the node, or a mirror of its blobs: read the disk
                         pdf = args.blobs / sha[:2] / sha
                     else:
-                        if held is None or held[0] != sha:
-                            # STREAMED TO DISK, NEVER INTO RAM. `read_page` takes a path as
-                            # readily as bytes, and the documents this change newly makes
-                            # reachable (a pruned mirror used to be a flat 404) reach 1.07 GB
-                            # in this record — which is what OOM-killed the instance in August,
-                            # and the smallest box that leases pages has 8 GB (code review).
-                            if held is not None:
-                                held[1].unlink(missing_ok=True)  # the previous document
-                                held = None
-                            spool = args.scratch / f"doc-{sha}.pdf"
-                            try:
-                                held = (sha, q.blob_into(sha, spool))
-                            except BlobMissing as e:
-                                raise DocumentFailed(f"not in the store: {e}") from e
-                            except BlobCorrupt as e:
-                                # the store's, not the page's, and it will not fix itself on a
-                                # retry — but it is not final either: a document is never
-                                # written off on one answer from a store having a bad day. The
-                                # coordinator has already printed the alarm.
-                                raise DocumentFailed(f"the store is corrupt here: {e}") from e
-                        pdf = held[1]
+                        pdf = fetched.path_of(sha)
                     in_flight = i
                     raw = read_page(cfg, pdf, no, png, spec["max_megapixels"])
                     in_flight = None
@@ -479,35 +447,13 @@ def main() -> int:
                         log(f"{streak} page failures in a row, no page read; exit {EXIT_BREAKER}")
                         return EXIT_BREAKER
                 except BlobUnavailable as e:
-                    # THE ENVIRONMENT'S, SO NO PAGE PAYS. The node is unreachable or its
-                    # credential is: every page in the fleet would fail identically, so this
-                    # one and every one after it go back UNSPENT and the worker exits for the
-                    # resubmitter to bring back (ADR 0025 addendum, proposal 2). Retrying here
-                    # is the loop the old bare re-raise produced, minus the traceback.
+                    # the environment's, so no page pays: `leaseloop.node_unavailable`
                     in_flight = None
-                    # THE RELEASE GOES TO THE SAME NODE THAT JUST FAILED, so it may fail
-                    # too — and an exception here would escape as the traceback this whole
-                    # mapping exists to prevent (ingest review). If it does not land, the
-                    # leases expire instead, and `_reap` SPENDS the attempt rather than
-                    # refunding it: the pages are not lost and no document is counted whole,
-                    # but they are not free either. Said plainly in the log rather than
-                    # claiming "unspent" when that may not be what happened.
-                    try:
-                        q.release(name, ids[i:])
-                        back = f"{len(ids) - i} released unspent"
-                    except Exception as release_failed:  # noqa: BLE001 — the node is the fault
-                        back = (
-                            f"{len(ids) - i} could NOT be released"
-                            f" ({type(release_failed).__name__}); they wait for lease expiry,"
-                            " which spends an attempt each"
-                        )
-                    log(f"the node cannot serve documents ({e}); {back}; exit {EXIT_ENVIRONMENT}")
-                    return EXIT_ENVIRONMENT
+                    return node_unavailable(q, name, ids, i, e)
                 except DocumentFailed as e:
                     in_flight = None
-                    q.fail(name, job["job_id"], f"blob: {e}", final=False)
+                    document_failed(q, name, job["job_id"], sha, no, e)
                     failed += 1
-                    log(f"  document {sha[:12]} {e}; p{no} back for a later seed")
                 except GpuOutOfMemory:
                     in_flight = None
                     if stopping():
@@ -575,8 +521,7 @@ def main() -> int:
     finally:
         # THE LAST DOCUMENT FETCHED IS A FILE NOW, not bytes that vanish with the process
         # (code review). Up to 1.07 GB of it, on a scratch disk shared with the renders.
-        if held is not None:
-            held[1].unlink(missing_ok=True)
+        fetched.drop()
 
 
 if __name__ == "__main__":
