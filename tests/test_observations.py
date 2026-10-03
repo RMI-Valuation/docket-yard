@@ -448,6 +448,46 @@ def test_a_capture_records_the_wire_url_beside_the_stored_one_when_they_differ(c
     }
 
 
+def test_a_kill_before_the_verdict_leaves_no_unjudged_fetch_capture(tmp_path):
+    """A fetch capture and its "not applicable" verdict commit together: a process killed
+    between the INSERT and the UPDATE leaves neither, never a quarantined row nothing will
+    ever judge (deferred, the no-answer fetch's reviews, 2026-09-11)."""
+    from docketyard.capture.stb import Unanswered
+
+    class Killed(BaseException):
+        pass
+
+    class KilledAtTheVerdict:
+        def __init__(self, con):
+            self._con = con
+
+        def execute(self, sql, *args):
+            if sql.startswith("UPDATE capture SET filter_asserted = 1"):
+                raise Killed
+            return self._con.execute(sql, *args)
+
+        def __getattr__(self, name):
+            return getattr(self._con, name)
+
+    def silent(u):
+        raise Unanswered("timed out")
+
+    path = tmp_path / "store.db"
+    con = db.connect(path)
+    ingest(con, tmp_path, filing_row())
+    con.close()
+    for fetch in (fake_fetch({f"{S3}/830599/311981.pdf": b"%PDF-x"}), silent):
+        con = db.connect(path)
+        with pytest.raises(Killed):
+            documents.fetch_attachments(KilledAtTheVerdict(con), tmp_path, fetch)
+        con.close()  # uncommitted work is rolled back, as a kill would leave it
+        con = db.connect(path)
+        assert con.execute(
+            "SELECT COUNT(*) FROM capture WHERE table_action = ?", (documents.FETCH_ACTION,)
+        ).fetchone() == (0,)
+        con.close()
+
+
 def test_a_body_cut_short_is_retried_and_leaves_no_staging_file(tmp_path, monkeypatch):
     from docketyard.capture import stb
 

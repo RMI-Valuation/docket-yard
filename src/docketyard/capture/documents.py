@@ -138,14 +138,18 @@ def fetch_attachments(
             body=body,
             http_status=status,
             ingest_mode=ingest_mode,
+            commit=False,
         )
         # a fetch has no table filter to assert and is consumed by definition: the
-        # verdict is "not applicable" (NULL counts), and it never appears as pending work
+        # verdict is "not applicable" (NULL counts), and it never appears as pending work.
+        # The row and its verdict commit together — before anything else is written, so
+        # the capture is still on record whatever happens to the rest of this document
         now = utcnow()
         con.execute(
             "UPDATE capture SET filter_asserted = 1, processed_at = ? WHERE capture_id = ?",
             (now, capture_id),
         )
+        con.commit()
         if status != 200 or size == 0:
             # an error page, or nothing, is not the document: the attempt is on record
             # (capture-first) and the attachment stays unfetched — left alone for
@@ -276,6 +280,7 @@ def _record_attempt(con: Connection, data_dir, url: str, ingest_mode: str) -> No
         body=b"",
         http_status=0,
         ingest_mode=ingest_mode,
+        commit=False,  # the row and its verdict in one transaction, as above
     )
     con.execute(
         "UPDATE capture SET filter_asserted = 1, processed_at = ? WHERE capture_id = ?",
