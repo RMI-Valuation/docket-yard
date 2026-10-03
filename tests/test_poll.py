@@ -515,6 +515,57 @@ def test_the_caption_query_proves_it_still_works_before_reading_silence_as_an_an
     assert any("may have stopped working" in p for p in summary["problems"])
 
 
+def test_a_withdrawn_control_row_is_not_a_broken_query(tmp_path):
+    """The control's docket is chosen deterministically, so a row the Board withdrew would
+    raise "the caption query may have stopped working" every pass, for ever. A failed answer
+    is put to the next captioned docket; only when none answers is the line raised — and an
+    endpoint failure is never retried as if it were a withdrawal (deferred, 2026-09-01)."""
+    from docketyard.ingest import dockets
+    from tests.test_observations import save
+
+    con = db.connect(tmp_path / "s.sqlite")
+    rows = [("AB_290_423_X", "FIRST — ABANDONMENT"), ("AB_55_827_X", "SECOND — ABANDONMENT")]
+    dockets.ingest_capture(con, tmp_path, save(con, tmp_path, make_body(rows, 2), action=DOCKETS))
+    one = {"290": make_body(rows[:1], 1), "55": make_body(rows[1:], 1)}
+
+    class PerDocket(FakeStb):
+        def query_table(self, action, criteria, *, page, per_page, sort_by, sort_order):
+            status, _, fields = super().query_table(
+                action,
+                criteria,
+                page=page,
+                per_page=per_page,
+                sort_by=sort_by,
+                sort_order=sort_order,
+            )
+            seq = dict(criteria)["docketNum_two"]
+            self.asked.append(seq)
+            return status, (self.answers.get(seq) if page == 1 else None) or NO_RESULTS, fields
+
+    def control(answers, dead=()):
+        client = PerDocket({})
+        client.answers, client.asked, client.dead = answers, [], set(dead)
+        problems, lines = [], []
+        poll._caption_control(con, client, tmp_path, problems=problems, log=lines.append)
+        return client.asked, problems, lines
+
+    asked, problems, _ = control(one)  # the query works: one ask, quiet
+    assert asked == ["290"] and problems == []
+    asked, problems, lines = control({"55": one["55"]})  # the first row withdrawn
+    assert asked == ["290", "55"] and problems == []
+    assert any("AB 290 (423)" in n and "next candidate answered" in n for n in lines), lines
+    asked, problems, _ = control({})  # the query broken: every candidate fails, one line
+    assert asked == ["290", "55"] and len(problems) == 1
+    assert "AB 290 (423)" in problems[0] and "AB 55 (827)" in problems[0]
+    assert "may have stopped working" in problems[0]
+    asked, problems, _ = control(one, dead={DOCKETS})  # the endpoint down: no second ask
+    assert asked == [] and len(problems) == 1 and "capture failed" in problems[0]
+    # only the envelope is forgiven: a family answer to the first ask (the sub-docket
+    # criterion ignored) raises at once, whatever the next candidate would say
+    asked, problems, _ = control({"290": make_body(rows, 2), "55": one["55"]})
+    assert asked == ["290"] and len(problems) == 1 and "AB 290 (423)" in problems[0]
+
+
 def test_a_pass_repairs_the_decision_registry_and_says_that_it_did(tmp_path):
     """Migration 0014 stated the invariant in prose — "INGEST MUST KEEP THIS IN STEP" — and
     prose is what failed: three decisions drifted out of `decision_work` in the two days

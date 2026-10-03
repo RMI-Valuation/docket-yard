@@ -260,6 +260,9 @@ def test_one_fetch_per_hash_however_many_ask(tmp_path):
     for t in threads:
         t.join()
     assert results == [206] * 4 and len(fetched) == 1
+    # the store is asked for the same key the local cache is filed under (records.blob_key)
+    assert fetched == [f"blobs/{sha[:2]}/{sha}"] == [records.blob_key(sha)]
+    assert records.blob_path(tmp_path, sha) == tmp_path / records.blob_key(sha)
     # the transient failure says when to try again; a missing store does not
     records.blob_path(tmp_path, sha).unlink()
 

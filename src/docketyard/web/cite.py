@@ -22,6 +22,7 @@ from datetime import datetime
 from sqlite3 import Connection
 
 from docketyard.ingest.dockets import find_docket
+from docketyard.text.dates import MONTHS
 from docketyard.web import urls
 
 _DATE = r"[A-Za-z]+\.?\s+\d{1,2},?\s+\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}"
@@ -31,14 +32,6 @@ _SERVED_RE = re.compile(
 # the Board's own record ids, in the bare form the sheets print (`Decision 53210`); never
 # `Decision No. n`, which is a number printed inside the document, and never a year
 _RECORD_RE = re.compile(r"^\s*(decision|filing)\s+#?(\d{5,})\s*$", re.I)
-_MONTH_NAMES = (
-    "january february march april may june july august september october november december"
-).split()
-_MONTHS = (  # a full name or the usual abbreviation; nothing else is a month
-    {m: i for i, m in enumerate(_MONTH_NAMES, 1)}
-    | {m[:3]: i for i, m in enumerate(_MONTH_NAMES, 1)}
-    | {"sept": 9}
-)
 
 
 @dataclass(frozen=True)
@@ -61,10 +54,10 @@ def parse_date(text: str) -> str | None:
         except ValueError:
             pass
     m = re.match(r"^([A-Za-z]+)\.?\s+(\d{1,2})\s+(\d{4})$", t)
-    if m and m.group(1).lower() in _MONTHS:
+    if m and m.group(1).lower() in MONTHS:
         try:
             return (
-                datetime(int(m.group(3)), _MONTHS[m.group(1).lower()], int(m.group(2)))
+                datetime(int(m.group(3)), MONTHS[m.group(1).lower()], int(m.group(2)))
                 .date()
                 .isoformat()
             )

@@ -223,7 +223,9 @@ def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, dat
     total, nothing in between exists at the endpoint — the same envelope answered by a
     wrong criterion would not reconcile, because the window would answer it too. Two
     requests, both captured (mode backfill) so the proof is on record. Returns the proof
-    as text, or None."""
+    as text or None, and whether any done neighbour was asked at all: a window that was
+    asked and did not reconcile is evidence against the month being empty, where no
+    neighbour to ask is only the absence of a proof."""
     spec = observations.SPECS[action]
     first, last = spec.date_criteria
     # A neighbour must be a month walked WHOLE, because the proof compares this month's
@@ -238,6 +240,7 @@ def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, dat
         if month is not None:
             walked.setdefault(month, set()).update(slice_days(key))
     done = {m for m, days in walked.items() if days == month_days(m)}
+    compared = False
     for delta in (1, -1):
         ym = s.month
         for _ in range(12):  # a run of doubted months is bounded; a year is plenty
@@ -250,58 +253,70 @@ def reconcile_empty_month(con: Connection, client, action: str, s: Slice, *, dat
         lo = _month_bounds(s.month if delta == 1 else neighbour)[0]
         hi = _month_bounds(neighbour if delta == 1 else s.month)[1]
         totals = []
-        for a, b in ((_month_bounds(neighbour)), (lo, hi)):
-            criteria = [(first, a.strftime("%m/%d/%Y")), (last, b.strftime("%m/%d/%Y"))]
-            sort_by, sort_order = TABLE_SORT[action]
-            status, body, fields = client.query_table(
-                action,
-                criteria,
-                page=1,
-                per_page=PAGE_CLAMP,
-                sort_by=sort_by,
-                sort_order=sort_order,
-            )
-            capture_id = records.save_capture(
-                con,
-                data_dir,
-                source_system=dockets.SOURCE_SYSTEM,
-                endpoint=AJAX,
-                table_action=action,
-                request_params=fields,
-                body=body,
-                http_status=status,
-                ingest_mode="backfill",
-            )
-            try:
-                parsed = observations.parse_response(spec, body)
-                asserted = observations.assert_filter(spec, criteria, parsed)
-                records.set_verdict(
+        # One side failing on this side of the wire is not a verdict on the month: the
+        # other side is still asked, and a contradiction an earlier side found survives
+        # it — `compared` is set only once both requests have answered (ingest
+        # specialist, on the change that proves declared months, 2026-10-03).
+        try:
+            for a, b in ((_month_bounds(neighbour)), (lo, hi)):
+                criteria = [(first, a.strftime("%m/%d/%Y")), (last, b.strftime("%m/%d/%Y"))]
+                sort_by, sort_order = TABLE_SORT[action]
+                status, body, fields = client.query_table(
+                    action,
+                    criteria,
+                    page=1,
+                    per_page=PAGE_CLAMP,
+                    sort_by=sort_by,
+                    sort_order=sort_order,
+                )
+                capture_id = records.save_capture(
                     con,
-                    capture_id,
-                    filter_asserted=asserted,
-                    row_count=len(parsed.rows),
-                    reported_total=parsed.total,
+                    data_dir,
+                    source_system=dockets.SOURCE_SYSTEM,
+                    endpoint=AJAX,
+                    table_action=action,
+                    request_params=fields,
+                    body=body,
+                    http_status=status,
+                    ingest_mode="backfill",
                 )
-                # a total counts only when the filter demonstrably applied and the cap was
-                # not hit: an equal unfiltered pair is exactly what a trap looks like
-                totals.append(
-                    parsed.total if asserted and not dockets.hit_display_cap(parsed.total) else None
-                )
-            except ValueError:
-                records.set_verdict(
-                    con, capture_id, filter_asserted=False, row_count=0, reported_total=0
-                )
-                totals.append(None)
-            records.mark_processed(con, capture_id)  # a proof, never rows to ingest
+                try:
+                    parsed = observations.parse_response(spec, body)
+                    asserted = observations.assert_filter(spec, criteria, parsed)
+                    records.set_verdict(
+                        con,
+                        capture_id,
+                        filter_asserted=asserted,
+                        row_count=len(parsed.rows),
+                        reported_total=parsed.total,
+                    )
+                    # a total counts only when the filter demonstrably applied and the cap was
+                    # not hit: an equal unfiltered pair is exactly what a trap looks like
+                    totals.append(
+                        parsed.total
+                        if asserted and not dockets.hit_display_cap(parsed.total)
+                        else None
+                    )
+                except ValueError:
+                    records.set_verdict(
+                        con, capture_id, filter_asserted=False, row_count=0, reported_total=0
+                    )
+                    totals.append(None)
+                records.mark_processed(con, capture_id)  # a proof, never rows to ingest
+        except Exception as e:  # noqa: BLE001 — a failed side is no proof either way
+            con.rollback()
+            log(f"   {s.key}: proof against {neighbour} FAILED ({type(e).__name__}: {e})")
+            continue
+        compared = True
         if totals[0] is not None and totals[0] == totals[1]:
             proof = (
                 f"a window {lo.isoformat()}..{hi.isoformat()} totals {totals[1]}, exactly"
                 f" the done month {neighbour}'s {totals[0]}"
             )
             log(f"   {s.key}: {proof}")
-            return proof
+            return proof, compared
         log(f"   {s.key}: window against {neighbour} did not reconcile ({totals})")
-    return None
+    return None, compared
 
 
 # --- the slice key's grammar, beside the only thing that writes it ---------------------
@@ -437,16 +452,33 @@ def walk(
                 result = SliceResult(quarantined=True)
                 log(f"   {s.key}: FAILED again ({type(e2).__name__}: {e2})")
         note = ""
-        if result.envelope_on_first_page and not result.expected_empty and s.month:
+        # A month DECLARED empty (EXPECTED_EMPTY_MONTHS) is proven too: a run with the wrong
+        # criteria pair answers the same envelope, and `covered()` counts `empty` as walked,
+        # so the declaration alone would let a broken query be written down as a quiet month.
+        # It stands in for the proof only when no proof can be had — no done neighbour to ask,
+        # or the asking failed on this side. A neighbour that was asked and did not reconcile
+        # overrides it (stb-ingest-specialist, 2026-08-31).
+        if result.envelope_on_first_page and s.month:
+            declared = result.expected_empty
             try:
-                proof = reconcile_empty_month(con, client, action, s, data_dir=data_dir, log=log)
+                proof, compared = reconcile_empty_month(
+                    con, client, action, s, data_dir=data_dir, log=log
+                )
             except Exception as e:  # noqa: BLE001 — a failed proof is a partial month, not a dead wave
                 con.rollback()
                 log(f"   {s.key}: proof FAILED ({type(e).__name__}: {e})")
-                proof = None
+                proof, compared = None, False
             if proof:
                 result.expected_empty = True  # proven, not declared: the status becomes empty
                 note = f" — proven empty: {proof}"
+            elif declared and not compared:
+                note = " — declared empty (EXPECTED_EMPTY_MONTHS); no proof could be had"
+            elif declared:
+                result.expected_empty = False  # the declaration does not outvote the window
+                note = (
+                    " — declared empty, but a done neighbour month did not reconcile it: the"
+                    " criterion may be wrong, so it is not recorded empty"
+                )
             else:
                 note = (
                     " — no-results envelope on the first page: a trap or a truly empty slice,"

@@ -112,6 +112,7 @@ def test_the_resolver_reads_every_printed_form_and_never_guesses(tmp_path):
     assert (
         cite.parse_date("Aug. 25, 2026") == "2026-08-25" and cite.parse_date("Feb 30, 2026") is None
     )
+    assert cite.parse_date("Sept. 3, 2026") == "2026-09-03"  # the measured abbreviation
     # the link service and the search box
     client = TestClient(create_app(path))
     assert (
@@ -143,6 +144,17 @@ def test_the_resolver_reads_every_printed_form_and_never_guesses(tmp_path):
         and j["resolved"]["kind"] == "docket"
     )
     assert client.get("/cite", params={"q": "nothing"}).json()["resolved"] is None
+
+
+def test_one_month_table_for_every_date_reader():
+    """`text/dates.MONTHS` is the month table (the resolver's, measured over 200,000 pages);
+    `web/cite` reads it, and the citator's two copies are held equal to it until they read it
+    too (deferred, the release review of 2026-09-10)."""
+    from docketyard.citator import decided, resolve
+    from docketyard.text import dates
+
+    assert cite.MONTHS is dates.MONTHS
+    assert dates.MONTHS == resolve.MONTHS == decided._MONTHS
 
 
 def test_a_sheet_points_at_both_registers_by_the_registers_own_rules(tmp_path):

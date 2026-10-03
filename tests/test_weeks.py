@@ -19,6 +19,20 @@ def test_monday_of_and_path():
     assert urls.week_path(date(2026, 8, 17)) == "/week/2026-08-17"
 
 
+def test_one_month_walker_serves_the_home_page_and_stats():
+    """`home.month_keys` is the only month walker (deferred, the stats deferrals, 2026-09-18):
+    /stats imports it, and the home page's window check reads its months from it."""
+    from docketyard.store import stats
+
+    assert stats.month_keys is home.month_keys
+    assert home.month_keys("2025-11", date(2026, 2, 3)) == [
+        "2025-11", "2025-12", "2026-01", "2026-02"
+    ]  # fmt: skip
+    assert home.month_keys("2026-03", date(2026, 2, 3)) == []  # nothing before it starts
+    assert home._months(date(2025, 12, 29), date(2026, 1, 4)) == {"2025-12", "2026-01"}
+    assert home._months(date(2026, 1, 31), date(2026, 3, 1)) == {"2026-01", "2026-02", "2026-03"}
+
+
 def test_week_pages(tmp_path):
     path = build_store(tmp_path)  # entries dated 2026-08-24/25, one decision 2026-08-21
     client = TestClient(create_app(path))

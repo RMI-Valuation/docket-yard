@@ -420,6 +420,86 @@ def test_a_url_with_a_raw_en_dash_goes_on_the_wire_percent_encoded(tmp_path, mon
     assert stb._wire_url(sent[0]) == sent[0]  # applying it to a wire URL changes nothing
 
 
+def test_a_capture_records_the_wire_url_beside_the_stored_one_when_they_differ(con, tmp_path):
+    """`endpoint` stays the stored URL (the refusal rest and the re-check join on it), so the
+    percent-encoded form that went on the wire is recorded in `request_params` beside it —
+    and only when it differs, on the success path and the unanswered path alike."""
+    from docketyard.capture.stb import Unanswered
+
+    dash = "AB 290 – Comments.pdf"
+    rows = filing_row(pdf=dash) + filing_row(fid="2", row="8", pdf="a b.pdf")
+    ingest(con, tmp_path, rows + filing_row(fid="3", row="9"), total=3)
+    raw, spaced, plain = f"{S3}/830599/{dash}", f"{S3}/8/a b.pdf", f"{S3}/9/311981.pdf"
+
+    def fetch(u):
+        if u == spaced:
+            raise Unanswered("timed out")
+        return 200, b"%PDF-" + u.encode()
+
+    documents.fetch_attachments(con, tmp_path, fetch)
+    rows = con.execute(
+        "SELECT endpoint, request_params FROM capture WHERE table_action = ?",
+        (documents.FETCH_ACTION,),
+    ).fetchall()
+    assert {e: json.loads(p) for e, p in rows} == {
+        raw: [["url", raw], ["wire_url", f"{S3}/830599/AB%20290%20%E2%80%93%20Comments.pdf"]],
+        spaced: [["url", spaced], ["wire_url", f"{S3}/8/a%20b.pdf"]],
+        plain: [["url", plain]],
+    }
+
+
+def test_the_fetch_verb_will_not_guess_the_mode(tmp_path, capsys):
+    """`forward` scopes a document into the text stage (text/queue.py D1), so a by-hand fetch
+    over a wave's backlog must say `backfill` rather than inherit a default (deferred, the
+    no-answer fetch's reviews, 2026-09-11). Refused before any store is opened."""
+    from docketyard import cli
+
+    with pytest.raises(SystemExit):
+        cli.main(["--db", str(tmp_path / "s.sqlite"), "fetch", "attachments"])
+    assert "--mode" in capsys.readouterr().err
+    assert not (tmp_path / "s.sqlite").exists()
+
+
+def test_a_kill_before_the_verdict_leaves_no_unjudged_fetch_capture(tmp_path):
+    """A fetch capture and its "not applicable" verdict commit together: a process killed
+    between the INSERT and the UPDATE leaves neither, never a quarantined row nothing will
+    ever judge (deferred, the no-answer fetch's reviews, 2026-09-11)."""
+    from docketyard.capture.stb import Unanswered
+
+    class Killed(BaseException):
+        pass
+
+    class KilledAtTheVerdict:
+        def __init__(self, con):
+            self._con = con
+
+        def execute(self, sql, *args):
+            if sql.startswith("UPDATE capture SET filter_asserted = 1"):
+                raise Killed
+            return self._con.execute(sql, *args)
+
+        def __getattr__(self, name):
+            return getattr(self._con, name)
+
+    def silent(u):
+        raise Unanswered("timed out")
+
+    path = tmp_path / "store.db"
+    con = db.connect(path)
+    ingest(con, tmp_path, filing_row())
+    con.close()
+    for fetch in (fake_fetch({f"{S3}/830599/311981.pdf": b"%PDF-x"}), silent):
+        con = db.connect(path)
+        with pytest.raises(Killed):
+            documents.fetch_attachments(KilledAtTheVerdict(con), tmp_path, fetch)
+        con.close()  # uncommitted work is rolled back, as a kill would leave it
+        con = db.connect(path)
+        assert con.execute(
+            "SELECT COUNT(*) FROM capture WHERE table_action = ?", (documents.FETCH_ACTION,)
+        ).fetchone() == (0,)
+        con.close()
+
+
 def test_a_body_cut_short_is_retried_and_leaves_no_staging_file(tmp_path, monkeypatch):
     from docketyard.capture import stb
 

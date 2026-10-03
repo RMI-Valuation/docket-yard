@@ -196,13 +196,21 @@ def calendar_week(con: Connection, monday: date) -> Week:
     return week(con, monday.isoformat(), (monday + timedelta(days=6)).isoformat())
 
 
+def month_keys(first: str, last: date) -> list[str]:
+    """Every YYYY-MM from `first` (a YYYY-MM) to the month of `last`, inclusive, oldest first;
+    empty when `first` is later. The one month walker: the home page's walked-window check
+    and /stats's table by month both count months with it."""
+    y, m = int(first[:4]), int(first[5:])
+    out = []
+    while (y, m) <= (last.year, last.month):
+        out.append(f"{y:04d}-{m:02d}")
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return out
+
+
 def _months(start: date, end: date) -> set[str]:
     """Every YYYY-MM the window touches."""
-    months, cursor = set(), start.replace(day=1)
-    while cursor <= end:
-        months.add(cursor.strftime("%Y-%m"))
-        cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
-    return months
+    return set(month_keys(start.strftime("%Y-%m"), end))
 
 
 def _days(start: date, end: date) -> set[date]:

@@ -62,7 +62,7 @@ def main(blobs: Path, bucket: str, dry_run: bool) -> None:
         if not path.is_file() or path.suffix == ".tmp" or path.parent.name == ".tmp":
             # a half-written sibling, or the downloader's staging area (records.staging_dir)
             continue
-        key = f"blobs/{path.parent.name}/{path.name}"
+        key = f"blobs/{path.parent.name}/{path.name}"  # records.blob_key's layout, spelled here
         if key not in held:
             continue  # not yet synced: never touch
         candidates.append((path.stat().st_mtime, path))

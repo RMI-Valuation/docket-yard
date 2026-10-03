@@ -289,6 +289,77 @@ def test_a_window_that_does_not_reconcile_leaves_the_month_partial(tmp_path):
     assert out2["partial"] == 1 and client2.requests == 1
 
 
+def test_a_declared_empty_month_is_proven_when_it_can_be_and_not_outvoted(tmp_path):
+    """2025-10 is DECLARED empty (the shutdown), and `covered()` counts `empty` as walked —
+    so a run with the wrong criteria pair, answering the same envelope, must not be written
+    `empty` on the declaration alone. With a done neighbour the proof is asked for anyway:
+    a window that reconciles records `empty` as proven; one that does not leaves the month
+    `partial` whatever the declaration says. With no neighbour the declaration stands (the
+    existing test above). Deferred, the navigation Tier 1–2 release, 2026-08-31."""
+    from datetime import date as d
+
+    from docketyard.capture.stb import FILINGS
+
+    sept = (FILINGS, "09/01/2025", "09/30/2025")
+    window = (FILINGS, "09/01/2025", "10/31/2025")
+    for window_body, status, said in (
+        (_month_body(2, 9, year=2025), "empty", "proven empty"),
+        (None, "partial", "declared empty, but"),  # the window answers the envelope too
+    ):
+        con = db.connect(tmp_path / f"{status}.sqlite")
+        pages = {sept: _month_body(2, 9, year=2025)}
+        if window_body is not None:
+            pages[window] = window_body
+        client = WindowStb(pages)
+        notes = []
+        walk.walk_observations(
+            con,
+            client,
+            FILINGS,
+            d(2025, 9, 1),
+            d(2025, 10, 31),
+            data_dir=tmp_path,
+            log=notes.append,
+        )
+        got = con.execute(
+            "SELECT status FROM walk_slice WHERE slice_key = ?", (f"{FILINGS}:2025-10",)
+        ).fetchone()[0]
+        assert got == status and any(said in n for n in notes), notes
+        assert client.requests == 4  # September, October, and the two proof requests
+
+    # A contradiction survives a later failure: November (walked first) does not reconcile,
+    # then the September side raises. Before, the raise reset the proof to "none could be
+    # had" and the declaration wrote the month `empty` over the evidence against it.
+    class SeptemberFailsLater(WindowStb):
+        def query_table(self, action, criteria, **kw):
+            if [v for _, v in criteria] == ["09/01/2025", "09/30/2025"] and self.requests >= 3:
+                self.requests += 1
+                raise ConnectionError("no route")
+            return super().query_table(action, criteria, **kw)
+
+    con = db.connect(tmp_path / "both.sqlite")
+    client = SeptemberFailsLater(
+        {
+            sept: _month_body(2, 9, year=2025),
+            (FILINGS, "11/01/2025", "11/30/2025"): _month_body(1, 11, year=2025, first_id=300),
+            # the window October..November answers more than November alone
+            (FILINGS, "10/01/2025", "11/30/2025"): _month_body(4, 11, year=2025, first_id=400),
+        }
+    )
+    notes = []
+    walk.walk_observations(
+        con, client, FILINGS, d(2025, 11, 1), d(2025, 11, 30), data_dir=tmp_path, log=notes.append
+    )
+    walk.walk_observations(
+        con, client, FILINGS, d(2025, 9, 1), d(2025, 10, 31), data_dir=tmp_path, log=notes.append
+    )
+    got = con.execute(
+        "SELECT status FROM walk_slice WHERE slice_key = ?", (f"{FILINGS}:2025-10",)
+    ).fetchone()[0]
+    assert got == "partial", notes
+    assert any("proof against 2025-09 FAILED" in n for n in notes), notes
+
+
 def _days_body(days, month=5, year=1996, first_id=300):
     rows = "".join(
         filing_row(fid=str(first_id + i), date=f"{month}/{d}/{year}", pdf=f"{first_id + i}.pdf")

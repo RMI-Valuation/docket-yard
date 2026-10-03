@@ -219,6 +219,17 @@ def canonical_of(con: Connection, docket_id: int) -> str:
     return ParsedDocket(prefix, sequence, sub, suffix).canonical()
 
 
+def raw_of(con: Connection, docket_id: int) -> str | None:
+    """The docket number as the Board printed it, or None when the store holds no such id.
+    Beside `canonical_of` so every surface reads the printed label one way; the fallback for
+    a miss stays the caller's, because each says something different (an alert's "?", a
+    review row's blank). The surfaces still spelling this SELECT by hand — alerts/summary,
+    citator/review, store/finder, web/mcp and web/review_routes — move here as they next
+    change (deferred, the release review of 2026-09-10)."""
+    row = con.execute("SELECT raw_docket FROM docket WHERE docket_id = ?", (docket_id,)).fetchone()
+    return row[0] if row else None
+
+
 def find_docket(con: Connection, identity: ParsedDocket) -> int | None:
     row = con.execute(
         """

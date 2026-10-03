@@ -58,6 +58,18 @@ def test_parse_forms_seen_in_the_census():
 # --- response decoding ---------------------------------------------------------------
 
 
+def test_the_printed_label_is_read_through_one_accessor():
+    """`raw_of` returns the number as the Board printed it, beside the canonical spelling;
+    a miss is None and the caller picks its own fallback (deferred, 2026-09-10)."""
+    from docketyard.store import db
+
+    con = db.connect(":memory:")
+    did = dockets.upsert_docket(con, dockets.parse_docket_id("FD_36873_1"), "FD 36873 (Sub-No. 1)")
+    assert dockets.raw_of(con, did) == "FD 36873 (Sub-No. 1)"  # as printed, not re-spelled
+    assert dockets.canonical_of(con, did) == "FD_36873_1"
+    assert dockets.raw_of(con, did + 1000) is None
+
+
 def test_parse_rows_extracts_id_and_title():
     parsed = dockets.parse_response(
         make_body([("FD_36339_0", "WISCONSIN RAPIDS &#8212; LEASE")], total=1)
