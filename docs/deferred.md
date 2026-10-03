@@ -2610,3 +2610,22 @@ readers rather than about code.
   concurrency limit for `/mcp` (Caddy has none built in; a module or a semaphore in the
   route are the options) — every MCP tool, and `/search`, can be called in parallel by
   anyone. An infrastructure decision, not this PR's.
+
+## The operator's live test of the brief tools, 2026-10-03 (against v2026.10.1)
+
+Run through the claude.ai connector. Every figure checked matched the live record (769
+decisions in 378 proceedings since 2025-01-01, every breakdown line; 839 notices of intent in
+18 proceedings), the 366-day bound refused and the assistant moved to the counts as the
+refusal suggests, and the procedural schedule of decision 53251 was read, not computed —
+every date matched the page. The operator judged none of it a concern. Held, not acted on:
+
+- **An apparent misprint was corrected in the answer's table** ("Oct 15, 2026" where the
+  schedule prints "October 15, 2016"), the misprint named only in prose after it.
+- **The reading label and the Board's file link were not repeated** with the quoted dates,
+  though `read_page` and `INSTRUCTIONS` ask for both.
+- **The assistant's own inferences sat beside the quotation** ("that is why the proposals
+  matter"; "the label ends July 2025, and Chief Counsel takes over").
+
+The lever, if wanted: a line in `INSTRUCTIONS` and on `read_page` — quote a date exactly as
+printed and note a discrepancy beside it, never in its place; carry who read the page and the
+Board's file; keep inference visibly apart from what the document says.
