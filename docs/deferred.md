@@ -219,7 +219,7 @@ the measurement and the reasoning. An answer moves the item to `TODO.md` or clos
   whole (≤64 MB; ~1,900 a day, tens of GB per six-week cycle from the Board's bucket). S3
   honours `If-None-Match`; recording the response `ETag` on the fetch capture and sending
   it on re-check would make an unchanged file a 304. Larger files are the operator's
-  `fetch attachments --refresh`, which has no age floor and no default limit.
+  `fetch attachments --mode <forward|backfill> --refresh`, which has no age floor and no default limit.
 - **Streamed downloads** (2026-08-26, v2026.08.25): no Range-resume on a mid-body failure;
   the file is written, hashed and sniffed in three passes rather than one; one commit per
   document is the dominant DB cost of a wave.
