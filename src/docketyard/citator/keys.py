@@ -33,12 +33,13 @@ KEY_VERSION = "norm-docket@2026-09-13"  # `LONG_DOCKET`: the Board's long names 
 # owning finder emits must not fall out of class here by an accident of which file was
 # edited last.
 #
-# `\d{1,6}`, not the finder's `\d{1,5}`: 104 held dockets carry a six-digit sequence (the
+# `\d{1,6}`, not the old finder's `\d{1,5}`: 104 held dockets carry a six-digit sequence (the
 # largest is 253517), and under a five-digit cap `NOR 253517` keys as NOTHING — the trailing
-# `\b` refuses the partial match, which is right, but the citation is then lost. THE COST IS
-# NAMED IN `resolve.py`: ADR 0017's exposure argument rests on the finder's own cap, so a
-# SIX-digit fusion falls outside both the repair and the exposure test by the accepted
-# definitions, and neither rule is widened here to cover it.
+# `\b` refuses the partial match, which is right, but the citation is then lost. The finder
+# reads THIS pattern, so it has no five-digit cap of its own any more. THE COST IS NAMED IN
+# `resolve.py`: ADR 0017's exposure argument was made under that old cap, so a SIX-digit fusion
+# falls outside both the repair and the exposure test by the accepted definitions (the own-fused
+# rule below catches the document's own docket only), and neither rule is widened here.
 DOCKET = re.compile(
     r"\b(FD|AB|EP|NOR|MCF|MCC|NOM|ISM|IS|SDM|WB|SO|DOP|STA|WCC|SUB|FSB|PCA)"
     r"\s*[-\s]?\s*(\d{1,6})([A-Z])?\b"

@@ -23,6 +23,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from benchmark_files import decision_id_of
+
 PAGE_RE = re.compile(r"^===== page (\d+) =====$", re.M)
 SCHEMA = {
     "type": "object",
@@ -270,7 +272,7 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     files = sorted(Path(args.text_dir).glob("*.txt"))
     for f in files:
-        decision_id = f.stem.rsplit("-", 1)[-1]
+        decision_id = decision_id_of(f)
         if args.only and decision_id not in args.only:
             continue
         target = out_dir / f"{decision_id}.json"

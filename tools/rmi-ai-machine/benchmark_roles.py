@@ -31,6 +31,7 @@ import time
 import urllib.request
 from pathlib import Path
 
+from benchmark_files import decision_id_of
 from benchmark_regex import (
     DOC_WORDS,
     DOCKET,
@@ -118,7 +119,7 @@ def main() -> int:
     out_dir = args.out / f"roles-{label}"
     out_dir.mkdir(parents=True, exist_ok=True)
     for f in sorted(args.text_dir.glob("*.txt")):
-        did = f.stem.rsplit("-", 1)[-1]
+        did = decision_id_of(f)
         target = out_dir / f"{did}.json"
         if target.exists():
             print(f"{did}: done already")

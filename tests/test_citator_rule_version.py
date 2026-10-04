@@ -4,7 +4,7 @@ current one, and a card measured on another rule is refused."""
 
 import pytest
 
-from docketyard.citator import methods, resolve
+from docketyard.citator import judge, methods, resolve
 from tests.test_citator_pipeline import SHA, STAMP, _scored, _store
 from tests.test_citator_retraction import _load, _walked
 
@@ -57,3 +57,37 @@ def test_a_card_measured_on_another_rule_version_is_refused(tmp_path, monkeypatc
         _scored(con)
     with pytest.raises(methods.Unscored, match="measured on resolver 'rule-1'"):
         methods.stamp(con)
+
+
+# The `family` CTE as it stood when `methods.CLOSURE_VERSION` was last set, comments stripped
+# and whitespace collapsed. A change to the closure fails here until both move together.
+CLOSURE_FINGERPRINT = (
+    "cite.py@2026-09-01",
+    "ad47141e216ecdb7a7a0c62fabbc65022ce9df1a2fe9fccb86fe8e4b9bd58d59",
+)
+
+
+def test_the_family_closure_cannot_change_under_its_old_version():
+    """`methods.PROJECTION_RULE` hardcoded `closure=cite.py@2026-09-01`, a date somebody had to
+    remember to edit (code review, 2026-09-01). It is a constant now, and the closure it names —
+    `project.py`'s `family` CTE, the one implementation — is fingerprinted against it, so a new
+    closure under the old name fails a test instead of reaching a stored measurement."""
+    import hashlib
+    import re
+
+    from docketyard.citator import project
+
+    cte = re.search(r"^family AS \(.*?^\)", project._TERMS, re.S | re.M)
+    assert cte, "the `family` CTE moved; point this test at it"
+    body = " ".join(re.sub(r"--[^\n]*", "", cte.group(0)).split())
+    digest = hashlib.sha256(body.encode()).hexdigest()
+    assert (methods.CLOSURE_VERSION, digest) == CLOSURE_FINGERPRINT, (
+        "the family closure changed: bump methods.CLOSURE_VERSION (it moves PROJECTION_RULE,"
+        " ADR 0018 D8) and re-pin CLOSURE_FINGERPRINT with both"
+    )
+    # and the rule string is byte-identical to the one every stored measurement carries
+    assert f";closure={methods.CLOSURE_VERSION};" in methods.PROJECTION_RULE
+    assert methods.PROJECTION_RULE == (
+        f"span={judge.SPAN_VERSION};closure=cite.py@2026-09-01;rank={methods.RANK_VERSION}"
+        f";gate=exposed@{resolve.EXPOSURE_VERSION}"
+    )

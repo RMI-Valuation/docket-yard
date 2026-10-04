@@ -21,6 +21,15 @@ so both facts go out on `/metrics` in production's grammar (an age series paired
 `_known` series, the way `docket_yard_freshness_*` is shaped, never a sentinel in the age),
 for rules evaluated off the box: stalled, failing, or the series absent altogether.
 
+A PASS DOWN ON PURPOSE SAYS SO. `ocr/.paused-<pass>` beside the queue — one line, the
+reason; its mtime, the date — is read here and published as `docket_yard_fleet_paused{pass}`
+and on the page. It suppresses NOTHING: `stalled` still fires on a paused pass, and the reason
+is published beside it rather than an alert silently not firing (ADR 0020's maintenance mode
+is production's equivalent; the 5090 swap, 2026-09-18, is why). It is not the stop file and
+stops no worker: it says why the fleet is down, the stop file is what holds it down.
+
+    echo "card swap on rmi-ai-machine" > /data/docketyard/ocr/.paused-tabular   # and rm it after
+
 Standard library only; LAN only. The queue is opened READ-ONLY, and a path with no queue
 file is a 503, never an empty queue reporting that nothing is owed.
 """
@@ -37,9 +46,27 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from pagequeue import STATES, Queue  # noqa: E402
+from pagequeue import PASSES, STATES, Queue, corrupt_count  # noqa: E402
 
 MIN_FAILED = 10
+PAUSED = ".paused-"  # `ocr/.paused-<pass>`, beside the queue: the operator's, never a worker's
+
+
+def paused(queue_db: Path) -> dict[str, dict]:
+    """pass -> {"since", "why"} for each pass marked as down on purpose beside `queue_db`.
+    Only a pass the queue knows is read, so a stray file cannot invent a label."""
+    out = {}
+    for pass_ in PASSES:
+        marker = queue_db.parent / f"{PAUSED}{pass_}"
+        try:
+            since = time.strftime("%Y-%m-%d %H:%M", time.localtime(marker.stat().st_mtime))
+            why = marker.read_text(encoding="utf-8", errors="replace").strip().splitlines()
+        except FileNotFoundError:
+            continue
+        except OSError:  # there but unreadable: still paused, the reason unknown
+            since, why = "unknown", []
+        out[pass_] = {"since": since, "why": why[0][:200] if why else "no reason given"}
+    return out
 
 
 def stalled(status: dict, stall_seconds: int) -> list[str]:
@@ -64,7 +91,11 @@ def failing(status: dict) -> list[str]:
     return out
 
 
-def metrics(status: dict, stall_seconds: int) -> str:
+def metrics(
+    status: dict, stall_seconds: int, corrupt: int | None = 0, held: dict | None = None
+) -> str:
+    """`corrupt` is `pagequeue.corrupt_count`: None (unreadable) leaves its series out, so an
+    unreadable log is never published as a store with nothing wrong in it."""
     lines = [
         "# HELP docket_yard_fleet_jobs Pages of a pass in each state",
         "# TYPE docket_yard_fleet_jobs gauge",
@@ -103,6 +134,14 @@ def metrics(status: dict, stall_seconds: int) -> str:
     for pass_ in status["passes"]:
         lines.append(f'docket_yard_fleet_stalled{{pass="{pass_}"}} {int(pass_ in down)}')
         lines.append(f'docket_yard_fleet_failing{{pass="{pass_}"}} {int(pass_ in bad)}')
+    held = held or {}
+    lines += [
+        "# HELP docket_yard_fleet_paused 1 when the operator has marked the pass as down on"
+        " purpose (ocr/.paused-<pass>); suppresses nothing",
+        "# TYPE docket_yard_fleet_paused gauge",
+    ]
+    for pass_ in sorted(set(status["passes"]) | set(held)):
+        lines.append(f'docket_yard_fleet_paused{{pass="{pass_}"}} {int(pass_ in held)}')
     lines += [
         "# HELP docket_yard_fleet_worker_last_seen_age_seconds Seconds since the worker"
         " touched the queue",
@@ -119,6 +158,13 @@ def metrics(status: dict, stall_seconds: int) -> str:
         age = w["last_seen_age_seconds"]
         lines.append(f"docket_yard_fleet_worker_last_seen_age_seconds{{{label}}} {age}")
         lines.append(f"docket_yard_fleet_worker_pages_done{{{label}}} {w['done']}")
+    lines += [
+        "# HELP docket_yard_fleet_blob_corrupt_total Documents the store answered with bytes"
+        " that do not hash to their name, all time",
+        "# TYPE docket_yard_fleet_blob_corrupt_total counter",
+    ]
+    if corrupt is not None:
+        lines.append(f"docket_yard_fleet_blob_corrupt_total {corrupt}")
     return "\n".join(lines) + "\n"
 
 
@@ -134,7 +180,9 @@ def _age(seconds) -> str:
     return f"{seconds / 86400:.1f} d"
 
 
-def page(status: dict, stall_seconds: int) -> str:
+def page(
+    status: dict, stall_seconds: int, corrupt: int | None = 0, held: dict | None = None
+) -> str:
     e = html.escape
     down, bad = stalled(status, stall_seconds), failing(status)
     parts = [
@@ -155,6 +203,16 @@ def page(status: dict, stall_seconds: int) -> str:
         parts.append(
             f"<div class=stalled>FAILING: {e(', '.join(bad))} failed more pages than it read"
             " in the last hour</div>"
+        )
+    for pass_, p in sorted((held or {}).items()):
+        parts.append(
+            f"<div class=ok>PAUSED: {e(pass_)} is down on purpose since {e(p['since'])}:"
+            f" {e(p['why'])}</div>"
+        )
+    if corrupt:
+        parts.append(
+            f"<div class=stalled>BLOB CORRUPT IN THE STORE: {corrupt:,} answer(s) recorded in"
+            " ocr/blob-corrupt.log</div>"
         )
     if not down and not bad:
         parts.append("<div class=ok>reading, or nothing owed</div>")
@@ -214,6 +272,7 @@ def serve(db: Path, port: int, stall_seconds: int, bind: str) -> None:
                     if state["q"] is None:
                         state["q"] = Queue(db, readonly=True, shared=True)
                     status = state["q"].status()
+                corrupt, held = corrupt_count(db), paused(db)
             except Exception as e:  # noqa: BLE001 — the queue is what is being watched
                 state["q"] = None
                 self._send(503, "text/plain", f"queue unreadable: {type(e).__name__}: {e}\n")
@@ -221,7 +280,9 @@ def serve(db: Path, port: int, stall_seconds: int, bind: str) -> None:
             path = self.path.split("?", 1)[0]
             if path == "/metrics":
                 self._send(
-                    200, "text/plain; version=0.0.4; charset=utf-8", metrics(status, stall_seconds)
+                    200,
+                    "text/plain; version=0.0.4; charset=utf-8",
+                    metrics(status, stall_seconds, corrupt, held),
                 )
             elif path == "/status.json":
                 self._send(200, "application/json", json.dumps(status, indent=1))
@@ -234,7 +295,9 @@ def serve(db: Path, port: int, stall_seconds: int, bind: str) -> None:
                     body += f"failing: {', '.join(bad)}\n"
                 self._send(503 if body else 200, "text/plain", body or "ok\n")
             elif path == "/":
-                self._send(200, "text/html; charset=utf-8", page(status, stall_seconds))
+                self._send(
+                    200, "text/html; charset=utf-8", page(status, stall_seconds, corrupt, held)
+                )
             else:
                 self._send(404, "text/plain", "not found\n")
 

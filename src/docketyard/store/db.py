@@ -6,6 +6,7 @@ once and never edited afterwards — schema change means a new numbered script.
 """
 
 import json
+import re
 from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
@@ -129,6 +130,100 @@ def _script(name: str) -> str:
     return resources.files("docketyard.store").joinpath(name).read_text(encoding="utf-8")
 
 
+def _quoted(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _schema(con: Connection) -> dict[tuple[str, str], tuple[str, str | None]]:
+    """Every schema object, `(type, lower name) -> (lower tbl_name, sql)`, for `_fk_scope` —
+    the TEMP schema too, prefixed `temp.`: a `CREATE TEMP TRIGGER ... ON main.t` an earlier
+    script left on this connection fires into tables a later script never names, and lives in
+    `sqlite_temp_master`, not `sqlite_master` (schema-critic, 2026-10-03)."""
+    out = {}
+    for prefix, master in (("", "sqlite_master"), ("temp.", "sqlite_temp_master")):
+        for kind, name, table, sql in con.execute(
+            f"SELECT type, name, tbl_name, sql FROM {master}"
+        ):
+            out[(kind, prefix + name.lower())] = (table.lower(), sql)
+    return out
+
+
+_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _needs_full_check(script: str, before: dict, after: dict) -> bool:
+    """Where `_fk_scope`'s over-approximation does not reach, the full check runs instead
+    (schema-critic, 2026-10-03): a script touching `writable_schema` can move a table's
+    contents with no name in its text and no visible DDL diff; and a table whose name is not a
+    plain word (`"doc ument"`, `café`) is invisible to the word match. Neither occurs in this
+    store's migrations, so this never costs the five minutes it saves elsewhere."""
+    if "writable_schema" in script.lower():
+        return True
+    names = {name.removeprefix("temp.") for (_, name) in (*before, *after)}
+    return any(not _WORD.fullmatch(n) for n in names if not n.startswith("sqlite_"))
+
+
+def _fk_scope(con: Connection, script: str, before: dict) -> list[str]:
+    """The tables a script COULD have left with a dangling foreign key, so `migrate` checks
+    those and not the whole store: `PRAGMA foreign_key_check` unscoped was 280 s a script on
+    the 4.28 GB production copy (measured 2026-09-10), fifteen minutes behind the wall for a
+    three-migration release, mostly spent on tables the scripts never touched (deferred.md,
+    the release review of v2026.09.10..HEAD).
+
+    SOUND BY OVER-APPROXIMATION, never by parsing SQL. With enforcement off, a script can
+    break a reference only by writing a row: into a CHILD (a reference to nothing), or out of
+    a PARENT (a delete, an update of the key, a drop-and-rebuild), which strands the parent's
+    children. Cascades do not run with enforcement off, so the rows written are those of
+    tables the script reaches, and it reaches a table by naming it or through a trigger. So:
+
+    1. every table or view whose name appears as a WORD anywhere in the script — comments
+       included, which costs a check and never misses one;
+    2. every object whose DDL the script created, dropped or changed (an `ALTER TABLE ...
+       RENAME` rewrites references in other tables' DDL), by its table;
+    3. closed over TRIGGERS, before the script and after it (a trigger it fired and then
+       dropped still wrote): a trigger on a table in scope brings in every name in its body;
+    4. then every table holding a foreign key to anything in scope — the children a parent's
+       write could strand. Not iterated: a child is checked, not written.
+    """
+    after = _schema(con)
+    objects = {
+        name.removeprefix("temp.")
+        for (kind, name) in (*before, *after)
+        if kind in ("table", "view")
+    }
+    scope = {w.lower() for w in _WORD.findall(script)} & objects
+    scope |= {
+        table
+        for key in before.keys() | after.keys()
+        if before.get(key) != after.get(key)
+        for table in (before.get(key, (None,))[0], after.get(key, (None,))[0])
+        if table
+    }
+    triggers = [
+        (table, sql or "")
+        for schema in (before, after)
+        for (kind, _), (table, sql) in schema.items()
+        if kind == "trigger"
+    ]
+    grew = True
+    while grew:
+        reached = {
+            w.lower() for table, sql in triggers if table in scope for w in _WORD.findall(sql)
+        } & objects
+        grew = not reached <= scope
+        scope |= reached
+    tables = sorted(
+        name for (kind, name) in after if kind == "table" and not name.startswith("temp.")
+    )
+    children = {
+        child
+        for child in tables
+        for row in con.execute(f"PRAGMA main.foreign_key_list({_quoted(child)})")
+        if row[2].lower() in scope
+    }
+    return [t for t in tables if t in scope | children]
+
+
 def migrate(con: Connection, upto: int | None = None) -> int:
     """Apply every migration above the stamped version (or up to `upto`, for tests that
     build an older store). Foreign-key enforcement is OFF while a script runs — SQLite's
@@ -155,11 +250,22 @@ def migrate(con: Connection, upto: int | None = None) -> int:
         for version, script in MIGRATIONS:
             if version <= applied or (upto is not None and version > upto):
                 continue
-            con.executescript(_script(script))
+            text = _script(script)
+            before = _schema(con)
+            con.executescript(text)
             stamped = con.execute("PRAGMA user_version").fetchone()[0]
             if stamped != version:
                 raise RuntimeError(f"migration {script} did not stamp user_version {version}")
-            broken = con.execute("PRAGMA foreign_key_check").fetchall()
+            if _needs_full_check(text, before, _schema(con)):
+                broken = con.execute("PRAGMA main.foreign_key_check").fetchall()
+            else:
+                broken = [
+                    row
+                    for table in _fk_scope(con, text, before)
+                    for row in con.execute(
+                        f"PRAGMA main.foreign_key_check({_quoted(table)})"
+                    ).fetchall()
+                ]
             if broken:
                 raise RuntimeError(f"migration {script} left dangling foreign keys: {broken[:5]}")
             applied = version

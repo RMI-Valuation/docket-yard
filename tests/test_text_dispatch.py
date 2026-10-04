@@ -8,6 +8,8 @@ document for ever, and a dead container burning every attempt in the record.
 """
 
 import json
+import os
+import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -255,6 +257,9 @@ def test_the_stage_does_nothing_until_a_producer_is_pinned(tmp_path):
         log=lambda _: None,
     )
     assert out["skipped"].startswith("no producer pinned")
+    # LOUDLY: a summary key alone let "nobody got round to it" read as "deliberately unpinned",
+    # and the pass exited 0 (deferred.md, the schema critic on migration 0024, 2026-09-05)
+    assert len(problems) == 1 and "docketyard text pin" in problems[0], problems
     assert not (tmp_path / "req").exists(), "nothing was handed over"
     assert con.execute("SELECT COUNT(*) FROM extraction_dispatch").fetchone() == (0,)
     con.close()
@@ -512,6 +517,27 @@ def test_only_the_shape_this_stage_produces_is_accepted(tmp_path):
     assert dispatch.admit(con, tmp_path / "spool", tmp_path / "ready", problems) == (0, 1)
     assert any("not an extraction record" in p for p in problems)
     con.close()
+
+
+def test_a_write_the_parser_died_in_is_counted_once_and_kept(tmp_path):
+    """`extract.write` writes `.tmp` and renames, and admit and the sweep read `*.json` only, so
+    a container dying mid-write left nothing anyone counted — the same silence as a container
+    that never started (deferred.md, the ingest specialist on migration 0022, 2026-09-05). A
+    stale one is moved to quarantine and reported once; a fresh one is a write in progress."""
+    spool = tmp_path / "spool" / "ab"
+    spool.mkdir(parents=True)
+    dead, live = spool / ("a" * 64 + ".json.tmp"), spool / ("b" * 64 + ".json.tmp")
+    for path in (dead, live):
+        path.write_text('{"document_sha256": "trunc', encoding="utf-8")
+    old = time.time() - dispatch.STALE_PARTIAL_SECONDS - 60
+    os.utime(dead, (old, old))
+    problems: list[str] = []
+    assert dispatch.partials(tmp_path / "spool", problems) == 1
+    assert (tmp_path / "quarantine" / dead.name).is_file(), "kept as evidence"
+    assert live.is_file(), "a write in progress is left alone"
+    assert len(problems) == 1 and "died mid-write" in problems[0]
+    problems.clear()
+    assert dispatch.partials(tmp_path / "spool", problems) == 0 and problems == []  # once
 
 
 def test_a_landed_reading_is_swept_and_an_unlanded_one_is_kept(tmp_path):

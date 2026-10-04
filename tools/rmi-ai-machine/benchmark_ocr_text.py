@@ -23,11 +23,11 @@ stamps. Whatever citation accuracy is lost here is the least that would be lost 
 
 import argparse
 import importlib.util
-import re
 import time
 from pathlib import Path
 
 import pymupdf
+from benchmark_files import decision_id_of
 
 ROOT = Path(__file__).resolve().parents[2]
 DPI = 150  # the OCR benchmark's own render resolution (docs/research/ocr-benchmark)
@@ -66,7 +66,7 @@ def main() -> int:
     scratch.mkdir(exist_ok=True)
 
     # the text layer names files <stratum>-<id>.txt; the PDFs are named <id>.pdf
-    by_id = {re.sub(r"^.*-", "", f.stem): f for f in args.text.glob("*.txt")}
+    by_id = {decision_id_of(f): f for f in args.text.glob("*.txt")}
     pdfs = sorted(args.pdfs.glob("*.pdf"))
     if args.limit:
         pdfs = pdfs[: args.limit]

@@ -136,7 +136,7 @@ def _fetch_into_place(data_dir, sha256: str, path: Path, fetch) -> Path:
     tmp = Path(name)
     digest = hashlib.sha256()
     try:
-        with os.fdopen(fd, "wb") as out, fetch(f"blobs/{sha256[:2]}/{sha256}") as resp:
+        with os.fdopen(fd, "wb") as out, fetch(records.blob_key(sha256)) as resp:
             for chunk in iter(lambda: resp.read(records.CHUNK), b""):
                 out.write(chunk)
                 digest.update(chunk)

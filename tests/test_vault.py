@@ -7,6 +7,23 @@ from docketyard.store import db
 from tests.test_subscriptions_schema import _docket
 
 
+def test_the_rotation_list_names_every_sealed_and_keyed_column():
+    """ADR 0014's rotation is an all-rows pass; `vault.SEALED` and `vault.KEYED_HASHES` are
+    its list. Every `*_enc` column and every `email_hash` in the migrated store is on it, and
+    nothing on it is missing from the store (deferred, migration 0015's critic)."""
+    con = db.connect(":memory:")
+    found_enc: dict[str, tuple[str, ...]] = {}
+    found_hash: dict[str, tuple[str, ...]] = {}
+    for (table,) in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'"):
+        cols = [r[1] for r in con.execute(f"PRAGMA table_info({table})")]
+        if enc := tuple(c for c in cols if c.endswith("_enc")):
+            found_enc[table] = enc
+        if hashed := tuple(c for c in cols if c == "email_hash"):
+            found_hash[table] = hashed
+    assert found_enc == vault.SEALED and len(vault.SEALED) == 4
+    assert found_hash == vault.KEYED_HASHES
+
+
 def test_seal_open_hash():
     v = vault.Vault.from_key(vault.Vault.new_key())
     sealed = v.seal("a@example.org")

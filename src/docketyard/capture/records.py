@@ -20,8 +20,17 @@ CHUNK = 1 << 20  # bytes per read when a file is streamed or hashed
 STALE_STAGING_SECONDS = 6 * 3600  # a download older than this was left by a killed process
 
 
+def blob_key(sha256: str) -> str:
+    """The one spelling of the blob layout, `blobs/<sha[:2]>/<sha>`: the path under the data
+    directory and the object key in the store are the same string (ADR 0022 D2). The host's
+    `infra/deploy/prune_blobs.py` and the extract container's `infra/extract/extract.py` run
+    without this package and spell it themselves; change all three together. (`text.dispatch`
+    uses this one, under its `blobs` directory's parent.)"""
+    return f"blobs/{sha256[:2]}/{sha256}"
+
+
 def blob_path(data_dir: str | Path, sha256: str) -> Path:
-    return Path(data_dir) / "blobs" / sha256[:2] / sha256
+    return Path(data_dir) / blob_key(sha256)
 
 
 def staging_dir(data_dir: str | Path) -> Path:
@@ -101,9 +110,14 @@ def save_capture(
     body: bytes | Path,
     http_status: int,
     ingest_mode: str,
+    commit: bool = True,
 ) -> int:
     """Persist the raw response, quarantined. Nothing here parses the body. A `Path` is a
-    download already on the blob filesystem (StbClient.download) and is moved, not read."""
+    download already on the blob filesystem (StbClient.download) and is moved, not read.
+
+    `commit=False` is for a caller whose verdict is known without parsing — a document fetch
+    is "not applicable" by definition — so it can commit the row and its verdict together,
+    and a kill between the two cannot leave an unjudged row."""
     sha256 = save_blob(data_dir, body)
     cur = con.execute(
         """
@@ -115,7 +129,8 @@ def save_capture(
         (source_system, endpoint, table_action, dump_json(request_params), sha256,
          http_status, ingest_mode, utcnow()),
     )  # fmt: skip
-    con.commit()
+    if commit:
+        con.commit()
     assert cur.lastrowid is not None
     return cur.lastrowid
 

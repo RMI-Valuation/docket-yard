@@ -25,6 +25,26 @@ from dataclasses import dataclass, field
 
 from cryptography.fernet import Fernet, InvalidToken
 
+# Every column a rotation of DY_EMAIL_KEY must re-derive, by table. ADR 0014 § Consequences
+# promises an all-rows pass "over three tables"; `reviewer` (migration 0015) made it four, and
+# nothing enumerated them. The ciphertext is opened under the old key and sealed under the new
+# (a webhook's `secret_enc` is sealed by the same key); every keyed hash is re-computed from the
+# opened recipient. `reviewer_token.token_hash` is a plain SHA-256 of a one-time token and is
+# not keyed. A test holds both maps against the migrated schema, so a new sealed column cannot
+# join the store without joining the rotation's list.
+SEALED: dict[str, tuple[str, ...]] = {
+    "subscription": ("email_enc", "secret_enc"),
+    "alert": ("email_enc",),
+    "email_suppression": ("email_enc",),
+    "reviewer": ("email_enc",),
+}
+KEYED_HASHES: dict[str, tuple[str, ...]] = {
+    "subscription": ("email_hash",),
+    "alert": ("email_hash",),
+    "email_suppression": ("email_hash",),
+    "reviewer": ("email_hash",),
+}
+
 
 class VaultClosed(RuntimeError):
     """No DY_EMAIL_KEY: addresses can be neither stored nor read."""

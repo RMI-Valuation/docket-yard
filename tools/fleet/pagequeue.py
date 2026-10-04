@@ -121,8 +121,9 @@ PASSES = {
     #     render_profile) and does NOT carry the role, so it does not keep the two passes apart
     #     — it makes it impossible for one page to hold both, and the loader then refuses the
     #     whole document ("a reading does not change role by being posted again"). What keeps
-    #     them apart is that no document is both image-only and text-layer, which nothing in
-    #     the store, the queue or these tests asserts (schema-critic, 2026-09-18).
+    #     them apart is that no document is both image-only and text-layer (schema-critic,
+    #     2026-09-18). `seed_from_list` refuses a document the wave has routed, so the queue
+    #     asserts it at the seed; the store still does not.
     #
     # ITS PAGES ARE ROUTED FIRST, by `ocr_wave.py route-list` (the operator, 2026-09-18). They
     # must be: `text/load.py` refuses an `ocr` reading whose page names no routed class and
@@ -222,6 +223,36 @@ class BlobUnavailable(Exception):
 class BlobCorrupt(Exception):
     """The store answered with bytes that are not the sha asked for: the STORE's, and the one
     failure here worth an alarm. Never cached, never served (ADR 0002: the sha is identity)."""
+
+
+# WHERE A CORRUPT OBJECT IN THE STORE IS RECORDED, so it reaches somebody: one line per corrupt
+# answer, beside the queue, written by `queue_server.py` and counted by `monitor.py` into
+# `/metrics` (docket_yard_fleet_blob_corrupt_total), which Alloy scrapes and a rule watches.
+# Before this the loudest thing was a line on the server's stderr, in a log nobody tails and
+# `backup.py` excludes (ingest review, 2026-09-19). APPEND-ONLY, never rewritten: an append of
+# one short line needs no temp file, so the backup's walk of `ocr/` never meets one mid-rename,
+# and the file is itself the record of what the store answered and when.
+CORRUPT_LOG = "blob-corrupt.log"
+
+
+def record_corrupt(queue_db: Path, sha: str, detail: str) -> None:
+    """Append one corrupt answer to the log beside the queue file `queue_db`."""
+    line = json.dumps({"at": now(), "sha256": sha, "detail": detail}, sort_keys=True)
+    with (queue_db.parent / CORRUPT_LOG).open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+def corrupt_count(queue_db: Path) -> int | None:
+    """How many corrupt answers have been recorded beside `queue_db`, all time: 0 when the log
+    does not exist (nothing has ever been recorded), None when it cannot be read — which is
+    NOT zero, and the monitor leaves the series out rather than report a clean store."""
+    try:
+        with (queue_db.parent / CORRUPT_LOG).open(encoding="utf-8") as f:
+            return sum(1 for line in f if line.strip())
+    except FileNotFoundError:
+        return 0
+    except (OSError, UnicodeDecodeError):
+        return None
 
 
 class Queue:
@@ -676,11 +707,11 @@ class RemoteQueue:
             dest.unlink(missing_ok=True)
             raise BlobUnavailable(f"the node did not answer: {type(e).__name__}: {e}") from e
         # THE MIRROR HIT IS CHECKED HERE OR NOWHERE. The coordinator verifies what it FETCHES,
-        # but it serves what the mirror already holds unchecked — and the mirror is filled by
-        # `pull_blobs.py`, which skips an object whose SIZE matches and never compares a digest
-        # (ingest review; migration 0018 warns about size-only comparison in writing). So a
-        # wrong-but-same-size or bit-rotted mirror entry would be rendered, read and loaded as
-        # that document's text with nothing raising. The sha IS the identity (ADR 0002), and
+        # but it serves what the mirror already holds unchecked. `pull_blobs.py` hashes what it
+        # fills and keeps (it compared sizes alone until 2026-10-03; migration 0018 warns about
+        # that in writing), but a file can rot, or be copied in by hand, after it was checked —
+        # and a wrong mirror entry would be rendered, read and loaded as that document's text
+        # with nothing raising. The sha IS the identity (ADR 0002), and
         # this is the only place in the fleet where both paths pass.
         got = digest.hexdigest()
         if got != sha:
@@ -836,6 +867,12 @@ def seed_from_list(
     its clean ones to the text layer — so pages 3 and 9 of an eleven-page document are a
     complete reading of what this pass owes it. "Whole" above means every page this pass owes
     reached a terminal state, not every page of the PDF.
+
+    A NARROWER LIST DOES NOT SHRINK A READING. When a document is read again — topped up, or
+    set aside — every page the queue held for it is queued again with what the list names, so
+    a moved cut stops new pages being queued but never leaves a page's older row live in the
+    store with nothing behind it. And a document the wave routed (image-only) is refused,
+    whatever the list says: it belongs to `dots`, under the same key.
     """
     from ocr_wave import shard  # noqa: PLC0415
 
@@ -868,8 +905,15 @@ def seed_from_list(
         "topped_up": 0,
         "unrouted_documents": 0,
         "unrouted_pages": 0,
+        "wave_routed": 0,
     }
     route_root = out / spec["route_root"]
+    # the route roots of the passes seeded from the wave's router: image-only documents
+    wave_roots = {
+        out / other["route_root"]
+        for other in PASSES.values()
+        if other["seeded_from"] == "route" and other["route_root"] != spec["route_root"]
+    }
     for sha in sorted(wanted):
         n["listed_pages"] += len(wanted[sha])
         # A PAGE WITHOUT A ROUTE IS NOT QUEUED. Its reading would be refused by the loader
@@ -881,6 +925,16 @@ def seed_from_list(
         routed = _routed_pages(route_root, sha)
         if not routed:
             n["unrouted_documents"] += 1
+            continue
+        # A DOCUMENT THE WAVE ROUTED IS IMAGE-ONLY, and is refused here whatever the list says.
+        # The separate roots keep the wave's routes out of this pass; they do not stop a list
+        # from naming an image-only document whose pages were then routed by `route-list` too,
+        # and then `dots` and this pass would read the same page under the same key — which
+        # `document_text_live` refuses for the WHOLE document at load, not the one page
+        # (schema-critic, 2026-09-18). Refused before any machine time is spent, and counted.
+        if any(shard(r, sha).exists() for r in wave_roots):
+            n["wave_routed"] += 1
+            print(f"  REFUSED {sha[:12]}: the wave routed it, so it is image-only", flush=True)
             continue
         if missing := wanted[sha] - routed:
             n["unrouted_pages"] += len(missing)
@@ -911,7 +965,14 @@ def seed_from_list(
             continue
         if not _decide(q, pass_, spec, out, sha, n, reread, dry_run=dry_run):
             continue
-        pages += [(sha, no) for no in sorted(wanted[sha])]
+        # THE SAME UNION AS THE TOP-UP. `_decide` can set a document aside (a non-page failure,
+        # or a reading document gone missing) under a list NARROWER than the one that seeded it;
+        # queueing the list alone would rebuild a narrower reading than the one replaced, and the
+        # dropped pages' rows would stay live in the store from the older run with no queue
+        # record behind them (`/code-review` + stb-ingest-specialist, 2026-09-19). A narrowing
+        # list is therefore not taken at its word for pages already held: it can stop new pages
+        # being queued, never shrink a reading. `held` is None for a document never seen.
+        pages += [(sha, no) for no in sorted(((held or set()) | wanted[sha]) & routed)]
     n["pages"] = len(pages)
     n["new"] = 0 if dry_run else q.seed(pass_, pages, reread=reread)
     return n

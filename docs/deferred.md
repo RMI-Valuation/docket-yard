@@ -115,6 +115,29 @@ the measurement and the reasoning. An answer moves the item to `TODO.md` or clos
 - Normalise the two should-be rows (51532 NOR 42060 (1), 52211 FD 36732) in the work sheet?
   (§ the review harness)
 
+### Raised by the small-items batch, 2026-10-03
+
+- The benchmark's two quote-locating rules disagree (18 failures vs 15): which one wins, given
+  it changes recorded scores? And a per-kind `off_page` breakdown changes the scored files'
+  shape — wanted? (§ benchmark scorer)
+- The citator, each a change to what a re-load writes or a queue holds: a wrapped long form as
+  a quote boundary; a findings hash in `extraction_run.note`; the review queue joined to
+  `assertion_method`; `restamp` extended to judgements; `targets_out_of_class` counting distinct
+  raws? (§ the finder, the citator, ADR 0018 entries)
+- Unique spool file names (`<sha>.<dispatched_at>.json`), departing from ADR 0024 D9's wording
+  with a two-image deploy order? (§ ADR 0024 Owed 5)
+- `text load` declaring the pin from the root's `_manifest.json` — it would pin the OCR keys,
+  unpinned on purpose? (§ the dispatch stamp)
+- An in-flight marker both the text load and the page rebuild take, with a policy for one a
+  killed load leaves? (§ the merged page search)
+- `/methodology`'s "checked about every N days" counts unanswered attempts: reword it, or filter
+  them and reverse the deliberate re-check order? (§ the no-answer fetch)
+- A typed `--cite` on `parties join` — the vocabulary (filing, decision, URL) the party pages
+  would print? (§ party module)
+- The tabular worker's memory floor raised to ~6.5 GiB with the fleet's `dy-ocr` profile, and
+  keeping a looped answer's text to test it after the fact (a queue change)? (§ the tabular
+  worker's memory floor; § `finish_reason length`)
+
 ## Web tier
 
 - **A comment's page hit counts `?file=N` in the copy it picks; the page reads the canonical
@@ -176,8 +199,6 @@ the measurement and the reasoning. An answer moves the item to `TODO.md` or clos
   and welcomes them, so the population that would walk it is larger by invitation. The
   invitation was the right call and this is its one measurable cost — watch the class before
   changing anything.
-- **The S3 key layout** `blobs/aa/<sha>` is spelled in `web/documents.py`, `prune_blobs.py`
-  and the sync unit; one `records.blob_key(sha)` when any of them next changes.
 
 - **A description of a page, as a derived assertion** (raised 2026-08-28, when the operator
   asked whether map pages should be described rather than transcribed): alt text for a
@@ -198,7 +219,7 @@ the measurement and the reasoning. An answer moves the item to `TODO.md` or clos
   whole (≤64 MB; ~1,900 a day, tens of GB per six-week cycle from the Board's bucket). S3
   honours `If-None-Match`; recording the response `ETag` on the fetch capture and sending
   it on re-check would make an unchanged file a 304. Larger files are the operator's
-  `fetch attachments --refresh`, which has no age floor and no default limit.
+  `fetch attachments --mode <forward|backfill> --refresh`, which has no age floor and no default limit.
 - **Streamed downloads** (2026-08-26, v2026.08.25): no Range-resume on a mid-body failure;
   the file is written, hashed and sniffed in three passes rather than one; one commit per
   document is the dominant DB cost of a wave.
@@ -219,9 +240,6 @@ the measurement and the reasoning. An answer moves the item to `TODO.md` or clos
   under it), so the divergence costs nothing yet — but the next furniture fix will land in
   one and not the other. Extract one `locatable(text)` helper into a shared module and
   import it from both.
-- **The `<stratum>-<id>.txt` naming convention is parsed in four places**
-  (`benchmark_score`, `benchmark_run`, `benchmark_ocr_text`, `labels_check_page`), each
-  differently. One `decision_id_of(path)` in the shared module.
 - **`benchmark_ocr_text.py` discards Textract's per-page confidence** (`cfg['_conf']`
   accumulates, `_write_conf` is never called): re-calibrating the escalation threshold
   from that pass means re-paying Textract. Only matters if the 60-decision OCR side is
@@ -287,22 +305,8 @@ for ever) were fixed before it shipped. These were triaged as not-now:
 
 ## Found 2026-08-31, reviewing the navigation Tier 1–2 release (v2026.08.45)
 
-- **`EXPECTED_EMPTY_MONTHS` is a declaration, and `covered()` now rests on it**
-  (stb-ingest-specialist). `walk.py` skips the reconciliation proof for a month declared
-  expected-empty, so a run with the wrong criteria pair would answer the same envelope and
-  be written `empty` with nothing proving it — and `covered()` counts `empty` as walked.
-  Pre-existing and bounded to one measured month (`FILINGS:2025-10`); this release does not
-  widen it. Smallest hardening is in `walk.py`: attempt the proof for expected-empty months
-  too and fall back to the declaration only when the proof cannot be obtained.
-
 ## Found 2026-09-01, clearing five from this pool
 
-- **The caption control cannot tell a withdrawn row from a broken query.** If the Board ever
-  stops publishing the docket row the control asks about, the pass raises the same problem
-  line for ever: the choice is deterministic (`ORDER BY docket_id LIMIT 1`), there is no
-  attempt budget and no rotation. Two consecutive failures before raising, or a small
-  rotating candidate set, would fix it. Nobody has seen a Board-side withdrawal yet
-  (stb-ingest-specialist).
 - **`gap_shadows` excludes `events` failures, and that is a judgement.** An `events` gap
   usually means captures arrived and nothing parsed - those are retained and re-consumed, so
   the days self-heal, and shadowing them would leave a week at `partial` for ever over
@@ -349,14 +353,6 @@ The serious ones were fixed in the same session and are pinned by tests in
   threshold, say — mints no new key, supersedes nothing and is invisible in every
   measurement, against ADR 0007. Carry the rule as part of the method and add a real
   `RESOLVER_VERSION`.
-- **`citation_key.key_version` belongs to whoever inserted first.** `INSERT OR IGNORE` on
-  the four-column key leaves the old value when a re-run under a bumped `KEY_VERSION`
-  produces the same key — the same "whichever channel inserted first owns it for ever"
-  defect ADR 0018 D2 rejected `cited_raw` over. A differing `key_version` on an existing key
-  is a re-normalisation event worth being loud about.
-- **The family closure is written twice** — `web/cite.py` and `project.py` — which ADR 0018
-  D7 says the projection may not depend on. `methods.PROJECTION_RULE` also hardcodes
-  `closure=cite.py@2026-09-01`, a date somebody must remember to edit.
 - **No `superseded_at` on any citator assertion**, so a self-pointer retraction has no date
   and "what a reader saw on date D" is not fully reconstructible for this layer. The
   0006/0009 house idiom, but now load-bearing for a published number.
@@ -364,8 +360,6 @@ The serious ones were fixed in the same session and are pinned by tests in
   `extraction_run` records no payload hash, so an edge traces to `(method, version)` and not
   to the enrichment run that produced it — the capture-first invariant met by convention
   rather than by the store. The file's sha256 in `extraction_run.note` is the cheap fix.
-- **An empty `quoted_passage` can project.** A finding with no `quoted` text passes NOT NULL
-  as `''`, and the edge then reaches a reader with no citing passage, against ADR 0017 D6.
 - **`WB25-53` keys as `WB 25`**, because `\b` accepts the hyphen as a boundary. That is the
   accepted design — emit, let resolution decide — but if `WB 25` is held it resolves
   confidently, and the exposure test does not cover it because it is not a fusion.
@@ -375,31 +369,17 @@ The serious ones were fixed in the same session and are pinned by tests in
 Its Tier 0 and Tier 1 findings were fixed in the same session and are pinned by
 `tests/test_citator_review.py`. These are what was left.
 
-- **`decide()` does not open a transaction, though its docstring says one.** It relies on
-  `sqlite3`'s implicit deferred transaction and on the CLI's `con.commit()`. Nothing loses
-  data today — an uncaught `IntegrityError` rolls back — but the self-pointer window opens
-  the moment a caller uses an autocommit connection, and a self-pointer "cannot be told
-  apart from a deliberate retirement" (migration 0014's own words). An explicit `BEGIN` is
-  the fix; the same is true of `load.load_document`, which at least says so.
 - **The exposed queue is a superset of the gated set.** It applies neither the family/span
   term nor the confidence predicate, so an exposed edge the family term already suppresses
   is queued although it can never reach a page. That is the safe direction, but it is the
   noise ADR 0017 § The exposure test narrowed the definition to avoid — queueing expected
   non-events "trains a reviewer to skim".
-- **`pending()` materialises the whole queue then slices**, runs one `MIN/MAX` query per row
-  for the held-record test, and has no `DISTINCT`. ADR 0017 projects "a four-figure one-time
-  queue across the backfill", so this is not free. `cli.py` also calls it with `limit=10_000`
-  just to find one key.
 - **ADR 0016's re-attribution is replaced by a rule recorded outside the ADR set.** 0016 says
   the party seed and joins "**are re-attributed** to the operator's reviewer id when the
   table exists". The table exists now; 0015 does not create reviewer zero and re-attributes
   nothing. `schema-draft.md` § 7 substitutes "a `human` assertion no live review action names
   is the operator's", which has good reasons and no code. **A departure from an accepted
   record, and the operator's to settle** — recorded here so it does not pass unnoticed.
-- **ADR 0014's rotation promise now covers four tables and says three.** `reviewer` holds
-  `email_enc`; 0014 § Consequences says rotation is "an all-rows pass over three tables that
-  is not yet written", and no code enumerates them. A constant in `alerts/vault` naming the
-  tables is the cheap fix.
 - **`review_action` records the queue but not the question.** All three citation queues write
   `target_table = 'citation_resolution'`, so `target_key` and `produced_key` are the same
   string today and "which exposed judgements has a human checked" is answerable only through
@@ -425,23 +405,11 @@ The silent-data findings were fixed the same session and are pinned by
   `NOR Docket No. 42183` (decision 52616's caption), so that form is now lost outright; and
   `SUBNO` takes a bare `(X)` the old pattern did not. Reconciling the two grammars, or
   retiring the old one, is the fix.
-- **A six-digit fusion is outside both the repair and the exposure test.** `resolve.py`'s
-  comments still assert the finder's old `\d{1,5}` cap as the reason. `FD 368731` — a
-  five-digit docket with a fused footnote marker, the shape `docs/stb-data-source.md` names —
-  now keys as a six-digit unresolvable that neither rule 2 nor the exposure test looks at.
 - **The `projection` measurement stores the RULE's figure, under a rule version that names
   the gate.** `methods.PROJECTION_RULE` carries `gate=exposed@…`, but the stored recall and
   precision are what the rule projects before the gate holds anything back. What a reader
   sees depends on review backlog, which no single measurement can carry. A second
   `class_measurement` row under its own class — `docket, after review gate` — is the fix.
-- **The regenerated run records neither the registry it was made against nor a fingerprint
-  of it.** `kind` is a function of `own`, which comes from the registry, and 0016's own
-  argument is that the old figures were un-re-derivable partly because of which registry they
-  were scored against. Writing the path and `SELECT COUNT(*) FROM docket` beside the run
-  closes it.
-- **An orphan decision silently lowers every figure.** A decision with no `decision_record`
-  is skipped, its truth targets stay in the 225 denominator, and the response is a `print`
-  fifty lines above the numbers. It should be fatal, or printed beside them.
 - **`kind` is work-relative but stored per document.** The own-docket rule is defined against
   the citing WORK's dockets; the judgement key has no work in it. ADR 0018 D9 measured 5
   documents of 20,992 hanging under two decision ids — for those, loading from each work in
@@ -462,14 +430,6 @@ The silent-data findings were fixed the same session and are pinned by
 - **`target_kind` means two things either side of the seam.** The benchmark run shape uses it
   to distinguish caption from citation; in the store it is the target's namespace (`stb` vs
   `court`) and `load` hardcodes `'stb'`. Nothing breaks only because `load` ignores the field.
-- **The dry run's agreement check will report NO for something ADR 0017 D4 permits.** The
-  Python side counts citation-kind findings only; the store now holds captions, and an
-  in-family caption whose own line names a document SHOULD project — that is the
-  reconsideration edge query 2 exists to find. It needs naming as a fourth legitimate
-  difference beside the rule-2 and review-gate exclusions.
-- **`find` drops a finding whose raw will not normalise, with no counter.** `load` has
-  `out_of_class` for exactly that, so a drop inside the finder is the one drop nothing can
-  audit. Near-unreachable today, one line to close.
 - **A backfill pass and a forward pass over one document are indistinguishable afterwards.**
   `extraction_run` carries no `ingest_mode`. Citation edges reach no alert join, so the
   trap's usual hazard is absent, but the distinction is gone.
@@ -497,12 +457,6 @@ left of it.
   every one of them a railroad in a file name — DM&E, EJ&E, "Kevin & Mary"). Recorded because
   the parser, not the client, is where it would be fixed: unescape only the five named and the
   numeric references on an href, leaving `clean()` its full unescape for cell text.
-- **The ledger records the stored URL, never the wire URL.** `documents.py:113-123` passes the
-  stored form as both `endpoint` and `request_params`. `endpoint` **must** stay that way —
-  `recently_refused` and `recheck_urls` join it against `source_url` — but `request_params` is
-  free, and for the three en-dash rows the capture will not show what was actually requested.
-  Reproducibility survives (`_wire_url` is deterministic and in-repo); one line adding
-  `("wire_url", wire)` when it differs would make the capture self-describing.
 
 ## The instance resize (2026-09-02, v2026.09.1)
 
@@ -525,6 +479,9 @@ the store crosses ~1 GB on rows alone under D6. What stays here is the operation
 - **`/coverage` is uncached** where `/stats` sets `PUBLIC_CACHE`, and already runs ~20 scalar
   subqueries per request. Anything counted over `document_text` lands on an uncached public
   page.
+  *Raising it to `PUBLIC_CACHE` was tried 2026-10-03 and reverted*: /coverage is the trust page, and
+  30 minutes of shared-cache staleness outlives a poll or a maintenance change. Revalidating on the
+  store stamp (an ETag) is the shape that would serve it.
 - **Every future migration pays a full `PRAGMA foreign_key_check`** over the whole database
   (`db.migrate`), which at ~1.35M new rows makes every subsequent migrating deploy slower —
   a cost that lands on the rollback story, not just the deploy.
@@ -823,8 +780,6 @@ amendments are listed in the migration's own header; these are the rest.
 - **The pin disagreement is never diagnosed.** The loader holds both the dispatch's
   `pinned_method_version` and the spool record's `tool_version` (D9 carries it), so "the file
   disagrees with the dispatch" is one query and turns a header comment into a control.
-- **`.tmp` files left in the spool are never counted**, so "the container is dying mid-write"
-  reads exactly like "the container never started".
 - **The extraction service needs `cpus:` and `mem_limit`.** Two vCPU; `web`'s healthcheck
   timeout was already raised to 30 s so a bulk load could not become a restart loop, and this
   adds CPU-bound work to every pass right after the heaviest write. Three misses trips
@@ -868,11 +823,6 @@ amendments are listed in the migration's own header; these are the rest.
 
 ## From the fleet gate's fix, 2026-09-11 (v2026.09.13)
 
-- **`queue_server.py` answers 401 to a POST without reading its body**, and on Windows the
-  client can then see `ConnectionAbortedError` (the peer reset before the response is read)
-  instead of the 401. `test_the_transport_refuses_a_bad_token` failed once that way in six
-  runs, right after a new test that also sends refused requests; it predates the gate fix.
-  The fix: drain `Content-Length` (bounded) before replying 401 in `do_POST`.
 - **RMI-AI-MACHINE's worker loop relaunches a worker a minute after it exits "queue empty"**,
   the churn the workstation gate no longer does. Cheap there — its vLLM is always up by design
   — but the same `GET /pending` check would quiet it.
@@ -965,11 +915,6 @@ commit. Left:
 - **`_LAST_FETCH` counts an unanswered attempt as a check**, so `/methodology`'s "checked
   about every N days" is an attempt, not a check, while the host is silent. Wording or a
   filter; the re-check has done this on purpose since v2026.08.35.
-- **A verdict crash window**: `save_capture` commits before `_record_attempt`'s verdict
-  update, so a kill between them leaves an unjudged row. The success path shares it.
-- **A CLI `fetch attachments` over a wave's backlog with the default `--mode forward`**
-  stamps its captures `forward`, which pulls those documents into the text stage's scope
-  (`text/queue.py` D1). Predates the stage; `drain.sh` passes `--mode backfill`.
 
 ## From the schema critic on ADR 0024 Owed 5, the dispatch stamp, 2026-09-11 (v2026.09.12)
 
@@ -999,14 +944,6 @@ The operator chose `ocr_run.dispatch_id`, echoed (ADR 0024 addendum 2026-09-11).
 
 ## From the schema critic on migration 0024, the producer registry, 2026-09-05
 
-- **Nothing declares a pin, so ADR 0024 D6 is inert while the record reads as though it is on.**
-  `pinned()` returning None means both "deliberately unpinned" and "nobody got round to it", at
-  every read site and in the CC0 snapshot, where an empty table and a considered decision are
-  the same bytes. The fix belongs with the poller stage, and it is **the first thing that stage
-  owes**: the registry becomes the SOURCE of the dispatch row's pin, and the stage refuses to
-  dispatch — loudly, into `problems` — when there is none. That gives D6 the coupling it wants
-  without the foreign key it forbids. Secondarily, `load.run` could say once per pass that it
-  loaded at an undeclared key.
 - **A pin refusal is recorded nowhere.** `load_reading` raises before the `ocr_run` INSERT, so
   the store holds no evidence a reading arrived and was turned away — ADR 0018 D10's "absence
   is not a measurement" and ADR 0024 D5's "a refusal is recorded as a run" both crossed by the
@@ -1014,6 +951,10 @@ The operator chose `ocr_run.dispatch_id`, echoed (ADR 0024 addendum 2026-09-11).
   the record of the refusal is a log line and a count. The honest cheap version is a `problems`
   row per pass; the full version waits on § Owed 2, since an `ocr_run` row would have to claim
   a method and version that never ran.
+  *Tried 2026-10-03 and reverted* (a `batches.Stop` per pass): a reading left at a RETIRED pin after
+  a routine re-point stopped the load at the same file every pass and was never quarantined, wedging
+  the forward stage (code review and the ingest specialist). A fix must tell a retired pin
+  (quarantine it) from a container ahead of its pin (stop once), and test a mixed root.
 - **A wave-wide version mismatch arrives as N document failures.** `Unreadable` is counted per
   document by `batches`, each with its own savepoint, rollback and log line, and the pass walks
   the whole root before saying anything — where an operator-level condition ("this root is at
@@ -1021,6 +962,7 @@ The operator chose `ocr_run.dispatch_id`, echoed (ADR 0024 addendum 2026-09-11).
   exception counted apart by `batches._apply` would do it. Also semantically: `Unreadable` is
   documented as what the STORE shows to be wrong with the READING, and a pin mismatch is wrong
   with the configuration.
+  *Tried 2026-10-03 and reverted* — see the entry above.
 
 ## From the release review of v2026.09.10..HEAD, 2026-09-10 (against v2026.09.11, before tagging)
 
@@ -1048,18 +990,14 @@ The operator chose `ocr_run.dispatch_id`, echoed (ADR 0024 addendum 2026-09-11).
   queries each, ~40k documents; tens of seconds); the worker opens the PDF once per page
   rather than once per document; the lease is extended after every page where every fourth
   would do. None moves the pass's clock, which is the engine's.
-- **`resolve.MONTHS`/`served_date` and `web/cite.py`'s `_MONTHS`/`parse_date`** are two
-  month tables and two date parsers that already differ at the edges (`cite` takes `m/d/Y`
-  and ISO; `resolve` takes full names). One shared module under `docketyard/text/` would do;
-  the resolver's table was measured over 200,000 pages and is the one to keep.
-- **`review._raw_docket` is the sixth hand-written `SELECT raw_docket FROM docket`**; an
-  accessor beside `dockets.canonical_of` would give every surface the same label and fallback.
-- **`db.migrate` runs `PRAGMA foreign_key_check` over the whole store after every script**:
-  280 s each on the 4.28 GB production copy (measured 2026-09-10), so a three-migration
-  release costs fifteen minutes behind the wall for checks that a table-creating script
-  cannot fail. `PRAGMA foreign_key_check(<table>)` over the tables the script names — or
-  every table whose DDL the script touched, read from `sqlite_master` before and after —
-  would keep the guarantee at seconds. Not urgent: the window is behind the wall.
+- **The citator still keeps its own month tables** (`citator/resolve.MONTHS`,
+  `citator/decided._MONTHS`). `text/dates.MONTHS` is the shared table since 2026-10-03 and
+  `web/cite.py` uses it; a test pins all three equal until the citator imports it. The parsers stay
+  separate on purpose (`resolve.SERVED` is `SPAN_VERSION`-gated).
+- **Hand-written `SELECT raw_docket FROM docket` calls remain in five files** (`alerts/summary`,
+  `citator/review`, `store/finder`, `web/mcp`, `web/review_routes`). `dockets.raw_of` exists beside
+  `canonical_of` since 2026-10-03 and the subscription pages use it; the rest switch when each file
+  is next changed.
 
 ## From the schema critic on migration 0025, the work class, 2026-09-10
 
@@ -1230,8 +1168,6 @@ The abort is correct behaviour and nothing was corrupted — the loader rolls ba
   these loads through. **The trade-off to weigh, not gloss:** the load would then hold the
   write lock for a whole 200-document batch, which can make the poller wait instead. Substantive
   code, so `/code-review` before it lands.
-- `lock_retries` also has no CLI route (`batches.under_lock`), which is a smaller knob on the
-  same problem.
 - Either way `batches.py`'s own docstring records the want, for Migration A: "A shell loop of
   twelve restarts was doing this by hand, one whole pass at a time" — what `under_lock` was
   built to replace and does not yet fully.
@@ -1251,14 +1187,6 @@ with `methods.SPAN_METHOD`. These four are recorded instead.
   outside ADR 0026 D2's denominator — `'pre-0026'` being exactly what the predicate gates out.
   It belongs in the ADR's stated floor beside the human-corrected page; the ADR is Accepted and
   append-only, so it is here.
-- **`find.printed` and `find()`'s inline copy are two implementations of one rule** (F10,
-  sharpened by checking the callers). `find.py`'s loop computes the collapsed slice itself
-  ("`printed`, without a second scan"), so `cited_raw` and every span's `raw` come from the
-  inline copy — but `printed` is NOT dead: `tools/rmi-ai-machine/benchmark_review.py:120` calls
-  it to match a page match against a key. So a correction to `printed` — a new sub-docket form,
-  say — would move the BENCHMARK's answer and not the store's, and the two would disagree about
-  what a page printed while both looked right. Deleting it is not the fix; making `find()` call
-  it, or making both call one helper, is.
 - **Validation query 2's `SELECT DISTINCT` key changed, and not only because of `text_id`**
   (F5, second half). `citator-query-2.sql` selects `rg.source_location`, which since 0028
   carries the spans — and spans differ per document even where the printed string does not. So
@@ -1266,9 +1194,6 @@ with `methods.SPAN_METHOD`. These four are recorded instead.
   production copy: **38 groups** agree on every other selected column. `citation_treatment` is
   empty, so the query returns nothing today and this is latent; the same measurement is why
   `project.py` was NOT given the column (its comment carries the reasoning).
-- **The `text_ref` refusal raises `WrongChannel`**, whose name and docstring are about the
-  reading channel. Cosmetic today — `cli._citator` catches `Exception` — and a mis-triage
-  waiting for the first caller that counts `WrongChannel` as "wrong channel, skipped".
 
 ## `keys.render` has no version, and human decisions are keyed on its output, 2026-09-12 (v2026.09.15)
 
@@ -1415,9 +1340,6 @@ already carrying another channel's live citation readings, and the fixes wait he
   retirement there would be undated. Today: 903 live resolutions and 2,709 live judgements on the
   903 retracted keys, reaching nothing (every consumer joins a live `citation`). Dating both tables
   first — a schema change of its own — then retiring them the same way is the owed shape.
-- **OCR readings will carry `reading_method` NULL** (F3). `walk.documents` never supplies the
-  engine and one document can mix two; `text_id` → `document_text` still names it per page. Fill
-  it in `walk` per page, or correct `load.py`'s interchange docstring, which says it is set.
 - **A rule-2 repair read on OCR publishes at a precision that never scored one** (Codex on PR #29,
   2026-09-13). The projection admits `repaired` beside `resolved` and holds only the exposed class
   for review, so a repaired OCR edge is shown stamped with the OCR card's 83.7%; the benchmark's
@@ -1475,9 +1397,6 @@ is the model's answer. **How the build reads the addendum**, for the operator to
 
 - **`walk.own_of` runs once per document** at load, and `docket.parent_docket_id` has no index (its
   third branch). Measured by the rehearsal's load time; an index is a schema change.
-- **`work_check_sheet.py` anchors with the citing DECISION's family** (`citation_dryrun.own_dockets`),
-  not the loader's per-document union, so a document carried by decisions in unrelated dockets can
-  miss a re-key on the sheet. The tool only.
 - **`tools/rmi-ai-machine/panel_check_sheet.py`** (untracked, the operator's) calls `_anchored` without
   `key`/`own`. No re-keyed key can reach the exposed or repaired queue it reads (a re-keyed key is a
   five-digit own docket, rule 1, never exposed).
@@ -1704,12 +1623,6 @@ All three fixed 2026-09-18 (`6f9b44a`), except the half below that was always th
 
 ### From review of the tabular pass's last fixes, 2026-09-17 (PR #34, merged)
 
-- **`page_index` and `register_or_exit` exist twice, in `dots_worker.py` and `hunyuan_worker.py`**
-  (`/code-review` low): the twins are duplicated on purpose (hunyuan_worker's docstring: a rule
-  change belongs in both, and the dots loop runs), and these two pure helpers were added to both
-  in one commit. A shared fleet module would stop them drifting; worth doing when the dots worker
-  is next changed, not while a pass runs on it.
-
 ### Capability-scale — chosen from the menu, not fixed in passing
 
 - **No filings by filer and date** (practitioner I1, partly — MCP search does return parties):
@@ -1912,10 +1825,6 @@ backwards claim about `document_text_live` in the pass's own comment.
 
 ### Closed the same day
 
-- **The disjointness guard the critic asked for is half-built**: the two passes now read
-  different route roots, so a text-layer document cannot reach `dots` through a route document.
-  Nothing still asserts that no document is both image-only and text-layer.
-
 ### Open — owed before a reading from this pass is loaded
 
 - **Loading would change published text on every re-read page, with no dated rule.**
@@ -1950,10 +1859,6 @@ backwards claim about `document_text_live` in the pass's own comment.
   with its method and version). Carrying `text_id` into `agreement_against` would make the
   binding a row rather than a note — and it is unrecoverable once a text-layer primary is
   superseded between seed and load, which a pymupdf bump through `repoint_producer` does.
-- **Nothing asserts that no document is both image-only and text-layer**, which is the only
-  thing keeping `dots` and `reread` off the same page. When it is violated the loader refuses
-  the whole document's reading, not the one page. Cheap guard: have `seed_from_list` refuse a
-  sha that has a route document.
 - **`ocr_run` is published and has no `reading_role`** (`dump.py`, ADR 0022 D3), so the key
   `dots.mocr/1.5/200` now means two things — a primary reading of a degraded scan and a second
   reading of a suspect text layer — and a third party summing `pages_read` cannot tell them
@@ -2009,12 +1914,6 @@ useless, because the condition was intended. `/health` served 503 for the whole 
   stall and needs somebody to remember to put it back. Stopping the monitor is worse than
   either: the off-box rules include *the series absent altogether*, so it swaps one alert for
   another and blinds the operator in between.
-- **Production already has the concept and the fleet does not.** ADR 0020 gave the instance a
-  maintenance mode; a pass has no equivalent. The shape that would fit: a `paused` marker
-  beside the stop file that the monitor reads, exposed as its own series
-  (`docket_yard_fleet_paused{pass}`) rather than by suppressing the stalled one — so the
-  reason is published, dated, and visible, instead of an alert silently not firing. The
-  stop file is nearly this already; it records the intent and nothing reads it.
 - **Why it matters beyond tidiness:** an alarm that is right, unactionable and recurring is
   how an operator learns to ignore the alarm. The pass was down about an hour today and the
   fleet will be stopped and started far more often once the broker arbitrates it, which makes
@@ -2025,8 +1924,6 @@ useless, because the condition was intended. `/health` served 503 for the whole 
 Parked in `TODO.md` and recorded here instead when the plan cap fired — they were the only
 two items in that file held nowhere else.
 
-- **One month walker for `home.py` and `stats.py`.** The two walk the record's months
-  separately for their own figures; one walker would serve both and be measured once.
 - **No index on `filing(filed_date)`.** Every date-ranged filing query — the coverage page,
   `count_filings`, `list_proceedings` — scans. Not felt at 54,422 filings; worth having before
   the backfill's later waves land, and worth measuring rather than assuming.
@@ -2035,17 +1932,6 @@ two items in that file held nowhere else.
 
 Found while mapping where every artefact of the pass lives, before deciding whether the
 coordinator moves. Neither is a wrong assertion in the record today.
-
-- **`dtype` is not in the producer declaration.** A worker declares the pass key, its host,
-  the engine and version, the model and its weights revision, the max new tokens, the
-  megapixel bound and the render (`hunyuan_worker.py` § producer) — but not the dtype.
-  `ocr_run.load_hunyuan` hardcodes `bfloat16`, so every reader is bf16 today and the gap is
-  latent, not live. It bites the moment a pre-Ampere card is added: Turing has no hardware
-  bf16, and "fixing" that with float16 would declare an **identical reading key while reading
-  differently** — the silent key split ADR 0023 exists to prevent, arriving from inside this
-  project rather than from the broker. Live because the coordinator's own unused card is
-  Turing. Adding dtype to the *declaration* is additive and forward-only; adding it to the
-  *key* would invalidate every reading, so the two must not be confused.
 
 ## From the schema critic on the ADR 0025 addendum, 2026-09-19 (Proposed)
 
@@ -2084,28 +1970,12 @@ Both passes called the change correct and shippable. Two findings are choices, n
   the comparison (`pages_held`); `seed_pass` has `wanted` in hand but does not pass it to
   `_decide`. Recollect when the held page set equals what the pass now owes, re-read otherwise.
   Not taken today: the current behaviour is safe, and the restore order is the mitigation.
-- **A narrowing list plus a missing reading document drops a held page.** The new branch reaches
-  `seed_from_list` untested. Its top-up path queues `(held | wanted) & routed`, but `_decide`'s
-  set-aside path leaves the caller queueing `sorted(wanted[sha])` alone — so under a *narrower*
-  list the rebuilt reading document is narrower than the one that went missing, and the dropped
-  pages' rows stay live in the store from the older run with no queue record. Confirmed in the
-  review by running it: `pages_held` goes {1,2} → {1}. The store is not corrupted — page-level
-  supersession makes it legal — and a narrowing list is the operator's own cut moving, so this
-  is recorded rather than changed. Either queue `(held | wanted[sha]) & routed` on this path
-  too, or say in `seed_from_list`'s docstring that a narrowing list is taken at its word.
 
 ## From the specialist on the stop signal, 2026-09-19 (ADR 0025 addendum proposal 1)
 
 The two findings that could lose or misattribute a page were fixed in the same change. These
 three are recorded rather than built.
 
-- **`wait_for_server` ignores both the stop file and the signal**, and a document claims the
-  opposite. `dots_worker.wait_for_server` loops up to `--server-wait` 1800 s with no stop
-  check, so an operator's `touch .stop` does not stop a reader waiting on a dead server, and a
-  preempted one is killed rather than exiting 0 with its marker. Nothing is lost — nothing is
-  leased at that point — but `workstation-gate.ps1` states in its own header that the stop file
-  is checked "before each page **and instead of waiting for a server**", which is behaviour the
-  code does not have. Pre-existing; the fix is to pass the predicate into the sleep loop.
 - **A brokered placement and `fleet-up.sh`'s restart loop must be mutually exclusive by
   construction, not by care.** The loop restarts a worker a minute after ANY exit, so a reader
   a broker just preempted goes back on the card sixty seconds later, overriding the placement
@@ -2179,10 +2049,6 @@ change. These are recorded instead.
   bucket that is not the store, with no delete action — which is consistent with that reading
   but is not stated anywhere. One sentence in the addendum would close it, so the next box is
   reasoned about rather than quietly excepted.
-- **A restore procedure is owed**, beside `docs/compute-fleet.md`'s backup entry: extract order
-  (the archive already carries it — the queue is the last member), `--no-same-owner`, and the
-  fact that `fleet.token` and `fleet-node` are deliberately **not** in the archive and must be
-  replaced by hand. A rebuilt coordinator needs that token from the password manager.
 
 ## Page regions: ADR 0003's blocks are unbuilt, and dots already produces them, 2026-09-19
 
@@ -2259,27 +2125,11 @@ rebuilt: the project's own signed GET instead of boto3, streamed with a per-chun
 both ends, structural classification on status codes, and the worker half in both lease loops.
 Eleven findings between the two reviews were acted on in the change. Three are owed.
 
-- **The worker half is not tested, and it is the half ADR 0025 cares most about.** The three
-  branches — `BlobMissing` and `BlobCorrupt` to a non-final `blob:` failure, `BlobUnavailable`
-  to a release and exit 4 — live inside each worker's `main()`, which loads a model and cannot
-  be called from a test. Everything else in those files that IS tested was extracted first
-  (`give_back`, `post_answer`, `claim_if_room`, `register_or_exit`), and the same extraction
-  would make these testable with a fake queue. Asserted today only by reading them, in a change
-  whose whole point is that a misclassified failure loops the fleet. **Do this before the next
-  change to either loop**, not after.
-- **A corrupt object in the store of record reaches nobody.** `queue_server` prints
-  `BLOB CORRUPT IN THE STORE` and that is the loudest thing available: `config.alloy` scrapes
-  `/metrics` and no logs, and `backup.py` excludes `ocr/logs`, so the line sits in a file
-  nobody tails. An earlier draft of the code comment claimed the monitor sees it, which was
-  untrue and is corrected in place. The fix that matches this fleet's own grammar (ADR 0019) is
-  a counter under `ocr/` that `monitor.py` reads into `/metrics`, with a detection rule beside
-  the three in `config.alloy`. Until then the only surfacing is the worker's non-final `blob:`
-  failure in `status()["errors"]`.
-- **`pull_blobs.py` fills the mirror on a size comparison and never a digest**
-  (`path.stat().st_size == obj["Size"]`), which migration 0018 warns about in writing. The
-  client now verifies every document it is served, mirror hits included, so a wrong-but-
-  same-size entry is caught at the reader instead of being read as that document's text — but
-  it is caught late and per page. The puller should compare the sha it already knows.
+- **The corrupt-blob alarm has no provisioned rule.** Since 2026-10-03 `queue_server` logs each
+  corrupt answer to `ocr/blob-corrupt.log` and `monitor.py` exports
+  `docket_yard_fleet_blob_corrupt_total`; the rule
+  `increase(docket_yard_fleet_blob_corrupt_total[1h]) > 0` is written in `config.alloy`'s comments
+  but not added to `infra/grafana/provision.py` or provisioned in Grafana Cloud.
 
 ## The coordinator moved, and two things it uses assumed one box — 2026-09-20
 
@@ -2287,21 +2137,6 @@ The coordinator role moved to another machine on 2026-09-20 (which box is the op
 is recorded outside this repository). Both boxes' state matched file-for-file and the queue
 travelled through SQLite's backup API; the mirror deliberately did not travel, and the three
 blob answers were re-proved on the new box. Two repository-facing things surfaced in the doing.
-
-- **`tools/fleet/config.alloy` only works where Alloy runs in a container.** Its
-  `prometheus.exporter.unix` block names `/host/proc`, `/host/sys` and `/host/root`, which are
-  the container's bind mounts; on a box where Alloy runs as a plain binary those paths do not
-  exist and the exporter reports nothing, silently — the fleet series still flow, so the box's
-  vitals go missing without any alert saying so. The move needed a generated variant with three
-  lines rewritten, which is now a second config nothing in this repository knows about. Make the
-  three paths a variable with the container's values as the default, so one file serves both.
-- **`dy-backup.service` swept a directory the tool never wrote to.** The unit set
-  `TMPDIR` and cleaned `<data>/.backup-work/dy-backup-*`, while `backup.py` passes
-  `dir=<data>/.backup-tmp` to its own `TemporaryDirectory` and never consults `TMPDIR`. A run
-  killed mid-tarball (a power cut, an OOM) would have stranded ~636 MB, and the unit's comment
-  promising otherwise was false. **Fixed in place** the same day by passing `--tmp` explicitly;
-  recorded here because the same shape — a unit and a tool each deciding a path — is worth
-  looking for in the other units.
 
 ## Measured: the tabular worker's memory floor is half what a page needs — 2026-09-20
 

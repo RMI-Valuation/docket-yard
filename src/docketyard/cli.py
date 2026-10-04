@@ -306,14 +306,7 @@ def _citator(args: argparse.Namespace) -> int:
         return 0
 
     if args.what == "decide":
-        item = next(
-            (
-                q
-                for q in review.pending(con, args.queue, limit=10_000)
-                if q["target_key_rendered"] == args.key
-            ),
-            None,
-        )
+        item = review.item(con, args.queue, args.key)  # the queue's own query, for one key
         if item is None:
             print(f"refused: {args.key} is not on the {args.queue} queue")
             return 1
@@ -611,6 +604,7 @@ def _citator(args: argparse.Namespace) -> int:
         "readings_retired",
         "work_gained",
         "work_lost",
+        "key_version_kept",
     )
     totals = dict.fromkeys(("documents", *counted), 0)
     owed_keys: list[str] = []
@@ -665,6 +659,11 @@ def _citator(args: argparse.Namespace) -> int:
     )
     if refused_fused_held:
         print(f"refused, a held docket re-keyed (never clears): {sorted(refused_fused_held)}")
+    if totals["key_version_kept"]:
+        print(
+            f"{totals['key_version_kept']} keys were minted under another KEY_VERSION than"
+            f" {keys.KEY_VERSION} and keep it: a re-normalisation produced the same key"
+        )
     # WHAT THIS SAID UNTIL 2026-09-04, AND WHY IT WAS WRONG BY THEN: "ADR 0017 D5's queues do
     # not exist yet, so these keys are PRINTED and not stored. Until `review_action` is in a
     # migration, the exposed class reaches a page unreviewed." Migration 0015 shipped
@@ -793,11 +792,19 @@ def _text(args: argparse.Namespace) -> int:
     if not root.is_dir():
         print(f"refused: {root} is not a directory of {pass_.NOUN}s")
         return 1
+    # `--lock-retries`: how many times one batch is rolled back and replayed against a held
+    # write lock before the pass aborts (`store.batches.under_lock`). The default is the
+    # library's; a long load beside a busy poller may want more, a probe none.
+    retries = getattr(args, "lock_retries", None)
+    if retries is not None and retries < 0:
+        print(f"refused: --lock-retries is {retries}; a count of replays is 0 or more")
+        return 1
+    knobs = {} if retries is None else {"lock_retries": retries}
     con = db.connect(args.db)
     if pass_ is load:
-        totals = load.run(con, root, args.data_dir)
+        totals = load.run(con, root, args.data_dir, **knobs)
     else:
-        totals = pass_.run(con, root)
+        totals = pass_.run(con, root, **knobs)
     print(dict(totals))
     attached = sum(totals[k] for k in pass_.ATTACHED)
     if totals["aborted"]:
@@ -907,7 +914,10 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--pages", type=int, default=10)
         p.add_argument("--per-page", type=int, default=PAGE_CLAMP, help="server clamps to 50")
         p.add_argument("--interval", type=float, default=2.0)
-        p.add_argument("--mode", choices=("forward", "backfill"), default="forward")
+        # REQUIRED, as on `fetch attachments`: a hand capture of a past range written as
+        # `forward` reaches the alert join (trap 8), and only the runbook's prose warned of it
+        # (stb-ingest-specialist, 2026-10-03)
+        p.add_argument("--mode", choices=("forward", "backfill"), required=True)
         p.set_defaults(func=lambda a, act=action: _run_capture(a, act))
 
     ing = sub.add_parser("ingest", help="consume asserted captures into the ledger")
@@ -923,7 +933,10 @@ def main(argv: list[str] | None = None) -> int:
     fa.add_argument("--limit", type=int)
     fa.add_argument("--interval", type=float, default=1.0)
     fa.add_argument("--refresh", action="store_true", help="refetch known documents (errata check)")
-    fa.add_argument("--mode", choices=("forward", "backfill"), default="forward")
+    # No default: the mode is the capture's provenance, and `forward` puts the document in
+    # the text stage's scope (text/queue.py D1). A by-hand run over a wave's backlog took the
+    # old default and pulled backfill documents in; the operator now says which it is.
+    fa.add_argument("--mode", choices=("forward", "backfill"), required=True)
     fa.set_defaults(func=_fetch_attachments)
 
     wk = sub.add_parser("walk", help="backfill campaign: every slice of a table, resumably")
@@ -1062,6 +1075,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     rt.add_argument("root", help="the wave's route directory: <root>/<xx>/<sha>.json")
     rt.set_defaults(func=_text)
+    for pass_parser in (pg, ld, rt):
+        pass_parser.add_argument(
+            "--lock-retries",
+            type=int,
+            default=None,
+            help="replays of one batch against a held write lock before the pass aborts"
+            " (default 5: waits of 2, 4, 8, 16, 32 s)",
+        )
     pn = tx_sub.add_parser(
         "pin",
         help="declare which producer owns a reading key (ADR 0024 D6); with no --method,"

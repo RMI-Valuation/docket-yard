@@ -52,6 +52,7 @@ from hashlib import sha256
 from pathlib import Path
 from sqlite3 import Connection
 
+from docketyard.capture import records
 from docketyard.store.db import utcnow
 from docketyard.text import load, paginate, queue
 from docketyard.text.fields import read_head
@@ -291,6 +292,57 @@ def sweep(con: Connection, spool: Path) -> int:
     return gone
 
 
+# How old a `.tmp` in the spool must be before it is a write that died rather than one in
+# progress. The container writes a record in one `write_text` after the parse, so a live
+# temporary file lives for well under a second; an hour is slack, not an estimate.
+STALE_PARTIAL_SECONDS = 3600
+
+
+def partials(spool: Path, problems: list[str], *, now: float | None = None) -> int:
+    """Count the half-written records the container left behind, and move them aside.
+
+    `extract.write` writes `<name>.json.tmp` and renames (ADR 0024 D9), so a `.tmp` that
+    outlives its write is a container that died mid-write — the OOM kill `serve_one` pops
+    documents to survive. `admit` and `sweep` glob `*.json` only, so until 2026-10-03 these
+    were never seen, and "the container is dying mid-write" read exactly like "the container
+    never started" (deferred.md, the ingest specialist on migration 0022, 2026-09-05).
+
+    Quarantined rather than deleted, for `admit`'s reason: the partial file is the evidence of
+    which document took the parser down. Moved, so each is reported once, not every pass."""
+    if not spool.is_dir():
+        return 0
+    cutoff = (time.time() if now is None else now) - STALE_PARTIAL_SECONDS
+    held = spool.parent / "quarantine"
+    moved = 0
+    stuck: list[str] = []
+    for shard in sorted(p for p in spool.iterdir() if p.is_dir()):
+        for path in sorted(shard.glob("*.tmp")):
+            try:
+                if path.stat().st_mtime > cutoff:
+                    continue  # a write in progress, or one that has only just died
+                held.mkdir(parents=True, exist_ok=True)
+                path.replace(held / path.name)
+            except FileNotFoundError:
+                continue  # renamed into place under us: it was a write, and it finished
+            except OSError as e:
+                # quarantine unwritable: the evidence is still there, and SAID — swallowing it
+                # was the silence this function exists to end (code review, 2026-10-03)
+                stuck.append(f"{path.name} ({type(e).__name__})")
+                continue
+            moved += 1
+    if stuck:
+        problems.append(
+            f"text spool: {len(stuck)} half-written record(s) could not be moved to quarantine:"
+            f" {', '.join(stuck[:3])}"
+        )
+    if moved:
+        problems.append(
+            f"text spool: {moved} half-written record(s) left by the parser, moved to"
+            " quarantine — the `extract` container died mid-write; check its memory limit"
+        )
+    return moved
+
+
 def _clear(ready: Path, held: Path, problems: list[str]) -> int:
     """Move aside what the loader walked and did not land. See the caller for why."""
     if not ready.is_dir():
@@ -318,7 +370,9 @@ def held_locally(blobs: Path, shas: list[str]) -> tuple[list[str], list[str]]:
     """
     present, pruned = [], []
     for sha in shas:
-        (present if (blobs / sha[:2] / sha).is_file() else pruned).append(sha)
+        # `blobs` IS the store's `blobs/` directory, so the key's own leading `blobs/` goes
+        # on its parent: one spelling of the layout (`records.blob_key`), not a fourth
+        (present if (blobs.parent / records.blob_key(sha)).is_file() else pruned).append(sha)
     return present, pruned
 
 
@@ -356,7 +410,17 @@ def run(
     out: dict = {"loaded": {}, "paginated": {}, "dispatched": 0}
     pin = _pin(con)
     if pin is None:
+        # REFUSED LOUDLY, into `problems` (deferred.md, the schema critic on migration 0024,
+        # 2026-09-05). `pinned()` returning None means both "deliberately unpinned" and
+        # "nobody got round to it", and a summary key alone let the second read as the
+        # first: the stage idle, every forward document unread, and a pass that exits 0.
+        # `text pin` cannot un-pin, so on a store that has ever run the stage this line means
+        # something is wrong with the store, not that someone chose it.
         out["skipped"] = "no producer pinned for text-layer/native/primary"
+        problems.append(
+            f"text extraction: no producer is pinned for {CHANNEL}/{RENDER}/{ROLE}, so nothing"
+            " was loaded or dispatched; declare one with `docketyard text pin`"
+        )
         return out
     method, version = pin
     out["pin"] = f"{method}@{version}"
@@ -366,6 +430,7 @@ def run(
     # is a MOVE rather than a check so that nothing can land between the check and the walk.
     ready = spool.parent / "ready"
     out["admitted"], out["quarantined"] = admit(con, spool, ready, problems)
+    out["partial"] = partials(spool, problems)
 
     # 2. drain what the parser has already written. `paginate` first: it reads the same
     # records and writes the page-count denominator ADR 0022 D3 publishes, without which a

@@ -19,7 +19,7 @@ from pathlib import Path
 from sqlite3 import Connection
 
 from docketyard.capture import records
-from docketyard.capture.stb import Unanswered
+from docketyard.capture.stb import Unanswered, _wire_url
 from docketyard.ingest import dockets, observations
 from docketyard.store import events
 from docketyard.store.db import utcnow
@@ -134,18 +134,22 @@ def fetch_attachments(
             source_system="stb-dcms",
             endpoint=url,
             table_action=FETCH_ACTION,
-            request_params=[("url", url)],
+            request_params=_request_params(url),
             body=body,
             http_status=status,
             ingest_mode=ingest_mode,
+            commit=False,
         )
         # a fetch has no table filter to assert and is consumed by definition: the
-        # verdict is "not applicable" (NULL counts), and it never appears as pending work
+        # verdict is "not applicable" (NULL counts), and it never appears as pending work.
+        # The row and its verdict commit together — before anything else is written, so
+        # the capture is still on record whatever happens to the rest of this document
         now = utcnow()
         con.execute(
             "UPDATE capture SET filter_asserted = 1, processed_at = ? WHERE capture_id = ?",
             (now, capture_id),
         )
+        con.commit()
         if status != 200 or size == 0:
             # an error page, or nothing, is not the document: the attempt is on record
             # (capture-first) and the attachment stays unfetched — left alone for
@@ -252,6 +256,19 @@ def _held_sha(con: Connection, url: str) -> str | None:
     return row[0] if row else None
 
 
+def _request_params(url: str) -> list[tuple[str, str]]:
+    """What the capture says was asked for. `endpoint` stays the stored URL — the refusal rest
+    and the re-check join it against `source_url` — so when the wire form differs (a raw en
+    dash or space, percent-encoded by `stb._wire_url`) it is recorded beside it, and the
+    capture shows the request that was actually sent (deferred, the drain's un-fetchable
+    URLs, 2026-09-02)."""
+    params = [("url", url)]
+    wire = _wire_url(url)
+    if wire != url:
+        params.append(("wire_url", wire))
+    return params
+
+
 def _record_attempt(con: Connection, data_dir, url: str, ingest_mode: str) -> None:
     capture_id = records.save_capture(
         con,
@@ -259,10 +276,11 @@ def _record_attempt(con: Connection, data_dir, url: str, ingest_mode: str) -> No
         source_system="stb-dcms",
         endpoint=url,
         table_action=FETCH_ACTION,
-        request_params=[("url", url)],
+        request_params=_request_params(url),
         body=b"",
         http_status=0,
         ingest_mode=ingest_mode,
+        commit=False,  # the row and its verdict in one transaction, as above
     )
     con.execute(
         "UPDATE capture SET filter_asserted = 1, processed_at = ? WHERE capture_id = ?",

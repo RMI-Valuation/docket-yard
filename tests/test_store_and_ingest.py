@@ -215,3 +215,99 @@ def test_status_counts(con, tmp_path):
     assert s["captures_capped"] == 1
     assert s["captures_unprocessed"] == 1
     assert projections.pending_capture_ids(con) == [cid]
+
+
+# --- the foreign-key check after a script, scoped (deferred.md, release review 2026-09-10) ---
+
+FK_BASE = """
+CREATE TABLE parent (id INTEGER PRIMARY KEY);
+CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent (id));
+CREATE TABLE audit (child_id INTEGER REFERENCES child (id));
+CREATE TABLE elsewhere_parent (id INTEGER PRIMARY KEY);
+CREATE TABLE elsewhere (p INTEGER REFERENCES elsewhere_parent (id));
+CREATE TABLE log (n INTEGER);
+CREATE TRIGGER log_writes AFTER INSERT ON log BEGIN DELETE FROM parent; END;
+INSERT INTO parent VALUES (1);
+INSERT INTO child VALUES (1, 1);
+PRAGMA user_version = 1;
+"""
+
+
+def _fk_store(monkeypatch, *scripts):
+    """A store at FK_BASE, built by `migrate` itself, with `scripts` registered after it."""
+    texts = {"1.sql": FK_BASE} | {f"{n}.sql": s for n, s in enumerate(scripts, 2)}
+    monkeypatch.setattr(db, "_script", texts.__getitem__)
+    monkeypatch.setattr(db, "MIGRATIONS", [(1, "1.sql")])
+    raw = sqlite3.connect(":memory:")
+    db.migrate(raw)
+    monkeypatch.setattr(db, "MIGRATIONS", [(n, f"{n}.sql") for n in range(1, len(texts) + 1)])
+    return raw
+
+
+def _stamped(body: str) -> str:
+    return f"BEGIN; {body} PRAGMA user_version = 2; COMMIT;"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "DELETE FROM parent;",  # strands a child the script never names
+        "INSERT INTO log VALUES (1);",  # the same, through a trigger on a table it names
+        "INSERT INTO log VALUES (1); DROP TRIGGER log_writes;",  # fired, then dropped: it wrote
+        "INSERT INTO child VALUES (2, 99);",  # a reference written to nothing
+        # SQLite's rebuild procedure, done carelessly: the rows are not copied across
+        "DROP TRIGGER log_writes; CREATE TABLE parent_new (id INTEGER PRIMARY KEY);"
+        " DROP TABLE parent; ALTER TABLE parent_new RENAME TO parent;",
+    ],
+)
+def test_a_scoped_check_still_finds_what_the_script_broke(monkeypatch, body):
+    """The scope is an over-approximation of what a script with enforcement OFF can break:
+    the tables it names, what their triggers write, what its DDL changed, and the children of
+    all of those. Each case here breaks a reference the script does not name."""
+    raw = _fk_store(monkeypatch, _stamped(body))
+    with pytest.raises(RuntimeError, match="dangling foreign keys"):
+        db.migrate(raw)
+
+
+def test_the_check_is_scoped_to_what_a_script_could_reach(monkeypatch):
+    """The point: unscoped it was 280 s a script on the production copy, the whole store checked
+    after scripts that touched a table or two. A table the script cannot reach is not checked."""
+    raw = _fk_store(monkeypatch, _stamped("INSERT INTO log VALUES (0);"))
+    before = db._schema(raw)
+    # the child, not the grandchild: `audit` references `child`, which this did not write
+    assert db._fk_scope(raw, "UPDATE parent SET id = id", before) == ["child", "parent"]
+    assert db._fk_scope(raw, "INSERT INTO log VALUES (1)", before) == ["child", "log", "parent"]
+    assert db._fk_scope(raw, "-- touches nothing", before) == []
+    raw.execute("CREATE TABLE fresh (p INTEGER REFERENCES elsewhere_parent (id))")
+    assert db._fk_scope(raw, "", before) == ["fresh"], "its DDL changed, so it is in scope"
+    raw.execute("DROP TABLE fresh")
+    # a dangling row out of the script's reach is not this script's to report
+    raw.execute("DROP TRIGGER log_writes")
+    raw.execute("PRAGMA foreign_keys = OFF")  # `migrate` leaves enforcement on
+    raw.execute("INSERT INTO elsewhere VALUES (42)")
+    raw.commit()
+    assert db.migrate(raw) == 2
+
+
+def test_a_temp_trigger_an_earlier_script_left_is_inside_the_next_scripts_scope(monkeypatch):
+    """Every pending migration runs on one connection, and a TEMP trigger lives in
+    `sqlite_temp_master`: left by script 2 on a table script 3 writes, it fires into a table
+    script 3 never names. The scope reads the temp schema too (schema-critic, 2026-10-03)."""
+    raw = _fk_store(
+        monkeypatch,
+        "BEGIN; DROP TRIGGER log_writes; CREATE TEMP TRIGGER sneaky AFTER INSERT ON main.log"
+        " BEGIN DELETE FROM parent; END; PRAGMA user_version = 2; COMMIT;",
+        "BEGIN; INSERT INTO log VALUES (1); PRAGMA user_version = 3; COMMIT;",
+    )
+    with pytest.raises(RuntimeError, match="dangling foreign keys"):
+        db.migrate(raw)
+
+
+def test_what_the_word_match_cannot_see_gets_the_full_check():
+    """`writable_schema` moves contents with no name and no DDL diff; a name that is not a
+    plain word escapes the word match. Both fall back to the store-wide check."""
+    plain = {("table", "parent"): ("parent", "CREATE TABLE parent (id)")}
+    assert not db._needs_full_check("DELETE FROM parent", plain, plain)
+    assert db._needs_full_check("PRAGMA writable_schema = ON", plain, plain)
+    odd = plain | {("table", "doc ument"): ("doc ument", 'CREATE TABLE "doc ument" (id)')}
+    assert db._needs_full_check("DELETE FROM parent", odd, odd)

@@ -55,8 +55,8 @@ STRUCTURAL — the store's status code, never the text of an exception:
     absent, so a genuinely missing document and a broken credential become the same answer and
     this distinction cannot be made at all.
   * **any other status, or no answer, the environment's** — a 500, a 503, a reset, a timeout.
-  * **a hash that does not match, the store's** — 502, and it is printed where the monitor
-    sees it.
+  * **a hash that does not match, the store's** — 502, and recorded in `blob-corrupt.log`
+    beside the queue, which the monitor counts into `/metrics`.
 
 Nothing here mints, prints or logs a credential. **What DOES change is what `fleet.token` is
 worth**: `/blob/<sha>` was "what this box holds" and is now a read-through proxy for every
@@ -96,6 +96,7 @@ from pagequeue import (  # noqa: E402
     BlobUnavailable,
     KeyMismatch,
     Queue,
+    record_corrupt,
 )
 
 from docketyard.capture import s3  # noqa: E402
@@ -103,6 +104,8 @@ from docketyard.capture import s3  # noqa: E402
 BLOB_PREFIX = "blobs/"  # the store's layout, as `records.blob_path` and the web tier use it
 CHUNK = 1 << 20  # what a document is streamed in, both from the store and from the mirror
 SPOOL = "qs-"  # our spool files, so the sweep at start cannot take anything else's
+DRAIN_LIMIT = 1 << 20  # the most of a refused POST's body read before the 401 (`_drain`)
+DRAIN_SECONDS = 5.0  # and the longest a stranger's body may take to arrive
 
 
 def store_fetcher(fetch=None):
@@ -328,14 +331,18 @@ def serve(db: Path, blobs: Path, token: str, port: int, bind: str, fetch_missing
             except BlobUnavailable as e:
                 return self._json(503, {"error": str(e)})
             except BlobCorrupt as e:
-                # A CORRUPT OBJECT IN THE STORE OF RECORD, and the loudest thing available
-                # here is this line. **It is not an alarm**: `config.alloy` scrapes
-                # `/metrics` and no logs, and `backup.py` excludes `ocr/logs` — so nothing
-                # pages anyone on it (ingest review; an earlier draft of this comment claimed
-                # the monitor sees it, which was simply untrue). A counter the monitor can
-                # serve is owed in `docs/deferred.md`. What DOES surface is the worker's
-                # non-final `blob:` failure, in `status()["errors"]`.
+                # A CORRUPT OBJECT IN THE STORE OF RECORD. The stderr line alone reached
+                # nobody — `config.alloy` scrapes `/metrics` and no logs, and `backup.py`
+                # excludes `ocr/logs` (ingest review) — so it is also appended to the log
+                # beside the queue, which `monitor.py` counts into `/metrics` as
+                # `docket_yard_fleet_blob_corrupt_total` for the rule in `config.alloy`.
+                # Recording must not turn a 502 into a dropped connection, so a write that
+                # fails is said on stderr and the answer still goes out.
                 print(f"BLOB CORRUPT IN THE STORE: {e}", file=sys.stderr, flush=True)
+                try:
+                    record_corrupt(db, sha, str(e))
+                except OSError as failed:
+                    print(f"could not record it: {failed}", file=sys.stderr, flush=True)
                 return self._json(502, {"error": str(e)})
             try:
                 _serve_file(self, path)
@@ -346,6 +353,7 @@ def serve(db: Path, blobs: Path, token: str, port: int, bind: str, fetch_missing
 
         def do_POST(self):  # noqa: N802
             if not self._authorised():
+                self._drain()
                 return self._json(401, {"error": "unauthorised"})
             path = self.path.split("?", 1)[0]
             try:
@@ -363,6 +371,39 @@ def serve(db: Path, blobs: Path, token: str, port: int, bind: str, fetch_missing
                 return self._json(400, {"error": f"missing {e}"})
             except Exception as e:  # noqa: BLE001 — a locked queue, anything: still an answer
                 return self._json(500, {"error": f"{type(e).__name__}: {e}"})
+
+        def _drain(self) -> None:
+            """Read and discard a refused request's body before answering it. Answering 401
+            with the body still unread let the socket close on unread data, which Windows
+            answers with a reset — so the client saw `ConnectionAbortedError` instead of the
+            401, once in six runs of `test_the_transport_refuses_a_bad_token` (2026-09-11).
+            BOUNDED, because the sender has not been authorised: past `DRAIN_LIMIT` the
+            connection is closed after the answer rather than read to the end for a stranger.
+            AND TIMED (Codex and Copilot, PR #45): a declared body that never arrives blocked the
+            read with no deadline, holding a server thread per such connection before the 401.
+            Past `DRAIN_SECONDS` the read gives up, the 401 still goes out, and the connection
+            closes after it."""
+            try:
+                left = int(self.headers.get("Content-Length", 0))
+            except ValueError:
+                left = 0
+            if left > DRAIN_LIMIT:
+                self.close_connection = True
+                left = DRAIN_LIMIT
+            if left <= 0:
+                return
+            previous = self.connection.gettimeout()
+            self.connection.settimeout(DRAIN_SECONDS)
+            try:
+                while left > 0:
+                    got = self.rfile.read(min(left, 65536))
+                    if not got:
+                        break
+                    left -= len(got)
+            except OSError:  # TimeoutError included: what arrived is enough to answer
+                self.close_connection = True
+            finally:
+                self.connection.settimeout(previous)
 
         def _dispatch(self, path: str, body: dict):
             if path == "/register":
