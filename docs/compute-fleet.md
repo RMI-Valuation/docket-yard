@@ -229,6 +229,31 @@ started idempotently by `tools/fleet/fleet-up.sh <role>` (`DY_FLEET_DATA` is the
 | Role | Session | Runs | Log |
 | --- | --- | --- | --- |
 
+### Moving the fleet's checkout
+
+Every fleet machine runs the code from its own git checkout, `~/docket-yard`, pinned at one
+commit (recorded in `TODO.md` § In motion). Moving it is a deploy, the operator's to call, and
+it is done **as a whole tree, with git, to the same commit on every machine**:
+
+```
+touch "$OCR/.stop-<pass>"                       # each running pass stops at a checkpoint
+git -C ~/docket-yard fetch && git -C ~/docket-yard checkout <commit>   # every machine
+rm "$OCR/.stop-<pass>"; bash ~/docket-yard/tools/fleet/fleet-up.sh <role>
+```
+
+- **Never copy one worker file onto a box.** The workers import their siblings from their own
+  directory: `leaseloop.py` (the blob branches and helpers both lease loops share, since
+  v2026.10.4), `ocr_run.py`, and the tools in `tools/rmi-ai-machine/`. A worker copied without
+  them fails at startup with an import error. The one deliberate exception is
+  `tools/fleet/backup.py`, copied to `~/dy-tools/` on the coordinator; it imports nothing from
+  the fleet.
+- **The same commit everywhere**, because the coordinator's queue server and the readers speak
+  one protocol and one queue schema. A reader ahead of or behind its coordinator is not a
+  supported state.
+- **Check the move does not change a running pass's reading key.** A pass is keyed by its
+  engine, version and render (ADR 0025 D2); a commit that changes any of them mid-pass mixes
+  two keys in one pass. Move between passes, or confirm the key is unchanged.
+
 ### Putting the store within the coordinator's reach (ADR 0025 addendum 5-6)
 
 `<data>/store.env`, mode 600, in no repository, read by `fleet-up.sh` and sourced into the
