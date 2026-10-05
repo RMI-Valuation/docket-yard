@@ -21,11 +21,12 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   2026-09-20 — a miss fetches and hash-verifies, a hit serves from disk, a sha in no store
   **404 not 503**. Owed in `deferred.md`: the worker branches have no test, the corrupt-store
   alarm reaches nobody, `pull_blobs.py` still compares size not sha
-- **THE TABULAR PASS READS THROUGH THE BROKER** since 2026-09-20 — job 40 (39 cancelled to drop
-  `--blobs`, so a mirror miss is now a coordinator fetch), `dy-ocr`, preemptible. Key unchanged;
-  **do NOT raise the render mid-pass**. **There was never a separate submit token**: one broker
-  token, already on the box; what blocked it was ours (`3629aa8`). **Keep `--host` pinned until
-  the fleet raises `dy-ocr`'s `vram_gb`** — 4 GiB on our own floor, and `cuda` matches the 2060
+- **THE TABULAR PASS IS STALLED since 2026-09-20 19:11 UTC — HELD, his (2026-10-04): no
+  restart yet.** Job 40 exited 5, the breaker: 25 pages in a row of `d3d06d3de4f2` looped
+  (`finish_reason length`); nothing resubmitted. 18,775 done, 5,134 pending (578 docs), 2,385
+  failed (1,586 loops, 798 blob-missing from before the refetch). **A restart as-is trips again**:
+  that document is first in claim order with 62 pages pending. Waits on the loop decision below.
+  Key unchanged, **do NOT raise the render mid-pass**; keep `--host` pinned (`dy-ocr` 4 GiB)
 - **rmi-nuc's 2060 cannot read this pass — measured 2026-09-20**, answered in rmi-fleet
   `deploy/docket-yard-bf16-reply.md`. Not bf16 speed: a page asks one 4.13 GiB block against
   5.60 GiB usable, so 7 of 7 OOM'd. **Our own memory floor is half what a page needs**
