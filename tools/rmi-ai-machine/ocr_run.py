@@ -693,43 +693,18 @@ def _textract_page(blocks: list) -> str:
 
 
 def _textract_call(image: Path, cfg: dict, args: list) -> list:
-    """One Textract call through the AWS CLI, returning its Blocks.
+    """Refused: Textract is not granted to this project (2026-10-18).
 
-    Through the CLI so that no new dependency is taken for a benchmark (the project prefers
-    the standard library, and the credentials are already configured for it).
+    The benchmark ran it in August–September through the AWS CLI on whatever credentials
+    the machine defaulted to; its scores stand in `docs/research/ocr-benchmark/runs/` and
+    its conclusion — the local engines read better — in `docs/ocr-plan.md`. Running it
+    again is a new credential request, never a fallback to a default profile; the call that
+    did it is in git history.
     """
-    import base64  # noqa: PLC0415
-    import tempfile  # noqa: PLC0415
-
-    payload = json.dumps({"Document": {"Bytes": base64.b64encode(image.read_bytes()).decode()}})
-    fd, name = tempfile.mkstemp(suffix=".json")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(payload)
-        out = subprocess.run(
-            [
-                "aws",
-                "textract",
-                *args,
-                "--region",
-                cfg.get("region", "us-east-2"),
-                "--cli-input-json",
-                f"file://{Path(name).as_posix()}",
-            ],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-            # the CLI is itself a Python program: without this it writes its JSON through
-            # the Windows console codepage and dies on any non-ASCII the page contains
-            env={**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"},
-        )
-    finally:
-        Path(name).unlink(missing_ok=True)
-    if out.returncode != 0:
-        raise RuntimeError(out.stderr.strip()[:300])
-    return json.loads(out.stdout).get("Blocks", [])
+    raise RuntimeError(
+        "Textract is not granted to Docket Yard: rerunning it needs a new credential "
+        "request, not a default profile (docs/ocr-plan.md § Cost and time)"
+    )
 
 
 def _textract_conf(blocks: list, image: Path, cfg: dict) -> list:

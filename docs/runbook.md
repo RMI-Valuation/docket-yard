@@ -90,14 +90,15 @@ not the repo. `docketyard vault new-key` prints a fresh one.
 Set up 2026-08-26. Identity `docketyard.org` verified (DKIM: three `*._domainkey` CNAMEs;
 custom MAIL FROM `mail.docketyard.org` with MX + SPF; DMARC `p=quarantine` reporting to
 `dmarc@rmivaluation.com`), all DNS-only in Cloudflare. Sending is over SMTP
-(`email-smtp.us-east-2.amazonaws.com:587`, STARTTLS) as the instance user
-`docketyard-instance`, whose second inline policy `docketyard-ses-send` allows
-`ses:SendRawEmail` only from `alerts@docketyard.org`. The SMTP password is derived from the
+(`email-smtp.us-east-2.amazonaws.com:587`, STARTTLS) as two identities, each allowed
+`ses:SendRawEmail` only from `alerts@docketyard.org`: `ingest` sends alerts and the digest
+as the instance user, and `web` sends confirmation and sign-in mail as the web tier's own
+user (`infra/deploy/README.md` § Open). The SMTP password is derived from the
 IAM secret in `docketyard.alerts.mail.smtp_password`; a real login proved it.
 
 - **Production access was granted 2026-08-26** (requested the same day from the CLI). A
   new region or account starts in the sandbox — 200 messages a day, verified recipients
-  only. Check: `aws sesv2 get-account --region us-east-2`.
+  only. Check: `aws sesv2 get-account --region us-east-2 --profile docket-yard`.
 - **535 on login** — the password derivation drifted or the key was rotated. Re-derive;
   the derivation is pinned by `tests/test_mail.py` in shape only, so a real login is the
   test.
@@ -108,15 +109,17 @@ IAM secret in `docketyard.alerts.mail.smtp_password`; a real login proved it.
   to `https://docketyard.org/ses/feedback`. The endpoint verifies the SNS signature and
   the topic ARN (`DY_SES_FEEDBACK_TOPIC`) before believing anything, then writes the
   address's HMAC to `email_suppression`. Check the subscription:
-  `aws sns list-subscriptions-by-topic --region us-east-2 --topic-arn <arn>` — status must
+  `aws sns list-subscriptions-by-topic --region us-east-2 --topic-arn <arn> --profile
+  docket-yard` — status must
   not be `PendingConfirmation`. `docketyard status` does not yet count suppressions; the
   ingest log line `ses feedback: bounce, 1 address(es) suppressed` is the trace.
 - **SES's own account-level suppression list swallows sends silently** (measured
   2026-08-26): a hard bounce puts the address on it, and every later message to that
-  address is accepted with a 250 and never delivered — our `alert` row says `sent`. Check
-  `aws sesv2 list-suppressed-destinations --region us-east-2`; clear a legitimate address
-  with `delete-suppressed-destination`. The first `hello@` test bounced before Cloudflare
-  routing was live and suppressed the address for two later tests this way.
+  address is accepted with a 250 and never delivered — our `alert` row says `sent`. **No
+  Docket Yard profile reads or clears that list** (2026-10-18): it is account-wide and
+  shared with another project, so a check or a clearance goes to the operator's AWS
+  administration, until Docket Yard has an account of its own. The first `hello@` test
+  bounced before Cloudflare routing was live and suppressed the address for two later tests this way.
 
 ## Blobs: S3 is the store, the instance is a cache
 
@@ -128,8 +131,17 @@ user-facing changes; a document's bytes are fetched from S3 by hash when needed.
 documents (wave 3: 150–250 GB) therefore pass through the 58 GB instance disk. If the
 timer fails, the wave fills the disk: the heartbeat's `last_forward_capture` goes stale
 when SQLite cannot write, which is the page. `systemctl status docketyard-prune` and the
-sync unit's journal say why. RMI-AI-MACHINE pulls documents from S3 (read-only IAM user
-`docketyard-reader`), not from the instance.
+sync unit's journal say why. The fleet never reads from the instance: the coordinator
+fetches a document it lacks from S3 under its own blob-only read key, and readers fetch from
+the coordinator with no S3 key at all (ADR 0025 addendum, 5–6). The broad read-only key a
+reader once pulled the whole mirror with is retired (2026-10-18).
+
+**From a workstation, AWS always names a profile** — `docket-yard` for reads (the Litestream
+replica, blobs, the instance and its metrics, SES and SNS state; 4-hour session) and
+`docket-yard-ops` for the one production write it holds, a tagged instance snapshot (1 hour).
+Sign in with `aws sso login --profile docket-yard`. Nothing falls back to a default profile;
+anything structural (instances, IPs, IAM, buckets, SES identity and suppression) is the
+operator's AWS administration, by change record.
 
 ## Backfill waves
 

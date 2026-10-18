@@ -136,6 +136,12 @@ lives in the store; only the engine payload goes to the blob tier).
 - `data/` is disposable and gitignored. Anything there must be reproducible from the pipeline.
 - Never commit secrets. Tokens come from the environment, are short-lived, and are revoked
   after use. See `docs/runbook.md`.
+- **AWS from a workstation: `AWS_PROFILE=docket-yard`** (reads, 4 h; `aws sso login
+  --profile docket-yard`), or `docket-yard-ops` for its one write, a tagged instance snapshot
+  (1 h). Never the default profile; nothing structural (instances, IPs, IAM, buckets, SES
+  identity or suppression list) — that is the operator's AWS administration, by change record.
+  A refusal on a task we need is an amended request, never a retry under another profile.
+  No account ids or ARNs in this repository (`docs/runbook.md` § Blobs).
 - **The repository is public.** No internal addresses (LAN or tailnet IPs), and no links to
   the operator's private pages — name the script that builds a thing, not where it is
   published. Both are recorded outside the repo.

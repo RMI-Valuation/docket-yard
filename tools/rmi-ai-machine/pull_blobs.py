@@ -1,7 +1,10 @@
-"""Pull the blob store from S3 onto RMI-AI-MACHINE, incrementally, with the read-only
-profile (infra/deploy/README.md: `docketyard-reader`). The AWS CLI is not on this box;
-boto3 is (`pip install boto3` in the repo's venv). Only keys under `blobs/<aa>/` are
-taken — never the staging area.
+"""Pull the blob store from S3 onto a machine, incrementally. Only keys under `blobs/<aa>/`
+are taken — never the staging area. boto3, not the AWS CLI (`pip install boto3`).
+
+**The profile is required and has no default.** The read-only profile this once defaulted
+to could read the store's whole replica beside the blobs, and is retired (2026-10-18); a
+reader needs no S3 key at all since the coordinator fetches a miss itself (ADR 0025
+addendum, 5–6). A pull, if one is ever wanted again, names a profile scoped to `blobs/`.
 
 **A download is landed only when it HASHES to its name** (ADR 0002: the name is the sha), so
 nothing this pulls is ever wrong under its name. **A file already present is kept on its size
@@ -11,8 +14,8 @@ every document it serves, mirror hits included (code review, 2026-10-03). A same
 file — what migration 0018 warns a size comparison lets through — is caught at the reader
 without it, and here at once with it.
 
-    python3 pull_blobs.py docketyard-prod /data/docketyard/blobs --profile docketyard-reader
-    python3 pull_blobs.py docketyard-prod /data/docketyard/blobs --verify   # hash what is there
+    python3 pull_blobs.py <bucket> /data/docketyard/blobs --profile <profile>
+    python3 pull_blobs.py <bucket> /data/docketyard/blobs --profile <profile> --verify
 """
 
 import argparse
@@ -50,7 +53,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("bucket")
     ap.add_argument("dest")
-    ap.add_argument("--profile", default="docketyard-reader")
+    ap.add_argument("--profile", required=True, help="named; never the default chain")
     ap.add_argument("--prefix", default="blobs/")
     ap.add_argument("--verify", action="store_true", help="hash every present file, not size")
     args = ap.parse_args()

@@ -53,8 +53,10 @@ is an instance and not the container service.
 
 ## One-time bootstrap
 
-1. **AWS**: an S3 bucket (versioning on, public access blocked) and an IAM user whose only
-   policy is object read/write/list on that bucket. Lightsail instances cannot assume an
+1. **AWS** (the operator's AWS administration, by change record; no Docket Yard profile
+   creates anything): an S3 bucket (versioning on, public access blocked) and an IAM user
+   whose only policy is object read/write/list on that bucket, delete under `litestream/`
+   only. Lightsail instances cannot assume an
    instance role — see the note at the end.
 2. **Lightsail**: Ubuntu 24.04 LTS, the $12 plan (2 GB) is enough; attach a static IP; open
    ports 22, 80, 443 only. Point the `docketyard.org` apex A record at the static IP as
@@ -504,11 +506,24 @@ with it, which is what D4's per-pin count is for.
   than pulled, because it is deliberately not the application image — a plain `pull` tries to
   fetch its local-only tag and fails the whole deploy.
   Roll back by setting the previous tag. Releases are the production ledger (ADR 0010).
-- **Restore the store** on a fresh box: `litestream restore -o data/docketyard.sqlite
-  s3://$DY_S3_BUCKET/litestream/docketyard.sqlite`, then `aws s3 sync s3://$DY_S3_BUCKET/blobs
-  data/blobs`.
-- **A dev copy of production**: the same `litestream restore` to a laptop. Blobs are fetched
-  by hash on demand — most dev work needs none of them.
+- **Restore the store** on a fresh box, under the box's own `.env` keys: `litestream restore
+  -o data/docketyard.sqlite s3://$DY_S3_BUCKET/litestream/docketyard.sqlite`, then `aws s3
+  sync s3://$DY_S3_BUCKET/blobs data/blobs`.
+- **A dev copy of production**: the same restore to a workstation, under the `docket-yard`
+  profile and never a default one (`docs/runbook.md` § Blobs). The SSO session's short-lived
+  credentials are handed to the container, which has no profile of its own:
+
+  ```sh
+  aws sso login --profile docket-yard
+  eval "$(aws configure export-credentials --profile docket-yard --format env)"
+  docker run --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
+    -v "$PWD/data:/data" litestream/litestream:0.3 \
+    restore -o /data/<name>.sqlite s3://<bucket>/litestream/docketyard.sqlite
+  ```
+
+  Rehearse a migration in production's image against the copy (a restore read through a bind
+  mount is slow; copy it into a Docker volume first). Blobs are fetched by hash on demand —
+  most dev work needs none of them.
 - **Ingest health**: `docker compose logs --since 1h ingest | grep -c "problems: \[\]"`
   should be about two (one clean pass per `DY_POLL_EVERY`). A `poll …: {… problems: […]}`
   line names what went wrong in that pass; a `pass ABORTED` line is a bug, not the
@@ -542,13 +557,17 @@ and found nothing it did not hold. In the order that loses nothing:
 5. Checkpoint with the host's `python3` (no `sqlite3` CLI on the box): `PRAGMA
    wal_checkpoint(TRUNCATE)` on `docketyard.sqlite` and `traffic.sqlite`, expect `(0, 0, 0)`
    and no `-wal` file; `PRAGMA quick_check`; `sync`.
-6. `aws lightsail create-instance-snapshot` — nine minutes for 60 GB. The TLS certificate is
+6. `aws lightsail create-instance-snapshot --profile docket-yard-ops --tags
+   key=Project,value=docket-yard` — the profile allows a snapshot only with that tag. Nine
+   minutes for 60 GB. The TLS certificate is
    in the `caddy-data` volume, inside the snapshot: that is why a snapshot and not a fresh
    instance plus rsync.
 7. `sudo systemctl disable docker.service docker.socket containerd.service` on the old box;
    stop them just before the IP moves, so caddy serves the page until then. Two Litestreams
    replicating divergent stores to one path is the failure this prevents.
-8. `aws lightsail create-instances-from-snapshot ... --bundle-id large_3_0 --key-pair-name
+8. **Steps 8 and 10 are structural: no Docket Yard profile holds them** (2026-10-18). The
+   operator's AWS administration runs them by change record, from this list.
+   `aws lightsail create-instances-from-snapshot ... --bundle-id large_3_0 --key-pair-name
    docketyard`, then `put-instance-public-ports` for 22, 80 and 443 with their IPv6 ranges —
    the firewall is not in the snapshot, and a new instance opens 22 and 80 only. The root
    filesystem grows to the new disk on first boot by itself.
@@ -587,12 +606,15 @@ else", which was wrong about exactly that key.
 The read/write pair (`docketyard-instance`) is **not** confined to containers either: it is
 in `.env`, which `ingest` and Litestream read and which `docketyard-blobs.service` and
 `docketyard-prune.service` also load as root systemd units — the sync and the prune are host
-processes and authenticate with it. A third user, `docketyard-reader` (read-only), is used
-by RMI-AI-MACHINE to pull blobs (`docs/runbook.md`). Three principals, three scopes.
+processes and authenticate with it. Off the instance, the fleet's coordinator holds a
+blob-only read key for its fetch on a miss (ADR 0025 addendum, 5–6); the broader read-only
+key a reader once pulled the mirror with could also read the store's replica and was retired
+on 2026-10-18 (`docs/runbook.md` § Blobs). Since 2026-10-18 the read/write pair may delete
+only under `litestream/`: a blob in the store is never deleted, by any identity.
 
-Compose's `${DY_WEB_AWS_*:?}` guard fails interpolation for the whole file, not just `web`,
-so a missing or rotating reader key stops `ingest` too — which is the coupling the file
-itself forbids nine lines lower down. In `docs/deferred.md`, 2026-09-04.
+The `web` keys are interpolated with `:-`, not `:?`: a `:?` guard fails interpolation for the
+whole file, so a missing or rotating web key stopped `ingest` too (code review, 2026-09-04).
+`compose.yaml` explains what dropping it changes.
 
 The bucket has versioning on and, since 2026-08-28, a lifecycle rule
 (`expire-noncurrent-versions-30d`): noncurrent versions expire after 30 days, expired
