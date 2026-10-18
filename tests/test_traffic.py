@@ -102,6 +102,18 @@ def test_an_unhandled_error_is_counted_as_a_5xx(tmp_path):
     assert any(r[1] == "other" and r[2] == "5xx" for r in rows)
 
 
+def test_a_mounted_file_is_counted_as_its_own_class(tmp_path):
+    """A mount rewrites the scope's root_path as it routes, so the path read after the
+    response was `/site.css` and every asset counted as `other` — production held no
+    `static` row at all until 2026-10-13. The path is taken before the app sees it."""
+    path = build_store(tmp_path)
+    app = create_app(path, traffic_path=tmp_path / "traffic.sqlite")
+    with TestClient(app) as client:
+        assert client.get("/static/site.css", headers={"User-Agent": "Firefox"}).status_code == 200
+        rows = app.state.traffic.drain()
+    assert [(r[1], r[2]) for r in rows] == [("static", "2xx")]
+
+
 def test_the_store_never_holds_counts(tmp_path):
     path = build_store(tmp_path)
     with TestClient(create_app(path)) as client:
@@ -172,3 +184,105 @@ def test_the_digest_covers_the_week_its_subject_names(tmp_path):
     out = sender.sent[-1]
     assert "week to 2026-08-31" in out.subject
     assert "sheet" in out.text  # the subject's week is the table's week
+
+
+def test_the_operator_report_draws_the_counts_and_nothing_else(tmp_path):
+    """docs/traffic.md § The operator's report: one file from traffic.sqlite, every day in
+    the window drawn (an empty day is a zero, not a gap), no outside fetch, no store read."""
+    from docketyard.store import traffic_report
+
+    counts = tmp_path / "traffic.sqlite"
+    now = datetime(2026, 10, 13, 15, tzinfo=UTC)
+    con = traffic.connect(counts)
+    traffic.write(
+        con,
+        [
+            ("2026-10-13T14", "search", "2xx", 0, 4, 0, 4, 0, 0, 0),
+            ("2026-10-13T14", "record", "2xx", 1, 9, 0, 0, 9, 0, 0),
+            ("2026-10-10T03", "static", "2xx", 0, 2, 0, 2, 0, 0, 0),
+            ("2026-10-02T03", "record", "5xx", 0, 1, 0, 0, 0, 0, 1),
+        ],
+    )
+    con.close()
+    page = traffic_report.render(counts, now=now)
+    assert "2026-10-02 to 2026-10-13" in page
+    for d in range(2, 14):  # a row for every one of the twelve days, the empty ones as zeros
+        assert f"<tr><td>2026-10-{d:02d}</td>" in page
+    assert "<tr><td>2026-10-05</td><td>0</td><td>0</td>" in page
+    assert "http://" not in page and "https://" not in page  # opens from disk, fetches nothing
+    assert "<td>search</td><td>4</td>" in page
+    # the window narrows to the last N days; the 5xx on 2026-10-02 falls out of it
+    week = traffic_report.render(counts, days=7, now=now)
+    assert "2026-10-07 to 2026-10-13" in week and "<td>record</td><td>0</td><td>9</td>" in week
+    assert not (tmp_path / "docketyard.sqlite").exists()
+
+
+def test_the_report_tiles_ignore_the_window_and_the_file_stays_unpublished(tmp_path):
+    """Code review, 2026-10-13: the tiles' week before came from the window, so `--days 7`
+    read 'nothing before'; a row dated after `now` raised KeyError; a fractional axis tick
+    printed as a whole number; and nothing stopped the report landing in `public/`."""
+    import pytest
+
+    from docketyard.store import traffic_report
+
+    counts = tmp_path / "traffic.sqlite"
+    now = datetime(2026, 10, 13, 15, tzinfo=UTC)
+    con = traffic.connect(counts)
+    traffic.write(
+        con,
+        [
+            ("2026-10-12T10", "static", "3xx", 0, 6, 0, 6, 0, 0, 0),  # a 304 is a reader
+            ("2026-10-03T10", "static", "2xx", 0, 3, 0, 3, 0, 0, 0),  # the week before
+            ("2026-10-14T01", "home", "2xx", 0, 1, 0, 1, 0, 0, 0),  # after `now`
+        ],
+    )
+    con.close()
+    week = traffic_report.render(counts, days=7, now=now)
+    assert "▲ 100% on the 7 days before" in week  # 6 assets against 3, outside the window
+    assert traffic_report._compact(0.25) == "0.25" and traffic_report._compact(999_950) == "1.0M"
+    (tmp_path / "public").mkdir()
+    with pytest.raises(ValueError):
+        traffic_report.write(counts, tmp_path / "public" / "t.html")
+    assert not (tmp_path / "public" / "t.html").exists()
+    assert traffic_report.write(counts, tmp_path / "t.html").exists()
+
+
+def test_the_report_reads_full_days_and_shares_in_points(tmp_path):
+    """Code review, 2026-10-18: rows all after `now` raised IndexError; an empty `--days`
+    window said 'no counts yet' over non-zero tiles; the tiles and the hour profile read
+    today's part day against whole days; the fast share moved by a percent of itself."""
+    from docketyard.store import traffic_report
+
+    now = datetime(2026, 10, 13, 15, tzinfo=UTC)
+    ahead = tmp_path / "ahead" / "traffic.sqlite"
+    ahead.parent.mkdir()
+    con = traffic.connect(ahead)
+    traffic.write(con, [("2026-10-14T01", "home", "2xx", 0, 1, 0, 1, 0, 0, 0)])
+    con.close()
+    assert "2026-10-13 to 2026-10-13, no counts in it" in traffic_report.render(ahead, now=now)
+
+    counts = tmp_path / "traffic.sqlite"
+    con = traffic.connect(counts)
+    traffic.write(
+        con,
+        [
+            # today, at 10:00 UTC: in neither the tiles nor the hour profile
+            ("2026-10-13T10", "search", "2xx", 0, 50, 0, 0, 0, 50, 0),
+            # the last 7 full days: 3 of 4 under 500 ms
+            ("2026-10-12T22", "search", "2xx", 0, 4, 0, 3, 0, 1, 0),
+            # the 7 before: 1 of 2 under 500 ms
+            ("2026-10-04T22", "search", "2xx", 0, 2, 0, 1, 0, 1, 0),
+        ],
+    )
+    con.close()
+    page = traffic_report.render(counts, now=now)
+    assert "▲ 100% on the 7 days before" in page  # searches 4 against 2, today's 50 left out
+    assert "▲ 25 points on the 7 days before" in page  # 75% against 50%, not ▲ 50%
+    assert "the 30 full days before today" in page
+    hod = traffic.by_hour_of_day(
+        counts, datetime(2026, 10, 12, tzinfo=UTC), datetime(2026, 10, 13, tzinfo=UTC)
+    )
+    assert [(hh, req) for hh, _r, _s, _b, req in hod] == [("22", 4)]
+    # an empty window over older counts says so, not 'no counts yet'
+    old = traffic_report.render(counts, days=1, now=now + timedelta(days=3))
+    assert "2026-10-16 to 2026-10-16, no counts in it" in old and "no counts yet" not in old

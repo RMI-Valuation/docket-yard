@@ -37,6 +37,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
+- **Traffic report + `static`-count fix on main, unreleased** (2026-10-13; `docs/traffic.md`
+  § The operator's report): until it ships, assets and `/data/files` still count as `other`
 - **The prose re-read is BUILT and needs a GPU and one file copy** (`32345db`). To run: put
   `queue.csv.gz` (production `/tmp/tq/pages.csv.gz` is its source) on a fleet node — **auto
   mode refuses the scp** — then `route-list` and seed. Owed before ANY load, in `deferred.md`:
@@ -49,8 +51,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   migration (schema-critic first), then the browse on `/parties`
 - **Held by the operator**: `/methodology`'s text-stage section (`848e366`) and the one-day-rest
   sentence (`3b538bc`); a sheet's JSON-LD in Rich Results. Gate's ONLOGON task unregistered
-- Seed wave 2: unresolved spans; pre-2020 roads. Deadline engine (C4): fixture of 8 in
-  `docs/deferred.md`
+- Seed wave 2 (unresolved spans; pre-2020 roads); deadline engine (C4) fixture in deferred.md
 
 ## Parked
 

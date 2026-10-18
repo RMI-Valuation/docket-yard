@@ -241,14 +241,31 @@ def _gap(args: argparse.Namespace) -> int:
     return 0
 
 
+def _positive_int(text: str) -> int:
+    n = int(text)
+    if n < 1:
+        raise argparse.ArgumentTypeError("must be 1 or more")
+    return n
+
+
 def _traffic(args: argparse.Namespace) -> int:
     """The operator's view of the hourly counts; published nowhere."""
     path = Path(args.db).parent / "traffic.sqlite"
     if not path.exists():
         print(f"no counts yet ({path})")
         return 0
+    if args.html:
+        from docketyard.store import traffic_report
+
+        try:
+            out = traffic_report.write(path, args.html, days=args.days)
+        except (OSError, ValueError, sqlite3.Error) as e:
+            print(f"report not written: {e}")
+            return 1
+        print(f"wrote {out} (counts only; served nowhere)")
+        return 0
     print(f"{'route':10s} {'readers':>8s} {'crawlers':>9s} {'MB':>8s} {'5xx':>5s} {'<500ms':>7s}")
-    for route, readers, crawlers, size, errors, fast in traffic.report(path, days=args.days):
+    for route, readers, crawlers, size, errors, fast in traffic.report(path, days=args.days or 1):
         print(f"{route:10s} {readers:8d} {crawlers:9d} {size / 1e6:8.1f} {errors:5d} {fast:6.0f}%")
     return 0
 
@@ -1120,7 +1137,10 @@ def main(argv: list[str] | None = None) -> int:
     gc.set_defaults(func=_gap)
     gp_sub.add_parser("list", help="every recorded gap").set_defaults(func=_gap)
     tr = sub.add_parser("traffic", help="hourly request counts, no identifier (docs/traffic.md)")
-    tr.add_argument("--days", type=int, default=1)
+    tr.add_argument(
+        "--days", type=_positive_int, default=None, help="window (default 1; --html: all)"
+    )
+    tr.add_argument("--html", metavar="PATH", help="write the operator's report to PATH")
     tr.set_defaults(func=_traffic)
 
     vk = sub.add_parser("vault", help="the address-encryption key")

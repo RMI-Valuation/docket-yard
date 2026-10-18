@@ -65,6 +65,42 @@ sent and the poller says so at startup. The digest carries what the table carrie
 by kind of page — and nothing else; it does not change what is kept or published, so the
 signed sentence on `/privacy` stands as written.
 
+## The operator's report (2026-10-13)
+
+`docketyard traffic --html PATH [--days N]` writes one self-contained HTML file from
+`traffic.sqlite` (`store/traffic_report.py`); with no `--days` it covers everything held.
+It is the same counts drawn by day and by UTC hour of the day: daily totals, a small
+multiple per kind of page, the hour-of-day profile over the 30 full days before today (fewer
+when `--days` is smaller), the latency spread per kind,
+errors by day, and the tables behind them. It fetches nothing, reads nothing but the counts
+file, and is **served nowhere**. On the instance, write it under `/data` but never under
+`/data/public` (that directory is published at `/data/files`), copy it down, then delete it:
+
+    docker compose run --rm --entrypoint docketyard backfill --db /data/docketyard.sqlite \
+        traffic --html /data/traffic-report.html
+
+The report says "no crawler mark" where the digest says "readers", because that is all the
+bot flag knows. Measured over production's counts on 2026-10-13, most of that column is
+machines that do not say so: about 100k requests a day in early October, spread evenly
+across all 24 hours, against fewer than a thousand searches in a month. So the report puts the
+page kinds a person reaches by hand (home, search, the trust pages, subscribing, assets) next to
+the record pages, and leaves the reading to the operator rather than estimating a number of
+people. It does not change what is kept or published; the signed sentence stands.
+
+**`static` was never counted until 2026-10-13, and neither were snapshot downloads.** A
+mount rewrites the request scope's `root_path` as it routes, and the middleware read the path
+*after* the response, so `/static/site.css` was classified as `/site.css` and
+`/data/files/<file>` as `/<file>`: both counted as `other`. The path is now read before
+routing, so assets count as `static` and downloads as `data`. Before that date both sit
+inside `other` and cannot be separated out; the `data` series steps up on the day.
+
+The panels and the hour profile count requests answered 2xx **or 3xx**: a 304 is a returning
+browser revalidating its copy, and leaving it out would drop repeat readers first. The
+7-day tiles always compare the 7 full days before today with the 7 before those, whatever
+`--days` is; today is left out of the tiles and the hour profile, because a part day read
+against whole days looks like a fall. The fast-answer share moves by points, not by a
+percent of itself.
+
 ## Retention
 
 Hourly rows are kept **90 days**, then folded to daily rows kept indefinitely (the daily row

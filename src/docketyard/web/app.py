@@ -479,20 +479,22 @@ def create_app(
         caching is safe everywhere else (ADR 0011). HEAD is registered on every GET route
         (below), so nothing here rewrites the method."""
         started = time.monotonic()
+        # read before routing: a mount rewrites the scope's root_path as it routes, and
+        # reading it after counted every asset under /static as `other` (2026-10-13)
+        path = _path(request)
         try:
             response = await _hygiene(request, call_next)
         except BaseException:  # an unhandled error is a 500 to the reader: count it as one
-            _count(request, 500, 0, started)
+            _count(request, path, 500, 0, started)
             raise
         size = 0 if request.method == "HEAD" else response.headers.get("content-length")
-        _count(request, response.status_code, size, started)
+        _count(request, path, response.status_code, size, started)
         return response
 
-    def _count(request: Request, status: int, size, started: float) -> None:
+    def _count(request: Request, path: str, status: int, size, started: float) -> None:
         """The count: kind of page, status class, size, speed, crawler or not — then the
         request is forgotten (docs/traffic.md; the sentence on /privacy). Counting must
         never cost a page."""
-        path = _path(request)
         if path == "/metrics":
             # a scrape is not a page view. Alloy asks once a minute (ADR 0019), which would
             # put ~1,440 synthetic "readers" a day into the weekly operator digest and make
@@ -505,7 +507,7 @@ def create_app(
             return
         try:
             counter.record(
-                _path(request),
+                path,
                 status,
                 int(size or 0),
                 (time.monotonic() - started) * 1000,

@@ -2362,3 +2362,19 @@ The operator accepted the addendum of 2026-09-16 on 2026-10-03. Schema-critic (t
 - **`document_text`'s own `page_no`, `method` and `method_version` are mutable** (only `text` is
   immutable, 0020:48), so the agreement 0034's trigger checks at insert could be broken from the
   text side. Nothing updates them; the guard belongs to `document_text`, not this table.
+
+## Found 2026-10-18, code review medium on the operator's traffic report (unreleased, main after v2026.10.4)
+
+Fixed in the change itself: a lagging clock's IndexError, the empty-window
+header, the fast share in points, the tiles and hour profile on full days only, a sqlite
+error as a traceback, and a test that could not fail. Three left, none worth a change yet:
+
+- **`write` refuses only `<db dir>/public`.** On an editable checkout the report could still
+  be written into the package's `static/`, which is served at `/static`. Production installs
+  the package into the image, so the operator's documented path (`/data/...`) is unaffected.
+- **`render` reads the counts twice** (the window's `daily`, then 14 days again for the
+  tiles). The file is a few MB; one read filtered in memory would do when the window covers
+  the tiles' 14 days.
+- **`traffic.daily()` repeats the hourly + daily UNION** that `report()` and the digest path
+  already write by hand. A change to how a day splits across the two tables must be made in
+  each copy, or the CLI table, the digest and the report disagree on a window.

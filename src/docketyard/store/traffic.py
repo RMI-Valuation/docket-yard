@@ -280,6 +280,46 @@ def report(path: str | Path, days: int = 1, now: datetime | None = None) -> list
         con.close()
 
 
+def daily(path: str | Path, since: str = "") -> list[tuple]:
+    """Every row summed to its day, hourly and daily tables alike: (day, route class,
+    status class, bot, requests, bytes, lt100, lt500, lt2000, ge2000), from the ISO day
+    `since` (all of it when empty). What the operator's HTML report draws from."""
+    con = connect(path)
+    try:
+        return con.execute(
+            """
+            SELECT day, route_class, status_class, bot, SUM(requests), SUM(bytes),
+                   SUM(lt100), SUM(lt500), SUM(lt2000), SUM(ge2000)
+              FROM (SELECT substr(hour, 1, 10) AS day, route_class, status_class, bot,
+                           requests, bytes, lt100, lt500, lt2000, ge2000 FROM traffic_hour
+                    UNION ALL
+                    SELECT day, route_class, status_class, bot, requests, bytes,
+                           lt100, lt500, lt2000, ge2000 FROM traffic_day)
+             WHERE day >= ? GROUP BY 1, 2, 3, 4 ORDER BY 1
+            """,
+            (since,),
+        ).fetchall()
+    finally:
+        con.close()
+
+
+def by_hour_of_day(path: str | Path, since: datetime, until: datetime) -> list[tuple]:
+    """Requests by UTC hour of the day from `since` up to, not including, `until`: (hh,
+    route class, status class, bot, requests). Only the hourly table has an hour, so this
+    reaches back 90 days at most."""
+    con = connect(path)
+    try:
+        return con.execute(
+            """
+            SELECT substr(hour, 12, 2), route_class, status_class, bot, SUM(requests)
+              FROM traffic_hour WHERE hour >= ? AND hour < ? GROUP BY 1, 2, 3, 4 ORDER BY 1
+            """,
+            tuple(t.astimezone(UTC).strftime("%Y-%m-%dT%H") for t in (since, until)),
+        ).fetchall()
+    finally:
+        con.close()
+
+
 DIGEST_DAY = 0  # Monday, UTC
 DIGEST_HOUR = 6  # after the last hourly flush of the week has landed
 DIGEST_GAP_DAYS = 6  # never twice in a week, however many passes run on a Monday
