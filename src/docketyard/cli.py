@@ -152,7 +152,7 @@ def _poll(args: argparse.Namespace) -> int:
     sender = _sender()
     site = os.environ.get("DY_HOST", "docketyard.org")
     if sender is None:
-        print("mail not configured (AWS_* / DY_SES_REGION): email alerts wait; webhooks go")
+        print("mail not configured (AWS_*/DY_SMTP_*/DY_SES_REGION): email alerts wait; webhooks go")
 
     def alerts():
         return build.run_after_pass(con, sender, site)
@@ -184,6 +184,9 @@ def _sender():
     try:
         return mail.Sender.from_env()
     except KeyError:
+        return None
+    except ValueError as e:  # half an SMTP pair: mail off and saying why, the record kept
+        print(f"mail not configured: {e}")
         return None
 
 
@@ -856,7 +859,7 @@ def _serve(args: argparse.Namespace) -> int:
 
     sender = _sender()
     if sender is None:
-        print("mail not configured (AWS_* / DY_SES_REGION): the subscribe form answers 503")
+        print("mail not configured (AWS_*/DY_SMTP_*/DY_SES_REGION): the subscribe form answers 503")
     app = create_app(
         args.db,
         site_host=os.environ.get("DY_HOST", "docketyard.org"),

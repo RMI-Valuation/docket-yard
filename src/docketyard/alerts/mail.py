@@ -108,13 +108,30 @@ class Sender:
 
     @classmethod
     def from_env(cls, env=os.environ) -> "Sender":
+        """SMTP signs with `DY_SMTP_ACCESS_KEY_ID`/`DY_SMTP_SECRET_ACCESS_KEY` when both are
+        set, else with the process's own `AWS_*` pair. Its own pair because SES and the store
+        need not share an identity: `web` reads the bucket with one key, and while a move
+        between accounts waits on SES production access, it sends through the old account's
+        SES with another. Half a pair is refused rather than mixed with `AWS_*`: a key id and
+        a secret from two identities fail the login with a 535 that names neither."""
         # SES lives in its own region; it happens to match the bucket's today, and need not
         region = env.get("DY_SES_REGION") or env.get("AWS_REGION") or env["AWS_DEFAULT_REGION"]
+        key = (env.get("DY_SMTP_ACCESS_KEY_ID") or "").strip()
+        secret = (env.get("DY_SMTP_SECRET_ACCESS_KEY") or "").strip()
+        if bool(key) != bool(secret):
+            raise ValueError(
+                "DY_SMTP_ACCESS_KEY_ID and DY_SMTP_SECRET_ACCESS_KEY: set both, or neither"
+            )
+        if not key:
+            key = (env.get("AWS_ACCESS_KEY_ID") or "").strip()
+            secret = (env.get("AWS_SECRET_ACCESS_KEY") or "").strip()
+            if not (key and secret):  # compose passes an unset key as "": that is no sender
+                raise KeyError("AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY")
         return cls(
             from_address=env.get("DY_MAIL_FROM", "Docket Yard <alerts@docketyard.org>"),
             region=region,
-            username=env["AWS_ACCESS_KEY_ID"],
-            password=smtp_password(env["AWS_SECRET_ACCESS_KEY"], region),
+            username=key,
+            password=smtp_password(secret, region),
             configuration_set=env.get("DY_SES_CONFIGURATION_SET") or None,
         )
 

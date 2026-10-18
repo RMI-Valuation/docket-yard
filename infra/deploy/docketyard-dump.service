@@ -13,6 +13,8 @@ WorkingDirectory=/srv/docketyard
 # SQLite puts it in /tmp — which inside `web` is a tmpfs under the 768 MB limit. Point it
 # at the volume (ocr-migration.md item 17). Created writable by the image's uid every run.
 ExecStartPre=/usr/bin/install -d -o 1000 -g 1000 /srv/docketyard/data/tmp
-ExecStart=/usr/bin/docker compose run --rm --no-deps -e DY_EMAIL_KEY= -e AWS_ACCESS_KEY_ID= -e AWS_SECRET_ACCESS_KEY= -e SQLITE_TMPDIR=/data/tmp web dump --out /data/public
+# Every credential `web` carries is blanked: the dump reads the store and writes files, and
+# needs no key, no address vault and no mail identity (the SMTP pair since v2026.10.5).
+ExecStart=/usr/bin/docker compose run --rm --no-deps -e DY_EMAIL_KEY= -e AWS_ACCESS_KEY_ID= -e AWS_SECRET_ACCESS_KEY= -e DY_SMTP_ACCESS_KEY_ID= -e DY_SMTP_SECRET_ACCESS_KEY= -e SQLITE_TMPDIR=/data/tmp web dump --out /data/public
 # `-`: a gauge that cannot be written must never fail the unit it reports on
 ExecStartPost=-/srv/docketyard/unit_outcome.sh %p 0
