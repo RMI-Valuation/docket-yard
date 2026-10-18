@@ -511,15 +511,25 @@ with it, which is what D4's per-pin count is for.
   sync s3://$DY_S3_BUCKET/blobs data/blobs`.
 - **A dev copy of production**: the same restore to a workstation, under the `docket-yard`
   profile and never a default one (`docs/runbook.md` § Blobs). The SSO session's short-lived
-  credentials are handed to the container, which has no profile of its own:
+  credentials are handed to the container, which has no profile of its own. **Use a config
+  that names the region, not an `s3://` URL:** given a URL, Litestream 0.3 first asks the
+  bucket for its region (`s3:GetBucketLocation`), which the profile is refused (2026-10-18).
+  Run `aws sts get-caller-identity --profile docket-yard` first; sign in only if it fails.
 
   ```sh
-  aws sso login --profile docket-yard
+  cat > restore.yml <<'EOF'
+  dbs:
+    - path: /out/docketyard.sqlite
+      replicas:
+        - {type: s3, bucket: <bucket>, path: litestream/docketyard.sqlite, region: us-east-2}
+  EOF
   eval "$(aws configure export-credentials --profile docket-yard --format env)"
   docker run --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
-    -v "$PWD/data:/data" litestream/litestream:0.3 \
-    restore -o /data/<name>.sqlite s3://<bucket>/litestream/docketyard.sqlite
+    -v "$PWD/data/restore:/out" -v "$PWD/restore.yml:/etc/litestream.yml:ro" \
+    litestream/litestream:0.3 restore -config /etc/litestream.yml /out/docketyard.sqlite
   ```
+
+  Measured 2026-10-18: 6.56 GB in 146 s; `quick_check` ok in 14 s.
 
   Rehearse a migration in production's image against the copy (a restore read through a bind
   mount is slow; copy it into a Docker volume first). Blobs are fetched by hash on demand —
