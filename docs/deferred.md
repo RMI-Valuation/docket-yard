@@ -2378,3 +2378,20 @@ error as a traceback, and a test that could not fail. Three left, none worth a c
 - **`traffic.daily()` repeats the hourly + daily UNION** that `report()` and the digest path
   already write by hand. A change to how a day splits across the two tables must be made in
   each copy, or the CLI table, the digest and the report disagree on a window.
+
+## Found 2026-10-18, code review medium on SMTP's own credentials (v2026.10.5, PR #46)
+
+- **One SES region serves every SMTP identity.** `DY_SES_REGION` reaches `web` and `ingest`
+  through the same compose anchor, but since v2026.10.5 the two can sign as identities in
+  different accounts, whose SES could be in different regions; one would derive its password
+  for the wrong region and fail every login with a 535. Not live: both accounts' SES are in the
+  same region. A per-pair region (`DY_WEB_SES_REGION`) is the change if that ever differs.
+- **The dump unit's credential list is opt-out.** `docketyard-dump.service` runs the dump as
+  `web` and blanks each credential `web` carries by name; v2026.10.5 had to add the SMTP pair. The next credential added to `web` reaches a process that needs none unless someone
+  remembers the line. A `dump` service of its own that carries only the store settings would
+  make credentials opt-in.
+- **Bootstrap gaps found building a host from `infra/deploy/README.md` (2026-10-18):** it never
+  creates `data/blobs`, which `web` needs to cache a fetched document; its copy list does not
+  name `adhoc_watch.sh`, and a host deployed without it fails the adhoc unit every five minutes
+  (exit 203); and `caddy:2-alpine` and `litestream:0.3` float, so a fresh pull can bring a
+  different build than the running host has. Pin both by digest in `compose.yaml`.

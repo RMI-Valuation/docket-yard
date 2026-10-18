@@ -33,9 +33,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **Account move decided 2026-10-18: own AWS account, Lightsail, no code change.** Ours first:
-  the profile ack after the next restore under `docket-yard`; `traffic.sqlite` into Litestream;
-  open: the cutover wall (full, or `web`'s write paths) and the weekend; S3 LIST cost (~$4/mo)
+- **The account move: new host BUILT and rehearsed, cutover next** (full wall, US daytime). It
+  runs v2026.10.5 (SMTP's own pair: the mail bridge); the old host stays v2026.10.4. After it:
+  `traffic.sqlite` into Litestream; S3 LIST cost (~$4/mo); the bootstrap gaps in `deferred.md`
 - **Traffic report + `static`-count fix on main, unreleased** (2026-10-13; `docs/traffic.md`
   § The operator's report): until it ships, assets and `/data/files` still count as `other`
 - **The prose re-read is BUILT and needs a GPU and one file copy** (`32345db`). To run: put
