@@ -18,6 +18,11 @@ x-mail: &mail
   AWS_REGION: ${AWS_REGION}
   AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
   AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  # SMTP's own pair, when it is not the process's AWS_* pair (alerts/mail.py: Sender.from_env).
+  # Empty, mail signs with AWS_* as it always has. `web` overrides these below with its own,
+  # so the public-facing process never holds the instance's SMTP identity.
+  DY_SMTP_ACCESS_KEY_ID: ${DY_SMTP_ACCESS_KEY_ID:-}
+  DY_SMTP_SECRET_ACCESS_KEY: ${DY_SMTP_SECRET_ACCESS_KEY:-}
 
 services:
   migrate:
@@ -51,11 +56,15 @@ services:
       # so `web` still refuses to start — but it now does so as a crash-loop under
       # `restart: unless-stopped` rather than as a clean `compose up` abort, and the
       # healthcheck is what shows it. With the bucket itself blank, nothing checks these at
-      # all: `web` starts, every pruned document 503s, and the SES pair these two also serve
-      # is reported by `_sender`'s own "mail not configured" line and a 503 from the subscribe
-      # form. That is a worse failure than an abort and a better one than stopping the record.
+      # all: `web` starts, every pruned document 503s, and — unless DY_WEB_SMTP_* below gives
+      # mail its own pair — the SES identity these two also serve is reported by `_sender`'s
+      # "mail not configured" line and a 503 from the subscribe form. That is a worse failure
+      # than an abort and a better one than stopping the record.
       AWS_ACCESS_KEY_ID: ${DY_WEB_AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${DY_WEB_AWS_SECRET_ACCESS_KEY:-}
+      # web's own SMTP pair, if not its AWS_* pair; never the instance's (the anchor's) pair
+      DY_SMTP_ACCESS_KEY_ID: ${DY_WEB_SMTP_ACCESS_KEY_ID:-}
+      DY_SMTP_SECRET_ACCESS_KEY: ${DY_WEB_SMTP_SECRET_ACCESS_KEY:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

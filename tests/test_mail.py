@@ -32,6 +32,60 @@ def test_ses_region_is_its_own_setting():
     assert other.password != mail.Sender.from_env(ENV).password  # derived per region
 
 
+def test_smtp_signs_with_its_own_pair_when_one_is_set():
+    """v2026.10.5: `web` reads the bucket with one key and may send through another account's
+    SES with another, so SMTP has its own pair. Set, it wins; empty, AWS_* as before; half
+    of one is refused, never mixed with the other identity (a 535 that names neither)."""
+    own = mail.Sender.from_env(
+        {**ENV, "DY_SMTP_ACCESS_KEY_ID": "AKIASMTP", "DY_SMTP_SECRET_ACCESS_KEY": "smtp-secret"}
+    )
+    assert own.username == "AKIASMTP"
+    assert own.password == mail.smtp_password("smtp-secret", "us-east-2")
+    default = mail.Sender.from_env(ENV)
+    assert default.username == "AKIAEXAMPLE"
+    assert default.password == mail.smtp_password("secret", "us-east-2")
+    empty = {**ENV, "DY_SMTP_ACCESS_KEY_ID": "", "DY_SMTP_SECRET_ACCESS_KEY": ""}
+    assert mail.Sender.from_env(empty).username == "AKIAEXAMPLE"  # compose passes empties
+    for half in ({"DY_SMTP_ACCESS_KEY_ID": "AKIASMTP"}, {"DY_SMTP_SECRET_ACCESS_KEY": "s"}):
+        with pytest.raises(ValueError, match="set both"):
+            mail.Sender.from_env({**ENV, **half})
+    # the store's pair is not needed when SMTP has its own
+    alone = {
+        "AWS_REGION": "us-east-2",
+        "DY_SMTP_ACCESS_KEY_ID": "K",
+        "DY_SMTP_SECRET_ACCESS_KEY": "S",
+    }
+    assert mail.Sender.from_env(alone).username == "K"
+    # code review: a blank is unset on both pairs — compose passes an unset key as "", and a
+    # stray space in a hand-edited .env must not count as half a pair, or as a whole one
+    assert mail.Sender.from_env({**ENV, "DY_SMTP_ACCESS_KEY_ID": " "}).username == "AKIAEXAMPLE"
+    for blank in ({"AWS_ACCESS_KEY_ID": ""}, {"AWS_SECRET_ACCESS_KEY": " "}):
+        with pytest.raises(KeyError):
+            mail.Sender.from_env({**ENV, **blank})
+
+
+def test_half_an_smtp_pair_turns_mail_off_and_keeps_the_record(monkeypatch, capsys):
+    """The poller builds its sender with cli._sender: a half pair must not crash it, or a
+    mail setting would stop the record being kept (compose.yaml's own rule). The vault is
+    left alone: this is about the sender, and the test's vault is conftest's."""
+    from docketyard import cli
+
+    monkeypatch.setattr(cli.vault, "configure", lambda v: None)
+    monkeypatch.setattr(cli.vault, "is_open", lambda: True)
+    for k in (
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "DY_SMTP_SECRET_ACCESS_KEY",
+        "DY_SES_REGION",
+        "AWS_DEFAULT_REGION",
+    ):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("AWS_REGION", "us-east-2")
+    monkeypatch.setenv("DY_SMTP_ACCESS_KEY_ID", "AKIASMTP")
+    assert cli._sender() is None
+    assert "mail not configured: DY_SMTP_ACCESS_KEY_ID" in capsys.readouterr().out
+
+
 def test_message_headers():
     sender = mail.Sender.from_env(ENV)
     msg = sender.build(
