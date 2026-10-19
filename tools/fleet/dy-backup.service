@@ -27,10 +27,14 @@ ExecStartPre=/usr/bin/mkdir -p %h/docketyard/.backup-work
 # backup that does not happen, so this file is copied to ~/dy-tools/ on its own. It imports
 # nothing from the project — standard library plus boto3 — so nothing couples the two.
 # Updating it is `scp tools/fleet/backup.py <the coordinator>:~/dy-tools/`.
+# The bucket is configuration, not code: `%h/docketyard/backup.env` holds one line,
+# `DY_BACKUP_BUCKET=<bucket>`, written on the coordinator and in no repository. Without it the
+# unit fails at start, loudly, rather than writing anywhere by default.
+EnvironmentFile=%h/docketyard/backup.env
 ExecStart=/usr/bin/python3 %h/dy-tools/backup.py \
     --data %h/docketyard \
     --tmp %h/docketyard/.backup-work \
-    --bucket rmi-fleet-backups \
+    --bucket ${DY_BACKUP_BUCKET} \
     --prefix docket-yard/ \
     --profile fleet-backup
 # the work directory is emptied whether the run succeeded or not, so a failed night cannot

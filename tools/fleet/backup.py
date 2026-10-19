@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Put the coordinator's derived work somewhere that is not the coordinator.
 
-    python3 backup.py --data /data/docketyard --bucket rmi-fleet-backups \\
+    python3 backup.py --data /data/docketyard --bucket <the backup bucket> \\
         --profile fleet-backup --prefix docket-yard/
 
 WHAT IS COPIED: **everything derived, and nothing cached.** Every directory under `ocr/` except

@@ -246,7 +246,8 @@ rm "$OCR/.stop-<pass>"; bash ~/docket-yard/tools/fleet/fleet-up.sh <role>
   v2026.10.4), `ocr_run.py`, and the tools in `tools/rmi-ai-machine/`. A worker copied without
   them fails at startup with an import error. The one deliberate exception is
   `tools/fleet/backup.py`, copied to `~/dy-tools/` on the coordinator; it imports nothing from
-  the fleet.
+  the fleet. Its unit, `dy-backup.service`, takes the bucket from `~/docketyard/backup.env`
+  (one line, `DY_BACKUP_BUCKET=<bucket>`, in no repository) and fails at start without it.
 - **The same commit everywhere**, because the coordinator's queue server and the readers speak
   one protocol and one queue schema. A reader ahead of or behind its coordinator is not a
   supported state.

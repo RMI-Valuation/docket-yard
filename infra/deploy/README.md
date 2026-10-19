@@ -79,10 +79,19 @@ is an instance and not the container service.
    # so a first `up` would otherwise leave the stage unable to write with a permission
    # error rather than a reason (ADR 0024; security review 2026-09-10)
    mkdir -p /srv/docketyard/data/extract/spool /srv/docketyard/data/extract/requests
-   # copy compose.yaml, Caddyfile, litestream.yml, the two systemd units, and .env
-   # (from docketyard.env.example) into /srv/docketyard, AND the `infra/extract/`
-   # directory as /srv/docketyard/extract — it is the parser's build context (ADR 0024),
-   # the one service built on the box rather than pulled
+   # and the blob cache, the flag and gauge directories: `web` caches a fetched document
+   # under data/blobs and cannot without it — a box built on 2026-10-18 had none, because an
+   # old box only ever had it from use — and the units write their gauges to data/metrics
+   mkdir -p /srv/docketyard/data/blobs /srv/docketyard/data/flags /srv/docketyard/data/metrics
+   # copy EVERY file in infra/deploy/ except README.md into /srv/docketyard — compose.yaml,
+   # Caddyfile, litestream.yml, config.alloy, maintenance.html, all the docketyard-*.service
+   # and *.timer units, unit_outcome.sh, adhoc_watch.sh, prune_blobs.py, user-slice-limits.conf
+   # and sshd-clientalive.conf — and .env (from docketyard.env.example). A box built without
+   # adhoc_watch.sh fails the adhoc unit every five minutes with exit 203 (found 2026-10-18).
+   # `git archive <tag> infra/deploy infra/extract` copies only what the tag holds. AND the
+   # `infra/extract/` directory as /srv/docketyard/extract — it is the parser's build context
+   # (ADR 0024), the one service built on the box rather than pulled
+   chmod +x /srv/docketyard/unit_outcome.sh /srv/docketyard/adhoc_watch.sh /srv/docketyard/prune_blobs.py
    sudo chown -R 1000:1000 /srv/docketyard/data     # the image's uid, and the parser's
    sudo cp /srv/docketyard/docketyard-blobs.* /etc/systemd/system/
    sudo systemctl enable --now docketyard-blobs.timer

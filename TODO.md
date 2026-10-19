@@ -33,9 +33,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **The account move: new host BUILT and rehearsed, cutover next** (full wall, US daytime). It
-  runs v2026.10.5 (SMTP's own pair: the mail bridge); the old host stays v2026.10.4. After it:
-  `traffic.sqlite` into Litestream; S3 LIST cost (~$4/mo); the bootstrap gaps in `deferred.md`
+- **The account move is DONE (2026-10-18, 37-min gap); the old host is deleted.** Mail runs
+  through the bridge until the new account's SES production access, then four `.env` lines
+  end it. Owed: the first subscriber alert seen sent; `traffic.sqlite` into Litestream; S3 LIST cost
 - **Traffic report + `static`-count fix on main, unreleased** (2026-10-13; `docs/traffic.md`
   § The operator's report): until it ships, assets and `/data/files` still count as `other`
 - **The prose re-read is BUILT and needs a GPU and one file copy** (`32345db`). To run: put

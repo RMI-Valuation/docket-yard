@@ -2390,8 +2390,3 @@ error as a traceback, and a test that could not fail. Three left, none worth a c
   `web` and blanks each credential `web` carries by name; v2026.10.5 had to add the SMTP pair. The next credential added to `web` reaches a process that needs none unless someone
   remembers the line. A `dump` service of its own that carries only the store settings would
   make credentials opt-in.
-- **Bootstrap gaps found building a host from `infra/deploy/README.md` (2026-10-18):** it never
-  creates `data/blobs`, which `web` needs to cache a fetched document; its copy list does not
-  name `adhoc_watch.sh`, and a host deployed without it fails the adhoc unit every five minutes
-  (exit 203); and `caddy:2-alpine` and `litestream:0.3` float, so a fresh pull can bring a
-  different build than the running host has. Pin both by digest in `compose.yaml`.

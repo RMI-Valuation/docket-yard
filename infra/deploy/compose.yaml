@@ -158,7 +158,9 @@ services:
 
   litestream:
     # continuous replication of the SQLite store to S3: the backup and the prod-to-dev path
-    image: litestream/litestream:0.3
+    # pinned by DIGEST, the tag kept for the reader: `0.3` floats, and a fresh pull on a new
+    # host brought a different build than the running one (the 2026-10-18 move)
+    image: litestream/litestream:0.3@sha256:c5a1e1b01916b3a110f6600820ef176d048d9b9c2411ef0a680de0caa68934a5
     command: ["replicate", "-config", "/etc/litestream.yml"]
     user: "1000:1000"  # the app's uid: a root-owned -wal/-shm would lock the app out
     volumes:
@@ -182,7 +184,7 @@ services:
     #   docker compose --profile metrics up -d alloy
     # pinned like every other service here: this is the thing that watches the box, and a
     # pull-based deploy taking a config-breaking major would leave it crash-looping quietly
-    image: grafana/alloy:v1.10.0
+    image: grafana/alloy:v1.10.0@sha256:1bc130e909116a4bf950eb5187a346007d3b796f96832b529acb14a64e41230f
     # --storage.path or the remote_write WAL lands in the container layer and every recreate
     # silently drops whatever it had buffered — which is exactly the metrics from an incident
     command:
@@ -208,7 +210,9 @@ services:
     mem_limit: 256m
 
   caddy:
-    image: caddy:2-alpine
+    # by digest: `2-alpine` floats, and on 2026-10-18 a fresh pull brought 2.11.7 where the
+    # running host had 2.11.6. A proxy upgrade is a change of its own, never a pull's side effect
+    image: caddy:2-alpine@sha256:881bbc60f9986d5ab8e7cfd6cf7e4ef3c9c0439fef2429d035d065577882f028
     ports: ["80:80", "443:443"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
