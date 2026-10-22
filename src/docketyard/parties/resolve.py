@@ -494,10 +494,16 @@ def components_of_filings(
 
 
 def dockets_filed_in(con: Connection, members: list[int]) -> list[dict]:
-    """The dockets a component filed in, folded to the family (ADR 0005): number, caption
-    as the Board prints it, distinct filings, and the last filing date quoted from the
-    record. Most recent activity first. Shared by the party page and /parties."""
+    """The dockets a component filed in, folded to the family (ADR 0005) except where a
+    sub-docket is a proceeding in its own right (AB; `subscriptions.follow_target`, whose
+    rule this is): number, caption as the Board prints it, distinct filings, and the last
+    filing date quoted from the record. Most recent activity first. Shared by the party
+    page and /parties."""
+    from docketyard.alerts.subscriptions import OWN_PROCEEDING_PREFIXES
+
     marks = ",".join("?" for _ in members)
+    own = sorted(OWN_PROCEEDING_PREFIXES)
+    own_marks = ",".join("?" for _ in own)
     rows = con.execute(
         f"""
         SELECT d.docket_id, d.raw_docket, d.latest_payload,
@@ -507,11 +513,12 @@ def dockets_filed_in(con: Connection, members: list[int]) -> list[dict]:
                AND s.role = 'filed_for'
           JOIN filing f ON f.filing_pk = s.filing_pk AND f.filed_for_raw = s.raw_text
           JOIN docket_current d ON d.docket_id = COALESCE(
-               (SELECT parent_docket_id FROM docket WHERE docket_id = f.docket_id), f.docket_id)
+               (SELECT parent_docket_id FROM docket WHERE docket_id = f.docket_id
+                   AND prefix NOT IN ({own_marks})), f.docket_id)
          WHERE l.superseded_by IS NULL AND l.party_id IN ({marks})
          GROUP BY d.docket_id ORDER BY 5 DESC, 4 DESC, d.raw_docket
         """,
-        members,
+        own + members,
     ).fetchall()
     return [
         {

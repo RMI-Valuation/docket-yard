@@ -36,8 +36,8 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **The account move is DONE (2026-10-18, 37-min gap); the old host is deleted.** Mail runs
   through the bridge until the new account's SES production access, then four `.env` lines
   end it. Owed: the first subscriber alert seen sent; `traffic.sqlite` into Litestream; S3 LIST cost
-- **Traffic report + `static`-count fix on main, unreleased** (2026-10-13; `docs/traffic.md`
-  § The operator's report): until it ships, assets and `/data/files` still count as `other`
+- **On main, unreleased:** the traffic report + `static`-count fix (2026-10-13; assets count as
+  `other` until it ships); party pages list AB sub-dockets as themselves (2026-10-22)
 - **The prose re-read is BUILT and needs a GPU and one file copy** (`32345db`). To run: put
   `queue.csv.gz` (production `/tmp/tq/pages.csv.gz` is its source) on a fleet node — **auto
   mode refuses the scp** — then `route-list` and seed. Owed before ANY load, in `deferred.md`:

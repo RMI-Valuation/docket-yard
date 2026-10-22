@@ -243,3 +243,56 @@ def test_a_party_letter_has_one_address_and_no_others(tmp_path):
     assert r.status_code == 301 and r.headers["location"] == f"/parties/{live}"
     assert client.get("/parties/9").status_code == 404  # no parties file under it
     assert client.get("/parties/ZZ").status_code == 404
+
+
+def test_an_ab_sub_docket_is_listed_as_itself_on_the_party_page(tmp_path):
+    """For AB a Sub-No. is the proceeding (each line a carrier abandons), so a party page
+    lists the sub-docket, not the carrier's whole series (subscriptions.follow_target's
+    rule); FD keeps folding to the family, which the test above holds."""
+    from docketyard.capture import records
+    from docketyard.capture.stb import DOCKETS, FILINGS
+    from docketyard.ingest import dockets, observations
+    from tests.test_dockets_parse import make_body
+    from tests.test_observations import body_of, filing_row
+
+    path = build_store(tmp_path)
+    con = db.connect(path)
+
+    def save(body, action):
+        cid = records.save_capture(
+            con,
+            tmp_path,
+            source_system="stb-ajax",
+            endpoint="test",
+            table_action=action,
+            request_params=[],
+            body=body,
+            http_status=200,
+            ingest_mode="forward",
+        )
+        records.set_verdict(con, cid, filter_asserted=True, row_count=0, reported_total=0)
+        return cid
+
+    dockets.ingest_capture(
+        con,
+        tmp_path,
+        save(make_body([("AB_55_794", "CSX ABANDONMENT IN ERIE COUNTY")], total=1), DOCKETS),
+    )
+    observations.ingest_capture(
+        con,
+        tmp_path,
+        save(
+            body_of(
+                filing_row(docket="AB_55_794", fid="320001", date="9/2/2026", filed_for="NRDC"),
+                1,
+            ),
+            FILINGS,
+        ),
+    )
+    resolve.run(con, log=lambda _: 0)
+    nrdc = con.execute("SELECT party_id FROM party WHERE founding_key = 'nrdc'").fetchone()[0]
+    con.close()
+    r = TestClient(create_app(path)).get(f"/p/{nrdc}")
+    assert 'href="/d/AB-55/sub/794"' in r.text and "CSX ABANDONMENT IN ERIE COUNTY" in r.text
+    assert 'href="/d/AB-55"' not in r.text  # not folded into the series
+    assert r.text.count('href="/d/FD-36873"') == 1  # FD still folds

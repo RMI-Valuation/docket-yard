@@ -1626,7 +1626,8 @@ All three fixed 2026-09-18 (`6f9b44a`), except the half below that was always th
 ### Capability-scale — chosen from the menu, not fixed in passing
 
 - **No filings by filer and date** (practitioner I1, partly — MCP search does return parties):
-  `/p/<id>` folds sub-dockets into a family row with no date filter and has no JSON. F3.
+  `/p/<id>` folds sub-dockets into a family row (except AB, since 2026-10-22) with no date
+  filter and has no JSON. F3.
 - **Search has no filters, operators, recency, paging or totals** (practitioner I4, researcher
   I4, assistant I5; confirmed). F4, Ripe #2.
 - **Aggregates by prefix and year** (researcher I3, confirmed) — PR #38's `count_filings` is the
