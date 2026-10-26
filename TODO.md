@@ -36,7 +36,9 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **The account move is DONE (2026-10-18, 37-min gap); the old host is deleted.** Mail runs
   through the bridge until the new account's SES production access, then four `.env` lines
   end it. Alerts through the bridge VERIFIED 2026-10-26 (22 sent since 10-18, 0 failed);
-  `traffic.sqlite` in Litestream since 2026-10-26, restore proved. Owed: S3 LIST cost
+  `traffic.sqlite` in Litestream since 2026-10-26, restore proved. S3 LIST cost ESTIMATED
+  ~$4/mo (276k blobs; sync + prune each list all of `blobs/` every 30 min); Cost Explorer
+  is denied to `docket-yard` — a measured bill needs an amended request
 - **The prose re-read is BUILT and needs a GPU and one file copy** (`32345db`). To run: put
   `queue.csv.gz` (production `/tmp/tq/pages.csv.gz` is its source) on a fleet node — **auto
   mode refuses the scp** — then `route-list` and seed. Owed before ANY load, in `deferred.md`:
