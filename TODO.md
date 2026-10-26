@@ -10,7 +10,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 - **Every decision waiting on him is listed in `docs/deferred.md` § Waiting on the operator**
   (64, gathered 2026-10-03); an answer moves an item here or closes it there.
-- **v2026.10.4 LIVE** (schema 34; decided dates quoted, 16,427 lines, held). The fleet runs `3629aa8` (coordinator moved forward
+- **v2026.10.6 LIVE** (2026-10-26, schema 34; first deploy on the new host). The fleet runs `3629aa8` (coordinator moved forward
   2026-09-20; nothing it executes changed). dots 46,838/134
 - **The citator is loaded** (rank v7, finder 2026-09-14b, since v2026.09.24): 26,205 rows,
   22,547 edges, none shown; exposed 428. **The review page, for a person** — docket, sub-docket and document in one look,
@@ -36,8 +36,6 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **The account move is DONE (2026-10-18, 37-min gap); the old host is deleted.** Mail runs
   through the bridge until the new account's SES production access, then four `.env` lines
   end it. Owed: the first subscriber alert seen sent; `traffic.sqlite` into Litestream; S3 LIST cost
-- **On main, unreleased:** the traffic report + `static`-count fix (2026-10-13; assets count as
-  `other` until it ships); party pages list AB sub-dockets as themselves (2026-10-22)
 - **The prose re-read is BUILT and needs a GPU and one file copy** (`32345db`). To run: put
   `queue.csv.gz` (production `/tmp/tq/pages.csv.gz` is its source) on a fleet node — **auto
   mode refuses the scp** — then `route-list` and seed. Owed before ANY load, in `deferred.md`:
