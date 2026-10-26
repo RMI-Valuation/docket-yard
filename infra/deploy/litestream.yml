@@ -9,3 +9,14 @@ dbs:
         retention: 168h
         snapshot-interval: 24h
         sync-interval: 10s
+  # the hourly counts (docs/traffic.md), kept beside the store and never in it: a lost box
+  # lost them until 2026-10-26. Written once an hour, so the interval only bounds the loss
+  - path: /data/traffic.sqlite
+    replicas:
+      - type: s3
+        bucket: ${DY_S3_BUCKET}
+        path: litestream/traffic.sqlite
+        region: ${AWS_REGION}
+        retention: 168h
+        snapshot-interval: 24h
+        sync-interval: 60s

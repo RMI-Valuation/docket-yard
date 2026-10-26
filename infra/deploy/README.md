@@ -516,8 +516,10 @@ with it, which is what D4's per-pin count is for.
   fetch its local-only tag and fails the whole deploy.
   Roll back by setting the previous tag. Releases are the production ledger (ADR 0010).
 - **Restore the store** on a fresh box, under the box's own `.env` keys: `litestream restore
-  -o data/docketyard.sqlite s3://$DY_S3_BUCKET/litestream/docketyard.sqlite`, then `aws s3
-  sync s3://$DY_S3_BUCKET/blobs data/blobs`.
+  -o data/docketyard.sqlite s3://$DY_S3_BUCKET/litestream/docketyard.sqlite`, the traffic
+  counts the same way from `litestream/traffic.sqlite` to `data/traffic.sqlite` (replicated
+  since 2026-10-26; a box lost before then lost them), then `aws s3 sync
+  s3://$DY_S3_BUCKET/blobs data/blobs`.
 - **A dev copy of production**: the same restore to a workstation, under the `docket-yard`
   profile and never a default one (`docs/runbook.md` § Blobs). The SSO session's short-lived
   credentials are handed to the container, which has no profile of its own. **Use a config

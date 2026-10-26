@@ -106,6 +106,10 @@ percent of itself.
 Hourly rows are kept **90 days**, then folded to daily rows kept indefinitely (the daily row
 has the same columns; it is a sum, not a sample). Both numbers are stated on `/privacy`.
 
+The file is replicated by Litestream to the store's bucket (`litestream/traffic.sqlite`,
+since 2026-10-26), with the store's 168-hour retention: an hourly row folded away on the box
+can outlive the fold in the replica by up to seven days. It carries nothing the box does not.
+
 ## The privacy sentence (for the operator to sign)
 
 Proposed, to be added under "Reading is anonymous", after the access-log bullet:
