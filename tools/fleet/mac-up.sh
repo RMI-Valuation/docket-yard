@@ -9,9 +9,12 @@
 #   tail -f ~/docketyard/logs/alloy.log ~/docketyard/logs/ollama.log
 #
 # DY_FLEET_DATA is the data root (default ~/docketyard); `<root>/alloy.env` holds the Grafana
-# credentials and FLEET_HOST. Ollama listens on the LAN (OLLAMA_HOST=0.0.0.0) as vLLM does on
-# the GPU boxes; the LAN is the operator's. Models are pulled when a pass needs one — an engine
-# with no model is the point of "ready".
+# credentials and FLEET_HOST. Ollama listens on LOOPBACK ONLY (OLLAMA_HOST=127.0.0.1): on
+# 0.0.0.0 it answered anyone on the LAN with no authentication, pull and delete included
+# (the operator's change, 2026-11-11). This project's own calls are local; anything off the
+# Mac reaches it through the operator's relay, never around it — so do not widen the bind
+# here; ask the operator. Models are pulled when a pass needs one — an engine with no model
+# is the point of "ready".
 
 set -eu
 DATA=${DY_FLEET_DATA:-$HOME/docketyard}
@@ -49,7 +52,7 @@ exec "$BIN/alloy" run --storage.path="$DATA/alloy" "$HOME/docket-yard/tools/flee
 EOF
 cat > "$BIN/run-ollama.sh" <<EOF
 #!/bin/sh
-export OLLAMA_HOST=0.0.0.0:11434 OLLAMA_MODELS="$DATA/models"
+export OLLAMA_HOST=127.0.0.1:11434 OLLAMA_MODELS="$DATA/models"
 exec "$OLLAMA" serve
 EOF
 chmod +x "$BIN/run-alloy.sh" "$BIN/run-ollama.sh"
