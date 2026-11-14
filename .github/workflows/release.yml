@@ -12,6 +12,9 @@ permissions:
 
 jobs:
   image:
+    # one image, one repository: a copy of this file elsewhere (a fork, a mirror) must not
+    # try to publish under the project's image name
+    if: github.repository == 'RMI-Valuation/docket-yard'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

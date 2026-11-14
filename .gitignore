@@ -38,3 +38,8 @@ data/ocr/runs/
 .docketyard
 .docketyard/
 *.token
+
+# per-clone agent and editor configuration: local to a checkout, never part of the record
+CLAUDE.local.md
+.mcp.json
+.claude/settings.local.json
