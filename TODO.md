@@ -20,15 +20,14 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   2026-09-20 — a miss fetches and hash-verifies, a hit serves from disk, a sha in no store
   **404 not 503**. Owed in `deferred.md`: the worker branches have no test, the corrupt-store
   alarm reaches nobody, `pull_blobs.py` still compares size not sha
-- **THE TABULAR PASS IS HELD since 2026-09-20; his, 2026-11-25: the infrastructure has changed
-  since it last ran** — work out what it needs adjusting first, and that waits on the fleet project
-  moving into Orca. Where it stopped: job 40 exited 5 on the breaker, 25 pages in a row of
-  `d3d06d3de4f2` looped, and that document is first in claim order (62 pages pending). 18,775
-  done, 5,134 pending (578 docs), 2,385 failed (1,586 loops, 798 blob-missing). `finish_reason
-  length` is the MODEL LOOPING (measured 2026-09-20, `deferred.md`): **do not raise
-  `max_new_tokens`**; the loop decisions (page's fault? publish a good prefix?) and a cheap
-  repetition guard come with the restart. **The 2,578 collected readings load with the pass**,
-  under its rule (his, 2026-11-25). Key unchanged; do NOT raise the render mid-pass
+- **THE TABULAR PASS IS HELD since 2026-09-20; the infrastructure has changed since** (his,
+  2026-11-25). Before readers run: per-host queue tokens logged with each reading (his
+  ruling); the coordinator's Alloy back (fleet alerts are blind); a resubmit timer; one commit
+  everywhere; a RAM peak on the first run; the loop decisions (page's fault? publish a good
+  prefix?) and a repetition guard. It stopped on job 40's breaker: `d3d06d3de4f2` looped 25
+  pages and is first in claim order. 18,775 done, 5,134 pending, 2,385 failed (1,586 loops).
+  Loops are the MODEL (`deferred.md`, 2026-09-20): **do not raise `max_new_tokens`**. The
+  2,578 collected readings load with the pass (his). Key unchanged; never raise the render
 
 ## Next
 
