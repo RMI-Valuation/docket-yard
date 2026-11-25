@@ -31,12 +31,10 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 
 ## Next
 
-- **The account move is DONE (2026-10-18, 37-min gap); the old host is deleted.** Mail runs
-  through the bridge until the new account's SES production access, then four `.env` lines
-  end it. Alerts through the bridge VERIFIED 2026-10-26 (22 sent since 10-18, 0 failed);
-  `traffic.sqlite` in Litestream since 2026-10-26, restore proved. S3 LIST cost ESTIMATED
-  ~$4/mo (276k blobs; sync + prune each list all of `blobs/` every 30 min); Cost Explorer
-  is denied to `docket-yard` — a measured bill needs an amended request
+- **The account move is DONE (2026-10-18); the old host is deleted.** Mail runs through the
+  bridge until the new account's SES production access, then four `.env` lines end it (alerts
+  through it verified 2026-10-26). S3 LIST cost ESTIMATED ~$4/mo; a measured bill needs an
+  amended request (Cost Explorer is denied to `docket-yard`)
 - **The prose re-read is BUILT and HELD** (`32345db`; his, 2026-11-25). To run: put
   `queue.csv.gz` (production `/tmp/tq/pages.csv.gz` is its source) on a fleet node — **auto
   mode refuses the scp** — then `route-list` and seed. Owed before ANY load, in `deferred.md`:
@@ -57,3 +55,5 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
 - **Party types, parked 2026-11-25 (his)**: the held-out sheet (`docs/research/party-types/
   held-out/`) went to him 2026-09-10; on its return, score `party_types_rules.py --sheet` at
   95% per type, the assertion migration (schema-critic first), then the browse on `/parties`
+- **Production's alerting moves on-prem, eventually** (his, 2026-11-25; the fleet's already has).
+  The 14 rules stay in Grafana Cloud until then; it moves ADR 0019's detection, so a new ADR first
