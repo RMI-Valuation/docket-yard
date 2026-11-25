@@ -2391,3 +2391,30 @@ error as a traceback, and a test that could not fail. Three left, none worth a c
   `web` and blanks each credential `web` carries by name; v2026.10.5 had to add the SMTP pair. The next credential added to `web` reaches a process that needs none unless someone
   remembers the line. A `dump` service of its own that carries only the store settings would
   make credentials opt-in.
+
+## Found 2026-11-10 to 2026-11-15, in sessions that ended without a record (v2026.10.6, main at `f0ca4f7`)
+
+Gathered 2026-11-25 from three sessions' transcripts before the sessions were closed. Each
+waits on the operator; none was acted on.
+
+- **32 open Dependabot alerts, all in the `dev` extra** (opened 2026-10-29/30; still open
+  2026-11-25). Three packages in `uv.lock`: certifi 2026.7.22 (1 critical, through httpx, the
+  test client), virtualenv 21.7.5 (19) and filelock 3.32.4 (12), both through pre-commit.
+  `uv tree` shows none under the runtime dependencies and the production image runs
+  `pip install .` with no extras; the packages inside the running container were not listed.
+  The fix proposed and awaiting his go: `uv lock --upgrade-package` for the three, re-sync,
+  full suite and hooks, commit the lockfile alone. filelock goes 3 → 4; if the resolver
+  refuses, report before committing.
+- **`uv.lock` pins nothing outside the workstations.** CI runs `pip install -e .[dev]` and the
+  production image `pip install .`, so both resolve from `pyproject.toml`'s ranges at build
+  time: a release image's dependencies are not reproducible from the repository, and two
+  builds of one tag can differ. His decision whether the image should install from the lock.
+- **A third-party analytics product (Rybbit, self-hosted) was weighed and NOT recommended**
+  (2026-11-15; its product details were from memory, unverified). It records page, browser,
+  country and a session hash per event, which makes `/privacy`'s "no analytics scripts" and
+  "no reading history" untrue and reverses a consequence of ADR 0011; it also needs ClickHouse
+  beside the store. The two questions it would answer fit the existing counts with no
+  identifier: a same-origin counter sending only the route class (browsers apart from bare
+  HTTP), and the referrer's domain alone, hourly, rare domains folded into "other". Each
+  needs its own sentence on `/privacy` (`docs/traffic.md` reserves that for him) and a
+  Proposed ADR. No decision was given.
