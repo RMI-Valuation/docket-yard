@@ -12,7 +12,8 @@ below quotes the document it enforces. A threshold that changes here changes the
 same commit (CLAUDE.md: published pages and internal specs come from one source).
 
 Idempotent: rules carry fixed UIDs and are created or updated; the folder, the contact point,
-the notification policy route and the dashboard likewise. Nothing is deleted. The token is a
+the notification policy route and the dashboard likewise. Nothing is deleted except the rules
+named in `RETIRED`, which a run removes if they are still there. The token is a
 Grafana service account with the Editor role (Administration → Service accounts), created
 once and held outside the repository; the metrics-write token cannot do this.
 
@@ -27,6 +28,13 @@ import urllib.error
 import urllib.request
 
 FOLDER_UID = "docket-yard"
+
+# Rules this file once provisioned and no longer does. The fleet's three (stalled, failing, no
+# metrics from the coordinator) were retired 2026-11-25 on the operator's decision: the
+# coordinator's detection now lives in the operator's own monitoring outside this repository
+# (docs/compute-fleet.md § The monitor), and nothing remote-writes the fleet's metrics here, so
+# `fleet-absent` could only ever fire.
+RETIRED = ("fleet-stalled", "fleet-failing", "fleet-absent")
 FOLDER_TITLE = "Docket Yard"
 CONTACT_POINT = "docket-yard-email"
 DASHBOARD_UID = "docket-yard-record"
@@ -214,40 +222,6 @@ def rules(ds: str) -> list[dict]:
         "production",
     )
 
-    # docs/compute-fleet.md § The monitor, and what detection means — the three rules
-    rule(
-        "fleet-stalled",
-        "Fleet: pages owed and none read for 30 minutes",
-        f"docket_yard_fleet_stalled{{{FLEET}}}",
-        "10m",
-        "critical",
-        "The queue owes pages and no worker has read one in half an hour: a server that has not"
-        " come back, a worker loop that stopped, a box that is off. The 2026-09-06 run died"
-        " unnoticed for three days; this is the rule that notices. Open the monitor on the"
-        " coordinator (:8130) and the workers' logs.",
-        "fleet",
-    )
-    rule(
-        "fleet-failing",
-        "Fleet: more pages failed than read in the last hour",
-        f"docket_yard_fleet_failing{{{FLEET}}}",
-        "10m",
-        "critical",
-        "The fleet is finishing pages briskly and most of them are failures — a worker whose"
-        " environment is wrong, or a document set the guard refuses. Failures by reason are on"
-        " the monitor page.",
-        "fleet",
-    )
-    rule(
-        "fleet-absent",
-        "Fleet: no metrics from the coordinator for 10 minutes",
-        f"absent(docket_yard_fleet_last_read_known{{{FLEET}}})",
-        "10m",
-        "critical",
-        "The coordinator, its monitor or its Alloy is gone. The workers keep their leases for"
-        " 45 minutes and then stop; nothing is lost, and nothing is read.",
-        "fleet",
-    )
     return out
 
 
@@ -470,6 +444,13 @@ def main() -> int:
     print("alert rules")
     for r in rules(ds):
         g.upsert("/api/v1/provisioning/alert-rules", r["uid"], r, r["title"])
+    for uid in RETIRED:
+        path = f"/api/v1/provisioning/alert-rules/{uid}"
+        if g.call("GET", path) is None:
+            print(f"  {uid}: retired, already gone")
+        else:
+            g.call("DELETE", path)
+            print(f"  {uid}: retired, deleted")
 
     print("dashboard")
     g.call(

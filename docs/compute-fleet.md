@@ -197,22 +197,24 @@ hour, more failed than read, with at least ten failed so a tail of five oversize
 not trip it.
 
 **A local banner is not detection.** A dead box cannot report its own death (ADR 0012, 0019).
-The fleet's detection is the same shape as production's: **Grafana Alloy on the node scrapes
-`/metrics` and remote-writes to the same Grafana Cloud stack**, where three rules fire —
+**Since 2026-11-25 the coordinator's `/metrics` is scraped by the operator's own monitoring,
+outside this repository** (once a minute), and it raises the same three conditions there:
 `docket_yard_fleet_stalled == 1` for ten minutes, `docket_yard_fleet_failing == 1` for ten
-minutes, and *absence* of `docket_yard_fleet_last_read_known` for ten minutes (the box, the
-monitor or Alloy is gone). The scrape block is production's `config.alloy` with the target
-swapped (`tools/fleet/config.alloy`, reading the node's own `/proc`, `/sys` and `/` — mounted
-into a container, or the paths themselves when it runs as a binary on the box — so it reports
-the node and not itself); endpoint, username and token are the
-operator's, in an env file on the node, and enter no repository. **The three rules exist in Grafana Cloud since 2026-09-10**, provisioned from
-`infra/grafana/provision.py` beside production's; the alertmanager's route to mail was proved
-with a temporary rule the same day. A fourth series, `docket_yard_fleet_blob_corrupt_total`,
-counts the times the store answered a document with bytes that do not hash to its name — the
-queue server appends each to `ocr/blob-corrupt.log` and the monitor counts the lines (since
-2026-10-03; before that it was one stderr line nobody read). Its rule,
-`increase(docket_yard_fleet_blob_corrupt_total[1h]) > 0`, is written in `config.alloy` and is
-**not yet provisioned** in `infra/grafana/provision.py`.
+minutes, and no scrape of the monitor for ten minutes (the box or the monitor is gone). It also
+checks that the queue server and the monitor are listening. Alerts go to the operator.
+
+From 2026-09-10 to 2026-11-25 these were three Grafana Cloud rules, fed by Grafana Alloy on the
+coordinator (`tools/fleet/config.alloy`, production's scrape block with the target swapped).
+When the coordinator moved, nothing remote-wrote the fleet's metrics any more, so the rules were
+retired on the operator's decision. `infra/grafana/provision.py` lists them in `RETIRED` and
+deletes them on its next run. Production's own rules are unchanged.
+
+A fourth series, `docket_yard_fleet_blob_corrupt_total`, counts the times the store answered a
+document with bytes that do not hash to its name. The queue server appends each to
+`ocr/blob-corrupt.log` and the monitor counts the lines (since 2026-10-03; before that it was one
+stderr line nobody read). **Nothing alerts on it yet**: its rule,
+`increase(docket_yard_fleet_blob_corrupt_total[1h]) > 0`, was written in `config.alloy` and never
+provisioned, and the monitoring that now scrapes the coordinator does not carry it.
 
 A pass taken down on purpose says so: `ocr/.paused-<pass>` beside the queue, one line giving
 the reason, is published as `docket_yard_fleet_paused{pass}` and on the monitor page, dated
