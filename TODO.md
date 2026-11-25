@@ -22,7 +22,7 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   alarm reaches nobody, `pull_blobs.py` still compares size not sha
 - **THE TABULAR PASS IS HELD since 2026-09-20; the infrastructure has changed since** (his,
   2026-11-25). Before readers run: per-host queue tokens logged with each reading (his
-  ruling); the coordinator's Alloy back (fleet alerts are blind); a resubmit timer; one commit
+  ruling); the broker token on the coordinator (his go); a resubmit timer; one commit
   everywhere; a RAM peak on the first run; the loop decisions (page's fault? publish a good
   prefix?) and a repetition guard. It stopped on job 40's breaker: `d3d06d3de4f2` looped 25
   pages and is first in claim order. 18,775 done, 5,134 pending, 2,385 failed (1,586 loops).
