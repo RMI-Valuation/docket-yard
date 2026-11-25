@@ -17,4 +17,11 @@ back for rework.
 **How to apply:** from the worktree, run
 `env -u VIRTUAL_ENV uv run --extra dev python -m pytest ...` (pytest is in
 `[project.optional-dependencies] dev`), and print `docketyard.__file__` once to confirm the import
-path. Still one pytest run at a time. Related: [[claims-are-not-measurements]].
+path. Still one pytest run at a time.
+
+**Orca, 2026-11-25:** the first Orca session opened in the MAIN checkout, not a worktree, so
+the plain `uv run --extra dev python -m pytest` was correct there (it printed
+`E:\DevProjects\docket-yard\src\docketyard\__init__.py`). The command above is still untried in
+an Orca-made worktree: there, `uv sync --extra dev` first, then the `__file__` check.
+
+Related: [[claims-are-not-measurements]].

@@ -25,7 +25,7 @@ New lessons are added here as a file of the same shape and a line below.
 - [`code-review-verify-phase`](code-review-verify-phase.md) — In this environment /code-review's forked run launches the eight finders and ends; no verify pass consolidates them — verify candidates yourself
 - [`continual-improvement-role`](continual-improvement-role.md) — Cameron's standing charge (2026-09-16): Claude's job is to continually improve Docket Yard, working through filed findings
 - [`copilot-review-request-login`](copilot-review-request-login.md) — Re-requesting a Copilot PR review takes the login `Copilot`; `copilot-pull-request-reviewer` is refused as a non-collaborator
-- [`docket-yard-session-agents`](docket-yard-session-agents.md) — Custom subagents schema-critic and source-verifier exist in .claude/agents; stb-ingest-specialist was deliberately deferred
+- [`docket-yard-session-agents`](docket-yard-session-agents.md) — Custom subagents schema-critic, source-verifier and stb-ingest-specialist exist in .claude/agents (the specialist since 2026-08-25, M1)
 - [`docket-yard-topology-decisions`](docket-yard-topology-decisions.md) — Hosting, URL scheme and web-dependency decisions made 2026-08-25 (ADR 0012/0013, FastAPI+Jinja2+uvicorn)
 - [`model-labels-are-a-screen`](model-labels-are-a-screen.md) — Blind model label passes miscalibrate in BOTH directions; a rate is only publishable after Cameron checks a subsample
 - [`pr-bot-reviews-arrive-late`](pr-bot-reviews-arrive-late.md) — Copilot and Codex post reviews per commit and later than you expect — read the reviews list by commit and timestamp, never one comment fetch

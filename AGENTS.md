@@ -12,7 +12,8 @@ serves the sheets, alerts, parties and the trust pages from one Lightsail instan
 the operator presented it at the ARDA Technology Section's AI Spotlight on 2026-09-17, and it
 is being shared onward by word of mouth, including inside a Class I railroad. Real outside
 readers now rely on it.
-Waves 2–3 of the backfill are running. What comes next is chosen from the capability map
+The backfill is closed (2026-08-27, `docs/milestones.md`): the whole record, 1996 → today,
+is held. What comes next is chosen from the capability map
 by the operator and recorded in `ROADMAP.md` § Chosen — never assumed; what has shipped is
 recorded in `docs/milestones.md`. Production operations: `infra/deploy/README.md`.
 
@@ -31,7 +32,7 @@ recorded in `docs/milestones.md`. Production operations: `infra/deploy/README.md
 ## Scope
 
 **Version one was a wedge:** agency-wide docket sheets plus alerting, forward-only. It shipped.
-Since then the operator has chosen, one at a time: backfill in dated waves (wave 1 running),
+Since then the operator has chosen, one at a time: backfill in dated waves (closed 2026-08-27),
 the party module (done). The citator and the map remain later. Resist scope creep - including
 your own enthusiasm for the capability map; a new capability starts with a decision.
 

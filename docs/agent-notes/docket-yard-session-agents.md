@@ -1,6 +1,6 @@
 ---
 name: docket-yard-session-agents
-description: Custom subagents schema-critic and source-verifier exist in .claude/agents; stb-ingest-specialist was deliberately deferred
+description: Custom subagents schema-critic, source-verifier and stb-ingest-specialist exist in .claude/agents (the specialist since 2026-08-25, M1)
 metadata:
   type: project
 ---

@@ -15,8 +15,8 @@ Decided by Cameron on 2026-08-25 (multiple-choice, all three recommendations acc
   parent spellings resolve to canonical; addresses never reused or removed. ADR 0013.
 - **Web dependencies:** FastAPI + Jinja2 + uvicorn only; no frontend framework.
 
-**How to apply:** build M3 against these; do not re-ask. ADRs 0012/0013 were Proposed in
-the drafting session and await Cameron's accept (ADR discipline: never accepted the same
-session they were drafted).
+**How to apply:** build M3 against these; do not re-ask. Both ADRs were drafted Proposed
+and Cameron accepted them on 2026-08-25 after paper validation (each record's Status line);
+M3 shipped on them 2026-08-26.
 
 Related: [[docket-yard-github-home]], [[rmi-ai-machine-specs]]
