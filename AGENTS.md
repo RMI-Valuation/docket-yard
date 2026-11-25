@@ -102,6 +102,8 @@ lives in the store; only the engine payload goes to the blob tier).
 ## Working rhythm
 
 - **Start every session by reading `TODO.md`; end it by updating `TODO.md`.**
+- **Read `docs/agent-notes/README.md` as well**: lessons earlier sessions recorded about how
+  this project is worked. A new lesson is a new note there.
 - Completed items are deleted, never checked off — git history is the archive.
 - `ROADMAP.md` is forward-looking and milestone-level only; a landed milestone moves to
   `docs/milestones.md` the day it ships. Detail belongs in `docs/`; the menu of what could

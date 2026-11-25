@@ -36,6 +36,7 @@ Documentation that isn't load-bearing is drag.
 | 05 | [`coverage.md`](coverage.md) | What's in the corpus and what isn't (published) | published 2026-08-26, numbers measured from the store |
 | 00 | [`milestones.md`](milestones.md) | The record of what has shipped, milestone by milestone | append-only |
 | 00b | [`deferred.md`](deferred.md) | Review findings and known gaps accepted as not-now, dated; `TODO.md` points here | started 2026-08-26 |
+| 00c | [`agent-notes/`](agent-notes/) | Lessons a coding agent's sessions recorded about how this project is worked; read at the start of a session | moved in from one workstation's private memory 2026-11-25; the notes that name machines stay off the record |
 | 00c | [`upns-tracker-inheritance.md`](upns-tracker-inheritance.md) | What to take from the tabled UP–NS tracker (tiering, the calendar shape, a 988-document fixture) and what to refuse (stance by default, a daily brief) | written and verified 2026-08-26 |
 | 12 | [`explainers.md`](explainers.md) | Docket-type explainers (P2): every prefix and suffix, graded by source | draft 2026-08-26, awaiting operator review |
 | 05b | [`data.md`](data.md) | Bulk snapshot and JSON (published at `/data`) | published 2026-08-26, CC0 |

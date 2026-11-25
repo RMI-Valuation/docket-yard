@@ -43,3 +43,4 @@ data/ocr/runs/
 CLAUDE.local.md
 .mcp.json
 .claude/settings.local.json
+.claude/memory-local/
