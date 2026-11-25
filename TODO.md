@@ -20,16 +20,15 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   2026-09-20 — a miss fetches and hash-verifies, a hit serves from disk, a sha in no store
   **404 not 503**. Owed in `deferred.md`: the worker branches have no test, the corrupt-store
   alarm reaches nobody, `pull_blobs.py` still compares size not sha
-- **THE TABULAR PASS IS STALLED since 2026-09-20 19:11 UTC — HELD, his (2026-10-04): no
-  restart yet.** Job 40 exited 5, the breaker: 25 pages in a row of `d3d06d3de4f2` looped
-  (`finish_reason length`); nothing resubmitted. 18,775 done, 5,134 pending (578 docs), 2,385
-  failed (1,586 loops, 798 blob-missing from before the refetch). **A restart as-is trips again**:
-  that document is first in claim order with 62 pages pending. Waits on the loop decision below.
-  Key unchanged, **do NOT raise the render mid-pass**; keep `--host` pinned (`dy-ocr` 4 GiB)
-- **HIS, and measured 2026-09-20 (`deferred.md`): `finish_reason length` is the MODEL LOOPING**,
-  not a long page — 1,490 pages final-failed, 48 documents with nothing read. **Do not raise
-  `max_new_tokens`.** Two decisions: is a loop the page's fault (it is filed as final) and is a
-  degenerate answer's good prefix worth publishing. A repetition guard is separable and cheap
+- **THE TABULAR PASS IS HELD since 2026-09-20; his, 2026-11-25: the infrastructure has changed
+  since it last ran** — work out what it needs adjusting first, and that waits on the fleet project
+  moving into Orca. Where it stopped: job 40 exited 5 on the breaker, 25 pages in a row of
+  `d3d06d3de4f2` looped, and that document is first in claim order (62 pages pending). 18,775
+  done, 5,134 pending (578 docs), 2,385 failed (1,586 loops, 798 blob-missing). `finish_reason
+  length` is the MODEL LOOPING (measured 2026-09-20, `deferred.md`): **do not raise
+  `max_new_tokens`**; the loop decisions (page's fault? publish a good prefix?) and a cheap
+  repetition guard come with the restart. **The 2,578 collected readings load with the pass**,
+  under its rule (his, 2026-11-25). Key unchanged; do NOT raise the render mid-pass
 
 ## Next
 
@@ -39,22 +38,23 @@ to `ROADMAP.md` or dies. Hard line cap enforced by pre-commit: when it fires, pr
   `traffic.sqlite` in Litestream since 2026-10-26, restore proved. S3 LIST cost ESTIMATED
   ~$4/mo (276k blobs; sync + prune each list all of `blobs/` every 30 min); Cost Explorer
   is denied to `docket-yard` — a measured bill needs an amended request
-- **The prose re-read is BUILT and needs a GPU and one file copy** (`32345db`). To run: put
+- **The prose re-read is BUILT and HELD** (`32345db`; his, 2026-11-25). To run: put
   `queue.csv.gz` (production `/tmp/tq/pages.csv.gz` is its source) on a fleet node — **auto
   mode refuses the scp** — then `route-list` and seed. Owed before ANY load, in `deferred.md`:
   loading changes what every re-read page publishes about itself with no dated rule
   (`pages.py:band`), and the agreement distance is a publishing decision, not a computation
-- **2,578 collected readings await his load** (the mirror is expendable and backs up nightly)
-- **Party types, the held-out sheet is WITH THE OPERATOR** (2026-09-10,
-  `docs/research/party-types/held-out/`). When his Copy block returns: apply both picks, score
-  `party_types_rules.py --sheet` at 95% per type on the FIRST pick, then the assertion
-  migration (schema-critic first), then the browse on `/parties`
 - **Held by the operator**: `/methodology`'s text-stage section (`848e366`) and the one-day-rest
   sentence (`3b538bc`); a sheet's JSON-LD in Rich Results. Gate's ONLOGON task unregistered
 - Seed wave 2 (unresolved spans; pre-2020 roads); deadline engine (C4) fixture in deferred.md
+- **Internal names out of the current tree** (his, 2026-11-25: do it soon; the three decisions
+  were taken 2026-11-13; the measured plan is kept outside the repo). Four PRs, the first a
+  mechanical rename of `tools/rmi-ai-machine/` to `tools/derive/`. History is not rewritten
 
 ## Parked
 
 - **Docket summaries (P6) and the AB status facet are specified, not chosen**
   (`docs/summaries.md`, 2026-09-10): the fifty-document sample is what a decision starts;
   the rule-only status slice (800 consummations, 714 trail-use filings) could go first
+- **Party types, parked 2026-11-25 (his)**: the held-out sheet (`docs/research/party-types/
+  held-out/`) went to him 2026-09-10; on its return, score `party_types_rules.py --sheet` at
+  95% per type, the assertion migration (schema-critic first), then the browse on `/parties`
